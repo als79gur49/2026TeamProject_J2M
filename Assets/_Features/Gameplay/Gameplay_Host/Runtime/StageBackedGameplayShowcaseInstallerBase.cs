@@ -24,7 +24,6 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private Transform stageBackgroundRoot;
 
         [Header("Persistent BGM Flow")]
-        [SerializeField] private StageBgmProfileCatalog stageBgmProfileCatalog;
         [SerializeField] private GlobalAudioFlowBootstrap globalAudioFlowBootstrap;
 
         private ActiveSlotProvider _activeSlotProvider;
@@ -33,7 +32,9 @@ namespace Game.Feature.Gameplay.Host
         private bool _campaignRuntimeActive;
         private StagePresentationDefinition _resolvedPresentationDefinition;
         private SaveSlotStore _saveSlotStore;
-        private readonly StagePresentationRuntimeAdapter _stagePresentationRuntimeAdapter = new();
+        private StageAudioResolvedData _resolvedAudioData = StageAudioAssembler.EmptyResolvedData;
+        private readonly StageVisualRuntimeAdapter _stageVisualRuntimeAdapter = new();
+        private readonly StageAudioRuntimeRequestSource _stageAudioRuntimeRequestSource = new();
         private BackgroundWallSurfaceTintPresenterAdapter _backgroundWallSurfaceTintPresenterAdapter;
 
         protected ScriptableObjectStageCatalogProvider StageCatalogProvider => stageCatalogProvider;
@@ -72,8 +73,10 @@ namespace Game.Feature.Gameplay.Host
             var resolvedPresentation = StagePresentationAssembler.Resolve(
                 resolved.Entry.GameplayDefinition,
                 resolved.Entry.PresentationDefinition);
+            var resolvedAudio = StageAudioAssembler.Resolve(resolved.Entry.AudioDefinition);
             _resolvedPresentationDefinition = resolved.Entry.PresentationDefinition;
-            var compositionData = StageSceneCompositionAssembler.Compose(buildResult, resolvedPresentation);
+            _resolvedAudioData = resolvedAudio;
+            var compositionData = StageSceneCompositionAssembler.Compose(buildResult, resolvedPresentation, resolvedAudio);
 
             return new InitialGameplayState(
                 compositionData.GameplayBuildResult.BoardBounds,
@@ -205,11 +208,12 @@ namespace Game.Feature.Gameplay.Host
             GameplaySceneHost host,
             in InitialGameplayState initialState)
         {
-            _stagePresentationRuntimeAdapter.Apply(
+            _stageVisualRuntimeAdapter.Apply(
                 _resolvedPresentationDefinition,
-                ResolveStageBackgroundRoot(),
-                stageBgmProfileCatalog,
-                globalAudioFlowBootstrap);
+                ResolveStageBackgroundRoot());
+            _stageAudioRuntimeRequestSource.Apply(
+                _resolvedAudioData,
+                globalAudioFlowBootstrap.GetRequestRouterOrThrow());
             AttachBackgroundWallSurfaceTintPresenter(host);
 
             if (!_campaignRuntimeActive)
@@ -264,7 +268,7 @@ namespace Game.Feature.Gameplay.Host
             _backgroundWallSurfaceTintPresenterAdapter?.Dispose();
             _backgroundWallSurfaceTintPresenterAdapter = null;
 
-            var backgroundInstance = _stagePresentationRuntimeAdapter.CurrentBackgroundInstance;
+            var backgroundInstance = _stageVisualRuntimeAdapter.CurrentBackgroundInstance;
             if (host == null || host.Presenter == null || backgroundInstance == null)
             {
                 return;

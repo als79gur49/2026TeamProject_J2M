@@ -27,6 +27,7 @@ namespace Game.Feature.Stages.Editor
             var options = new StageCatalogValidationOptions
             {
                 RequirePresentationDefinition = true,
+                RequireAudioDefinition = true,
                 RequireClearEvaluationDefinition = true,
                 RequireRewardDefinition = true,
                 RequireProgressionDefinition = true,

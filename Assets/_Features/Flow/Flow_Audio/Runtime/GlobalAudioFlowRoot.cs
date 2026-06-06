@@ -16,6 +16,7 @@ namespace Game.Feature.Flow.Audio
         [SerializeField] private AudioRuntimeInstaller audioRuntimeInstaller;
 
         private IBgmFlowCoordinator coordinator;
+        private BgmRequestRouter requestRouter;
         private bool isInitialized;
 
         public static GlobalAudioFlowRoot Current => current;
@@ -25,6 +26,8 @@ namespace Game.Feature.Flow.Audio
         public AudioRuntimeRoot RuntimeRoot => audioRuntimeInstaller?.RuntimeRoot;
 
         public IBgmFlowCoordinator Coordinator => coordinator;
+
+        public BgmRequestRouter RequestRouter => requestRouter;
 
         public static GlobalAudioFlowRoot GetOrCreate()
         {
@@ -75,6 +78,7 @@ namespace Game.Feature.Flow.Audio
                 "GlobalAudioFlowRoot failed to initialize its AudioRuntimeInstaller.");
             AudioRuntimeExternalRootRegistry.RegisterPersistentRuntime(runtimeRoot, this);
             coordinator = new BgmFlowCoordinator(new BgmPlaybackPortAdapter(audioRuntimeInstaller.AudioService));
+            requestRouter = new BgmRequestRouter(coordinator);
             isInitialized = true;
         }
 
@@ -91,6 +95,7 @@ namespace Game.Feature.Flow.Audio
             }
 
             coordinator = null;
+            requestRouter = null;
             isInitialized = false;
         }
 

@@ -67,6 +67,7 @@ namespace Game.Feature.Stages.Editor
             var entryPath = $"{stageFolder}/{stageId.Value}_Entry.asset";
             var authoringPath = $"{stageFolder}/{stageId.Value}_Authoring.asset";
             var presentationPath = $"{stageFolder}/{stageId.Value}_Presentation.asset";
+            var audioPath = $"{stageFolder}/{stageId.Value}_Audio.asset";
             var clearEvaluationPath = $"{stageFolder}/{stageId.Value}_ClearEvaluation.asset";
             var rewardPath = $"{stageFolder}/{stageId.Value}_Reward.asset";
             var progressionPath = $"{stageFolder}/{stageId.Value}_Progression.asset";
@@ -88,6 +89,9 @@ namespace Game.Feature.Stages.Editor
             presentation.name = $"{stageId.Value}_Presentation";
             presentation.ApplyResolvedData(seededPresentation ?? StagePresentationAssembler.EmptyResolvedData);
 
+            var audio = ScriptableObject.CreateInstance<StageAudioDefinition>();
+            audio.name = $"{stageId.Value}_Audio";
+
             var clearEvaluation = ScriptableObject.CreateInstance<StageClearEvaluationDefinition>();
             clearEvaluation.name = $"{stageId.Value}_ClearEvaluation";
 
@@ -100,6 +104,7 @@ namespace Game.Feature.Stages.Editor
             AssetDatabase.CreateAsset(entry, entryPath);
             AssetDatabase.CreateAsset(authoring, authoringPath);
             AssetDatabase.CreateAsset(presentation, presentationPath);
+            AssetDatabase.CreateAsset(audio, audioPath);
             AssetDatabase.CreateAsset(clearEvaluation, clearEvaluationPath);
             AssetDatabase.CreateAsset(reward, rewardPath);
             AssetDatabase.CreateAsset(progression, progressionPath);
@@ -107,6 +112,7 @@ namespace Game.Feature.Stages.Editor
             var entryGuid = AssetDatabase.AssetPathToGUID(entryPath);
             authoring.SetOwnerMetadata(entry, entryGuid);
             presentation.SetOwnerMetadata(entry, entryGuid);
+            audio.SetOwnerMetadata(entry, entryGuid);
             clearEvaluation.SetOwnerMetadata(entry, entryGuid);
             reward.SetOwnerMetadata(entry, entryGuid);
             progression.SetOwnerMetadata(entry, entryGuid);
@@ -120,6 +126,7 @@ namespace Game.Feature.Stages.Editor
                 overwriteGeneratedReferences: true);
             entry.AssignAuthoringDefinition(authoring);
             entry.AssignPresentationDefinition(presentation);
+            entry.AssignAudioDefinition(audio);
             entry.AssignClearEvaluationDefinition(clearEvaluation);
             entry.AssignRewardDefinition(reward);
             entry.AssignProgressionDefinition(progression);
@@ -127,6 +134,7 @@ namespace Game.Feature.Stages.Editor
             EditorUtility.SetDirty(entry);
             EditorUtility.SetDirty(authoring);
             EditorUtility.SetDirty(presentation);
+            EditorUtility.SetDirty(audio);
             EditorUtility.SetDirty(clearEvaluation);
             EditorUtility.SetDirty(reward);
             EditorUtility.SetDirty(progression);
@@ -204,6 +212,7 @@ namespace Game.Feature.Stages.Editor
             RenameAsset(entry, $"{newStageId.Value}_Entry");
             RenameCompanion(entry.AuthoringDefinition, newStageId, "Authoring", entry);
             RenameCompanion(entry.PresentationDefinition, newStageId, "Presentation", entry);
+            RenameCompanion(entry.AudioDefinition, newStageId, "Audio", entry);
             RenameCompanion(entry.ClearEvaluationDefinition, newStageId, "ClearEvaluation", entry);
             RenameCompanion(entry.RewardDefinition, newStageId, "Reward", entry);
             RenameCompanion(entry.ProgressionDefinition, newStageId, "Progression", entry);
@@ -307,6 +316,7 @@ namespace Game.Feature.Stages.Editor
             var options = new StageCatalogValidationOptions
             {
                 RequirePresentationDefinition = true,
+                RequireAudioDefinition = true,
                 RequireClearEvaluationDefinition = true,
                 RequireRewardDefinition = true,
                 RequireProgressionDefinition = true,

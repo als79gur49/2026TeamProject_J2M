@@ -317,8 +317,8 @@ namespace Game.Feature.Stages.Editor.Tests
 
             Assert.That(installerSource, Does.Contain("var buildResult = StageRuntimeBuilder.Build"));
             Assert.That(installerSource, Does.Contain("var resolvedPresentation = StagePresentationAssembler.Resolve"));
-            Assert.That(installerSource, Does.Contain("StageSceneCompositionAssembler.Compose(buildResult, resolvedPresentation)"));
-            Assert.That(compositionSource, Does.Contain("new StageSceneCompositionData(gameplayBuildResult, presentationData)"));
+            Assert.That(installerSource, Does.Contain("StageSceneCompositionAssembler.Compose(buildResult, resolvedPresentation, resolvedAudio)"));
+            Assert.That(compositionSource, Does.Contain("new StageSceneCompositionData(gameplayBuildResult, presentationData, audioData)"));
             Assert.That(buildResultSource, Does.Not.Contain("EnemyPresentationBindings"));
             Assert.That(buildResultSource, Does.Not.Contain("StaticEntityPresentationBindings"));
             Assert.That(buildResultSource, Does.Not.Contain("TileFeaturePresentationBinding"));

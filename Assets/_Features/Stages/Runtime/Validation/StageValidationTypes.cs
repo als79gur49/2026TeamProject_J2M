@@ -151,6 +151,8 @@ namespace Game.Feature.Stages
 
         public bool RequirePresentationDefinition { get; set; }
 
+        public bool RequireAudioDefinition { get; set; }
+
         public bool RequireClearEvaluationDefinition { get; set; }
 
         public bool RequireRewardDefinition { get; set; }
@@ -160,8 +162,6 @@ namespace Game.Feature.Stages
         public StageValidationTiming Timing { get; set; } = StageValidationTiming.EditorAuthoring;
 
         public StageValidationPhase Phase { get; set; } = StageValidationPhase.Phase1_LoadModeFence;
-
-        public ISet<string> KnownBgmKeys { get; set; }
 
         public StageValidationWaiverList WaiverList { get; set; }
 
@@ -177,12 +177,12 @@ namespace Game.Feature.Stages
             return new StageCatalogValidationOptions
             {
                 RequirePresentationDefinition = RequirePresentationDefinition,
+                RequireAudioDefinition = RequireAudioDefinition,
                 RequireClearEvaluationDefinition = RequireClearEvaluationDefinition,
                 RequireRewardDefinition = RequireRewardDefinition,
                 RequireProgressionDefinition = RequireProgressionDefinition,
                 Timing = Timing,
                 Phase = Phase,
-                KnownBgmKeys = KnownBgmKeys,
                 WaiverList = WaiverList,
                 EnforceCanonicalLegacyPresentationBridgeWarnings = EnforceCanonicalLegacyPresentationBridgeWarnings,
                 AssetMetadataProvider = AssetMetadataProvider,

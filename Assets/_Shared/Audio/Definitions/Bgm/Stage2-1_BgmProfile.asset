@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 45b8b1c4696f460786a23e2ca53da691, type: 3}
   m_Name: Stage2-1_BgmProfile
-  m_EditorClassIdentifier: Game.Feature.Flow.Audio::Game.Feature.Flow.Audio.BgmProfile
+  m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.BgmProfile
   loopDefinition: {fileID: 11400000, guid: d56e6fdec4d16ea4b8879bbb09c65c16, type: 2}
   transitionMode: 1
   fadeOutSeconds: 0.35

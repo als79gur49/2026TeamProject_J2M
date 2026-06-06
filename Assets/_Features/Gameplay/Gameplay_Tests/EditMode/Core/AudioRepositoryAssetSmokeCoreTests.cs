@@ -11,6 +11,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Stages;
 using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEditor;
@@ -51,6 +52,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             AppendValidationFailures(LoadAllAssets<GameplayAudioMap>(), map => map.ValidateOrThrow(), failures);
             AppendValidationFailures(LoadAllAssets<GameplayActionAudioProfile>(), profile => profile.ValidateOrThrow(), failures);
             AppendValidationFailures(LoadAllAssets<BgmProfile>(), profile => profile.ValidateOrThrow(), failures);
+            AppendValidationFailures(LoadAllAssets<StageAudioDefinition>(), definition => definition.ValidateOrThrow(), failures);
 
             Assert.That(failures, Is.Empty, "AudioBinding owner repository smoke failures:\n" + string.Join("\n", failures));
         }
@@ -141,6 +143,29 @@ namespace Game.Feature.Gameplay.Tests.Core
             }
 
             Assert.That(failures, Is.Empty, "BgmProfile repository smoke failures:\n" + string.Join("\n", failures));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageAudioDefinitions_RepositoryAssets_ValidateAll()
+        {
+            var definitions = LoadAllAssets<StageAudioDefinition>();
+            Assert.That(definitions, Is.Not.Empty, "Repository scan found no StageAudioDefinition assets.");
+
+            var failures = new List<string>();
+            foreach (var definition in definitions)
+            {
+                try
+                {
+                    definition.ValidateOrThrow();
+                }
+                catch (Exception exception)
+                {
+                    failures.Add($"{Describe(definition)}: {exception.GetType().Name}: {exception.Message}");
+                }
+            }
+
+            Assert.That(failures, Is.Empty, "StageAudioDefinition repository smoke failures:\n" + string.Join("\n", failures));
         }
 
         [Test]

@@ -5,6 +5,8 @@ using System.Reflection;
 using Game.Feature.Flow.Audio;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Stages;
+using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -142,13 +144,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void StagePresentationRuntimeAdapter_Source_DoesNotOwnFadeImplementation()
+        public void StageVisualRuntimeAdapter_Source_DoesNotOwnBgmOrFadeImplementation()
         {
-            var source = ReadRepoFile("Assets/_Features/Flow/Flow_Audio/Runtime/StagePresentationRuntimeAdapter.cs");
+            var source = ReadRepoFile("Assets/_Features/Flow/Flow_Audio/Runtime/StageVisualRuntimeAdapter.cs");
 
+            Assert.That(source, Does.Not.Contain("BgmProfile"));
+            Assert.That(source, Does.Not.Contain("IBgmFlowCoordinator"));
+            Assert.That(source, Does.Not.Contain("BgmRequestRouter"));
             Assert.That(source, Does.Not.Contain("FadeOutSeconds"));
             Assert.That(source, Does.Not.Contain("FadeInSeconds"));
             Assert.That(source, Does.Not.Contain("PlayBgm("));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StagePresentationDefinition_PublicSurface_DoesNotOwnBgm()
+        {
+            var source = ReadRepoFile("Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs");
+            var propertyNames = typeof(StagePresentationDefinition)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Select(property => property.Name)
+                .ToArray();
+
+            Assert.That(source, Does.Not.Contain("Bgm" + "Reference"));
+            Assert.That(source, Does.Not.Contain("BgmProfile"));
+            Assert.That(propertyNames.Any(name => name.Contains("Bgm")), Is.False);
         }
 
         [Test]

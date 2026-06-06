@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
-using Game.Shared.AudioContracts;
 using UnityEngine;
 
 namespace Game.Feature.Stages
@@ -70,7 +69,6 @@ namespace Game.Feature.Stages
             string summaryText,
             Sprite previewSprite,
             GameObject backgroundPrefab,
-            StageBgmReference bgmReference,
             EnemyPresentationCatalog enemyPresentationCatalog,
             EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog,
             EnemyPresentationBinding[] enemyPresentationBindings,
@@ -97,7 +95,6 @@ namespace Game.Feature.Stages
             SummaryText = summaryText ?? string.Empty;
             PreviewSprite = previewSprite;
             BackgroundPrefab = backgroundPrefab;
-            BgmReference = bgmReference;
             EnemyPresentationCatalog = enemyPresentationCatalog;
             EnemyPresentationArchetypeCatalog = enemyPresentationArchetypeCatalog;
             EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
@@ -128,8 +125,6 @@ namespace Game.Feature.Stages
         public Sprite PreviewSprite { get; }
 
         public GameObject BackgroundPrefab { get; }
-
-        public StageBgmReference BgmReference { get; }
 
         public EnemyPresentationCatalog EnemyPresentationCatalog { get; }
 
@@ -289,7 +284,8 @@ namespace Game.Feature.Stages
     {
         public StageSceneCompositionData(
             StageRuntimeBuildResult gameplayBuildResult,
-            StagePresentationResolvedData presentationData)
+            StagePresentationResolvedData presentationData,
+            StageAudioResolvedData audioData)
         {
             if (gameplayBuildResult == null)
             {
@@ -298,11 +294,14 @@ namespace Game.Feature.Stages
 
             GameplayBuildResult = gameplayBuildResult;
             PresentationData = presentationData ?? StagePresentationAssembler.EmptyResolvedData;
+            AudioData = audioData ?? StageAudioAssembler.EmptyResolvedData;
         }
 
         public StageRuntimeBuildResult GameplayBuildResult { get; }
 
         public StagePresentationResolvedData PresentationData { get; }
+
+        public StageAudioResolvedData AudioData { get; }
     }
 
     public static class StagePresentationAssembler
@@ -312,7 +311,6 @@ namespace Game.Feature.Stages
             string.Empty,
             null,
             null,
-            StageBgmReference.None,
             null,
             null,
             Array.Empty<EnemyPresentationBinding>(),
@@ -346,7 +344,6 @@ namespace Game.Feature.Stages
                 definition.SummaryText,
                 definition.PreviewSprite,
                 definition.BackgroundPrefab,
-                definition.BgmReference,
                 definition.EnemyPresentationCatalog,
                 definition.EnemyPresentationArchetypeCatalog,
                 StagePresentationBindingNormalizer.NormalizeEnemyBindings(definition.EnemyPresentationBindings),
@@ -389,7 +386,6 @@ namespace Game.Feature.Stages
                 definition.SummaryText,
                 definition.PreviewSprite,
                 definition.BackgroundPrefab,
-                definition.BgmReference,
                 definition.EnemyPresentationCatalog,
                 definition.EnemyPresentationArchetypeCatalog,
                 StagePresentationBindingNormalizer.NormalizeEnemyBindings(definition.EnemyPresentationBindings),
@@ -960,9 +956,10 @@ namespace Game.Feature.Stages
     {
         public static StageSceneCompositionData Compose(
             StageRuntimeBuildResult gameplayBuildResult,
-            StagePresentationResolvedData presentationData)
+            StagePresentationResolvedData presentationData,
+            StageAudioResolvedData audioData)
         {
-            return new StageSceneCompositionData(gameplayBuildResult, presentationData);
+            return new StageSceneCompositionData(gameplayBuildResult, presentationData, audioData);
         }
     }
 }

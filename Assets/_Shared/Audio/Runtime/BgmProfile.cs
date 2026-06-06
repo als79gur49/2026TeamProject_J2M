@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Game.Shared.Audio;
 using UnityEngine;
 
-namespace Game.Feature.Flow.Audio
+namespace Game.Shared.Audio
 {
     [CreateAssetMenu(menuName = "Game/Audio/Bgm Profile")]
     public sealed class BgmProfile : ScriptableObject
@@ -56,6 +56,11 @@ namespace Game.Feature.Flow.Audio
             if (loopDefinition.Category != AudioCategory.Bgm)
             {
                 validationErrors.Add($"BgmProfile '{name}' requires loopDefinition to use AudioCategory.Bgm.");
+            }
+
+            if (!loopDefinition.Loop)
+            {
+                validationErrors.Add($"BgmProfile '{name}' requires loopDefinition to be loop enabled.");
             }
 
             AppendFadeDurationValidationError(nameof(fadeOutSeconds), fadeOutSeconds, validationErrors);

@@ -18,8 +18,6 @@ MonoBehaviour:
   summaryText: 
   previewSprite: {fileID: 0}
   backgroundPrefab: {fileID: 6146672969793721054, guid: 19c2a2b2ee2064644878dd76228bc933, type: 3}
-  bgmReference:
-    bgmKey: 
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 0}
   enemyPresentationBindings:

@@ -15,7 +15,7 @@ using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
-using Game.Shared.AudioContracts;
+using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -333,46 +333,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void StagePresentationRuntimeAdapter_BgmNoOpValidAndUnknownPolicies()
+        public void StageAudioRuntimeRequestSource_SubmitsStageGameplayThroughRouter()
         {
             var coordinator = new FakeBgmFlowCoordinator();
-            var adapter = new StagePresentationRuntimeAdapter(coordinator);
-            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-            var catalog = CreateBgmCatalog("valid", out var profile);
+            var router = new BgmRequestRouter(coordinator);
+            var source = new StageAudioRuntimeRequestSource();
+            var profile = ScriptableObject.CreateInstance<BgmProfile>();
+            var audioData = new StageAudioResolvedData(
+                new StageBgmResolvedSlot(StageBgmSlotMode.Profile, profile),
+                new StageBgmResolvedSlot(StageBgmSlotMode.None, null),
+                new StageBgmResolvedSlot(StageBgmSlotMode.None, null),
+                new StageBgmResolvedSlot(StageBgmSlotMode.None, null),
+                Array.Empty<StagePhaseBgmResolvedSlot>());
 
-            adapter.Apply(presentation, null, catalog);
-            Assert.That(coordinator.RequestCount, Is.EqualTo(0));
+            source.Apply(audioData, router);
 
-            SetPrivateField(presentation, "bgmReference", new StageBgmReference("valid"));
-            adapter.Apply(presentation, null, catalog);
             Assert.That(coordinator.RequestCount, Is.EqualTo(1));
             Assert.That(coordinator.LastProfile, Is.SameAs(profile));
+            Assert.That(router.ActiveRequest.HasValue, Is.True);
+            Assert.That(router.ActiveRequest.Value.SourceKind, Is.EqualTo(BgmRequestSourceKind.StageGameplay));
+            Assert.That(router.ActiveRequest.Value.Priority, Is.EqualTo(BgmRequestPriority.StageGameplay));
+        }
 
-            SetPrivateField(presentation, "bgmReference", new StageBgmReference("unknown"));
-            LogAssert.Expect(LogType.Warning, "Stage BGM key 'unknown' was not found in the stage BGM profile catalog.");
-            adapter.Apply(presentation, null, catalog);
-            Assert.That(coordinator.RequestCount, Is.EqualTo(1));
+        [Test]
+        [Category("Extended")]
+        public void StageAudioRuntimeRequestSource_NoneGameplayBgm_SubmitsExplicitSilence()
+        {
+            var coordinator = new FakeBgmFlowCoordinator();
+            var router = new BgmRequestRouter(coordinator);
+            var source = new StageAudioRuntimeRequestSource();
+
+            source.Apply(StageAudioAssembler.EmptyResolvedData, router);
+
+            Assert.That(coordinator.StopCount, Is.EqualTo(1));
+            Assert.That(router.ActiveRequest.HasValue, Is.True);
+            Assert.That(router.ActiveRequest.Value.StopBgm, Is.True);
+            Assert.That(router.ActiveRequest.Value.Priority, Is.EqualTo(BgmRequestPriority.StageGameplay));
         }
 
         [Test]
         [Category("Full")]
-        public void StagePresentationRuntimeAdapter_InstantiatesAndReplacesBackgroundPrefab()
+        public void StageVisualRuntimeAdapter_InstantiatesAndReplacesBackgroundPrefab()
         {
             var root = new GameObject("background-root");
             var firstPrefab = new GameObject("first-background");
             var secondPrefab = new GameObject("second-background");
             var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-            var adapter = new StagePresentationRuntimeAdapter();
+            var adapter = new StageVisualRuntimeAdapter();
 
             try
             {
                 SetPrivateField(presentation, "backgroundPrefab", firstPrefab);
-                adapter.Apply(presentation, root.transform, null);
+                adapter.Apply(presentation, root.transform);
                 Assert.That(root.transform.childCount, Is.EqualTo(1));
                 Assert.That(adapter.CurrentBackgroundInstance.name, Is.EqualTo("first-background"));
 
                 SetPrivateField(presentation, "backgroundPrefab", secondPrefab);
-                adapter.Apply(presentation, root.transform, null);
+                adapter.Apply(presentation, root.transform);
                 Assert.That(root.transform.childCount, Is.EqualTo(1));
                 Assert.That(adapter.CurrentBackgroundInstance.name, Is.EqualTo("second-background"));
             }
@@ -387,14 +404,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void StagePresentationRuntimeAdapter_BackgroundPrefabBridgeAutoResolvesSingleSceneHost()
+        public void StageVisualRuntimeAdapter_BackgroundPrefabBridgeAutoResolvesSingleSceneHost()
         {
             var hostObject = new GameObject("background-bridge-host");
             var root = new GameObject("background-root");
             var prefab = new GameObject("background-with-bridge");
             var bridgeTarget = new GameObject("bridge-target");
             var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-            var adapter = new StagePresentationRuntimeAdapter();
+            var adapter = new StageVisualRuntimeAdapter();
 
             try
             {
@@ -415,7 +432,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     });
                 SetPrivateField(presentation, "backgroundPrefab", prefab);
 
-                adapter.Apply(presentation, root.transform, null);
+                adapter.Apply(presentation, root.transform);
 
                 var instantiatedController =
                     adapter.CurrentBackgroundInstance.GetComponent<TopologyVisualBridgeVisibilityController>();
@@ -1429,17 +1446,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return entry;
         }
 
-        private static StageBgmProfileCatalog CreateBgmCatalog(string key, out BgmProfile profile)
-        {
-            profile = ScriptableObject.CreateInstance<BgmProfile>();
-            var entry = new StageBgmProfileCatalogEntry();
-            SetPrivateField(entry, "key", key);
-            SetPrivateField(entry, "profile", profile);
-            var catalog = ScriptableObject.CreateInstance<StageBgmProfileCatalog>();
-            SetPrivateField(catalog, "entries", new[] { entry });
-            return catalog;
-        }
-
         private static void SetPrivateField(object target, string fieldName, object value)
         {
             var targetType = target.GetType();
@@ -1724,6 +1730,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             public int RequestCount { get; private set; }
 
+            public int StopCount { get; private set; }
+
             public BgmProfile LastProfile { get; private set; }
 
             public void RequestSceneDefault(BgmProfile profile)
@@ -1734,6 +1742,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void StopCurrent()
             {
+                StopCount++;
+                LastProfile = null;
             }
 
             public BgmProfile GetCurrentProfile()

@@ -22,7 +22,6 @@
     "Game.Feature.Gameplay.UIAccess",
     "Game.Feature.Gameplay.Host",
     "Game.Shared.Audio",
-    "Game.Shared.AudioContracts",
     "Game.Shared.Input",
     "Game.Feature.Stages",
     "Unity.InputSystem",

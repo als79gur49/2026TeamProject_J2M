@@ -1,4 +1,5 @@
 using System;
+using Game.Shared.Audio;
 using UnityEngine;
 
 namespace Game.Feature.Flow.Audio
@@ -26,7 +27,10 @@ namespace Game.Feature.Flow.Audio
                     "SceneBgmRequestSource requires a serialized GlobalAudioFlowBootstrap reference when a BgmProfile is assigned.");
             }
 
-            bootstrap.GetCoordinatorOrThrow().RequestSceneDefault(profile);
+            bootstrap.GetRequestRouterOrThrow().Submit(BgmFlowRequest.ProfileRequest(
+                BgmRequestSourceKind.SceneDefault,
+                BgmRequestPriority.SceneDefault,
+                profile));
         }
     }
 }

@@ -1,4 +1,4 @@
-namespace Game.Feature.Flow.Audio
+namespace Game.Shared.Audio
 {
     public enum BgmTransitionMode
     {

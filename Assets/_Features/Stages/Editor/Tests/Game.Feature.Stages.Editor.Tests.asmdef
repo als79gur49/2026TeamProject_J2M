@@ -9,7 +9,8 @@
     "Game.Feature.Gameplay.Host",
     "Game.Feature.Gameplay.Vfx",
     "Game.Feature.Gameplay.Vfx.Authoring",
-    "Game.Feature.UI.Composition"
+    "Game.Feature.UI.Composition",
+    "Game.Shared.Audio"
   ],
   "includePlatforms": [
     "Editor"
