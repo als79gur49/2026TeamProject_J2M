@@ -820,7 +820,6 @@ MonoBehaviour:
   campaignStageSequenceDefinition: {fileID: 11400000, guid: bdeaa9a608b8dde4b6d0192853f857b0, type: 2}
   enableCampaignFlow: 1
   stageBackgroundRoot: {fileID: 0}
-  stageBgmProfileCatalog: {fileID: 11400000, guid: 8b28712064f147d199c691b01cacd57b, type: 2}
   globalAudioFlowBootstrap: {fileID: 1179627487}
   playerViewPrefab: {fileID: 1100110011001100110, guid: dad668eb9c4d5a1459580883a9e78cfc, type: 3}
 --- !u!4 &1179627482
