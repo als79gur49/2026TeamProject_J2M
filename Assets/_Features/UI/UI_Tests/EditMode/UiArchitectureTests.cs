@@ -447,7 +447,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(methodNames, Does.Not.Contain("RequestSlot"));
             Assert.That(methodNames, Does.Not.Contain("RequestMoveUp"));
-            Assert.That(methodNames, Does.Not.Contain("RequestFlipRight"));
+            Assert.That(methodNames.Any(name => name.StartsWith("Request", StringComparison.Ordinal)), Is.False);
         }
 
         [Test]

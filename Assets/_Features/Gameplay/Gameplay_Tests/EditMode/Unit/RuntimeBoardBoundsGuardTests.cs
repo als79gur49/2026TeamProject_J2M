@@ -671,7 +671,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
                 host.Initialize(configuration);
 
-                Assert.That(host.UiAccess.CommandGateway.RequestPush(GameplayUiDirection.Right).Accepted, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
                 var startTick = host.InputHost.RunSingleTick();
                 var windupTick = host.InputHost.RunSingleTick();
                 var executeTick = host.InputHost.RunSingleTick();
@@ -880,7 +881,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(host.ViewRegistry.TryGetView(10, out _), Is.False);
 
-                Assert.That(host.UiAccess.CommandGateway.RequestPush(GameplayUiDirection.Right).Accepted, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
                 var startTick = host.InputHost.RunSingleTick();
                 var windupTick = host.InputHost.RunSingleTick();
                 var executeTick = host.InputHost.RunSingleTick();

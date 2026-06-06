@@ -303,7 +303,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var pausedSession = host.UiAccess.QueryFacade.Session.Read();
                 var pausedHud = host.UiAccess.QueryFacade.PlayerHud.Read();
-                var pausedFlip = host.UiAccess.CommandGateway.RequestFlip(GameplayUiDirection.Right);
+                var pausedMove = host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Up);
 
                 Assert.That(session.CanAcceptGameplayCommands, Is.True);
                 Assert.That(playerHud.IsAvailable, Is.True);
@@ -320,8 +320,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(pausedHud.Facing, Is.EqualTo(GameplayUiDirection.Right));
                 Assert.That(pausedHud.CanMoveThisTick, Is.False);
                 Assert.That(pausedHud.CanStartActionThisTick, Is.False);
-                Assert.That(pausedFlip.Accepted, Is.False);
-                Assert.That(pausedFlip.RejectionReason, Is.EqualTo(GameplayCommandRejectionReason.Paused));
+                Assert.That(pausedMove.Accepted, Is.False);
+                Assert.That(pausedMove.RejectionReason, Is.EqualTo(GameplayCommandRejectionReason.Paused));
             }
             finally
             {
@@ -663,7 +663,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         pushExecuteDelayTicks: 1,
                         pushInputLockDurationTicks: 3)));
 
-                Assert.That(host.UiAccess.CommandGateway.RequestPush(GameplayUiDirection.Right).Accepted, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
 
                 var startTick = host.InputHost.RunSingleTick();
                 var startHud = host.UiAccess.QueryFacade.PlayerHud.Read();
@@ -821,7 +822,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         pushExecuteDelayTicks: 1,
                         pushInputLockDurationTicks: 3)));
 
-                Assert.That(host.UiAccess.CommandGateway.RequestPush(GameplayUiDirection.Right).Accepted, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
 
                 var startTick = host.InputHost.RunSingleTick();
                 var executeTick = host.InputHost.RunSingleTick();
@@ -833,39 +835,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(playerHud.IsActionInRecoveryPhase, Is.True);
                 Assert.That(playerHud.CanStartAnyActionThisTick, Is.False);
                 Assert.That(playerHud.HasExplicitPushCandidateInCurrentDirection, Is.False);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(hostObject);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void GameplayUiAccess_PlayerHud_PreviewUsesPendingUiPushDirectionOverKeyboardDirection()
-        {
-            var hostObject = new GameObject("GameplayUiAccess_PlayerHud_PreviewUsesPendingUiPushDirectionOverKeyboardDirection");
-
-            try
-            {
-                var host = hostObject.AddComponent<GameplaySceneHost>();
-                host.Initialize(CreateConfiguration(
-                    new[]
-                    {
-                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
-                        CreateBoxEntity(new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push),
-                    },
-                    boardBounds: new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(2, 0))));
-
-                host.InputHost.SetRawMoveInput(Vector2.left);
-                var beforeUiPush = host.UiAccess.QueryFacade.PlayerHud.Read();
-                var pushAcceptance = host.UiAccess.CommandGateway.RequestPush(GameplayUiDirection.Right);
-                var afterUiPush = host.UiAccess.QueryFacade.PlayerHud.Read();
-
-                Assert.That(beforeUiPush.HasExplicitPushCandidateInCurrentDirection, Is.False);
-                Assert.That(pushAcceptance.Accepted, Is.True);
-                Assert.That(afterUiPush.CanStartAnyActionThisTick, Is.True);
-                Assert.That(afterUiPush.HasExplicitPushCandidateInCurrentDirection, Is.True);
             }
             finally
             {
