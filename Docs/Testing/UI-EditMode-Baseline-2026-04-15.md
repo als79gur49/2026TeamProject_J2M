@@ -13,7 +13,7 @@
 - Pinned Unity UI EditMode: `155 total / 0 failed`
 - Current Phase 1 drift-correction rerun: green on 2026-06-06 KST
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `647 total / 0 failed`
+- Current Unity UI EditMode: `648 total / 0 failed`
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
@@ -39,10 +39,11 @@
   - stronger screen-view ownership guards proving screen views do not surface navigation, popup, back-stack, controller, or gameplay-access shortcuts
   - transition overlay shell/content catalog guards proving scene transitions use the canonical shell asset and authored catalog, with missing setup reported as a defect
   - canonical UI navigation resolver guards proving `UiNavigationInputRouter` exposes only the `IUiNavigationTargetResolver` setup path and does not reassemble popup/menu concrete targets
+  - external structure-source regeneration guard proving root `UI-Current-Structure-Source.md` mirrors the current 3-layer shell, identity lists, DemoStageControl classification, retired ActionBar status, removed diagnostics status, canonical transition path, and resolver-only navigation state
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `647 total / 0 failed`
-  - delta: `+583` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, and canonical navigation resolver-only enforcement
+  - current rerun: `648 total / 0 failed`
+  - delta: `+584` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, canonical navigation resolver-only enforcement, and current-structure source regeneration
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
@@ -121,6 +122,7 @@
 - UI diagnostics overlay was removed as an unused runtime feature; it is not hidden, dev-only retained, or a protected runtime path
 - `TutorialScene` now preserves one canonical `GameplaySceneHost -> GameplayUiFlowInstaller` bootstrap path with no serialized duplicate UI roots, duplicate input-routing roots, or pre-authored popup/screen lifecycle trees
 - canonical UI bootstrap now instantiates one prefab-authored root shell named `GameplayUiCanvasRoot`, and that shell remains infrastructure-only at the top level with `HudLayer`, `ScreenLayer`, and `PopupLayer`
+- root `UI-Current-Structure-Source.md` is the external current-structure source for docs regeneration and stale-token audits; it mirrors the 3-layer root shell, current `ScreenId` / `PopupId` lists, HUD membership, DemoStageControl preservation, diagnostics removal, scene transition shell/catalog path, and resolver-only navigation state
 - scene transition overlay runtime uses the canonical shell asset and authored content catalog only; missing shell/catalog setup is surfaced as a defect instead of rebuilding UI at runtime
 - HUD legacy runtime builder path was removed in the same phase, leaving one canonical prefab-authored HUD creation path beneath `HudLayer`
 - HUD prefab authoring remains a bounded HUD proof and must not be treated as precedent for screen changes without fresh review

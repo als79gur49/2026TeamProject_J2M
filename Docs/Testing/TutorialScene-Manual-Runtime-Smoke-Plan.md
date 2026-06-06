@@ -14,6 +14,7 @@
 - Preserve `TooltipPopup` as the intended non-modal representative popup case.
 - Preserve the logical `ScreenId.Gameplay` root and `StageResultScreen` as architecturally sensitive screen/runtime checkpoints.
 - Preserve removed diagnostics overlay absence as a root-shell/runtime-composition residue check only.
+- Preserve root `UI-Current-Structure-Source.md` as the current-structure reference for the 3-layer shell, retired ActionBar status, removed diagnostics status, and canonical scene transition path.
 
 ## 3. Remaining Execution Risks
 - The `SettingsScreen` tooltip info icon can regress into a broken or missing authored affordance even though `TutorialScene` now expects a real player-facing tooltip path.
@@ -46,6 +47,7 @@
   - `PausePopup` mounted only on `PopupLayer`
   - `SettingsScreen` as one runtime-owned complex screen shell
   - `StageResultScreen` as the terminal special case
+- Root-shell validation uses the current-structure source: top-level canonical gameplay UI shell has `HudLayer`, `ScreenLayer`, and `PopupLayer`, with no `DiagnosticsLayer`.
 - These are the primary freeze-sensitive proof points because they are most likely to expose ownership drift, duplicate roots, layer misuse, or reopened runtime seams.
 - `ObjectiveStatusScreen` and `SettingsScreen` are still required representative coverage, but they are second-tier after the high-risk subset.
 - Removed diagnostics overlay absence is not a first-pass manual interaction target.

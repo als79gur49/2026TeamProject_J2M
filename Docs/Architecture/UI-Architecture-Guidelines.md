@@ -332,6 +332,8 @@ Definitions:
 
 Current canonical identity lists:
 
+- Mirrored external structure source: [UI-Current-Structure-Source.md](../../UI-Current-Structure-Source.md)
+
 - Root shell layers
   - `HudLayer`
   - `ScreenLayer`
