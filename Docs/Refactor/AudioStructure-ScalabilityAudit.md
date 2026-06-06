@@ -25,7 +25,7 @@ This keeps stage content scalable without making stage the playback owner.
 
 ## Stage Audio
 
-`StageAudioDefinition` is a required companion on `StageContentEntry`. It supports gameplay, preview, clear result, failure result, and phase slots. Current campaign content authors gameplay BGM only; unused slots are explicit `None`.
+`StageAudioDefinition` is a required companion on `StageContentEntry`. StageAudioDefinition v1 supports only gameplay BGM. Stage result/failure BGM, boss/objective phase BGM, preview/menu BGM, ambience, and layered music are intentionally out of scope and not modeled.
 
 Validation is fail-fast for:
 
@@ -35,7 +35,6 @@ Validation is fail-fast for:
 - `Profile` slot without a profile.
 - non-BGM profile.
 - non-loop BGM definition.
-- duplicate phase ids.
 
 ## Request Priority
 
@@ -45,15 +44,13 @@ Validation is fail-fast for:
 |---|---:|
 | `SceneDefault` | 100 |
 | `StageGameplay` | 300 |
-| `StageResult` | 400 |
-| `Cutscene` | 500 |
 
 Stage-backed gameplay submits through `StageAudioRuntimeRequestSource`; scene-default requesters are not the stage gameplay BGM path.
 
 ## Scalability Notes
 
 - Direct profile references are acceptable for current stage BGM volume and remove string-key drift.
-- Additional result/phase runtime behavior should add explicit request sources instead of expanding visual presentation assets.
+- Result/failure, boss/objective phase, preview/menu, ambience, and layered music behavior should be introduced only through a separate product decision and must not be inferred from v1 stage audio.
 - Crossfade remains future multi-source playback capability; current executed transitions are `Immediate` and single-source `FadeOutIn`.
 - SFX semantic growth should continue through lane maps/profiles, not through `AudioDefinition` category expansion or stage-level ad hoc fields.
 
@@ -67,4 +64,3 @@ Use:
 ```
 
 The project-wide full lane has unrelated baseline risk; report touched-cluster lane results separately.
-

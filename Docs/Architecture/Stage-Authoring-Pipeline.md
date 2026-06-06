@@ -28,9 +28,12 @@ metadata, preview/background, catalogs, and result text.
 Presentation metadata preservation is a pipeline invariant, not a generate
 option.
 
-`StageAudioDefinition` remains the stage audio companion. It owns direct authored
-`BgmProfile` metadata for gameplay/preview/result/phase slots, but it does not
-execute playback. Runtime playback is requested through the audio flow path.
+`StageAudioDefinition` remains the stage audio companion. StageAudioDefinition v1
+supports only gameplay BGM through `gameplayBgm` and direct authored `BgmProfile`
+metadata, but it does not execute playback. Stage result/failure BGM,
+boss/objective phase BGM, preview/menu BGM, ambience, and layered music are
+intentionally out of scope and not modeled. Runtime playback is requested through
+the audio flow path.
 
 `StagePresentationBindingNormalizer` is the narrow presentation-lane owner for
 binding normalization. Enemy and static entity presentation bindings are cloned

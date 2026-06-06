@@ -79,6 +79,6 @@ These are not deletion candidates.
 | `UiAudioCueMap_V1 -> Ui_*_Def -> UI/Sfx clips` | cue map serialized in `MainMenuScene` and `UIAudioScene`; validation requires every current enum value | KEEP_CANONICAL |
 | `GameplayAudioMap_UI-Audio_Test -> Player_Hurt_Def / Monster*_Test_Def / Block_Destroyed_Def` | map serialized in `UIAudioScene`; required six semantic map | KEEP_CANONICAL |
 | `Player_S1.prefab -> GameplayActionAudioAuthoring -> Player_S1_GameplayActionAudioProfile_Test -> PlayerSounds definitions` | prefab GUID ref; action audio runtime tests | KEEP_CANONICAL |
-| `StageContentEntry -> StageAudioDefinition -> Stage0-1..Stage4-1_BgmProfile -> Bgm definitions -> World_*.wav` | direct stage audio companions; stage runtime request source path | KEEP_CANONICAL |
+| `StageContentEntry -> StageAudioDefinition.gameplayBgm -> Stage0-1..Stage4-1_BgmProfile -> Bgm definitions -> World_*.wav` | direct stage gameplay BGM companions; stage runtime request source path | KEEP_CANONICAL |
 | `MainMenuScene -> SceneBgmRequestSource -> MainMenu_BgmProfile -> MainMenu_BgmDef -> World_MainLobby.ogg` | scene contract test path | KEEP_CANONICAL |
 | enemy prefabs -> `EnemyAudioProfile_*` -> MonsterSounds definitions | prefab serialized refs and `EnemyAudioRuntimeTests` | KEEP_CANONICAL |

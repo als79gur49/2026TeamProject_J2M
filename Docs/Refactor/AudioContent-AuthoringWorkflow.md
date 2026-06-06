@@ -29,14 +29,17 @@ Raw clips should not be direct runtime references. `AudioDefinition` owns playba
 Runtime path:
 
 ```text
-StageAudioDefinition
+StageAudioDefinition.gameplayBgm
   -> StageAudioAssembler
+  -> StageAudioResolvedData
   -> StageAudioRuntimeRequestSource
   -> BgmRequestRouter
   -> BgmFlowCoordinator
 ```
 
 Do not add scene-local direct `IAudioService.PlayBgm` calls. Do not make visual presentation assets own BGM.
+
+StageAudioDefinition v1 supports only gameplay BGM. Stage result/failure BGM, boss/objective phase BGM, preview/menu BGM, ambience, and layered music are intentionally out of scope and not modeled.
 
 ## Add Gameplay Core SFX Semantic
 
@@ -91,4 +94,3 @@ Do not place feature meaning in `AudioDefinition`.
 3. Add explicit entry to `UiAudioCueMap_V1.asset`.
 4. Trigger playback through `IUiAudioPort`; do not expose shared `AudioChannel` in UI application code.
 5. Update cue-surface, authored-map, and relevant flow/widget cue tests.
-

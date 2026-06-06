@@ -340,11 +340,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = new StageAudioRuntimeRequestSource();
             var profile = ScriptableObject.CreateInstance<BgmProfile>();
             var audioData = new StageAudioResolvedData(
-                new StageBgmResolvedSlot(StageBgmSlotMode.Profile, profile),
-                new StageBgmResolvedSlot(StageBgmSlotMode.None, null),
-                new StageBgmResolvedSlot(StageBgmSlotMode.None, null),
-                new StageBgmResolvedSlot(StageBgmSlotMode.None, null),
-                Array.Empty<StagePhaseBgmResolvedSlot>());
+                new StageBgmResolvedSlot(StageBgmSlotMode.Profile, profile));
 
             source.Apply(audioData, router);
 
@@ -357,7 +353,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void StageAudioRuntimeRequestSource_NoneGameplayBgm_SubmitsExplicitSilence()
+        public void StageAudioRuntimeRequestSource_NoneSubmitsStageGameplaySilence()
         {
             var coordinator = new FakeBgmFlowCoordinator();
             var router = new BgmRequestRouter(coordinator);
@@ -367,6 +363,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(coordinator.StopCount, Is.EqualTo(1));
             Assert.That(router.ActiveRequest.HasValue, Is.True);
+            Assert.That(router.ActiveRequest.Value.SourceKind, Is.EqualTo(BgmRequestSourceKind.StageGameplay));
             Assert.That(router.ActiveRequest.Value.StopBgm, Is.True);
             Assert.That(router.ActiveRequest.Value.Priority, Is.EqualTo(BgmRequestPriority.StageGameplay));
         }

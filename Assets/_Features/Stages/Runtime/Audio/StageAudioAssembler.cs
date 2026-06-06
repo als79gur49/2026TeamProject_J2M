@@ -1,16 +1,11 @@
 using System;
-using System.Collections.Generic;
 
 namespace Game.Feature.Stages
 {
     public static class StageAudioAssembler
     {
         public static readonly StageAudioResolvedData EmptyResolvedData = new(
-            new StageBgmResolvedSlot(StageBgmSlotMode.None, null),
-            new StageBgmResolvedSlot(StageBgmSlotMode.None, null),
-            new StageBgmResolvedSlot(StageBgmSlotMode.None, null),
-            new StageBgmResolvedSlot(StageBgmSlotMode.None, null),
-            Array.Empty<StagePhaseBgmResolvedSlot>());
+            new StageBgmResolvedSlot(StageBgmSlotMode.None, null));
 
         public static StageAudioResolvedData Resolve(StageAudioDefinition definition)
         {
@@ -22,11 +17,7 @@ namespace Game.Feature.Stages
             definition.ValidateOrThrow();
 
             return new StageAudioResolvedData(
-                ResolveSlot(definition.GameplayBgm),
-                ResolveSlot(definition.PreviewBgm),
-                ResolveSlot(definition.ClearResultBgm),
-                ResolveSlot(definition.FailureResultBgm),
-                ResolvePhaseSlots(definition.PhaseBgms));
+                ResolveSlot(definition.GameplayBgm));
         }
 
         private static StageBgmResolvedSlot ResolveSlot(StageBgmSlot slot)
@@ -39,24 +30,6 @@ namespace Game.Feature.Stages
             return slot.Mode == StageBgmSlotMode.Profile
                 ? new StageBgmResolvedSlot(StageBgmSlotMode.Profile, slot.Profile)
                 : new StageBgmResolvedSlot(StageBgmSlotMode.None, null);
-        }
-
-        private static IReadOnlyList<StagePhaseBgmResolvedSlot> ResolvePhaseSlots(
-            IReadOnlyList<StagePhaseBgmSlot> phaseBgms)
-        {
-            if (phaseBgms == null || phaseBgms.Count == 0)
-            {
-                return Array.Empty<StagePhaseBgmResolvedSlot>();
-            }
-
-            var resolved = new StagePhaseBgmResolvedSlot[phaseBgms.Count];
-            for (var i = 0; i < phaseBgms.Count; i++)
-            {
-                var phase = phaseBgms[i];
-                resolved[i] = new StagePhaseBgmResolvedSlot(phase.PhaseId, ResolveSlot(phase.Slot));
-            }
-
-            return resolved;
         }
     }
 }

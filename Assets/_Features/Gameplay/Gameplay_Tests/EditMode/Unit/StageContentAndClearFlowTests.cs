@@ -524,11 +524,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             rewardDefinition ??= ScriptableObject.CreateInstance<StageRewardDefinition>();
             progressionDefinition ??= ScriptableObject.CreateInstance<StageProgressionDefinition>();
 
-            presentationDefinition.SetOwnerMetadata(entry, string.Empty);
-            audioDefinition.SetOwnerMetadata(entry, string.Empty);
-            clearEvaluationDefinition.SetOwnerMetadata(entry, string.Empty);
-            rewardDefinition.SetOwnerMetadata(entry, string.Empty);
-            progressionDefinition.SetOwnerMetadata(entry, string.Empty);
+            var ownerGuid = Guid.NewGuid().ToString("N");
+            presentationDefinition.SetOwnerMetadata(entry, ownerGuid);
+            audioDefinition.SetOwnerMetadata(entry, ownerGuid);
+            clearEvaluationDefinition.SetOwnerMetadata(entry, ownerGuid);
+            rewardDefinition.SetOwnerMetadata(entry, ownerGuid);
+            progressionDefinition.SetOwnerMetadata(entry, ownerGuid);
 
             entry.AssignPresentationDefinition(presentationDefinition);
             entry.AssignAudioDefinition(audioDefinition);

@@ -71,35 +71,12 @@ namespace Game.Feature.Stages
         }
     }
 
-    [Serializable]
-    public sealed class StagePhaseBgmSlot
-    {
-        [SerializeField] private string phaseId = string.Empty;
-        [SerializeField] private StageBgmSlot slot = new();
-
-        public string PhaseId => phaseId?.Trim() ?? string.Empty;
-
-        public StageBgmSlot Slot => slot;
-    }
-
     [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Audio Definition", fileName = "stage-audio")]
     public sealed class StageAudioDefinition : StageCompanionDefinitionBase
     {
         [SerializeField] private StageBgmSlot gameplayBgm = new();
-        [SerializeField] private StageBgmSlot previewBgm = new();
-        [SerializeField] private StageBgmSlot clearResultBgm = new();
-        [SerializeField] private StageBgmSlot failureResultBgm = new();
-        [SerializeField] private StagePhaseBgmSlot[] phaseBgms = Array.Empty<StagePhaseBgmSlot>();
 
         public StageBgmSlot GameplayBgm => gameplayBgm;
-
-        public StageBgmSlot PreviewBgm => previewBgm;
-
-        public StageBgmSlot ClearResultBgm => clearResultBgm;
-
-        public StageBgmSlot FailureResultBgm => failureResultBgm;
-
-        public IReadOnlyList<StagePhaseBgmSlot> PhaseBgms => phaseBgms ?? Array.Empty<StagePhaseBgmSlot>();
 
         public void ValidateOrThrow()
         {
@@ -113,12 +90,22 @@ namespace Game.Feature.Stages
         public IReadOnlyList<string> CollectValidationErrors()
         {
             var errors = new List<string>();
+            AppendOwnerMetadataErrors(errors);
             AppendRequiredSlotErrors(gameplayBgm, "gameplayBgm", errors);
-            AppendOptionalSlotErrors(previewBgm, "previewBgm", errors);
-            AppendOptionalSlotErrors(clearResultBgm, "clearResultBgm", errors);
-            AppendOptionalSlotErrors(failureResultBgm, "failureResultBgm", errors);
-            AppendPhaseSlotErrors(errors);
             return errors;
+        }
+
+        private void AppendOwnerMetadataErrors(ICollection<string> errors)
+        {
+            if (OwnerEntry == null)
+            {
+                errors.Add("StageAudioDefinition requires companion owner entry metadata.");
+            }
+
+            if (string.IsNullOrWhiteSpace(OwnerEntryGuid))
+            {
+                errors.Add("StageAudioDefinition requires companion owner entry guid metadata.");
+            }
         }
 
         private static void AppendRequiredSlotErrors(
@@ -149,43 +136,6 @@ namespace Game.Feature.Stages
             for (var i = 0; i < slotErrors.Count; i++)
             {
                 errors.Add(slotErrors[i]);
-            }
-        }
-
-        private void AppendPhaseSlotErrors(ICollection<string> errors)
-        {
-            var phases = PhaseBgms;
-            var seenPhaseIds = new HashSet<string>(StringComparer.Ordinal);
-            for (var i = 0; i < phases.Count; i++)
-            {
-                var phase = phases[i];
-                if (phase == null)
-                {
-                    errors.Add($"StageAudioDefinition.phaseBgms[{i}] cannot be null.");
-                    continue;
-                }
-
-                var phaseId = phase.PhaseId;
-                if (string.IsNullOrWhiteSpace(phaseId))
-                {
-                    errors.Add($"StageAudioDefinition.phaseBgms[{i}] requires a non-empty phaseId.");
-                }
-                else if (!seenPhaseIds.Add(phaseId))
-                {
-                    errors.Add($"StageAudioDefinition.phaseBgms contains duplicate phaseId '{phaseId}'.");
-                }
-
-                if (phase.Slot == null)
-                {
-                    errors.Add($"StageAudioDefinition.phaseBgms[{i}] requires a slot.");
-                    continue;
-                }
-
-                var slotErrors = phase.Slot.CollectValidationErrors($"StageAudioDefinition.phaseBgms[{i}]");
-                for (var errorIndex = 0; errorIndex < slotErrors.Count; errorIndex++)
-                {
-                    errors.Add(slotErrors[errorIndex]);
-                }
             }
         }
     }

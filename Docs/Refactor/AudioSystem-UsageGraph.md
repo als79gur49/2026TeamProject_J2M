@@ -70,9 +70,8 @@ UI application code remains insulated from shared audio channel details by compo
 
 ## Guardrails
 
-- Stage content can reference `BgmProfile` metadata only through `StageAudioDefinition`.
+- Stage content can reference `BgmProfile` metadata only through `StageAudioDefinition.gameplayBgm`.
 - `StageAudioRuntimeRequestSource` and `SceneBgmRequestSource` are requesters, not playback owners.
-- `BgmRequestRouter` owns request priority: `SceneDefault=100`, `StageGameplay=300`, `StageResult=400`, `Cutscene=500`.
+- `BgmRequestRouter` owns request priority: `SceneDefault=100`, `StageGameplay=300`.
 - `BgmFlowCoordinator` is the only BGM execution owner above shared runtime playback.
 - Direct scene or visual-adapter BGM playback calls are forbidden.
-

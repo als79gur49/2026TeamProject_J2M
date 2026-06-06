@@ -8,7 +8,7 @@ Stage BGM metadata now lives on a direct authored companion:
 
 ```text
 StageContentEntry
-  -> StageAudioDefinition
+  -> StageAudioDefinition.gameplayBgm
   -> StageAudioAssembler
   -> StageAudioResolvedData
   -> StageSceneCompositionData.Audio
@@ -29,8 +29,6 @@ StageContentEntry
 |---|---:|
 | `SceneDefault` | 100 |
 | `StageGameplay` | 300 |
-| `StageResult` | 400 |
-| `Cutscene` | 500 |
 
 Stage-backed gameplay submits through `StageAudioRuntimeRequestSource` only. Scene default BGM sources are valid for scene-default-only scenes such as main menu, but an enabled scene default requester in a stage-backed scene is treated as a scene contract error.
 
@@ -42,6 +40,8 @@ Each stage entry must have an `AudioDefinition` companion asset. The companion m
 - `StageBgmSlotMode.Profile` with a non-null `BgmProfile`.
 
 Profiles referenced by stage audio companions must validate as BGM and must point at loop-enabled BGM definitions. Reused BGM is represented by multiple stage audio companions directly referencing the same `BgmProfile`.
+
+StageAudioDefinition v1 supports only gameplay BGM. Stage result/failure BGM, boss/objective phase BGM, preview/menu BGM, ambience, and layered music are intentionally out of scope and not modeled.
 
 ## Campaign Main Content
 
@@ -74,4 +74,3 @@ Coverage now centers on:
 - stage-backed runtime request submission through `BgmRequestRouter`.
 - scene default requester rejection in stage-backed scene contracts.
 - repository smoke for stage audio companion assets.
-

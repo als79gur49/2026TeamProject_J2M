@@ -65,6 +65,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void BgmRequestSourceKind_PublicSurface_IsSceneDefaultAndStageGameplayOnly()
+        {
+            Assert.That(
+                Enum.GetNames(typeof(BgmRequestSourceKind)),
+                Is.EqualTo(new[] { "SceneDefault", "StageGameplay" }));
+            Assert.That(
+                Enum.GetNames(typeof(BgmRequestPriority)),
+                Is.EqualTo(new[] { "SceneDefault", "StageGameplay" }));
+            Assert.That((int)BgmRequestPriority.SceneDefault, Is.EqualTo(100));
+            Assert.That((int)BgmRequestPriority.StageGameplay, Is.EqualTo(300));
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayAudioCatalog_RequiredSet_RemainsOneShotOnly_WithoutBgmFlow()
         {
@@ -144,7 +158,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void StageVisualRuntimeAdapter_Source_DoesNotOwnBgmOrFadeImplementation()
+        public void StageVisualRuntimeAdapter_DoesNotReferenceBgm()
         {
             var source = ReadRepoFile("Assets/_Features/Flow/Flow_Audio/Runtime/StageVisualRuntimeAdapter.cs");
 
@@ -154,6 +168,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Not.Contain("FadeOutSeconds"));
             Assert.That(source, Does.Not.Contain("FadeInSeconds"));
             Assert.That(source, Does.Not.Contain("PlayBgm("));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageResultFlow_DoesNotOwnBgm()
+        {
+            var sources = new[]
+            {
+                ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/StageResultAutoNextDriver.cs"),
+                ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayScreenRuntimeFactory.cs"),
+                ReadRepoFile("Assets/_Features/UI/UI_Flow/Runtime/UIFlowCoordinator.cs"),
+            };
+
+            for (var i = 0; i < sources.Length; i++)
+            {
+                Assert.That(sources[i], Does.Not.Contain("BgmProfile"));
+                Assert.That(sources[i], Does.Not.Contain("BgmRequestRouter"));
+                Assert.That(sources[i], Does.Not.Contain("IBgmFlowCoordinator"));
+                Assert.That(sources[i], Does.Not.Contain("PlayBgm("));
+            }
         }
 
         [Test]

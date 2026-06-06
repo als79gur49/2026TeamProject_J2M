@@ -29,9 +29,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void StageAudioDefinitionAllowsExplicitNoBgmTests()
+        public void StageAudioDefinition_PublicSurface_IsGameplayBgmOnly()
         {
-            var definition = Track(ScriptableObject.CreateInstance<StageAudioDefinition>());
+            var declaredProperties = typeof(StageAudioDefinition)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(property => property.Name)
+                .OrderBy(name => name)
+                .ToArray();
+            var serializedFields = typeof(StageAudioDefinition)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(field => field.Name)
+                .OrderBy(name => name)
+                .ToArray();
+
+            Assert.That(declaredProperties, Is.EqualTo(new[] { nameof(StageAudioDefinition.GameplayBgm) }));
+            Assert.That(serializedFields, Is.EqualTo(new[] { "gameplayBgm" }));
+            Assert.That(typeof(StageAudioDefinition).Assembly.GetType(BuildStageTypeName("Phase" + "BgmSlot")), Is.Null);
+            Assert.That(typeof(StageAudioDefinition).Assembly.GetType(BuildStageTypeName("Phase" + "BgmEntry")), Is.Null);
+            Assert.That(typeof(StageAudioDefinition).Assembly.GetType(BuildStageTypeName("Phase" + "BgmKey")), Is.Null);
+            Assert.That(typeof(StageAudioDefinition).Assembly.GetType(BuildStageTypeName("Ambi" + "enceSlot")), Is.Null);
+            Assert.That(typeof(StageAudioDefinition).Assembly.GetType(BuildStageTypeName("Lay" + "ered" + "MusicSlot")), Is.Null);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void StageAudioDefinition_AllowsExplicitNoGameplayBgm()
+        {
+            var definition = CreateOwnedStageAudioDefinition();
 
             Assert.DoesNotThrow(() => definition.ValidateOrThrow());
         }
@@ -40,7 +64,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void StageAudioDefinitionRejectsNullRequiredGameplayBgmTests()
         {
-            var definition = Track(ScriptableObject.CreateInstance<StageAudioDefinition>());
+            var definition = CreateOwnedStageAudioDefinition();
             SetField(definition, "gameplayBgm", null);
 
             var exception = Assert.Throws<InvalidOperationException>(() => definition.ValidateOrThrow());
@@ -50,9 +74,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void StageAudioDefinitionRejectsProfileOnNoneSlotTests()
+        public void StageAudioDefinition_RejectsProfileOnNoneSlot()
         {
-            var definition = Track(ScriptableObject.CreateInstance<StageAudioDefinition>());
+            var definition = CreateOwnedStageAudioDefinition();
             var slot = new StageBgmSlot();
             SetField(slot, "mode", StageBgmSlotMode.None);
             SetField(slot, "profile", CreateBgmProfile("ProfileOnNone", AudioCategory.Bgm, loop: true));
@@ -67,9 +91,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void StageAudioDefinition_RejectsNullProfileOnProfileSlot()
+        {
+            var definition = CreateOwnedStageAudioDefinition();
+            SetField(definition, "gameplayBgm", CreateProfileSlot(null));
+
+            var exception = Assert.Throws<InvalidOperationException>(() => definition.ValidateOrThrow());
+
+            Assert.That(
+                exception.Message,
+                Is.EqualTo("StageAudioDefinition.gameplayBgm requires a BgmProfile when mode is Profile."));
+        }
+
+        [Test]
+        [Category("Core")]
         public void StageAudioDefinitionRejectsNonBgmOrNonLoopProfileTests()
         {
-            var nonBgm = Track(ScriptableObject.CreateInstance<StageAudioDefinition>());
+            var nonBgm = CreateOwnedStageAudioDefinition();
             SetField(nonBgm, "gameplayBgm", CreateProfileSlot(CreateBgmProfile("NonBgmProfile", AudioCategory.Sfx, loop: true)));
 
             var nonBgmException = Assert.Throws<InvalidOperationException>(() => nonBgm.ValidateOrThrow());
@@ -77,7 +115,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 nonBgmException.Message,
                 Is.EqualTo("StageAudioDefinition.gameplayBgm profile is invalid: BgmProfile 'NonBgmProfile' requires loopDefinition to use AudioCategory.Bgm."));
 
-            var nonLoop = Track(ScriptableObject.CreateInstance<StageAudioDefinition>());
+            var nonLoop = CreateOwnedStageAudioDefinition();
             SetField(nonLoop, "gameplayBgm", CreateProfileSlot(CreateBgmProfile("NonLoopProfile", AudioCategory.Bgm, loop: false)));
 
             var nonLoopException = Assert.Throws<InvalidOperationException>(() => nonLoop.ValidateOrThrow());
@@ -91,15 +129,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void StageAudioAssemblerProducesResolvedDataTests()
         {
             var profile = CreateBgmProfile("ResolvedProfile", AudioCategory.Bgm, loop: true);
-            var definition = Track(ScriptableObject.CreateInstance<StageAudioDefinition>());
+            var definition = CreateOwnedStageAudioDefinition();
             SetField(definition, "gameplayBgm", CreateProfileSlot(profile));
 
             var resolved = StageAudioAssembler.Resolve(definition);
 
             Assert.That(resolved.GameplayBgm.Mode, Is.EqualTo(StageBgmSlotMode.Profile));
             Assert.That(resolved.GameplayBgm.Profile, Is.SameAs(profile));
-            Assert.That(resolved.PreviewBgm.Mode, Is.EqualTo(StageBgmSlotMode.None));
-            Assert.That(resolved.PhaseBgms, Is.Empty);
         }
 
         [Test]
@@ -120,6 +156,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
 
             Assert.That(report.Issues.Any(issue => issue.Code == "companion.audio.null"), Is.True);
+        }
+
+        private StageAudioDefinition CreateOwnedStageAudioDefinition()
+        {
+            var entry = Track(ScriptableObject.CreateInstance<StageContentEntry>());
+            var definition = Track(ScriptableObject.CreateInstance<StageAudioDefinition>());
+            definition.SetOwnerMetadata(entry, Guid.NewGuid().ToString("N"));
+            return definition;
+        }
+
+        private static string BuildStageTypeName(string suffix)
+        {
+            return "Game.Feature.Stages." + "Stage" + suffix;
         }
 
         private StageBgmSlot CreateProfileSlot(BgmProfile profile)

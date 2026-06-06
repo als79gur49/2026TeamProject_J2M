@@ -17,13 +17,3 @@ MonoBehaviour:
   gameplayBgm:
     mode: 1
     profile: {fileID: 11400000, guid: a95e994cd90ff2942b890c9c19654ac4, type: 2}
-  previewBgm:
-    mode: 0
-    profile: {fileID: 0}
-  clearResultBgm:
-    mode: 0
-    profile: {fileID: 0}
-  failureResultBgm:
-    mode: 0
-    profile: {fileID: 0}
-  phaseBgms: []

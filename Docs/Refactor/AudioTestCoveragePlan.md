@@ -11,11 +11,13 @@
 - `BgmFlowArchitectureTests`
   - guards Flow_Audio separation from gameplay one-shot planning.
   - guards `StagePresentationDefinition` and visual adapters from owning BGM.
+  - freezes `BgmRequestSourceKind` to scene default and stage gameplay sources.
 - `BgmFlowRuntimeTests`
   - validates profile failures, same-profile dedupe, restart, Immediate, FadeOutIn, Crossfade fallback, and bootstrap fail-fast behavior.
 - `CampaignStageFlowTests`
   - covers visual adapter background behavior.
   - covers `StageAudioRuntimeRequestSource` submitting stage gameplay requests through `BgmRequestRouter`.
+  - covers explicit stage gameplay silence for `StageBgmSlotMode.None`.
 - `StageContentAndClearFlowTests`
   - validates stage content requires an audio companion.
 - `StageAudioDefinitionValidationTests`
@@ -47,7 +49,6 @@
 
 | Gap | Why It Matters | Proposed Test | Lane |
 |---|---|---|---|
-| Result/phase BGM runtime policy | metadata slots exist, but product flow ownership is not decided | add after result/phase owner decision | play/integration |
 | Full lane map asset smoke | not every SFX map/profile is equally covered | `AudioLaneMapRepositorySmokeTests` | core/edit |
 | BGM docs parity | stale transition docs can return | `BgmTransitionModeDocumentationParityTests` | core/edit |
 | UI cue docs parity | old cue count docs can drift | `UiAudioCueDocumentationParityTests` | UI edit |
@@ -64,6 +65,7 @@ Policy:
 
 - Stage-backed scenes submit gameplay BGM through `StageAudioRuntimeRequestSource`.
 - Enabled `SceneBgmRequestSource` components are not allowed to coexist with stage-backed gameplay BGM unless a future scene-default-only marker is explicitly introduced and tested.
+- StageAudioDefinition v1 supports only gameplay BGM. Stage result/failure BGM, boss/objective phase BGM, preview/menu BGM, ambience, and layered music are intentionally out of scope and not modeled.
 
 ## Validation Commands
 
@@ -78,4 +80,3 @@ Run UI lane when UI audio docs/tests/assets are touched:
 ```bash
 ./run_tests.sh ui
 ```
-

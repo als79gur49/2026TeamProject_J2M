@@ -32,6 +32,7 @@
 - `GameplayAudioPresentationController`, `GameplayAudioMap`, `GameplaySceneHostConfiguration`는 BGM ownership을 얻지 않는다.
 - scene-global fallback lookup은 금지한다.
 - `StageAudioDefinition`은 content metadata / playback profile reference owner일 뿐이고 BGM execution owner가 아니다.
+- StageAudioDefinition v1 supports only gameplay BGM. Stage result/failure BGM, boss/objective phase BGM, preview/menu BGM, ambience, and layered music are intentionally out of scope and not modeled.
 - stage-backed gameplay BGM은 `StageAudioRuntimeRequestSource -> BgmRequestRouter -> BgmFlowCoordinator` path로만 실행한다.
 
 ## 3. Bootstrap And Registry Contract
@@ -105,7 +106,7 @@ exact fail-fast messages:
 - true `FadeOutIn` is supported by the request-based playback port and shared audio runtime.
 - true `Crossfade` needs shared-runtime multi-lane/capability expansion beyond the current single BGM lane.
 - `BgmFlowCoordinator`는 low-level timing/mixing mechanics를 직접 소유하지 않는다.
-- source priority는 `BgmRequestRouter`가 소유한다: `SceneDefault=100`, `StageGameplay=300`, `StageResult=400`, `Cutscene=500`.
+- source priority는 `BgmRequestRouter`가 소유한다: `SceneDefault=100`, `StageGameplay=300`.
 - `BgmFlowCoordinator`는 router에서 선택된 request만 실행한다.
 
 forward plan:

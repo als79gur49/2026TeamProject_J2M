@@ -8,16 +8,12 @@ namespace Game.Feature.Flow.Audio
     {
         SceneDefault = 0,
         StageGameplay = 1,
-        StageResult = 2,
-        Cutscene = 3,
     }
 
     public enum BgmRequestPriority
     {
         SceneDefault = 100,
         StageGameplay = 300,
-        StageResult = 400,
-        Cutscene = 500,
     }
 
     public readonly struct BgmFlowRequest
