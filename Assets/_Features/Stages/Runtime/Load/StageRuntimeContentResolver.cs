@@ -46,7 +46,7 @@ namespace Game.Feature.Stages
             var baseMessage =
                 $"{sceneName} requires {nameof(StageLaunchContextStore)} to provide a canonical StageId before runtime bootstrap.";
 #if UNITY_EDITOR
-            return $"{baseMessage} Use Tools/Stages/Direct Play/Launch Current Scene or the editor direct-play launcher before entering Play mode.";
+            return $"{baseMessage} Use Tools/Stages/Direct Play/Launch Stage... or a supported stage quick-launch before entering Play mode.";
 #else
             return baseMessage;
 #endif

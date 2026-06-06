@@ -601,34 +601,38 @@ namespace Game.Feature.Stages.Editor
 
             var entries = new[]
             {
-                CreateDirectPlayEntry("Assets/Scenes/CombinedGameplayShowcase.unity", "combined-gameplay-showcase"),
-                CreateDirectPlayEntry("Assets/Scenes/TutorialScene.unity", "tutorial-scene"),
-                CreateDirectPlayEntry("Assets/Scenes/UIAudioScene.unity", "stage-1-1"),
+                CreateDirectPlayEntry("combined-gameplay-showcase"),
+                CreateDirectPlayEntry("tutorial-scene"),
+                CreateDirectPlayEntry("stage-0-1"),
+                CreateDirectPlayEntry("stage-1-1"),
             };
 
-            if (DirectPlayEntriesEqual(directPlayCatalog.Entries, entries))
+            if (string.Equals(
+                    directPlayCatalog.CanonicalShellScenePath,
+                    "Assets/Scenes/UIAudioScene.unity",
+                    StringComparison.Ordinal) &&
+                DirectPlayEntriesEqual(directPlayCatalog.SupportedStages, entries))
             {
                 return;
             }
 
-            directPlayCatalog.SetEntries(entries);
+            directPlayCatalog.Configure("Assets/Scenes/UIAudioScene.unity", entries);
             EditorUtility.SetDirty(directPlayCatalog);
             report.ReferenceRepairs.Add(
-                "Updated StageEditorDirectPlayCatalog scene mappings for CombinedGameplayShowcase, TutorialScene, and UIAudioScene.");
+                "Updated StageEditorDirectPlayCatalog to use UIAudioScene as the canonical shell for supported stage ids.");
         }
 
-        private static StageEditorDirectPlayCatalogEntry CreateDirectPlayEntry(string scenePath, string stageId)
+        private static StageEditorDirectPlayStageEntry CreateDirectPlayEntry(string stageId)
         {
-            return new StageEditorDirectPlayCatalogEntry
+            return new StageEditorDirectPlayStageEntry
             {
-                ScenePath = scenePath,
                 StageId = StageId.CreateOrThrow(stageId),
             };
         }
 
         private static bool DirectPlayEntriesEqual(
-            IReadOnlyList<StageEditorDirectPlayCatalogEntry> current,
-            StageEditorDirectPlayCatalogEntry[] expected)
+            IReadOnlyList<StageEditorDirectPlayStageEntry> current,
+            StageEditorDirectPlayStageEntry[] expected)
         {
             if (current == null || current.Count != expected.Length)
             {
@@ -637,8 +641,7 @@ namespace Game.Feature.Stages.Editor
 
             for (var i = 0; i < expected.Length; i++)
             {
-                if (!string.Equals(current[i].ScenePath, expected[i].ScenePath, StringComparison.Ordinal) ||
-                    !current[i].StageId.Equals(expected[i].StageId))
+                if (!current[i].StageId.Equals(expected[i].StageId))
                 {
                     return false;
                 }

@@ -14,10 +14,11 @@
   - canonical runtime request factory
   - stage bootstrap은 launch context가 없으면 즉시 실패한다.
 - `StageEditorDirectPlayCatalog`
-  - 지원되는 stage-backed scene path를 canonical `StageId`에 매핑한다.
+  - canonical gameplay shell scene path와 quick-launch supported `StageId`를 선언한다.
 - `StageEditorDirectPlayLauncher`
-  - `Launch Current Scene`
-  - `Replay Last Stage-Backed Scene`
+  - `Launch Stage...`
+  - `Replay Last Stage`
+  - supported stage quick-launch menu
   - Play mode 진입 전에 pending launch context를 주입한다.
 - `StageLaunchContextStore`
   - pending editor direct-play stage id를 1회 소비하고 current launch context로 승격한다.
@@ -30,30 +31,29 @@
 
 ## Required Readiness
 
-- 지원되는 stage-backed scene은 모두 `StageEditorDirectPlayCatalog`에 등록되어야 한다.
+- canonical gameplay shell scene과 quick-launch stage ids는 `StageEditorDirectPlayCatalog`에 등록되어야 한다.
 - `StageSceneBootstrapValidator`는 direct-play catalog coverage와 `defaultStageId` residue absence를 함께 검증한다.
 - direct-play smoke/manual flow는 launcher 경유로만 기록한다.
-- fail-fast message는 `Tools/Stages/Direct Play/Launch Current Scene` 사용법을 안내해야 한다.
+- fail-fast message는 `Tools/Stages/Direct Play/Launch Stage...` 사용법을 안내해야 한다.
 
 ## Operational Metrics
 
 - `catalog coverage`
-  - enabled stage-backed scene direct-play catalog coverage `100%`
+  - canonical gameplay shell direct-play catalog coverage `100%`
 - `workflow compliance`
   - manual smoke / close note / bug reproduction note에서 stage-backed scene direct-play 실행 경로가 launcher 경유로만 기록된다.
   - plain Play 재현은 unsupported reference case로만 기록한다.
 - `warning consistency`
-  - plain Play warning과 fail-fast message는 같은 menu path `Tools/Stages/Direct Play/Launch Current Scene`를 안내해야 한다.
+  - plain Play warning과 fail-fast message는 같은 menu path `Tools/Stages/Direct Play/Launch Stage...`를 안내해야 한다.
 - `onboarding parity`
-  - onboarding 문서, smoke checklist, menu entry, supported scene list는 같은 scene 세트와 같은 용어를 사용해야 한다.
+  - onboarding 문서, smoke checklist, menu entry, supported stage list는 같은 stage 세트와 같은 용어를 사용해야 한다.
 
-## Supported Scene Labels
+## Supported Stage Ids
 
-- `Combined Gameplay Showcase`
-- `Tutorial Scene`
-- `UI Audio Scene`
+- `combined-gameplay-showcase`
+- `tutorial-scene`
 
-위 exact scene labels는 onboarding parity와 smoke note에 그대로 사용한다.
+위 exact stage ids는 onboarding parity와 smoke note에 그대로 사용한다.
 
 ## Soft Adoption
 
@@ -66,7 +66,7 @@
   - plain Play unsupported 경고 문구가 고정
 - 허용 friction 완화책:
   - menu shortcut discoverability
-  - `Replay Last Stage-Backed Scene`
+  - `Replay Last Stage`
   - onboarding examples
   - smoke checklist 개선
 

@@ -258,7 +258,7 @@ scene / host configuration explicit settings
 | `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs` | entity-aware motion duration resolution 도입 |
 | `Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs` | 새 authoring 구성요소 연결 시 factory bootstrap 반영 |
 | `Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyAiProfile.cs` | enemy locomotion cadence와 animation-only 금지 경계 유지 |
-| `Assets/Scenes/CombinedGameplayShowcase.unity` 외 showcase assets | player logic field migration, motion/animation override data migration |
+| legacy showcase scene assets and support assets | player logic field migration, motion/animation override data migration |
 
 ## 7. 1단계 완료 기준
 

@@ -71,27 +71,29 @@ namespace Game.Feature.Stages.Editor.Tests
                 provider,
                 "PolicyTestScene")));
 
-            StringAssert.Contains("Tools/Stages/Direct Play/Launch Current Scene", exception?.Message);
+            StringAssert.Contains("Tools/Stages/Direct Play/Launch Stage", exception?.Message);
         }
 
         [Test]
-        public void DirectPlayCatalog_ResolvesSupportedScenePaths()
+        public void DirectPlayCatalog_DefinesCanonicalShellAndSupportedStageIds()
         {
             var catalogAsset = StageEditorDirectPlayCatalog.LoadDefault();
 
             Assert.That(catalogAsset, Is.Not.Null);
-            Assert.That(catalogAsset.TryResolveScenePath("Assets/Scenes/CombinedGameplayShowcase.unity", out var combinedStageId), Is.True);
-            Assert.That(combinedStageId.Value, Is.EqualTo("combined-gameplay-showcase"));
-            Assert.That(catalogAsset.TryResolveScenePath("Assets/Scenes/UIAudioScene.unity", out var uiAudioStageId), Is.True);
-            Assert.That(uiAudioStageId.Value, Is.EqualTo("stage-1-1"));
+            Assert.That(catalogAsset.CanonicalShellScenePath, Is.EqualTo("Assets/Scenes/UIAudioScene.unity"));
+            Assert.That(catalogAsset.IsCanonicalShellScenePath("Assets/Scenes/UIAudioScene.unity"), Is.True);
+            Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("combined-gameplay-showcase")), Is.True);
+            Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("tutorial-scene")), Is.True);
         }
 
         [Test]
-        public void Launcher_PrimesPendingStageIdForRegisteredScene()
+        public void Launcher_PrimesPendingStageIdForSupportedStage()
         {
-            var stageId = StageEditorDirectPlayLauncher.PrimePendingLaunchForScene("Assets/Scenes/TutorialScene.unity");
+            var stageId = StageId.CreateOrThrow("tutorial-scene");
 
-            Assert.That(stageId.Value, Is.EqualTo("tutorial-scene"));
+            StageEditorDirectPlayLauncher.PrimeNonCampaignForTests(stageId);
+
+            Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().StageId, Is.EqualTo(stageId));
             Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out var pendingStageId), Is.True);
             Assert.That(pendingStageId, Is.EqualTo(stageId));
         }
@@ -131,25 +133,23 @@ namespace Game.Feature.Stages.Editor.Tests
                 "Unity.exe",
                 "-captureStage",
                 "tutorial-scene",
-                "-captureScenes",
-                "Assets/Scenes/TutorialScene.unity",
             });
 
             Assert.That(scenes, Is.EqualTo(new[] { "Assets/Scenes/UIAudioScene.unity" }));
         }
 
         [Test]
-        public void PlayerCaptureBuildScenes_RejectsDirectTutorialSceneWithoutCaptureStage()
+        public void PlayerCaptureBuildScenes_RejectsGameplayShellSceneWithoutCaptureStage()
         {
             var exception = Assert.Throws<System.InvalidOperationException>(() =>
                 PlayerProfilerCaptureCli.ResolveBuildScenesForTests(new[]
                 {
                     "Unity.exe",
                     "-captureScenes",
-                    "Assets/Scenes/TutorialScene.unity",
+                    "Assets/Scenes/UIAudioScene.unity",
                 }));
 
-            StringAssert.Contains("--capture-stage tutorial-scene", exception?.Message);
+            StringAssert.Contains("--capture-stage", exception?.Message);
         }
     }
 }

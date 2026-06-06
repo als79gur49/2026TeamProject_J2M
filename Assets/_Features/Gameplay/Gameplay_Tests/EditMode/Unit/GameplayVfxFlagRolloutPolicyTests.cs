@@ -19,9 +19,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string WorldSnapshotPath = "Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldSnapshot.cs";
         private const string TickPresentationDataPath =
             "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPresentationData.cs";
-        private const string CombinedGameplayShowcaseScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string UIAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
-        private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
 
         private static readonly FlagInfo[] VfxFlags =
         {
@@ -151,23 +149,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ShowcaseScene_FlagsAreExplicit()
+        public void CanonicalGameplayShell_FlagsAreExplicit()
         {
-            var combinedScene = ReadRepoFile(CombinedGameplayShowcaseScenePath);
-            Assert.That(combinedScene, Does.Contain("enableEnemyJumpTargetVfx: 1"));
-            Assert.That(combinedScene, Does.Contain("enableEnemyJumpLandingDustVfx: 1"));
-
             var uiAudioScene = ReadRepoFile(UIAudioScenePath);
             foreach (var flag in VfxFlags)
             {
                 Assert.That(uiAudioScene, Does.Contain($"{flag.SerializedFieldName}: 1"), $"{flag.PropertyName} must be explicit in UIAudioScene review override.");
-            }
-
-            var tutorialScene = ReadRepoFile(TutorialScenePath);
-            foreach (var flag in VfxFlags)
-            {
-                Assert.That(tutorialScene, Does.Contain($"{flag.SerializedFieldName}: 0"), $"{flag.PropertyName} must be explicit off in TutorialScene.");
-                Assert.That(tutorialScene, Does.Not.Contain($"{flag.SerializedFieldName}: 1"), $"{flag.PropertyName} must not be on in TutorialScene.");
             }
         }
 

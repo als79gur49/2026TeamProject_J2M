@@ -399,7 +399,7 @@ GameplaySceneHost
 - 신규 `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayShowcaseScaffoldTests.cs`
 - `Assets/Scenes/CubeSurfaceTraversalShowcase.unity`
 - `Assets/Scenes/BoxInteractionShowcase.unity`
-- `Assets/Scenes/CombinedGameplayShowcase.unity`
+- legacy combined gameplay showcase scene asset
 
 구현 태스크:
 

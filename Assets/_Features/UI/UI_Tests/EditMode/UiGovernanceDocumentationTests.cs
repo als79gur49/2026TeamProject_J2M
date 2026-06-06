@@ -41,14 +41,14 @@ namespace Game.Feature.UI.Tests
             Assert.That(guide, Does.Contain("UI hardening"));
             Assert.That(guide, Does.Contain("PlayMode escalation triggers"));
             Assert.That(guide, Does.Contain("UI-EditMode-Baseline-2026-04-15.md"));
-            Assert.That(guide, Does.Contain("TutorialScene-Manual-Runtime-Smoke-Plan.md"));
+            Assert.That(guide, Does.Contain("GameplayShell-Manual-Runtime-Smoke-Plan.md"));
             Assert.That(guide, Does.Contain("Display-Settings-Build-Validation-Checklist.md"));
             Assert.That(guide, Does.Contain("targeted display architecture validated"));
             Assert.That(guide, Does.Contain("real-build manual display validation completed"));
             Assert.That(guide, Does.Contain("Editor-only execution is insufficient evidence for fullscreen/window correctness."));
             Assert.That(guide, Does.Contain("green on 2026-06-06 KST"));
             Assert.That(guide, Does.Contain("Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
-            Assert.That(guide, Does.Contain("Unity UI EditMode `648 total / 0 failed`"));
+            Assert.That(guide, Does.Contain("Unity UI EditMode `646 total / 0 failed`"));
             Assert.That(guide, Does.Contain("UI-Current-Structure-Source.md"));
             Assert.That(guide, Does.Contain("current UI structure or stale-token audit policy changes"));
             Assert.That(guide, Does.Contain("2차 UI canonical 보정 보고서에 기록된 UI red 사유"));
@@ -57,7 +57,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(guide, Does.Contain("EnemyTargetEligibilityResult"));
             Assert.That(guide, Does.Contain("PendingEnemyBlockedReaction"));
             Assert.That(guide, Does.Contain("UI deletion candidates are removed only when the product decision, current lane evidence, and baseline note update land in the same change."));
-            Assert.That(guide, Does.Not.Contain("46 total / 0 failed"));
+            Assert.That(guide, Does.Not.Contain("`46 total / 0 failed`"));
         }
 
         [Test]
@@ -109,7 +109,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(baseline, Does.Contain("Current Phase 1 drift-correction rerun: green on 2026-06-06 KST"));
             Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
-            Assert.That(baseline, Does.Contain("Current Unity UI EditMode: `648 total / 0 failed`"));
+            Assert.That(baseline, Does.Contain("Current Unity UI EditMode: `646 total / 0 failed`"));
             Assert.That(baseline, Does.Contain("external structure-source regeneration guard"));
             Assert.That(baseline, Does.Contain("root `UI-Current-Structure-Source.md` is the external current-structure source"));
             Assert.That(baseline, Does.Contain("canonical UI navigation resolver guards"));
@@ -141,11 +141,11 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void TutorialSceneManualRuntimeSmokePlan_PreservesBoundedArchitectureFocusedSections()
+        public void GameplayShellManualRuntimeSmokePlan_PreservesBoundedArchitectureFocusedSections()
         {
-            var smokePlan = ReadRepoFile("Docs/Testing/TutorialScene-Manual-Runtime-Smoke-Plan.md");
+            var smokePlan = ReadRepoFile("Docs/Testing/GameplayShell-Manual-Runtime-Smoke-Plan.md");
 
-            Assert.That(smokePlan, Does.Contain("# TutorialScene Manual Runtime Smoke Plan"));
+            Assert.That(smokePlan, Does.Contain("# Gameplay Shell Manual Runtime Smoke Plan"));
             Assert.That(smokePlan, Does.Contain("## 1. Overall Evaluation"));
             Assert.That(smokePlan, Does.Contain("## 2. Preserved Strengths"));
             Assert.That(smokePlan, Does.Contain("## 3. Remaining Execution Risks"));

@@ -23,15 +23,13 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void NonCampaignDirectPlay_PrimesSuppressContext()
         {
-            Assert.That(
-                StageEditorDirectPlayLauncher.TryPrimePendingLaunchForScene(
-                    "Assets/Scenes/UIAudioScene.unity",
-                    out var stageId),
-                Is.True);
+            var stageId = StageId.CreateOrThrow("stage-1-1");
 
-            Assert.That(stageId.Value, Is.EqualTo("stage-1-1"));
+            StageEditorDirectPlayLauncher.PrimeNonCampaignForTests(stageId);
+
             Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out var context), Is.True);
             Assert.That(context.Mode, Is.EqualTo(EditorDirectPlayMode.NonCampaign));
+            Assert.That(context.StageId, Is.EqualTo(stageId));
             Assert.That(context.SuppressCampaignFlow, Is.True);
             Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out var pending), Is.True);
             Assert.That(pending, Is.EqualTo(stageId));

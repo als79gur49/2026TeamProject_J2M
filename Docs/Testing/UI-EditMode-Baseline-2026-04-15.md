@@ -13,7 +13,7 @@
 - Pinned Unity UI EditMode: `155 total / 0 failed`
 - Current Phase 1 drift-correction rerun: green on 2026-06-06 KST
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `648 total / 0 failed`
+- Current Unity UI EditMode: `646 total / 0 failed`
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
@@ -25,9 +25,9 @@
   - controller/coordinator public-surface freeze tests for `UIFlowCoordinator`, `ScreenController`, `PopupController`, and `UIBlockPolicy`
   - deterministic controller/policy guards for `PopTo`, runtime action relay, close-all ordering, backdrop routing, and older-frame refresh behavior
   - diagnostics overlay residue absence guards proving the removed runtime feature does not remain in production UI code, installer hotkeys, or the canonical root shell
-  - governance documentation tests for baseline structure, stale wording removal, PlayMode escalation-marker enforcement, and `TutorialScene` manual runtime smoke-plan governance
+  - governance documentation tests for baseline structure, stale wording removal, PlayMode escalation-marker enforcement, and gameplay shell manual runtime smoke-plan governance
   - structural drift guards for root-owned state, child public surfaces, and input-bag/non-flow leakage
-  - `TutorialScene` scene contract guard proving one canonical gameplay/bootstrap root path, one serialized installer/host binding, and no serialized duplicate UI residue
+  - gameplay shell UI/audio contract guard proving one canonical gameplay/bootstrap root path, one serialized installer/host binding, and no serialized duplicate UI residue
   - canonical stage-clear integration guard proving gameplay host + installer flow transitions into the Stage 7 `StageResult` screen without relying on the legacy overlay path
   - canonical root-shell prefab structure guards proving the runtime shell contains only infrastructure children and no serialized feature views
   - HUD prefab migration guards proving the installer mounts one authored HUD prefab under `HudLayer`, the shell remains HUD-markup free, and the legacy HUD builder symbols are absent from code and docs
@@ -42,8 +42,8 @@
   - external structure-source regeneration guard proving root `UI-Current-Structure-Source.md` mirrors the current 3-layer shell, identity lists, DemoStageControl classification, retired ActionBar status, removed diagnostics status, canonical transition path, and resolver-only navigation state
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `648 total / 0 failed`
-  - delta: `+584` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, canonical navigation resolver-only enforcement, and current-structure source regeneration
+  - current rerun: `646 total / 0 failed`
+  - delta: `+582` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical gameplay shell adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, canonical navigation resolver-only enforcement, and current-structure source regeneration
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
@@ -120,7 +120,7 @@
   - no popup/flow ownership or global child input-bag convenience is added to the action child
 - Help is also not a current gameplay screen; any older Help-as-screen wording is documentation drift or historical context only
 - UI diagnostics overlay was removed as an unused runtime feature; it is not hidden, dev-only retained, or a protected runtime path
-- `TutorialScene` now preserves one canonical `GameplaySceneHost -> GameplayUiFlowInstaller` bootstrap path with no serialized duplicate UI roots, duplicate input-routing roots, or pre-authored popup/screen lifecycle trees
+- `UIAudioScene` now preserves one canonical `GameplaySceneHost -> GameplayUiFlowInstaller` bootstrap path with no serialized duplicate UI roots, duplicate input-routing roots, or pre-authored popup/screen lifecycle trees
 - canonical UI bootstrap now instantiates one prefab-authored root shell named `GameplayUiCanvasRoot`, and that shell remains infrastructure-only at the top level with `HudLayer`, `ScreenLayer`, and `PopupLayer`
 - root `UI-Current-Structure-Source.md` is the external current-structure source for docs regeneration and stale-token audits; it mirrors the 3-layer root shell, current `ScreenId` / `PopupId` lists, HUD membership, DemoStageControl preservation, diagnostics removal, scene transition shell/catalog path, and resolver-only navigation state
 - scene transition overlay runtime uses the canonical shell asset and authored content catalog only; missing shell/catalog setup is surfaced as a defect instead of rebuilding UI at runtime

@@ -28,8 +28,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayCameraTopologyAuthoring";
         private static readonly string[] ScenePaths =
         {
-            "Assets/Scenes/CombinedGameplayShowcase.unity",
-            "Assets/Scenes/TutorialScene.unity",
             "Assets/Scenes/UIAudioScene.unity",
         };
 
@@ -108,7 +106,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ShowcaseInstallerScenes_PreserveSerializedCameraDistanceModeMeaning()
+        public void GameplayShellScene_PreservesSerializedCameraDistanceModeMeaning()
         {
             foreach (var scenePath in ScenePaths)
             {
@@ -144,7 +142,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ShowcaseInstallerSerializedDistanceMode_Path_RetainsSameFieldSlotAcrossOwnershipCleanup()
+        public void GameplayShellSerializedDistanceMode_Path_RetainsSameFieldSlotAcrossOwnershipCleanup()
         {
             EditorSceneManager.OpenScene(ScenePaths[0], OpenSceneMode.Single);
 

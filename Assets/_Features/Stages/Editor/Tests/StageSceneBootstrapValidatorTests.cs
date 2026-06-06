@@ -7,8 +7,6 @@ namespace Game.Feature.Stages.Editor.Tests
     {
         private static readonly string[] ProductionScenePaths =
         {
-            "Assets/Scenes/CombinedGameplayShowcase.unity",
-            "Assets/Scenes/TutorialScene.unity",
             "Assets/Scenes/UIAudioScene.unity",
         };
 

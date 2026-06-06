@@ -356,7 +356,7 @@ future extension note:
 ### 8.4 Canonical Bootstrap Root Contract
 
 - audio-first settings를 노출하는 scene에서 `GameplayUiFlowInstaller`가 존재하면 같은 canonical bootstrap root `GameObject`에 정확히 하나의 `AudioRuntimeInstaller`가 co-located 되어야 한다.
-- current canonical scenes는 `TutorialScene`과 `UIAudioScene`이다.
+- current canonical scene는 `UIAudioScene`이다.
 - 여기서 co-located의 의미는 scene-wide search가 아니라 `GameplayUiFlowInstaller`가 붙은 바로 그 same `GameObject`다.
 - missing installer fail-fast message는 아래 exact string으로 고정한다.
   - `GameplayUiFlowInstaller requires a co-located AudioRuntimeInstaller on the canonical bootstrap root for SettingsScreen audio controls.`

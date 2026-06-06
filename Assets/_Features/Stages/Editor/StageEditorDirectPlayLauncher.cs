@@ -11,10 +11,9 @@ namespace Game.Feature.Stages.Editor
     [InitializeOnLoad]
     public static class StageEditorDirectPlayLauncher
     {
-        private const string LastScenePathSessionKey = "Game.Feature.Stages.LastEditorDirectPlayScenePath";
-        private const string CombinedGameplayShowcaseScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
-        private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
-        private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
+        private const string LastStageIdSessionKey = "Game.Feature.Stages.LastEditorDirectPlayStageId";
+        private const string CombinedGameplayShowcaseStageId = "combined-gameplay-showcase";
+        private const string TutorialSceneStageId = "tutorial-scene";
 
         static StageEditorDirectPlayLauncher()
         {
@@ -30,62 +29,43 @@ namespace Game.Feature.Stages.Editor
                 throw new InvalidOperationException("Open a saved stage-backed scene before using direct play.");
             }
 
-            LaunchScene(scenePath);
-        }
-
-        [MenuItem("Tools/Stages/Direct Play/Replay Last Stage-Backed Scene")]
-        public static void LaunchLastScene()
-        {
-            var scenePath = SessionState.GetString(LastScenePathSessionKey, string.Empty);
-            if (string.IsNullOrWhiteSpace(scenePath))
+            var catalog = StageEditorDirectPlayCatalog.LoadDefault();
+            if (catalog == null || !catalog.IsCanonicalShellScenePath(scenePath))
             {
-                throw new InvalidOperationException("No stage-backed scene has been launched yet in this editor session.");
+                throw new InvalidOperationException(BuildUnsupportedSceneMessage(scenePath));
             }
 
-            LaunchScene(scenePath);
+            LaunchLastStage();
         }
 
-        [MenuItem("Tools/Stages/Direct Play/Supported Scenes/Combined Gameplay Showcase")]
+        [MenuItem("Tools/Stages/Direct Play/Replay Last Stage")]
+        public static void LaunchLastStage()
+        {
+            var stageIdValue = SessionState.GetString(LastStageIdSessionKey, string.Empty);
+            if (!StageId.TryCreate(stageIdValue, out var stageId))
+            {
+                throw new InvalidOperationException("No stage id has been launched yet in this editor session. Use Tools/Stages/Direct Play/Launch Stage... first.");
+            }
+
+            LaunchStage(stageId, EditorDirectPlayMode.NonCampaign, SaveSlotStore.DefaultRemainingChances);
+        }
+
+        [MenuItem("Tools/Stages/Direct Play/Supported Stage Ids/combined-gameplay-showcase")]
         public static void LaunchCombinedGameplayShowcase()
         {
-            LaunchScene(CombinedGameplayShowcaseScenePath);
+            LaunchStage(
+                StageId.CreateOrThrow(CombinedGameplayShowcaseStageId),
+                EditorDirectPlayMode.NonCampaign,
+                SaveSlotStore.DefaultRemainingChances);
         }
 
-        [MenuItem("Tools/Stages/Direct Play/Supported Scenes/Tutorial Scene")]
+        [MenuItem("Tools/Stages/Direct Play/Supported Stage Ids/tutorial-scene")]
         public static void LaunchTutorialScene()
         {
-            LaunchScene(TutorialScenePath);
-        }
-
-        [MenuItem("Tools/Stages/Direct Play/Supported Scenes/UI Audio Scene")]
-        public static void LaunchUiAudioScene()
-        {
-            LaunchScene(UiAudioScenePath);
-        }
-
-        public static StageId PrimePendingLaunchForScene(string scenePath)
-        {
-            if (!TryPrimePendingLaunchForScene(scenePath, out var stageId))
-            {
-                throw new InvalidOperationException(BuildMissingCatalogMessage(scenePath));
-            }
-
-            return stageId;
-        }
-
-        public static bool TryPrimePendingLaunchForScene(string scenePath, out StageId stageId)
-        {
-            var catalog = StageEditorDirectPlayCatalog.LoadDefault();
-            if (catalog == null || !catalog.TryResolveScenePath(scenePath, out stageId))
-            {
-                stageId = StageId.None;
-                return false;
-            }
-
-            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
-            StageLaunchContextStore.PrimePendingEditorDirectPlay(stageId);
-            RememberLastLaunch(scenePath);
-            return true;
+            LaunchStage(
+                StageId.CreateOrThrow(TutorialSceneStageId),
+                EditorDirectPlayMode.NonCampaign,
+                SaveSlotStore.DefaultRemainingChances);
         }
 
         public static void LaunchStage(
@@ -141,7 +121,7 @@ namespace Game.Feature.Stages.Editor
 
                 StageLaunchContextStore.PrimePendingEditorDirectPlay(stageId);
                 EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
-                RememberLastLaunch(scenePath);
+                RememberLastStage(stageId);
                 EditorApplication.isPlaying = true;
             }
             catch
@@ -155,6 +135,18 @@ namespace Game.Feature.Stages.Editor
         public static void ClearTempDirectPlaySave()
         {
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
+        }
+
+        public static void PrimeNonCampaignForTests(StageId stageId)
+        {
+            if (!stageId.IsValid)
+            {
+                throw new ArgumentException("Direct Play requires a valid StageId.", nameof(stageId));
+            }
+
+            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            StageLaunchContextStore.PrimePendingEditorDirectPlay(stageId);
+            RememberLastStage(stageId);
         }
 
         public static bool ExportStandaloneCampaignSaveSeedWithSavePanel(
@@ -224,27 +216,7 @@ namespace Game.Feature.Stages.Editor
         {
             PrimeCampaignTempSlot(stageId, sequenceResolver, remainingChances);
             StageLaunchContextStore.PrimePendingEditorDirectPlay(stageId);
-        }
-
-        private static void LaunchScene(string scenePath)
-        {
-            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
-            {
-                return;
-            }
-
-            try
-            {
-                PrimePendingLaunchForScene(scenePath);
-                EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
-                RememberLastLaunch(scenePath);
-                EditorApplication.isPlaying = true;
-            }
-            catch
-            {
-                StageLaunchContextStore.Clear();
-                throw;
-            }
+            RememberLastStage(stageId);
         }
 
         private static void HandlePlayModeStateChanged(PlayModeStateChange change)
@@ -268,7 +240,7 @@ namespace Game.Feature.Stages.Editor
             }
 
             var catalog = StageEditorDirectPlayCatalog.LoadDefault();
-            if (catalog == null || !catalog.TryResolveScenePath(scenePath, out var expectedStageId))
+            if (catalog == null || !catalog.IsCanonicalShellScenePath(scenePath))
             {
                 return;
             }
@@ -279,18 +251,18 @@ namespace Game.Feature.Stages.Editor
             }
 
             Debug.LogWarning(
-                $"Scene '{scenePath}' is stage-backed and requires a canonical StageId launch context. Use Tools/Stages/Direct Play/Launch Current Scene to inject '{expectedStageId.Value}' before entering Play mode.");
+                $"Scene '{scenePath}' is the canonical stage-backed gameplay shell and requires a StageId launch context. Use Tools/Stages/Direct Play/Launch Stage... before entering Play mode.");
         }
 
-        private static void RememberLastLaunch(string scenePath)
+        private static void RememberLastStage(StageId stageId)
         {
-            SessionState.SetString(LastScenePathSessionKey, scenePath ?? string.Empty);
+            SessionState.SetString(LastStageIdSessionKey, stageId.IsValid ? stageId.Value : string.Empty);
         }
 
-        private static string BuildMissingCatalogMessage(string scenePath)
+        private static string BuildUnsupportedSceneMessage(string scenePath)
         {
             return
-                $"Scene '{scenePath}' is not registered in {nameof(StageEditorDirectPlayCatalog)} at '{StageEditorDirectPlayCatalog.DefaultAssetPath}'.";
+                $"Scene '{scenePath}' is not the canonical direct-play gameplay shell. Use Tools/Stages/Direct Play/Launch Stage... to choose a StageId and open the configured gameplay shell.";
         }
 
         private static void PrimeCampaignTempSlot(

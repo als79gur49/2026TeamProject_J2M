@@ -48,7 +48,7 @@
 
 ## 4. Canonical Bootstrap Path
 
-- canonical persistent-flow scene는 `TutorialScene`과 `UIAudioScene`이다.
+- canonical persistent-flow scene는 `UIAudioScene`이다.
 - canonical scene bootstrap root에는 아래 두 component가 함께 있어야 한다.
   - `AudioRuntimeInstaller`
   - `GlobalAudioFlowBootstrap`

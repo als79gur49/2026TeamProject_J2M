@@ -129,10 +129,10 @@ public static class PlayerProfilerCaptureCli
 
         foreach (var scene in scenes)
         {
-            if (directPlayCatalog.TryResolveScenePath(scene, out var stageId))
+            if (directPlayCatalog.IsCanonicalShellScenePath(scene))
             {
                 throw new InvalidOperationException(
-                    $"Player capture cannot build stage-backed scene '{scene}' directly without {PlayerCaptureLaunchOptions.CaptureStageArg} {stageId.Value}. Use the gameplay shell scene plus a capture stage argument.");
+                    $"Player capture cannot build gameplay shell scene '{scene}' directly without {PlayerCaptureLaunchOptions.CaptureStageArg}. Use the gameplay shell scene plus a capture stage argument.");
             }
         }
     }

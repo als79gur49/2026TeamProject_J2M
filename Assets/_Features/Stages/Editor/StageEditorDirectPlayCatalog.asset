@@ -12,13 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bd7ff34ccb730367022daf0921341365, type: 3}
   m_Name: StageEditorDirectPlayCatalog
   m_EditorClassIdentifier: 
-  entries:
-  - ScenePath: Assets/Scenes/CombinedGameplayShowcase.unity
-    StageId:
+  canonicalShellScenePath: Assets/Scenes/UIAudioScene.unity
+  supportedStages:
+  - StageId:
       value: combined-gameplay-showcase
-  - ScenePath: Assets/Scenes/TutorialScene.unity
-    StageId:
+  - StageId:
       value: tutorial-scene
-  - ScenePath: Assets/Scenes/UIAudioScene.unity
-    StageId:
+  - StageId:
+      value: stage-0-1
+  - StageId:
       value: stage-1-1

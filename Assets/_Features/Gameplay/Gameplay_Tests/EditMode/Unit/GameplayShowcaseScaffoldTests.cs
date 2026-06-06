@@ -1097,8 +1097,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
     public sealed class GameplayShowcaseAssetMigrationTests
     {
-        private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
-        private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
         private const string CombinedSceneInstallerIdentifier =
             "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
@@ -1115,9 +1113,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseScene_SerializesTimingPresetReferencesInsteadOfLegacyTimingFields()
+        public void GameplayShellScene_SerializesTimingPresetReferencesInsteadOfLegacyTimingFields()
         {
-            var installerBlock = ReadInstallerBlock(CombinedScenePath, CombinedSceneInstallerIdentifier);
+            var installerBlock = ReadInstallerBlock(UiAudioScenePath, CombinedSceneInstallerIdentifier);
 
             AssertUsesTimingPresetReferences(
                 installerBlock,
@@ -1141,9 +1139,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseScene_DoesNotSerializeSceneLocalPresentationCompatReferences()
+        public void GameplayShellScene_DoesNotSerializeSceneLocalPresentationCompatReferences()
         {
-            var scenePaths = new[] { CombinedScenePath, TutorialScenePath, UiAudioScenePath };
+            var scenePaths = new[] { UiAudioScenePath };
             for (var i = 0; i < scenePaths.Length; i++)
             {
                 var installerBlock = ReadInstallerBlock(scenePaths[i], CombinedSceneInstallerIdentifier);
@@ -1183,10 +1181,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ShowcaseScenes_SerializeCinemachineBootstrapWithoutExtraBlendDamping()
+        public void GameplayShellScene_SerializesCinemachineBootstrapWithoutExtraBlendDamping()
         {
-            AssertShowcaseSceneUsesCutBrainBlend(CombinedScenePath);
-            AssertShowcaseSceneUsesCutBrainBlend(TutorialScenePath);
+            AssertShowcaseSceneUsesCutBrainBlend(UiAudioScenePath);
         }
 
         private static string ReadNormalizedText(string assetPath)
