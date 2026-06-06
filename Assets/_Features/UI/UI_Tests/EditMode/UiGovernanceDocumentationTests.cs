@@ -46,7 +46,18 @@ namespace Game.Feature.UI.Tests
             Assert.That(guide, Does.Contain("targeted display architecture validated"));
             Assert.That(guide, Does.Contain("real-build manual display validation completed"));
             Assert.That(guide, Does.Contain("Editor-only execution is insufficient evidence for fullscreen/window correctness."));
-            Assert.That(guide, Does.Not.Contain("46 total / 0 failed"));
+            Assert.That(guide, Does.Contain("green on 2026-06-06 KST"));
+            Assert.That(guide, Does.Contain("Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
+            Assert.That(guide, Does.Contain("Unity UI EditMode `646 total / 0 failed`"));
+            Assert.That(guide, Does.Contain("UI-Current-Structure-Source.md"));
+            Assert.That(guide, Does.Contain("current UI structure or stale-token audit policy changes"));
+            Assert.That(guide, Does.Contain("2차 UI canonical 보정 보고서에 기록된 UI red 사유"));
+            Assert.That(guide, Does.Contain("SurfaceBeltButtonBadgeStyleProfile"));
+            Assert.That(guide, Does.Contain("SurfaceBeltButtonBadgeGroupView"));
+            Assert.That(guide, Does.Contain("EnemyTargetEligibilityResult"));
+            Assert.That(guide, Does.Contain("PendingEnemyBlockedReaction"));
+            Assert.That(guide, Does.Contain("UI deletion candidates are removed only when the product decision, current lane evidence, and baseline note update land in the same change."));
+            Assert.That(guide, Does.Not.Contain("`46 total / 0 failed`"));
         }
 
         [Test]
@@ -64,12 +75,69 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("UI SFX ownership is split between coordinator-owned flow outcome cues, local widget/HUD cues, and transition-overlay whitelist cues"));
             Assert.That(guidelines, Does.Contain("the coordinator transaction/outcome layer is the only flow-cue trigger seam"));
             Assert.That(guidelines, Does.Contain("Audio-Architecture-Guidelines.md"));
+            Assert.That(guidelines, Does.Contain("Current canonical identity lists"));
+            Assert.That(guidelines, Does.Contain("UI-Current-Structure-Source.md"));
+            Assert.That(guidelines, Does.Contain("`StageResult`, `LevelFailed`, and `GameClear` are canonical terminal result screens."));
+            Assert.That(guidelines, Does.Contain("`Help` and `Inventory` are not current gameplay screens."));
+            Assert.That(guidelines, Does.Contain("`DemoStageControl` is not a gameplay popup catalog entry."));
+            Assert.That(guidelines, Does.Contain("catalog-less runtime assist popup created through the factory/runtime/hotkey path"));
+            Assert.That(guidelines, Does.Contain("build-included tester/demo/showcase assist feature"));
+            Assert.That(guidelines, Does.Contain("tester assist clear, hard-section bypass, showcase navigation, and stage browsing"));
+            Assert.That(guidelines, Does.Contain("not a deletion candidate and is not a dev-only compile exclusion target"));
+            Assert.That(guidelines, Does.Contain("separate product/build configuration decision"));
+            Assert.That(guidelines, Does.Contain("not by a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate"));
+            AssertDemoStageControlStalePolicyPhrasesAreAbsent(guidelines);
+            Assert.That(guidelines, Does.Contain("canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
+            Assert.That(guidelines, Does.Contain("removed as retired HUD proof residue"));
+            Assert.That(guidelines, Does.Contain("Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path"));
+            Assert.That(guidelines, Does.Contain("UI diagnostics overlay was removed as an unused runtime feature after an explicit owner decision."));
+            Assert.That(guidelines, Does.Contain("Canonical runtime UI must not include a diagnostics overlay, `DiagnosticsLayer`, or F3/F4 diagnostics input path."));
+            Assert.That(guidelines, Does.Not.Contain("Diagnostics overlay is also not a deletion-safe item in this phase."));
+            Assert.That(guidelines, Does.Contain("This deletion decision does not change Push/Flip readiness mapping or gameplay command ownership."));
             Assert.That(
                 guidelines,
                 Does.Contain("PausePopup completion semantics are coordinator-owned: Resumed and Closed are resume-equivalent exits, while SettingsRequested and ObjectiveRequested keep gameplay paused, open their destination screen, and return back to a fresh PausePopup."));
             Assert.That(guidelines, Does.Not.Contain("screen-specific presenters, viewmodels, views, and screen composition"));
             Assert.That(guidelines, Does.Not.Contain("popup-specific presenters, viewmodels, views, and popup composition"));
             Assert.That(guidelines, Does.Not.Contain("persistent HUD-specific presenters, viewmodels, views, and HUD composition"));
+        }
+
+        [Test]
+        public void UiBaselineNote_RecordsPhaseOneCanonicalDriftCorrections_AndDeletionProtections()
+        {
+            var baseline = ReadRepoFile("Docs/Testing/UI-EditMode-Baseline-2026-04-15.md");
+
+            Assert.That(baseline, Does.Contain("Current Phase 1 drift-correction rerun: green on 2026-06-06 KST"));
+            Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
+            Assert.That(baseline, Does.Contain("Current Unity UI EditMode: `646 total / 0 failed`"));
+            Assert.That(baseline, Does.Contain("external structure-source regeneration guard"));
+            Assert.That(baseline, Does.Contain("root `UI-Current-Structure-Source.md` is the external current-structure source"));
+            Assert.That(baseline, Does.Contain("canonical UI navigation resolver guards"));
+            Assert.That(baseline, Does.Contain("legacy navigation router setup coverage is replaced with `IUiNavigationTargetResolver` fixture coverage plus public-surface absence guards"));
+            Assert.That(baseline, Does.Contain("Prior 2차 UI canonical correction report red reason"));
+            Assert.That(baseline, Does.Contain("SurfaceBeltButtonBadgeStyleProfile"));
+            Assert.That(baseline, Does.Contain("SurfaceBeltButtonBadgeGroupView"));
+            Assert.That(baseline, Does.Contain("EnemyTargetEligibilityResult"));
+            Assert.That(baseline, Does.Contain("PendingEnemyBlockedReaction"));
+            Assert.That(baseline, Does.Contain("retired HUD proof residue was removed after product option B was selected"));
+            Assert.That(baseline, Does.Contain("Help is also not a current gameplay screen"));
+            Assert.That(baseline, Does.Contain("current canonical `ScreenId` values are `None`, `Gameplay`, `ObjectiveStatus`, `Settings`, `StageResult`, `LevelFailed`, and `GameClear`"));
+            Assert.That(baseline, Does.Contain("`StageResultScreen`, `LevelFailedScreen`, and `GameClearScreen` remain runtime-owned terminal result screens"));
+            Assert.That(baseline, Does.Contain("current canonical `PopupId` values are `None`, `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, `Reward`, and `DemoStageControl`"));
+            Assert.That(baseline, Does.Contain("`DemoStageControl` is a catalog-less runtime assist popup created through the factory/runtime/hotkey path and not a gameplay popup catalog entry"));
+            Assert.That(baseline, Does.Contain("`DemoStageControl` is a build-included tester/demo/showcase assist feature"));
+            Assert.That(baseline, Does.Contain("tester assist clear, hard-section bypass, showcase navigation, and stage browsing"));
+            Assert.That(baseline, Does.Contain("it is not a deletion candidate or dev-only compile exclusion target"));
+            Assert.That(baseline, Does.Contain("future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision"));
+            Assert.That(baseline, Does.Contain("not a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate"));
+            Assert.That(baseline, Does.Contain("`Reward` and `Confirm` remain protected canonical popup paths"));
+            Assert.That(baseline, Does.Contain("canonical HUD composition is `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
+            Assert.That(baseline, Does.Contain("UI diagnostics overlay was removed as an unused runtime feature; it is not hidden, dev-only retained, or a protected runtime path"));
+            Assert.That(baseline, Does.Contain("protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridges, and `StageNavigationRequest`"));
+            Assert.That(baseline, Does.Not.Contain("diagnostics overlay pending a separate production/dev-only policy decision"));
+            AssertDemoStageControlStalePolicyPhrasesAreAbsent(baseline);
+            Assert.That(baseline, Does.Not.Contain("HelpScreen remains"));
+            Assert.That(baseline, Does.Not.Contain("InventoryScreen remains"));
         }
 
         [Test]
@@ -85,7 +153,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(smokePlan, Does.Contain("## 5. High-Risk Runtime Flow Rules"));
             Assert.That(smokePlan, Does.Contain("## 6. Tooltip Path Classification Rules"));
             Assert.That(smokePlan, Does.Contain("## 7. Stage-Clear Validation Rules"));
-            Assert.That(smokePlan, Does.Contain("## 8. Diagnostics Priority Rules"));
+            Assert.That(smokePlan, Does.Contain("## 8. Removed Diagnostics Overlay Rules"));
             Assert.That(smokePlan, Does.Contain("## 9. Evidence and Failure Classification Rules"));
             Assert.That(smokePlan, Does.Contain("## 10. Freeze Gate"));
             Assert.That(smokePlan, Does.Contain("Tier 1"));
@@ -99,11 +167,59 @@ namespace Game.Feature.UI.Tests
             Assert.That(smokePlan, Does.Contain("Inconclusive/manual follow-up needed"));
             Assert.That(smokePlan, Does.Contain("up to 3 deliberate attempts"));
             Assert.That(smokePlan, Does.Contain("up to 10 focused minutes"));
-            Assert.That(smokePlan, Does.Contain("Diagnostics remain secondary"));
+            Assert.That(smokePlan, Does.Contain("Diagnostics overlay is a removed unused runtime feature"));
+            Assert.That(smokePlan, Does.Contain("Manual smoke should not attempt F3/F4 diagnostics overlay interaction."));
+            Assert.That(smokePlan, Does.Contain("UI-Current-Structure-Source.md"));
+            Assert.That(smokePlan, Does.Contain("top-level canonical gameplay UI shell has `HudLayer`, `ScreenLayer`, and `PopupLayer`, with no `DiagnosticsLayer`"));
             Assert.That(smokePlan, Does.Contain("architecture-focused"));
             Assert.That(smokePlan, Does.Contain("Do not add scene-local helpers"));
             Assert.That(smokePlan, Does.Contain("artificial debug triggers"));
             Assert.That(smokePlan, Does.Contain("editor-only execution is insufficient evidence"));
+        }
+
+        [Test]
+        public void UiCurrentStructureSource_RecordsCleanupWaveCanonicalState_AndStaleTokenPolicy()
+        {
+            var source = ReadRepoFile("UI-Current-Structure-Source.md");
+
+            Assert.That(source, Does.Contain("# UI Current Structure Source"));
+            Assert.That(source, Does.Contain("`HudLayer`"));
+            Assert.That(source, Does.Contain("`ScreenLayer`"));
+            Assert.That(source, Does.Contain("`PopupLayer`"));
+            Assert.That(source, Does.Contain("`DiagnosticsLayer` is absent."));
+            Assert.That(source, Does.Contain("`None`"));
+            Assert.That(source, Does.Contain("`Gameplay`"));
+            Assert.That(source, Does.Contain("`ObjectiveStatus`"));
+            Assert.That(source, Does.Contain("`Settings`"));
+            Assert.That(source, Does.Contain("`StageResult`"));
+            Assert.That(source, Does.Contain("`LevelFailed`"));
+            Assert.That(source, Does.Contain("`GameClear`"));
+            Assert.That(source, Does.Contain("`Pause`"));
+            Assert.That(source, Does.Contain("`ObjectiveInfo`"));
+            Assert.That(source, Does.Contain("`Confirm`"));
+            Assert.That(source, Does.Contain("`Tooltip`"));
+            Assert.That(source, Does.Contain("`Reward`"));
+            Assert.That(source, Does.Contain("`DemoStageControl` is not a gameplay popup catalog entry."));
+            Assert.That(source, Does.Contain("catalog-less runtime assist popup"));
+            Assert.That(source, Does.Contain("build-included tester/demo/showcase assist feature"));
+            Assert.That(source, Does.Contain("not a deletion candidate and is not a dev-only compile exclusion target"));
+            Assert.That(source, Does.Contain("`ActionBar` is removed retired HUD proof residue."));
+            Assert.That(source, Does.Contain("`Help` and `Inventory` are not current gameplay screens."));
+            Assert.That(source, Does.Contain("no `UiArchitectureDiagnostics`"));
+            Assert.That(source, Does.Contain("no `DiagnosticsOverlay`"));
+            Assert.That(source, Does.Contain("no F3/F4 diagnostics overlay input path"));
+            Assert.That(source, Does.Contain("`SceneTransitionOverlayShell` plus `SceneTransitionOverlayContentCatalog`"));
+            Assert.That(source, Does.Contain("`SceneTransitionOverlayView`, `UI/SceneTransitionOverlayView`, generated fallback, and legacy overlay fallback are not current paths."));
+            Assert.That(source, Does.Contain("resolver-only input router initialized through `IUiNavigationTargetResolver`"));
+            Assert.That(source, Does.Contain("must not regain `PopupController`, `PopupLayerView`, or `MainMenuScreenView` direct legacy overloads"));
+            Assert.That(source, Does.Contain("Do not modify runtime code for this source regeneration."));
+            Assert.That(source, Does.Contain("Do not modify prefabs or catalogs for this source regeneration."));
+            Assert.That(source, Does.Contain("Do not simplify or reroute StageResult, Reward, Confirm, settings, audio, display, or UI bridge paths."));
+            AssertDemoStageControlStalePolicyPhrasesAreAbsent(source);
+            Assert.That(source, Does.Not.Contain("HelpScreen remains"));
+            Assert.That(source, Does.Not.Contain("InventoryScreen remains"));
+            Assert.That(source, Does.Not.Contain("ActionBar remains"));
+            Assert.That(source, Does.Not.Contain("Diagnostics overlay is also not a deletion-safe item in this phase."));
         }
 
         [Test]
@@ -200,6 +316,15 @@ namespace Game.Feature.UI.Tests
         private static string ReadRepoFile(string relativePath)
         {
             return File.ReadAllText(GetRepoPath(relativePath));
+        }
+
+        private static void AssertDemoStageControlStalePolicyPhrasesAreAbsent(string content)
+        {
+            Assert.That(content, Does.Not.Contain("Needs Migration / dev-only policy"));
+            Assert.That(content, Does.Not.Contain("dev-only popup"));
+            Assert.That(content, Does.Not.Contain("production-disabled candidate"));
+            Assert.That(content, Does.Not.Contain("DEVELOPMENT_BUILD gate candidate"));
+            Assert.That(content, Does.Not.Contain("factory/runtime/hotkey/dev-path"));
         }
     }
 }

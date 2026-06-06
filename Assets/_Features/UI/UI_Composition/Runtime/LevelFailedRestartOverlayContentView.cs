@@ -8,7 +8,7 @@ namespace Game.Feature.UI.Composition
     {
         [SerializeField] private TMP_Text _levelRestartMessageText;
 
-        public override void Bind(SceneTransitionOverlayViewModel model)
+        public override void Bind(SceneTransitionOverlayModel model)
         {
             base.Bind(model);
             SetText(_levelRestartMessageText, "Returning to the first stage in this level.");

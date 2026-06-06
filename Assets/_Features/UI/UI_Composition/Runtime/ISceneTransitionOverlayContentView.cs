@@ -2,7 +2,7 @@ namespace Game.Feature.UI.Composition
 {
     internal interface ISceneTransitionOverlayContentView
     {
-        void Bind(SceneTransitionOverlayViewModel model);
+        void Bind(SceneTransitionOverlayModel model);
         void SetProgress(float progress01);
         void Show();
         void Hide();

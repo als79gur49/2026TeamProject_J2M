@@ -11,14 +11,12 @@ namespace Game.Feature.UI.Composition
         internal const string HudLayerName = "HudLayer";
         internal const string ScreenLayerName = "ScreenLayer";
         internal const string PopupLayerName = "PopupLayer";
-        internal const string DiagnosticsLayerName = "DiagnosticsLayer";
 
         private static readonly string[] RequiredTopLevelChildNames =
         {
             HudLayerName,
             ScreenLayerName,
             PopupLayerName,
-            DiagnosticsLayerName,
         };
 
         private static readonly HashSet<string> AllowedTopLevelChildNames = new(StringComparer.Ordinal)
@@ -27,7 +25,6 @@ namespace Game.Feature.UI.Composition
             HudLayerName,
             ScreenLayerName,
             PopupLayerName,
-            DiagnosticsLayerName,
         };
 
         internal static IReadOnlyList<string> AllowedTopLevelChildren => RequiredTopLevelChildNames
@@ -56,7 +53,6 @@ namespace Game.Feature.UI.Composition
             ValidateRequiredLayer(rootView.HudLayer, HudLayerName, rootView.transform);
             ValidateRequiredLayer(rootView.ScreenLayer, ScreenLayerName, rootView.transform);
             ValidateRequiredLayer(rootView.PopupLayer, PopupLayerName, rootView.transform);
-            ValidateRequiredLayer(rootView.DiagnosticsLayer, DiagnosticsLayerName, rootView.transform);
         }
 
         private static void ValidateRequiredLayer(RectTransform layer, string expectedName, Transform rootTransform)

@@ -14,12 +14,15 @@
 - 이 섹션의 baseline row는 pinned snapshot reference다. 서로 다른 날짜 artifact를 한 validation claim으로 합산하는 근거가 아니다.
 - 현재 기준점은 다음과 같다.
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
-  - `./run_tests.sh ui`: green, Unity UI EditMode `155 total / 0 failed`
+  - `./run_tests.sh ui`: green on 2026-06-06 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `646 total / 0 failed`
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode는 EditMode failure 때문에 아직 실행되지 않았다.
+- 2차 UI canonical 보정 보고서에 기록된 UI red 사유는 Windows `dotnet build` 단계의 `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction` 누락 compile error였으나, 2026-06-06 KST 현재 재실행에서는 재현되지 않았다.
+- 삭제 후보는 별도 제품 결정, 현재 lane evidence, baseline note 갱신이 같은 변경에 포함될 때만 제거한다.
 - 후속 PR은 per-class fail histogram 기준으로 direct touched cluster와 unrelated baseline cluster를 분리해 판정한다.
 - 자세한 baseline은 [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md)를 따른다.
 - UI freeze evidence는 [UI-EditMode-Baseline-2026-04-15.md](./UI-EditMode-Baseline-2026-04-15.md)를 따른다. 이 문서는 test count ledger가 아니라 structural delta, guard evolution, runner warning status, PlayMode escalation status를 함께 기록해야 한다.
+- UI current-structure source는 repo root의 [UI-Current-Structure-Source.md](../../UI-Current-Structure-Source.md)를 따른다. UI lane scope, interpretation, canonical identity list, retired/residue wording, 또는 stale-token audit 기준이 바뀌면 baseline note와 이 source를 같은 변경에서 함께 갱신해야 한다.
 - `UIAudioScene` canonical shell 런타임 UI smoke가 필요할 때는 [GameplayShell-Manual-Runtime-Smoke-Plan.md](./GameplayShell-Manual-Runtime-Smoke-Plan.md)를 사용한다. 이 문서는 자동화 lane을 대체하지 않고 canonical runtime integration의 수동 companion evidence를 정의한다.
 - generated stratification report는 더 이상 governance truth-source가 아니다.
 
@@ -29,12 +32,15 @@
 - The baseline rows in this section are pinned snapshot references. They are not permission to merge artifacts from different dates into one validation claim.
 - The current baseline is:
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
-  - `./run_tests.sh ui`: green, Unity UI EditMode `155 total / 0 failed`
+  - `./run_tests.sh ui`: green on 2026-06-06 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `646 total / 0 failed`
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode has not run yet because EditMode failed first.
+- The second UI canonical correction report recorded a UI red reason at Windows `dotnet build` for missing `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, and `PendingEnemyBlockedReaction` compile symbols, but that failure was not reproduced on the 2026-06-06 KST rerun.
+- UI deletion candidates are removed only when the product decision, current lane evidence, and baseline note update land in the same change.
 - Follow-up PRs are judged by per-class fail histograms split into direct touched clusters and unrelated baseline clusters.
 - See [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md) for the pinned baseline.
 - Use [UI-EditMode-Baseline-2026-04-15.md](./UI-EditMode-Baseline-2026-04-15.md) for Stage 9 UI hardening evidence, including structural delta and guard-evolution interpretation.
+- Use root [UI-Current-Structure-Source.md](../../UI-Current-Structure-Source.md) as the UI current-structure source. When UI lane scope, interpretation, canonical identity lists, retired/residue wording, or stale-token audit policy changes, update the baseline note and this source in the same change.
 - Use [GameplayShell-Manual-Runtime-Smoke-Plan.md](./GameplayShell-Manual-Runtime-Smoke-Plan.md) when a `UIAudioScene` canonical shell UI smoke pass is needed; it is the manual companion for canonical runtime-integration evidence and does not replace the automated lanes.
 - Use [Display-Settings-Build-Validation-Checklist.md](./Display-Settings-Build-Validation-Checklist.md) for display-settings-specific real-build validation. Editor-only execution is not sufficient evidence for fullscreen/window correctness.
 - The generated stratification report is no longer an active governance truth source.
@@ -63,6 +69,7 @@
   - runner warning changes
   - PlayMode escalation status
 - `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md`와 이 가이드는 같은 변경에서 함께 갱신해야 한다.
+- root `UI-Current-Structure-Source.md`도 current UI structure나 stale-token audit 기준이 바뀌는 변경에서는 함께 갱신해야 한다.
 
 ### English Original
 - The UI baseline note is not a count-only ledger.
@@ -74,6 +81,7 @@
   - runner warning changes
   - PlayMode escalation status
 - `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md` and this guide must be updated together in the same change.
+- Root `UI-Current-Structure-Source.md` must also be updated in the same change when current UI structure or stale-token audit policy changes.
 
 ## Gameplay audio verification wording / Gameplay audio verification wording
 ### 한국어
@@ -293,7 +301,6 @@
 - 허용 trigger:
   - real play loop가 필요한 runtime-only input routing
   - screen/popup/HUD ownership에 영향을 주는 scene lifecycle ordering / activation timing
-  - runtime-only execution에 의존하는 diagnostics visibility / toggle behavior
   - EditMode 결과를 무효화할 수 있는 domain reload / play-loop behavior
 - 허용되지 않는 trigger:
   - “PlayMode에서 한번 보면 좋겠다”
@@ -304,7 +311,6 @@
 - Allowed triggers:
   - runtime-only input routing that depends on the real play loop
   - scene lifecycle ordering or activation timing that materially affects screen/popup/HUD ownership
-  - diagnostics visibility or toggle behavior that depends on runtime-only execution
   - domain reload or play-loop behavior that can invalidate an EditMode-only result
 - Disallowed trigger:
   - “it would be nice to see it in PlayMode”

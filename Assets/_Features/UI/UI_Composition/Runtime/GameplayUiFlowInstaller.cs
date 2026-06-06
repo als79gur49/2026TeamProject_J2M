@@ -46,7 +46,6 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private bool _installOnStart = true;
 
         private CinematicFlowCoordinator _cinematicFlowCoordinator;
-        private UiArchitectureDiagnosticsTracker _diagnosticsTracker;
         private AudioSettingsLifecycleRelay _audioSettingsLifecycleRelay;
         private DisplayPreviewTimeoutRelay _displayPreviewTimeoutRelay;
         private DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
@@ -131,16 +130,6 @@ namespace Game.Feature.UI.Composition
             if (_keyboardBindingSettingsPort != null && _keyboardBindingSettingsPort.IsRebinding)
             {
                 return;
-            }
-
-            if (_rootView.DiagnosticsOverlayView != null && KeyboardBridge.WasF3PressedThisFrame())
-            {
-                _rootView.DiagnosticsOverlayView.ToggleVisibility();
-            }
-
-            if (_rootView.DiagnosticsOverlayView != null && KeyboardBridge.WasF4PressedThisFrame())
-            {
-                _rootView.DiagnosticsOverlayView.ToggleExpanded();
             }
 
             if (WasDemoStageControlOpenKeyPressed() && TryToggleDemoStageControlPanel())
@@ -274,8 +263,6 @@ namespace Game.Feature.UI.Composition
             Coordinator.Initialize();
             EnsureNavigationInputRouter();
             SyncViews();
-            SetupDiagnostics();
-
             _isInstalled = true;
         }
 
@@ -284,7 +271,6 @@ namespace Game.Feature.UI.Composition
             UnwireViewEvents();
             UnwireControllerEvents();
             _audioSettingsLifecycleRelay?.FlushNow();
-            _diagnosticsTracker?.Dispose();
             Coordinator?.Dispose();
             _stageResultAutoNextDriver?.Dispose();
             _gameplayPauseAudioBridge?.Dispose();
@@ -552,29 +538,6 @@ namespace Game.Feature.UI.Composition
                 : _inputActions;
         }
 
-        private void SetupDiagnostics()
-        {
-            if (_rootView == null || _rootView.DiagnosticsOverlayView == null)
-            {
-                return;
-            }
-
-            _rootView.DiagnosticsOverlayView.SetSupported(UiArchitectureDiagnosticsTracker.IsRuntimeSupported);
-            if (!UiArchitectureDiagnosticsTracker.IsRuntimeSupported)
-            {
-                return;
-            }
-
-            _diagnosticsTracker = new UiArchitectureDiagnosticsTracker(
-                PresentationSource,
-                Coordinator,
-                ScreenController,
-                PopupController,
-                isHudVisible: () => _rootView.HudView != null && _rootView.HudView.IsVisible,
-                isHudReadOnly: () => HudController != null && HudController.IsGameplayReadOnly);
-            _rootView.DiagnosticsOverlayView.Bind(_diagnosticsTracker);
-        }
-
         private void WireViewEvents()
         {
             _rootView.HudView.PauseRequested += HandlePauseRequested;
@@ -747,8 +710,6 @@ namespace Game.Feature.UI.Composition
             private static readonly Type KeyboardType = Type.GetType("UnityEngine.InputSystem.Keyboard, Unity.InputSystem");
             private static readonly PropertyInfo CurrentKeyboardProperty = KeyboardType?.GetProperty("current", BindingFlags.Public | BindingFlags.Static);
             private static readonly PropertyInfo EscapeKeyProperty = KeyboardType?.GetProperty("escapeKey", BindingFlags.Public | BindingFlags.Instance);
-            private static readonly PropertyInfo F3KeyProperty = KeyboardType?.GetProperty("f3Key", BindingFlags.Public | BindingFlags.Instance);
-            private static readonly PropertyInfo F4KeyProperty = KeyboardType?.GetProperty("f4Key", BindingFlags.Public | BindingFlags.Instance);
             private static readonly PropertyInfo F10KeyProperty = KeyboardType?.GetProperty("f10Key", BindingFlags.Public | BindingFlags.Instance);
             private static readonly PropertyInfo BackQuoteKeyProperty = KeyboardType?.GetProperty("backquoteKey", BindingFlags.Public | BindingFlags.Instance);
             private static readonly PropertyInfo WasPressedThisFrameProperty =
@@ -757,16 +718,6 @@ namespace Game.Feature.UI.Composition
             public bool WasEscapePressedThisFrame()
             {
                 return WasPressedThisFrame(EscapeKeyProperty);
-            }
-
-            public bool WasF3PressedThisFrame()
-            {
-                return WasPressedThisFrame(F3KeyProperty);
-            }
-
-            public bool WasF4PressedThisFrame()
-            {
-                return WasPressedThisFrame(F4KeyProperty);
             }
 
             public bool WasF10PressedThisFrame()

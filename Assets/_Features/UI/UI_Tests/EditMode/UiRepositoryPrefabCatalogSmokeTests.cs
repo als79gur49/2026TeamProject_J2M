@@ -95,7 +95,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(rootView.HudLayer, Is.Not.Null);
                 Assert.That(rootView.ScreenLayer, Is.Not.Null);
                 Assert.That(rootView.PopupLayer, Is.Not.Null);
-                Assert.That(rootView.DiagnosticsLayer, Is.Not.Null);
+                Assert.That(instance.transform.Find("DiagnosticsLayer"), Is.Null);
                 Assert.That(rootView.ScreenLayerView, Is.Not.Null);
                 Assert.That(rootView.PopupLayerView, Is.Not.Null);
             }
@@ -107,7 +107,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayHudRoot_RequiredViewsPresent()
+        public void GameplayHudRoot_RequiredBoundViewsPresent_AndRetiredProofResidueRemoved()
         {
             var hudPrefab = UiTestPrefabAssetUtility.LoadHudPrefab();
             var instance = UnityEngine.Object.Instantiate(hudPrefab);
@@ -119,7 +119,11 @@ namespace Game.Feature.UI.Tests
                 Assert.That(instance.ObjectiveHudView, Is.Not.Null);
                 Assert.That(instance.ChancePanelView, Is.Not.Null);
                 Assert.That(instance.SurfaceBeltIndicatorView, Is.Not.Null);
-                Assert.That(instance.GetComponentInChildren<ActionBarView>(true), Is.Not.Null);
+
+                Assert.That(FindChildByName(instance.transform, "PauseButton"), Is.Not.Null);
+                Assert.That(FindChildByName(instance.transform, "Label_StageName"), Is.Not.Null);
+                Assert.That(FindChildByName(instance.transform, "Action" + "Bar"), Is.Null);
+                Assert.That(CountMissingScripts(instance.gameObject), Is.EqualTo(0));
             }
             finally
             {
@@ -286,6 +290,18 @@ namespace Game.Feature.UI.Tests
             return asset == null
                 ? "<null>"
                 : $"{asset.GetType().Name} '{asset.name}' Path='{AssetDatabase.GetAssetPath(asset)}'";
+        }
+
+        private static Transform FindChildByName(Transform root, string childName)
+        {
+            return root.GetComponentsInChildren<Transform>(true)
+                .FirstOrDefault(child => string.Equals(child.name, childName, StringComparison.Ordinal));
+        }
+
+        private static int CountMissingScripts(GameObject root)
+        {
+            return root.GetComponentsInChildren<Transform>(true)
+                .Sum(child => GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(child.gameObject));
         }
 
         private static void DestroySceneObject(string objectName)

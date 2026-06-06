@@ -189,7 +189,7 @@ Composition root and gameplay-host bridge rule:
 - `Non-Negotiable` UI SFX ownership is split between coordinator-owned flow outcome cues, local widget/HUD cues, and transition-overlay whitelist cues. `ScreenTransitioned`, `PopupOpened`, and `PopupCompleted` remain mechanical lifecycle signals; the coordinator transaction/outcome layer is the only flow-cue trigger seam. The detailed classifier matrix, ownership table, transition-overlay whitelist, and hidden `Ui` channel product policy live in [Audio-Architecture-Guidelines.md](./Audio-Architecture-Guidelines.md).
 - `Non-Negotiable` Display settings bridging remains composition-owned. `UI.Application` knows only `IDisplaySettingsPort`, and only `UI_Composition` may translate visible display settings into shared-display runtime state.
 - `Non-Negotiable` Shared display boot apply, runtime `Screen.*` access, persistence, preview commit/revert, and supported-mode normalization remain inside `Game.Shared.Display`; see [Display-Settings-V1-Guidelines.md](./Display-Settings-V1-Guidelines.md).
-- `Default Guidance` Screen runtime factories, popup runtime factories, and composition-owned diagnostics wiring belong in `UI_Composition`, not in feature presenters or gameplay access contracts.
+- `Default Guidance` Screen runtime factories, popup runtime factories, and root-shell assembly belong in `UI_Composition`, not in feature presenters or gameplay access contracts.
 
 ## 9. Final Layered Architecture
 
@@ -219,7 +219,7 @@ Dependency rules:
 
 Module note:
 
-- `UI_Composition` is a runtime composition boundary that assembles controllers, presenters, views, runtime factories, and diagnostics from already-approved contracts.
+- `UI_Composition` is a runtime composition boundary that assembles controllers, presenters, views, and runtime factories from already-approved contracts.
 - `UI_Composition` is not a sixth ownership layer. It must not absorb gameplay truth, screen/popup/HUD policy ownership, or feature-local presentation logic.
 
 ## 10. Vocabulary and Naming Rules
@@ -330,6 +330,57 @@ Definitions:
 - `HUD`
   - Persistent layer.
 
+Current canonical identity lists:
+
+- Mirrored external structure source: [UI-Current-Structure-Source.md](../../UI-Current-Structure-Source.md)
+
+- Root shell layers
+  - `HudLayer`
+  - `ScreenLayer`
+  - `PopupLayer`
+
+- `ScreenId`
+  - `None`
+  - `Gameplay`
+  - `ObjectiveStatus`
+  - `Settings`
+  - `StageResult`
+  - `LevelFailed`
+  - `GameClear`
+- `PopupId`
+  - `None`
+  - `Pause`
+  - `ObjectiveInfo`
+  - `Confirm`
+  - `Tooltip`
+  - `Reward`
+  - `DemoStageControl`
+
+Screen classification notes:
+
+- `Gameplay` is the logical gameplay root. It has no gameplay-screen prefab catalog entry.
+- `StageResult`, `LevelFailed`, and `GameClear` are canonical terminal result screens.
+- `Help` and `Inventory` are not current gameplay screens. Any old reference that described them as canonical gameplay screens is documentation drift or historical context only.
+
+Popup classification notes:
+
+- `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, and `Reward` are canonical gameplay popup catalog entries.
+- `DemoStageControl` is not a gameplay popup catalog entry. It is a catalog-less runtime assist popup created through the factory/runtime/hotkey path.
+- `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing. It is not a deletion candidate and is not a dev-only compile exclusion target.
+- Future public-release hiding or disabling for `DemoStageControl` must be controlled by a separate product/build configuration decision, not by a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate.
+
+HUD classification notes:
+
+- Current canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`.
+- ActionBar was removed as retired HUD proof residue after product option B selected deletion instead of wiring recovery.
+- This deletion decision does not change Push/Flip readiness mapping or gameplay command ownership.
+
+Deletion protection notes:
+
+- Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path as part of drift correction.
+- UI diagnostics overlay was removed as an unused runtime feature after an explicit owner decision. It is not a hidden or dev-only retained runtime path.
+- Future UI deletion safety requires a separate PR with current lane evidence and an explicit owner decision.
+
 Policy rules:
 
 - `Non-Negotiable` Screen and popup do not share a mixed stack.
@@ -391,7 +442,7 @@ HUD lifecycle:
 
 Composition lifecycle:
 
-- `Non-Negotiable` `UI_Composition` owns runtime bootstrap, gameplay-host binding, runtime factory selection, canvas/layer assembly, and composition-only diagnostics registration.
+- `Non-Negotiable` `UI_Composition` owns runtime bootstrap, gameplay-host binding, runtime factory selection, and canvas/layer assembly.
 - `Non-Negotiable` `GameplayUiFlowInstaller` assembles `GameplayUiPresentationSource`, controllers, coordinator, presenters, and root view binding from gameplay-owned `UIAccess` seams.
 - `Default Guidance` `GameplayScreenRuntimeFactory` and `GameplayPopupRuntimeFactory` stay composition-owned because they translate flow/runtime requests into mounted Unity runtime objects.
 
@@ -401,11 +452,11 @@ Subscription rules:
 - `Non-Negotiable` Destroyed or hidden UI must not continue mutating presentation state through stale subscriptions.
 - `Default Guidance` Keep transient UI-local state disposable unless application-level persistence is explicitly required.
 
-Diagnostics lifecycle:
+Retired diagnostics overlay:
 
-- `Non-Negotiable` Stage 9 diagnostics remain composition-only, read-only, and non-owning.
-- `Non-Negotiable` Diagnostics must not be exposed as gameplay access seams, flow-owner APIs, presenter contracts, or feature query services.
-- `Default Guidance` Diagnostics may summarize current screen, popup, HUD, block, and mapped-event state for development visibility, but they must not become runtime aggregation or decision paths.
+- `Non-Negotiable` UI diagnostics overlay is a removed unused runtime feature.
+- `Non-Negotiable` Canonical runtime UI must not include a diagnostics overlay, `DiagnosticsLayer`, or F3/F4 diagnostics input path.
+- `Default Guidance` Future diagnostics-like UI requires a new owner decision and must not reuse the removed runtime graph implicitly.
 
 ## 15. Tick-Based Presentation Rules
 
@@ -465,7 +516,7 @@ Assets/
 Folder intent:
 
 - `UI_Composition`
-  - runtime composition root, gameplay-host bridge, installer/bootstrap, canvas/layer assembly, runtime factories, and composition-only diagnostics
+  - runtime composition root, gameplay-host bridge, installer/bootstrap, canvas/layer assembly, and runtime factories
 - `UI_Flow`
   - coordinator, controllers, policy, and flow state
 - `UI_Application`
@@ -509,7 +560,7 @@ Required test directions:
 - `Non-Negotiable` Add unit tests for coordinator and controller flow ownership.
 - `Non-Negotiable` Add unit tests for `UIBlockPolicy`.
 - `Non-Negotiable` Add presenter or viewmodel tests for authoritative read-model to presentation mapping.
-- `Non-Negotiable` Add architecture guard tests for dependency direction, bounded public surfaces, and composition-only diagnostics boundaries.
+- `Non-Negotiable` Add architecture guard tests for dependency direction, bounded public surfaces, and removed diagnostics overlay absence.
 - `Default Guidance` Add integration tests for screen, popup, and HUD interaction boundaries.
 
 Required scenarios:
@@ -523,7 +574,7 @@ Required scenarios:
 - `Non-Negotiable` No direct UI-driven authoritative gameplay mutation path.
 - `Non-Negotiable` Tick-result-driven presentation refresh.
 - `Non-Negotiable` Representative complex screen decomposition remaining bounded and screen-internal.
-- `Non-Negotiable` Composition-only diagnostics remaining read-only and non-reusable as runtime state aggregation.
+- `Non-Negotiable` Removed diagnostics overlay absence from canonical runtime composition.
 
 ## 19. Anti-Patterns / Forbidden Patterns
 
@@ -589,7 +640,7 @@ Maintenance rule:
 - [ ] The document forbids direct UI-driven authoritative gameplay mutation.
 - [ ] The document preserves tick-result-based presentation separation.
 - [ ] The document states that pause remains popup-owned and is not a screen taxonomy exception.
-- [ ] The document states that Stage 9 diagnostics remain composition-only, read-only, and non-owning.
+- [ ] The document states that UI diagnostics overlay is a removed unused runtime feature.
 - [ ] The document anchors major rules to current repo architecture facts and current folder boundaries.
 - [ ] The document includes folder and naming guidance concrete enough to drive implementation prompts.
 - [ ] The document includes testing guidance for flow, blocking, and authoritative presentation behavior.

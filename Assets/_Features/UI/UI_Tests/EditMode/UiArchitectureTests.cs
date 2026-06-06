@@ -14,6 +14,7 @@ using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using Game.Shared.Display;
 using NUnit.Framework;
 using UnityEngine;
@@ -86,16 +87,16 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void DemoStageControlPanelToggle_DoesNotConflictWithDiagnosticsKeys()
+        public void DemoStageControlPanelToggle_RemainsAfterDiagnosticsKeysAreRemoved()
         {
             var installerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
             var removedToggle = "TryToggle" + "Debug" + "CommandsPopup();";
 
-            Assert.That(installerSource, Does.Contain("WasF3PressedThisFrame()"));
-            Assert.That(installerSource, Does.Contain("WasF4PressedThisFrame()"));
+            Assert.That(installerSource, Does.Not.Contain("WasF3PressedThisFrame()"));
+            Assert.That(installerSource, Does.Not.Contain("WasF4PressedThisFrame()"));
+            Assert.That(installerSource, Does.Not.Contain("ToggleVisibility();"));
+            Assert.That(installerSource, Does.Not.Contain("ToggleExpanded();"));
             Assert.That(installerSource, Does.Contain("WasF10PressedThisFrame()"));
-            Assert.That(installerSource, Does.Contain("ToggleVisibility();"));
-            Assert.That(installerSource, Does.Contain("ToggleExpanded();"));
             Assert.That(installerSource, Does.Contain("TryToggleDemoStageControlPanel()"));
             Assert.That(installerSource, Does.Not.Contain(removedToggle));
         }
@@ -170,7 +171,6 @@ namespace Game.Feature.UI.Tests
                 typeof(StageInfoPresenter).Assembly,
                 typeof(ObjectiveHudPresenter).Assembly,
                 typeof(PlayerStatusPresenter).Assembly,
-                typeof(ActionBarPresenter).Assembly,
                 typeof(ObjectiveStatusScreenPresenter).Assembly,
                 typeof(SettingsScreenPresenter).Assembly,
                 typeof(StageResultScreenPresenter).Assembly,
@@ -270,7 +270,6 @@ namespace Game.Feature.UI.Tests
                 typeof(StageInfoPresenter),
                 typeof(ObjectiveHudPresenter),
                 typeof(PlayerStatusPresenter),
-                typeof(ActionBarPresenter),
                 typeof(ObjectiveStatusPresenter),
                 typeof(SettingsScreenPresenter),
             };
@@ -427,7 +426,6 @@ namespace Game.Feature.UI.Tests
                 typeof(UIFlowCoordinator),
                 typeof(ObjectiveHudViewModel),
                 typeof(PlayerStatusViewModel),
-                typeof(ActionBarViewModel),
             };
 
             foreach (var forbiddenType in forbiddenTypes)
@@ -547,7 +545,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ChancePanelPresenter),
                 typeof(SurfaceBeltIndicatorPresenter),
                 typeof(PlayerStatusPresenter),
-                typeof(ActionBarPresenter),
             };
             var forbiddenTypes = new[]
             {
@@ -577,7 +574,6 @@ namespace Game.Feature.UI.Tests
             AssertViewBindSignature(typeof(ChancePanelView), typeof(ChancePanelViewModel));
             AssertViewBindSignature(typeof(SurfaceBeltIndicatorView), typeof(SurfaceBeltViewModel));
             AssertViewBindSignature(typeof(PlayerStatusView), typeof(PlayerStatusViewModel));
-            AssertViewBindSignature(typeof(ActionBarView), typeof(ActionBarViewModel));
         }
 
         [Test]
@@ -618,7 +614,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ChancePanelView),
                 typeof(SurfaceBeltIndicatorView),
                 typeof(PlayerStatusView),
-                typeof(ActionBarView),
             };
 
             foreach (var hudViewType in hudViewTypes)
@@ -641,7 +636,6 @@ namespace Game.Feature.UI.Tests
                 typeof(ChancePanelView),
                 typeof(SurfaceBeltIndicatorView),
                 typeof(PlayerStatusView),
-                typeof(ActionBarView),
             };
             var forbiddenTypes = new[]
             {
@@ -651,7 +645,6 @@ namespace Game.Feature.UI.Tests
                 typeof(UIFlowCoordinator),
                 typeof(ScreenController),
                 typeof(PopupController),
-                typeof(UiArchitectureDiagnosticsTracker),
             };
 
             foreach (var hudViewType in hudViewTypes)
@@ -718,7 +711,6 @@ namespace Game.Feature.UI.Tests
                 typeof(UIFlowCoordinator),
                 typeof(ScreenController),
                 typeof(PopupController),
-                typeof(UiArchitectureDiagnosticsTracker),
             };
 
             foreach (var popupViewType in popupViewTypes)
@@ -1017,6 +1009,59 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UiNavigationInputRouter_PublicSurface_UsesOnlyCanonicalTargetResolver()
+        {
+            Assert.That(GetPublicPropertyNames(typeof(UiNavigationInputRouter)), Is.Empty);
+            Assert.That(GetPublicEventNames(typeof(UiNavigationInputRouter)), Is.Empty);
+            Assert.That(
+                GetPublicMethodSignatures(typeof(UiNavigationInputRouter)),
+                Is.EqualTo(new[]
+                {
+                    "DispatchCancel()",
+                    "DispatchNavigate(UiNavigationCommand)",
+                    "DispatchSubmit()",
+                    "Initialize(InputActionAsset, IUiNavigationTargetResolver, Func<Boolean>, Func<Boolean>, IUiAudioPort)",
+                }));
+
+            var forbiddenTypes = new[]
+            {
+                typeof(PopupController),
+                typeof(PopupLayerView),
+                typeof(MainMenuScreenView),
+            };
+            foreach (var forbiddenType in forbiddenTypes)
+            {
+                Assert.That(
+                    TypeDependsOn(typeof(UiNavigationInputRouter), forbiddenType),
+                    Is.False,
+                    $"{typeof(UiNavigationInputRouter).FullName} depends on {forbiddenType.FullName}");
+            }
+        }
+
+        [Test]
+        public void UiNavigationInputRouter_LegacyConcreteResolverPath_IsAbsent()
+        {
+            var routerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/UiNavigationInputRouter.cs");
+            var gameplayInstallerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
+            var mainMenuInstallerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
+            var testSource = ReadRepoFile("Assets/_Features/UI/UI_Tests/EditMode/UiKeyboardNavigationTests.cs");
+
+            Assert.That(routerSource, Does.Contain("IUiNavigationTargetResolver targetResolver"));
+            Assert.That(routerSource, Does.Not.Contain("LegacyNavigationTargetResolver"));
+            Assert.That(routerSource, Does.Not.Contain("PopupLayerView popupLayerView"));
+            Assert.That(routerSource, Does.Not.Contain("MainMenuScreenView mainMenuScreenView"));
+            Assert.That(routerSource, Does.Not.Contain("_popupLayerView"));
+            Assert.That(routerSource, Does.Not.Contain("_mainMenuScreenView"));
+
+            Assert.That(gameplayInstallerSource, Does.Contain("new UiLayeredNavigationTargetResolver("));
+            Assert.That(mainMenuInstallerSource, Does.Contain("new UiLayeredNavigationTargetResolver("));
+            Assert.That(gameplayInstallerSource, Does.Not.Contain("_navigationInputRouter.Initialize(\n                ResolveUiInputActions(),\n                PopupController"));
+            Assert.That(mainMenuInstallerSource, Does.Not.Contain("_navigationInputRouter.Initialize(\n                _inputActions,\n                PopupController"));
+            Assert.That(testSource, Does.Not.Contain("null, null, null"));
+            Assert.That(testSource, Does.Not.Contain("CreatePopupLayerHarness"));
+        }
+
+        [Test]
         public void SettingsChildPresenters_PublicSurface_RemainsLocalAndBounded()
         {
             Assert.That(
@@ -1078,7 +1123,6 @@ namespace Game.Feature.UI.Tests
                 typeof(PopupRequest),
                 typeof(IGameplayQueryFacade),
                 typeof(IGameplayCommandGateway),
-                typeof(UiArchitectureDiagnosticsTracker),
             };
 
             foreach (var viewType in guardedViewTypes)
@@ -1161,74 +1205,39 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void DiagnosticsTypes_AreReferencedOnlyFromCompositionAssembly()
+        public void DiagnosticsOverlayRuntimeFeature_IsRemovedFromCompositionRuntime()
         {
-            var diagnosticsTypes = new[]
+            var diagnosticsTokens = new[]
             {
-                typeof(UiArchitectureDiagnosticsTracker),
-                typeof(UiArchitectureDiagnosticsSnapshot),
-                typeof(UiArchitectureDiagnosticsOverlayView),
+                "UiArchitectureDiagnostics",
+                "DiagnosticsOverlay",
+                "DiagnosticsLayer",
+                "UiDiagnostics",
+                "WasF3PressedThisFrame",
+                "WasF4PressedThisFrame",
+                "f3Key",
+                "f4Key",
             };
-            var nonCompositionAssemblies = new[]
+            var runtimeFiles = new[]
             {
-                typeof(HUDRootPresenter).Assembly,
-                typeof(HUDController).Assembly,
-                typeof(HUDRootView).Assembly,
-                typeof(SettingsScreenView).Assembly,
-                typeof(PausePopupView).Assembly,
-            }.Distinct().ToArray();
+                "Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/GameplayUiCanvasRootView.cs",
+                "Assets/_Features/UI/UI_Composition/Runtime/GameplayUiRootShellValidator.cs",
+            };
 
-            foreach (var assembly in nonCompositionAssemblies)
+            foreach (var runtimeFile in runtimeFiles)
             {
-                foreach (var type in assembly.GetTypes().Where(type => !type.IsNested))
+                var source = ReadRepoFile(runtimeFile);
+                foreach (var token in diagnosticsTokens)
                 {
-                    foreach (var diagnosticsType in diagnosticsTypes)
-                    {
-                        Assert.That(
-                            TypeDependsOn(type, diagnosticsType),
-                            Is.False,
-                            $"{type.FullName} depends on {diagnosticsType.FullName}");
-                    }
+                    Assert.That(source, Does.Not.Contain(token), runtimeFile);
                 }
             }
         }
 
         [Test]
-        public void UiArchitectureDiagnosticsTracker_PublicSurface_RemainsObservationOnly()
+        public void GameplayUiPortsAndFeaturePublicSurfaces_DoNotExposeRemovedDiagnosticsTypes()
         {
-            Assert.That(
-                GetPublicPropertyNames(typeof(UiArchitectureDiagnosticsTracker)),
-                Is.EqualTo(new[] { "CurrentSnapshot" }));
-            Assert.That(
-                typeof(UiArchitectureDiagnosticsTracker)
-                    .GetProperties(BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly)
-                    .Select(property => property.Name)
-                    .OrderBy(name => name)
-                    .ToArray(),
-                Is.EqualTo(new[] { "IsRuntimeSupported" }));
-            Assert.That(
-                GetPublicEventNames(typeof(UiArchitectureDiagnosticsTracker)),
-                Is.EqualTo(new[] { "SnapshotChanged" }));
-            Assert.That(
-                GetPublicMethodSignatures(typeof(UiArchitectureDiagnosticsTracker)),
-                Is.EqualTo(new[] { "Dispose()" }));
-            Assert.That(
-                GetConstructorSignatures(typeof(UiArchitectureDiagnosticsTracker)),
-                Is.EqualTo(new[]
-                {
-                    "UiArchitectureDiagnosticsTracker(IGameplayUiPresentationSource, UIFlowCoordinator, ScreenController, PopupController, Func<Boolean>, Func<Boolean>)",
-                }));
-        }
-
-        [Test]
-        public void GameplayUiPortsAndFeaturePublicSurfaces_DoNotExposeDiagnosticsTypes()
-        {
-            var diagnosticsTypes = new HashSet<Type>
-            {
-                typeof(UiArchitectureDiagnosticsTracker),
-                typeof(UiArchitectureDiagnosticsSnapshot),
-                typeof(UiArchitectureDiagnosticsOverlayView),
-            };
             var surfacedTypes = new[]
             {
                 typeof(GameplayUiFlowPorts),
@@ -1241,10 +1250,9 @@ namespace Game.Feature.UI.Tests
             .Distinct()
             .ToArray();
 
-            foreach (var diagnosticsType in diagnosticsTypes)
-            {
-                Assert.That(surfacedTypes, Has.No.Member(diagnosticsType));
-            }
+            Assert.That(surfacedTypes.Select(type => type.Name), Does.Not.Contain("UiArchitectureDiagnosticsTracker"));
+            Assert.That(surfacedTypes.Select(type => type.Name), Does.Not.Contain("UiArchitectureDiagnosticsSnapshot"));
+            Assert.That(surfacedTypes.Select(type => type.Name), Does.Not.Contain("UiArchitectureDiagnosticsOverlayView"));
         }
 
         [Test]

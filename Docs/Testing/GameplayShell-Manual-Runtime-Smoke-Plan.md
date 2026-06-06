@@ -13,12 +13,13 @@
 - Preserve `PausePopup` as the modal representative popup case.
 - Preserve `TooltipPopup` as the intended non-modal representative popup case.
 - Preserve the logical `ScreenId.Gameplay` root and `StageResultScreen` as architecturally sensitive screen/runtime checkpoints.
-- Preserve diagnostics as dev-only, read-only, and secondary to the main runtime ownership checks.
+- Preserve removed diagnostics overlay absence as a root-shell/runtime-composition residue check only.
+- Preserve root `UI-Current-Structure-Source.md` as the current-structure reference for the 3-layer shell, retired ActionBar status, removed diagnostics status, and canonical scene transition path.
 
 ## 3. Remaining Execution Risks
 - The `SettingsScreen` tooltip info icon can regress into a broken or missing authored affordance even though the gameplay shell smoke now expects a real player-facing tooltip path.
 - Stage-clear validation can expand into an unbounded gameplay session if it is not explicitly time-boxed and classified carefully.
-- Diagnostics can consume too much attention if checked before the higher-risk ownership paths.
+- Removed diagnostics overlay residue can be misclassified as a runtime smoke target instead of a structural absence check.
 - The highest-risk runtime subset can be crowded out unless it is executed first in a fixed order.
 - Failures can be misclassified if the bounded `SettingsScreen` tooltip choice is mistaken for a universal tooltip product rule or if tooltip behavior drifts toward help-screen scale.
 
@@ -35,7 +36,7 @@
   - `ObjectiveStatusScreen`
   - `SettingsScreen`
   - `TooltipPopup` via `SettingsScreen` tooltip info icon
-  - diagnostics
+  - removed diagnostics overlay absence in the canonical root shell
 - If Tier 1 reveals a likely structural blocker, capture evidence immediately and do not spend remaining time on secondary checks unless they are needed to disambiguate severity.
 
 ## 5. High-Risk Runtime Flow Rules
@@ -46,9 +47,10 @@
   - `PausePopup` mounted only on `PopupLayer`
   - `SettingsScreen` as one runtime-owned complex screen shell
   - `StageResultScreen` as the terminal special case
+- Root-shell validation uses the current-structure source: top-level canonical gameplay UI shell has `HudLayer`, `ScreenLayer`, and `PopupLayer`, with no `DiagnosticsLayer`.
 - These are the primary freeze-sensitive proof points because they are most likely to expose ownership drift, duplicate roots, layer misuse, or reopened runtime seams.
 - `ObjectiveStatusScreen` and `SettingsScreen` are still required representative coverage, but they are second-tier after the high-risk subset.
-- Diagnostics are never part of the first-pass subset.
+- Removed diagnostics overlay absence is not a first-pass manual interaction target.
 
 ## 6. Tooltip Path Classification Rules
 - `TooltipPopup` remains the intended non-modal representative popup case.
@@ -83,15 +85,10 @@
 - `Inconclusive/manual follow-up needed` is not proof of architecture regression, but it does leave the manual runtime freeze gate open until a targeted terminal-flow follow-up validates `StageResultScreen`.
 - Do not let stage-clear pursuit turn the smoke into a general gameplay playtest.
 
-## 8. Diagnostics Priority Rules
-- Diagnostics checks happen only after bootstrap, HUD, representative modal popup, representative screens, and terminal-flow attempt are complete.
-- Diagnostics remain secondary in this smoke. They are checked to confirm they stay dev-only, read-only, and non-owning.
-- Diagnostics are a blocker only if they:
-  - appear outside supported dev/editor conditions
-  - take ownership of popup/screen/HUD/gameplay behavior
-  - block input or raycasts
-  - change runtime state instead of reporting it
-- Visibility mismatches, summary/detail wording mismatches, or other non-owning diagnostics issues are lower-priority findings.
+## 8. Removed Diagnostics Overlay Rules
+- Diagnostics overlay is a removed unused runtime feature, not a dev-only retained smoke target.
+- Manual smoke should not attempt F3/F4 diagnostics overlay interaction.
+- Treat any `DiagnosticsLayer`, diagnostics overlay object, or F3/F4 diagnostics overlay path in canonical runtime UI as a structural residue finding.
 
 ## 9. Evidence and Failure Classification Rules
 - Every finding must be classified as one of:
@@ -104,7 +101,7 @@
   - structural/runtime placement failures: mandatory Hierarchy plus Game-view capture
   - popup/screen/terminal flow failures: mandatory exact repro steps, start state, input sequence, expected result, and actual result
   - scene-affordance coverage gaps: brief note of what representative path was sought, where it was expected, and why the scene did not expose it
-  - diagnostics/presentation findings: brief notes are sufficient unless ownership or blocking behavior is implicated
+  - removed diagnostics overlay residue findings: record hierarchy/source evidence and classify as structural residue
 - Record `could not reach terminal state within bounded attempts` as its own outcome. Do not collapse it into `terminal flow broken`.
 - For high-risk subset failures, always note whether the problem reproduces on first attempt or only intermittently.
 
@@ -112,7 +109,7 @@
 - The manual runtime smoke is only freezeable if the high-risk runtime subset is executed first and validated before lower-priority checks consume time.
 - Tooltip representative coverage is acceptable only if the `SettingsScreen` tooltip info icon reaches `TooltipPopup` on the canonical gameplay shell path.
 - Stage-clear validation remains mandatory, but it must stay operationally bounded. If the result is `Inconclusive/manual follow-up needed`, that is not an architecture verdict, but the manual runtime freeze gate remains open until terminal flow is proven.
-- Diagnostics must remain secondary, dev-only, read-only, and non-owning.
+- Diagnostics overlay must remain absent from canonical runtime UI.
 - The `SettingsScreen` tooltip affordance must remain bounded. It is the current gameplay shell choice, not a universal tooltip rule for every screen.
 - Click-only open and center anchoring remain current-task defaults for this gameplay shell affordance, not universal architecture laws.
 - Structural regressions, runtime integration issues, scene-affordance gaps, inconclusive bounded outcomes, and pure presentation/tuning issues must remain clearly separated.
