@@ -11,6 +11,8 @@ using Object = UnityEngine.Object;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
+    [Category("Core")]
+    [Category("Phase3BGate")]
     public sealed class GameplayVfxBindingPolicyTests
     {
         [Test]

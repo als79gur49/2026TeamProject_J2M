@@ -13,6 +13,8 @@ using UnityEditor.SceneManagement;
 
 namespace Game.Feature.Gameplay.Tests.PlayMode
 {
+    [Category("Core")]
+    [Category("Phase3BGate")]
     public sealed class GameplayVfxSceneRuntimeRootPlayModeTests
     {
         private const string UIAudioScenePath = "Assets/Scenes/UIAudioScene.unity";

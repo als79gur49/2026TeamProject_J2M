@@ -7,6 +7,8 @@ using UnityEngine;
 
 namespace Game.Feature.Stages.Editor.Tests
 {
+    [Category("Core")]
+    [Category("Phase3BGate")]
     public sealed class SaveSlotValidationAndDirectPlayTests
     {
         [TearDown]

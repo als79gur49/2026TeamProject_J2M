@@ -28,6 +28,8 @@ DOTNET_INTEGRATION_FUZZ_LOG="$RESULT_DIR/wsl-dotnet-integration-fuzz.log"
 
 UNITY_CORE_EDITMODE_LOG="$RESULT_DIR/wsl-unity-core-editmode.log"
 UNITY_CORE_EDITMODE_XML="$RESULT_DIR/wsl-unity-core-editmode.xml"
+UNITY_CORE_FEATURE_EDITMODE_LOG="$RESULT_DIR/wsl-unity-core-feature-editmode.log"
+UNITY_CORE_FEATURE_EDITMODE_XML="$RESULT_DIR/wsl-unity-core-feature-editmode.xml"
 UNITY_CORE_PLAYMODE_LOG="$RESULT_DIR/wsl-unity-core-playmode.log"
 UNITY_CORE_PLAYMODE_XML="$RESULT_DIR/wsl-unity-core-playmode.xml"
 
@@ -532,6 +534,7 @@ run_dotnet_integration() {
 
 run_unity_core() {
     run_unity_stage "core" "core-editmode" "core (EditMode)" "EditMode" "$UNITY_CORE_EDITMODE_LOG" "$UNITY_CORE_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode"
+    run_unity_stage "core-feature-gate" "core-feature-editmode" "core feature gate (EditMode)" "EditMode" "$UNITY_CORE_FEATURE_EDITMODE_LOG" "$UNITY_CORE_FEATURE_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode"
     run_unity_stage "core" "core-playmode" "core (PlayMode)" "PlayMode" "$UNITY_CORE_PLAYMODE_LOG" "$UNITY_CORE_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode"
 }
 

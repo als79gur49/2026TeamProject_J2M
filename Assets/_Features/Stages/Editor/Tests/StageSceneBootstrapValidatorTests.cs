@@ -3,6 +3,8 @@ using NUnit.Framework;
 
 namespace Game.Feature.Stages.Editor.Tests
 {
+    [Category("Core")]
+    [Category("Phase3BGate")]
     public sealed class StageSceneBootstrapValidatorTests
     {
         private static readonly string[] ProductionScenePaths =

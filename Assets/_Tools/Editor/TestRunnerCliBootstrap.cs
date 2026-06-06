@@ -18,13 +18,20 @@ public static class TestRunnerCliBootstrap
     private const string TestFilterArg = "-codexTestFilter";
 
     private const string CoreSelection = "core";
+    private const string CoreFeatureGateSelection = "core-feature-gate";
     private const string FullSelection = "full";
     private const string UiSelection = "ui";
     private const string IntegrationSimulationSelection = "integration-simulation";
     private const string IntegrationReplaySelection = "integration-replay";
     private const string IntegrationFuzzSelection = "integration-fuzz";
     private const string CoreCategory = "Core";
+    private const string Phase3BGateCategory = "Phase3BGate";
     private const string CoreEditModeAssemblyName = "Game.Core.Tests";
+    private static readonly string[] CoreFeatureGateEditModeAssemblyNames =
+    {
+        "Game.Feature.Gameplay.Tests",
+        "Game.Feature.Stages.Editor.Tests",
+    };
     private const string PlayModeAssemblyName = "Game.Feature.Gameplay.PlayModeTests";
     private const string IntegrationSimulationAssemblyName = "Game.Integration.Simulation.Tests";
     private const string IntegrationReplayAssemblyName = "Game.Integration.Replay.Tests";
@@ -194,21 +201,14 @@ public static class TestRunnerCliBootstrap
             testMode = _testMode,
         };
 
-        if (_selection == CoreSelection)
-        {
-            if (selectedAssemblyNames.Length > 0)
-            {
-                filter.assemblyNames = selectedAssemblyNames;
-            }
-
-            if (selectedCategories.Length > 0)
-            {
-                filter.categoryNames = selectedCategories;
-            }
-        }
-        else if (selectedAssemblyNames.Length > 0)
+        if (selectedAssemblyNames.Length > 0)
         {
             filter.assemblyNames = selectedAssemblyNames;
+        }
+
+        if (selectedCategories.Length > 0)
+        {
+            filter.categoryNames = selectedCategories;
         }
 
         var selectedTestFilters = ParseTestFilters(_testFilter);
@@ -505,22 +505,24 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         {
             if (_testMode == TestMode.EditMode)
             {
-                if (!string.IsNullOrWhiteSpace(_testFilter))
-                {
-                    return;
-                }
-
                 selectedAssemblyNames = new[] { CoreEditModeAssemblyName };
                 return;
             }
 
             selectedAssemblyNames = new[] { PlayModeAssemblyName };
-            if (!string.IsNullOrWhiteSpace(_testFilter))
+            selectedCategories = new[] { CoreCategory };
+            return;
+        }
+
+        if (_selection == CoreFeatureGateSelection)
+        {
+            if (_testMode != TestMode.EditMode)
             {
-                return;
+                throw new InvalidOperationException($"Selection '{_selection}' only supports EditMode execution.");
             }
 
-            selectedCategories = new[] { CoreCategory };
+            selectedAssemblyNames = CoreFeatureGateEditModeAssemblyNames;
+            selectedCategories = new[] { Phase3BGateCategory };
             return;
         }
 
@@ -566,6 +568,7 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
 
         _selection = rawSelection.Trim().ToLowerInvariant();
         if (_selection != CoreSelection &&
+            _selection != CoreFeatureGateSelection &&
             _selection != FullSelection &&
             _selection != UiSelection &&
             _selection != IntegrationSimulationSelection &&
@@ -596,6 +599,7 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         _testFilter = SessionState.GetString(TestFilterKey, string.Empty);
 
         if (_selection != CoreSelection &&
+            _selection != CoreFeatureGateSelection &&
             _selection != FullSelection &&
             _selection != UiSelection &&
             _selection != IntegrationSimulationSelection &&
