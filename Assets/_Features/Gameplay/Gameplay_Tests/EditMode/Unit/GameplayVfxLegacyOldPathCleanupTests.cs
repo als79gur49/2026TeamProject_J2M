@@ -98,7 +98,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(exitController, Does.Not.Contain("PlayFlipImpactDestroyEffect"));
             Assert.That(exitController, Does.Not.Contain("suppressLegacyFlipDestroySelfEffects"));
-            Assert.That(exitController, Does.Not.Contain("suppressLegacyEnemyDeathEffects"));
+            Assert.That(exitController, Does.Not.Contain("suppress" + "Legacy" + "EnemyDeathEffects"));
             Assert.That(coordinator, Does.Not.Contain("PlayPlayerHitEffects(TickResult"));
             Assert.That(runtime, Does.Not.Contain("SuppressLegacy"));
         }

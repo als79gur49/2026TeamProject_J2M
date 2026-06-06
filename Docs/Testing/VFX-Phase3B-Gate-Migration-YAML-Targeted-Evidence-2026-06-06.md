@@ -114,7 +114,7 @@ Scene reserialization note:
 
 ## 11. 다음 단계
 Gate 통과 시:
-- Phase 4: LegacyEnemyDeath naming cleanup.
+- Phase 4: enemy death motion/fade naming cleanup for the historical pre-Phase4 names.
 - 이후: exit-specific command builder naming/consolidation.
 - 이후: DefaultGameplay visibility policy resolve 일원화.
 

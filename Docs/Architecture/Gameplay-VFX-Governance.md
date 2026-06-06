@@ -554,16 +554,16 @@ Second concrete user:
 - Enemy Death Motion
 - cue: `EnemyVfxCue.DeathMotion`
 - adapter source: `TickPresentationData.EntityExitSignals` filtered to enemy death exits
-- playback: source-view clone with fallback prefab flying toward the legacy camera near-plane target and fading with the old enemy death curve
+- playback: source-view clone with fallback prefab flying toward the preserved camera near-plane target and fading with the preserved enemy death curve
 
 ### Parameterized Motion Sampler Modes
 
 `ParameterizedMotionVfxCommand` carries an explicit sampler mode so presentation VFX can choose the correct source-to-target pose policy without changing gameplay movement carriers.
 
 - `FlipArc`: the existing arc/tumble sampler for `FlipDestroySelfMotion` and other flip-styled source-to-impact motion. It preserves the existing arc height, tumble rotation, break/fade, clone, and material behavior.
-- `LegacyEnemyDeathFlyAway`: enemy death exit motion parity sampler. Position uses legacy ease-out cubic travel plus `sin(t*pi)` arc offset, and rotation applies seeded spin around the legacy camera-forward local axis.
+- `EnemyDeathFlyAway`: enemy death exit motion parity sampler. Position uses preserved ease-out cubic travel plus `sin(t*pi)` arc offset, and rotation applies seeded spin around the camera-forward local axis.
 
-Sampler modes are presentation-only. They do not change enemy death cleanup, `TickPipeline`, `WorldState`, `WorldSnapshot`, `TickPresentationData`, `TickEntityMotion`, `MotionTrack`, or `MotionClip`. `EnemyDeathMotion` uses `LegacyEnemyDeathFlyAway`; exact scrape/decal primitives remain future work.
+Sampler modes are presentation-only. They do not change enemy death cleanup, `TickPipeline`, `WorldState`, `WorldSnapshot`, `TickPresentationData`, `TickEntityMotion`, `MotionTrack`, or `MotionClip`. `EnemyDeathMotion` uses `EnemyDeathFlyAway`; exact scrape/decal primitives remain future work.
 
 Future possible users:
 

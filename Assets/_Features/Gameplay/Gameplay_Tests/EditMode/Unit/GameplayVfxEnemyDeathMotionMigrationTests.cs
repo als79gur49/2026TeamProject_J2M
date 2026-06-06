@@ -208,8 +208,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(parameterized.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)));
                 Assert.That(parameterized.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
                 Assert.That(parameterized.CloneMode, Is.Not.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
-                Assert.That(parameterized.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway));
-                Assert.That(parameterized.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.LegacyEnemyDeath));
+                Assert.That(parameterized.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.EnemyDeathFlyAway));
+                Assert.That(parameterized.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.EnemyDeathFade));
                 Assert.That(parameterized.BreakStartSeconds, Is.EqualTo(parameterized.DurationSeconds * 0.12f).Within(0.0001f));
                 Assert.That(parameterized.FadeDurationSeconds, Is.EqualTo(parameterized.DurationSeconds * 0.88f).Within(0.0001f));
             }
