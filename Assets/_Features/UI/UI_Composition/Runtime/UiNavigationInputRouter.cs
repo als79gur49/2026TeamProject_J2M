@@ -1,8 +1,5 @@
 using System;
 using Game.Feature.UI.Application;
-using Game.Feature.UI.Flow;
-using Game.Feature.UI.Popups;
-using Game.Feature.UI.Screens;
 using Game.Feature.UI.ViewShared;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -19,8 +16,6 @@ namespace Game.Feature.UI.Composition
         private const float NavigateDeadzone = 0.5f;
 
         [SerializeField] private InputActionAsset _inputActions;
-        [SerializeField] private PopupLayerView _popupLayerView;
-        [SerializeField] private MainMenuScreenView _mainMenuScreenView;
 
         private Func<bool> _backRequestedFallback;
         private Func<bool> _isNavigationBlocked;
@@ -29,33 +24,9 @@ namespace Game.Feature.UI.Composition
         private bool _currentTargetFocusRevealed;
         private bool _initialized;
         private InputAction _navigateAction;
-        private PopupController _popupController;
         private IUiNavigationTargetResolver _targetResolver;
         private IUiAudioPort _uiAudioPort;
         private InputAction _submitAction;
-
-        public void Initialize(
-            InputActionAsset inputActions,
-            PopupController popupController,
-            PopupLayerView popupLayerView,
-            MainMenuScreenView mainMenuScreenView,
-            Func<bool> backRequestedFallback,
-            Func<bool> isNavigationBlocked,
-            IUiAudioPort uiAudioPort = null)
-        {
-            UnbindActions();
-            _inputActions = inputActions;
-            _popupController = popupController;
-            _popupLayerView = popupLayerView;
-            _mainMenuScreenView = mainMenuScreenView;
-            _targetResolver = new LegacyNavigationTargetResolver(popupController, popupLayerView, mainMenuScreenView);
-            _backRequestedFallback = backRequestedFallback;
-            _isNavigationBlocked = isNavigationBlocked;
-            _uiAudioPort = uiAudioPort;
-            _initialized = true;
-            BindActions();
-            SetCurrentTarget(ResolveTarget().Target);
-        }
 
         public void Initialize(
             InputActionAsset inputActions,
@@ -66,9 +37,6 @@ namespace Game.Feature.UI.Composition
         {
             UnbindActions();
             _inputActions = inputActions;
-            _popupController = null;
-            _popupLayerView = null;
-            _mainMenuScreenView = null;
             _targetResolver = targetResolver;
             _backRequestedFallback = backRequestedFallback;
             _isNavigationBlocked = isNavigationBlocked;
@@ -269,48 +237,6 @@ namespace Game.Feature.UI.Composition
             return _targetResolver != null
                 ? _targetResolver.Resolve()
                 : UiNavigationTargetResolution.Open(null);
-        }
-
-        private sealed class LegacyNavigationTargetResolver : IUiNavigationTargetResolver
-        {
-            private readonly MainMenuScreenView _mainMenuScreenView;
-            private readonly PopupController _popupController;
-            private readonly PopupLayerView _popupLayerView;
-
-            public LegacyNavigationTargetResolver(
-                PopupController popupController,
-                PopupLayerView popupLayerView,
-                MainMenuScreenView mainMenuScreenView)
-            {
-                _popupController = popupController;
-                _popupLayerView = popupLayerView;
-                _mainMenuScreenView = mainMenuScreenView;
-            }
-
-            public UiNavigationTargetResolution Resolve()
-            {
-                if (_popupController != null && _popupController.TopPopup.HasValue)
-                {
-                    var popup = _popupController.TopPopup.Value;
-                    if (_popupController is IUiNavigationTargetProvider popupProvider &&
-                        popupProvider.TryGetNavigationTarget(out var runtimeTarget))
-                    {
-                        return new UiNavigationTargetResolution(runtimeTarget, popup.Policy.BlocksLowerLayers);
-                    }
-
-                    if (_popupLayerView != null && _popupLayerView.TryFindNavigationTarget(out var layerTarget))
-                    {
-                        return new UiNavigationTargetResolution(layerTarget, popup.Policy.BlocksLowerLayers);
-                    }
-
-                    if (popup.Policy.BlocksLowerLayers)
-                    {
-                        return UiNavigationTargetResolution.Blocking(null);
-                    }
-                }
-
-                return UiNavigationTargetResolution.Open(_mainMenuScreenView);
-            }
         }
 
         private void SetCurrentTarget(IUiNavigationTarget target)

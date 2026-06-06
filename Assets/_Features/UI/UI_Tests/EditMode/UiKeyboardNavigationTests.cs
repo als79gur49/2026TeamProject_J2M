@@ -281,8 +281,6 @@ namespace Game.Feature.UI.Tests
         public void UiNavigationInputRouter_ConfirmPopupTopmost_BlocksMainMenuSelection()
         {
             using var mainMenu = CreateMainMenuHarness();
-            using var popup = CreateConfirmPopupHarness(isDestructive: false);
-            using var popupLayer = CreatePopupLayerHarness(popup.View);
             using var popupController = new PopupController(new FakePopupRuntimeFactory());
             Assert.That(popupController.Push(
                 new PopupRequest(PopupId.Confirm, new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)),
@@ -294,9 +292,10 @@ namespace Game.Feature.UI.Tests
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();
                 router.Initialize(
                     null,
-                    popupController,
-                    popupLayer.View,
-                    mainMenu.View,
+                    new UiLayeredNavigationTargetResolver(
+                        popupController,
+                        screenController: null,
+                        screenProvider: new SingleUiNavigationTargetProvider(mainMenu.View)),
                     () => false,
                     () => false);
 
@@ -321,7 +320,11 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();
-                router.Initialize(null, null, null, harness.View, () => false, () => false);
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(harness.View),
+                    () => false,
+                    () => false);
 
                 Assert.That(router.DispatchSubmit(), Is.True);
 
@@ -345,7 +348,11 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();
-                router.Initialize(null, null, null, harness.View, () => false, () => false);
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(harness.View),
+                    () => false,
+                    () => false);
 
                 Assert.That(router.DispatchSubmit(), Is.True);
                 Assert.That(router.DispatchSubmit(), Is.True);
@@ -369,7 +376,11 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();
-                router.Initialize(null, null, null, harness.View, () => false, () => false);
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(harness.View),
+                    () => false,
+                    () => false);
 
                 Assert.That(router.DispatchNavigate(UiNavigationCommand.Down), Is.True);
 
@@ -392,7 +403,12 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();
-                router.Initialize(null, null, null, harness.View, () => false, () => false, uiAudioPort);
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(harness.View),
+                    () => false,
+                    () => false,
+                    uiAudioPort);
 
                 Assert.That(router.DispatchNavigate(UiNavigationCommand.Down), Is.True);
                 Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.KeyboardMove }));
@@ -416,11 +432,15 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();
-                router.Initialize(null, null, null, harness.View, () =>
-                {
-                    backCount++;
-                    return true;
-                }, () => false);
+                router.Initialize(
+                    null,
+                    new FixedNavigationTargetResolver(harness.View),
+                    () =>
+                    {
+                        backCount++;
+                        return true;
+                    },
+                    () => false);
 
                 Assert.That(router.DispatchCancel(), Is.True);
 
@@ -2358,28 +2378,6 @@ namespace Game.Feature.UI.Tests
             return new ConfirmPopupHarness(root, view);
         }
 
-        private static PopupLayerHarness CreatePopupLayerHarness(ConfirmPopupView confirmPopupView)
-        {
-            var root = new GameObject("PopupLayerHarness", typeof(RectTransform));
-            var contentObject = new GameObject("Content", typeof(RectTransform));
-            contentObject.transform.SetParent(root.transform, false);
-            var backdrop = new GameObject("Backdrop", typeof(CanvasGroup));
-            backdrop.transform.SetParent(root.transform, false);
-            var backdropImage = new GameObject("BackdropImage", typeof(Image));
-            backdropImage.transform.SetParent(root.transform, false);
-            var backdropButton = new GameObject("BackdropButton", typeof(Button));
-            backdropButton.transform.SetParent(root.transform, false);
-            confirmPopupView.transform.SetParent(contentObject.transform, false);
-            var view = root.AddComponent<PopupLayerView>();
-            view.Configure(
-                root,
-                backdrop.GetComponent<CanvasGroup>(),
-                backdropImage.GetComponent<Image>(),
-                backdropButton.GetComponent<Button>(),
-                (RectTransform)contentObject.transform);
-            return new PopupLayerHarness(root, view);
-        }
-
         private static ConfirmPopupViewModel CreateConfirmPopupViewModel(bool isDestructive)
         {
             var viewModel = new ConfirmPopupViewModel();
@@ -2585,24 +2583,6 @@ namespace Game.Feature.UI.Tests
             }
 
             public ConfirmPopupView View { get; }
-
-            public void Dispose()
-            {
-                UnityEngine.Object.DestroyImmediate(_root);
-            }
-        }
-
-        private sealed class PopupLayerHarness : IDisposable
-        {
-            private readonly GameObject _root;
-
-            public PopupLayerHarness(GameObject root, PopupLayerView view)
-            {
-                _root = root;
-                View = view;
-            }
-
-            public PopupLayerView View { get; }
 
             public void Dispose()
             {

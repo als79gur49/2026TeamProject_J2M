@@ -13,7 +13,7 @@
 - Pinned Unity UI EditMode: `155 total / 0 failed`
 - Current Phase 1 drift-correction rerun: green on 2026-06-06 KST
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `645 total / 0 failed`
+- Current Unity UI EditMode: `647 total / 0 failed`
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
@@ -38,10 +38,11 @@
   - screen checkpoint guards proving the simple-shell, terminal-screen, and complex-screen checkpoints stay mechanically inspectable instead of hiding risk inside one broad migration phase
   - stronger screen-view ownership guards proving screen views do not surface navigation, popup, back-stack, controller, or gameplay-access shortcuts
   - transition overlay shell/content catalog guards proving scene transitions use the canonical shell asset and authored catalog, with missing setup reported as a defect
+  - canonical UI navigation resolver guards proving `UiNavigationInputRouter` exposes only the `IUiNavigationTargetResolver` setup path and does not reassemble popup/menu concrete targets
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `645 total / 0 failed`
-  - delta: `+581` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, and manual smoke-plan governance
+  - current rerun: `647 total / 0 failed`
+  - delta: `+583` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, and canonical navigation resolver-only enforcement
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
@@ -55,6 +56,7 @@
   - legacy overlay-dependent stage-clear assumptions are replaced with canonical Stage 7 terminal-screen coverage and scene-bootstrap contract coverage
   - diagnostics read-only boundary checks are replaced with absence guards for removed runtime surface
   - transition overlay recovery-route protection is replaced with canonical shell/content catalog setup-defect guards
+  - legacy navigation router setup coverage is replaced with `IUiNavigationTargetResolver` fixture coverage plus public-surface absence guards
 - Obsolete guards:
   - none removed by default
   - if a guard becomes obsolete, record which stronger guard now protects the same seam
@@ -74,6 +76,7 @@
 - Public-surface change governance:
   - freeze-test updates land alongside the functional change, never as later cleanup
   - temporary exceptions are not part of the Stage 9 freeze; unresolved needs become blockers instead of exemptions
+  - `UiNavigationInputRouter` remains an input router only; popup-first, screen, overlay, and HUD target assembly belongs to canonical resolver implementations
 
 ## Runner Warning Status
 - Governance mode: `soft`

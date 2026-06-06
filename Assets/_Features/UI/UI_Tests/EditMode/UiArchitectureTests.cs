@@ -14,6 +14,7 @@ using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Feature.UI.ViewShared;
 using Game.Shared.Display;
 using NUnit.Framework;
 using UnityEngine;
@@ -1005,6 +1006,59 @@ namespace Game.Feature.UI.Tests
                     Is.False,
                     $"{typeof(SettingsScreenPresenter).FullName} depends on {forbiddenType.FullName}");
             }
+        }
+
+        [Test]
+        public void UiNavigationInputRouter_PublicSurface_UsesOnlyCanonicalTargetResolver()
+        {
+            Assert.That(GetPublicPropertyNames(typeof(UiNavigationInputRouter)), Is.Empty);
+            Assert.That(GetPublicEventNames(typeof(UiNavigationInputRouter)), Is.Empty);
+            Assert.That(
+                GetPublicMethodSignatures(typeof(UiNavigationInputRouter)),
+                Is.EqualTo(new[]
+                {
+                    "DispatchCancel()",
+                    "DispatchNavigate(UiNavigationCommand)",
+                    "DispatchSubmit()",
+                    "Initialize(InputActionAsset, IUiNavigationTargetResolver, Func<Boolean>, Func<Boolean>, IUiAudioPort)",
+                }));
+
+            var forbiddenTypes = new[]
+            {
+                typeof(PopupController),
+                typeof(PopupLayerView),
+                typeof(MainMenuScreenView),
+            };
+            foreach (var forbiddenType in forbiddenTypes)
+            {
+                Assert.That(
+                    TypeDependsOn(typeof(UiNavigationInputRouter), forbiddenType),
+                    Is.False,
+                    $"{typeof(UiNavigationInputRouter).FullName} depends on {forbiddenType.FullName}");
+            }
+        }
+
+        [Test]
+        public void UiNavigationInputRouter_LegacyConcreteResolverPath_IsAbsent()
+        {
+            var routerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/UiNavigationInputRouter.cs");
+            var gameplayInstallerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
+            var mainMenuInstallerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs");
+            var testSource = ReadRepoFile("Assets/_Features/UI/UI_Tests/EditMode/UiKeyboardNavigationTests.cs");
+
+            Assert.That(routerSource, Does.Contain("IUiNavigationTargetResolver targetResolver"));
+            Assert.That(routerSource, Does.Not.Contain("LegacyNavigationTargetResolver"));
+            Assert.That(routerSource, Does.Not.Contain("PopupLayerView popupLayerView"));
+            Assert.That(routerSource, Does.Not.Contain("MainMenuScreenView mainMenuScreenView"));
+            Assert.That(routerSource, Does.Not.Contain("_popupLayerView"));
+            Assert.That(routerSource, Does.Not.Contain("_mainMenuScreenView"));
+
+            Assert.That(gameplayInstallerSource, Does.Contain("new UiLayeredNavigationTargetResolver("));
+            Assert.That(mainMenuInstallerSource, Does.Contain("new UiLayeredNavigationTargetResolver("));
+            Assert.That(gameplayInstallerSource, Does.Not.Contain("_navigationInputRouter.Initialize(\n                ResolveUiInputActions(),\n                PopupController"));
+            Assert.That(mainMenuInstallerSource, Does.Not.Contain("_navigationInputRouter.Initialize(\n                _inputActions,\n                PopupController"));
+            Assert.That(testSource, Does.Not.Contain("null, null, null"));
+            Assert.That(testSource, Does.Not.Contain("CreatePopupLayerHarness"));
         }
 
         [Test]
