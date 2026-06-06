@@ -23,7 +23,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string PlayerPrefabPath = "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab";
         private const string PlayerActionAudioProfilePath =
-            "Assets/_Features/Gameplay/Gameplay_ActionAudio/Profiles/Player_S1_GameplayActionAudioProfile_Test.asset";
+            "Assets/_Features/Gameplay/Gameplay_ActionAudio/Profiles/Player_S1_GameplayActionAudioProfile.asset";
 
         [Test]
         [Category("Extended")]
