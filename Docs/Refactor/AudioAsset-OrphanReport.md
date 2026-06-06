@@ -10,7 +10,7 @@ Asset inventory scan summary:
 | `SingleAudioDefinition` | 51 |
 | `RandomAudioDefinition` | 32 |
 | `BgmProfile` | 7 |
-| `StageBgmProfileCatalog` | 1 |
+| `StageAudioDefinition` | 12 |
 | `GameplayAudioMap` | 1 |
 | `GameplayActionAudioProfile` | 1 |
 | Additional production gameplay audio maps/profiles | 14 |
@@ -79,6 +79,6 @@ These are not deletion candidates.
 | `UiAudioCueMap_V1 -> Ui_*_Def -> UI/Sfx clips` | cue map serialized in `MainMenuScene` and `UIAudioScene`; validation requires every current enum value | KEEP_CANONICAL |
 | `GameplayAudioMap_UI-Audio_Test -> Player_Hurt_Def / Monster*_Test_Def / Block_Destroyed_Def` | map serialized in `UIAudioScene`; required six semantic map | KEEP_CANONICAL |
 | `Player_S1.prefab -> GameplayActionAudioAuthoring -> Player_S1_GameplayActionAudioProfile_Test -> PlayerSounds definitions` | prefab GUID ref; action audio runtime tests | KEEP_CANONICAL |
-| `StageBgmProfileCatalog -> Stage0-1..Stage4-1_BgmProfile -> Bgm definitions -> World_*.wav` | catalog serialized in `UIAudioScene`; stage adapter path | KEEP_CANONICAL |
+| `StageContentEntry -> StageAudioDefinition -> Stage0-1..Stage4-1_BgmProfile -> Bgm definitions -> World_*.wav` | direct stage audio companions; stage runtime request source path | KEEP_CANONICAL |
 | `MainMenuScene -> SceneBgmRequestSource -> MainMenu_BgmProfile -> MainMenu_BgmDef -> World_MainLobby.ogg` | scene contract test path | KEEP_CANONICAL |
 | enemy prefabs -> `EnemyAudioProfile_*` -> MonsterSounds definitions | prefab serialized refs and `EnemyAudioRuntimeTests` | KEEP_CANONICAL |

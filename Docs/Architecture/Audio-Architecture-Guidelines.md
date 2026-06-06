@@ -195,6 +195,10 @@ TickResult
 - true `FadeOutIn` is supported by request-based playback-port/runtime support.
 - true `Crossfade` needs shared-runtime multi-lane/capability expansion beyond the current single BGM lane.
 - 이 분리는 coordinator policy와 playback capability roadmap을 분리하기 위한 것이다.
+- stage gameplay BGM metadata는 `StageAudioDefinition` companion이 direct `BgmProfile` reference로 소유한다.
+- stage gameplay BGM request는 `StageAudioRuntimeRequestSource -> BgmRequestRouter -> BgmFlowCoordinator` path로만 실행한다.
+- stage content, scene installers, visual adapters는 `IAudioService.PlayBgm`를 직접 호출하지 않는다.
+- `BgmRequestRouter` priority는 `SceneDefault=100`, `StageGameplay=300`, `StageResult=400`, `Cutscene=500`으로 고정한다.
 
 ## 5. 2D-Only Playback Contract
 
@@ -314,6 +318,7 @@ future extension note:
 
 - v1 action audio defaulting은 prefab-local authoring only다.
 - later stage-wide/default action audio가 필요하면 `GameplaySceneHostConfiguration` 또는 `StagePresentationDefinition`에 ad-hoc audio field를 늘리지 않는다.
+- BGM profile metadata는 `StageAudioDefinition`에만 둔다. `StagePresentationDefinition`은 BGM을 소유하지 않는다.
 - prefer a grouped `GameplayPresentationAudioConfig`.
 - future grouped config는 core one-shot map, default action audio profile, optional enemy/entity defaults를 함께 소유해야 한다.
 

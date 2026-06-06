@@ -17,6 +17,10 @@
   - `SceneBgmRequestSource`를 뜻한다.
   - scene entry에서 원하는 `BgmProfile`만 요청한다.
   - `IAudioService`, `PlayBgm`, `StopBgm`를 직접 호출하지 않는다.
+- `stage audio request source`
+  - `StageAudioRuntimeRequestSource`를 뜻한다.
+  - resolved stage audio metadata를 `BgmRequestRouter`에 제출한다.
+  - `IAudioService`, `PlayBgm`, `StopBgm`를 직접 호출하지 않는다.
 
 ## 2. Core Invariants
 
@@ -27,6 +31,8 @@
 - gameplay one-shot SFX는 계속 `GameplayAudioMap -> GameplayAudioPresentationController -> IGameplayAudioPlaybackPort` path에 남는다.
 - `GameplayAudioPresentationController`, `GameplayAudioMap`, `GameplaySceneHostConfiguration`는 BGM ownership을 얻지 않는다.
 - scene-global fallback lookup은 금지한다.
+- `StageAudioDefinition`은 content metadata / playback profile reference owner일 뿐이고 BGM execution owner가 아니다.
+- stage-backed gameplay BGM은 `StageAudioRuntimeRequestSource -> BgmRequestRouter -> BgmFlowCoordinator` path로만 실행한다.
 
 ## 3. Bootstrap And Registry Contract
 
@@ -62,6 +68,7 @@ repair notes:
 
 - `GlobalAudioFlowBootstrap`는 canonical bootstrap root에 둔다.
 - `SceneBgmRequestSource`는 owner가 아니라 requester이므로 bootstrap root를 대체하면 안 된다.
+- stage-backed scene에서 gameplay BGM이 필요하면 `SceneBgmRequestSource`를 활성화하지 않고 `StageAudioDefinition` companion을 작성한다.
 - wiring 문제가 생겨도 scene-global search helper를 추가해서 고치면 안 된다.
 
 exact fail-fast messages:
@@ -75,7 +82,7 @@ exact fail-fast messages:
 
 - `Immediate` and `FadeOutIn` are executed transition modes in BGM flow v1.
 - `Crossfade` is reserved for a future multi-source BGM runtime.
-- `FadeOutIn` execution belongs to the BGM flow/shared audio runtime path, not to `SceneBgmRequestSource`, `StagePresentationRuntimeAdapter`, or menu installers.
+- `FadeOutIn` execution belongs to the BGM flow/shared audio runtime path, not to request sources, visual adapters, or menu installers.
 - v1 runtime behavior는 아래로 고정한다.
   - `Immediate`는 기존처럼 즉시 stop/start 한다.
   - `FadeOutIn`은 single BGM source에서 fade out -> switch -> fade in으로 실행한다.
@@ -98,6 +105,8 @@ exact fail-fast messages:
 - true `FadeOutIn` is supported by the request-based playback port and shared audio runtime.
 - true `Crossfade` needs shared-runtime multi-lane/capability expansion beyond the current single BGM lane.
 - `BgmFlowCoordinator`는 low-level timing/mixing mechanics를 직접 소유하지 않는다.
+- source priority는 `BgmRequestRouter`가 소유한다: `SceneDefault=100`, `StageGameplay=300`, `StageResult=400`, `Cutscene=500`.
+- `BgmFlowCoordinator`는 router에서 선택된 request만 실행한다.
 
 forward plan:
 
