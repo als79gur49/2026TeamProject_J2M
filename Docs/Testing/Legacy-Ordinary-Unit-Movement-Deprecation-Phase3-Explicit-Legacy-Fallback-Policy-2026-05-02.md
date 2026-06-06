@@ -6,7 +6,7 @@ Date: 2026-05-02
 
 Phase 3 chooses Option B. Player ordinary, enemy ordinary, and Charge active legacy fallback are no longer authorized by `GameplayRuntimeFeatureFlags.None`.
 
-`GameplayRuntimeFeatureFlags.None` now means no advanced locomotion flags and no explicit legacy ordinary fallback authorization. Phase 3 introduced `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` as a test/replay/migration preset, but Phase 4/5/6 supersede that authorization. After Phase 8B/8C, `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is the canonical removed-diagnostic preset, and `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` is a deprecated compatibility alias.
+`GameplayRuntimeFeatureFlags.None` now means no advanced locomotion flags and no explicit legacy ordinary fallback authorization. Phase 3 introduced `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as a test/replay/migration preset, but Phase 4/5/6 supersede that authorization. After Phase 8B/8C, `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is the canonical removed-diagnostic preset, and `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is a deprecated compatibility alias.
 
 This phase does not delete the player fallback branch, enemy ordinary fallback branch, Charge fallback branch, `MoveEntity`, `MovementExpander`, retained grid transactions, or active glide retained fallback.
 
@@ -26,11 +26,11 @@ This phase does not delete the player fallback branch, enemy ordinary fallback b
 
 `TickPipeline.ValidateLegacyExpansionIntents` rejects covered player ordinary, enemy ordinary, and Charge active fallback when `EnableLegacyOrdinaryUnitFallback` is false. The diagnostic reason is `LegacyOrdinaryFallbackRequiresExplicitBaseline`.
 
-Phase 4 supersedes the player portion of this policy. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` no longer authorizes player ordinary fallback; player attempts are rejected with `PlayerLegacyFallbackRemovedFromRuntime`.
+Phase 4 supersedes the player portion of this policy. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` no longer authorizes player ordinary fallback; player attempts are rejected with `PlayerLegacyFallbackRemovedFromRuntime`.
 
-Phase 5 supersedes the enemy portion of this policy. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` no longer authorizes enemy ordinary fallback; enemy attempts are rejected with `EnemyLegacyFallbackRemovedFromRuntime`.
+Phase 5 supersedes the enemy portion of this policy. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` no longer authorizes enemy ordinary fallback; enemy attempts are rejected with `EnemyLegacyFallbackRemovedFromRuntime`.
 
-Phase 6 supersedes the Charge portion of this policy. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` no longer authorizes Charge active fallback; Charge attempts are rejected with `ChargeLegacyFallbackRemovedFromRuntime`.
+Phase 6 supersedes the Charge portion of this policy. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` no longer authorizes Charge active fallback; Charge attempts are rejected with `ChargeLegacyFallbackRemovedFromRuntime`.
 
 Retained grid transaction paths remain allowed without the fallback preset:
 
@@ -48,9 +48,9 @@ Glide policy is unchanged. `EnableEnemyGlideKinematicLocomotion` remains explici
 Canonical Phase 3 tests use explicit names such as:
 
 - `Phase3_None_NoPlayerEnemyChargeLegacyFallback`
-- `Phase4_LegacyOrdinaryFallbackBaseline_PlayerFallbackRemoved`
-- `Phase5_LegacyOrdinaryFallbackBaseline_EnemyFallbackRemoved`
-- `Phase6_LegacyOrdinaryFallbackBaseline_ChargeFallbackRemoved`
+- `Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved`
+- `Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemoved`
+- `Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved`
 - `Replay_Phase3_None_NoCoveredFallback`
 - `Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved`
 

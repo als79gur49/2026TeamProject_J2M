@@ -178,10 +178,6 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerFree2DActionAssist: false,
                 enableLegacyOrdinaryUnitFallback: true);
 
-        // Deprecated compatibility alias retained for historical tests and migration references.
-        public static GameplayRuntimeFeatureFlags LegacyOrdinaryFallbackBaseline =>
-            RemovedLegacyFallbackDiagnosticBaseline;
-
         public static GameplayRuntimeFeatureFlags EnemySameFaceContinuousLocomotionEnabled =>
             new(
                 enablePlayerSameFaceContinuousLocomotion: false,
@@ -248,8 +244,5 @@ namespace Game.Feature.Gameplay.Loop
 
         public bool RemovedLegacyFallbackDiagnosticsEnabled => EnableLegacyOrdinaryUnitFallback;
 
-        // Compatibility alias. Covered fallback is not authorized; use
-        // RemovedLegacyFallbackDiagnosticsEnabled for current diagnostic routing policy.
-        public bool LegacyOrdinaryFallbackEnabled => RemovedLegacyFallbackDiagnosticsEnabled;
     }
 }

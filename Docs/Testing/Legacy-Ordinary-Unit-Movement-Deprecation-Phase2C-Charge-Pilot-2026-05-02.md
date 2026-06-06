@@ -36,9 +36,9 @@ The Charge active fallback branch is currently reachable through this chain:
 
 `EnemyChargeKinematicLocomotionEnabled` makes synthetic active charge expansion a forbidden leak. The expected rejection reason is `ChargeCoveredKinematicReachedLegacyExpansion`.
 
-Historical Phase 2C note: `GameplayRuntimeFeatureFlags.None` was the Charge fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered Charge active fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 6 supersedes the explicit baseline policy: `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` now blocks Charge active fallback with `ChargeLegacyFallbackRemovedFromRuntime`.
+Historical Phase 2C note: `GameplayRuntimeFeatureFlags.None` was the Charge fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered Charge active fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 6 supersedes the explicit baseline policy: `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` now blocks Charge active fallback with `ChargeLegacyFallbackRemovedFromRuntime`.
 
-Phase 8B/8C names `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical removed-diagnostic preset. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a deprecated compatibility alias for historical Phase 2C/6 tests.
+Phase 8B/8C names `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical removed-diagnostic preset. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` remains a deprecated compatibility alias for historical Phase 2C/6 tests.
 
 Historical Phase 2C custom flags with `EnableEnemyChargeKinematicLocomotion` disabled used `EnableLegacyOrdinaryUnitFallback` for Charge active fallback. Phase 6/7 supersede that behavior: the field is diagnostic compatibility only and Charge active fallback rejects with `ChargeLegacyFallbackRemovedFromRuntime`.
 ChargeMove presentation cleanup readiness supersedes any current-policy reading of Phase 2C fallback output: `ChargeMove` remains a synthetic/presentation compatibility inventory item, not an authorized runtime fallback output.
@@ -81,7 +81,7 @@ The helper vocabulary remains scoped to `LegacyFallback`, legacy `ChargeMove` pr
 
 Actual Charge fallback deletion is not approved by Phase 2C. Before deleting or test-only-scoping the Charge fallback branch, the next phase needs:
 
-- explicit approval to remove or narrow the deprecated `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` compatibility alias
+- explicit approval to remove or narrow the deprecated `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` compatibility alias
 - `ChargeMove` presentation owner approval
 - replay/golden migration or exemption policy
 - green Charge default and kinematic-on no-fallback canaries

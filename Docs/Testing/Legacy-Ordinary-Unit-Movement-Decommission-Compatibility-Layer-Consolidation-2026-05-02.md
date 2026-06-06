@@ -8,7 +8,7 @@ This is the unified `Legacy Compatibility Layer Consolidation` package.
 The project stops extending the tiny Phase 8F/8G/8H chain and treats the remaining fallback compatibility layer as one inventory and prioritization target.
 Covered fallback authorization is already removed for covered player ordinary, enemy ordinary, and Charge active fallback.
 This package does not change runtime validation semantics.
-`EnableLegacyOrdinaryUnitFallback`, `LegacyOrdinaryFallbackBaseline`, `LegacyOrdinaryFallbackEnabled`, and the `LegacyFallback=` trace token remain compatibility surface.
+`EnableLegacyOrdinaryUnitFallback` and the `LegacyFallback=` trace token remain compatibility surface. The old `LegacyOrdinaryFallbackBaseline` and `LegacyOrdinaryFallbackEnabled` aliases are removed.
 `TickEntityMotionKind.Move` is not deleted in this package.
 `TickEntityMotionKind.Move` is an ownership-narrowing target, not a deletion target; retained grid/generic presentation remains protected.
 The follow-up Charge presentation package removed the legacy Charge entity-motion enum, timing, authoring, host consumers, and synthetic compatibility.
@@ -16,7 +16,7 @@ Current Charge presentation is `TickKinematicMotionTrack(MotionMode.Charge)` plu
 `MoveEntity`, `MovementExpander`, retained grid transactions, and glide flag-off fallback are protected and are not ordinary fallback cleanup targets.
 No replay or golden files are rewritten in this consolidation.
 Fallback compatibility wrapper cleanup removes stale allowed-fallback vocabulary from current-policy tests/docs.
-It does not change runtime validation, Move ownership, retained grid transactions, diagnostic presets, compatibility aliases, or trace tokens.
+It does not change runtime validation, Move ownership, retained grid transactions, diagnostic presets, or trace tokens.
 
 ## Current State Summary
 
@@ -26,8 +26,8 @@ Phase 5 removed enemy ordinary covered fallback authorization.
 Phase 6 removed Charge active covered fallback authorization.
 Covered attempts now reject with `PlayerLegacyFallbackRemovedFromRuntime`, `EnemyLegacyFallbackRemovedFromRuntime`, or `ChargeLegacyFallbackRemovedFromRuntime`.
 Phase 7 and Phase 8A aligned helper and test vocabulary around removed diagnostics while keeping obsolete `Allows*` wrappers as compatibility wrappers.
-Phase 8B and Phase 8C made `RemovedLegacyFallbackDiagnosticBaseline` the canonical preset while preserving `LegacyOrdinaryFallbackBaseline` as a deprecated compatibility alias.
-Phase 8D made `RemovedLegacyFallbackDiagnosticsEnabled` the canonical helper while preserving `LegacyOrdinaryFallbackEnabled` as a deprecated compatibility alias.
+Phase 8B and Phase 8C made `RemovedLegacyFallbackDiagnosticBaseline` the canonical preset. The old `LegacyOrdinaryFallbackBaseline` alias is now removed.
+Phase 8D made `RemovedLegacyFallbackDiagnosticsEnabled` the canonical helper. The old `LegacyOrdinaryFallbackEnabled` alias is now removed.
 Phase 8E kept `EnableLegacyOrdinaryUnitFallback` as the underlying compatibility diagnostic field and kept the `LegacyFallback=` trace token for golden stability.
 
 ## Compatibility Layer Inventory
@@ -35,9 +35,9 @@ Phase 8E kept `EnableLegacyOrdinaryUnitFallback` as the underlying compatibility
 | item | kind | current status | still needed? | reason | cleanup action | risk | owner / blocker | recommended bucket |
 |---|---|---|---|---|---|---|---|---|
 | `RemovedLegacyFallbackDiagnosticBaseline` | preset | canonical removed-diagnostic preset | yes | deterministic removed diagnostics | keep canonical in docs and tests | low | none | Never delete / Retained |
-| `LegacyOrdinaryFallbackBaseline` | preset alias | deprecated compatibility alias | yes for now | historical tests, docs, and migration naming | confirm current-policy new usage stays out | alias deletion churn | replay/migration owner | Defer |
+| `LegacyOrdinaryFallbackBaseline` | preset alias | removed | no | canonical name is `RemovedLegacyFallbackDiagnosticBaseline` | keep historical mentions only | low | none | Removed |
 | `RemovedLegacyFallbackDiagnosticsEnabled` | helper | canonical helper | yes | routes explicit-baseline gate vs removed reasons | keep helper usage | low | none | Never delete / Retained |
-| `LegacyOrdinaryFallbackEnabled` | helper alias | deprecated delegate alias | yes for now | compatibility API | confirm internal usage remains definition/historical only | external/test churn | API owner | Defer |
+| `LegacyOrdinaryFallbackEnabled` | helper alias | removed | no | canonical helper is `RemovedLegacyFallbackDiagnosticsEnabled` | keep historical mentions only | low | none | Removed |
 | `EnableLegacyOrdinaryUnitFallback` | field | underlying compatibility field | yes for now | struct shape, named arguments, trace/golden stability | document no rename/delete | constructor churn | runtime API and replay owner | Defer |
 | `LegacyFallback=` trace token | trace vocabulary | kept for golden stability | yes for now | avoids deterministic trace churn | draft owner decision only | golden churn | replay/golden owner approval | Defer |
 | removed diagnostic reasons | diagnostics | current runtime contract | yes | proves covered fallback authorization is removed | keep canaries | reason rename churn | runtime/test owner | Never delete / Retained |
@@ -65,7 +65,7 @@ Phase 8E kept `EnableLegacyOrdinaryUnitFallback` as the underlying compatibility
 | `EnableLegacyOrdinaryUnitFallback` rename | defer | API, constructor, and golden churn | require compatibility field package approval |
 | `LegacyFallback=` rename | defer | trace/golden rewrite required | require trace vocabulary owner approval |
 | replay/golden rewrite | defer | consolidation is no-rewrite | require golden owner approval |
-| alias/helper removal | defer | compatibility API is retained | require all callers and historical references cleanup |
+| alias/helper removal | done | callers migrated to canonical names | keep historical references from becoming current API guidance |
 | `TickEntityMotionKind.Move` cleanup | defer | retained grid presentation dependency | narrow grid presentation ownership first |
 | legacy Charge entity-motion deletion | done | producer isolation and consumer deletion completed | keep no-output canaries |
 

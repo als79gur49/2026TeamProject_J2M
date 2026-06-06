@@ -2,7 +2,7 @@
 
 ## Decision
 
-Phase 8B adds `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical diagnostic preset for deterministic removed-fallback diagnostics. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains as a deprecated compatibility alias and delegates to the new preset. Runtime validation semantics are unchanged: player, enemy, and Charge covered fallback attempts still reject with removed diagnostics, while `None` still rejects covered attempts with the explicit-baseline-required diagnostic.
+Phase 8B adds `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical diagnostic preset for deterministic removed-fallback diagnostics. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` remains as a deprecated compatibility alias and delegates to the new preset. Runtime validation semantics are unchanged: player, enemy, and Charge covered fallback attempts still reject with removed diagnostics, while `None` still rejects covered attempts with the explicit-baseline-required diagnostic.
 
 `EnableLegacyOrdinaryUnitFallback`, `LegacyOrdinaryFallbackEnabled`, `TickPipeline`, `MovementExpander`, `MoveEntity`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, glide retained fallback, and replay/golden assets are not renamed or changed in this phase. Phase 8D later adds `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical helper while keeping `LegacyOrdinaryFallbackEnabled` as a deprecated compatibility alias.
 

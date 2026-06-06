@@ -58,14 +58,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void HostConfiguration_LegacyOrdinaryFallbackBaseline_IsNotSceneExposed()
+        public void HostConfiguration_RemovedDiagnosticBaseline_IsNotSceneExposed()
         {
             var configuration = new GameplaySceneHostConfiguration();
 
-            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
             var flags = configuration.CreateRuntimeFeatureFlags();
 
-            Assert.That(GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline.EnableLegacyOrdinaryUnitFallback, Is.True);
+            Assert.That(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.EnableLegacyOrdinaryUnitFallback, Is.True);
             Assert.That(flags.EnableLegacyOrdinaryUnitFallback, Is.False);
             Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.False);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.False);

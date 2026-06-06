@@ -2299,15 +2299,6 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_LegacyOrdinaryFallbackBaseline_IsCompatibilityAlias",
-      "category": "Core",
-      "contracts": [
-        "movement_boundary_v1"
-      ],
-      "reason": "Locked Core coverage for Phase 8B legacy baseline compatibility alias shape.",
-      "locked": true
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_RemovedDiagnosticBaseline_PlayerEnemyChargeDiagnostics",
       "category": "Core",
       "contracts": [
@@ -2374,15 +2365,6 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_LegacyOrdinaryFallbackBaseline_IsCompatibilityOnly",
-      "category": "Core",
-      "contracts": [
-        "movement_boundary_v1"
-      ],
-      "reason": "Locked Core coverage that Phase 8C keeps the old alias compatibility-only.",
-      "locked": true
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_CurrentPolicyDocs_UseRemovedDiagnosticBaseline",
       "category": "Core",
       "contracts": [
@@ -2392,12 +2374,12 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_AllowedOldAliasUsage_IsLimited",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_LegacyOrdinaryFallbackBaseline_IsRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage that Phase 8C limits direct old alias source usage.",
+      "reason": "Locked Core coverage that Phase 8C removes the old baseline alias source surface.",
       "locked": true
     },
     {
@@ -2456,15 +2438,6 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_LegacyOrdinaryFallbackEnabled_IsCompatibilityAlias",
-      "category": "Core",
-      "contracts": [
-        "movement_boundary_v1"
-      ],
-      "reason": "Locked Core coverage that Phase 8D keeps the old helper as compatibility-only.",
-      "locked": true
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_RemovedDiagnosticHelper_DoesNotAuthorizeFallback",
       "category": "Core",
       "contracts": [
@@ -2485,12 +2458,12 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_LegacyOrdinaryFallbackEnabled_HasNoCanonicalInternalUsage",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_LegacyOrdinaryFallbackEnabled_IsRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage that Phase 8D limits direct old helper source usage.",
+      "reason": "Locked Core coverage that Phase 8D removes the old helper alias source surface.",
       "locked": true
     },
     {
