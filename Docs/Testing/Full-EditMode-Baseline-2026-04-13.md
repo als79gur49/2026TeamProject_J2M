@@ -52,7 +52,7 @@
 ## Producer-side IR cleanup snapshot
 
 - declaration changes
-  - `ImpactReservation`의 public metadata fields `SourceActionGroupId`, `ReservationSequence` 제거
+  - `ImpactReservation`의 public metadata fields `SourceActionPlanId`, `ReservationSequence` 제거
   - `ActionGroup`, `ActionGroupKind`, `ActionGroupComparer`를 `internal`로 축소
 - usage changes
   - `TickTraceFormatter`에서 `Attack.NormalizedInputs` section 제거

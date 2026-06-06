@@ -247,7 +247,7 @@
   - semantic result 예: `SourceId`, `SourceKind`, `TargetId`, `Amount`, `Accepted`, `RejectReason`
   - provenance/correlation 예: `ActionPlanId`, `IntentId`, `LocalActionIndex`, `EffectSequence`
 - `IntentId`는 deterministic ordering, resolver dedupe, payload/finalization metadata, diagnostics correlation에 남는 canonical internal ID다.
-- `DamageResolutionRecord.GroupId`, `DestroyResolutionRecord.GroupId`, `DelayedAttackEffectRecord.SourceActionGroupId`는 migration compatibility alias이며 새 runtime reader가 직접 읽어서는 안 된다.
+- `DamageResolutionRecord.GroupId`, `DestroyResolutionRecord.GroupId`, `DelayedAttackEffectRecord.SourceActionGroupId` were removed compatibility aliases; 새 runtime reader는 `ActionPlanId` / `SourceActionPlanId` 또는 structured trace를 읽는다.
 - structured trace의 `Plan=` / `SourcePlan=` token은 canonical structured trace surface다. machine-readable trace/debug/tooling은 typed runtime carrier 다음 우선순위로 이 표면을 읽는다.
 - free-form `CommitEvents` / `EventLog`의 `G=` token은 compatibility token in free-form event log다. current `ActionPlanId` value를 mirror하지만 old semantic GroupId revival이 아니다.
 - 새 parser/test/tooling은 `G=`를 canonical parser surface로 읽지 않고 `ActionPlanId` / `SourceActionPlanId` 또는 structured trace `Plan=` / `SourcePlan=`를 읽는다.
@@ -255,7 +255,7 @@
 - `FlipImpactPresentationSignal`은 presentation-only carrier다. `WorldState`, damage/destroy resolution, movement/attack semantic, determinism hash input의 authority가 아니다.
 - `Flip DestroySelf` / `Flip Stay`는 fake `TickEntityMotionKind.Flip`을 만들지 않는다. common pre-impact flip arc는 `TickResult.PresentationData.FlipImpactSignals`로 전달한다.
 - `Flip FollowThrough`는 기존 `TickEntityMotionKind.Flip` 경로를 유지한다.
-- `FlipImpactPresentationSignal.SourceActionPlanId`가 canonical join key다. 새 reader는 `GroupId` / `SourceActionGroupId`를 읽지 않는다.
+- `FlipImpactPresentationSignal.SourceActionPlanId`가 canonical join key다. 새 reader는 removed `GroupId` / `SourceActionGroupId` alias vocabulary를 읽지 않는다.
 - `Flip Stay`는 actual entity view override track을 사용하고, `Flip DestroySelf`는 transient clone/effect path를 사용한다.
 - flip contact timing은 centralized timing setting에서 나오며 box contact, destroy break start, player release, stay recoil branch가 같은 contact normalized time을 공유한다.
 - `Flip DestroySelf`에서 shared contact normalized time은 final impact-pose arrival time이 아니라 break/release onset threshold다. destroy transient root flight는 일반 flip duration 전체를 사용하고, break/fade는 그 threshold부터 overlap된다.

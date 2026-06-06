@@ -261,7 +261,7 @@ namespace Game.Feature.Gameplay.Tests
                         group.Priority,
                         tickGenerated: 0,
                         executeAtTick: 1,
-                        sourceActionGroupId: actionPlanId,
+                        sourceActionPlanId: actionPlanId,
                         effectSequence: delayedIndex + 1);
                     queuedDelayedAttackEffects.Add(effectRecord);
                     operations.Add(

@@ -10,10 +10,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void DamageResolutionRecord_ActionPlanId_AliasesLegacyGroupId()
+        public void DamageResolutionRecord_ActionPlanId_IsCanonicalCorrelationField()
         {
             var record = new DamageResolutionRecord(
-                groupId: 17,
+                actionPlanId: 17,
                 intentId: 23,
                 sourceId: 10,
                 sourceKind: AttackSourceKind.Combat,
@@ -25,17 +25,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(record.ActionPlanId, Is.EqualTo(17));
 #pragma warning disable CS0618
-            Assert.That(record.GroupId, Is.EqualTo(record.ActionPlanId));
             Assert.That(record.IntentId, Is.EqualTo(23));
 #pragma warning restore CS0618
         }
 
         [Test]
         [Category("Extended")]
-        public void DestroyResolutionRecord_ActionPlanId_AliasesLegacyGroupId()
+        public void DestroyResolutionRecord_ActionPlanId_IsCanonicalCorrelationField()
         {
             var record = new DestroyResolutionRecord(
-                groupId: 31,
+                actionPlanId: 31,
                 intentId: 41,
                 sourceId: 10,
                 targetId: 20,
@@ -46,14 +45,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(record.ActionPlanId, Is.EqualTo(31));
 #pragma warning disable CS0618
-            Assert.That(record.GroupId, Is.EqualTo(record.ActionPlanId));
             Assert.That(record.IntentId, Is.EqualTo(41));
 #pragma warning restore CS0618
         }
 
         [Test]
         [Category("Extended")]
-        public void DelayedAttackEffectRecord_SourceActionPlanId_AliasesLegacySourceActionGroupId()
+        public void DelayedAttackEffectRecord_SourceActionPlanId_IsCanonicalCorrelationField()
         {
             var record = new DelayedAttackEffectRecord(
                 sourceId: 10,
@@ -62,13 +60,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 priority: 5,
                 tickGenerated: 3,
                 executeAtTick: 4,
-                sourceActionGroupId: 29,
+                sourceActionPlanId: 29,
                 effectSequence: 2);
 
             Assert.That(record.SourceActionPlanId, Is.EqualTo(29));
-#pragma warning disable CS0618
-            Assert.That(record.SourceActionGroupId, Is.EqualTo(record.SourceActionPlanId));
-#pragma warning restore CS0618
         }
     }
 }
