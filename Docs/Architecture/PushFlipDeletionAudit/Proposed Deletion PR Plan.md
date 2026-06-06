@@ -161,14 +161,13 @@ Rollback:
 These should not be deleted in any cleanup PR without a new feature removal decision:
 
 - `Assets/InputSystem_Actions.inputactions` `Player/Push` and `Player/Flip`.
-- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayInputHost.cs` Push/Flip route.
-- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/UIAccess/GameplayHostCommandGateway.cs` `RequestPush` / `RequestFlip`.
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayInputHost.cs` physical Push/Flip route.
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/UIAccess/GameplayHostCommandGateway.cs` UI-held movement command route.
 - `Assets/_Features/Gameplay/Gameplay_Loop/Runtime/PlayerTickCommand.cs` `PushPressed` / `FlipPressed`.
 - `PlayerActionKind.Push` / `PlayerActionKind.Flip`.
 - `PlayerActionRuntimeState`.
 - `MovementExpander` Push/Flip branches.
 - `BoxCapabilities.Push` / `BoxCapabilities.Flip`.
-- `FlipImpactPresentationSignal` and flip presentation drivers.
+- `FlipImpactPresentationSignal` and `BoxFlipInteractionDriver`.
 - `GameplayActionKind.Push` / `GameplayActionKind.Flip`.
 - `Player_S1_GameplayActionAudioProfile.asset` until renamed/migrated.
-

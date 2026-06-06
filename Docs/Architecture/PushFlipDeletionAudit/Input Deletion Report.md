@@ -12,9 +12,9 @@ Evidence:
 - `Assets/_Shared/Input/Runtime/KeyboardBindingSettingsService.cs` uses `PushActionPath = "Player/Push"` for display/rebinding.
 - PlayMode tests press the keyboard Push binding and verify edge-triggered Push behavior.
 
-Classification: `KEEP_CURRENTLY_USED`.
+Classification: `REMOVED_BY_PRODUCT_DECISION`.
 
-Delete action: none.
+Delete action: remove the UI Push/Flip action request methods, input buffers, fakes, and route-only tests.
 
 ## Flip Physical Input Status
 
@@ -24,12 +24,12 @@ Evidence:
 
 - `Assets/InputSystem_Actions.inputactions` has action `Player/Flip`.
 - Binding found: `<Keyboard>/q`.
-- No gamepad Flip binding was observed in the inspected action entry; this is a product input completeness gap, not an unused artifact.
+- The inspected action entry keeps Flip keyboard-only by current product policy.
 - `GameplayInputHost` resolves `Player/Flip`, subscribes `started` and `performed`, buffers Flip, and emits `PlayerTickCommand.FlipPressed`.
 - `KeyboardBindingSettingsService` uses `FlipActionPath = "Player/Flip"`.
 - PlayMode tests press the keyboard Flip binding and verify tick-boundary buffering/repeat-lock behavior.
 
-Classification: `KEEP_CURRENTLY_USED` for keyboard Flip; `NEEDS_MANUAL_DECISION` for missing gamepad Flip parity.
+Classification: `KEEP_CURRENTLY_USED` for keyboard Flip; `DOCUMENTED_CURRENT_POLICY` for no controller binding.
 
 Delete action: none.
 
@@ -54,7 +54,7 @@ Delete action: none.
 | Push `<Keyboard>/e` | Current runtime binding | KEEP_CURRENTLY_USED | None |
 | Push `<Gamepad>/buttonNorth` | Current runtime binding | KEEP_CURRENTLY_USED | None |
 | Flip `<Keyboard>/q` | Current runtime binding | KEEP_CURRENTLY_USED | None |
-| Flip gamepad binding | Not observed | NEEDS_MANUAL_DECISION | Decide whether to add, not delete |
+| Flip controller binding | Not observed | DOCUMENTED_CURRENT_POLICY | Do not add in this cleanup PR |
 | Old Push key binding | No separate old binding found | No artifact | None |
 | Old Flip key binding | No separate old binding found | No artifact | None |
 
@@ -92,13 +92,13 @@ Delete action: none.
 
 ## CommandGateway Route Status
 
-`GameplayHostCommandGateway.RequestPush` and `RequestFlip` are alive.
+Historical state: the gameplay host command gateway exposed UI Push/Flip action requests.
 
 Evidence:
 
-- `IGameplayCommandGateway` exposes `RequestPush` and `RequestFlip`.
-- `GameplayHostCommandGateway` validates the UI direction and forwards to `GameplayInputHost.BufferUiPush` / `BufferUiFlip`.
-- Runtime tests exercise `host.UiAccess.CommandGateway.RequestPush(...)`.
+- Current cleanup removes those UI action request methods.
+- UI-held movement remains in `IGameplayCommandGateway`.
+- Runtime tests migrate to physical input or direct command coverage.
 - UI architecture tests keep HUD display separated from command ownership.
 
 Classification: `KEEP_CURRENTLY_USED`.
@@ -147,7 +147,7 @@ Classification:
 | P2 | `SettingsScreen.prefab` legacy Push change button | REMOVED_DUPLICATE | Deleted inactive duplicate object; current row retained. |
 | P2 | `SettingsScreen.prefab` legacy Flip change button | REMOVED_DUPLICATE | Deleted inactive duplicate object; current row retained. |
 | P2 | ActionBar Push/Flip vocabulary in docs | RETIRED_VOCABULARY | Consolidate docs around actual HUDRoot/PlayerStatus query path. |
-| P3 | Missing gamepad Flip binding | NEEDS_MANUAL_DECISION | Product input decision; not a deletion candidate. |
+| P3 | Flip keyboard-only binding policy | DOCUMENTED_CURRENT_POLICY | Product input decision; not a deletion candidate. |
 
 Non-candidates:
 

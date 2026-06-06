@@ -15,13 +15,13 @@ The deletion opportunity is narrower and mostly outside the canonical feature pa
 | Immediate delete | No production Push/Flip input action, command route, runtime branch, prefab component, or audio asset qualifies for immediate deletion. Old `MovePush`, `AutoPush`, `PushBox`, `FlipBox`, `MovableBox`, generated input wrapper, and HelpScreen Push/Flip prompt were not found as active repo artifacts. |
 | Migration 후 삭제 | `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`, `LegacyOrdinaryFallbackEnabled`, `StageSpawnDefinition.PresentationId`, and public action-plan `GroupId` / `SourceActionGroupId` compatibility aliases were migrated to canonical names and removed. `EnableLegacyOrdinaryUnitFallback` remains intentionally not deleted without API/replay owner decision. |
 | Rename/refactor 후 유지 또는 삭제 | `Player_S1_GameplayActionAudioProfile.asset` was renamed from the misleading `_Test` name while preserving GUID `42a2e109fc5141ec9e866925a0a85c3b`. `SettingsScreen.prefab` inactive duplicate Push/Flip change-button objects were deleted after serialized reference checks. |
-| 삭제 금지 | `Push`/`Flip` InputActions, `GameplayInputHost` Push/Flip buffers, `GameplayHostCommandGateway.RequestPush/RequestFlip`, `PlayerTickCommand.PushPressed/FlipPressed`, `PlayerActionKind.Push/Flip`, `BoxCapabilities.Push/Flip`, `MovementExpander` Push/Flip handling, `FlipImpactPresentationSignal`, and `GameplayActionKind.Push/Flip` are currently used. |
+| 삭제 금지 | `Push`/`Flip` InputActions, `GameplayInputHost` physical Push/Flip buffers, `PlayerTickCommand.PushPressed/FlipPressed`, `PlayerActionKind.Push/Flip`, `BoxCapabilities.Push/Flip`, `MovementExpander` Push/Flip handling, `FlipImpactPresentationSignal`, and `GameplayActionKind.Push/Flip` are currently used. |
 
 Primary evidence:
 
 - `Assets/InputSystem_Actions.inputactions` contains `Player/Push` and `Player/Flip`.
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayInputHost.cs` binds `Player/Push` and `Player/Flip`, subscribes to action callbacks, buffers them, and emits `PlayerTickCommand.PushPressed` / `FlipPressed`.
-- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/UIAccess/GameplayHostCommandGateway.cs` forwards UI `RequestPush` / `RequestFlip` into `GameplayInputHost`.
+- Historical state: `Assets/_Features/Gameplay/Gameplay_Host/Runtime/UIAccess/GameplayHostCommandGateway.cs` forwarded UI Push/Flip action requests into input buffering. Current cleanup removes that route.
 - PlayMode tests press real keyboard bindings for Push/Flip and verify edge buffering and runtime action outcomes.
 - Stage content contains active `BoxCapabilities` rows with Push and Flip capability data.
 - `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab` references `Player_S1_GameplayActionAudioProfile.asset` by GUID.
@@ -33,10 +33,10 @@ Primary evidence:
 | Physical keyboard Push | Yes: `Player/Push` InputAction, `<Keyboard>/e` | Yes: input asset referenced by project settings and scenes | Yes: `GameplayInputHost.BindActions()` calls `_actions.Enable()` | No | No | No |
 | Physical keyboard Flip | Yes: `Player/Flip` InputAction, `<Keyboard>/q` | Yes | Yes | No | No | No |
 | Gamepad Push | Yes: `Player/Push`, `<Gamepad>/buttonNorth` | Yes | Yes | No | No | No |
-| Gamepad Flip | No matching gamepad Flip binding observed in the inspected `Player/Flip` action | Not applicable | Not applicable | No | No | Product input gap, not deletion |
+| Flip controller binding | No matching controller binding observed in the inspected `Player/Flip` action | Not applicable | Not applicable | No | No | Keyboard-only by current product policy |
 | Generated input wrapper | No: `generateWrapperCode: 0`, wrapper class/path empty | No wrapper refs found | No | No | No | Nothing to delete |
 | `GameplayInputHost` adapter | Yes | Used by gameplay host runtime | Yes | No | No | No |
-| UI command gateway route | Yes: `RequestPush`, `RequestFlip` | `GameplayUiFlowPorts` carries `IGameplayCommandGateway` | Yes | No | No | No |
+| UI command gateway route | Removed for Push/Flip action requests | `GameplayUiFlowPorts` carries `IGameplayCommandGateway` for UI-held movement | Historical tests migrated | No | No | No current touch/mobile/assist action surface |
 | Command contract | Yes: `PlayerTickCommand.PushPressed`, `FlipPressed` | Emitted by host and directly built by tests | Yes | No | No | No |
 | Runtime state | Yes: `PlayerActionRuntimeState`, `PlayerActionKind.Push/Flip` | Used by player control logic and presentation snapshots | Yes | No | No | No |
 | Movement runtime | Yes: `MovementExpander`, impact/disposition paths | Stage boxes make it reachable | Yes | No | No | No |
@@ -65,19 +65,18 @@ UI source trace:
 
 ```text
 UI.Flow / ViewModel intent
-  -> IGameplayCommandGateway.RequestPush / RequestFlip
-  -> GameplayHostCommandGateway
-  -> GameplayInputHost.BufferUiPush / BufferUiFlip
-  -> same PlayerTickCommand path as physical input
+  -> historical UI Push/Flip action request forwarding
+  -> removed in current cleanup
+  -> physical input remains the active Push/Flip command source
 ```
 
 Mandatory input verdicts:
 
 | Verdict | Result |
 | --- | --- |
-| A. Push/Flip physical input is currently used in play | Yes for keyboard Push/Flip and gamepad Push. |
+| A. Push/Flip physical input is currently used in play | Yes for keyboard Push/Flip and existing Push controller binding. |
 | B. Command field exists but physical input source is dead | No for keyboard Push/Flip. |
-| C. Tests only construct command directly | Tests do construct commands directly, but this is not the only source. Physical and UI sources also exist. |
+| C. Tests only construct command directly | Tests do construct commands directly, but this is not the only source. Physical input also exists. |
 | D. UI/help/prompt only residue | Settings/rebind UI is active. No active HelpScreen Push/Flip prompt was found. |
 | E. Old route parallel to canonical route | No old Push/Flip input adapter or generated wrapper found. Legacy ordinary fallback diagnostics are separate movement compatibility residue. |
 
@@ -159,14 +158,14 @@ Serialized value counts observed:
 | `Assets/InputSystem_Actions.inputactions` `Player/Flip` | InputAction | `GameplayInputHost`, binding settings service | PlayMode keyboard input tests | Same input asset GUID | Input docs | Yes | KEEP_CURRENTLY_USED | None |
 | generated input wrapper | C# generated wrapper | None found | None found | `generateWrapperCode: 0` | None | No | No artifact | None |
 | `GameplayInputHost` Push/Flip buffers | C# adapter | Gameplay host runtime | PlayMode and unit tests | Host runtime composition | Architecture docs | Yes | KEEP_CURRENTLY_USED | None |
-| `GameplayHostCommandGateway.RequestPush/RequestFlip` | UI command gateway | UI flow to input host | UI/host tests | Runtime ports | UI architecture docs | Yes | KEEP_CURRENTLY_USED | None |
+| Gameplay UI Push/Flip action request route | UI command gateway | No production UI surface | UI/host tests migrated | Runtime ports | UI architecture docs | Removed | REMOVED_BY_PRODUCT_DECISION | Current product keeps Push/Flip on physical input |
 | `PlayerTickCommand.PushPressed/FlipPressed` | Command fields | Tick pipeline/player logic | Many core/playmode tests | None serialized | Architecture docs | Yes | KEEP_CURRENTLY_USED | None |
 | `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` / `LegacyOrdinaryFallbackEnabled` | Removed C# compatibility aliases | None after migration | Boundary/replay governance tests now use canonical names | No scene exposure | Migration docs mark historical/removed | Diagnostic only | REMOVED_ALIAS | Deleted after canonical migration |
 | `GameplayRuntimeFeatureFlags.EnableLegacyOrdinaryUnitFallback` | C# compatibility field | Underlying diagnostic field | Boundary/replay governance tests | Docs state scene config does not expose it | Many migration docs | Diagnostic only | DELETE_CANDIDATE_LEGACY_INPUT_COMPAT | P1/P3 decision |
 | `StageSpawnDefinition.PresentationId` | Removed serialized legacy field | Canonical `StagePresentationDefinition` path | Stage builder/validator tests migrated | Stage gameplay assets migrated off legacy field | Stage migration docs | No legacy read path remains | REMOVED_LEGACY_FIELD | Deleted after content/test migration |
 | `SettingsScreen.prefab` legacy Push/Flip duplicate change buttons | Deleted inactive duplicate GameObjects | Current `PushInputRow` / `FlipInputRow` retained | UI tests indirectly | Legacy object names removed from prefab | None found | No | REMOVED_DUPLICATE | Deleted inactive duplicate objects |
 | `Player_S1_GameplayActionAudioProfile.asset` | ScriptableObject asset | Referenced by `Player_S1.prefab` | Action audio runtime/smoke tests | GUID `42a2e109fc5141ec9e866925a0a85c3b` | Audio governance docs | Yes | RENAMED_RETAINED | Renamed from `_Test`; do not delete |
-| `BoxFlipInteractionDriver` / `PlayerFlipInteractionDriver` | Presentation components | `GameplayEntityPresentationApplier` uses `GetComponent/TryGetComponent` | Flip/VFX tests | Runtime view components created in tests; prefab attachment is expected by runtime view | VFX governance docs | Yes | KEEP_CURRENTLY_USED | None |
+| `BoxFlipInteractionDriver` / player hand flip path | Presentation components | Box-side driver remains; player hand path removed | Flip/VFX tests | Runtime view components created in tests; prefab attachment is expected by runtime view | VFX governance docs | Mixed | KEEP_BOX_REMOVE_PLAYER_HAND | Current product cannot support the player IK path |
 | Push contact threshold / `pushContactTicks` | Obsolete model | No active runtime refs found | No active tests found | No GUID refs found | Archive/current docs describe historical removal | No | DELETE_CANDIDATE_OBSOLETE_FEATURE | Docs/archive cleanup only if archive policy allows |
 | `PushBox` / `FlipBox` / `MovableBox` components | Old component model | None found | None found | None found | Search-only absent | No | No artifact | None |
 | HelpScreen Push/Flip prompt | UI prompt | None found | Tests assert old HelpScreen residue absent | None found | No active prompt found | No | No artifact | None |
@@ -194,7 +193,7 @@ Serialized value counts observed:
 | 3 | Push/Flip old key binding | No separate old binding found | Current bindings are active; no delete action. |
 | 4 | Push/Flip old generated input wrapper | No artifact found | Wrapper generation is disabled and no generated wrapper refs were found. |
 | 5 | `GameplayInputHost` Push/Flip dead route | Not dead; `KEEP_CURRENTLY_USED` | `BindActions()` requires Push/Flip actions and emits command fields. |
-| 6 | `GameplayHostCommandGateway` unused Push/Flip route | Not unused; `KEEP_CURRENTLY_USED` | UI route forwards `RequestPush` / `RequestFlip` into `GameplayInputHost`. |
+| 6 | Gameplay UI Push/Flip action request route | Removed by product decision | No current UI action button surface; physical input remains. |
 | 7 | Plain move -> push fallback | No active fallback; governance behavior remains | Plain move into Push box is suppressed/no-op. Keep tests that prevent fallback revival. |
 | 8 | Push contact accumulation / threshold model | `DELETE_CANDIDATE_OBSOLETE_FEATURE` docs-only | No active runtime fields found; archive/current docs mark it historical. |
 | 9 | Old `MovePush` / `AutoPush` path | No artifact found | No active runtime/prefab refs. |

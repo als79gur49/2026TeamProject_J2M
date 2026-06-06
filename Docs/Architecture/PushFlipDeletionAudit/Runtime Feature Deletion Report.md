@@ -74,8 +74,8 @@ Presentation is active and consumes simulation output.
 
 Evidence:
 
-- `GameplayEntityPresentationApplier` calls `GetComponent<PlayerFlipInteractionDriver>()` and `GetComponent<BoxFlipInteractionDriver>()`.
-- Tests instantiate and assert `BoxFlipInteractionDriver` / `PlayerFlipInteractionDriver` behavior.
+- Historical state: `GameplayEntityPresentationApplier` called both player-hand and box-side flip presentation drivers.
+- Current cleanup removes the player-hand path and keeps `BoxFlipInteractionDriver` behavior.
 - VFX governance tests specifically keep the original-view motion driver separate from VFX spawners.
 - The presentation path consumes `TickPresentationData`/motion tracks; no evidence was found that these drivers directly mutate authoritative simulation.
 

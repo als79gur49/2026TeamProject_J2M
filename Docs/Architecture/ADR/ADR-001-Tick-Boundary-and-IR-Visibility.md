@@ -76,7 +76,7 @@
     - old mixed file/class `FlipInteractionPresentationTests`는 제거했다.
     - public observable row는 새 `GameplayFlipInteractionObservableTests`로 옮겼다.
       - committed root transform invariance를 `GameplayEntityView.transform.localPosition` baseline으로 읽는다.
-      - `PlayerFlipInteractionDriver` hand IK target이 execute / active 동안 hand rest pose에서 이탈하고 completion 후 rest pose로 복귀하는지 본다.
+      - Historical row: player hand IK target이 execute / active 동안 hand rest pose에서 이탈하고 completion 후 rest pose로 복귀하는지 봤다. Current product removes that player-side hand path and retains box-side presentation coverage.
       - `BoxFlipInteractionDriver` visual root local offset / rotation이 execute / active 동안 base pose에서 이탈하고 completion 후 base pose로 복귀하는지 본다.
       - public coordinator는 flip-specific signal을 노출하지 않으므로 broad oracle은 `GameplayTickViewPresenter.CurrentPresentationPhase`의 `EntityMotion -> Idle`, `IsPresentationActive true -> false`, root/child transform 차이만 사용한다.
     - planner/phase machine rows는 새 `FlipInteractionPlannerInternalTests`로 옮겼다.
