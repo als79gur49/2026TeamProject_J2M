@@ -36,4 +36,4 @@ Archive documents that still mention `pushContactTicks`, contact accumulation, o
   - `CanStartAnyActionThisTick`
   - `HasExplicitPushCandidateInCurrentDirection`
 - Push/Flip readiness, recovery, and outcome mapping remain unchanged.
-- There is currently no HUD ActionBar consumer for this mapped readiness data.
+- `ActionBar` is retired HUD vocabulary. Current Push/Flip HUD state flows through `HUDRootPresenter`, `PlayerStatusPresenter`, `GameplayHostPlayerHudQuery`, `UIPresentationSnapshot`, and `UIPlayerActionSlice`; command requests, when present, flow through `GameplayHostCommandGateway` into `GameplayInputHost`.
