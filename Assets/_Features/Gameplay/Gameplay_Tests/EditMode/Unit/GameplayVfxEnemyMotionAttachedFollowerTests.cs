@@ -211,6 +211,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void AttachedFollower_VisibilityDiagnostics_UseBindingResolvedFinalPolicy()
+        {
+            var fixture = CreateFixture(visibilityMode: GameplayVfxVisibilityMode.VisibleSurfaceAllowed);
+            try
+            {
+                fixture.RefreshAttached(DesiredCharge());
+
+                Assert.That(fixture.Controller.ActiveAttachedHandleCount, Is.EqualTo(1));
+                Assert.That(fixture.Controller.VisibilityBindingResolvedCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(fixture.Controller.VisibilityFallbackDefaultCount, Is.Zero);
+                Assert.That(
+                    fixture.Controller.LastResolvedVisibilityPolicy.Source,
+                    Is.EqualTo(GameplayVfxVisibilityPolicySource.BindingRuntimePolicy));
+                Assert.That(
+                    fixture.Controller.LastResolvedVisibilityPolicy.VisibilityMode,
+                    Is.EqualTo(GameplayVfxVisibilityMode.VisibleSurfaceAllowed));
+            }
+            finally
+            {
+                fixture.Destroy();
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayEntityView_TryGetVfxAttachPoint_IgnoresInvalidAttachPoint()
         {
@@ -1781,7 +1806,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static AttachedFollowerFixture CreateFixture(
             bool resolveBinding = true,
             bool registerView = true,
-            float tailSeconds = 0.25f)
+            float tailSeconds = 0.25f,
+            GameplayVfxVisibilityMode visibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
         {
             var owner = new GameObject("EnemyMotionAttachedFollowerFixture");
             var root = GameplayVfxRuntimeRoot.CreateUnder(owner.transform);
@@ -1804,12 +1830,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var policies = new[]
             {
-                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail), tailSeconds),
-                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail), tailSeconds),
-                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop), tailSeconds),
-                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop), tailSeconds),
-                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.UtilityCooldownAura), tailSeconds),
-                CreatePolicy(GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop), tailSeconds),
+                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.ChargeBoosterTrail), tailSeconds, visibilityMode),
+                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail), tailSeconds, visibilityMode),
+                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop), tailSeconds, visibilityMode),
+                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.GlideRecoverLoop), tailSeconds, visibilityMode),
+                CreatePolicy(GameplayVfxCueId.From(EnemyVfxCue.UtilityCooldownAura), tailSeconds, visibilityMode),
+                CreatePolicy(GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop), tailSeconds, visibilityMode),
             };
             return new AttachedFollowerFixture(
                 owner,
@@ -1824,7 +1850,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new MultiPolicyResolver(resolveBinding, policies));
         }
 
-        private static VfxBindingRuntimePolicy CreatePolicy(GameplayVfxCueId cueId, float tailSeconds)
+        private static VfxBindingRuntimePolicy CreatePolicy(
+            GameplayVfxCueId cueId,
+            float tailSeconds,
+            GameplayVfxVisibilityMode visibilityMode)
         {
             return new VfxBindingRuntimePolicy(
                 cueId,
@@ -1834,7 +1863,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 VfxStopPolicy.DetachThenStopEmittingThenRelease,
                 defaultLifetimeSeconds: 0f,
                 tailSeconds: tailSeconds,
-                maxConcurrentInstances: 8);
+                maxConcurrentInstances: 8,
+                visibilityMode: visibilityMode);
         }
 
         private static void AssertPrefabValid(string path)

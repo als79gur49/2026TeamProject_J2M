@@ -82,6 +82,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private int outOfBoundsExitMissingAnchorCount;
         private int enemyDeathMotionMissingBindingCount;
         private int enemyDeathMotionMissingAnchorCount;
+        private int planningVisibilityBindingResolvedCount;
+        private int planningVisibilityFallbackDefaultCount;
+        private GameplayVfxResolvedVisibilityPolicy lastPlanningResolvedVisibilityPolicy;
         private int mapNotConfiguredCount;
         private int initialRequestSkippedBecauseMapNotConfiguredCount;
         private int lastInitialPlannedRequestCount;
@@ -325,6 +328,15 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public GameplayVfxVisibilityBlockReason LastVisibilityBlockReason =>
             controller?.LastVisibilityBlockReason ?? GameplayVfxVisibilityBlockReason.None;
 
+        public GameplayVfxResolvedVisibilityPolicy LastPlanningResolvedVisibilityPolicy =>
+            lastPlanningResolvedVisibilityPolicy;
+
+        public int PlanningVisibilityBindingResolvedCount =>
+            planningVisibilityBindingResolvedCount;
+
+        public int PlanningVisibilityFallbackDefaultCount =>
+            planningVisibilityFallbackDefaultCount;
+
         internal int ActiveForwardCellProjectileMarkerCount =>
             forwardCellProjectileVfxController.ActiveMarkerCount;
 
@@ -492,6 +504,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             outOfBoundsExitMissingAnchorCount = 0;
             enemyDeathMotionMissingBindingCount = 0;
             enemyDeathMotionMissingAnchorCount = 0;
+            ResetPlanningVisibilityDiagnostics();
             mapNotConfiguredCount = 0;
             initialRequestSkippedBecauseMapNotConfiguredCount = 0;
             lastInitialPlannedRequestCount = 0;
@@ -530,6 +543,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             stageTerminalSuppressionReason = GameplayStageTerminalPresentationReason.Unknown;
             controller?.ClearStageTerminalVfxSuppression();
             LastPlannedRequestCount = 0;
+            ResetPlanningVisibilityDiagnostics();
             lastInitialPlannedRequestCount = 0;
             lastInitialEntranceSpawnRequestCount = 0;
             lastInitialActiveEntranceSpawnInstanceCount = 0;
@@ -574,7 +588,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var plan = FilterByPlanningVisibility(
                 enabledPlan,
                 bindingResolver,
-                visibilityContext);
+                visibilityContext,
+                RecordPlanningVisibilityPolicy);
             if (plan.Requests.Count == 0)
             {
                 controller?.Refresh(GameplayVfxRequestPlan.Empty);
@@ -623,6 +638,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void Present(in GameplayTickPresentationExtensionContext context)
         {
             LastPlannedRequestCount = 0;
+            ResetPlanningVisibilityDiagnostics();
             if (isStageTerminalVfxSuppressed)
             {
                 controller?.Refresh(GameplayVfxRequestPlan.Empty);
@@ -692,7 +708,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var plan = FilterByPlanningVisibility(
                 FilterByEnabledCues(planBuilder.Build()),
                 bindingResolver,
-                visibilityContext);
+                visibilityContext,
+                RecordPlanningVisibilityPolicy);
             var shouldPlayFlipDestroySelfMotion =
                 HasDestroySelfFlipImpactSignal(context.Result.PresentationData);
             var shouldPlayBoxSlideSolidStop =
@@ -773,6 +790,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         public void ReconcileTopologyTransitionCompleted(in GameplayTickPresentationExtensionContext context)
         {
             LastPlannedRequestCount = 0;
+            ResetPlanningVisibilityDiagnostics();
             EndTopologyTransitionSuppression();
             if (isStageTerminalVfxSuppressed)
             {
@@ -820,7 +838,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             var visibilityFilteredPlan = FilterByPlanningVisibility(
                 enabledPlan,
                 bindingResolver,
-                visibilityContext);
+                visibilityContext,
+                RecordPlanningVisibilityPolicy);
             var plan = AddTopologyTransitionSoftSpawnDelay(FilterPersistentOnly(visibilityFilteredPlan));
             if (plan.Requests.Count == 0 && controller == null)
             {
@@ -1438,6 +1457,19 @@ namespace Game.Feature.Gameplay.Vfx.Host
             IVfxBindingResolver bindingResolver,
             in GameplayVfxVisibilityContext visibilityContext)
         {
+            return FilterByPlanningVisibility(
+                plan,
+                bindingResolver,
+                visibilityContext,
+                recordResolvedPolicy: null);
+        }
+
+        private static GameplayVfxRequestPlan FilterByPlanningVisibility(
+            GameplayVfxRequestPlan plan,
+            IVfxBindingResolver bindingResolver,
+            in GameplayVfxVisibilityContext visibilityContext,
+            Action<GameplayVfxResolvedVisibilityPolicy> recordResolvedPolicy)
+        {
             if (plan == null || plan.Requests.Count == 0)
             {
                 return GameplayVfxRequestPlan.Empty;
@@ -1447,16 +1479,18 @@ namespace Game.Feature.Gameplay.Vfx.Host
             for (var i = 0; i < plan.Requests.Count; i++)
             {
                 var request = plan.Requests[i];
-                var decision = bindingResolver != null &&
-                               bindingResolver.TryResolve(request, out var policy)
-                    ? GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
-                        request,
-                        policy,
-                        visibilityContext)
-                    : GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
-                        request,
-                        GameplayVfxVisibilityMode.DefaultGameplay,
-                        visibilityContext);
+                var policy = default(VfxBindingRuntimePolicy);
+                var hasBindingPolicy = bindingResolver != null &&
+                                       bindingResolver.TryResolve(request, out policy);
+                var resolvedPolicy = GameplayVfxVisibilityPolicy.ResolveFinalPolicy(
+                    request,
+                    hasBindingPolicy,
+                    policy);
+                recordResolvedPolicy?.Invoke(resolvedPolicy);
+                var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                    request,
+                    resolvedPolicy,
+                    visibilityContext);
                 if (decision.IsVisible ||
                     ShouldForwardVisibilityBlockedRequestToController(request, decision.BlockReason))
                 {
@@ -1467,6 +1501,26 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return filteredRequests.Count == 0
                 ? GameplayVfxRequestPlan.Empty
                 : new GameplayVfxRequestPlan(filteredRequests);
+        }
+
+        private void ResetPlanningVisibilityDiagnostics()
+        {
+            planningVisibilityBindingResolvedCount = 0;
+            planningVisibilityFallbackDefaultCount = 0;
+            lastPlanningResolvedVisibilityPolicy = default;
+        }
+
+        private void RecordPlanningVisibilityPolicy(GameplayVfxResolvedVisibilityPolicy resolvedPolicy)
+        {
+            lastPlanningResolvedVisibilityPolicy = resolvedPolicy;
+            if (resolvedPolicy.Source == GameplayVfxVisibilityPolicySource.BindingRuntimePolicy)
+            {
+                planningVisibilityBindingResolvedCount++;
+            }
+            else if (resolvedPolicy.Source == GameplayVfxVisibilityPolicySource.FallbackDefaultGameplay)
+            {
+                planningVisibilityFallbackDefaultCount++;
+            }
         }
 
         private static bool ShouldForwardVisibilityBlockedRequestToController(

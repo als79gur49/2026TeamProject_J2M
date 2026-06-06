@@ -38,6 +38,35 @@ namespace Game.Feature.Gameplay.Vfx
         PresentationOnly = 4,
     }
 
+    public enum GameplayVfxVisibilityPolicySource
+    {
+        None = 0,
+        BindingRuntimePolicy = 1,
+        FallbackDefaultGameplay = 2,
+    }
+
+    public readonly struct GameplayVfxResolvedVisibilityPolicy
+    {
+        public GameplayVfxResolvedVisibilityPolicy(
+            GameplayVfxVisibilityMode visibilityMode,
+            GameplayVfxVisibilityMode effectiveMode,
+            GameplayVfxVisibilityPolicySource source)
+        {
+            VisibilityMode = visibilityMode;
+            EffectiveMode = effectiveMode;
+            Source = source;
+        }
+
+        public GameplayVfxVisibilityMode VisibilityMode { get; }
+
+        public GameplayVfxVisibilityMode EffectiveMode { get; }
+
+        public GameplayVfxVisibilityPolicySource Source { get; }
+
+        public bool IsFallbackDefaultGameplay =>
+            Source == GameplayVfxVisibilityPolicySource.FallbackDefaultGameplay;
+    }
+
     public readonly struct GameplayVfxEntityVisibilityState
     {
         public GameplayVfxEntityVisibilityState(
@@ -157,11 +186,8 @@ namespace Game.Feature.Gameplay.Vfx
             VfxBindingRuntimePolicy policy,
             in GameplayVfxVisibilityContext context)
         {
-            return Evaluate(
-                new GameplayVfxVisibilityQuery(
-                    request,
-                    ResolveEffectiveMode(request, policy.VisibilityMode)),
-                context);
+            var resolvedPolicy = ResolveBindingRuntimePolicy(request, policy);
+            return EvaluateBeforeAnchor(request, resolvedPolicy, context);
         }
 
         public static GameplayVfxVisibilityDecision EvaluateBeforeAnchor(
@@ -173,6 +199,18 @@ namespace Game.Feature.Gameplay.Vfx
                 new GameplayVfxVisibilityQuery(
                     request,
                     ResolveEffectiveMode(request, visibilityMode)),
+                context);
+        }
+
+        public static GameplayVfxVisibilityDecision EvaluateBeforeAnchor(
+            in GameplayVfxRequest request,
+            in GameplayVfxResolvedVisibilityPolicy resolvedPolicy,
+            in GameplayVfxVisibilityContext context)
+        {
+            return Evaluate(
+                new GameplayVfxVisibilityQuery(
+                    request,
+                    resolvedPolicy.EffectiveMode),
                 context);
         }
 
@@ -205,6 +243,46 @@ namespace Game.Feature.Gameplay.Vfx
                    request.Anchor.Kind == VfxAnchorKind.EntityToCell
                 ? GameplayVfxVisibilityMode.EntitySemanticActiveOnly
                 : GameplayVfxVisibilityMode.ActiveGameplayFaceOnly;
+        }
+
+        public static GameplayVfxResolvedVisibilityPolicy ResolveBindingRuntimePolicy(
+            in GameplayVfxRequest request,
+            VfxBindingRuntimePolicy policy)
+        {
+            return Resolve(
+                request,
+                policy.VisibilityMode,
+                GameplayVfxVisibilityPolicySource.BindingRuntimePolicy);
+        }
+
+        public static GameplayVfxResolvedVisibilityPolicy ResolveFallbackDefaultGameplay(
+            in GameplayVfxRequest request)
+        {
+            return Resolve(
+                request,
+                GameplayVfxVisibilityMode.DefaultGameplay,
+                GameplayVfxVisibilityPolicySource.FallbackDefaultGameplay);
+        }
+
+        public static GameplayVfxResolvedVisibilityPolicy ResolveFinalPolicy(
+            in GameplayVfxRequest request,
+            bool hasBindingPolicy,
+            VfxBindingRuntimePolicy policy)
+        {
+            return hasBindingPolicy
+                ? ResolveBindingRuntimePolicy(request, policy)
+                : ResolveFallbackDefaultGameplay(request);
+        }
+
+        private static GameplayVfxResolvedVisibilityPolicy Resolve(
+            in GameplayVfxRequest request,
+            GameplayVfxVisibilityMode visibilityMode,
+            GameplayVfxVisibilityPolicySource source)
+        {
+            return new GameplayVfxResolvedVisibilityPolicy(
+                visibilityMode,
+                ResolveEffectiveMode(request, visibilityMode),
+                source);
         }
 
         public static GameplayVfxVisibilityDecision Evaluate(

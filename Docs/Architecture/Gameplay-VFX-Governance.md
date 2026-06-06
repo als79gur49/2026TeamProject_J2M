@@ -44,6 +44,16 @@ Dedicated Gameplay VFX lifetime trace adapters are removed. Cue identity should 
 
 This keeps the core source guard focused on core VFX contracts while avoiding a separate lifetime trace path.
 
+## Visibility Policy Resolve
+
+Gameplay VFX visibility resolves from authored binding runtime policy first. `VfxBindingDefinitionAsset.visibilityMode` flows through `BuildRuntimePolicy()` / `VfxBindingRuntimePolicy.VisibilityMode`, and production planners/controllers must use that resolved policy when a binding exists.
+
+`DefaultGameplay` remains the explicit missing-binding fallback for planning-time visibility decisions. It is not a deletion target and is distinct from an authored binding whose visibility mode is also `DefaultGameplay`. Diagnostics may expose the final resolved visibility mode and whether it came from `BindingRuntimePolicy` or `FallbackDefaultGameplay`.
+
+`PresentationOnly` remains a strong presentation bypass. Phase 6B does not add allowlist enforcement, fail-fast behavior, or new bypass permissions. Existing authoring diagnostics and topology/helper preservation remain in force; stricter `PresentationOnly` hardening is a follow-up phase.
+
+`VisibleSurfaceAllowed` and `InactiveFaceExplicitlyAllowed` keep their existing behavior. Do not collapse visible-surface projection, inactive-face opt-in, and ordinary gameplay visibility into a single generic boolean.
+
 ## Non-Goals For This Phase
 
 - No production playback connection.

@@ -131,3 +131,9 @@ The known full-filter reds are not used as Phase 6A pass evidence and are not cl
 ## 10. Next Step
 
 Phase 6B: binding-resolved visibility policy centralization with diagnostics-first evidence.
+
+## 11. Phase 6B Follow-up
+
+Phase 6B executes the recommended diagnostics-first binding-resolved policy centralization path. Phase 6A remains report-only and is not retroactively treated as a behavior, asset, scene, prefab, lifecycle, pool, or topology-helper change.
+
+See `Docs/Testing/VFX-Phase6B-Binding-Resolved-Visibility-Policy-Centralization-2026-06-07.md` for Phase 6B implementation evidence.

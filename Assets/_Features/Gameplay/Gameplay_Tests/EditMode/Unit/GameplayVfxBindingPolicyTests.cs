@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
@@ -50,6 +51,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var policy = CreatePolicy();
 
             Assert.That(policy.VisibilityMode, Is.EqualTo(GameplayVfxVisibilityMode.DefaultGameplay));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ResolvedVisibilityPolicy_DistinguishesAuthoredDefaultFromFallbackDefault()
+        {
+            var request = CreateActiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke));
+            var authoredDefault = GameplayVfxVisibilityPolicy.ResolveFinalPolicy(
+                request,
+                hasBindingPolicy: true,
+                policy: CreatePolicy(request.CueId));
+            var fallbackDefault = GameplayVfxVisibilityPolicy.ResolveFinalPolicy(
+                request,
+                hasBindingPolicy: false,
+                policy: default);
+
+            Assert.That(authoredDefault.VisibilityMode, Is.EqualTo(GameplayVfxVisibilityMode.DefaultGameplay));
+            Assert.That(fallbackDefault.VisibilityMode, Is.EqualTo(GameplayVfxVisibilityMode.DefaultGameplay));
+            Assert.That(authoredDefault.EffectiveMode, Is.EqualTo(GameplayVfxVisibilityMode.ActiveGameplayFaceOnly));
+            Assert.That(fallbackDefault.EffectiveMode, Is.EqualTo(GameplayVfxVisibilityMode.ActiveGameplayFaceOnly));
+            Assert.That(authoredDefault.Source, Is.EqualTo(GameplayVfxVisibilityPolicySource.BindingRuntimePolicy));
+            Assert.That(fallbackDefault.Source, Is.EqualTo(GameplayVfxVisibilityPolicySource.FallbackDefaultGameplay));
+            Assert.That(authoredDefault.IsFallbackDefaultGameplay, Is.False);
+            Assert.That(fallbackDefault.IsFallbackDefaultGameplay, Is.True);
         }
 
         [Test]
@@ -193,6 +218,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new MissingPolicyResolver());
 
             Assert.That(plan.Requests, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlannerVisibility_DiagnosticsDistinguishBindingDefaultFromFallbackDefault()
+        {
+            var request = CreateActiveFaceCellRequest(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke));
+
+            var bindingPlan = FilterByPlanningVisibility(
+                new GameplayVfxRequestPlan(new[] { request }),
+                new SinglePolicyResolver(CreatePolicy(request.CueId)),
+                out var bindingPolicies);
+            var fallbackPlan = FilterByPlanningVisibility(
+                new GameplayVfxRequestPlan(new[] { request }),
+                new MissingPolicyResolver(),
+                out var fallbackPolicies);
+
+            Assert.That(bindingPlan.Requests, Has.Count.EqualTo(1));
+            Assert.That(fallbackPlan.Requests, Has.Count.EqualTo(1));
+            Assert.That(bindingPolicies, Has.Count.EqualTo(1));
+            Assert.That(fallbackPolicies, Has.Count.EqualTo(1));
+            Assert.That(bindingPolicies[0].VisibilityMode, Is.EqualTo(GameplayVfxVisibilityMode.DefaultGameplay));
+            Assert.That(fallbackPolicies[0].VisibilityMode, Is.EqualTo(GameplayVfxVisibilityMode.DefaultGameplay));
+            Assert.That(bindingPolicies[0].Source, Is.EqualTo(GameplayVfxVisibilityPolicySource.BindingRuntimePolicy));
+            Assert.That(fallbackPolicies[0].Source, Is.EqualTo(GameplayVfxVisibilityPolicySource.FallbackDefaultGameplay));
         }
 
         [Test]
@@ -567,13 +617,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 VfxTimingKind.ImmediateOnTickPresentation);
         }
 
+        private static GameplayVfxRequest CreateActiveFaceCellRequest(GameplayVfxCueId cueId)
+        {
+            return new GameplayVfxRequest(
+                1,
+                1,
+                1,
+                cueId,
+                VfxAnchor.ForCell(
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    new CubeTopologyState(FaceId.Floor),
+                    VfxAnchorSlot.CellCenter),
+                VfxTimingKind.ImmediateOnTickPresentation);
+        }
+
         private static GameplayVfxRequestPlan FilterByPlanningVisibility(
             GameplayVfxRequestPlan plan,
             IVfxBindingResolver resolver)
         {
-            var method = typeof(GameplayVfxProductionRuntime).GetMethod(
-                "FilterByPlanningVisibility",
-                BindingFlags.Static | BindingFlags.NonPublic);
+            var method = typeof(GameplayVfxProductionRuntime)
+                .GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
+                .Single(candidate =>
+                    candidate.Name == "FilterByPlanningVisibility" &&
+                    candidate.GetParameters().Length == 3);
             Assert.That(method, Is.Not.Null);
             return (GameplayVfxRequestPlan)method.Invoke(
                 null,
@@ -582,6 +648,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     plan,
                     resolver,
                     default(GameplayVfxVisibilityContext),
+                });
+        }
+
+        private static GameplayVfxRequestPlan FilterByPlanningVisibility(
+            GameplayVfxRequestPlan plan,
+            IVfxBindingResolver resolver,
+            out List<GameplayVfxResolvedVisibilityPolicy> resolvedPolicies)
+        {
+            resolvedPolicies = new List<GameplayVfxResolvedVisibilityPolicy>();
+            var capturedPolicies = resolvedPolicies;
+            var method = typeof(GameplayVfxProductionRuntime)
+                .GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
+                .Single(candidate =>
+                    candidate.Name == "FilterByPlanningVisibility" &&
+                    candidate.GetParameters().Length == 4);
+            Assert.That(method, Is.Not.Null);
+            return (GameplayVfxRequestPlan)method.Invoke(
+                null,
+                new object[]
+                {
+                    plan,
+                    resolver,
+                    default(GameplayVfxVisibilityContext),
+                    new Action<GameplayVfxResolvedVisibilityPolicy>(capturedPolicies.Add),
                 });
         }
 
