@@ -5,13 +5,18 @@ using System.Collections.ObjectModel;
 using System.Reflection;
 using Game.Feature.Gameplay.ActionAudio;
 using Game.Feature.Gameplay.Audio;
+using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PlayerLocomotionAudio;
+using Game.Feature.Gameplay.TileFeatureAudio;
+using Game.Feature.Gameplay.TopologyAudio;
 using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEngine;
@@ -180,7 +185,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var mapBundle = CreateGameplayAudioMapBundle();
 
             hostObject.SetActive(true);
-            host.Initialize(CreateHostConfiguration(mapBundle.Map));
+            host.Initialize(CreateHostConfiguration(mapBundle.Config));
 
             Assert.That(installer.RuntimeRoot, Is.SameAs(runtimeRoot));
             Assert.That(installer.AudioService, Is.Not.Null);
@@ -217,7 +222,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 InitialEntities = new[] { playerEntity },
                 InitialTerrain = GameplayTerrainData.Empty,
                 InitialTopology = new CubeTopologyState(FaceId.Floor),
-                GameplayAudioMap = mapBundle.Map,
+                GameplayPresentationAudioConfig = mapBundle.Config,
                 TopologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault(),
                 ViewFactory = viewFactory,
             });
@@ -226,7 +231,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return new HostAudioIntegrationContext(hostObject, host, installer, manager, mapBundle, new RecordingAudioSettingsPersistenceStore());
         }
 
-        private static GameplaySceneHostConfiguration CreateHostConfiguration(GameplayAudioMap gameplayAudioMap)
+        private static GameplaySceneHostConfiguration CreateHostConfiguration(GameplayPresentationAudioConfig audioConfig)
         {
             return new GameplaySceneHostConfiguration
             {
@@ -236,7 +241,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 InitialEntities = Array.Empty<EntityState>(),
                 InitialTerrain = GameplayTerrainData.Empty,
                 InitialTopology = new CubeTopologyState(FaceId.Floor),
-                GameplayAudioMap = gameplayAudioMap,
+                GameplayPresentationAudioConfig = audioConfig,
                 TopologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault(),
             };
         }
@@ -324,7 +329,84 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
 
             SetSerializedField(typeof(GameplayAudioMap), map, "entries", entries);
-            return new GameplayAudioMapBundle(map, definitions.ToArray());
+
+            var blockAudioMap = CreateRequiredCueMap<BlockAudioMap, BlockAudioCue>(
+                BlockAudioCueCatalog.RequiredOneShotV1,
+                definitions);
+            var playerLocomotionAudioMap = CreateRequiredCueMap<PlayerLocomotionAudioMap, PlayerLocomotionAudioCue>(
+                PlayerLocomotionAudioCueCatalog.RequiredOneShotV1,
+                definitions);
+            var topologyAudioMap = CreateRequiredCueMap<TopologyAudioMap, TopologyAudioCue>(
+                TopologyAudioCueCatalog.RequiredOneShotV1,
+                definitions);
+            var gravityFieldAudioMap = CreateRequiredCueMap<GravityFieldAudioMap, GravityFieldAudioCue>(
+                GravityFieldAudioCueCatalog.RequiredOneShotV1,
+                definitions);
+            var tileFeatureAudioMap = CreateRequiredCueMap<TileFeatureAudioMap, TileFeatureAudioCue>(
+                TileFeatureAudioCueCatalog.RequiredOneShotV1,
+                definitions);
+            var config = ScriptableObject.CreateInstance<GameplayPresentationAudioConfig>();
+            config.name = "GameplayPresentationAudioConfig_PlayModeTest";
+            SetSerializedField(typeof(GameplayPresentationAudioConfig), config, "gameplayAudioMap", map);
+            SetSerializedField(typeof(GameplayPresentationAudioConfig), config, "blockAudioMap", blockAudioMap);
+            SetSerializedField(
+                typeof(GameplayPresentationAudioConfig),
+                config,
+                "playerLocomotionAudioMap",
+                playerLocomotionAudioMap);
+            SetSerializedField(typeof(GameplayPresentationAudioConfig), config, "topologyAudioMap", topologyAudioMap);
+            SetSerializedField(
+                typeof(GameplayPresentationAudioConfig),
+                config,
+                "gravityFieldAudioMap",
+                gravityFieldAudioMap);
+            SetSerializedField(
+                typeof(GameplayPresentationAudioConfig),
+                config,
+                "tileFeatureAudioMap",
+                tileFeatureAudioMap);
+
+            definitions.Add(config);
+            return new GameplayAudioMapBundle(map, config, definitions.ToArray());
+        }
+
+        private static TMap CreateRequiredCueMap<TMap, TCue>(
+            IReadOnlyList<TCue> requiredCues,
+            ICollection<UnityEngine.Object> trackedObjects)
+            where TMap : ScriptableObject
+            where TCue : struct
+        {
+            var map = ScriptableObject.CreateInstance<TMap>();
+            map.name = $"{typeof(TMap).Name}_PlayModeTest";
+            trackedObjects.Add(map);
+
+            var entryType = typeof(TMap).GetNestedType("Entry", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(entryType, Is.Not.Null, $"{typeof(TMap).Name}.Entry type is required for runtime-authored map setup.");
+            var entries = Array.CreateInstance(entryType, requiredCues.Count);
+
+            for (var i = 0; i < requiredCues.Count; i++)
+            {
+                var cue = requiredCues[i];
+                var clip = AudioClip.Create($"{typeof(TCue).Name}_{cue}", 4410, 1, 44100, false);
+                var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+                definition.name = $"{typeof(TCue).Name}_{cue}";
+                ConfigureDefinition(definition, clip, loop: false, AudioCategory.Sfx);
+                trackedObjects.Add(clip);
+                trackedObjects.Add(definition);
+
+                var binding = new AudioBinding();
+                SetSerializedField(typeof(AudioBinding), binding, "definition", definition);
+                SetSerializedField(typeof(AudioBinding), binding, "attachmentSlot", default(AudioAttachmentSlot));
+                SetSerializedField(typeof(AudioBinding), binding, "policy", null);
+
+                var entry = Activator.CreateInstance(entryType);
+                SetSerializedField(entryType, entry, "Cue", cue);
+                SetSerializedField(entryType, entry, "Binding", binding);
+                entries.SetValue(entry, i);
+            }
+
+            SetSerializedField(typeof(TMap), map, "entries", entries);
+            return map;
         }
 
         private static GameplayActionAudioProfile CreateActionAudioProfile(ICollection<UnityEngine.Object> trackedObjects)
@@ -461,13 +543,19 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             private readonly UnityEngine.Object[] _ownedObjects;
 
-            public GameplayAudioMapBundle(GameplayAudioMap map, UnityEngine.Object[] ownedObjects)
+            public GameplayAudioMapBundle(
+                GameplayAudioMap map,
+                GameplayPresentationAudioConfig config,
+                UnityEngine.Object[] ownedObjects)
             {
                 Map = map;
+                Config = config;
                 _ownedObjects = ownedObjects;
             }
 
             public GameplayAudioMap Map { get; }
+
+            public GameplayPresentationAudioConfig Config { get; }
 
             public void Dispose()
             {

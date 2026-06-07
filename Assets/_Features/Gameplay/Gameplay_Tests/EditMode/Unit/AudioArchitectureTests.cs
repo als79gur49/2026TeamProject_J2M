@@ -283,19 +283,88 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayPresentationAudioConfig_IsDeferred_AndNoHostConfigAudioFieldSprawlWasAdded()
+        public void GameplaySceneHostConfiguration_RequiresPresentationAudioConfig()
         {
             var hostFields = typeof(GameplaySceneHostConfiguration)
                 .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 .ToArray();
-            var stagePresentationFields = typeof(StagePresentationDefinition)
+            var hostFieldTypeNames = hostFields.Select(field => field.FieldType.Name).ToArray();
+
+            Assert.That(
+                hostFields.Count(field => field.FieldType == typeof(GameplayPresentationAudioConfig)),
+                Is.EqualTo(1));
+            Assert.That(hostFieldTypeNames, Does.Not.Contain(nameof(GameplayAudioMap)));
+            Assert.That(hostFieldTypeNames, Does.Not.Contain("BlockAudioMap"));
+            Assert.That(hostFieldTypeNames, Does.Not.Contain("PlayerLocomotionAudioMap"));
+            Assert.That(hostFieldTypeNames, Does.Not.Contain("TopologyAudioMap"));
+            Assert.That(hostFieldTypeNames, Does.Not.Contain("GravityFieldAudioMap"));
+            Assert.That(hostFieldTypeNames, Does.Not.Contain("TileFeatureAudioMap"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayPresentationAudioConfig_ExcludesOtherOwnership()
+        {
+            var configFields = typeof(GameplayPresentationAudioConfig)
                 .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 .ToArray();
+            var configFieldTypeNames = configFields.Select(field => field.FieldType.Name).ToArray();
+            var configFieldNames = configFields.Select(field => field.Name).ToArray();
+            var configSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationAudioConfig.cs");
 
-            Assert.That(hostFields.Any(field => field.FieldType == typeof(GameplayActionAudioProfile)), Is.False);
-            Assert.That(hostFields.Any(field => field.Name.Contains("ActionAudio")), Is.False);
-            Assert.That(stagePresentationFields.Any(field => field.FieldType == typeof(GameplayActionAudioProfile)), Is.False);
-            Assert.That(stagePresentationFields.Any(field => field.Name.Contains("ActionAudio")), Is.False);
+            var excludedTypeNames = new[]
+            {
+                nameof(GameplayActionAudioProfile),
+                "EnemyAudioProfile",
+                "UiAudioCueMap",
+                nameof(BgmProfile),
+                nameof(StageAudioDefinition),
+                nameof(AudioRuntimeInstaller),
+                "AudioSettingsPortAdapter",
+                "UIAudioChannelMapper",
+                "GlobalAudioFlowBootstrap",
+                "SceneBgmRequestSource",
+            };
+
+            foreach (var excludedTypeName in excludedTypeNames)
+            {
+                Assert.That(configFieldTypeNames, Does.Not.Contain(excludedTypeName), excludedTypeName);
+                Assert.That(configFieldNames.Any(name => name.Contains(excludedTypeName, StringComparison.Ordinal)), Is.False, excludedTypeName);
+                Assert.That(configSource, Does.Not.Contain(excludedTypeName), excludedTypeName);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayHostRuntimeFactory_UsesPresentationAudioConfigButStillCreatesTypedControllers()
+        {
+            var factorySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs");
+
+            Assert.That(factorySource, Does.Contain("configuration?.GameplayPresentationAudioConfig"));
+            Assert.That(factorySource, Does.Contain("audioConfig.ValidateOrThrow()"));
+            Assert.That(factorySource, Does.Contain("presenter.AttachGameplayAudioRuntime(playbackPort, audioConfig.GameplayAudioMap)"));
+            Assert.That(factorySource, Does.Contain("presenter.AttachBlockAudioRuntime(playbackPort, audioConfig.BlockAudioMap)"));
+            Assert.That(factorySource, Does.Contain("presenter.AttachPlayerLocomotionAudioRuntime(playbackPort, audioConfig.PlayerLocomotionAudioMap)"));
+            Assert.That(factorySource, Does.Contain("presenter.AttachTopologyAudioRuntime(playbackPort, audioConfig.TopologyAudioMap)"));
+            Assert.That(factorySource, Does.Contain("presenter.AttachGravityFieldAudioRuntime(playbackPort, audioConfig.GravityFieldAudioMap)"));
+            Assert.That(factorySource, Does.Contain("presenter.AttachTileFeatureAudioRuntime(playbackPort, audioConfig.TileFeatureAudioMap)"));
+            Assert.That(factorySource, Does.Not.Contain("GenericAudioDispatcher"));
+            Assert.That(factorySource, Does.Not.Contain("AudioDispatcher"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void AudioArchitecture_NoGenericAudioDispatcherIntroduced()
+        {
+            var hostSource = ReadRepoFilesUnder("Assets/_Features/Gameplay/Gameplay_Host/Runtime");
+
+            Assert.That(hostSource, Does.Not.Contain("GenericAudioDispatcher"));
+            Assert.That(hostSource, Does.Not.Contain("AudioDispatcher"));
+            Assert.That(hostSource, Does.Not.Contain("AudioManager.Instance"));
+            Assert.That(hostSource, Does.Not.Contain("FindObjectOfType<"));
+            Assert.That(hostSource, Does.Not.Contain("FindAnyObjectByType<"));
+            Assert.That(hostSource, Does.Not.Contain("new AudioManager"));
+            Assert.That(hostSource, Does.Not.Contain(".PlayBgm("));
         }
 
         [Test]
@@ -985,6 +1054,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var fullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", relativePath));
             Assert.That(File.Exists(fullPath), Is.True, $"Missing file at '{fullPath}'.");
             return File.ReadAllText(fullPath);
+        }
+
+        private static string ReadRepoFilesUnder(string relativeDirectory)
+        {
+            var fullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", relativeDirectory));
+            Assert.That(Directory.Exists(fullPath), Is.True, $"Missing directory at '{fullPath}'.");
+            return string.Join(
+                "\n",
+                Directory.GetFiles(fullPath, "*.cs", SearchOption.AllDirectories)
+                    .OrderBy(path => path, StringComparer.Ordinal)
+                    .Select(File.ReadAllText));
         }
     }
 

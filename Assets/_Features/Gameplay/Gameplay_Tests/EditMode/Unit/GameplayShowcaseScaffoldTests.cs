@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -620,13 +619,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplayShowcaseInstaller_CreateConfiguration_PassesThroughOptionalGameplayAudioMap()
+        public void GameplayShowcaseInstaller_CreateConfiguration_PassesThroughOptionalGameplayPresentationAudioConfig()
         {
             var scene = CreateIsolatedTestScene();
             var actions = ScriptableObject.CreateInstance<InputActionAsset>();
             var simulationTimingPreset = CreateSimulationTimingPreset();
             var presentationTimingPreset = CreatePresentationTimingPreset();
-            var gameplayAudioMap = ScriptableObject.CreateInstance<GameplayAudioMap>();
+            var gameplayPresentationAudioConfig = ScriptableObject.CreateInstance<GameplayPresentationAudioConfig>();
 
             try
             {
@@ -638,15 +637,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
-                SetBaseInstallerField(installer, "gameplayAudioMap", gameplayAudioMap);
+                SetBaseInstallerField(
+                    installer,
+                    "gameplayPresentationAudioConfig",
+                    gameplayPresentationAudioConfig);
 
                 var configuration = installer.BuildConfigurationForTests();
 
-                Assert.That(configuration.GameplayAudioMap, Is.SameAs(gameplayAudioMap));
+                Assert.That(configuration.GameplayPresentationAudioConfig, Is.SameAs(gameplayPresentationAudioConfig));
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(gameplayAudioMap);
+                UnityEngine.Object.DestroyImmediate(gameplayPresentationAudioConfig);
                 UnityEngine.Object.DestroyImmediate(simulationTimingPreset);
                 UnityEngine.Object.DestroyImmediate(presentationTimingPreset);
                 UnityEngine.Object.DestroyImmediate(actions);
