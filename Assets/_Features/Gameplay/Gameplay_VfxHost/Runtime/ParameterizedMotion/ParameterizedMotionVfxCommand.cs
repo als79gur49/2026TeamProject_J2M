@@ -11,7 +11,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         ScaleAndAlpha = 1,
         ScaleOnly = 2,
         AlphaOnly = 3,
-        LegacyEnemyDeath = 4,
+        EnemyDeathFade = 4,
         DestroyShrinkEase = 5,
     }
 
@@ -29,7 +29,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
     {
         FlipArc = 0,
         Linear = 1,
-        LegacyEnemyDeathFlyAway = 2,
+        EnemyDeathFlyAway = 2,
     }
 
     public readonly struct ParameterizedMotionVfxCommand
@@ -161,7 +161,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             float normalizedTime)
         {
             if (elapsedSeconds >= command.DurationSeconds &&
-                command.SamplerMode != ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway)
+                command.SamplerMode != ParameterizedMotionVfxSamplerMode.EnemyDeathFlyAway)
             {
                 return command.TargetPose;
             }
@@ -172,8 +172,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     return new GameplayEntityPose(
                         Vector3.Lerp(command.SourceLocalPosition, command.TargetLocalPosition, normalizedTime),
                         Quaternion.Slerp(command.SourceLocalRotation, command.TargetLocalRotation, normalizedTime));
-                case ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway:
-                    return SampleLegacyEnemyDeathFlyAway(command, normalizedTime);
+                case ParameterizedMotionVfxSamplerMode.EnemyDeathFlyAway:
+                    return SampleEnemyDeathFlyAway(command, normalizedTime);
                 case ParameterizedMotionVfxSamplerMode.FlipArc:
                     return FlipArcSampler.Sample(
                         command.SourcePose,
@@ -189,7 +189,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
         }
 
-        private static GameplayEntityPose SampleLegacyEnemyDeathFlyAway(
+        private static GameplayEntityPose SampleEnemyDeathFlyAway(
             in ParameterizedMotionVfxCommand command,
             float normalizedTime)
         {

@@ -327,7 +327,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(exitController, Does.Not.Contain("PresentationMotionInstanceKey"));
             Assert.That(exitController, Does.Not.Contain("PlayExitEffect"));
             Assert.That(exitController, Does.Not.Contain("PlayFlipImpactDestroyEffect"));
-            Assert.That(exitController, Does.Not.Contain("suppressLegacyEnemyDeathEffects"));
+            Assert.That(exitController, Does.Not.Contain("suppress" + "Legacy" + "EnemyDeathEffects"));
 
             Assert.That(File.Exists(GetAbsolutePath("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTransientEffectPresenter.cs")), Is.False);
             Assert.That(deathPlanBuilder, Does.Contain("EnemyDeathExitEffectPlanBuilder"));

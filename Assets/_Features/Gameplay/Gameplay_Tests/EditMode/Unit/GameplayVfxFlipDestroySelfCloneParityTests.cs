@@ -455,9 +455,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 arcHeight: 0.2f,
                 breakStartSeconds: 0.12f,
                 fadeDurationSeconds: 0.88f,
-                ParameterizedMotionVfxFadeMode.LegacyEnemyDeath,
+                ParameterizedMotionVfxFadeMode.EnemyDeathFade,
                 ParameterizedMotionVfxCloneMode.PrefabWithSourceClone,
-                ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway,
+                ParameterizedMotionVfxSamplerMode.EnemyDeathFlyAway,
                 arcLocalDirection: Vector3.up,
                 spinDegrees: 360f,
                 spinAxisLocal: Vector3.forward);
