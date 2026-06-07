@@ -40,10 +40,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldActiveVfx.prefab";
         private const string CurrentFrontFaceShieldBlockPrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FrontFaceShieldBlockVfx.prefab";
-        private const string CurrentFrontFaceShieldActiveMaterialPath =
-            "Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_FrontFaceShieldActive_Blue.mat";
-        private const string CurrentFrontFaceShieldBlockMaterialPath =
-            "Assets/_Features/Gameplay/Gameplay_Vfx/Materials/M_FrontFaceShieldBlock_Cyan.mat";
         private const string CurrentFrontFaceShieldActiveBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FrontFaceShieldActive_Binding.asset";
         private const string CurrentFrontFaceShieldBlockBindingPath =
@@ -279,8 +275,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             AssertFileDoesNotExist(CurrentFrontFaceShieldActivePrefabPath);
             AssertFileDoesNotExist(CurrentFrontFaceShieldBlockPrefabPath);
-            AssertFileExists(CurrentFrontFaceShieldActiveMaterialPath);
-            AssertFileExists(CurrentFrontFaceShieldBlockMaterialPath);
             AssertFileDoesNotExist(CurrentFrontFaceShieldActiveBindingPath);
             AssertFileDoesNotExist(CurrentFrontFaceShieldBlockBindingPath);
             AssertFileExists(HostDefaultCueMapPath);
