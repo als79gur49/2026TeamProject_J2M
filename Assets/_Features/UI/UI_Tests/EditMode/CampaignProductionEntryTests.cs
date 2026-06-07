@@ -31,7 +31,7 @@ namespace Game.Feature.UI.Tests
         private const string RouteConfigPath = "Assets/_Features/UI/UI_Composition/Authoring/GameplayStageLaunchRouteConfig.asset";
         private const string MainMenuScenePath = "Assets/Scenes/MainMenuScene.unity";
         private const string GameplayShellScenePath = "Assets/Scenes/UIAudioScene.unity";
-        private const string CombinedStageId = "combined-gameplay-showcase";
+        private const string CombinedStageId = "mechanics-showcase";
         private const string StageCatalogProviderAssetPath =
             StageContentPaths.StageCatalogProviderAssetPath;
         private const string DefaultSimulationTimingPresetAssetPath =

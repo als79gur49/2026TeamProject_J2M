@@ -135,7 +135,7 @@
 - Stage Content Layer Refactor P3 sunset 결과는 실제로 실행한 lane와 고정한 architecture/CI contract만 말해야 한다.
 - 아래 네 reporting level만 공식적으로 사용한다.
   - `P3 sunset validated`
-    - claim 가능 조건: canonical runtime path, launcher-only direct-play contract, empty known-warning governance, empty alias governance, duplicate legacy asset removal이 코드/테스트/문서에 반영됐을 때
+    - claim 가능 조건: canonical runtime path, launcher-only direct-play contract, governed known-warning/alias compatibility, duplicate legacy asset removal이 코드/테스트/문서에 반영됐을 때
     - imply하지 않는 것: broad project-wide green, unrelated gameplay/UI regression closure
     - approved example: `Stage content P3 sunset is validated on the canonical path and governance lanes.`
   - `core lane validated`
@@ -163,7 +163,7 @@
 - Stage Content Layer Refactor P3 sunset reporting must describe only the lanes that actually ran and the architecture/CI contracts that were explicitly locked.
 - Use only these four reporting levels.
   - `P3 sunset validated`
-    - may be claimed when the canonical runtime path, launcher-only direct-play contract, empty known-warning governance, empty alias governance, and duplicate legacy asset removal are reflected in code, tests, and docs
+    - may be claimed when the canonical runtime path, launcher-only direct-play contract, governed known-warning/alias compatibility, and duplicate legacy asset removal are reflected in code, tests, and docs
     - does not imply broad project-wide green or unrelated gameplay/UI regression closure
     - approved example: `Stage content P3 sunset is validated on the canonical path and governance lanes.`
   - `core lane validated`

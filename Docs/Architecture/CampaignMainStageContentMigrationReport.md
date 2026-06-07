@@ -6,7 +6,7 @@ Generated: 2026-05-09
 - Policy applied: "초기에는 전부 Campaign에 넣고, 이후 필요해지면 Level/Stage로 내린다."
 - Campaign root: `Assets/_Features/Stages/Content/Campaigns/campaign-main`
 - Current migrated campaign asset count: 206 non-meta assets.
-- Stage companion folders migrated: 11 catalog stage folders.
+- Stage companion folders migrated: 12 catalog stage folders.
 - Campaign `_Shared` migrated support asset count: 123 non-meta assets.
 - Level/stage `_Shared` and `_Overrides`: not created.
 
@@ -17,8 +17,9 @@ Generated: 2026-05-09
   - `CampaignMain_StageIdAliasTable.asset`
   - `CampaignMain_StageSequence.asset`
 - Stage companion folders moved to `Levels/level-01/Stages`:
-  - `combined-gameplay-showcase`
+  - `mechanics-showcase`
   - `stage-0-1`
+  - `stage-0-2`
   - `stage-1-1`
   - `stage-2-1`
   - `stage-2-2`
@@ -26,8 +27,8 @@ Generated: 2026-05-09
   - `stage-3-2`
   - `stage-4-1`
   - `stage-4-2`
-  - `stage-5-1`
-  - `tutorial-scene`
+  - `legacy-stage-5-1`
+  - `onboarding`
 - Stage condition assets moved to `_Shared/Gameplay/Conditions`.
 - Enemy AI profiles/core/brain/capabilities/catalogs moved to `_Shared/Gameplay/EnemyAI`.
 - Enemy/static/board/tile/topology/VFX presentation support moved to `_Shared/Presentation`.
@@ -38,9 +39,10 @@ Generated: 2026-05-09
   - `Assets/_Features/Stages/Stage_CombinedGameplayShowcase`
   - `Assets/_Features/Stages/Stage_TutorialScene`
 - Deleted/emptied loose content roots:
-  - `Assets/_Features/Stages/Content/combined-gameplay-showcase`
-  - `Assets/_Features/Stages/Content/tutorial-scene`
+  - `Assets/_Features/Stages/Content/mechanics-showcase`
+  - `Assets/_Features/Stages/Content/onboarding`
   - `Assets/_Features/Stages/Content/stage-0-1`
+  - `Assets/_Features/Stages/Content/stage-0-2`
   - `Assets/_Features/Stages/Content/stage-1-1`
   - `Assets/_Features/Stages/Content/stage-2-1`
   - `Assets/_Features/Stages/Content/stage-2-2`
@@ -48,17 +50,111 @@ Generated: 2026-05-09
   - `Assets/_Features/Stages/Content/stage-3-2`
   - `Assets/_Features/Stages/Content/stage-4-1`
   - `Assets/_Features/Stages/Content/stage-4-2`
-  - `Assets/_Features/Stages/Content/stage-5-1`
+  - `Assets/_Features/Stages/Content/legacy-stage-5-1`
 
 ## Variants
 - No support assets were merged by value.
 - Stage-named variants were kept as Campaign variants under `_Shared`, including:
-  - `EnemyPresentationCatalog_CombinedGameplayShowcase.asset`
-  - `EnemyPresentationCatalog_TutorialScene.asset`
-  - `StaticPresentationCatalog_CombinedGameplayShowcase.asset`
-  - `StaticPresentationCatalog_TutorialScene.asset`
-  - `GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset`
-  - `GameplayCameraTopologyPreset_TutorialScene.asset`
+  - `EnemyPresentationArchetypeCatalog_CampaignMainEnemy.asset`
+  - `StaticPresentationCatalog_CampaignMainStatic.asset`
+  - `StaticPresentationCatalog_MechanicsShowcase.asset`
+  - `GameplayCameraTopologyPreset_CampaignMainFastPostFx.asset`
+  - `GameplayCameraTopologyPreset_CampaignMainQualityPostFx.asset`
+
+## Stage Id Rename
+
+| Old id | New id | Notes |
+| --- | --- | --- |
+| `combined-gameplay-showcase` | `mechanics-showcase` | runtime id rename, alias added, direct-play updated |
+| `tutorial-scene` | `onboarding` | runtime id rename, alias added, direct-play updated |
+| `stage-5-1` | `legacy-stage-5-1` | catalog-preserved legacy content, excluded from sequence/direct-play |
+
+Aliases are recorded in `CampaignMain_StageIdAliasTable.asset` and `StageAliasGovernanceLedger.asset`.
+
+## Current Stage Classification
+
+- Sequence/current campaign stages:
+  - `stage-0-1`
+  - `stage-0-2`
+  - `stage-1-1`
+  - `stage-2-1`
+  - `stage-2-2`
+  - `stage-3-1`
+  - `stage-3-2`
+  - `stage-4-1`
+  - `stage-4-2`
+- Direct-play supported stages:
+  - `mechanics-showcase`
+  - `onboarding`
+  - `stage-0-1`
+  - `stage-1-1`
+- Nonsequence support/demo stages:
+  - `mechanics-showcase`
+  - `onboarding`
+- Catalog-only legacy/archived stages:
+  - `legacy-stage-5-1`
+
+`legacy-stage-5-1` is catalog-preserved legacy/archived content.
+It is intentionally excluded from the campaign sequence and editor direct-play catalog.
+The old `stage-5-1` id remains only for alias/governance and retired-save compatibility.
+
+## Shared Asset Rename Map
+
+| Old | New |
+| --- | --- |
+| `TileFeaturePresentationCatalog_CombinedGameplayShowcase` | `TileFeaturePresentationCatalog_CampaignMainBoard` |
+| `BoardTilePresentationCatalog_CombinedGameplayShowcase` | `BoardTilePresentationCatalog_CampaignMainBoard` |
+| `BoardTileStyleCatalog_CombinedGameplayShowcase` | `BoardTileStyleCatalog_CampaignMainBoard` |
+| `BoardTileOverlayCatalog_CombinedGameplayShowcase` | `BoardTileOverlayCatalog_CampaignMainBoard` |
+| `BoardRoot_CombinedGameplayShowcase` | `BoardRoot_CampaignMainBoard` |
+| `BoardPresentationProfile_CombinedGameplayShowcase` | `BoardPresentationProfile_CampaignMainBoard` |
+| `EnemyUnitArchetypeCatalog_CombinedGameplayShowcase` | `EnemyUnitArchetypeCatalog_CampaignMainEnemy` |
+| `EnemyPresentationArchetypeCatalog_CombinedGameplayShowcase` | `EnemyPresentationArchetypeCatalog_CampaignMainEnemy` |
+| `StaticPresentationCatalog_TutorialScene` | `StaticPresentationCatalog_CampaignMainStatic` |
+| `GameplayCameraTopologyPreset_CombinedGameplayShowcase` | `GameplayCameraTopologyPreset_CampaignMainFastPostFx` |
+| `GameplayCameraTopologyPreset_TutorialScene` | `GameplayCameraTopologyPreset_CampaignMainQualityPostFx` |
+
+All renamed `.asset` / `.prefab` files retained their `.meta` files and GUIDs.
+
+## Governance Ledger Note
+
+`StageCatalogKnownWarningLedger.asset` was updated because the governance validator checks expected path/name/stage id in addition to issue code and asset GUID.
+The ledger update is therefore part of the rename contract, not unrelated churn.
+
+## Deferred Follow-up
+
+`CombinedGameplayShowcaseInstaller` remains as a bootstrap code symbol.
+It is not used as a StageCatalog id, StageContentEntry id, direct-play id, or alias id.
+Renaming it may affect Unity serialized MonoScript/component references in `UIAudioScene.unity`, so it is intentionally split into a separate change.
+
+Follow-up issue:
+`Bootstrap symbol rename: CombinedGameplayShowcaseInstaller -> StageBackedGameplayInstaller`
+
+## Old Token Allowlist
+
+Allowed remaining runtime/governance old-token hits:
+- intentional alias/governance:
+  - `combined-gameplay-showcase`
+  - `tutorial-scene`
+  - `stage-5-1`
+- save compatibility:
+  - retired completed `stage-5-1`
+- forbidden legacy path validators:
+  - `Stage_CombinedGameplayShowcase`
+  - `Stage_TutorialScene`
+  - deleted scene path audits
+- deferred bootstrap symbol:
+  - `CombinedGameplayShowcaseInstaller`
+
+Allowed docs/history old-token hits:
+- historical docs/archive only
+
+Not allowed:
+- live StageCatalog canonical ids using old ids
+- direct-play catalog using old ids
+- StageContentEntry folder/file/object names using old ids
+- shared presentation/support asset `m_Name` using old scene-derived names
+- current architecture docs describing old ids as canonical
 
 ## Runtime Code Kept
 - `Assets/_Features/Stages/Runtime`
@@ -77,9 +173,9 @@ Generated: 2026-05-09
 - Updated direct-play/editor tooling to use `StageContentPaths` instead of legacy hardcoded catalog paths.
 
 ## Reference Repairs
-- `CampaignMain_StageCatalog` now contains 11 campaign stage entries, including `tutorial-scene`.
-- `StageEditorDirectPlayCatalog` declares `Assets/Scenes/UIAudioScene.unity` as the canonical gameplay shell and supports quick-launch stage ids including `combined-gameplay-showcase` and `tutorial-scene`.
-- `StageRuntimeContentResolver` smoke checked launch-context resolution for `combined-gameplay-showcase` and `tutorial-scene`.
+- `CampaignMain_StageCatalog` now contains 12 catalog entries, including the 9-stage current campaign sequence, nonsequence `mechanics-showcase` / `onboarding` support stages, and catalog-only legacy/archived `legacy-stage-5-1`.
+- `StageEditorDirectPlayCatalog` declares `Assets/Scenes/UIAudioScene.unity` as the canonical gameplay shell and supports quick-launch stage ids `mechanics-showcase`, `onboarding`, `stage-0-1`, and `stage-1-1`.
+- `StageRuntimeContentResolver` smoke checked launch-context resolution for `mechanics-showcase` and `onboarding`.
 
 ## Addressables
 - Not applicable: `com.unity.addressables` is not installed/configured, so no package dependency or groups were added.
@@ -118,7 +214,7 @@ Generated: 2026-05-09
 - Fixture changes:
   - `StageAuthoringExitGoalHelperCommandTests` now creates its test `StageContentEntry` under `StageContentPaths.CampaignLevel01StagesRoot` and cleans up only the generated per-test stage folder plus generated condition asset.
   - The shared-condition rejection test now uses a valid Campaign owner path before validating shared-condition ownership.
-  - `CombinedGameplayShowcaseInstallerTests` now launches `combined-gameplay-showcase`, matching `StageEditorDirectPlayCatalog`, and seeds deterministic Campaign temp slot/direct-play launch state.
+  - `CombinedGameplayShowcaseInstallerTests` now launches `mechanics-showcase`, matching `StageEditorDirectPlayCatalog`, and seeds deterministic Campaign temp slot/direct-play launch state.
   - `GameplayCameraTopologyAuthoringExtractionArchitectureTests` now validates the canonical shell scene and stage topology preset assets separately before building configuration.
 - Production code changes: none. Campaign owner-path validation, direct-play mapping, active-slot validation, `StageDefinition` bootstrap policy, and `defaultStageId` removal remain unchanged.
 - Asset/reference changes: no runtime stage, gameplay, Campaign structure, or scene asset references were changed. Only the Full EditMode known-failure baseline JSON was rebuilt.
@@ -185,13 +281,13 @@ The historical inventory below was captured before Phase 1.1 fixture stabilizati
   - `CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver`: expected true, actual false.
   - `CombinedGameplayShowcaseInstaller_DefaultBundle_IncludesGlideKinematic`: campaign active slot stage mismatch for launch stage `stage-1-1`.
   - `CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy`: expected true, actual false.
-  - `CombinedGameplayStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy`: expected 6, actual 5.
-  - `CombinedGameplayStage_BuildsEnemyProfileOverrideForConfiguredShowcaseEnemy`: expected 6, actual 5.
-  - `CombinedGameplayStage_BuildsJumpShowcaseProfileOverride`: expected true, actual false.
-  - `CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForNonAttackingEnemy`: expected true, actual false.
-  - `CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy`: expected true, actual false.
-  - `CombinedGameplayStage_PlacesConfiguredShowcaseEnemy`: expected configured enemy on floor face, actual false.
-  - `CombinedGameplayStage_PlacesJumpShowcaseEnemyOnFarFloorLane`: expected true, actual false.
+  - `MechanicsShowcaseStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy`: expected 6, actual 5.
+  - `MechanicsShowcaseStage_BuildsEnemyProfileOverrideForConfiguredShowcaseEnemy`: expected 6, actual 5.
+  - `MechanicsShowcaseStage_BuildsJumpShowcaseProfileOverride`: expected true, actual false.
+  - `MechanicsShowcaseStage_BuildsRandomWalkPilotProfileOverrideForNonAttackingEnemy`: expected true, actual false.
+  - `MechanicsShowcaseStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy`: expected true, actual false.
+  - `MechanicsShowcaseStage_PlacesConfiguredShowcaseEnemy`: expected configured enemy on floor face, actual false.
+  - `MechanicsShowcaseStage_PlacesJumpShowcaseEnemyOnFarFloorLane`: expected true, actual false.
 - `DisplayArchitectureBoundaryTests` (1):
   - `SettingsChildView_Sources_DoNotRebuildAuthoredControlsAtRuntime`: forbidden source token `ResolutionHoverHintText` remains present.
 - `EnemyAiProfileAssetContractTests` (2):

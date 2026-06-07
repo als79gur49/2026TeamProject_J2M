@@ -896,11 +896,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs";
         private const string AuthoringEditorRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Editor/GameplayCameraTopologyAuthoringEditor.cs";
-        private const string CombinedGameplayShowcasePresetAssetPath =
-            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset";
-        private const string TutorialScenePresetAssetPath =
-            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_TutorialScene.asset";
-        private const string CombinedGameplayShowcaseInstallerMarker =
+        private const string FastPostFxPresetAssetPath =
+            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CampaignMainFastPostFx.asset";
+        private const string QualityPostFxPresetAssetPath =
+            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CampaignMainQualityPostFx.asset";
+        private const string GameplayShellInstallerMarker =
             "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
         private const string GameplayCameraTopologyAuthoringMarker =
             "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayCameraTopologyAuthoring";
@@ -1086,7 +1086,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             foreach (var scenePath in ScenePaths)
             {
                 var sceneText = ReadRepoFile(scenePath);
-                var installerBlock = ReadSceneComponentBlock(sceneText, CombinedGameplayShowcaseInstallerMarker);
+                var installerBlock = ReadSceneComponentBlock(sceneText, GameplayShellInstallerMarker);
                 var authoringBlock = ReadSceneComponentBlock(sceneText, GameplayCameraTopologyAuthoringMarker);
                 var inlineSharedTuningBlock = ReadSerializedBlock(authoringBlock, "inlineSharedTuning", 2);
                 var cameraSettingsBlock = ReadSerializedBlock(inlineSharedTuningBlock, "cameraSettings", 4);
@@ -1124,7 +1124,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void CanonicalShowcaseScenes_UsePresetModeAndExpectedPresetReferences()
         {
-            var tutorialPresetGuid = AssetDatabase.AssetPathToGUID(TutorialScenePresetAssetPath);
+            var qualityPostFxPresetGuid = AssetDatabase.AssetPathToGUID(QualityPostFxPresetAssetPath);
 
             foreach (var scenePath in ScenePaths)
             {
@@ -1132,7 +1132,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var baselineAuthoringPolicyBlock = ReadSerializedBlock(authoringBlock, "baselineAuthoringPolicy", 2);
 
                 Assert.That(ReadSerializedIntValue(authoringBlock, "sourceMode"), Is.EqualTo((int)GameplayCameraTopologySourceMode.Preset));
-                Assert.That(ReadSerializedObjectGuid(authoringBlock, "preset"), Is.EqualTo(tutorialPresetGuid));
+                Assert.That(ReadSerializedObjectGuid(authoringBlock, "preset"), Is.EqualTo(qualityPostFxPresetGuid));
                 Assert.That(ReadSerializedIntValue(baselineAuthoringPolicyBlock, "UseAuthoredSceneCameraPose"), Is.EqualTo(1));
                 Assert.That(ReadSerializedIntValue(baselineAuthoringPolicyBlock, "UseAuthoredSceneCameraLens"), Is.EqualTo(1));
             }
@@ -1140,36 +1140,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CameraTopologyPresetAssets_RemainDistinctAndGameplayShellUsesTutorialPreset()
+        public void CameraTopologyPresetAssets_RemainDistinctAndGameplayShellUsesQualityPostFxPreset()
         {
             var uiAudioBlock = ReadSceneComponentBlock(ReadRepoFile("Assets/Scenes/UIAudioScene.unity"), GameplayCameraTopologyAuthoringMarker);
-            var tutorialPresetGuid = AssetDatabase.AssetPathToGUID(TutorialScenePresetAssetPath);
-            var combinedPresetGuid = AssetDatabase.AssetPathToGUID(CombinedGameplayShowcasePresetAssetPath);
+            var qualityPostFxPresetGuid = AssetDatabase.AssetPathToGUID(QualityPostFxPresetAssetPath);
+            var fastPostFxPresetGuid = AssetDatabase.AssetPathToGUID(FastPostFxPresetAssetPath);
             var uiAudioPresetGuid = ReadSerializedObjectGuid(uiAudioBlock, "preset");
 
-            Assert.That(uiAudioPresetGuid, Is.EqualTo(tutorialPresetGuid));
-            Assert.That(combinedPresetGuid, Is.Not.EqualTo(tutorialPresetGuid));
+            Assert.That(uiAudioPresetGuid, Is.EqualTo(qualityPostFxPresetGuid));
+            Assert.That(fastPostFxPresetGuid, Is.Not.EqualTo(qualityPostFxPresetGuid));
         }
 
         [Test]
         [Category("Full")]
         public void CameraTopologyPresetAssets_SerializeCameraSettingsAsTuningOnly()
         {
-            var combinedPresetText = ReadRepoFile(CombinedGameplayShowcasePresetAssetPath);
-            var tutorialPresetText = ReadRepoFile(TutorialScenePresetAssetPath);
-            var combinedSharedTuningBlock = ReadSerializedBlock(combinedPresetText, "sharedTuning", 2);
-            var tutorialSharedTuningBlock = ReadSerializedBlock(tutorialPresetText, "sharedTuning", 2);
-            var combinedPresetCameraSettings = ReadSerializedBlock(combinedSharedTuningBlock, "cameraSettings", 4);
-            var tutorialPresetCameraSettings = ReadSerializedBlock(tutorialSharedTuningBlock, "cameraSettings", 4);
+            var fastPostFxPresetText = ReadRepoFile(FastPostFxPresetAssetPath);
+            var qualityPostFxPresetText = ReadRepoFile(QualityPostFxPresetAssetPath);
+            var fastPostFxSharedTuningBlock = ReadSerializedBlock(fastPostFxPresetText, "sharedTuning", 2);
+            var qualityPostFxSharedTuningBlock = ReadSerializedBlock(qualityPostFxPresetText, "sharedTuning", 2);
+            var fastPostFxPresetCameraSettings = ReadSerializedBlock(fastPostFxSharedTuningBlock, "cameraSettings", 4);
+            var qualityPostFxPresetCameraSettings = ReadSerializedBlock(qualityPostFxSharedTuningBlock, "cameraSettings", 4);
 
-            StringAssert.Contains("sharedTuning:", combinedPresetText);
-            StringAssert.Contains("sharedTuning:", tutorialPresetText);
-            StringAssert.DoesNotContain("\n  cameraSettings:", combinedPresetText);
-            StringAssert.DoesNotContain("\n  cameraSettings:", tutorialPresetText);
-            StringAssert.DoesNotContain("UseAuthoredSceneCameraPose:", combinedPresetCameraSettings);
-            StringAssert.DoesNotContain("UseAuthoredSceneCameraLens:", combinedPresetCameraSettings);
-            StringAssert.DoesNotContain("UseAuthoredSceneCameraPose:", tutorialPresetCameraSettings);
-            StringAssert.DoesNotContain("UseAuthoredSceneCameraLens:", tutorialPresetCameraSettings);
+            StringAssert.Contains("sharedTuning:", fastPostFxPresetText);
+            StringAssert.Contains("sharedTuning:", qualityPostFxPresetText);
+            StringAssert.DoesNotContain("\n  cameraSettings:", fastPostFxPresetText);
+            StringAssert.DoesNotContain("\n  cameraSettings:", qualityPostFxPresetText);
+            StringAssert.DoesNotContain("UseAuthoredSceneCameraPose:", fastPostFxPresetCameraSettings);
+            StringAssert.DoesNotContain("UseAuthoredSceneCameraLens:", fastPostFxPresetCameraSettings);
+            StringAssert.DoesNotContain("UseAuthoredSceneCameraPose:", qualityPostFxPresetCameraSettings);
+            StringAssert.DoesNotContain("UseAuthoredSceneCameraLens:", qualityPostFxPresetCameraSettings);
         }
 
         [Test]

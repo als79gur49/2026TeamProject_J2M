@@ -1,13 +1,13 @@
-# Combined Gameplay Showcase Board Tile / Tile Feature Visual QA
+# Mechanics Showcase Board Tile / Tile Feature Visual QA
 
 Date: 2026-05-08
-Target stage: `combined-gameplay-showcase`
+Target stage: `mechanics-showcase`
 Scope: presentation-only asset authoring and validation. No gameplay behavior, TickPipeline, WorldState, TileEffect, TerrainFlags, StageDefinition schema, StageRuntimeBuildResult schema, UI, audio, or VFX playback system changes were made.
 
 ## A. Created / Modified Assets
 
 Created board presentation assets under `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Board/`:
-- `Catalogs/BoardTilePresentationCatalog_CombinedGameplayShowcase.asset`
+- `Catalogs/BoardTilePresentationCatalog_CampaignMainBoard.asset`
 - `Prefabs/BoardTile_GenericDefault.prefab`
 - `Prefabs/BoardTile_ActiveBottom.prefab`
 - `Prefabs/BoardTile_ActiveFront.prefab`
@@ -20,7 +20,7 @@ Created board presentation assets under `Assets/_Features/Stages/Stage_CombinedG
 - `Materials/M_BoardTile_DecorativeBack.mat`
 
 Created TileFeature presentation assets under `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/TileFeature/`:
-- `Catalogs/TileFeaturePresentationCatalog_CombinedGameplayShowcase.asset`
+- `Catalogs/TileFeaturePresentationCatalog_CampaignMainBoard.asset`
 - `Prefabs/TileFeature_Button_Default.prefab`
 - `Prefabs/TileFeature_Button_MoonOnly.prefab`
 - `Prefabs/TileFeature_Destroy_Default.prefab`
@@ -44,9 +44,9 @@ Created TileFeature presentation assets under `Assets/_Features/Stages/Stage_Com
 - `Materials/M_TileFeature_LightAccent.mat`
 
 Modified stage content:
-- `Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase_Presentation.asset`
-- `Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase_Authoring.asset`
-- `Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase.asset`
+- `Assets/_Features/Stages/Content/mechanics-showcase/mechanics-showcase_Presentation.asset`
+- `Assets/_Features/Stages/Content/mechanics-showcase/mechanics-showcase_Authoring.asset`
+- `Assets/_Features/Stages/Content/mechanics-showcase/mechanics-showcase.asset`
 
 ## B. BoardTilePresentationCatalog Entries
 
@@ -130,7 +130,7 @@ Known non-combined failure still present:
 - `StageCatalogCiValidationEntryPointTests`: `1 total / 0 passed / 1 failed`.
 - Failure source after removing the temporary combined ledger rows: existing `stage-1-1_Authoring.asset` emits `GameplayDrift.TileFeatureMissing` as an unexpected known-warning governance issue. `stage-1-1` was already dirty before this work and was not changed by this task.
 
-Generated `Temp/StageCatalogValidation/stage-catalog-validation.md` was referenced by the failing test output, but no project-local report file was left in this headless run. A temporary dump run during investigation showed no combined-gameplay-showcase catalog errors after the authored static presentation catalog warnings were eliminated.
+Generated `Temp/StageCatalogValidation/stage-catalog-validation.md` was referenced by the failing test output, but no project-local report file was left in this headless run. A temporary dump run during investigation showed no mechanics-showcase catalog errors after the authored static presentation catalog warnings were eliminated.
 
 After the Button entries were reauthored from `Overlay` to `ReplaceBaseTile` and Button 901 was connected as a required objective condition, `PROJECT_PATH_WIN="$(wslpath -w "$PWD")" ./run_tests.sh core` was rerun and passed: Unity core EditMode `47/0`, Unity core PlayMode `2/0`.
 
@@ -140,7 +140,7 @@ Automated runtime scene load smoke was attempted with:
 `GameplayVfxSceneRuntimeRootPlayModeTests.CombinedGameplayShowcase_DirectPlayTick_CreatesGameplayVfxRuntimeRoot`.
 
 Result: failed on the existing Full-category VFX runtime-root assertion:
-`UIAudioScene` must attach the VFX runtime as a tick presentation extension when launched with the `combined-gameplay-showcase` stage id.
+`UIAudioScene` must attach the VFX runtime as a tick presentation extension when launched with the `mechanics-showcase` stage id.
 
 The scene did load in PlayMode before the assertion. Because UI/VFX playback system changes are explicitly out of scope, this was recorded as a remaining scene setup issue rather than fixed in this pass. Manual visual inspection of alignment, layering, event animation counters, and scene reload persistence is still required in an interactive Unity editor.
 

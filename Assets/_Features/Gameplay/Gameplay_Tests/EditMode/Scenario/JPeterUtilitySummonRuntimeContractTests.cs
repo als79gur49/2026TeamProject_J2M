@@ -22,7 +22,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private const string ArchetypeSummonerProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_UtilitySummoner/EnemyAi_ArchetypeSummoner.asset";
         private const string CombinedArchetypeCatalogPath =
-            StageContentPaths.SharedEnemyAiRoot + "/Catalogs/EnemyUnitArchetypeCatalog_CombinedGameplayShowcase.asset";
+            StageContentPaths.SharedEnemyAiRoot + "/Catalogs/EnemyUnitArchetypeCatalog_CampaignMainEnemy.asset";
 
         // Jpeter is the ArchetypeSummoner utility profile: windup arms SummonMinion state, then resolve revalidates summon placement.
 

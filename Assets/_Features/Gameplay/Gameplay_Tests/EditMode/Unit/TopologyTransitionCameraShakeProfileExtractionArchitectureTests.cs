@@ -42,8 +42,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static readonly string[] ExpectedSerializedHolders =
         {
             "Assets/Scenes/UIAudioScene.unity",
-            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset",
-            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_TutorialScene.asset",
+            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CampaignMainFastPostFx.asset",
+            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CampaignMainQualityPostFx.asset",
         };
 
         private static readonly string[] ExpectedFieldNames =
@@ -309,7 +309,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static string ResolveExpectedPresetAssetPath(string scenePath)
         {
-            return StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_TutorialScene.asset";
+            return StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CampaignMainQualityPostFx.asset";
         }
 
         private static bool ContainsCameraShakeProfileHolder(string relativePath)

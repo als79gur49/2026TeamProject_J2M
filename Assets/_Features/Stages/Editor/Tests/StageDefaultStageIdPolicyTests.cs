@@ -19,7 +19,7 @@ namespace Game.Feature.Stages.Editor.Tests
             entry = ScriptableObject.CreateInstance<StageContentEntry>();
             resolver = new StageRuntimeContentResolver();
 
-            Assert.That(StageId.TryCreate("combined-gameplay-showcase", out var stageId), Is.True);
+            Assert.That(StageId.TryCreate("mechanics-showcase", out var stageId), Is.True);
             entry.AssignStageId(stageId);
             catalog.SetEntries(new[] { entry });
             provider.AssignCatalog(catalog);
@@ -82,14 +82,14 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(catalogAsset, Is.Not.Null);
             Assert.That(catalogAsset.CanonicalShellScenePath, Is.EqualTo("Assets/Scenes/UIAudioScene.unity"));
             Assert.That(catalogAsset.IsCanonicalShellScenePath("Assets/Scenes/UIAudioScene.unity"), Is.True);
-            Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("combined-gameplay-showcase")), Is.True);
-            Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("tutorial-scene")), Is.True);
+            Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("mechanics-showcase")), Is.True);
+            Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("onboarding")), Is.True);
         }
 
         [Test]
         public void Launcher_PrimesPendingStageIdForSupportedStage()
         {
-            var stageId = StageId.CreateOrThrow("tutorial-scene");
+            var stageId = StageId.CreateOrThrow("onboarding");
 
             StageEditorDirectPlayLauncher.PrimeNonCampaignForTests(stageId);
 
@@ -99,29 +99,29 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void PlayerCaptureLaunchOptions_NormalizesTutorialStageArgument()
+        public void PlayerCaptureLaunchOptions_NormalizesOnboardingStageArgument()
         {
             var parsed = PlayerCaptureLaunchOptions.TryParse(
-                new[] { "Game.exe", "--capture-stage", "Tutorial Scene" },
+                new[] { "Game.exe", "--capture-stage", "Onboarding" },
                 out var options,
                 out var error);
 
             Assert.That(parsed, Is.True, error);
             Assert.That(options.HasCaptureStage, Is.True);
-            Assert.That(options.StageId.Value, Is.EqualTo("tutorial-scene"));
+            Assert.That(options.StageId.Value, Is.EqualTo("onboarding"));
         }
 
         [Test]
-        public void PlayerCaptureBootstrap_PrimesTutorialStageIdBeforeSceneLoad()
+        public void PlayerCaptureBootstrap_PrimesOnboardingStageIdBeforeSceneLoad()
         {
             var primed = PlayerCaptureLaunchBootstrap.TryPrimeFromArguments(
-                new[] { "Game.exe", "--capture-stage=tutorial-scene" },
+                new[] { "Game.exe", "--capture-stage=onboarding" },
                 logErrors: false,
                 out var error);
 
             Assert.That(primed, Is.True, error);
             Assert.That(StageLaunchContextStore.TryGetCurrent(out var current), Is.True);
-            Assert.That(current.Value, Is.EqualTo("tutorial-scene"));
+            Assert.That(current.Value, Is.EqualTo("onboarding"));
             Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().SuppressCampaignFlow, Is.True);
         }
 
@@ -132,7 +132,7 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 "Unity.exe",
                 "-captureStage",
-                "tutorial-scene",
+                "onboarding",
             });
 
             Assert.That(scenes, Is.EqualTo(new[] { "Assets/Scenes/UIAudioScene.unity" }));

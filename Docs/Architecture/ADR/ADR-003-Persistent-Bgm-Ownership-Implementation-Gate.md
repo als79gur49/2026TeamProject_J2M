@@ -53,7 +53,7 @@ persistent BGM ownership은 stage-content canonical path와 분리된 별도 lan
 - minimal test harness 준비
   - coordinator unit tests
   - registry/bootstrap targeted tests
-  - `TutorialScene` / `UIAudioScene` continuity smoke harness
+  - `UIAudioScene` continuity smoke harness
   - reporting wording doc test
 
 ## Implementation Open Rule

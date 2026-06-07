@@ -20,8 +20,8 @@
 ## 2. 현재 상태와 왜 `WindupMelee`가 다음 bounded pilot 후보인지
 - 현재 simple proposal support matrix는 `Forward`, `RandomWalk`만 공통 frame에 들어가며 `WallFollow`는 phase 4 verdict대로 independent bounded strategy로 유지한다.
 - `WindupMelee` baseline은 authored fallback로 유지한다.
-  - baseline AI profile: `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset`
-  - baseline brain: `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyBrain_WindupMelee.asset`
+  - baseline AI profile: `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset`
+  - baseline brain: `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Brain/Enemy_WindupMelee/EnemyBrain_WindupMelee.asset`
   - patrol: `Forward`
   - detection: `NearestOpponent`
   - state resolver: `Default`
@@ -114,13 +114,13 @@
 
 ## 8. authoring 변경 계획
 - 새 pilot patrol asset을 추가한다.
-  - `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyPatrol_RandomWalk_WindupMelee.asset`
+  - `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Brain/Enemy_WindupMelee/EnemyPatrol_RandomWalk_WindupMelee.asset`
 - 새 pilot brain을 추가한다.
-  - `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyBrain_WindupMelee_RandomWalkPilot.asset`
+  - `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Brain/Enemy_WindupMelee/EnemyBrain_WindupMelee_RandomWalkPilot.asset`
 - 새 pilot AI profile을 추가한다.
-  - `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee_RandomWalkPilot.asset`
+  - `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee_RandomWalkPilot.asset`
 - pilot profile은 baseline `coreAuthoring`와 capability assets를 재사용한다.
-- live rollout은 `combined-gameplay-showcase.asset`의 entity `54` 한 슬롯만 pilot profile로 opt-in 한다.
+- live rollout은 `mechanics-showcase.asset`의 entity `54` 한 슬롯만 pilot profile로 opt-in 한다.
 - `Forward fallback untouched`가 authoring contract다.
 
 ## 9. 테스트 / 검증 계획
@@ -142,7 +142,7 @@
 - `EnemyAi_WindupRandomWalkPilot_PrimedSameCell_PreservesCombatThenPassiveOrdering`
 
 ### 9.4 authoring
-- `CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy`
+- `MechanicsShowcaseStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy`
 - `EnemyAiProfileAssets_WindupBaseline_RemainsForward_AndPilotVariant_IsRandomWalk`
 - `EnemyAiProfileAssets_PatrolPilotRollout_MatchesExpectedPatrolKinds`
 

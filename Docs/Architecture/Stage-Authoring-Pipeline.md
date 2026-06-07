@@ -2,15 +2,19 @@
 
 ## Runtime Contract
 
-Stage content remains data-driven through `StageContentEntry`.
-The gameplay scene/bootstrap scene still resolves a `StageId`, loads the entry,
-builds `StageDefinition` with `StageRuntimeBuilder`, resolves
-`StagePresentationDefinition` with `StagePresentationAssembler`, resolves
-`StageAudioDefinition` with `StageAudioAssembler`, and composes the
-same runtime scene.
+Stage content remains data-driven through `StageContentEntry`, which is the
+canonical stage content root. `StageDefinition` is a gameplay output, not the
+canonical root.
+
+The runtime bootstrap path is
+`StageLaunchContextStore -> StageRuntimeContentResolver -> StageRuntimeBuilder -> StageSceneComposition -> GameplaySceneHost/UI`.
+The resolver loads the `StageContentEntry`; `StageRuntimeBuilder` builds the
+gameplay `StageDefinition`; `StagePresentationDefinition` remains the
+presentation source; `StageAudioDefinition` remains the gameplay BGM companion.
 
 This pipeline does not create one Unity scene per stage. Production scene
-GameObjects are not authoritative stage layout data.
+GameObjects are not authoritative stage layout data, and stage content must not
+be described as a one-to-one scene mapping.
 
 ## Authoring Source And Outputs
 
@@ -87,8 +91,8 @@ generated-output comparison helpers are not part of the validation contract.
 
 `StagePresentationDefinition` drift is limited to generated enemy/static
 `EntityId -> PresentationId` bindings. Display metadata, preview/background
-assets, BGM reference, catalogs, and result text are preserved presentation
-metadata and are not binding drift.
+assets, catalogs, and result text are preserved presentation metadata and are not
+binding drift.
 
 Presentation catalog integrity is validated separately from drift. Enemy
 placements and enemy bindings must reference ids in the

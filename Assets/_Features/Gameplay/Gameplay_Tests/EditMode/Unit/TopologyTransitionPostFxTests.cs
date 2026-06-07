@@ -23,10 +23,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
         private const string CombinedPresetAssetPath =
-            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset";
-        private const string TutorialPresetAssetPath =
-            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_TutorialScene.asset";
-        private const string AuthoritativeVolumeProfileAssetPath = "Assets/DefaultVolumeProfile.asset";
+            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CampaignMainFastPostFx.asset";
+        private const string QualityPostFxPresetAssetPath =
+            StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CampaignMainQualityPostFx.asset";
+        private const string AuthoritativeVolumeProfileAssetPath = "Assets/_Post/_Post Profile.asset";
         private const string DeprecatedVolumeProfileGuid = "eda47df5b85f4f249abf7abd73db2cb2";
 
         [Test]
@@ -338,31 +338,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void ShowcaseCameraTopologyPresetAssets_UseAssetsDefaultVolumeProfileInsteadOfDeprecatedSettingsProfile()
         {
             var combinedPresetText = ReadNormalizedText(CombinedPresetAssetPath);
-            var tutorialPresetText = ReadNormalizedText(TutorialPresetAssetPath);
+            var qualityPostFxPresetText = ReadNormalizedText(QualityPostFxPresetAssetPath);
             var uiAudioSceneText = ReadNormalizedText(UiAudioScenePath);
             var authoritativeGuid = AssetDatabase.AssetPathToGUID(AuthoritativeVolumeProfileAssetPath);
-            var tutorialPresetGuid = AssetDatabase.AssetPathToGUID(TutorialPresetAssetPath);
+            var qualityPostFxPresetGuid = AssetDatabase.AssetPathToGUID(QualityPostFxPresetAssetPath);
 
             StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", combinedPresetText);
-            StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", tutorialPresetText);
+            StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", qualityPostFxPresetText);
             StringAssert.Contains("angularVelocityResponseExponent: 0.65", combinedPresetText);
-            StringAssert.Contains("angularVelocityResponseExponent: 0.65", tutorialPresetText);
+            StringAssert.Contains("angularVelocityResponseExponent: 0.65", qualityPostFxPresetText);
             StringAssert.Contains("distortionProfile:", combinedPresetText);
             StringAssert.Contains("ImpactIntensity: -0.2", combinedPresetText);
-            StringAssert.Contains("distortionProfile:", tutorialPresetText);
-            StringAssert.Contains("ImpactIntensity: -0.2", tutorialPresetText);
-            StringAssert.Contains($"preset: {{fileID: 11400000, guid: {tutorialPresetGuid}, type: 2}}", uiAudioSceneText);
+            StringAssert.Contains("distortionProfile:", qualityPostFxPresetText);
+            StringAssert.Contains("ImpactIntensity: -0.2", qualityPostFxPresetText);
+            StringAssert.Contains($"preset: {{fileID: 11400000, guid: {qualityPostFxPresetGuid}, type: 2}}", uiAudioSceneText);
             StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, uiAudioSceneText);
             StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, combinedPresetText);
-            StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, tutorialPresetText);
+            StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, qualityPostFxPresetText);
         }
 
         [Test]
         [Category("Full")]
         public void GameplayShell_HostStartup_EnablesPostProcessingOnOutputCamera()
         {
-            AssertSceneHostStartupEnablesOutputCameraPostProcessing(UiAudioScenePath, "combined-gameplay-showcase");
-            AssertSceneHostStartupEnablesOutputCameraPostProcessing(UiAudioScenePath, "tutorial-scene");
+            AssertSceneHostStartupEnablesOutputCameraPostProcessing(UiAudioScenePath, "mechanics-showcase");
+            AssertSceneHostStartupEnablesOutputCameraPostProcessing(UiAudioScenePath, "onboarding");
         }
 
         private static void AssertSceneHostStartupEnablesOutputCameraPostProcessing(string scenePath, string stageIdValue)

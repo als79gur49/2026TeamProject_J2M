@@ -1098,7 +1098,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class GameplayShowcaseAssetMigrationTests
     {
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
-        private const string CombinedSceneInstallerIdentifier =
+        private const string GameplayShellInstallerIdentifier =
             "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
         private const string StageCatalogProviderAssetPath =
             StageContentPaths.StageCatalogProviderAssetPath;
@@ -1115,7 +1115,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void GameplayShellScene_SerializesTimingPresetReferencesInsteadOfLegacyTimingFields()
         {
-            var installerBlock = ReadInstallerBlock(UiAudioScenePath, CombinedSceneInstallerIdentifier);
+            var installerBlock = ReadInstallerBlock(UiAudioScenePath, GameplayShellInstallerIdentifier);
 
             AssertUsesTimingPresetReferences(
                 installerBlock,
@@ -1144,7 +1144,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var scenePaths = new[] { UiAudioScenePath };
             for (var i = 0; i < scenePaths.Length; i++)
             {
-                var installerBlock = ReadInstallerBlock(scenePaths[i], CombinedSceneInstallerIdentifier);
+                var installerBlock = ReadInstallerBlock(scenePaths[i], GameplayShellInstallerIdentifier);
 
                 StringAssert.DoesNotContain("enemyPresentationCatalog:", installerBlock);
                 StringAssert.DoesNotContain("enemyPresentationArchetypeCatalog:", installerBlock);

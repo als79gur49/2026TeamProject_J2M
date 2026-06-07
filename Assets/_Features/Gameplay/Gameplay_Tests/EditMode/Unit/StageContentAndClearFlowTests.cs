@@ -48,10 +48,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void StageCatalogResolver_ResolveOrThrow_ByCanonicalStageId_ReturnsEntry()
         {
-            var entry = CreateEntry("combined-gameplay-showcase");
+            var entry = CreateEntry("mechanics-showcase");
             var resolver = new StageCatalogResolver(new TestStageCatalogProvider(new[] { entry }, aliasTable: null));
 
-            var resolved = resolver.ResolveOrThrow(StageId.CreateOrThrow("combined-gameplay-showcase"));
+            var resolved = resolver.ResolveOrThrow(StageId.CreateOrThrow("mechanics-showcase"));
 
             Assert.That(resolved, Is.SameAs(entry));
         }
@@ -62,8 +62,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StageLaunchContextStore.Clear();
             try
             {
-                var tutorialEntry = CreateEntry("tutorial-scene");
-                var provider = CreateCatalogProvider(new[] { CreateEntry("combined-gameplay-showcase"), tutorialEntry }, aliasTable: null);
+                var tutorialEntry = CreateEntry("onboarding");
+                var provider = CreateCatalogProvider(new[] { CreateEntry("mechanics-showcase"), tutorialEntry }, aliasTable: null);
                 var resolver = new StageRuntimeContentResolver();
                 StageLaunchContextStore.SetCurrent(tutorialEntry.StageId);
 
@@ -85,7 +85,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void StageRuntimeContentResolver_CatalogMode_ThrowsWhenLaunchContextIsMissing()
         {
             StageLaunchContextStore.Clear();
-            var entry = CreateEntry("tutorial-scene");
+            var entry = CreateEntry("onboarding");
             var provider = CreateCatalogProvider(new[] { entry }, aliasTable: null);
             var resolver = new StageRuntimeContentResolver();
 
