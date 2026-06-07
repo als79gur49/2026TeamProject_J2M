@@ -20,8 +20,20 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class GameplayShellUiAudioContractTests
     {
+        private const string GameplayPresentationAudioConfigAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Authoring/GameplayPresentationAudioConfig_CampaignV1.asset";
         private const string GameplayAudioMapAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_CampaignV1.asset";
+        private const string BlockAudioMapAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_BlockAudio/Maps/BlockAudioMap_PlayerSounds.asset";
+        private const string PlayerLocomotionAudioMapAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_PlayerLocomotionAudio/Maps/PlayerLocomotionAudioMap_PlayerSounds.asset";
+        private const string TopologyAudioMapAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_TopologyAudio/Maps/TopologyAudioMap_ObjectSounds.asset";
+        private const string GravityFieldAudioMapAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_GravityFieldAudio/Maps/GravityFieldAudioMap_ObjectSounds.asset";
+        private const string TileFeatureMapAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_TileFeature" + "Audio/Maps/TileFeature" + "AudioMap_ObjectSounds.asset";
         private const string StageCatalogProviderAssetPath =
             StageContentPaths.StageCatalogProviderAssetPath;
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
@@ -33,7 +45,7 @@ namespace Game.Feature.UI.Tests
             AssertCanonicalBootstrapScene(
                 UiAudioScenePath,
                 "UIAudioSceneBootstrapRoot",
-                GameplayAudioMapAssetPath);
+                GameplayPresentationAudioConfigAssetPath);
         }
 
         [Test]
@@ -71,7 +83,7 @@ namespace Game.Feature.UI.Tests
         private static void AssertCanonicalBootstrapScene(
             string scenePath,
             string expectedRootName,
-            string expectedGameplayAudioMapAssetPath)
+            string expectedGameplayPresentationAudioConfigAssetPath)
         {
             var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
@@ -139,12 +151,46 @@ namespace Game.Feature.UI.Tests
                     serializedBgmBootstrap.FindProperty("audioRuntimeInstaller").objectReferenceValue,
                     Is.SameAs(audioInstaller));
                 Assert.That(serializedBgmBootstrap.FindProperty("persistentRoot").objectReferenceValue, Is.Null);
-                var serializedGameplayAudioMap = serializedShowcaseInstaller.FindProperty("gameplayAudioMap");
-                Assert.That(serializedGameplayAudioMap, Is.Not.Null);
-                Assert.That(serializedGameplayAudioMap.objectReferenceValue, Is.Not.Null);
+                var serializedGameplayPresentationAudioConfig =
+                    serializedShowcaseInstaller.FindProperty("gameplayPresentationAudioConfig");
+                Assert.That(serializedGameplayPresentationAudioConfig, Is.Not.Null);
+                Assert.That(serializedGameplayPresentationAudioConfig.objectReferenceValue, Is.Not.Null);
                 Assert.That(
-                    AssetDatabase.GetAssetPath(serializedGameplayAudioMap.objectReferenceValue),
-                    Is.EqualTo(expectedGameplayAudioMapAssetPath));
+                    AssetDatabase.GetAssetPath(serializedGameplayPresentationAudioConfig.objectReferenceValue),
+                    Is.EqualTo(expectedGameplayPresentationAudioConfigAssetPath));
+                Assert.That(serializedShowcaseInstaller.FindProperty("gameplayAudioMap"), Is.Null);
+                Assert.That(serializedShowcaseInstaller.FindProperty("tileFeatureAudioMap"), Is.Null);
+                Assert.That(serializedShowcaseInstaller.FindProperty("topologyAudioMap"), Is.Null);
+                Assert.That(serializedShowcaseInstaller.FindProperty("gravityFieldAudioMap"), Is.Null);
+                Assert.That(serializedShowcaseInstaller.FindProperty("blockAudioMap"), Is.Null);
+                Assert.That(serializedShowcaseInstaller.FindProperty("playerLocomotionAudioMap"), Is.Null);
+
+                var serializedGameplayPresentationAudio =
+                    new SerializedObject(serializedGameplayPresentationAudioConfig.objectReferenceValue);
+                AssertSerializedReferencePath(
+                    serializedGameplayPresentationAudio,
+                    "gameplayAudioMap",
+                    GameplayAudioMapAssetPath);
+                AssertSerializedReferencePath(
+                    serializedGameplayPresentationAudio,
+                    "blockAudioMap",
+                    BlockAudioMapAssetPath);
+                AssertSerializedReferencePath(
+                    serializedGameplayPresentationAudio,
+                    "playerLocomotionAudioMap",
+                    PlayerLocomotionAudioMapAssetPath);
+                AssertSerializedReferencePath(
+                    serializedGameplayPresentationAudio,
+                    "topologyAudioMap",
+                    TopologyAudioMapAssetPath);
+                AssertSerializedReferencePath(
+                    serializedGameplayPresentationAudio,
+                    "gravityFieldAudioMap",
+                    GravityFieldAudioMapAssetPath);
+                AssertSerializedReferencePath(
+                    serializedGameplayPresentationAudio,
+                    "tileFeatureAudioMap",
+                    TileFeatureMapAssetPath);
                 Assert.That(serializedShowcaseInstaller.FindProperty("stageLoadSourceMode"), Is.Null);
                 Assert.That(serializedShowcaseInstaller.FindProperty("stageContentEntry"), Is.Null);
                 Assert.That(serializedShowcaseInstaller.FindProperty("stageDefinition"), Is.Null);
@@ -193,6 +239,17 @@ namespace Game.Feature.UI.Tests
         private static void AssertSceneContainsNoSerializedComponent<T>(GameObject[] rootObjects) where T : Component
         {
             Assert.That(CountComponentsInScene<T>(rootObjects), Is.Zero, typeof(T).Name);
+        }
+
+        private static void AssertSerializedReferencePath(
+            SerializedObject serializedObject,
+            string propertyName,
+            string expectedPath)
+        {
+            var property = serializedObject.FindProperty(propertyName);
+            Assert.That(property, Is.Not.Null, propertyName);
+            Assert.That(property.objectReferenceValue, Is.Not.Null, propertyName);
+            Assert.That(AssetDatabase.GetAssetPath(property.objectReferenceValue), Is.EqualTo(expectedPath));
         }
 
         private static int CountComponentsInScene<T>(GameObject[] rootObjects) where T : Component
