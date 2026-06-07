@@ -91,7 +91,7 @@ Keep:
 
 Removed:
 
-- Player hand flip presentation driver: no production prefab/scene/asset GUID reference, and the current player IK path is unavailable.
+- `PlayerFlipInteractionDriver.cs` and `PlayerFlipInteractionDriver.cs.meta`: no production prefab/scene/asset GUID reference, and the current player IK path is unavailable.
 
 Near-dead:
 
@@ -117,6 +117,6 @@ Classification:
 | --- | --- | --- |
 | `Flip+Destroy` exact combo | `KEEP_BY_PRODUCT_DECISION` | Preserve general capability coverage |
 | Showcase-only Item priority combos | `KEEP_BY_PRODUCT_DECISION` | Preserve showcase content and Item priority |
-| Player hand flip presentation driver | `REMOVED_BY_PRODUCT_DECISION` | Remove optional player hand/IK path and tests |
+| `PlayerFlipInteractionDriver.cs` / `.meta` | `REMOVED_BY_PRODUCT_DECISION` | Remove optional player hand/IK path and tests |
 | `GameplayBoxCapabilityLabelViewFactory` stale mentions | `DELETE_NOW_UNUSED` | Docs cleanup |
 | Audio no-entry lifecycle moments | `DEFERRED_AUDIO_POLICY` | Do not alter action-audio planner/profile entries in this PR |

@@ -10,10 +10,10 @@ The highest-value residual candidates are:
 
 - `P0/P1`: docs-only stale ledger rows and historical Push contact threshold wording.
 - `P1/P3`: `GameplayRuntimeFeatureFlags.EnableLegacyOrdinaryUnitFallback` remains as a misleading compatibility field, not a Push/Flip runtime feature.
-- `P2`: the gameplay UI Push/Flip action request route was not wired to any production UI button/surface and is removed by current product policy.
+- `P2`: the gameplay UI Push/Flip action command injection route was not wired to any production UI button/surface and is removed by current product policy. Settings/rebind Push/Flip UI remains active.
 - `P2`: Flip is keyboard-only by current product input policy; the existing Push controller binding remains authored.
 - `P2`: low-usage box capability combos exist only in `combined-gameplay-showcase`.
-- `P2`: the player hand flip presentation driver had no production prefab/scene/asset GUID reference and is removed.
+- `P2`: `PlayerFlipInteractionDriver.cs` and `PlayerFlipInteractionDriver.cs.meta` had no production prefab/scene/asset GUID reference and are removed.
 - `P2`: several action-audio moments are planner-emitted but have no production profile binding.
 
 ## What Was Rechecked From Previous Audit
@@ -40,8 +40,8 @@ Verified removed or current status:
 | Stage content | Box capability counts are high for Push and Destroy-bearing combos; Flip-only/Item combos are low usage | mixed |
 | Presentation carriers | `FlipImpactSignals` consumed by host track planning, VFX production runtime, block audio, and tests | `KEEP_CURRENTLY_USED` |
 | Box flip driver | `BoxFlipInteractionDriver` attached to 4 production static box prefabs | `KEEP_CURRENTLY_USED` |
-| Player hand flip driver | No production prefab/scene/asset GUID reference found | `REMOVED_BY_PRODUCT_DECISION` |
-| UI command route | Gateway remains for UI-held movement only; UI Push/Flip action requests are removed | `REMOVED_BY_PRODUCT_DECISION` |
+| Player hand flip driver | `PlayerFlipInteractionDriver.cs` and `.meta` had no production prefab/scene/asset GUID reference | `REMOVED_BY_PRODUCT_DECISION` |
+| UI command route | Gateway remains for UI-held movement only; UI Push/Flip gameplay action command injection requests are removed | `REMOVED_BY_PRODUCT_DECISION` |
 | Settings/rebind | Push/Flip display, rebinding, save/restore, and prefab rows are wired | `KEEP_CURRENTLY_USED` with hardcoded-path risk |
 | Audio | Player prefab references production action-audio profile; moment coverage is uneven | mixed |
 
@@ -53,7 +53,7 @@ Verified removed or current status:
 - `ActionBar`: no runtime type found. Current architecture docs mention it only as retired HUD vocabulary.
 - `HelpScreen` Push/Flip prompt: no active prompt artifact found.
 - `LegacyMovementBoundaryAssert`: no asset/code helper found; docs-only historical cleanup candidate.
-- Player hand flip presentation driver: removed. It depended on an unavailable player hand/IK path and had no production prefab/scene/asset GUID reference.
+- Player hand flip presentation driver: `PlayerFlipInteractionDriver.cs` and `PlayerFlipInteractionDriver.cs.meta` are removed. The path depended on unavailable player hand/IK support and had no production prefab/scene/asset GUID reference.
 
 ## Meaningless / Low-Value Findings
 
@@ -110,7 +110,7 @@ Low-usage combos are all showcase-only: `Flip`, `Push+Flip`, `Item`, `Push+Item`
 
 ## UI/Prompt Findings
 
-- UI Push/Flip action requests had no production UI caller. `HUDRootPresenter` no longer depends on the command gateway in its constructor, and no touch/mobile/assist action button exists.
+- UI Push/Flip gameplay action command injection requests had no production UI caller. `HUDRootPresenter` no longer depends on the command gateway in its constructor, and no touch/mobile/assist action button exists.
 - Settings/rebind Push/Flip rows are active: `PushInputRow`, `FlipInputRow`, `PushKeyDisplay`, `FlipKeyDisplay`.
 - Rebind is effective, not display-only: `KeyboardBindingSettingsService` applies binding overrides, serializes Push/Flip overrides, and `GameplayHostRuntimeFactory` applies saved settings to the runtime InputActionAsset.
 - Rebind limitation: keyboard-only; gamepad bindings are not managed by this service.

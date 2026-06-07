@@ -85,8 +85,9 @@ Rollback:
 
 Scope:
 
-- Remove the gameplay UI Push/Flip action request route.
+- Remove the gameplay UI Push/Flip action command injection route.
 - Keep UI-held movement through the gameplay command gateway.
+- Keep Settings/rebind Push/Flip rows and keyboard rebinding; that UI is not the removed gameplay command injection route.
 - Migrate fakes and tests to physical input, direct command coverage, or HUD ownership guards.
 
 Files:
@@ -212,14 +213,16 @@ Scope:
 
 Files:
 
-- Player hand flip presentation component file and related tests.
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerFlipInteractionDriver.cs`
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerFlipInteractionDriver.cs.meta`
+- Player hand flip presentation related tests.
 - `Player_S1_GameplayActionAudioProfile.asset`
 - `GameplayActionAudioRuntimeTests.cs`
 - `AudioRepositoryAssetSmokeCoreTests.cs`
 
 Delete candidates:
 
-- Player hand flip presentation component and optional lookup path.
+- `PlayerFlipInteractionDriver.cs`, its `.meta`, and optional lookup path.
 
 Migration needed:
 

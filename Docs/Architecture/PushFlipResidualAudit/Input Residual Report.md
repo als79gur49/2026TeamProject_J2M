@@ -56,11 +56,11 @@ InputAction Player/Flip started/performed -> BufferFlip -> BuildPlayerCommand fl
 
 The Flip `started` + `performed` subscription has duplicate semantic effect because both callbacks only set `_hasBufferedFlip = true`. It may be deliberate Input System compatibility, but no local comment explains the asymmetry with Push.
 
-Classification: physical Push/Flip route is retained. The previous UI Push/Flip action-buffer route is removed by current keyboard-only product policy.
+Classification: physical Push/Flip route is retained. The previous UI Push/Flip gameplay action command injection route is removed by current keyboard-only product policy.
 
 ## CommandGateway UI Surface Recheck
 
-The gameplay UI command gateway previously exposed Push/Flip action requests, but production UI callers were not found under `Assets/_Features/UI`.
+The gameplay UI command gateway previously exposed Push/Flip gameplay action command injection requests, but production UI callers were not found under `Assets/_Features/UI`.
 
 Observed callers:
 
@@ -68,6 +68,7 @@ Observed callers:
 - `GameplayUiFlowPorts` stores `IGameplayCommandGateway`.
 - `HUDRootPresenter` currently does not call the gateway.
 - No touch/mobile/assist action button was found.
+- Settings/rebind Push/Flip UI is not this route; settings rows and keyboard rebind behavior remain active.
 
 Classification: `REMOVED_BY_PRODUCT_DECISION`.
 
@@ -122,6 +123,6 @@ Classification:
 | Docs-only Push contact threshold wording | `DELETE_NOW_UNUSED` | Trim or mark historical |
 | Old HelpScreen prompt mentions | `DELETE_NOW_UNUSED` | Remove stale docs if any new occurrence appears |
 | ActionBar wording not marked retired | `DELETE_NOW_UNUSED` | Remove or rewrite as retired vocabulary |
-| UI Push/Flip command route | `REMOVED_BY_PRODUCT_DECISION` | Product has no touch/mobile/assist action surface |
+| UI Push/Flip gameplay action command injection route | `REMOVED_BY_PRODUCT_DECISION` | Product has no touch/mobile/assist action surface; settings/rebind UI remains |
 | Flip controller binding absence | `DOCUMENTED_CURRENT_POLICY` | Keep Flip keyboard-only |
 | Hardcoded settings paths | `REFACTOR_RENAME_ONLY` | Centralize/fail-fast action path validation |
