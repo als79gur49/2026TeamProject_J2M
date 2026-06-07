@@ -730,7 +730,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(current, Is.EqualTo(stageId));
                 Assert.That(sceneLoader.LoadedScenes, Is.EqualTo(new[] { "UIAudioScene" }));
 
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 DisableAutoCreateViews(installer);
                 AssignStageCatalogProvider(installer);
                 AssignTimingPresets(installer);
@@ -792,20 +792,20 @@ namespace Game.Feature.UI.Tests
             activeSlotProvider.SetActiveSlot(1);
         }
 
-        private static void AssignStageCatalogProvider(CombinedGameplayShowcaseInstaller installer)
+        private static void AssignStageCatalogProvider(StageBackedGameplaySceneInstaller installer)
         {
             var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(
                 StageCatalogProviderAssetPath);
             Assert.That(provider, Is.Not.Null, $"Missing stage catalog provider at '{StageCatalogProviderAssetPath}'.");
 
-            var providerField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+            var providerField = typeof(StageBackedGameplaySceneInstallerBase).GetField(
                 "stageCatalogProvider",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(providerField, Is.Not.Null);
             providerField.SetValue(installer, provider);
         }
 
-        private static void DisableAutoCreateViews(CombinedGameplayShowcaseInstaller installer)
+        private static void DisableAutoCreateViews(StageBackedGameplaySceneInstaller installer)
         {
             var autoCreateViewsField = typeof(GameplayShowcaseSceneInstallerBase).GetField(
                 "autoCreateViews",
@@ -814,7 +814,7 @@ namespace Game.Feature.UI.Tests
             autoCreateViewsField.SetValue(installer, false);
         }
 
-        private static void AssignTimingPresets(CombinedGameplayShowcaseInstaller installer)
+        private static void AssignTimingPresets(StageBackedGameplaySceneInstaller installer)
         {
             var simulationPreset = AssetDatabase.LoadAssetAtPath<GameplaySimulationTimingPreset>(
                 DefaultSimulationTimingPresetAssetPath);
@@ -843,7 +843,7 @@ namespace Game.Feature.UI.Tests
             presentationField.SetValue(installer, presentationPreset);
         }
 
-        private static GameplaySceneHostConfiguration BuildConfiguration(CombinedGameplayShowcaseInstaller installer)
+        private static GameplaySceneHostConfiguration BuildConfiguration(StageBackedGameplaySceneInstaller installer)
         {
             EnsureCameraTopologyAuthoring(installer);
 
@@ -861,9 +861,9 @@ namespace Game.Feature.UI.Tests
                 new object[] { initialState, installer.GetCameraSettings() });
         }
 
-        private static object BuildInitialGameplayState(CombinedGameplayShowcaseInstaller installer)
+        private static object BuildInitialGameplayState(StageBackedGameplaySceneInstaller installer)
         {
-            var buildInitialStateMethod = typeof(StageBackedGameplayShowcaseInstallerBase).GetMethod(
+            var buildInitialStateMethod = typeof(StageBackedGameplaySceneInstallerBase).GetMethod(
                 "BuildInitialGameplayState",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(buildInitialStateMethod, Is.Not.Null);

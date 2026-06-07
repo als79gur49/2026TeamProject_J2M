@@ -239,7 +239,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var hostFactorySource =
                 File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs");
             var stageInstallerSource =
-                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplayShowcaseInstallerBase.cs");
+                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs");
 
             Assert.That(typeof(StagePresentationBindingNormalizer).Namespace, Is.EqualTo(typeof(StagePresentationAssembler).Namespace));
             Assert.That(normalizerSource, Does.Contain("NormalizeEnemyBindings"));
@@ -279,7 +279,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 "StageRuntimeBuilder",
                 "StageRuntimeBuildResult",
                 "GameplayHostRuntimeFactory",
-                "StageBackedGameplayShowcaseInstallerBase",
+                "StageBackedGameplaySceneInstallerBase",
                 "AudioRuntime",
                 "IAudioService",
                 "BgmFlow",
@@ -308,7 +308,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void StageBackedHostComposition_PassesGameplayAndPresentationSeparately()
         {
             var installerSource =
-                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplayShowcaseInstallerBase.cs");
+                File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs");
             var compositionSource =
                 File.ReadAllText("Assets/_Features/Stages/Runtime/Presentation/StagePresentationAssemblers.cs");
             var hostFactorySource =

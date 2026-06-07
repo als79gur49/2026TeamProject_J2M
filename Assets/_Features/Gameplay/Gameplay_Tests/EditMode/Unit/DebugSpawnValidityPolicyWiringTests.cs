@@ -35,7 +35,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs"),
                 Does.Not.Contain("DebugSpawnValidityPolicy.EnsureRepresentable("));
             Assert.That(
-                ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplayShowcaseInstallerBase.cs"),
+                ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs"),
                 Does.Not.Contain("DebugSpawnValidityPolicy.EnsureRepresentable("));
         }
 

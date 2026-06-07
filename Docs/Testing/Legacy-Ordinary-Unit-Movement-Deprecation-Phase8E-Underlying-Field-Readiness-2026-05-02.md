@@ -37,7 +37,7 @@ It is risky to rename or delete immediately because it participates in the publi
 | removed reasons | `TickPipeline.TryResolveForbiddenLegacyUnitOrdinaryMovement` | diagnostic routing | true routes to player/enemy/Charge removed reasons | high | none | no | keep semantics | none |
 | `LegacyFallback=` | `TickPipeline.FormatLocomotionFeatureFlags` | trace formatter token | diagnostic routing trace bit | high: replay/golden churn | none | no | keep token text | trace cleanup phase |
 | scene host flags | `GameplaySceneHostConfiguration` | config creation/apply | advanced locomotion flags only | medium | high if added accidentally | no | do not expose legacy diagnostic field | future Option B only with approval |
-| showcase installer | `CombinedGameplayShowcaseInstaller` | runtime flag application | applies `DefaultGameplayLocomotion` | low | scene YAML churn if changed | no | no change | none |
+| showcase installer | `StageBackedGameplaySceneInstaller` | runtime flag application | applies `DefaultGameplayLocomotion` | low | scene YAML churn if changed | no | no change | none |
 | replay harness flags | `EnemyKinematicLocomotionReplayTests` | preset injection | deterministic removed diagnostics | medium | none | no | keep preset usage | replay migration phase |
 | docs | Phase 3-8E readiness docs and ADR | policy documentation | compatibility meaning | low | none | yes | document inventory and options | next phase decision |
 
@@ -46,7 +46,7 @@ It is risky to rename or delete immediately because it participates in the publi
 `GameplaySceneHostConfiguration` does not expose `EnableLegacyOrdinaryUnitFallback` as a public scene host field.
 `CreateRuntimeFeatureFlags()` passes only the current seven locomotion flags and leaves the legacy diagnostic constructor parameter at its default `false`.
 `ApplyRuntimeFeatureFlags()` writes only the scene-authored locomotion flags and does not persist the legacy diagnostic bit.
-`CombinedGameplayShowcaseInstaller` applies `DefaultGameplayLocomotion` and does not set the diagnostic compatibility field.
+`StageBackedGameplaySceneInstaller` applies `DefaultGameplayLocomotion` and does not set the diagnostic compatibility field.
 Scene YAML under `Assets/Scenes` does not contain `EnableLegacyOrdinaryUnitFallback`.
 Replay and migration tests use `RemovedLegacyFallbackDiagnosticBaseline`; they do not directly author a scene/config bool for this field.
 

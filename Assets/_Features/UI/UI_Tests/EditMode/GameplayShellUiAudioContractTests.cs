@@ -46,7 +46,7 @@ namespace Game.Feature.UI.Tests
             {
                 var rootObjects = scene.GetRootGameObjects();
                 var bootstrapRoot = rootObjects.Single(root => root.name == "UIAudioSceneBootstrapRoot");
-                var showcaseInstaller = bootstrapRoot.GetComponent<CombinedGameplayShowcaseInstaller>();
+                var showcaseInstaller = bootstrapRoot.GetComponent<StageBackedGameplaySceneInstaller>();
                 var bgmBootstrap = bootstrapRoot.GetComponent<GlobalAudioFlowBootstrap>();
                 var requestSource = rootObjects
                     .SelectMany(root => root.GetComponentsInChildren<SceneBgmRequestSource>(true))
@@ -80,7 +80,7 @@ namespace Game.Feature.UI.Tests
                 var rootObjects = scene.GetRootGameObjects();
                 var gameplayBootstrapRoots = rootObjects
                     .Where(root =>
-                        root.GetComponent<CombinedGameplayShowcaseInstaller>() != null ||
+                        root.GetComponent<StageBackedGameplaySceneInstaller>() != null ||
                         root.GetComponent<GameplaySceneHost>() != null ||
                         root.GetComponent<GameplayUiFlowInstaller>() != null)
                     .ToArray();
@@ -88,7 +88,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(gameplayBootstrapRoots, Has.Length.EqualTo(1));
 
                 var bootstrapRoot = gameplayBootstrapRoots[0];
-                var showcaseInstaller = bootstrapRoot.GetComponent<CombinedGameplayShowcaseInstaller>();
+                var showcaseInstaller = bootstrapRoot.GetComponent<StageBackedGameplaySceneInstaller>();
                 var bgmBootstrap = bootstrapRoot.GetComponent<GlobalAudioFlowBootstrap>();
                 var sceneHost = bootstrapRoot.GetComponent<GameplaySceneHost>();
                 var uiInstaller = bootstrapRoot.GetComponent<GameplayUiFlowInstaller>();
@@ -102,7 +102,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(uiInstaller, Is.Not.Null);
                 Assert.That(audioInstaller, Is.Not.Null);
                 Assert.That(displayInstaller, Is.Not.Null);
-                Assert.That(CountComponentsInScene<CombinedGameplayShowcaseInstaller>(rootObjects), Is.EqualTo(1));
+                Assert.That(CountComponentsInScene<StageBackedGameplaySceneInstaller>(rootObjects), Is.EqualTo(1));
                 Assert.That(CountComponentsInScene<GlobalAudioFlowBootstrap>(rootObjects), Is.EqualTo(1));
                 Assert.That(CountComponentsInScene<GameplaySceneHost>(rootObjects), Is.EqualTo(1));
                 Assert.That(CountComponentsInScene<GameplayUiFlowInstaller>(rootObjects), Is.EqualTo(1));

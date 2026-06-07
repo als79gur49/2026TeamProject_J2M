@@ -152,8 +152,8 @@ This pass is `Scoped Fallback Branch Inventory & Test-Only Isolation Preparation
 
 | host / installer / harness | current flag source | uses bundle? | should use bundle now? | preserve `None`? | risk | tests | recommendation |
 |---|---|---:|---:|---:|---|---|---|
-| `CombinedGameplayShowcaseInstaller` | explicit config hook | yes | yes | yes | showcase active glide now uses kinematic path | `CombinedGameplayShowcaseInstaller_DefaultBundle_IncludesGlideKinematic` | keep bundle; glide is enabled by default adoption |
-| `StageBackedGameplayShowcaseInstallerBase` | base config | no | no | yes | over-broad scene opt-in | host config tests | do not apply globally |
+| `StageBackedGameplaySceneInstaller` | explicit config hook | yes | yes | yes | showcase active glide now uses kinematic path | `StageBackedGameplaySceneInstaller_DefaultBundle_IncludesGlideKinematic` | keep bundle; glide is enabled by default adoption |
+| `StageBackedGameplaySceneInstallerBase` | base config | no | no | yes | over-broad scene opt-in | host config tests | do not apply globally |
 | campaign scene host | installer/config authored flags | no/partial | later | yes | campaign behavior drift | playmode smoke later | keep explicit opt-in only |
 | editor direct play | scene config defaults | no | no | yes | hidden default-on | host default tests | keep `None` unless authored |
 | `GameplaySceneHostConfiguration` default | bool fields false | helper only | no implicit default | yes | baseline drift | `HostConfiguration_DefaultGameplayLocomotion_AppliesExpectedFlags` | default constructor remains `None` |
@@ -168,7 +168,7 @@ This pass is `Scoped Fallback Branch Inventory & Test-Only Isolation Preparation
 | area | current status | if glide flag included impact | risk | tests required | recommendation |
 |---|---|---|---|---|---|
 | `DefaultGameplayLocomotion` | glide included | default active glide switches to kinematic | default gameplay shift | `DefaultGameplayLocomotion_IncludesGlideKinematic` | adopted in v2 |
-| `CombinedGameplayShowcaseInstaller` | uses bundle | showcase glide auto-enables | showcase behavior surprise | `CombinedGameplayShowcaseInstaller_DefaultBundle_IncludesGlideKinematic` | intentional default adoption |
+| `StageBackedGameplaySceneInstaller` | uses bundle | showcase glide auto-enables | showcase behavior surprise | `StageBackedGameplaySceneInstaller_DefaultBundle_IncludesGlideKinematic` | intentional default adoption |
 | campaign host | explicit/authored flags | only bundle-applied hosts would change | campaign drift | host config smoke if touched | no change |
 | replay harness | default `None` | accidental golden churn | baseline drift | replay default `None` assertions | keep `None` |
 | default gameplay replay canary | player/enemy/Charge/glide focused | active glide trace/hash changes intentionally | kinematic canary clarity | `Replay_DefaultGameplayLocomotion_GlideKinematic_IsDeterministic` | default glide kinematic check |

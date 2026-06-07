@@ -371,7 +371,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var installer = Object.FindFirstObjectByType<CombinedGameplayShowcaseInstaller>();
+                var installer = Object.FindFirstObjectByType<StageBackedGameplaySceneInstaller>();
                 Assert.That(installer, Is.Not.Null, $"Missing installer in '{scenePath}'.");
                 var host = installer.GetComponent<GameplaySceneHost>();
                 Assert.That(host, Is.Not.Null, $"Missing {nameof(GameplaySceneHost)} in '{scenePath}'.");
@@ -402,7 +402,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static GameplaySceneHostConfiguration BuildConfiguration(
-            CombinedGameplayShowcaseInstaller installer,
+            StageBackedGameplaySceneInstaller installer,
             string stageIdValue)
         {
             var buildInitialGameplayState = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(

@@ -30,7 +30,7 @@ This is default bundle adoption, not fallback deletion.
 `GameplayRuntimeFeatureFlags.None` and explicit flag-off configurations keep the active glide fallback as the rollback and historical baseline.
 `AllKinematicLocomotionEnabled` continues to include glide.
 
-`CombinedGameplayShowcaseInstaller` uses `DefaultGameplayLocomotion`, so active glide kinematic locomotion is enabled in the showcase through the default bundle.
+`StageBackedGameplaySceneInstaller` uses `DefaultGameplayLocomotion`, so active glide kinematic locomotion is enabled in the showcase through the default bundle.
 Campaign and development gameplay hosts that apply `DefaultGameplayLocomotion` get active glide kinematic locomotion through the same bundle.
 Replay harness defaults remain `GameplayRuntimeFeatureFlags.None`; replay and golden baselines must not be migrated to the default bundle by this readiness slice.
 Actual legacy ordinary Unit movement deletion remains separate and not complete until replay/golden policy and broad validation are complete. Phase 1 runtime validation keeps flag-off active glide fallback as a retained exception while covered player/enemy/Charge fallback isolation is complete.

@@ -1099,7 +1099,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
         private const string GameplayShellInstallerIdentifier =
-            "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
+            "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.StageBackedGameplaySceneInstaller";
         private const string StageCatalogProviderAssetPath =
             StageContentPaths.StageCatalogProviderAssetPath;
         private const string DefaultSimulationTimingPresetAssetPath =
@@ -1108,8 +1108,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplayPresentationTimingPreset_DefaultShowcase.asset";
         private const string PlayerAnimationTestPrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Entity_View_PlayerAnimationTest.prefab";
-        private const string CombinedGameplayShowcaseInstallerSourcePath =
-            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcaseInstaller.cs";
+        private const string StageBackedGameplaySceneInstallerSourcePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstaller.cs";
 
         [Test]
         [Category("Full")]
@@ -1153,7 +1153,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 StringAssert.DoesNotContain("stageDefinition: {fileID: 11400000", installerBlock);
             }
 
-            var installerSource = ReadNormalizedText(CombinedGameplayShowcaseInstallerSourcePath);
+            var installerSource = ReadNormalizedText(StageBackedGameplaySceneInstallerSourcePath);
             StringAssert.DoesNotContain("private EnemyPresentationCatalog", installerSource);
             StringAssert.DoesNotContain("private EnemyPresentationArchetypeCatalog", installerSource);
             StringAssert.DoesNotContain("private EnemyUnitArchetypeCatalog", installerSource);

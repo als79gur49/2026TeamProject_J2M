@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -82,8 +83,20 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(catalogAsset, Is.Not.Null);
             Assert.That(catalogAsset.CanonicalShellScenePath, Is.EqualTo("Assets/Scenes/UIAudioScene.unity"));
             Assert.That(catalogAsset.IsCanonicalShellScenePath("Assets/Scenes/UIAudioScene.unity"), Is.True);
+            Assert.That(
+                catalogAsset.SupportedStages.Select(entry => entry.StageId.Value).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    "mechanics-showcase",
+                    "onboarding",
+                    "stage-0-1",
+                    "stage-1-1",
+                }));
             Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("mechanics-showcase")), Is.True);
             Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("onboarding")), Is.True);
+            Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("stage-0-1")), Is.True);
+            Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("stage-1-1")), Is.True);
+            Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("legacy-stage-5-1")), Is.False);
         }
 
         [Test]

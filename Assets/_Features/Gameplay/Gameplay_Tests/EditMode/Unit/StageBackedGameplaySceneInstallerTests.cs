@@ -17,7 +17,7 @@ using Object = UnityEngine.Object;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class CombinedGameplayShowcaseInstallerTests
+    public sealed class StageBackedGameplaySceneInstallerTests
     {
         private const string CombinedStageAssetPath =
             StageContentPaths.CampaignLevel01StagesRoot + "/mechanics-showcase/mechanics-showcase.asset";
@@ -308,15 +308,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseInstaller_PlayerViewPrefabFactory_UsesPrefabOnlyForPlayerAndDoesNotCreateBoxLabels()
+        public void StageBackedGameplaySceneInstaller_PlayerViewPrefabFactory_UsesPrefabOnlyForPlayerAndDoesNotCreateBoxLabels()
         {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_PlayerViewPrefabFactory");
-            var boardRootObject = new GameObject("CombinedGameplayShowcaseInstaller_PlayerViewPrefabFactory_BoardRoot");
-            var playerPrefabObject = new GameObject("CombinedGameplayShowcaseInstaller_PlayerPrefab");
+            var installerObject = new GameObject("StageBackedGameplaySceneInstaller_PlayerViewPrefabFactory");
+            var boardRootObject = new GameObject("StageBackedGameplaySceneInstaller_PlayerViewPrefabFactory_BoardRoot");
+            var playerPrefabObject = new GameObject("StageBackedGameplaySceneInstaller_PlayerPrefab");
 
             try
             {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 var boardRoot = boardRootObject.AddComponent<GameplayBoardRoot>();
                 boardRoot.EnsureHierarchy();
 
@@ -325,7 +325,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 playerPrefabObject.AddComponent<PlayerAnimatorDriver>();
                 new GameObject("PrefabMarker").transform.SetParent(playerPrefabObject.transform, worldPositionStays: false);
 
-                var prefabField = typeof(CombinedGameplayShowcaseInstaller).GetField(
+                var prefabField = typeof(StageBackedGameplaySceneInstaller).GetField(
                     "playerViewPrefab",
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 Assert.That(prefabField, Is.Not.Null);
@@ -434,14 +434,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy()
+        public void StageBackedGameplaySceneInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy()
         {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy");
-            var boardRootObject = new GameObject("CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy_BoardRoot");
+            var installerObject = new GameObject("StageBackedGameplaySceneInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy");
+            var boardRootObject = new GameObject("StageBackedGameplaySceneInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy_BoardRoot");
 
             try
             {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 var boardRoot = boardRootObject.AddComponent<GameplayBoardRoot>();
                 boardRoot.EnsureHierarchy();
                 var factory = CreateViewFactory(installer, boardRoot);
@@ -485,15 +485,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver()
+        public void StageBackedGameplaySceneInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver()
         {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver");
-            var boardRootObject = new GameObject("CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver_BoardRoot");
-            var presenterObject = new GameObject("CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver_Presenter");
+            var installerObject = new GameObject("StageBackedGameplaySceneInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver");
+            var boardRootObject = new GameObject("StageBackedGameplaySceneInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver_BoardRoot");
+            var presenterObject = new GameObject("StageBackedGameplaySceneInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver_Presenter");
 
             try
             {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 var boardRoot = boardRootObject.AddComponent<GameplayBoardRoot>();
                 boardRoot.EnsureHierarchy();
                 var factory = CreateViewFactory(installer, boardRoot);
@@ -604,13 +604,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseInstaller_DefaultBundle_IncludesGlideKinematic()
+        public void StageBackedGameplaySceneInstaller_DefaultBundle_IncludesGlideKinematic()
         {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_DefaultBundle_IncludesGlideKinematic");
+            var installerObject = new GameObject("StageBackedGameplaySceneInstaller_DefaultBundle_IncludesGlideKinematic");
 
             try
             {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntry(installer);
                 AssignTimingPresets(installer);
 
@@ -637,13 +637,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseInstaller_Configuration_UsesStageDefinitionEnemyUnitArchetypeCatalog()
+        public void StageBackedGameplaySceneInstaller_Configuration_UsesStageDefinitionEnemyUnitArchetypeCatalog()
         {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_UsesEnemyUnitArchetypeCatalog");
+            var installerObject = new GameObject("StageBackedGameplaySceneInstaller_Configuration_UsesEnemyUnitArchetypeCatalog");
 
             try
             {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntry(installer);
                 AssignTimingPresets(installer);
 
@@ -667,11 +667,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseInstaller_ProductionCampaignLaunch_InjectsChanceReadSource()
+        public void StageBackedGameplaySceneInstaller_ProductionCampaignLaunch_InjectsChanceReadSource()
         {
             var installerObject = new GameObject(
-                "CombinedGameplayShowcaseInstaller_ProductionCampaignLaunch_InjectsChanceReadSource");
-            var saveKey = CreatePrefsKey(nameof(CombinedGameplayShowcaseInstaller_ProductionCampaignLaunch_InjectsChanceReadSource));
+                "StageBackedGameplaySceneInstaller_ProductionCampaignLaunch_InjectsChanceReadSource");
+            var saveKey = CreatePrefsKey(nameof(StageBackedGameplaySceneInstaller_ProductionCampaignLaunch_InjectsChanceReadSource));
             var activeKey = saveKey + ".active";
             var saveStore = new SaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(activeKey);
@@ -691,7 +691,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
                 activeSlotProvider.SetActiveSlot(1);
 
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntryForProductionLaunch(installer, launchStageId);
                 AssignTimingPresets(installer);
                 AssignCampaignStores(installer, saveStore, activeSlotProvider);
@@ -713,10 +713,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseInstaller_StaleCampaignTempDirectPlayContext_SkipsProductionChanceSource()
+        public void StageBackedGameplaySceneInstaller_StaleCampaignTempDirectPlayContext_SkipsProductionChanceSource()
         {
             var installerObject = new GameObject(
-                "CombinedGameplayShowcaseInstaller_StaleCampaignTempDirectPlayContext_SkipsProductionChanceSource");
+                "StageBackedGameplaySceneInstaller_StaleCampaignTempDirectPlayContext_SkipsProductionChanceSource");
             var defaultActiveSlotKey = new ActiveSlotProvider().PlayerPrefsKey;
             var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotStore.DefaultPlayerPrefsKey);
             var activeBackup = PlayerPrefsIntBackup.Capture(defaultActiveSlotKey);
@@ -741,7 +741,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
                 productionActiveSlotProvider.SetActiveSlot(1);
 
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntryForProductionLaunch(installer, launchStageId);
                 AssignTimingPresets(installer);
                 EditorDirectPlayContextStore.ClearTempDirectPlaySave();
@@ -779,10 +779,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseInstaller_StaleNonCampaignDirectPlayContext_SuppressesProductionChanceSource()
+        public void StageBackedGameplaySceneInstaller_StaleNonCampaignDirectPlayContext_SuppressesProductionChanceSource()
         {
             var installerObject = new GameObject(
-                "CombinedGameplayShowcaseInstaller_StaleNonCampaignDirectPlayContext_SuppressesProductionChanceSource");
+                "StageBackedGameplaySceneInstaller_StaleNonCampaignDirectPlayContext_SuppressesProductionChanceSource");
             var defaultActiveSlotKey = new ActiveSlotProvider().PlayerPrefsKey;
             var saveBackup = PlayerPrefsStringBackup.Capture(SaveSlotStore.DefaultPlayerPrefsKey);
             var activeBackup = PlayerPrefsIntBackup.Capture(defaultActiveSlotKey);
@@ -807,7 +807,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
                 productionActiveSlotProvider.SetActiveSlot(1);
 
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntryForProductionLaunch(installer, launchStageId);
                 AssignTimingPresets(installer);
                 EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(launchStageId));
@@ -843,13 +843,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseInstaller_Configuration_CarriesStageTileFeatureDefinitions()
+        public void StageBackedGameplaySceneInstaller_Configuration_CarriesStageTileFeatureDefinitions()
         {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_CarriesStageTileFeatureDefinitions");
+            var installerObject = new GameObject("StageBackedGameplaySceneInstaller_Configuration_CarriesStageTileFeatureDefinitions");
 
             try
             {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntry(installer);
                 AssignTimingPresets(installer);
                 DisableCampaignFlow(installer);
@@ -868,13 +868,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseInstaller_Configuration_CarriesStageTileFeatureVisualBindings()
+        public void StageBackedGameplaySceneInstaller_Configuration_CarriesStageTileFeatureVisualBindings()
         {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_CarriesStageTileFeatureVisualBindings");
+            var installerObject = new GameObject("StageBackedGameplaySceneInstaller_Configuration_CarriesStageTileFeatureVisualBindings");
 
             try
             {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntry(installer);
                 AssignTimingPresets(installer);
                 DisableCampaignFlow(installer);
@@ -900,13 +900,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseInstaller_Configuration_UsesStagePresentationDefinitionEnemyPresentationArchetypeCatalog()
+        public void StageBackedGameplaySceneInstaller_Configuration_UsesStagePresentationDefinitionEnemyPresentationArchetypeCatalog()
         {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_UsesEnemyPresentationArchetypeCatalog");
+            var installerObject = new GameObject("StageBackedGameplaySceneInstaller_Configuration_UsesEnemyPresentationArchetypeCatalog");
 
             try
             {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 AssignStageContentEntry(installer);
                 AssignTimingPresets(installer);
 
@@ -1008,12 +1008,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return false;
         }
 
-        private static void AssignStageContentEntry(CombinedGameplayShowcaseInstaller installer)
+        private static void AssignStageContentEntry(StageBackedGameplaySceneInstaller installer)
         {
             var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(StageCatalogProviderAssetPath);
             Assert.That(provider, Is.Not.Null, $"Missing stage catalog provider at '{StageCatalogProviderAssetPath}'.");
 
-            var providerField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+            var providerField = typeof(StageBackedGameplaySceneInstallerBase).GetField(
                 "stageCatalogProvider",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(providerField, Is.Not.Null);
@@ -1023,13 +1023,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static void AssignStageContentEntryForProductionLaunch(
-            CombinedGameplayShowcaseInstaller installer,
+            StageBackedGameplaySceneInstaller installer,
             StageId launchStageId)
         {
             var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(StageCatalogProviderAssetPath);
             Assert.That(provider, Is.Not.Null, $"Missing stage catalog provider at '{StageCatalogProviderAssetPath}'.");
 
-            var providerField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+            var providerField = typeof(StageBackedGameplaySceneInstallerBase).GetField(
                 "stageCatalogProvider",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(providerField, Is.Not.Null);
@@ -1041,24 +1041,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static void AssignCampaignStores(
-            CombinedGameplayShowcaseInstaller installer,
+            StageBackedGameplaySceneInstaller installer,
             SaveSlotStore saveStore,
             ActiveSlotProvider activeSlotProvider)
         {
-            var saveStoreField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+            var saveStoreField = typeof(StageBackedGameplaySceneInstallerBase).GetField(
                 "_saveSlotStore",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(saveStoreField, Is.Not.Null);
             saveStoreField.SetValue(installer, saveStore);
 
-            var activeSlotProviderField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+            var activeSlotProviderField = typeof(StageBackedGameplaySceneInstallerBase).GetField(
                 "_activeSlotProvider",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(activeSlotProviderField, Is.Not.Null);
             activeSlotProviderField.SetValue(installer, activeSlotProvider);
         }
 
-        private static void AssignTimingPresets(CombinedGameplayShowcaseInstaller installer)
+        private static void AssignTimingPresets(StageBackedGameplaySceneInstaller installer)
         {
             var simulationPreset = AssetDatabase.LoadAssetAtPath<GameplaySimulationTimingPreset>(
                 DefaultSimulationTimingPresetAssetPath);
@@ -1087,9 +1087,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             presentationField.SetValue(installer, presentationPreset);
         }
 
-        private static void DisableCampaignFlow(CombinedGameplayShowcaseInstaller installer)
+        private static void DisableCampaignFlow(StageBackedGameplaySceneInstaller installer)
         {
-            var campaignFlowField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+            var campaignFlowField = typeof(StageBackedGameplaySceneInstallerBase).GetField(
                 "enableCampaignFlow",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(campaignFlowField, Is.Not.Null);
@@ -1097,7 +1097,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static IGameplayEntityViewFactory CreateViewFactory(
-            CombinedGameplayShowcaseInstaller installer,
+            StageBackedGameplaySceneInstaller installer,
             GameplayBoardRoot boardRoot)
         {
             AssignStageContentEntry(installer);
@@ -1120,13 +1120,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 return;
             }
 
-            var installer = installerObject.GetComponent<CombinedGameplayShowcaseInstaller>();
+            var installer = installerObject.GetComponent<StageBackedGameplaySceneInstaller>();
             if (installer == null)
             {
                 return;
             }
 
-            var field = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+            var field = typeof(StageBackedGameplaySceneInstallerBase).GetField(
                 "stageContentEntry",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             if (field == null || field.GetValue(installer) is not StageContentEntry entry || entry == null)
@@ -1176,16 +1176,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
         }
 
-        private static object BuildInitialGameplayState(CombinedGameplayShowcaseInstaller installer)
+        private static object BuildInitialGameplayState(StageBackedGameplaySceneInstaller installer)
         {
-            var buildInitialStateMethod = typeof(StageBackedGameplayShowcaseInstallerBase).GetMethod(
+            var buildInitialStateMethod = typeof(StageBackedGameplaySceneInstallerBase).GetMethod(
                 "BuildInitialGameplayState",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(buildInitialStateMethod, Is.Not.Null);
             return buildInitialStateMethod.Invoke(installer, Array.Empty<object>());
         }
 
-        private static GameplaySceneHostConfiguration BuildConfiguration(CombinedGameplayShowcaseInstaller installer)
+        private static GameplaySceneHostConfiguration BuildConfiguration(StageBackedGameplaySceneInstaller installer)
         {
             EnsureCameraTopologyAuthoring(installer);
 
