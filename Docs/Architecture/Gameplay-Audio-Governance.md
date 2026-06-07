@@ -127,7 +127,10 @@ normal runtime에서는 replace가 `Present` cycle당 한 번 수행되고, cont
 
 ## 6. Bootstrap Alignment
 
-- `GameplaySceneHostConfiguration.GameplayAudioMap`이 assigned되면 same-root `AudioRuntimeInstaller`가 필요하다.
+- `GameplaySceneHostConfiguration.GameplayPresentationAudioConfig`가 assigned되면 same-root `AudioRuntimeInstaller`가 필요하다.
+- `GameplayPresentationAudioConfig`는 typed gameplay host presentation SFX maps를 group하는 data + validation owner다.
+- `GameplayPresentationAudioConfig`는 dispatcher, planner, controller factory, service locator, playback owner가 아니다.
+- action/enemy prefab-local profiles, UI cue maps, BGM profiles, `StageAudioDefinition`, runtime installers, audio settings bridges는 이 config 밖에 남는다.
 - scene-global fallback lookup은 금지한다.
 - required semantic validation은 `GameplayAudioSemanticCatalog` source of truth만 사용한다.
 - missing required semantic은 host attach/init에서 fail-fast 해야 한다.
