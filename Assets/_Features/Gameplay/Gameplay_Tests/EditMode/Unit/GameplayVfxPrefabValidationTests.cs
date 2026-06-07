@@ -24,8 +24,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/FlipImpactBurstVfx.prefab";
         private const string BoxSlideSolidStopPrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/BoxSlideSolidStopVfx.prefab";
-        private const string TileFeatureSliderActivatedPrefabPath =
-            "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/TileFeature_SliderActivatedVfx.prefab";
         private static readonly string[] ReservedHookPrefabPaths =
         {
             "Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/ImpactTransientBreakVfx.prefab",
@@ -135,7 +133,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 BoxDestroySmokePrefabPath,
                 FlipImpactBurstPrefabPath,
                 BoxSlideSolidStopPrefabPath,
-                TileFeatureSliderActivatedPrefabPath,
             };
 
             foreach (var path in particlePrefabPaths)
