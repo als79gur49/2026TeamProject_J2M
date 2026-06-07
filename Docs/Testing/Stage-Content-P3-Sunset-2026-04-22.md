@@ -28,7 +28,7 @@ StageCatalogCiValidationEntryPoint.Run
 
 ## Conscious Exceptions
 
-- empty `StageIdAliasTable.asset`
+- governed `StageIdAliasTable.asset` compatibility aliases
 - empty `StageAliasGovernanceLedger.asset`
 - empty `StageCatalogKnownWarningLedger.asset`
 - stage-specific presentation support asset folders

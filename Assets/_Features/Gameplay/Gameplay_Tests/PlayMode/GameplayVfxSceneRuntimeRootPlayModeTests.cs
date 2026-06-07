@@ -20,11 +20,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator UIAudioSceneCombinedGameplayStage_DirectPlayTick_CreatesGameplayVfxRuntimeRoot()
+        public IEnumerator UIAudioSceneMechanicsShowcaseStage_DirectPlayTick_CreatesGameplayVfxRuntimeRoot()
         {
             yield return AssertSceneTickCreatesRuntimeRoot(
                 UIAudioScenePath,
-                StageId.CreateOrThrow("combined-gameplay-showcase"));
+                StageId.CreateOrThrow("mechanics-showcase"));
         }
 
         [UnityTest]
@@ -71,13 +71,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator UIAudioSceneCombinedGameplayStage_InitialBootstrap_ConfiguresVfxMapBeforeFirstTick()
+        public IEnumerator UIAudioSceneMechanicsShowcaseStage_InitialBootstrap_ConfiguresVfxMapBeforeFirstTick()
         {
             try
             {
-                StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("combined-gameplay-showcase"));
+                StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("mechanics-showcase"));
                 EditorDirectPlayContextStore.SetCurrent(
-                    EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("combined-gameplay-showcase")));
+                    EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("mechanics-showcase")));
                 yield return LoadScene(UIAudioScenePath);
 
                 var host = Object.FindFirstObjectByType<GameplaySceneHost>();
@@ -99,13 +99,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator UIAudioSceneTutorialStage_InitialBootstrap_UsesCanonicalShellVfxRuntime()
+        public IEnumerator UIAudioSceneOnboardingStage_InitialBootstrap_UsesCanonicalShellVfxRuntime()
         {
             try
             {
-                StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("tutorial-scene"));
+                StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("onboarding"));
                 EditorDirectPlayContextStore.SetCurrent(
-                    EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("tutorial-scene")));
+                    EditorDirectPlayContext.CreateNonCampaign(StageId.CreateOrThrow("onboarding")));
                 yield return LoadScene(UIAudioScenePath);
 
                 var host = Object.FindFirstObjectByType<GameplaySceneHost>();

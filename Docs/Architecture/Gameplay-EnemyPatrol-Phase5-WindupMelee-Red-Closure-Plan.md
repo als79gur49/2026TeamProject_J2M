@@ -155,7 +155,7 @@ green evidence는 red를 상쇄하는 자료로 쓰지 않는다.
 ### authoring
 - `EnemyAiProfileAssets_WindupBaseline_RemainsForward_AndPilotVariant_IsRandomWalk`
 - `EnemyPatrolAssets_WindupRandomWalkPilotAsset_UsesLockedMeleePreset`
-- `CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy`
+- `MechanicsShowcaseStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy`
 
 ### documentation governance
 - `EnemyPatrolPhase5DocumentationTests`

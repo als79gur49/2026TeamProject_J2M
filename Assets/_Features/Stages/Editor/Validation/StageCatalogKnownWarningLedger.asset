@@ -14,130 +14,42 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   entries:
   - IssueCode: PresentationBinding.MissingStaticBinding
-    AssetGuid: 6a14dfb30b9a14cf75de4fdcec7a2a4f
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-1-1/stage-1-1_Presentation.asset
-    ExpectedAssetName: stage-1-1_Presentation
-    ExpectedStageId: stage-1-1
+    AssetGuid: 997f5288e66444a6b16cbb4f4cc4945c
+    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/mechanics-showcase/mechanics-showcase_Presentation.asset
+    ExpectedAssetName: mechanics-showcase_Presentation
+    ExpectedStageId: mechanics-showcase
     Owner: stage-authoring-pipeline
     Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
     RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationBinding.MissingStaticBinding
-    AssetGuid: cfee0e576bbe49803f40269cde5a526a
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-2-1/stage-2-1_Presentation.asset
-    ExpectedAssetName: stage-2-1_Presentation
-    ExpectedStageId: stage-2-1
+  - IssueCode: PresentationCatalog.StaticPresentationIdEmpty
+    AssetGuid: 8b9c369444a0a9d4ab7c09bfaa7dcb8e
+    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/mechanics-showcase/mechanics-showcase_Authoring.asset
+    ExpectedAssetName: mechanics-showcase_Authoring
+    ExpectedStageId: mechanics-showcase
     Owner: stage-authoring-pipeline
     Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
     RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationBinding.MissingStaticBinding
-    AssetGuid: 1a1f5d87bc8662ce21cc2961ac2e9823
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-2-2/stage-2-2_Presentation.asset
-    ExpectedAssetName: stage-2-2_Presentation
-    ExpectedStageId: stage-2-2
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationBinding.MissingStaticBinding
-    AssetGuid: 7bab3c28587b1f1712bb8cdcdd3f453e
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-3-1/stage-3-1_Presentation.asset
-    ExpectedAssetName: stage-3-1_Presentation
-    ExpectedStageId: stage-3-1
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationBinding.MissingStaticBinding
-    AssetGuid: ec3ac7e9b03980d08d4b31e021ea8396
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-3-2/stage-3-2_Presentation.asset
-    ExpectedAssetName: stage-3-2_Presentation
-    ExpectedStageId: stage-3-2
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationBinding.MissingStaticBinding
-    AssetGuid: 606c8c8ab997a15d696bfcb621d76b7f
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-4-1/stage-4-1_Presentation.asset
-    ExpectedAssetName: stage-4-1_Presentation
-    ExpectedStageId: stage-4-1
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationBinding.MissingStaticBinding
-    AssetGuid: 7c67801ed84dafc16e40cbc546f0931c
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-4-2/stage-4-2_Presentation.asset
-    ExpectedAssetName: stage-4-2_Presentation
-    ExpectedStageId: stage-4-2
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationBinding.MissingStaticBinding
+  - IssueCode: presentation.tile-feature.catalog-kind-mismatch
     AssetGuid: 7dc498f65de18c8742a4ab86e2152ce9
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-5-1/stage-5-1_Presentation.asset
-    ExpectedAssetName: stage-5-1_Presentation
-    ExpectedStageId: stage-5-1
+    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/legacy-stage-5-1/legacy-stage-5-1_Presentation.asset
+    ExpectedAssetName: legacy-stage-5-1_Presentation
+    ExpectedStageId: legacy-stage-5-1
     Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationCatalog.StaticPresentationIdEmpty
-    AssetGuid: aa9ed1c245d0349428212ab0ec1e2369
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-1-1/stage-1-1_Authoring.asset
-    ExpectedAssetName: stage-1-1_Authoring
-    ExpectedStageId: stage-1-1
+    Reason: Presentation catalog integrity migration warning; tile feature presentation key needs authored kind cleanup.
+    RemovalGate: Align the tile feature presentation key with the authored gameplay tile kind.
+  - IssueCode: presentation.tile-feature.catalog-direction-mismatch
+    AssetGuid: 997f5288e66444a6b16cbb4f4cc4945c
+    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/mechanics-showcase/mechanics-showcase_Presentation.asset
+    ExpectedAssetName: mechanics-showcase_Presentation
+    ExpectedStageId: mechanics-showcase
     Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationCatalog.StaticPresentationIdEmpty
-    AssetGuid: 82603ee16a4399f4c884d3385fb3451a
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-2-1/stage-2-1_Authoring.asset
-    ExpectedAssetName: stage-2-1_Authoring
-    ExpectedStageId: stage-2-1
+    Reason: Presentation catalog integrity migration warning; slide tile presentation hint needs authored direction cleanup.
+    RemovalGate: Align the slide tile presentation key with the authored slide direction.
+  - IssueCode: GameplayDrift.ObjectiveMismatch
+    AssetGuid: e3ec79d9fcf96274f849a61efc576a27
+    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/onboarding/onboarding_Authoring.asset
+    ExpectedAssetName: onboarding_Authoring
+    ExpectedStageId: onboarding
     Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationCatalog.StaticPresentationIdEmpty
-    AssetGuid: 6b783ba04e4088c47ba92a0528a83663
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-2-2/stage-2-2_Authoring.asset
-    ExpectedAssetName: stage-2-2_Authoring
-    ExpectedStageId: stage-2-2
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationCatalog.StaticPresentationIdEmpty
-    AssetGuid: 2a9582abdd1eecd4f89d6921f54d676f
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-3-1/stage-3-1_Authoring.asset
-    ExpectedAssetName: stage-3-1_Authoring
-    ExpectedStageId: stage-3-1
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationCatalog.StaticPresentationIdEmpty
-    AssetGuid: c15efde9b4c563149970ca15535e4604
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-3-2/stage-3-2_Authoring.asset
-    ExpectedAssetName: stage-3-2_Authoring
-    ExpectedStageId: stage-3-2
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationCatalog.StaticPresentationIdEmpty
-    AssetGuid: 16c53052f8b4e304b8e40bb4791af522
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-4-1/stage-4-1_Authoring.asset
-    ExpectedAssetName: stage-4-1_Authoring
-    ExpectedStageId: stage-4-1
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationCatalog.StaticPresentationIdEmpty
-    AssetGuid: d3e1fc66a01afab41be8b44b8ab61f37
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-4-2/stage-4-2_Authoring.asset
-    ExpectedAssetName: stage-4-2_Authoring
-    ExpectedStageId: stage-4-2
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationCatalog.StaticPresentationIdEmpty
-    AssetGuid: c3ab939b909b8b841b085704c87054cb
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-5-1/stage-5-1_Authoring.asset
-    ExpectedAssetName: stage-5-1_Authoring
-    ExpectedStageId: stage-5-1
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
+    Reason: Authoring drift migration warning; objective display text is not synchronized with the clear evaluation companion.
+    RemovalGate: Synchronize onboarding objective display text with the clear evaluation definition.

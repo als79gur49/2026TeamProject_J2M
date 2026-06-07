@@ -18,15 +18,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class StageRuntimeBuilderTests
     {
         private const string CombinedStageAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/combined-gameplay-showcase/combined-gameplay-showcase.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/mechanics-showcase/mechanics-showcase.asset";
         private const string CombinedPresentationAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/combined-gameplay-showcase/combined-gameplay-showcase_Presentation.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/mechanics-showcase/mechanics-showcase_Presentation.asset";
         private const string Stage31StageAssetPath =
             StageContentPaths.CampaignLevel01StagesRoot + "/stage-3-1/stage-3-1.asset";
         private const string Stage31PresentationAssetPath =
             StageContentPaths.CampaignLevel01StagesRoot + "/stage-3-1/stage-3-1_Presentation.asset";
-        private const string TutorialStageAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/tutorial-scene/tutorial-scene.asset";
+        private const string OnboardingStageAssetPath =
+            StageContentPaths.CampaignLevel01StagesRoot + "/onboarding/onboarding.asset";
         private const string TutorialEnemyProfileAssetPath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset";
         private const int ConfiguredShowcaseEnemyId = 60;
@@ -1763,8 +1763,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void StageRuntimeBuilder_TutorialEnemySpawnWithPassiveContactProfile_BuildsOverridesAndKeepsPatrolMode()
         {
-            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(TutorialStageAssetPath);
-            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{TutorialStageAssetPath}'.");
+            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(OnboardingStageAssetPath);
+            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{OnboardingStageAssetPath}'.");
             Assert.That(stage.EnemySpawns.Length, Is.GreaterThan(0));
             var tutorialEnemyProfile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(TutorialEnemyProfileAssetPath);
             Assert.That(tutorialEnemyProfile, Is.Not.Null, $"Missing tutorial enemy profile asset at '{TutorialEnemyProfileAssetPath}'.");

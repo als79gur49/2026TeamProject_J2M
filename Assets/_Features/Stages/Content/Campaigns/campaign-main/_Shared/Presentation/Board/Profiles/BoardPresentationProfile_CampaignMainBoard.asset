@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 302d26c0751146f3827acb0da8410f8c, type: 3}
+  m_Name: BoardPresentationProfile_CampaignMainBoard
+  m_EditorClassIdentifier: Game.Feature.Stages::Game.Feature.Stages.BoardPresentationProfile
+  boardRootPrefab: {fileID: 4893130559090010011, guid: f658042b6f5345bdbfe60ac6602554a3, type: 3}
+  activeFaceCoverPrefab: {fileID: 6375649828174630971, guid: a4e24e4187904bc6a0ad9327daf2e076, type: 3}
+  defaultBoardTileStyleCatalog: {fileID: 11400000, guid: 6bffb3e1c0a04a61a8cd5c08d763470c, type: 2}
+  defaultBoardTileOverlayCatalog: {fileID: 11400000, guid: c7fdeadb4224403ebf77eb6d44a163c5, type: 2}

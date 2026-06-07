@@ -31,25 +31,25 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator ActualSceneBootstrap_UIAudioSceneCombinedGameplayStage_FirstFiveTicks_NoException()
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneMechanicsShowcaseStage_FirstFiveTicks_NoException()
         {
             yield return AssertSceneBootstrapFirstFiveTicks(
                 UIAudioScenePath,
-                StageId.CreateOrThrow("combined-gameplay-showcase"));
+                StageId.CreateOrThrow("mechanics-showcase"));
         }
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator ActualSceneBootstrap_UIAudioSceneTutorialStage_FirstFiveTicks_NoException()
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneOnboardingStage_FirstFiveTicks_NoException()
         {
             yield return AssertSceneBootstrapFirstFiveTicks(
                 UIAudioScenePath,
-                StageId.CreateOrThrow("tutorial-scene"));
+                StageId.CreateOrThrow("onboarding"));
         }
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator ActualSceneBootstrap_UIAudioScene_ResolvesTutorialStageAndInstallsUiAudio()
+        public IEnumerator ActualSceneBootstrap_UIAudioScene_ResolvesOnboardingStageAndInstallsUiAudio()
         {
             yield return AssertSceneBootstrapFirstFiveTicks(
                 UIAudioScenePath,

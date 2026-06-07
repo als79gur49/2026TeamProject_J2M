@@ -291,7 +291,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CombinedGameplay_AstretonBinding_UsesJumpChaserMovementSkillProfile()
         {
-            var binding = GetSingleStageBinding(CombinedGameplayStagePath, "astreton");
+            var binding = GetSingleStageBinding(MechanicsShowcaseStagePath, "astreton");
 
             Assert.That(binding.EntityId, Is.EqualTo(61));
             Assert.That(binding.ProfilePath, Is.EqualTo(JumpChaserProfilePath));
@@ -303,7 +303,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CombinedGameplay_JPeterBinding_UsesArchetypeSummonerUtilityProfile()
         {
-            var binding = GetSingleStageBinding(CombinedGameplayStagePath, "j_peter");
+            var binding = GetSingleStageBinding(MechanicsShowcaseStagePath, "j_peter");
 
             Assert.That(binding.EntityId, Is.EqualTo(59));
             Assert.That(binding.ProfilePath, Is.EqualTo(ArchetypeSummonerProfilePath));
@@ -401,8 +401,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string ArchetypeSummonerProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_UtilitySummoner/EnemyAi_ArchetypeSummoner.asset";
 
-        private const string CombinedGameplayStagePath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/combined-gameplay-showcase/combined-gameplay-showcase.asset";
+        private const string MechanicsShowcaseStagePath =
+            StageContentPaths.CampaignLevel01StagesRoot + "/mechanics-showcase/mechanics-showcase.asset";
 
         private const string CampaignEnemyPresentationCatalogPath =
             StageContentPaths.CampaignRoot + "/_Shared/Presentation/Enemy/Catalogs/EnemyPresentationCatalog_CampaignMain.asset";

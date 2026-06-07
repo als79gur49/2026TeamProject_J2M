@@ -1091,7 +1091,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ExitOpenLoop), out _), Is.True);
 
             var tileFeatureCatalog = ReadRepoFile(
-                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Catalogs/TileFeaturePresentationCatalog_CombinedGameplayShowcase.asset");
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Catalogs/TileFeaturePresentationCatalog_CampaignMainBoard.asset");
             Assert.That(tileFeatureCatalog, Does.Contain("presentationKey: destroy.front"));
             Assert.That(tileFeatureCatalog, Does.Contain("value: Red"));
             Assert.That(tileFeatureCatalog, Does.Contain("presentationKey: destroy.bottom"));

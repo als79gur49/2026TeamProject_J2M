@@ -50,8 +50,10 @@
 
 ## Supported Stage Ids
 
-- `combined-gameplay-showcase`
-- `tutorial-scene`
+- `mechanics-showcase`
+- `onboarding`
+- `stage-0-1`
+- `stage-1-1`
 
 위 exact stage ids는 onboarding parity와 smoke note에 그대로 사용한다.
 

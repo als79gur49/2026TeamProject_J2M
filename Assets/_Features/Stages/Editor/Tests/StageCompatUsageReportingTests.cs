@@ -121,8 +121,16 @@ namespace Game.Feature.Stages.Editor.Tests
             var governanceReport = new StageAliasGovernanceValidator().Validate(aliasTable, ledger);
 
             Assert.That(governanceReport.Issues, Is.Empty);
-            Assert.That(aliasTable.Entries.Count, Is.Zero);
-            Assert.That(ledger.Entries.Count, Is.Zero);
+            Assert.That(aliasTable.Entries.Count, Is.EqualTo(3));
+            Assert.That(ledger.Entries.Count, Is.EqualTo(3));
+            Assert.That(
+                aliasTable.Entries.Select(entry => $"{entry.DeprecatedStageId}->{entry.CurrentStageId.Value}").ToArray(),
+                Is.EquivalentTo(new[]
+                {
+                    "combined-gameplay-showcase->mechanics-showcase",
+                    "stage-5-1->legacy-stage-5-1",
+                    "tutorial-scene->onboarding",
+                }));
         }
 
         [Test]
@@ -135,7 +143,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 new StageIdAliasEntry
                 {
                     DeprecatedStageId = "synthetic-stage-alias",
-                    CurrentStageId = StageId.CreateOrThrow("combined-gameplay-showcase"),
+                    CurrentStageId = StageId.CreateOrThrow("mechanics-showcase"),
                 },
             });
             ledger.SetEntries(new[]
@@ -143,7 +151,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 new StageAliasGovernanceEntry
                 {
                     DeprecatedStageId = "synthetic-stage-alias",
-                    CurrentStageId = StageId.CreateOrThrow("combined-gameplay-showcase"),
+                    CurrentStageId = StageId.CreateOrThrow("mechanics-showcase"),
                     SourceKind = "test",
                     SourceAssetGuid = "synthetic-guid",
                     Owner = string.Empty,
@@ -258,8 +266,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(contract, Does.Contain("same executor + governance reviewer co-sign"));
             Assert.That(checklist, Does.Contain("Tools/Stages/Direct Play/Launch Stage..."));
             Assert.That(checklist, Does.Contain("Replay Last Stage"));
-            Assert.That(checklist, Does.Contain("combined-gameplay-showcase"));
-            Assert.That(checklist, Does.Contain("tutorial-scene"));
+            Assert.That(checklist, Does.Contain("mechanics-showcase"));
+            Assert.That(checklist, Does.Contain("onboarding"));
             Assert.That(checklist, Does.Contain("Cycle 1"));
             Assert.That(checklist, Does.Contain("Cycle 2"));
             Assert.That(checklist, Does.Contain("Counter Summary"));

@@ -1,0 +1,441 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aa3d3ac91cb8b0247afbfeee10097db3, type: 3}
+  m_Name: onboarding_Presentation
+  m_EditorClassIdentifier: 
+  ownerEntry: {fileID: 11400000, guid: d8a3fa0c6ff547208df399f499335d58, type: 2}
+  ownerEntryGuid: d8a3fa0c6ff547208df399f499335d58
+  displayName: Onboarding
+  summaryText: 
+  previewSprite: {fileID: 0}
+  backgroundPrefab: {fileID: 6146672969793721054, guid: 19c2a2b2ee2064644878dd76228bc933, type: 3}
+  enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
+  enemyPresentationArchetypeCatalog: {fileID: 0}
+  enemyPresentationBindings:
+  - EntityId: 101
+    PresentationId: secbot
+  - EntityId: 102
+    PresentationId: secbot
+  - EntityId: 103
+    PresentationId: secbot
+  - EntityId: 104
+    PresentationId: secbot
+  - EntityId: 105
+    PresentationId: secbot
+  - EntityId: 106
+    PresentationId: secbot
+  - EntityId: 107
+    PresentationId: secbot
+  - EntityId: 108
+    PresentationId: secbot
+  - EntityId: 109
+    PresentationId: secbot
+  - EntityId: 110
+    PresentationId: secbot
+  - EntityId: 111
+    PresentationId: secbot
+  staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
+  staticEntityPresentationBindings:
+  - EntityId: 31
+    PresentationId: box_tutorial
+  - EntityId: 32
+    PresentationId: box_tutorial
+  - EntityId: 33
+    PresentationId: box_tutorial
+  - EntityId: 34
+    PresentationId: box_tutorial
+  - EntityId: 35
+    PresentationId: box_tutorial
+  - EntityId: 36
+    PresentationId: box_tutorial
+  - EntityId: 37
+    PresentationId: box_tutorial
+  - EntityId: 38
+    PresentationId: box_tutorial
+  - EntityId: 39
+    PresentationId: box_tutorial
+  - EntityId: 40
+    PresentationId: box_tutorial
+  - EntityId: 41
+    PresentationId: box_tutorial
+  - EntityId: 42
+    PresentationId: box_tutorial
+  - EntityId: 43
+    PresentationId: box_tutorial
+  - EntityId: 44
+    PresentationId: box_tutorial
+  - EntityId: 45
+    PresentationId: box_tutorial
+  - EntityId: 46
+    PresentationId: box_tutorial
+  - EntityId: 47
+    PresentationId: box_tutorial
+  - EntityId: 48
+    PresentationId: box_tutorial
+  - EntityId: 49
+    PresentationId: box_tutorial
+  - EntityId: 50
+    PresentationId: box_tutorial
+  - EntityId: 51
+    PresentationId: box_tutorial
+  - EntityId: 52
+    PresentationId: box_tutorial
+  - EntityId: 53
+    PresentationId: box_tutorial
+  - EntityId: 54
+    PresentationId: box_tutorial
+  - EntityId: 55
+    PresentationId: box_tutorial
+  - EntityId: 56
+    PresentationId: box_tutorial
+  - EntityId: 57
+    PresentationId: box_tutorial
+  - EntityId: 58
+    PresentationId: box_tutorial
+  - EntityId: 59
+    PresentationId: box_tutorial
+  - EntityId: 60
+    PresentationId: box_tutorial
+  - EntityId: 61
+    PresentationId: box_tutorial
+  - EntityId: 62
+    PresentationId: box_tutorial
+  - EntityId: 63
+    PresentationId: box_tutorial
+  - EntityId: 64
+    PresentationId: box_tutorial
+  - EntityId: 65
+    PresentationId: box_tutorial
+  - EntityId: 201
+    PresentationId: wall_tutorial
+  - EntityId: 202
+    PresentationId: wall_tutorial
+  - EntityId: 203
+    PresentationId: wall_tutorial
+  - EntityId: 204
+    PresentationId: wall_tutorial
+  - EntityId: 205
+    PresentationId: wall_tutorial
+  - EntityId: 206
+    PresentationId: wall_tutorial
+  - EntityId: 207
+    PresentationId: wall_tutorial
+  - EntityId: 208
+    PresentationId: wall_tutorial
+  - EntityId: 209
+    PresentationId: wall_tutorial
+  - EntityId: 210
+    PresentationId: wall_tutorial
+  - EntityId: 211
+    PresentationId: wall_tutorial
+  - EntityId: 212
+    PresentationId: wall_tutorial
+  - EntityId: 213
+    PresentationId: wall_tutorial
+  - EntityId: 214
+    PresentationId: wall_tutorial
+  - EntityId: 215
+    PresentationId: wall_tutorial
+  - EntityId: 216
+    PresentationId: wall_tutorial
+  - EntityId: 217
+    PresentationId: wall_tutorial
+  - EntityId: 218
+    PresentationId: wall_tutorial
+  - EntityId: 219
+    PresentationId: wall_tutorial
+  - EntityId: 220
+    PresentationId: wall_tutorial
+  - EntityId: 221
+    PresentationId: wall_tutorial
+  - EntityId: 222
+    PresentationId: wall_tutorial
+  - EntityId: 223
+    PresentationId: wall_tutorial
+  - EntityId: 224
+    PresentationId: wall_tutorial
+  - EntityId: 225
+    PresentationId: wall_bed_tutorial
+  - EntityId: 226
+    PresentationId: wall_bed_tutorial
+  - EntityId: 227
+    PresentationId: wall_tutorial
+  - EntityId: 228
+    PresentationId: wall_tutorial
+  - EntityId: 229
+    PresentationId: wall_tutorial
+  - EntityId: 230
+    PresentationId: wall_tutorial
+  - EntityId: 231
+    PresentationId: wall_tutorial
+  - EntityId: 232
+    PresentationId: wall_tutorial
+  - EntityId: 233
+    PresentationId: wall_tutorial
+  - EntityId: 234
+    PresentationId: wall_tutorial
+  - EntityId: 235
+    PresentationId: wall_tutorial
+  - EntityId: 236
+    PresentationId: wall_tutorial
+  - EntityId: 237
+    PresentationId: wall_tutorial
+  - EntityId: 238
+    PresentationId: wall_tutorial
+  - EntityId: 239
+    PresentationId: wall_tutorial
+  - EntityId: 240
+    PresentationId: wall_tutorial
+  - EntityId: 241
+    PresentationId: wall_tutorial
+  - EntityId: 242
+    PresentationId: wall_tutorial
+  - EntityId: 243
+    PresentationId: wall_tutorial
+  - EntityId: 244
+    PresentationId: wall_tutorial
+  - EntityId: 245
+    PresentationId: wall_tutorial
+  - EntityId: 246
+    PresentationId: wall_tutorial
+  - EntityId: 247
+    PresentationId: wall_tutorial
+  - EntityId: 248
+    PresentationId: wall_tutorial
+  - EntityId: 249
+    PresentationId: wall_tutorial
+  - EntityId: 250
+    PresentationId: wall_tutorial
+  - EntityId: 251
+    PresentationId: wall_tutorial
+  - EntityId: 252
+    PresentationId: wall_tutorial
+  - EntityId: 253
+    PresentationId: wall_tutorial
+  - EntityId: 254
+    PresentationId: wall_tutorial
+  - EntityId: 255
+    PresentationId: wall_tutorial
+  - EntityId: 256
+    PresentationId: wall_tutorial
+  - EntityId: 257
+    PresentationId: wall_tutorial
+  - EntityId: 258
+    PresentationId: wall_tutorial
+  - EntityId: 259
+    PresentationId: wall_tutorial
+  - EntityId: 260
+    PresentationId: wall_tutorial
+  - EntityId: 261
+    PresentationId: wall_tutorial
+  - EntityId: 262
+    PresentationId: wall_tutorial
+  - EntityId: 263
+    PresentationId: wall_tutorial
+  - EntityId: 264
+    PresentationId: wall_tutorial
+  - EntityId: 265
+    PresentationId: wall_tutorial
+  - EntityId: 266
+    PresentationId: wall_tutorial
+  - EntityId: 267
+    PresentationId: wall_tutorial
+  - EntityId: 268
+    PresentationId: wall_tutorial
+  - EntityId: 269
+    PresentationId: wall_tutorial
+  - EntityId: 270
+    PresentationId: wall_tutorial
+  - EntityId: 271
+    PresentationId: wall_tutorial
+  - EntityId: 272
+    PresentationId: wall_tutorial
+  - EntityId: 273
+    PresentationId: wall_tutorial
+  - EntityId: 274
+    PresentationId: wall_tutorial
+  - EntityId: 275
+    PresentationId: wall_tutorial
+  - EntityId: 276
+    PresentationId: wall_tutorial
+  - EntityId: 277
+    PresentationId: wall_tutorial
+  - EntityId: 278
+    PresentationId: wall_tutorial
+  - EntityId: 279
+    PresentationId: wall_tutorial
+  - EntityId: 280
+    PresentationId: wall_tutorial
+  - EntityId: 281
+    PresentationId: wall_tutorial
+  - EntityId: 282
+    PresentationId: wall_tutorial
+  - EntityId: 283
+    PresentationId: wall_tutorial
+  - EntityId: 284
+    PresentationId: wall_tutorial
+  - EntityId: 285
+    PresentationId: wall_tutorial
+  - EntityId: 286
+    PresentationId: wall_tutorial
+  - EntityId: 287
+    PresentationId: wall_tutorial
+  - EntityId: 288
+    PresentationId: wall_tutorial
+  - EntityId: 289
+    PresentationId: wall_tutorial
+  - EntityId: 290
+    PresentationId: wall_tutorial
+  - EntityId: 291
+    PresentationId: wall_tutorial
+  - EntityId: 292
+    PresentationId: wall_tutorial
+  - EntityId: 293
+    PresentationId: wall_tutorial
+  - EntityId: 294
+    PresentationId: wall_tutorial
+  - EntityId: 295
+    PresentationId: wall_tutorial
+  - EntityId: 296
+    PresentationId: wall_tutorial
+  - EntityId: 297
+    PresentationId: wall_tutorial
+  - EntityId: 298
+    PresentationId: wall_tutorial
+  - EntityId: 299
+    PresentationId: wall_tutorial
+  - EntityId: 300
+    PresentationId: wall_tutorial
+  - EntityId: 301
+    PresentationId: wall_tutorial
+  - EntityId: 302
+    PresentationId: wall_tutorial
+  - EntityId: 303
+    PresentationId: wall_tutorial
+  - EntityId: 304
+    PresentationId: wall_tutorial
+  - EntityId: 305
+    PresentationId: wall_tutorial
+  - EntityId: 306
+    PresentationId: wall_tutorial
+  - EntityId: 307
+    PresentationId: wall_tutorial
+  - EntityId: 308
+    PresentationId: wall_tutorial
+  - EntityId: 309
+    PresentationId: wall_tutorial
+  - EntityId: 310
+    PresentationId: wall_tutorial
+  - EntityId: 311
+    PresentationId: wall_tutorial
+  - EntityId: 312
+    PresentationId: wall_tutorial
+  - EntityId: 313
+    PresentationId: wall_tutorial
+  - EntityId: 314
+    PresentationId: wall_tutorial
+  - EntityId: 315
+    PresentationId: wall_tutorial
+  - EntityId: 316
+    PresentationId: wall_tutorial
+  - EntityId: 317
+    PresentationId: wall_tutorial
+  - EntityId: 318
+    PresentationId: wall_tutorial
+  - EntityId: 319
+    PresentationId: wall_tutorial
+  - EntityId: 320
+    PresentationId: wall_tutorial
+  - EntityId: 321
+    PresentationId: wall_tutorial
+  - EntityId: 322
+    PresentationId: wall_tutorial
+  - EntityId: 323
+    PresentationId: wall_tutorial
+  - EntityId: 324
+    PresentationId: wall_tutorial
+  - EntityId: 325
+    PresentationId: wall_tutorial
+  - EntityId: 326
+    PresentationId: wall_tutorial
+  - EntityId: 327
+    PresentationId: wall_tutorial
+  - EntityId: 328
+    PresentationId: wall_tutorial
+  - EntityId: 329
+    PresentationId: wall_tutorial
+  - EntityId: 330
+    PresentationId: wall_tutorial
+  - EntityId: 331
+    PresentationId: wall_tutorial
+  - EntityId: 332
+    PresentationId: wall_tutorial
+  - EntityId: 333
+    PresentationId: wall_tutorial
+  - EntityId: 334
+    PresentationId: wall_tutorial
+  - EntityId: 335
+    PresentationId: wall_tutorial
+  - EntityId: 336
+    PresentationId: wall_tutorial
+  - EntityId: 337
+    PresentationId: wall_tutorial
+  - EntityId: 338
+    PresentationId: wall_tutorial
+  - EntityId: 339
+    PresentationId: wall_tutorial
+  - EntityId: 340
+    PresentationId: wall_tutorial
+  - EntityId: 341
+    PresentationId: wall_tutorial
+  - EntityId: 342
+    PresentationId: wall_tutorial
+  - EntityId: 343
+    PresentationId: wall_tutorial
+  - EntityId: 344
+    PresentationId: wall_tutorial
+  - EntityId: 345
+    PresentationId: wall_tutorial
+  - EntityId: 346
+    PresentationId: wall_tutorial
+  - EntityId: 347
+    PresentationId: wall_tutorial
+  - EntityId: 348
+    PresentationId: wall_tutorial
+  - EntityId: 349
+    PresentationId: wall_tutorial
+  - EntityId: 350
+    PresentationId: wall_tutorial
+  - EntityId: 351
+    PresentationId: wall_tutorial
+  - EntityId: 352
+    PresentationId: wall_tutorial
+  - EntityId: 353
+    PresentationId: wall_tutorial
+  - EntityId: 354
+    PresentationId: wall_tutorial
+  - EntityId: 355
+    PresentationId: wall_tutorial
+  - EntityId: 356
+    PresentationId: wall_tutorial
+  - EntityId: 357
+    PresentationId: wall_tutorial
+  - EntityId: 358
+    PresentationId: wall_tutorial
+  boardTilePresentationCatalog: {fileID: 0}
+  boardTilePresentationOverrides: []
+  tileFeaturePresentationCatalog: {fileID: 0}
+  tileFeaturePresentationBindings: []
+  resultTitle: Stage Cleared
+  resultSummaryText: 
+  resultDetailText: 
+  resultContinueLabel: Continue

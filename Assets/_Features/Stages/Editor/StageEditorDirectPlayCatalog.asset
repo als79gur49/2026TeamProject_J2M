@@ -15,9 +15,9 @@ MonoBehaviour:
   canonicalShellScenePath: Assets/Scenes/UIAudioScene.unity
   supportedStages:
   - StageId:
-      value: combined-gameplay-showcase
+      value: mechanics-showcase
   - StageId:
-      value: tutorial-scene
+      value: onboarding
   - StageId:
       value: stage-0-1
   - StageId:

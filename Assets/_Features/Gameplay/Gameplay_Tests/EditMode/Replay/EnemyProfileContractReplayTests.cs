@@ -25,7 +25,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         private const string ArchetypeSummonerProfilePath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_UtilitySummoner/EnemyAi_ArchetypeSummoner.asset";
         private const string CombinedArchetypeCatalogPath =
-            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Catalogs/EnemyUnitArchetypeCatalog_CombinedGameplayShowcase.asset";
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Catalogs/EnemyUnitArchetypeCatalog_CampaignMainEnemy.asset";
 
         [Test]
         [Category("Extended")]

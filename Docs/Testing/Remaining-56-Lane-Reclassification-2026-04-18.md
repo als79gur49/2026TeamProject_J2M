@@ -87,8 +87,8 @@ Evidence summary:
 ### `stale-literal / trace / comparer drift`
 
 - `Game.Feature.Gameplay.Tests.Unit.AttackInputNormalizationTests.ImpactReservationComparer_PreservesFaceBeforePlanarOrder`
-- `Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_BuildsJumpShowcaseProfileOverride`
-- `Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_PlacesWallFollowerShowcaseEnemyAtConfiguredPatrolLane`
+- `Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.MechanicsShowcaseStage_BuildsJumpShowcaseProfileOverride`
+- `Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.MechanicsShowcaseStage_PlacesWallFollowerShowcaseEnemyAtConfiguredPatrolLane`
 - `Game.Feature.Gameplay.Tests.Unit.EnemyPrefabScaffoldTests.EnemyViewNonAttackingPrefab_UsesMoveOnlyLocomotionAuthoringAlongsideEnemyAnimationTiming`
 - `Game.Feature.Gameplay.Tests.Unit.StageRuntimeBuilderTests.StageRuntimeBuilder_CombinedShowcaseStageBuild_ReflectsCurrentConfiguredContract`
 - `Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_CompositeItemAttackScenario_ProducesSameHashTraceAndEventLog`

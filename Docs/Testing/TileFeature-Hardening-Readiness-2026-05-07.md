@@ -100,7 +100,7 @@ Current MoonBlockGeneratorBlocked payload pass:
   - `TileFeatureAudioRuntimeTests`: pass, `38/0`.
   - `TileFeatureOverlayArchitectureTests`: pass, `35/0`.
 - `PROJECT_PATH_WIN="$(wslpath -w "$PWD")" ./run_tests.sh core`: pass, EditMode `48/0`, PlayMode `2/0`.
-- `git diff --check`: fails only on pre-existing dirty combined-gameplay-showcase asset whitespace; touched source/docs scoped diff check passes.
+- `git diff --check`: fails only on pre-existing dirty mechanics-showcase asset whitespace; touched source/docs scoped diff check passes.
 
 ## I. Remaining Known Red / Baseline Debt
 

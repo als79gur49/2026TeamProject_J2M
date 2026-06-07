@@ -198,7 +198,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("no scene-global lookup"));
             Assert.That(doc, Does.Contain("no builder/result ownership"));
             Assert.That(doc, Does.Contain("canonical root same `GameObject`에 `AudioRuntimeInstaller`와 `GlobalAudioFlowBootstrap`이 co-located"));
-            Assert.That(doc, Does.Contain("TutorialScene` / `UIAudioScene` continuity smoke harness"));
+            Assert.That(doc, Does.Contain("`UIAudioScene` continuity smoke harness"));
             Assert.That(doc, Does.Contain("decision closed를 implementation approved로 해석"));
             Assert.That(readme, Does.Contain("ADR-003-Persistent-Bgm-Ownership-Implementation-Gate.md"));
         }

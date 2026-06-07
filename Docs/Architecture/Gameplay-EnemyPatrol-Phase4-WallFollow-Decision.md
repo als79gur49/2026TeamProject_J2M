@@ -174,7 +174,7 @@ phase 4 이후 canonical truth는 아래로 고정한다.
 
 - `EnemyAiProfileAssets_PatrolPilotRollout_MatchesExpectedPatrolKinds`
 - `EnemyPatrolAssets_WallFollowAsset_StillResolvesWallFollowKind_AndSettingsContract`
-- `CombinedGameplayStage_BuildsWallFollowerProfileOverride`
+- `MechanicsShowcaseStage_BuildsWallFollowerProfileOverride`
 - `StageRuntimeBuilderTests` wall follower profile assertions
 
 ### documentation governance

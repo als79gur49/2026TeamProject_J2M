@@ -107,7 +107,7 @@ Direct targets:
 - `Replay_PassiveContactScenario_*`
 - `Attack_FireProjectileIntent_*`
 - movement `Kind=Push/Flip/Item` rows
-- `CombinedGameplayStage_*`
+- `MechanicsShowcaseStage_*`
 - `StageRuntimeBuilder_*`
 - `EnemyPrefabScaffoldTests.*`
 

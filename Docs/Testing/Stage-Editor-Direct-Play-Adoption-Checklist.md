@@ -8,8 +8,10 @@
   - `Tools/Stages/Direct Play/Launch Stage...`
   - `Tools/Stages/Direct Play/Replay Last Stage`
 - supported stage id quick-launch entries:
-  - `combined-gameplay-showcase`
-  - `tutorial-scene`
+  - `mechanics-showcase`
+  - `onboarding`
+  - `stage-0-1`
+  - `stage-1-1`
 - onboarding 문서, smoke checklist, bug reproduction note는 위 exact menu path와 exact stage ids를 그대로 사용한다.
 
 ## Onboarding Checklist
@@ -29,7 +31,7 @@
 ## Smoke Cycle Standard
 
 - Lane B smoke evidence는 `cycle note` 단위로 남긴다.
-- 한 cycle note는 same revision, same checkpoint window, same executor session에서 수행한 supported stage `2`건을 함께 기록한다.
+- 한 cycle note는 same revision, same checkpoint window, same executor session에서 수행한 supported stage `4`건을 함께 기록한다.
 - cycle header는 아래 필드를 모두 포함한다.
   - `revision`
   - `cycle id`
@@ -49,8 +51,10 @@
   - `plain Play attempted`
   - `notes`
 - `stage id`는 exact stage id만 사용한다.
-  - `combined-gameplay-showcase`
-  - `tutorial-scene`
+  - `mechanics-showcase`
+  - `onboarding`
+  - `stage-0-1`
+  - `stage-1-1`
 - `exact menu path`는 아래 둘 중 하나만 허용한다.
   - `Tools/Stages/Direct Play/Launch Stage...`
   - `Tools/Stages/Direct Play/Replay Last Stage`
@@ -102,12 +106,12 @@
 - onboarding 문서와 menu entry 일치
 - smoke checklist가 launcher-only workflow를 명시
 - plain Play unsupported 경고 문구가 고정
-- `Cycle 1` 2-stage smoke note
+- `Cycle 1` 4-stage smoke note
 - validator/test/doc alignment proof
 
 ## Hard Enforcement Evidence
 
-- `Cycle 2` 2-stage smoke note
+- `Cycle 2` 4-stage smoke note
 - 두 번 연속 smoke/report cycle에서 launcher bypass를 정상 workflow로 기록한 사례 `0`
 - direct-play 관련 open issue 중 fallback 요구 `0`
 - stage-backed manual smoke note가 모두 launcher path를 명시
@@ -120,10 +124,10 @@
   - `catalog coverage 100% proof`
   - `doc/menu/onboarding/checklist parity proof`
   - `validator/test/doc alignment proof`
-  - `Cycle 1` 3-scene smoke note
+  - `Cycle 1` 4-stage smoke note
 - hard adoption close 최소 evidence set:
   - soft adoption evidence set 전체
-  - `Cycle 2` 3-scene smoke note
+  - `Cycle 2` 4-stage smoke note
   - `bypass count 0`
   - `fallback-request count 0`
   - `stage-backed manual smoke notes launcher-path only summary`

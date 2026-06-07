@@ -23,7 +23,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseEnemyPrefab_UsesMoveOnlyLocomotionAuthoringAlongsideEnemyAnimationTiming()
+        public void WindupMeleeSharedEnemyPrefab_UsesMoveOnlyLocomotionAuthoringAlongsideEnemyAnimationTiming()
         {
             var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_WindupMelee.prefab");
 

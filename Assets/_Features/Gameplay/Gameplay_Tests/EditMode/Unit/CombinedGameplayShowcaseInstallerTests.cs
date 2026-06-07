@@ -20,12 +20,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class CombinedGameplayShowcaseInstallerTests
     {
         private const string CombinedStageAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/combined-gameplay-showcase/combined-gameplay-showcase.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/mechanics-showcase/mechanics-showcase.asset";
         private const string CombinedPresentationAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/combined-gameplay-showcase/combined-gameplay-showcase_Presentation.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/mechanics-showcase/mechanics-showcase_Presentation.asset";
         private const string StageCatalogProviderAssetPath =
             StageContentPaths.StageCatalogProviderAssetPath;
-        private const string CombinedLaunchStageId = "combined-gameplay-showcase";
+        private const string CombinedLaunchStageId = "mechanics-showcase";
         private const string DefaultSimulationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
         private const string DefaultPresentationTimingPresetAssetPath =
@@ -43,7 +43,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_DoesNotAutoGeneratePerimeterWalls()
+        public void MechanicsShowcaseStage_DoesNotAutoGeneratePerimeterWalls()
         {
             var buildResult = BuildCombinedStage();
             var boardBounds = buildResult.BoardBounds;
@@ -65,7 +65,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_PlacesPushableBoxesOnEveryRotatingFace()
+        public void MechanicsShowcaseStage_PlacesPushableBoxesOnEveryRotatingFace()
         {
             var buildResult = BuildCombinedStage();
             var boardBounds = buildResult.BoardBounds;
@@ -91,7 +91,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_PlacesConfiguredShowcaseEnemy()
+        public void MechanicsShowcaseStage_PlacesConfiguredShowcaseEnemy()
         {
             var buildResult = BuildCombinedStage();
             var entities = buildResult.InitialEntities;
@@ -109,7 +109,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_BuildsEnemyProfileOverrideForConfiguredShowcaseEnemy()
+        public void MechanicsShowcaseStage_BuildsEnemyProfileOverrideForConfiguredShowcaseEnemy()
         {
             var buildResult = BuildCombinedStage();
 
@@ -124,7 +124,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_BuildsGlideChaserProfileOverrideForConfiguredEnemy()
+        public void MechanicsShowcaseStage_BuildsGlideChaserProfileOverrideForConfiguredEnemy()
         {
             var buildResult = BuildCombinedStage();
 
@@ -137,7 +137,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_BuildsJumpChaserProfileOverrideForAstretonEnemy()
+        public void MechanicsShowcaseStage_BuildsJumpChaserProfileOverrideForAstretonEnemy()
         {
             var buildResult = BuildCombinedStage();
 
@@ -149,7 +149,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_BuildsArchetypeSummonerProfileOverrideForUtilitySummonerEnemy()
+        public void MechanicsShowcaseStage_BuildsArchetypeSummonerProfileOverrideForUtilitySummonerEnemy()
         {
             var buildResult = BuildCombinedStage();
 
@@ -184,7 +184,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy()
+        public void MechanicsShowcaseStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy()
         {
             var presentationDefinition = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(CombinedPresentationAssetPath);
             Assert.That(
@@ -240,7 +240,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_PlacesWallFollowerShowcaseEnemyAtConfiguredPatrolLane()
+        public void MechanicsShowcaseStage_PlacesWallFollowerShowcaseEnemyAtConfiguredPatrolLane()
         {
             var buildResult = BuildCombinedStage();
             var entities = buildResult.InitialEntities;
@@ -254,7 +254,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_BuildsWallFollowerProfileOverride()
+        public void MechanicsShowcaseStage_BuildsWallFollowerProfileOverride()
         {
             var buildResult = BuildCombinedStage();
 
@@ -267,7 +267,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_PlacesJumpShowcaseEnemyOnFarFloorLane()
+        public void MechanicsShowcaseStage_PlacesJumpShowcaseEnemyOnFarFloorLane()
         {
             var buildResult = BuildCombinedStage();
             var entities = buildResult.InitialEntities;
@@ -281,7 +281,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_BuildsJumpShowcaseProfileOverride()
+        public void MechanicsShowcaseStage_BuildsJumpShowcaseProfileOverride()
         {
             var buildResult = BuildCombinedStage();
 
@@ -292,7 +292,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayStage_DoesNotPlaceMultipleEntitiesOnTheSameCell()
+        public void MechanicsShowcaseStage_DoesNotPlaceMultipleEntitiesOnTheSameCell()
         {
             var buildResult = BuildCombinedStage();
             var occupiedCells = new HashSet<SurfaceCell>();
@@ -653,7 +653,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     configuration.EnemyUnitArchetypeCatalog,
                     Is.SameAs(configuration.StageContentEntry.GameplayDefinition.EnemyUnitArchetypeCatalog));
-                Assert.That(configuration.EnemyUnitArchetypeCatalog.name, Is.EqualTo("EnemyUnitArchetypeCatalog_CombinedGameplayShowcase"));
+                Assert.That(configuration.EnemyUnitArchetypeCatalog.name, Is.EqualTo("EnemyUnitArchetypeCatalog_CampaignMainEnemy"));
                 Assert.That(configuration.EnemyUnitArchetypeCatalog.Entries.Count, Is.EqualTo(1));
                 Assert.That(configuration.EnemyUnitArchetypeCatalog.Entries[0].ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
                 Assert.That(configuration.EnemyUnitArchetypeCatalog.Entries[0].SpawnDefaults.UnitMobilityKind, Is.EqualTo(UnitMobilityKind.Air));
@@ -918,7 +918,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Is.SameAs(configuration.StageContentEntry.PresentationDefinition.EnemyPresentationArchetypeCatalog));
                 Assert.That(
                     configuration.EnemyPresentationArchetypeCatalog.name,
-                    Is.EqualTo("EnemyPresentationArchetypeCatalog_CombinedGameplayShowcase"));
+                    Is.EqualTo("EnemyPresentationArchetypeCatalog_CampaignMainEnemy"));
                 Assert.That(configuration.EnemyPresentationArchetypeCatalog.Entries.Length, Is.EqualTo(1));
                 Assert.That(
                     configuration.EnemyPresentationArchetypeCatalog.Entries[0].ArchetypeId,
