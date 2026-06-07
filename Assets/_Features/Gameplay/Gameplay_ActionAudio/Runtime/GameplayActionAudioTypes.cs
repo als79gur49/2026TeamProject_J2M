@@ -12,9 +12,6 @@ namespace Game.Feature.Gameplay.ActionAudio
     {
         Windup = 0,
         Execute = 1,
-        Contact = 2,
-        ImpactEnemy = 3,
-        Blocked = 4,
         Recovery = 5,
         AssistOutOfRange = 6,
         NoTarget = 7,
@@ -50,9 +47,6 @@ namespace Game.Feature.Gameplay.ActionAudio
         {
             GameplayActionAudioMoment.Windup,
             GameplayActionAudioMoment.Execute,
-            GameplayActionAudioMoment.Contact,
-            GameplayActionAudioMoment.ImpactEnemy,
-            GameplayActionAudioMoment.Blocked,
             GameplayActionAudioMoment.Recovery,
             GameplayActionAudioMoment.AssistOutOfRange,
             GameplayActionAudioMoment.NoTarget,

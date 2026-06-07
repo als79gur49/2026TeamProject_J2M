@@ -1,14 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Game.Feature.Gameplay.Audio;
-using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
-using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Objectives;
-using Game.Feature.Gameplay.PlayerLocomotionAudio;
-using Game.Feature.Gameplay.TileFeatureAudio;
-using Game.Feature.Gameplay.TopologyAudio;
 using Game.Feature.Gameplay.Timing;
 using Game.Feature.Stages;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -157,12 +151,7 @@ namespace Game.Feature.Gameplay.Host
 
         [Header("Presentation")]
         [SerializeField] private Texture2D boardSurfaceTexture;
-        [SerializeField] private GameplayAudioMap gameplayAudioMap;
-        [SerializeField] private TileFeatureAudioMap tileFeatureAudioMap;
-        [SerializeField] private TopologyAudioMap topologyAudioMap;
-        [SerializeField] private GravityFieldAudioMap gravityFieldAudioMap;
-        [SerializeField] private BlockAudioMap blockAudioMap;
-        [SerializeField] private PlayerLocomotionAudioMap playerLocomotionAudioMap;
+        [SerializeField] private GameplayPresentationAudioConfig gameplayPresentationAudioConfig;
         [SerializeField] private EnemyInactiveVisualSettings enemyInactiveVisualSettings;
         [SerializeField] private float faceSeamGap = -1f;
 
@@ -303,34 +292,9 @@ namespace Game.Feature.Gameplay.Host
             return null;
         }
 
-        protected virtual GameplayAudioMap ResolveGameplayAudioMap()
+        protected virtual GameplayPresentationAudioConfig ResolveGameplayPresentationAudioConfig()
         {
-            return gameplayAudioMap;
-        }
-
-        protected virtual TileFeatureAudioMap ResolveTileFeatureAudioMap()
-        {
-            return tileFeatureAudioMap;
-        }
-
-        protected virtual TopologyAudioMap ResolveTopologyAudioMap()
-        {
-            return topologyAudioMap;
-        }
-
-        protected virtual GravityFieldAudioMap ResolveGravityFieldAudioMap()
-        {
-            return gravityFieldAudioMap;
-        }
-
-        protected virtual BlockAudioMap ResolveBlockAudioMap()
-        {
-            return blockAudioMap;
-        }
-
-        protected virtual PlayerLocomotionAudioMap ResolvePlayerLocomotionAudioMap()
-        {
-            return playerLocomotionAudioMap;
+            return gameplayPresentationAudioConfig;
         }
 
         protected abstract InitialGameplayState BuildInitialGameplayState();
@@ -443,12 +407,7 @@ namespace Game.Feature.Gameplay.Host
                 ObjectiveRuntimeDefinition = initialState.ObjectiveRuntimeDefinition,
                 PlayerEntityId = initialState.PlayerEntityId,
                 PlayerViewPrefab = viewFactory == null ? ResolvePlayerViewPrefab() : null,
-                GameplayAudioMap = ResolveGameplayAudioMap(),
-                TileFeatureAudioMap = ResolveTileFeatureAudioMap(),
-                TopologyAudioMap = ResolveTopologyAudioMap(),
-                GravityFieldAudioMap = ResolveGravityFieldAudioMap(),
-                BlockAudioMap = ResolveBlockAudioMap(),
-                PlayerLocomotionAudioMap = ResolvePlayerLocomotionAudioMap(),
+                GameplayPresentationAudioConfig = ResolveGameplayPresentationAudioConfig(),
                 ViewFactory = viewFactory,
             };
 

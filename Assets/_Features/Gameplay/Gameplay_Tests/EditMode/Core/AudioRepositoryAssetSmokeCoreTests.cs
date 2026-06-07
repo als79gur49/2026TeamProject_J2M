@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Game.Feature.Flow.Audio;
 using Game.Feature.Gameplay.ActionAudio;
@@ -21,6 +22,9 @@ namespace Game.Feature.Gameplay.Tests.Core
 {
     public sealed class AudioRepositoryAssetSmokeCoreTests
     {
+        private const string PlayerS1GameplayActionAudioProfilePath =
+            "Assets/_Features/Gameplay/Gameplay_ActionAudio/Profiles/Player_S1_GameplayActionAudioProfile.asset";
+
         [Test]
         [Category("Core")]
         public void AudioDefinitions_RepositoryAssets_ValidateAll()
@@ -114,6 +118,20 @@ namespace Game.Feature.Gameplay.Tests.Core
             }
 
             Assert.That(failures, Is.Empty, "GameplayActionAudioProfile repository smoke failures:\n" + string.Join("\n", failures));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayActionAudioProfile_RepositoryAsset_ValidatesAfterRemovedMoments()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<GameplayActionAudioProfile>(PlayerS1GameplayActionAudioProfilePath);
+            Assert.That(profile, Is.Not.Null, $"Missing profile at '{PlayerS1GameplayActionAudioProfilePath}'.");
+            Assert.DoesNotThrow(() => profile.ValidateOrThrow());
+
+            var profileYaml = File.ReadAllText(PlayerS1GameplayActionAudioProfilePath);
+            Assert.That(profileYaml, Does.Not.Contain("Moment: 2"));
+            Assert.That(profileYaml, Does.Not.Contain("Moment: 3"));
+            Assert.That(profileYaml, Does.Not.Contain("Moment: 4"));
         }
 
         [Test]

@@ -51,19 +51,6 @@ namespace Game.Feature.Gameplay.ActionAudio
         {
             AppendIf(signal.EntityId, action, GameplayActionAudioMoment.Windup, signal.StartedThisTick, requests);
             AppendIf(signal.EntityId, action, GameplayActionAudioMoment.Execute, signal.ExecutedThisTick, requests);
-            AppendIf(signal.EntityId, action, GameplayActionAudioMoment.Contact, ShouldEmitContact(signal, action), requests);
-            AppendIf(
-                signal.EntityId,
-                action,
-                GameplayActionAudioMoment.ImpactEnemy,
-                signal.ExecutedThisTick && signal.ResolutionKind == TickPlayerActionResolutionKind.Impact,
-                requests);
-            AppendIf(
-                signal.EntityId,
-                action,
-                GameplayActionAudioMoment.Blocked,
-                signal.ExecutedThisTick && signal.ResolutionKind == TickPlayerActionResolutionKind.Blocked,
-                requests);
             AppendIf(
                 signal.EntityId,
                 action,
@@ -91,19 +78,6 @@ namespace Game.Feature.Gameplay.ActionAudio
                 new AudioPlaybackContext(
                     ownerEntityId: ownerEntityId,
                     debugTag: GameplayActionAudioDebugTag.Format(action, moment))));
-        }
-
-        private static bool ShouldEmitContact(
-            in TickPlayerActionPresentationSignal signal,
-            GameplayActionKind action)
-        {
-            return action switch
-            {
-                GameplayActionKind.Push => signal.ExecutedThisTick &&
-                                           signal.ResolutionKind != TickPlayerActionResolutionKind.Blocked,
-                GameplayActionKind.Flip => signal.HasFlipImpactContactTiming,
-                _ => false,
-            };
         }
 
         private static bool TryResolveActionKind(PlayerActionKind actionKind, out GameplayActionKind resolved)

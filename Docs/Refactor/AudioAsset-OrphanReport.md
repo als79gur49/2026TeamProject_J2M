@@ -64,21 +64,21 @@ These are not deletion candidates.
 
 | Asset Type | Path | GUID | Referenced By | Decision |
 |---|---|---|---|---|
-| BgmProfile | `Assets/_Shared/Audio/Definitions/Bgm/HorrorVol2FactoryMain_Test_BgmProfile.asset` | `3459b5be7e9e63b4899e1356efe8f928` | `Assets/Scenes/UIAudioScene.unity` `SceneBgmRequestSource` | REFACTOR_NOT_DELETE |
-| RandomAudioDefinition | `Assets/_Shared/Audio/Definitions/Bgm/HorrorVol2FactoryMain_Test_BgmDef.asset` | `e35de9d1e9281254482c11b13a32a88e` | `HorrorVol2FactoryMain_Test_BgmProfile` | REFACTOR_NOT_DELETE |
-| AudioClip | `Assets/_Shared/Audio/Clips/Bgm/Horror Vol2 Factory Main_Test.wav` | `26b69a77542b8e240b0e9dad43e966ae` | `HorrorVol2FactoryMain_Test_BgmDef` | REFACTOR_NOT_DELETE |
-| GameplayAudioMap | `Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_UI-Audio_Test.asset` | `2e17653afa1ba264a950b76bcd5ccc56` | `Assets/Scenes/UIAudioScene.unity`, architecture tests | REFACTOR_NOT_DELETE |
-| GameplayActionAudioProfile | `Assets/_Features/Gameplay/Gameplay_ActionAudio/Profiles/Player_S1_GameplayActionAudioProfile_Test.asset` | `42a2e109fc5141ec9e866925a0a85c3b` | `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab` | REFACTOR_NOT_DELETE |
-| BlockAudioMap | `Assets/_Features/Gameplay/Gameplay_BlockAudio/Maps/BlockAudioMap_PlayerSounds_Test.asset` | `5a6bb3f9bcde4e6ca7487767ab9ba305` | `Assets/Scenes/UIAudioScene.unity` | REFACTOR_NOT_DELETE |
-| PlayerLocomotionAudioMap | `Assets/_Features/Gameplay/Gameplay_PlayerLocomotionAudio/Maps/PlayerLocomotionAudioMap_PlayerSounds_Test.asset` | `6bf2bb925f794fe98b6b8e5a406e1f3d` | `Assets/Scenes/UIAudioScene.unity` | REFACTOR_NOT_DELETE |
+| BgmProfile | `Assets/_Shared/Audio/Definitions/Bgm/HorrorVol2FactoryMain_BgmProfile.asset` | `3459b5be7e9e63b4899e1356efe8f928` | `Assets/Scenes/UIAudioScene.unity` `SceneBgmRequestSource` | REFACTOR_NOT_DELETE |
+| RandomAudioDefinition | `Assets/_Shared/Audio/Definitions/Bgm/HorrorVol2FactoryMain_BgmDef.asset` | `e35de9d1e9281254482c11b13a32a88e` | `HorrorVol2FactoryMain_BgmProfile` | REFACTOR_NOT_DELETE |
+| AudioClip | `Assets/_Shared/Audio/Clips/Bgm/Horror Vol2 Factory Main.wav` | `26b69a77542b8e240b0e9dad43e966ae` | `HorrorVol2FactoryMain_BgmDef` | REFACTOR_NOT_DELETE |
+| GameplayAudioMap | `Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_CampaignV1.asset` | `2e17653afa1ba264a950b76bcd5ccc56` | `Assets/Scenes/UIAudioScene.unity`, architecture tests | REFACTOR_NOT_DELETE |
+| GameplayActionAudioProfile | `Assets/_Features/Gameplay/Gameplay_ActionAudio/Profiles/Player_S1_GameplayActionAudioProfile.asset` | `42a2e109fc5141ec9e866925a0a85c3b` | `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab` | REFACTOR_NOT_DELETE |
+| BlockAudioMap | `Assets/_Features/Gameplay/Gameplay_BlockAudio/Maps/BlockAudioMap_PlayerSounds.asset` | `5a6bb3f9bcde4e6ca7487767ab9ba305` | `Assets/Scenes/UIAudioScene.unity` | REFACTOR_NOT_DELETE |
+| PlayerLocomotionAudioMap | `Assets/_Features/Gameplay/Gameplay_PlayerLocomotionAudio/Maps/PlayerLocomotionAudioMap_PlayerSounds.asset` | `6bf2bb925f794fe98b6b8e5a406e1f3d` | `Assets/Scenes/UIAudioScene.unity` | REFACTOR_NOT_DELETE |
 
 ## Active Asset Chains To Preserve
 
 | Chain | Evidence | Decision |
 |---|---|---|
 | `UiAudioCueMap_V1 -> Ui_*_Def -> UI/Sfx clips` | cue map serialized in `MainMenuScene` and `UIAudioScene`; validation requires every current enum value | KEEP_CANONICAL |
-| `GameplayAudioMap_UI-Audio_Test -> Player_Hurt_Def / Monster*_Test_Def / Block_Destroyed_Def` | map serialized in `UIAudioScene`; required six semantic map | KEEP_CANONICAL |
-| `Player_S1.prefab -> GameplayActionAudioAuthoring -> Player_S1_GameplayActionAudioProfile_Test -> PlayerSounds definitions` | prefab GUID ref; action audio runtime tests | KEEP_CANONICAL |
+| `GameplayAudioMap_CampaignV1 -> Player_Hurt_Def / Monster_*_Def / Block_Destroyed_Def` | map serialized in `UIAudioScene`; required six semantic map | KEEP_CANONICAL |
+| `Player_S1.prefab -> GameplayActionAudioAuthoring -> Player_S1_GameplayActionAudioProfile -> PlayerSounds definitions` | prefab GUID ref; action audio runtime tests | KEEP_CANONICAL |
 | `StageContentEntry -> StageAudioDefinition.gameplayBgm -> Stage0-1..Stage4-1_BgmProfile -> Bgm definitions -> World_*.wav` | direct stage gameplay BGM companions; stage runtime request source path | KEEP_CANONICAL |
 | `MainMenuScene -> SceneBgmRequestSource -> MainMenu_BgmProfile -> MainMenu_BgmDef -> World_MainLobby.ogg` | scene contract test path | KEEP_CANONICAL |
 | enemy prefabs -> `EnemyAudioProfile_*` -> MonsterSounds definitions | prefab serialized refs and `EnemyAudioRuntimeTests` | KEEP_CANONICAL |

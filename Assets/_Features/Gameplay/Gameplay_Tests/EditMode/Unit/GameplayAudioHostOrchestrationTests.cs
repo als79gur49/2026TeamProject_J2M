@@ -1,14 +1,20 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Game.Feature.Gameplay.Audio;
+using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Gameplay.PlayerLocomotionAudio;
+using Game.Feature.Gameplay.TileFeatureAudio;
+using Game.Feature.Gameplay.TopologyAudio;
 using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEditor;
@@ -19,6 +25,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class GameplayAudioHostOrchestrationTests
     {
+        private const string BlockAudioMapPath =
+            "Assets/_Features/Gameplay/Gameplay_BlockAudio/Maps/BlockAudioMap_PlayerSounds.asset";
+        private const string PlayerLocomotionAudioMapPath =
+            "Assets/_Features/Gameplay/Gameplay_PlayerLocomotionAudio/Maps/PlayerLocomotionAudioMap_PlayerSounds.asset";
+        private const string TopologyAudioMapPath =
+            "Assets/_Features/Gameplay/Gameplay_TopologyAudio/Maps/TopologyAudioMap_ObjectSounds.asset";
+        private const string GravityFieldAudioMapPath =
+            "Assets/_Features/Gameplay/Gameplay_GravityFieldAudio/Maps/GravityFieldAudioMap_ObjectSounds.asset";
+        private const string TileFeatureAudioMapPath =
+            "Assets/_Features/Gameplay/Gameplay_TileFeatureAudio/Maps/TileFeatureAudioMap_ObjectSounds.asset";
+
         [Test]
         [Category("Extended")]
         public void GameplayTickViewPresenter_Present_UsesCanonicalGameplayAudioOrdering()
@@ -409,22 +426,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplaySceneHost_Initialize_RequiresCoLocatedAudioRuntimeInstaller_WhenGameplayAudioMapIsAssigned()
+        public void GameplaySceneHost_Initialize_RequiresCoLocatedAudioRuntimeInstaller_WhenGameplayPresentationAudioConfigIsAssigned()
         {
-            var hostObject = new GameObject(nameof(GameplaySceneHost_Initialize_RequiresCoLocatedAudioRuntimeInstaller_WhenGameplayAudioMapIsAssigned));
+            var hostObject = new GameObject(nameof(GameplaySceneHost_Initialize_RequiresCoLocatedAudioRuntimeInstaller_WhenGameplayPresentationAudioConfigIsAssigned));
             var mapBundle = CreateGameplayAudioMap();
+            var audioConfig = CreateGameplayPresentationAudioConfig(mapBundle.Map);
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
                 var exception = Assert.Throws<InvalidOperationException>(
-                    () => host.Initialize(CreateHostConfiguration(mapBundle.Map)));
+                    () => host.Initialize(CreateHostConfiguration(audioConfig)));
 
                 Assert.That(
                     exception.Message,
-                    Is.EqualTo("GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned."));
+                    Is.EqualTo("GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayPresentationAudioConfig is assigned."));
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(audioConfig);
                 mapBundle.Dispose();
                 UnityEngine.Object.DestroyImmediate(hostObject);
             }
@@ -436,13 +455,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var hostObject = new GameObject(nameof(GameplaySceneHost_Initialize_FailsBeforeFirstTick_WhenRequiredSemanticIsMissing));
             var mapBundle = CreateGameplayAudioMap(excludedSemantics: new[] { GameplayAudioSemanticId.EntityExitOutOfBounds });
+            var audioConfig = CreateGameplayPresentationAudioConfig(mapBundle.Map);
             try
             {
                 hostObject.AddComponent<AudioRuntimeInstaller>();
                 var host = hostObject.AddComponent<GameplaySceneHost>();
 
                 var exception = Assert.Throws<InvalidOperationException>(
-                    () => host.Initialize(CreateHostConfiguration(mapBundle.Map)));
+                    () => host.Initialize(CreateHostConfiguration(audioConfig)));
 
                 Assert.That(
                     exception.Message,
@@ -450,6 +470,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(audioConfig);
                 mapBundle.Dispose();
                 UnityEngine.Object.DestroyImmediate(hostObject);
             }
@@ -457,9 +478,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplaySceneHost_Initialize_AllowsNullGameplayAudioMap_WithoutAudioRuntimeInstaller()
+        public void GameplaySceneHost_Initialize_AllowsNullGameplayPresentationAudioConfig_WithoutAudioRuntimeInstaller()
         {
-            var hostObject = new GameObject(nameof(GameplaySceneHost_Initialize_AllowsNullGameplayAudioMap_WithoutAudioRuntimeInstaller));
+            var hostObject = new GameObject(nameof(GameplaySceneHost_Initialize_AllowsNullGameplayPresentationAudioConfig_WithoutAudioRuntimeInstaller));
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -480,12 +501,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var hostObject = new GameObject(nameof(GameplaySceneHost_Initialize_SucceedsWithAssignedMap_AndSameRootAudioRuntimeInstaller));
             var mapBundle = CreateGameplayAudioMap();
+            var audioConfig = CreateGameplayPresentationAudioConfig(mapBundle.Map);
             try
             {
                 var installer = hostObject.AddComponent<AudioRuntimeInstaller>();
                 var host = hostObject.AddComponent<GameplaySceneHost>();
 
-                Assert.DoesNotThrow(() => host.Initialize(CreateHostConfiguration(mapBundle.Map)));
+                Assert.DoesNotThrow(() => host.Initialize(CreateHostConfiguration(audioConfig)));
                 Assert.That(host.Presenter, Is.Not.Null);
                 Assert.That(installer.RuntimeRoot, Is.Not.Null);
                 Assert.That(installer.AudioService, Is.Not.Null);
@@ -493,6 +515,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(audioConfig);
                 mapBundle.Dispose();
                 UnityEngine.Object.DestroyImmediate(hostObject);
             }
@@ -505,20 +528,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var otherRoot = new GameObject(nameof(GameplaySceneHost_Initialize_DoesNotUseSceneGlobalAudioRuntimeInstallerFallback) + "_OtherRoot");
             var hostObject = new GameObject(nameof(GameplaySceneHost_Initialize_DoesNotUseSceneGlobalAudioRuntimeInstallerFallback));
             var mapBundle = CreateGameplayAudioMap();
+            var audioConfig = CreateGameplayPresentationAudioConfig(mapBundle.Map);
             try
             {
                 otherRoot.AddComponent<AudioRuntimeInstaller>();
                 var host = hostObject.AddComponent<GameplaySceneHost>();
 
                 var exception = Assert.Throws<InvalidOperationException>(
-                    () => host.Initialize(CreateHostConfiguration(mapBundle.Map)));
+                    () => host.Initialize(CreateHostConfiguration(audioConfig)));
 
                 Assert.That(
                     exception.Message,
-                    Is.EqualTo("GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned."));
+                    Is.EqualTo("GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayPresentationAudioConfig is assigned."));
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(audioConfig);
                 mapBundle.Dispose();
                 UnityEngine.Object.DestroyImmediate(otherRoot);
                 UnityEngine.Object.DestroyImmediate(hostObject);
@@ -577,7 +602,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return presenter;
         }
 
-        private static GameplaySceneHostConfiguration CreateHostConfiguration(GameplayAudioMap gameplayAudioMap)
+        private static GameplaySceneHostConfiguration CreateHostConfiguration(GameplayPresentationAudioConfig audioConfig)
         {
             return new GameplaySceneHostConfiguration
             {
@@ -587,8 +612,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 InitialEntities = Array.Empty<EntityState>(),
                 InitialTerrain = GameplayTerrainData.Empty,
                 InitialTopology = new CubeTopologyState(FaceId.Floor),
-                GameplayAudioMap = gameplayAudioMap,
+                GameplayPresentationAudioConfig = audioConfig,
             };
+        }
+
+        private static GameplayPresentationAudioConfig CreateGameplayPresentationAudioConfig(
+            GameplayAudioMap gameplayAudioMap)
+        {
+            var config = ScriptableObject.CreateInstance<GameplayPresentationAudioConfig>();
+            config.name = "GameplayPresentationAudioConfig_Test";
+            SetSerializedField(typeof(GameplayPresentationAudioConfig), config, "gameplayAudioMap", gameplayAudioMap);
+            SetSerializedField(
+                typeof(GameplayPresentationAudioConfig),
+                config,
+                "blockAudioMap",
+                LoadCanonical<BlockAudioMap>(BlockAudioMapPath));
+            SetSerializedField(
+                typeof(GameplayPresentationAudioConfig),
+                config,
+                "playerLocomotionAudioMap",
+                LoadCanonical<PlayerLocomotionAudioMap>(PlayerLocomotionAudioMapPath));
+            SetSerializedField(
+                typeof(GameplayPresentationAudioConfig),
+                config,
+                "topologyAudioMap",
+                LoadCanonical<TopologyAudioMap>(TopologyAudioMapPath));
+            SetSerializedField(
+                typeof(GameplayPresentationAudioConfig),
+                config,
+                "gravityFieldAudioMap",
+                LoadCanonical<GravityFieldAudioMap>(GravityFieldAudioMapPath));
+            SetSerializedField(
+                typeof(GameplayPresentationAudioConfig),
+                config,
+                "tileFeatureAudioMap",
+                LoadCanonical<TileFeatureAudioMap>(TileFeatureAudioMapPath));
+            return config;
+        }
+
+        private static T LoadCanonical<T>(string path) where T : UnityEngine.Object
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            Assert.That(asset, Is.Not.Null, path);
+            return asset;
+        }
+
+        private static void SetSerializedField(Type declaringType, object target, string fieldName, object value)
+        {
+            var field = declaringType.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {declaringType.Name}.");
+            field.SetValue(target, value);
         }
 
         private static GameplayTimingProfile CreateTimingProfile()

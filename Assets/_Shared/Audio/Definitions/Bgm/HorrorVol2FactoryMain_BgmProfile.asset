@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 45b8b1c4696f460786a23e2ca53da691, type: 3}
-  m_Name: HorrorVol2FactoryMain_Test_BgmProfile
+  m_Name: HorrorVol2FactoryMain_BgmProfile
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.BgmProfile
   loopDefinition: {fileID: 11400000, guid: e35de9d1e9281254482c11b13a32a88e, type: 2}
   transitionMode: 1

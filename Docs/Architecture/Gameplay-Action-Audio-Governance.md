@@ -37,9 +37,11 @@ production prefab contract:
 
 v1 canonical-player required coverage:
 
-- `Push`: `Windup`, `Contact`, `Blocked`, `ImpactEnemy`, `AssistOutOfRange`, `NoTarget`, `Invalid`
-- `Flip`: `Windup`, `Blocked`, `AssistOutOfRange`, `NoTarget`, `Invalid`
-- `Execute`, `Recovery`, flip contact/impact layering은 optional이다
+- `Push`: `Windup`, `AssistOutOfRange`, `NoTarget`, `Invalid`
+- `Flip`: `Windup`, `AssistOutOfRange`, `NoTarget`, `Invalid`
+- `Execute`, `Recovery`는 optional이다
+- GameplayActionAudioMoment v1 no longer includes `Contact`, `ImpactEnemy`, or `Blocked`.
+- Push/Flip `Contact`, `ImpactEnemy`, and `Blocked` action-audio cues were removed because they are not emitted by the current production planner.
 
 ## 3. Frozen V1 Moment Mapping
 
@@ -49,9 +51,6 @@ mapping table:
 
 - `Windup` => `StartedThisTick`
 - `Execute` => `ExecutedThisTick`
-- `Contact` => `Push && ExecutedThisTick && ResolutionKind != Blocked`; `Flip && HasFlipImpactContactTiming`
-- `ImpactEnemy` => `ExecutedThisTick && ResolutionKind == Impact`
-- `Blocked` => `ExecutedThisTick && ResolutionKind == Blocked`
 - `Recovery` => `ExecutedThisTick && IsRecoveryPhase`
 - `AssistOutOfRange` => `PlayerActionAttemptSignals.FeedbackKind == AssistOutOfRange`
 - `NoTarget` => `PlayerActionAttemptSignals.FeedbackKind == NoTarget`
@@ -62,7 +61,7 @@ rules:
 - action kind는 `TickPlayerActionPresentationSignal.ActiveActionKind`가 `Push` 또는 `Flip`일 때만 resolve한다
 - fake attempt action kind는 `TickPlayerActionAttemptPresentationSignal.ActionKind`가 `Push` 또는 `Flip`일 때만 resolve한다
 - `ActiveActionKind == None` 이면 no action audio를 emit한다
-- fixed lifecycle emission order는 `Windup`, `Execute`, `Contact`, `ImpactEnemy`, `Blocked`, `Recovery`
+- fixed lifecycle emission order는 `Windup`, `Execute`, `Recovery`
 - fake failure moments는 lifecycle moments를 synthesize하지 않고 `AssistOutOfRange`, `NoTarget`, `Invalid`만 emit한다
 - same-tick duplicate suppression은 하지 않는다
 - multiple authored one-shots on the same tick intentionally layer and all play in order
@@ -74,11 +73,8 @@ rules:
 action-side sound examples:
 
 - Push windup
-- Push contact
-- Push blocked
-- Push impact collision
 - Flip windup
-- Flip blocked
+- Push/Flip retained failure feedback
 
 target-reaction sound examples:
 
@@ -86,13 +82,13 @@ target-reaction sound examples:
 - Enemy death
 - Boss reaction
 - entity exit/death
+- block and impact presentation feedback owned by their existing presentation lanes
 
 rules:
 
-- Action-side `ImpactEnemy` may coexist with core `EnemyDamage`
 - core `EnemyDamage`, `EnemyDeath`, and entity exit sounds remain on the existing core one-shot path
+- impact and blocked gameplay/presentation signals remain owned by their existing gameplay/presentation lanes; they are not action-audio moments
 - action profile does not own enemy damage/death governance
-- if both play on the same tick, that is intentional layering in v1
 - lethal enemy hit is the explicit v1 exception: when an enemy-local `EnemyAudioCue.Death` is actually planned and playable for the same enemy/entity, core `EnemyDamage` is suppressed for that entity only
 - generic `EntityExitEnemyDeath` suppression and lethal `EnemyDamage` suppression are separate policies
 - lethal `EnemyDamage` suppression is common enemy-local Death cue policy, not SecBot-specific authoring policy

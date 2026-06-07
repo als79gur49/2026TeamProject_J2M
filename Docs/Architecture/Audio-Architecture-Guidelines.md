@@ -170,16 +170,20 @@ TickResult
   - BGM/scene-flow audio는 stage/scene flow presenter path에 남는다.
   - gameplay host audio controller는 `PlayBgm`을 호출하지 않는다.
   - core enemy damage/death reaction sounds는 existing core one-shot path에 남는다.
-  - Action-side `ImpactEnemy` may coexist with core `EnemyDamage`.
+  - GameplayActionAudioMoment v1 no longer includes `Contact`, `ImpactEnemy`, or `Blocked`; impact and blocked gameplay/presentation signals remain outside the action-audio lane.
   - Charge active loop audio remains a separate enemy-local persistent controller, not a core one-shot semantic.
   - persistent BGM ownership/access terminology는 [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md) 를 따른다.
 
 ### 4.2 Gameplay Audio Bootstrap Validation
 
-- `GameplaySceneHostConfiguration.GameplayAudioMap`이 assigned되면 `GameplaySceneHost` canonical host root same `GameObject`에 co-located `AudioRuntimeInstaller`가 있어야 한다.
+- `GameplaySceneHostConfiguration.GameplayPresentationAudioConfig`가 assigned되면 `GameplaySceneHost` canonical host root same `GameObject`에 co-located `AudioRuntimeInstaller`가 있어야 한다.
+- `GameplayPresentationAudioConfig`는 typed gameplay host presentation SFX maps를 group하는 data + validation owner다.
+- `GameplayPresentationAudioConfig`는 dispatcher, planner, controller factory, service locator, playback owner가 아니다.
+- `GameplayPresentationAudioConfig`는 `GameplayAudioMap`, `BlockAudioMap`, `PlayerLocomotionAudioMap`, `TopologyAudioMap`, `GravityFieldAudioMap`, `TileFeatureAudioMap`만 소유한다.
+- action/enemy prefab-local profiles, UI cue maps, BGM profiles, `StageAudioDefinition`, runtime installers, audio settings bridges는 이 config 밖에 남는다.
 - `GameplayHostRuntimeFactory`는 scene-global lookup을 하지 않는다.
 - missing installer fail-fast message는 아래 exact string으로 고정한다.
-  - `GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned.`
+  - `GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayPresentationAudioConfig is assigned.`
 - `GameplayAudioMap.ValidateRequiredSemanticsOrThrow(GameplayAudioSemanticCatalog.RequiredOneShotV1)`는 host attach/init에서 first gameplay playback 이전에 수행되어야 한다.
 - missing required semantic fail-fast message는 아래 format으로 고정한다.
   - `GameplayAudioMap '<MapName>' is missing required gameplay audio semantics: <Id1>, <Id2>.`
@@ -320,8 +324,8 @@ future extension note:
 - v1 action audio defaulting은 prefab-local authoring only다.
 - later stage-wide/default action audio가 필요하면 `GameplaySceneHostConfiguration` 또는 `StagePresentationDefinition`에 ad-hoc audio field를 늘리지 않는다.
 - BGM profile metadata는 `StageAudioDefinition`에만 둔다. `StagePresentationDefinition`은 BGM을 소유하지 않는다.
-- prefer a grouped `GameplayPresentationAudioConfig`.
-- future grouped config는 core one-shot map, default action audio profile, optional enemy/entity defaults를 함께 소유해야 한다.
+- gameplay host presentation SFX map growth는 grouped `GameplayPresentationAudioConfig`를 통해 관리한다.
+- `GameplayPresentationAudioConfig`는 action/enemy prefab-local profiles, UI cue maps, BGM/stage audio metadata, runtime installers, settings bridges를 소유하지 않는다.
 
 금지:
 

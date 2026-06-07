@@ -19,21 +19,6 @@ MonoBehaviour:
       rid: 1
     IsOptional: 0
   - Action: 0
-    Moment: 2
-    Binding:
-      rid: -2
-    IsOptional: 1
-  - Action: 0
-    Moment: 3
-    Binding:
-      rid: -2
-    IsOptional: 1
-  - Action: 0
-    Moment: 4
-    Binding:
-      rid: -2
-    IsOptional: 1
-  - Action: 0
     Moment: 6
     Binding:
       rid: 2
@@ -52,11 +37,6 @@ MonoBehaviour:
     Moment: 0
     Binding:
       rid: 5
-    IsOptional: 0
-  - Action: 1
-    Moment: 4
-    Binding:
-      rid: 6
     IsOptional: 0
   - Action: 1
     Moment: 6
@@ -114,14 +94,6 @@ MonoBehaviour:
       type: {class: AudioBinding, ns: Game.Shared.Audio, asm: Game.Shared.Audio}
       data:
         definition: {fileID: 11400000, guid: f41d4a196a0d43eab3e4cf7374718cce, type: 2}
-        attachmentSlot:
-          id:
-        policy:
-          rid: -2
-    - rid: 6
-      type: {class: AudioBinding, ns: Game.Shared.Audio, asm: Game.Shared.Audio}
-      data:
-        definition: {fileID: 11400000, guid: 3ab74dfd95fa414fbdc41f0ac20d85b6, type: 2}
         attachmentSlot:
           id:
         policy:

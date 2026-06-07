@@ -37,7 +37,9 @@ supports only gameplay BGM through `gameplayBgm` and direct authored `BgmProfile
 metadata, but it does not execute playback. Stage result/failure BGM,
 boss/objective phase BGM, preview/menu BGM, ambience, and layered music are
 intentionally out of scope and not modeled. Runtime playback is requested through
-the audio flow path.
+the audio flow path. Gameplay host presentation SFX map grouping belongs to
+`GameplayPresentationAudioConfig`; `StageAudioDefinition` and stage content audio
+companions do not enter that config.
 
 `StagePresentationBindingNormalizer` is the narrow presentation-lane owner for
 binding normalization. Enemy and static entity presentation bindings are cloned

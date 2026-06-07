@@ -58,6 +58,8 @@ Use this only for core damage/entity-exit one-shot semantics. Do not add Push/Fl
 
 Use this for Push/Flip action-side sounds.
 
+Current GameplayActionAudioMoment v1 vocabulary is `Windup`, `Execute`, `Recovery`, `AssistOutOfRange`, `NoTarget`, and `Invalid`. `Contact`, `ImpactEnemy`, and `Blocked` were removed from action-audio vocabulary; impact and blocked gameplay/presentation signals remain in their existing lanes.
+
 1. If using an existing moment, add a profile entry only.
 2. If adding a new moment, update `GameplayActionAudioMoment`, `GameplayActionAudioMomentCatalog`, and `GameplayActionAudioRequestPlanner`.
 3. Create an SFX definition with `AudioCategory.Sfx` and `loop: false`.

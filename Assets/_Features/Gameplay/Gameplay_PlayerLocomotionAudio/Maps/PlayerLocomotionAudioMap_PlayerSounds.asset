@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2d4d66e5c5524d0a8ca91ee2edfeef01, type: 3}
-  m_Name: PlayerLocomotionAudioMap_PlayerSounds_Test
+  m_Name: PlayerLocomotionAudioMap_PlayerSounds
   m_EditorClassIdentifier: Game.Feature.Gameplay.PlayerLocomotionAudio::Game.Feature.Gameplay.PlayerLocomotionAudio.PlayerLocomotionAudioMap
   entries:
   - Cue: 1
