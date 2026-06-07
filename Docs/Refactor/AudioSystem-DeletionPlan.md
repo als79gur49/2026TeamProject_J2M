@@ -155,12 +155,12 @@ Risk:
 
 Do not delete these in cleanup PRs:
 
-- `HorrorVol2FactoryMain_Test_BgmProfile`
-- `HorrorVol2FactoryMain_Test_BgmDef`
-- `GameplayAudioMap_UI-Audio_Test`
-- `Player_S1_GameplayActionAudioProfile_Test`
-- `BlockAudioMap_PlayerSounds_Test`
-- `PlayerLocomotionAudioMap_PlayerSounds_Test`
+- `HorrorVol2FactoryMain_BgmProfile`
+- `HorrorVol2FactoryMain_BgmDef`
+- `GameplayAudioMap_CampaignV1`
+- `Player_S1_GameplayActionAudioProfile`
+- `BlockAudioMap_PlayerSounds`
+- `PlayerLocomotionAudioMap_PlayerSounds`
 
 Reason:
 

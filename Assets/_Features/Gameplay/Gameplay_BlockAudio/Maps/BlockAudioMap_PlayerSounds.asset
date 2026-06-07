@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9d91be9a4b8f4f04a886b92478c7f516, type: 3}
-  m_Name: BlockAudioMap_PlayerSounds_Test
+  m_Name: BlockAudioMap_PlayerSounds
   m_EditorClassIdentifier: Game.Feature.Gameplay.BlockAudio::Game.Feature.Gameplay.BlockAudio.BlockAudioMap
   entries:
   - Cue: 1

@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 836ff56a11a545b448a3b704b8796821, type: 3}
-  m_Name: GameplayAudioMap_UI-Audio_Test
+  m_Name: GameplayAudioMap_CampaignV1
   m_EditorClassIdentifier: Game.Feature.Gameplay.Audio::Game.Feature.Gameplay.Audio.GameplayAudioMap
   entries:
   - SemanticId: 1

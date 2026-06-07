@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 41e9ec39e3edd8b41b147170787cd890, type: 3}
-  m_Name: Monster Attack 8_Test_Def
+  m_Name: Monster_TakingDamage_1_Def
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.RandomAudioDefinition
   category: 2
   defaultVolumeTrim: 1
   pitchRange: {x: 1, y: 1}
   loop: 0
   clips:
-  - Clip: {fileID: 8300000, guid: 596dc8afe9bec644c972f7e6a8679a33, type: 3}
+  - Clip: {fileID: 8300000, guid: a8a2bef37e74d80468a96b83d4359646, type: 3}
     Weight: 1
     VolumeTrim: 1
     PitchTrim: 1

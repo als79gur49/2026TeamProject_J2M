@@ -10,14 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 41e9ec39e3edd8b41b147170787cd890, type: 3}
-  m_Name: MonsterDeath4_Test_Def
+  m_Name: HorrorVol2FactoryMain_BgmDef
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.RandomAudioDefinition
-  category: 2
+  category: 1
   defaultVolumeTrim: 1
   pitchRange: {x: 1, y: 1}
-  loop: 0
+  loop: 1
   clips:
-  - Clip: {fileID: 8300000, guid: b1de9d56db608b243984b57087331d10, type: 3}
+  - Clip: {fileID: 8300000, guid: 26b69a77542b8e240b0e9dad43e966ae, type: 3}
     Weight: 1
     VolumeTrim: 1
     PitchTrim: 1

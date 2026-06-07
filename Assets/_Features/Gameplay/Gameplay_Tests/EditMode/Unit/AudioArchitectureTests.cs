@@ -24,7 +24,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class AudioArchitectureTests
     {
         private const string GameplayAudioMapPath =
-            "Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_UI-Audio_Test.asset";
+            "Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_CampaignV1.asset";
         private const string PlayerHurtDefinitionPath =
             "Assets/_Shared/Audio/Definitions/Sfx/PlayerSounds/Player_Hurt_Def.asset";
         private const string PlayerHurtClipPath =

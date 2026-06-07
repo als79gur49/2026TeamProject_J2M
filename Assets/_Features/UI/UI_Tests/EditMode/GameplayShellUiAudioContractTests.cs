@@ -21,7 +21,7 @@ namespace Game.Feature.UI.Tests
     public sealed class GameplayShellUiAudioContractTests
     {
         private const string GameplayAudioMapAssetPath =
-            "Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_UI-Audio_Test.asset";
+            "Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_CampaignV1.asset";
         private const string StageCatalogProviderAssetPath =
             StageContentPaths.StageCatalogProviderAssetPath;
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
