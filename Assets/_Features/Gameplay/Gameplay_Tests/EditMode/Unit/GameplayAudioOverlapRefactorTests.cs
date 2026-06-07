@@ -928,14 +928,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[]
                     {
                         CreateSfxRequest(definition, policy, "Action:Push:Windup", 1, ownerEntityId: 10),
-                        CreateSfxRequest(definition, policy, "Action:Push:Contact", 2, ownerEntityId: 10),
+                        CreateSfxRequest(definition, policy, "Action:Push:Recovery", 2, ownerEntityId: 10),
                         CreateSfxRequest(definition, policy, "Action:Push:Execute", 3, ownerEntityId: 10),
                     },
                     tickIndex: 1,
                     simulationTicksPerSecond: 20);
 
                 Assert.That(accepted.Select(request => request.Context.DebugTag).ToArray(),
-                    Is.EqualTo(new[] { "Action:Push:Windup", "Action:Push:Contact", "Action:Push:Execute" }));
+                    Is.EqualTo(new[] { "Action:Push:Windup", "Action:Push:Recovery", "Action:Push:Execute" }));
             }
             finally
             {
@@ -1309,14 +1309,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         CreateSfxRequest(definition, policy, "Action:Push:Execute", 1, ownerEntityId: 10),
                         CreateSfxRequest(definition, policy, "Action:Push:Execute", 2, ownerEntityId: 10),
-                        CreateSfxRequest(definition, policy, "Action:Push:Contact", 3, ownerEntityId: 10),
+                        CreateSfxRequest(definition, policy, "Action:Push:Recovery", 3, ownerEntityId: 10),
                     },
                     tickIndex: 1,
                     simulationTicksPerSecond: 20);
 
                 Assert.That(accepted, Has.Count.EqualTo(2));
                 Assert.That(accepted[0].Context.DebugTag, Is.EqualTo("Action:Push:Execute"));
-                Assert.That(accepted[1].Context.DebugTag, Is.EqualTo("Action:Push:Contact"));
+                Assert.That(accepted[1].Context.DebugTag, Is.EqualTo("Action:Push:Recovery"));
             }
             finally
             {
@@ -1388,7 +1388,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var accepted = arbiter.Filter(
                     new[]
                     {
-                        CreateSfxRequest(definition, policy, "Action:Push:Contact", 1, ownerEntityId: 10),
+                        CreateSfxRequest(definition, policy, "Action:Push:Recovery", 1, ownerEntityId: 10),
                         CreateSfxRequest(definition, policy, "Action:Push:Execute", 2, ownerEntityId: 10),
                     },
                     tickIndex: 1,
@@ -1443,7 +1443,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[]
                     {
                         CreateSfxRequest(definition, policy, "Action:Pull:Windup", 1, ownerEntityId: 10),
-                        CreateSfxRequest(definition, policy, "Action:Pull:Contact", 2, ownerEntityId: 10),
+                        CreateSfxRequest(definition, policy, "Action:Pull:Recovery", 2, ownerEntityId: 10),
                         CreateSfxRequest(definition, policy, "Action:Pull:Execute", 3, ownerEntityId: 10),
                     },
                     tickIndex: 1,

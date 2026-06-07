@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.ActionAudio;
@@ -206,7 +207,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void PlayerS1Prefab_HasGameplayActionAudioAuthoring_WithRequiredV1Coverage()
+        public void PlayerS1Prefab_HasGameplayActionAudioAuthoring_WithRetainedV1Coverage()
         {
             var view = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(PlayerPrefabPath);
             Assert.That(view, Is.Not.Null, $"Missing prefab at '{PlayerPrefabPath}'.");
@@ -218,14 +219,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(authoring.Profile, Is.Not.Null);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Windup, out _), Is.True);
-            AssertOptionalUnassignedCue(authoring.Profile, GameplayActionKind.Push, GameplayActionAudioMoment.Contact);
-            AssertOptionalUnassignedCue(authoring.Profile, GameplayActionKind.Push, GameplayActionAudioMoment.Blocked);
-            AssertOptionalUnassignedCue(authoring.Profile, GameplayActionKind.Push, GameplayActionAudioMoment.ImpactEnemy);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.AssistOutOfRange, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.NoTarget, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Invalid, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Flip, GameplayActionAudioMoment.Windup, out _), Is.True);
-            Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Flip, GameplayActionAudioMoment.Blocked, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Flip, GameplayActionAudioMoment.AssistOutOfRange, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Flip, GameplayActionAudioMoment.NoTarget, out _), Is.True);
             Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Flip, GameplayActionAudioMoment.Invalid, out _), Is.True);
@@ -236,17 +233,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .Where(diagnostic => diagnostic.Severity == GameplayActionAudioProfileDiagnosticSeverity.Warning)
                     .Select(diagnostic => diagnostic.Message)
                     .ToArray(),
-                Is.EquivalentTo(new[]
-                {
-                    $"{authoring.Profile.name} optional entry 'Push/Contact' has no assigned AudioBinding.",
-                    $"{authoring.Profile.name} optional entry 'Push/ImpactEnemy' has no assigned AudioBinding.",
-                    $"{authoring.Profile.name} optional entry 'Push/Blocked' has no assigned AudioBinding.",
-                }));
+                Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayActionAudioMoment_PublicSurface_RemovesUnusedContactImpactBlocked()
+        {
+            var names = Enum.GetNames(typeof(GameplayActionAudioMoment));
+
+            Assert.That(names, Does.Not.Contain("Contact"));
+            Assert.That(names, Does.Not.Contain("ImpactEnemy"));
+            Assert.That(names, Does.Not.Contain("Blocked"));
+            Assert.That(names, Does.Contain(nameof(GameplayActionAudioMoment.Windup)));
+            Assert.That(names, Does.Contain(nameof(GameplayActionAudioMoment.Execute)));
+            Assert.That(names, Does.Contain(nameof(GameplayActionAudioMoment.Recovery)));
+            Assert.That(names, Does.Contain(nameof(GameplayActionAudioMoment.AssistOutOfRange)));
+            Assert.That(names, Does.Contain(nameof(GameplayActionAudioMoment.NoTarget)));
+            Assert.That(names, Does.Contain(nameof(GameplayActionAudioMoment.Invalid)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerS1GameplayActionAudioProfile_DoesNotAuthorRemovedMoments()
+        {
+            var profileYaml = File.ReadAllText(PlayerActionAudioProfilePath);
+
+            Assert.That(profileYaml, Does.Not.Contain("Moment: 2"));
+            Assert.That(profileYaml, Does.Not.Contain("Moment: 3"));
+            Assert.That(profileYaml, Does.Not.Contain("Moment: 4"));
         }
 
         [Test]
         [Category("Extended")]
-        public void GameplayActionAudioRequestPlanner_PushImpactRecovery_MapsToDocumentedOrderedMomentSet()
+        public void GameplayActionAudioRequestPlanner_PushImpactRecovery_MapsToRetainedOrderedMomentSet()
         {
             var planner = new GameplayActionAudioRequestPlanner();
             var result = CreateTickResult(CreatePresentationData(
@@ -269,8 +289,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     GameplayActionAudioMoment.Windup,
                     GameplayActionAudioMoment.Execute,
-                    GameplayActionAudioMoment.Contact,
-                    GameplayActionAudioMoment.ImpactEnemy,
                     GameplayActionAudioMoment.Recovery,
                 }));
             Assert.That(requests.All(request => request.Action == GameplayActionKind.Push), Is.True);
@@ -278,7 +296,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayActionAudioRequestPlanner_BlockedPush_EmitsExecuteThenBlocked_WithoutContact()
+        public void GameplayActionAudioRequestPlanner_BlockedPush_EmitsExecuteOnly()
         {
             var planner = new GameplayActionAudioRequestPlanner();
             var result = CreateTickResult(CreatePresentationData(
@@ -299,13 +317,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(new[]
                 {
                     GameplayActionAudioMoment.Execute,
-                    GameplayActionAudioMoment.Blocked,
                 }));
         }
 
         [Test]
         [Category("Extended")]
-        public void GameplayActionAudioRequestPlanner_FlipContact_UsesContactTimingSignal()
+        public void GameplayActionAudioRequestPlanner_FlipContactTiming_DoesNotEmitRemovedContactMoment()
         {
             var planner = new GameplayActionAudioRequestPlanner();
             var result = CreateTickResult(CreatePresentationData(
@@ -325,7 +342,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(new[]
                 {
                     GameplayActionAudioMoment.Windup,
-                    GameplayActionAudioMoment.Contact,
                 }));
         }
 
@@ -405,8 +421,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(requests.Any(request =>
                 request.Moment == GameplayActionAudioMoment.Windup ||
                 request.Moment == GameplayActionAudioMoment.Execute ||
-                request.Moment == GameplayActionAudioMoment.Contact ||
-                request.Moment == GameplayActionAudioMoment.Blocked), Is.False);
+                request.Moment == GameplayActionAudioMoment.Recovery), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayActionAudioRequestPlanner_DoesNotEmitRemovedMoments()
+        {
+            var planner = new GameplayActionAudioRequestPlanner();
+            var result = CreateTickResult(CreatePresentationData(new[]
+            {
+                new TickPlayerActionPresentationSignal(
+                    entityId: 10,
+                    activeActionKind: PlayerActionKind.Push,
+                    activeActionSequence: 1,
+                    startedThisTick: true,
+                    completedThisTick: false,
+                    canceledThisTick: false,
+                    executedThisTick: true,
+                    isRecoveryPhase: true,
+                    resolutionKind: TickPlayerActionResolutionKind.Impact),
+                new TickPlayerActionPresentationSignal(
+                    entityId: 10,
+                    activeActionKind: PlayerActionKind.Push,
+                    activeActionSequence: 1,
+                    startedThisTick: false,
+                    completedThisTick: false,
+                    canceledThisTick: false,
+                    executedThisTick: true,
+                    resolutionKind: TickPlayerActionResolutionKind.Blocked),
+                new TickPlayerActionPresentationSignal(
+                    entityId: 10,
+                    activeActionKind: PlayerActionKind.Flip,
+                    activeActionSequence: 1,
+                    startedThisTick: true,
+                    completedThisTick: false,
+                    canceledThisTick: false,
+                    hasFlipImpactContactTiming: true),
+            }));
+
+            var requestDebugTags = planner.BuildRequests(result)
+                .Select(request => request.Context.DebugTag)
+                .ToArray();
+
+            Assert.That(requestDebugTags, Does.Not.Contain("Action:Push:Contact"));
+            Assert.That(requestDebugTags, Does.Not.Contain("Action:Push:ImpactEnemy"));
+            Assert.That(requestDebugTags, Does.Not.Contain("Action:Push:Blocked"));
+            Assert.That(requestDebugTags, Does.Not.Contain("Action:Flip:Contact"));
+            Assert.That(requestDebugTags, Does.Not.Contain("Action:Flip:ImpactEnemy"));
+            Assert.That(requestDebugTags, Does.Not.Contain("Action:Flip:Blocked"));
         }
 
         [Test]
@@ -450,7 +513,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             using var profileBundle = CreateActionAudioProfile(
                 new ActionAudioEntrySpec(
                     GameplayActionKind.Push,
-                    GameplayActionAudioMoment.Contact,
+                    GameplayActionAudioMoment.Recovery,
                     definitionSpec: null,
                     isOptional: true));
             try
@@ -468,11 +531,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         startedThisTick: false,
                         completedThisTick: false,
                         canceledThisTick: false,
-                        executedThisTick: true)),
+                        executedThisTick: true,
+                        isRecoveryPhase: true)),
                     new[] { CreateUnit(10, UnitRole.Player) }));
 
                 Assert.That(
-                    profileBundle.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Contact, out _),
+                    profileBundle.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Recovery, out _),
                     Is.False);
                 Assert.That(playbackPort.AttachedCalls, Is.Empty);
                 Assert.That(playbackPort.TwoDCalls, Is.Empty);
@@ -526,14 +590,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayTickViewPresenter_Present_ActionImpact_LayersWithCoreEnemyDamage()
+        public void GameplayTickViewPresenter_Present_PushImpact_PreservesCoreEnemyDamageWithoutActionImpact()
         {
-            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_ActionImpact_LayersWithCoreEnemyDamage));
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_PushImpact_PreservesCoreEnemyDamageWithoutActionImpact));
             using var mapBundle = CreateGameplayAudioMap();
             using var profileBundle = CreateActionAudioProfile(
                 new ActionAudioEntrySpec(
                     GameplayActionKind.Push,
-                    GameplayActionAudioMoment.ImpactEnemy,
+                    GameplayActionAudioMoment.Windup,
                     CreateDefinitionSpec()));
             try
             {
@@ -567,7 +631,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Is.EqualTo(new[]
                     {
                         "EnemyDamage",
-                        "Action:Push:ImpactEnemy",
                     }));
             }
             finally
@@ -578,14 +641,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplayActionAudio_ImpactEnemy_RespectsTopologyAudioGate()
+        public void GameplayActionAudio_Execute_PlaysDuringTopologyAudioGate()
         {
-            var rootObject = new GameObject(nameof(GameplayActionAudio_ImpactEnemy_RespectsTopologyAudioGate));
+            var rootObject = new GameObject(nameof(GameplayActionAudio_Execute_PlaysDuringTopologyAudioGate));
             using var mapBundle = CreateGameplayAudioMap();
             using var profileBundle = CreateActionAudioProfile(
                 new ActionAudioEntrySpec(
                     GameplayActionKind.Push,
-                    GameplayActionAudioMoment.ImpactEnemy,
+                    GameplayActionAudioMoment.Execute,
                     CreateDefinitionSpec()));
             try
             {
@@ -620,14 +683,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     destinationTopology));
 
                 Assert.That(presenter.HasBlockingPresentation, Is.True);
-                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+                Assert.That(
+                    playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
+                    Is.EqualTo(new[] { "Action:Push:Execute" }));
 
                 presenter.UpdatePresentation(0.2f);
 
                 Assert.That(presenter.HasBlockingPresentation, Is.False);
                 Assert.That(
                     playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
-                    Is.EqualTo(new[] { "Action:Push:ImpactEnemy" }));
+                    Is.EqualTo(new[] { "Action:Push:Execute" }));
             }
             finally
             {
@@ -769,15 +834,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             bool loop = false)
         {
             return new DefinitionSpec(category, loop);
-        }
-
-        private static void AssertOptionalUnassignedCue(
-            GameplayActionAudioProfile profile,
-            GameplayActionKind action,
-            GameplayActionAudioMoment moment)
-        {
-            Assert.That(profile.ContainsEntry(action, moment), Is.True);
-            Assert.That(profile.TryResolve(action, moment, out _), Is.False);
         }
 
         private static ActionAudioProfileBundle CreateActionAudioProfile(params ActionAudioEntrySpec[] entrySpecs)

@@ -202,23 +202,7 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplayAudioPlaybackDecision EvaluatePlaybackPolicy(in GameplayActionAudioRequest request)
         {
-            if (!_gateState.IsBlocked)
-            {
-                return GameplayAudioPlaybackDecision.PlayNow;
-            }
-
-            if (_gateState.Reason == GameplayAudioPlaybackBlockReason.TopologyPresentationLock &&
-                IsTopologyLockSensitive(request.Moment))
-            {
-                return GameplayAudioPlaybackDecision.DeferUntilUnlock;
-            }
-
             return GameplayAudioPlaybackDecision.PlayNow;
-        }
-
-        private static bool IsTopologyLockSensitive(GameplayActionAudioMoment moment)
-        {
-            return moment == GameplayActionAudioMoment.ImpactEnemy;
         }
 
         private static GameplayAudioPlaybackRequestKey CreateRequestKey(

@@ -170,7 +170,7 @@ TickResult
   - BGM/scene-flow audio는 stage/scene flow presenter path에 남는다.
   - gameplay host audio controller는 `PlayBgm`을 호출하지 않는다.
   - core enemy damage/death reaction sounds는 existing core one-shot path에 남는다.
-  - Action-side `ImpactEnemy` may coexist with core `EnemyDamage`.
+  - GameplayActionAudioMoment v1 no longer includes `Contact`, `ImpactEnemy`, or `Blocked`; impact and blocked gameplay/presentation signals remain outside the action-audio lane.
   - Charge active loop audio remains a separate enemy-local persistent controller, not a core one-shot semantic.
   - persistent BGM ownership/access terminology는 [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md) 를 따른다.
 
