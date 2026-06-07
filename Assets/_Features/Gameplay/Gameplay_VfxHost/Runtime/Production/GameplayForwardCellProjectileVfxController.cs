@@ -31,6 +31,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int PlayedThisTickCount { get; private set; }
 
+        public GameplayVfxPresentationOnlyUsageDiagnostic LastPresentationOnlyUsageDiagnostic { get; private set; }
+
+        public int PresentationOnlyAllowedTopologyHelperCount { get; private set; }
+
+        public int PresentationOnlyMisuseCandidateCount { get; private set; }
+
         internal int ActiveMarkerCount => markerHandlesByKey.Count;
 
         internal int ActiveFlightCount => activeFlightsByKey.Count;
@@ -62,6 +68,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             MissingAnchorCount = 0;
             MissingSourceFallbackCount = 0;
             PlayedThisTickCount = 0;
+            ResetPresentationOnlyDiagnostics();
         }
 
         public void HardCleanup(GameplayVfxGameObjectPool pool = null)
@@ -253,7 +260,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             policy.ValidateOrThrow();
-            var sourceDecision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+            var sourceDecision = EvaluateBeforeAnchor(
                 request,
                 policy,
                 visibilityContext);
@@ -270,7 +277,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 cueId,
                 VfxAnchor.ForCell(signal.TargetCell, context.Topology, VfxAnchorSlot.CellFloor),
                 VfxTimingKind.ImmediateOnTickPresentation);
-            var targetDecision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+            var targetDecision = EvaluateBeforeAnchor(
                 targetRequest,
                 policy,
                 visibilityContext);
@@ -327,7 +334,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 VfxAnchorSlot.CellCenter,
                 sourceLocalPosition,
                 targetCenterLocalRotation);
-            var postDecision = GameplayVfxVisibilityPolicy.EvaluateAfterAnchor(
+            var postDecision = EvaluateAfterAnchor(
                 request,
                 policy,
                 sourceAnchor,
@@ -418,7 +425,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             policy.ValidateOrThrow();
-            var preDecision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+            var preDecision = EvaluateBeforeAnchor(
                 request,
                 policy,
                 visibilityContext);
@@ -441,7 +448,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return false;
             }
 
-            var postDecision = GameplayVfxVisibilityPolicy.EvaluateAfterAnchor(
+            var postDecision = EvaluateAfterAnchor(
                 request,
                 policy,
                 anchor,
@@ -550,7 +557,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return handle;
         }
 
-        private static bool TryResolveOptionalCommand(
+        private bool TryResolveOptionalCommand(
             in GameplayVfxRequest request,
             IVfxBindingResolver bindingResolver,
             SurfaceCell fallbackCell,
@@ -568,7 +575,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             policy.ValidateOrThrow();
-            var preDecision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+            var preDecision = EvaluateBeforeAnchor(
                 request,
                 policy,
                 visibilityContext);
@@ -583,7 +590,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 slot,
                 localPosition,
                 localRotation);
-            var postDecision = GameplayVfxVisibilityPolicy.EvaluateAfterAnchor(
+            var postDecision = EvaluateAfterAnchor(
                 request,
                 policy,
                 anchor,
@@ -598,6 +605,63 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 policy,
                 anchor);
             return true;
+        }
+
+        private GameplayVfxVisibilityDecision EvaluateBeforeAnchor(
+            in GameplayVfxRequest request,
+            VfxBindingRuntimePolicy policy,
+            in GameplayVfxVisibilityContext visibilityContext)
+        {
+            RecordPresentationOnlyUsage(request, policy);
+            return GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
+                request,
+                policy,
+                visibilityContext);
+        }
+
+        private GameplayVfxVisibilityDecision EvaluateAfterAnchor(
+            in GameplayVfxRequest request,
+            VfxBindingRuntimePolicy policy,
+            in VfxResolvedAnchor anchor,
+            in GameplayVfxVisibilityContext visibilityContext)
+        {
+            RecordPresentationOnlyUsage(request, policy);
+            return GameplayVfxVisibilityPolicy.EvaluateAfterAnchor(
+                request,
+                policy,
+                anchor,
+                visibilityContext);
+        }
+
+        private void ResetPresentationOnlyDiagnostics()
+        {
+            LastPresentationOnlyUsageDiagnostic = default;
+            PresentationOnlyAllowedTopologyHelperCount = 0;
+            PresentationOnlyMisuseCandidateCount = 0;
+        }
+
+        private void RecordPresentationOnlyUsage(
+            in GameplayVfxRequest request,
+            VfxBindingRuntimePolicy policy)
+        {
+            var resolvedPolicy = GameplayVfxVisibilityPolicy.ResolveBindingRuntimePolicy(request, policy);
+            var presentationOnlyUsage = GameplayVfxVisibilityPolicy.ClassifyPresentationOnlyUsage(
+                request,
+                resolvedPolicy);
+            if (!presentationOnlyUsage.IsPresentationOnly)
+            {
+                return;
+            }
+
+            LastPresentationOnlyUsageDiagnostic = presentationOnlyUsage;
+            if (presentationOnlyUsage.Kind == GameplayVfxPresentationOnlyUsageKind.AllowedTopologyHelper)
+            {
+                PresentationOnlyAllowedTopologyHelperCount++;
+            }
+            else if (presentationOnlyUsage.Kind == GameplayVfxPresentationOnlyUsageKind.MisuseCandidate)
+            {
+                PresentationOnlyMisuseCandidateCount++;
+            }
         }
 
         private Vector3 ResolveSourceLocalPosition(

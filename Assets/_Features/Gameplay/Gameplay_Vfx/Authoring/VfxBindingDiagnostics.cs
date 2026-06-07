@@ -60,6 +60,15 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
                     binding));
             }
 
+            if (binding.VisibilityMode == GameplayVfxVisibilityMode.PresentationOnly &&
+                IsPresentationOnlyBindingLegacyNameAllowed(binding))
+            {
+                messages.Add(VfxAuthoringValidationResult.Warning(
+                    "VFX_BINDING_PRESENTATION_ONLY_LEGACY_NAME_MARKER",
+                    $"{binding.name} cue '{cueId}' uses PresentationOnly visibility through a legacy asset-name marker; explicit topology/helper context is preferred.",
+                    binding));
+            }
+
             if (binding.AllowTopologyHelperExempt &&
                 !GameplayVfxTopologyHelperExemptionPolicy.IsTopologyHelperCue(cueId))
             {
@@ -158,9 +167,14 @@ namespace Game.Feature.Gameplay.Vfx.Authoring
 
         private static bool IsPresentationOnlyBindingAllowed(VfxBindingDefinitionAsset binding)
         {
-            var assetName = binding.name ?? string.Empty;
             return binding.AllowTopologyHelperExempt ||
-                   assetName.IndexOf("Topology", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   IsPresentationOnlyBindingLegacyNameAllowed(binding);
+        }
+
+        private static bool IsPresentationOnlyBindingLegacyNameAllowed(VfxBindingDefinitionAsset binding)
+        {
+            var assetName = binding.name ?? string.Empty;
+            return assetName.IndexOf("Topology", StringComparison.OrdinalIgnoreCase) >= 0 ||
                    assetName.IndexOf("PresentationOnly", StringComparison.OrdinalIgnoreCase) >= 0;
         }
     }
