@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Security;
 using System.Xml;
 using UnityEditor;
@@ -12,6 +15,7 @@ public static class TestRunnerCliBootstrap
 {
     private const string SelectionArg = "-codexSelection";
     private const string ResultPathArg = "-codexResultPath";
+    private const string TestFilterArg = "-codexTestFilter";
 
     private const string CoreSelection = "core";
     private const string FullSelection = "full";
@@ -34,6 +38,7 @@ public static class TestRunnerCliBootstrap
     private const string ModeKey = SessionPrefix + "Mode";
     private const string SelectionKey = SessionPrefix + "Selection";
     private const string OutputPathKey = SessionPrefix + "OutputPath";
+    private const string TestFilterKey = SessionPrefix + "TestFilter";
     private const string WatchdogDeadlineKey = SessionPrefix + "WatchdogDeadlineUtcTicks";
 
     private static bool _hasRun;
@@ -44,6 +49,7 @@ public static class TestRunnerCliBootstrap
     private static TestMode _testMode;
     private static string _selection = string.Empty;
     private static string _outputPath = string.Empty;
+    private static string _testFilter = string.Empty;
     private static DateTime _watchdogDeadlineUtc = DateTime.MinValue;
 
     private static TestRunnerApi _api;
@@ -205,6 +211,13 @@ public static class TestRunnerCliBootstrap
             filter.assemblyNames = selectedAssemblyNames;
         }
 
+        var selectedTestFilters = ParseTestFilters(_testFilter);
+        if (selectedTestFilters.Length > 0)
+        {
+            filter.testNames = BuildTestNameFilters(selectedTestFilters);
+            filter.groupNames = BuildGroupNameFilters(selectedTestFilters);
+        }
+
         var executionSettings = new ExecutionSettings(filter)
         {
             runSynchronously = _testMode == TestMode.EditMode,
@@ -214,7 +227,12 @@ public static class TestRunnerCliBootstrap
         {
             SessionState.SetBool(StartedKey, true);
             StartWatchdog();
-            Debug.Log("Test run started");
+            Debug.Log(
+                "Test run started: " +
+                $"selection={_selection}, mode={_testMode}, " +
+                $"assemblies={FormatFilterValues(filter.assemblyNames)}, " +
+                $"categories={FormatFilterValues(filter.categoryNames)}, " +
+                $"testFilter={(_testFilter.Length > 0 ? _testFilter : "<none>")}");
             _api.Execute(executionSettings);
         }
         catch (Exception exception)
@@ -348,7 +366,7 @@ public static class TestRunnerCliBootstrap
 
         Debug.Log($"Total tests: {totalAttr.Value}");
 
-        if (totalAttr.Value == "0")
+        if (totalAttr.Value == "0" && string.IsNullOrWhiteSpace(_testFilter))
         {
             Debug.LogError("No tests executed (total=0)");
             WriteFailureXml("No tests executed");
@@ -487,11 +505,21 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         {
             if (_testMode == TestMode.EditMode)
             {
+                if (!string.IsNullOrWhiteSpace(_testFilter))
+                {
+                    return;
+                }
+
                 selectedAssemblyNames = new[] { CoreEditModeAssemblyName };
                 return;
             }
 
             selectedAssemblyNames = new[] { PlayModeAssemblyName };
+            if (!string.IsNullOrWhiteSpace(_testFilter))
+            {
+                return;
+            }
+
             selectedCategories = new[] { CoreCategory };
             return;
         }
@@ -548,6 +576,7 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
             return false;
         }
 
+        _testFilter = GetSingleArgumentValue(TestFilterArg).Trim();
         error = string.Empty;
         return true;
     }
@@ -564,6 +593,7 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
 
         _selection = SessionState.GetString(SelectionKey, string.Empty);
         _outputPath = SessionState.GetString(OutputPathKey, GetFallbackOutputPath(_testMode));
+        _testFilter = SessionState.GetString(TestFilterKey, string.Empty);
 
         if (_selection != CoreSelection &&
             _selection != FullSelection &&
@@ -587,6 +617,7 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         SessionState.SetString(ModeKey, _testMode.ToString());
         SessionState.SetString(SelectionKey, _selection);
         SessionState.SetString(OutputPathKey, _outputPath);
+        SessionState.SetString(TestFilterKey, _testFilter);
     }
 
     private static void ClearSessionState()
@@ -596,7 +627,101 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         SessionState.EraseString(ModeKey);
         SessionState.EraseString(SelectionKey);
         SessionState.EraseString(OutputPathKey);
+        SessionState.EraseString(TestFilterKey);
         SessionState.EraseString(WatchdogDeadlineKey);
+    }
+
+    private static string[] ParseTestFilters(string rawFilter)
+    {
+        if (string.IsNullOrWhiteSpace(rawFilter))
+        {
+            return Array.Empty<string>();
+        }
+
+        return rawFilter
+            .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(filter => filter.Trim())
+            .Where(filter => filter.Length > 0)
+            .ToArray();
+    }
+
+    private static string[] BuildTestNameFilters(string[] testFilters)
+    {
+        var testNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var testFilter in testFilters)
+        {
+            testNames.Add(testFilter);
+        }
+
+        foreach (var type in EnumerateLoadedTypes())
+        {
+            foreach (var method in type.GetMethods(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                var fullMethodName = $"{type.FullName}.{method.Name}";
+                if (testFilters.Any(testFilter => MatchesFilter(testFilter, method.Name) || MatchesFilter(testFilter, fullMethodName)))
+                {
+                    testNames.Add(fullMethodName);
+                }
+            }
+        }
+
+        return testNames.ToArray();
+    }
+
+    private static string[] BuildGroupNameFilters(string[] testFilters)
+    {
+        var groupNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var testFilter in testFilters)
+        {
+            groupNames.Add(testFilter);
+        }
+
+        foreach (var type in EnumerateLoadedTypes())
+        {
+            if (testFilters.Any(testFilter => MatchesFilter(testFilter, type.Name) || MatchesFilter(testFilter, type.FullName)))
+            {
+                groupNames.Add(type.FullName);
+            }
+        }
+
+        return groupNames.ToArray();
+    }
+
+    private static Type[] EnumerateLoadedTypes()
+    {
+        return AppDomain.CurrentDomain.GetAssemblies()
+            .SelectMany(GetTypesOrEmpty)
+            .Where(type => type != null && !string.IsNullOrWhiteSpace(type.FullName))
+            .ToArray();
+    }
+
+    private static Type[] GetTypesOrEmpty(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException exception)
+        {
+            return exception.Types.Where(type => type != null).ToArray();
+        }
+        catch
+        {
+            return Array.Empty<Type>();
+        }
+    }
+
+    private static bool MatchesFilter(string testFilter, string candidate)
+    {
+        return !string.IsNullOrWhiteSpace(candidate) &&
+            candidate.IndexOf(testFilter, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static string FormatFilterValues(string[] values)
+    {
+        return values == null || values.Length == 0
+            ? "<none>"
+            : string.Join(";", values);
     }
 
     private static string GetSingleArgumentValue(string argumentName)
