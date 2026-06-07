@@ -190,7 +190,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void LegacyEnemyDeathSampler_UsesEaseOutArcAndSpin()
+        public void EnemyDeathFlyAwaySampler_UsesEaseOutArcAndSpin()
         {
             var command = new ParameterizedMotionVfxCommand(
                 GameplayVfxCueId.From(EnemyVfxCue.DeathMotion),
@@ -205,9 +205,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 arcHeight: 0.2f,
                 breakStartSeconds: 0.12f,
                 fadeDurationSeconds: 0.88f,
-                ParameterizedMotionVfxFadeMode.LegacyEnemyDeath,
+                ParameterizedMotionVfxFadeMode.EnemyDeathFade,
                 ParameterizedMotionVfxCloneMode.PrefabWithSourceClone,
-                ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway,
+                ParameterizedMotionVfxSamplerMode.EnemyDeathFlyAway,
                 arcLocalDirection: Vector3.up,
                 spinDegrees: 360f,
                 spinAxisLocal: Vector3.forward);
@@ -225,7 +225,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void LegacyEnemyDeathFade_StartsAtTwelvePercent()
+        public void EnemyDeathFade_StartsAtTwelvePercent()
         {
             var command = new ParameterizedMotionVfxCommand(
                 GameplayVfxCueId.From(EnemyVfxCue.DeathMotion),
@@ -240,9 +240,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 arcHeight: 0.2f,
                 breakStartSeconds: 0.12f,
                 fadeDurationSeconds: 0.88f,
-                ParameterizedMotionVfxFadeMode.LegacyEnemyDeath,
+                ParameterizedMotionVfxFadeMode.EnemyDeathFade,
                 ParameterizedMotionVfxCloneMode.PrefabOnly,
-                ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway);
+                ParameterizedMotionVfxSamplerMode.EnemyDeathFlyAway);
 
             Assert.That(ParameterizedMotionVfxSampler.Sample(command, 0.11f).FadeProgress, Is.Zero);
             Assert.That(ParameterizedMotionVfxSampler.Sample(command, 1f).FadeProgress, Is.EqualTo(1f).Within(0.0001f));
@@ -1444,9 +1444,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 arcHeight: 0.2f,
                 breakStartSeconds: 0.12f,
                 fadeDurationSeconds: 0.88f,
-                ParameterizedMotionVfxFadeMode.LegacyEnemyDeath,
+                ParameterizedMotionVfxFadeMode.EnemyDeathFade,
                 ParameterizedMotionVfxCloneMode.PrefabWithSourceClone,
-                ParameterizedMotionVfxSamplerMode.LegacyEnemyDeathFlyAway,
+                ParameterizedMotionVfxSamplerMode.EnemyDeathFlyAway,
                 arcLocalDirection: Vector3.up,
                 spinDegrees: 360f,
                 spinAxisLocal: Vector3.forward);

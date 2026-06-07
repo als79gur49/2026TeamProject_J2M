@@ -413,7 +413,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private static bool ShouldDisableParameterizedMotionShadows(in ParameterizedMotionVfxCommand command)
         {
             return command.CueId == GameplayVfxCueId.From(EnemyVfxCue.DeathMotion) &&
-                   command.FadeMode == ParameterizedMotionVfxFadeMode.LegacyEnemyDeath;
+                   command.FadeMode == ParameterizedMotionVfxFadeMode.EnemyDeathFade;
         }
 
         private bool TryCreateSourceClone(
@@ -523,7 +523,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             Transform.localPosition = sample.LocalPosition;
             Transform.localRotation = sample.LocalRotation;
 
-            if (command.FadeMode == ParameterizedMotionVfxFadeMode.LegacyEnemyDeath)
+            if (command.FadeMode == ParameterizedMotionVfxFadeMode.EnemyDeathFade)
             {
                 Transform.localScale = Vector3.one * Mathf.Lerp(1f, 0.88f, sample.NormalizedTime);
                 activeMaterialInstances?.ApplyAlpha(1f - (sample.FadeProgress * sample.FadeProgress));

@@ -1,21 +1,23 @@
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Vfx;
 
 namespace Game.Feature.Gameplay.Vfx.Host
 {
-    internal static class BoxDestroyShrinkVfxCommandBuilder
+    internal static class EntityExitOutOfBoundsVfxCommandBuilder
     {
         public static bool TryBuild(
             int tickIndex,
             in TickEntityExitPresentationSignal signal,
+            GameplayVfxCueId cueId,
             GameplayTimingProfile timingProfile,
             GameplayPoseResolver poseResolver,
             GameplayCubeProjector projector,
             out ParameterizedMotionVfxCommand command)
         {
             command = default;
-            if (!IsBoxDestroyExitCandidate(signal) ||
+            if (!IsOutOfBoundsExitCandidate(signal) ||
                 timingProfile == null ||
                 poseResolver == null ||
                 projector == null)
@@ -30,10 +32,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             var sequenceId = signal.PresentationSeed != 0
                 ? signal.PresentationSeed
-                : ComputeSequenceId(tickIndex, signal);
-            var durationSeconds = timingProfile.BoxDestroyEffectDurationSeconds;
+                : ComputeSequenceId(tickIndex, signal, cueId);
+            var durationSeconds = timingProfile.ItemConsumeEffectDurationSeconds;
             command = new ParameterizedMotionVfxCommand(
-                GameplayVfxCueId.From(BoxVfxCue.DestroyShrink),
+                cueId,
                 signal.ExitedEntityId,
                 sequenceId,
                 sequenceId,
@@ -51,35 +53,45 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return true;
         }
 
-        public static bool IsBoxDestroyExitCandidate(in TickEntityExitPresentationSignal signal)
+        public static bool IsOutOfBoundsExitCandidate(in TickEntityExitPresentationSignal signal)
         {
-            return signal.EntityType == EntityType.Box &&
-                   signal.ExitedEntityId > 0 &&
-                   signal.ExitCause == TickEntityExitCause.BoxDestroy;
+            return signal.ExitedEntityId > 0 &&
+                   signal.ExitCause == TickEntityExitCause.OutOfBounds &&
+                   (signal.EntityType == EntityType.Box ||
+                    signal.EntityType == EntityType.Unit);
         }
 
-        public static bool IsDuplicateOwnedExit(
-            TickPresentationData presentationData,
-            int entityId)
+        public static bool TryResolveCue(
+            in TickEntityExitPresentationSignal signal,
+            out GameplayVfxCueId cueId)
         {
-            if (presentationData == null || entityId <= 0)
+            if (signal.EntityType == EntityType.Box)
             {
-                return false;
+                cueId = GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit);
+                return true;
             }
 
-            return BoxVfxExitSignalGuards.IsDuplicateOwnedExit(presentationData, entityId);
+            if (signal.EntityType == EntityType.Unit)
+            {
+                cueId = GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit);
+                return true;
+            }
+
+            cueId = default;
+            return false;
         }
 
         public static int ComputeSequenceId(
             int tickIndex,
-            in TickEntityExitPresentationSignal signal)
+            in TickEntityExitPresentationSignal signal,
+            GameplayVfxCueId cueId)
         {
             unchecked
             {
                 var hash = 17;
                 hash = (hash * 31) + tickIndex;
                 hash = (hash * 31) + signal.ExitedEntityId;
-                hash = (hash * 31) + (int)BoxVfxCue.DestroyShrink;
+                hash = (hash * 31) + cueId.GetHashCode();
                 hash = (hash * 31) + signal.SourceCell.GetHashCode();
                 hash = (hash * 31) + signal.Topology.GetHashCode();
                 return hash == 0 ? 1 : hash;

@@ -169,12 +169,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void OutOfBoundsCommand_UsesSourcePoseVanishFade()
+        public void EntityExitOutOfBoundsCommand_UsesSourcePoseVanishFade()
         {
             var signal = CreateExitSignal(40, TickEntityExitCause.OutOfBounds, entityType: EntityType.Unit);
-            Assert.That(OutOfBoundsExitVfxCommandBuilder.TryResolveCue(signal, out var cueId), Is.True);
+            Assert.That(EntityExitOutOfBoundsVfxCommandBuilder.TryResolveCue(signal, out var cueId), Is.True);
 
-            var built = OutOfBoundsExitVfxCommandBuilder.TryBuild(
+            var built = EntityExitOutOfBoundsVfxCommandBuilder.TryBuild(
                 12,
                 signal,
                 cueId,

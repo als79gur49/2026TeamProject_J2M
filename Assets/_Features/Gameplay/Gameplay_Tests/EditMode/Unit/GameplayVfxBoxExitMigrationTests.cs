@@ -167,7 +167,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void BoxDestroyShrinkBuilder_BoxDestroy_BuildsSourceCloneEaseCommand()
+        public void EntityExitBoxDestroyShrinkBuilder_BoxDestroy_BuildsSourceCloneEaseCommand()
         {
             var cell = new SurfaceCell(FaceId.Back, 2, 3);
             var topology = new CubeTopologyState(FaceId.Back);
@@ -179,7 +179,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new GameplayPresentationStateStore(),
                 new GameplayPresentationTrackState());
 
-            var built = BoxDestroyShrinkVfxCommandBuilder.TryBuild(
+            var built = EntityExitBoxDestroyShrinkVfxCommandBuilder.TryBuild(
                 12,
                 signal,
                 GameplayTimingProfile.CreateDefault(),
@@ -202,7 +202,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void BoxDestroyShrinkBuilder_NonCandidates_DoNotBuild()
+        public void EntityExitBoxDestroyShrinkBuilder_NonCandidates_DoNotBuild()
         {
             var projector = new GameplayCubeProjector(
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 4)),
@@ -878,7 +878,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             GameplayPoseResolver poseResolver,
             GameplayCubeProjector projector)
         {
-            return BoxDestroyShrinkVfxCommandBuilder.TryBuild(
+            return EntityExitBoxDestroyShrinkVfxCommandBuilder.TryBuild(
                 12,
                 signal,
                 GameplayTimingProfile.CreateDefault(),
