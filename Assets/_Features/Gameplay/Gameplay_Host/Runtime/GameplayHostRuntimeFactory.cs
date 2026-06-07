@@ -27,18 +27,8 @@ namespace Game.Feature.Gameplay.Host
     {
         private const string BoardRootObjectName = "GameplayBoardRoot";
         private const string WorldGuideRootObjectName = "WorldGuideRoot";
-        private const string MissingGameplayAudioRuntimeInstallerMessage =
-            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned.";
-        private const string MissingTileFeatureAudioRuntimeInstallerMessage =
-            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when TileFeatureAudioMap is assigned.";
-        private const string MissingTopologyAudioRuntimeInstallerMessage =
-            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when TopologyAudioMap is assigned.";
-        private const string MissingGravityFieldAudioRuntimeInstallerMessage =
-            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GravityFieldAudioMap is assigned.";
-        private const string MissingBlockAudioRuntimeInstallerMessage =
-            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when BlockAudioMap is assigned.";
-        private const string MissingPlayerLocomotionAudioRuntimeInstallerMessage =
-            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when PlayerLocomotionAudioMap is assigned.";
+        private const string MissingGameplayPresentationAudioRuntimeInstallerMessage =
+            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayPresentationAudioConfig is assigned.";
 
         public static GameplayHostRuntimeContext Create(
             GameplaySceneHost host,
@@ -698,114 +688,33 @@ namespace Game.Feature.Gameplay.Host
             GameplayTickViewPresenter presenter,
             GameplaySceneHostConfiguration configuration)
         {
-            var hasGameplayAudioMap = configuration?.GameplayAudioMap != null;
-            var hasTileFeatureAudioMap = configuration?.TileFeatureAudioMap != null;
-            var hasTopologyAudioMap = configuration?.TopologyAudioMap != null;
-            var hasGravityFieldAudioMap = configuration?.GravityFieldAudioMap != null;
-            var hasBlockAudioMap = configuration?.BlockAudioMap != null;
-            var hasPlayerLocomotionAudioMap = configuration?.PlayerLocomotionAudioMap != null;
-            if (!hasGameplayAudioMap &&
-                !hasTileFeatureAudioMap &&
-                !hasTopologyAudioMap &&
-                !hasGravityFieldAudioMap &&
-                !hasBlockAudioMap &&
-                !hasPlayerLocomotionAudioMap)
+            var audioConfig = configuration?.GameplayPresentationAudioConfig;
+            if (audioConfig == null)
             {
                 return;
             }
 
+            audioConfig.ValidateOrThrow();
+
             var audioRuntimeInstaller = hostObject.GetComponent<AudioRuntimeInstaller>();
             if (audioRuntimeInstaller == null)
             {
-                throw new InvalidOperationException(ResolveMissingAudioRuntimeInstallerMessage(
-                    hasGameplayAudioMap,
-                    hasTileFeatureAudioMap,
-                    hasTopologyAudioMap,
-                    hasGravityFieldAudioMap,
-                    hasBlockAudioMap,
-                    hasPlayerLocomotionAudioMap));
+                throw new InvalidOperationException(MissingGameplayPresentationAudioRuntimeInstallerMessage);
             }
 
             audioRuntimeInstaller.Install();
             if (audioRuntimeInstaller.AudioService == null)
             {
-                throw new InvalidOperationException(ResolveMissingAudioRuntimeInstallerMessage(
-                    hasGameplayAudioMap,
-                    hasTileFeatureAudioMap,
-                    hasTopologyAudioMap,
-                    hasGravityFieldAudioMap,
-                    hasBlockAudioMap,
-                    hasPlayerLocomotionAudioMap));
+                throw new InvalidOperationException(MissingGameplayPresentationAudioRuntimeInstallerMessage);
             }
 
             var playbackPort = new GameplayAudioPlaybackPortAdapter(audioRuntimeInstaller.AudioService);
-            if (hasGameplayAudioMap)
-            {
-                presenter.AttachGameplayAudioRuntime(playbackPort, configuration.GameplayAudioMap);
-            }
-
-            if (hasTileFeatureAudioMap)
-            {
-                presenter.AttachTileFeatureAudioRuntime(playbackPort, configuration.TileFeatureAudioMap);
-            }
-
-            if (hasTopologyAudioMap)
-            {
-                presenter.AttachTopologyAudioRuntime(playbackPort, configuration.TopologyAudioMap);
-            }
-
-            if (hasGravityFieldAudioMap)
-            {
-                presenter.AttachGravityFieldAudioRuntime(playbackPort, configuration.GravityFieldAudioMap);
-            }
-
-            if (hasBlockAudioMap)
-            {
-                presenter.AttachBlockAudioRuntime(playbackPort, configuration.BlockAudioMap);
-            }
-
-            if (hasPlayerLocomotionAudioMap)
-            {
-                presenter.AttachPlayerLocomotionAudioRuntime(playbackPort, configuration.PlayerLocomotionAudioMap);
-            }
-        }
-
-        private static string ResolveMissingAudioRuntimeInstallerMessage(
-            bool hasGameplayAudioMap,
-            bool hasTileFeatureAudioMap,
-            bool hasTopologyAudioMap,
-            bool hasGravityFieldAudioMap,
-            bool hasBlockAudioMap,
-            bool hasPlayerLocomotionAudioMap)
-        {
-            if (hasGameplayAudioMap)
-            {
-                return MissingGameplayAudioRuntimeInstallerMessage;
-            }
-
-            if (hasTileFeatureAudioMap)
-            {
-                return MissingTileFeatureAudioRuntimeInstallerMessage;
-            }
-
-            if (hasTopologyAudioMap)
-            {
-                return MissingTopologyAudioRuntimeInstallerMessage;
-            }
-
-            if (hasGravityFieldAudioMap)
-            {
-                return MissingGravityFieldAudioRuntimeInstallerMessage;
-            }
-
-            if (hasBlockAudioMap)
-            {
-                return MissingBlockAudioRuntimeInstallerMessage;
-            }
-
-            return hasPlayerLocomotionAudioMap
-                ? MissingPlayerLocomotionAudioRuntimeInstallerMessage
-                : MissingGameplayAudioRuntimeInstallerMessage;
+            presenter.AttachGameplayAudioRuntime(playbackPort, audioConfig.GameplayAudioMap);
+            presenter.AttachTileFeatureAudioRuntime(playbackPort, audioConfig.TileFeatureAudioMap);
+            presenter.AttachTopologyAudioRuntime(playbackPort, audioConfig.TopologyAudioMap);
+            presenter.AttachGravityFieldAudioRuntime(playbackPort, audioConfig.GravityFieldAudioMap);
+            presenter.AttachBlockAudioRuntime(playbackPort, audioConfig.BlockAudioMap);
+            presenter.AttachPlayerLocomotionAudioRuntime(playbackPort, audioConfig.PlayerLocomotionAudioMap);
         }
 
         private static GameplayEntityView ResolvePlayerViewPrefab(GameplaySceneHostConfiguration configuration)
