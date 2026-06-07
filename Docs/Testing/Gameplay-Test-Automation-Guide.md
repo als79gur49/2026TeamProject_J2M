@@ -420,6 +420,8 @@ WSL CLI
 ./run_tests.sh full
 ./run_tests.sh --print-config
 ./run_tests.sh --dry-run core
+./run_tests.sh core --filter <test-or-fixture>
+./run_tests.sh core --test-filter <test-or-fixture>
 ```
 
 - `./run_tests.sh --print-config`
@@ -432,7 +434,8 @@ WSL CLI
   - Unity command의 `-projectPath`가 현재 worktree Windows path인지 확인하는 용도다.
 - `./run_tests.sh core`
   - 일반적인 로컬 개발 루프에서 사용한다.
-  - governance 검사 후 Windows `dotnet` core build, Unity Core EditMode, Unity Core PlayMode를 순서대로 실행한다.
+  - governance 검사 후 Windows `dotnet` core build, Unity Core EditMode, Unity Core feature gate EditMode, Unity Core PlayMode를 순서대로 실행한다.
+  - Core feature gate EditMode는 broad feature EditMode가 아니라 명시적으로 core gate에 승격된 `Phase3BGate` 테스트만 실행한다.
   - pre-commit 훅이 사용하는 명령이다.
 - `./run_tests.sh ui`
   - Stage 9 이후 UI architecture hardening 및 Stage 4–8 seam preservation 검증에 사용한다.
@@ -443,6 +446,12 @@ WSL CLI
   - 안정화 직전, 통합 직전, 혹은 넓은 회귀를 조사할 때 사용한다.
   - governance 검사 후 Windows solution build, Unity Full EditMode, Unity Full PlayMode를 실행한다.
   - 첫 실패 stage에서 즉시 중단된다.
+- `--filter` / `--test-filter`
+  - 두 옵션은 동일하며 Unity bootstrap의 `-codexTestFilter`로 전달된다.
+  - `core --filter X`는 lane-preserving이다. broad `core` lane에 포함되는 테스트 중 `X`와 매치되는 테스트만 실행하며, category 또는 gate 범위를 풀지 않는다.
+  - filtered run에서는 일부 Unity stage가 `0`개를 실행할 수 있다. shell은 전체 core lane 합산 match가 `0`일 때만 fail-fast한다.
+  - fixture 전체 실행이 필요한 PlayMode 테스트는 `full --filter X`로 실행한다. 예: `./run_tests.sh full --filter PlayerMovementPlayModeTests`.
+  - broad core evidence와 fixture-wide targeted evidence는 서로 다른 claim으로 보고해야 한다.
 
 #### 종료 코드
 - `0`: 성공
@@ -461,6 +470,8 @@ WSL CLI
 ./run_tests.sh full
 ./run_tests.sh --print-config
 ./run_tests.sh --dry-run core
+./run_tests.sh core --filter <test-or-fixture>
+./run_tests.sh core --test-filter <test-or-fixture>
 ```
 
 - `./run_tests.sh --print-config`
@@ -473,7 +484,8 @@ WSL CLI
   - Use it to confirm Unity `-projectPath` is the current worktree Windows path.
 - `./run_tests.sh core`
   - Use for normal local development.
-  - Runs governance first, then Windows `dotnet` core build, then Unity Core EditMode and Core PlayMode.
+  - Runs governance first, then Windows `dotnet` core build, Unity Core EditMode, Unity Core feature gate EditMode, and Unity Core PlayMode.
+  - Core feature gate EditMode is not broad feature EditMode. It runs only tests explicitly promoted into the `Phase3BGate` core gate.
   - This is the command used by pre-commit.
 - `./run_tests.sh ui`
   - Use for targeted Stage 9 UI hardening and Stage 4–8 seam-preservation validation.
@@ -484,6 +496,12 @@ WSL CLI
   - Use before stabilization, integration, or when investigating broader regressions.
   - Runs governance first, then Windows solution build, then Unity Full EditMode and Full PlayMode.
   - Stops on the first failing stage.
+- `--filter` / `--test-filter`
+  - The two options are aliases and are forwarded to the Unity bootstrap as `-codexTestFilter`.
+  - `core --filter X` is lane-preserving. It runs only tests matching `X` inside the broad `core` lane and does not remove category or gate scope.
+  - A filtered run may execute `0` tests in some Unity stages. The shell fails fast only when the aggregate match count across the core lane is `0`.
+  - Use `full --filter X` when the full PlayMode fixture is the intended evidence. Example: `./run_tests.sh full --filter PlayerMovementPlayModeTests`.
+  - Broad core evidence and fixture-wide targeted evidence must be reported as separate claims.
 
 #### Exit codes
 - `0`: success.

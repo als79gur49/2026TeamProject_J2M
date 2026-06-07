@@ -1484,6 +1484,16 @@ Enemy death legacy fallback is finalized. Suppress compatibility gates were remo
 - burst on / motion off: `EnemyVfxCue.Death` only.
 - burst off / motion on: `EnemyVfxCue.DeathMotion` only.
 - burst on / motion on: `EnemyVfxCue.DeathMotion` plus `EnemyVfxCue.Death`.
+
+Phase 3B-Gate inventory recorded historical migration YAML residue as exactly 45 scene-local entries:
+
+- current shell evidence: `Assets/Scenes/UIAudioScene.unity` had 15 historical `EnableGameplayVfx*Migration` serialized fields, all true.
+- historical legacy scene evidence: `Assets/Scenes/CombinedGameplayShowcase.unity` had 15 historical `EnableGameplayVfx*Migration` serialized fields, all true.
+- historical legacy scene evidence: `Assets/Scenes/TutorialScene.unity` had 15 historical `EnableGameplayVfx*Migration` serialized fields, all false.
+
+These historical entries were not active feature flags and did not change canonical migrated cue playback. Current runtime policy belongs to `UIAudioScene`, `GameplayShell`, stage ids such as `mechanics-showcase` and `onboarding`, and stage/runtime presentation profile ownership. Standalone YAML deletion is not a stable cleanup gate while `GameplayVfxProductionRuntime` still declares serialized compatibility fields; field deletion must remove the field/property declarations and reserialize only current retained shell assets in the same cleanup package, then require migration residue search results to be zero.
+
+Phase 3B-Gate test evidence must keep broad `core` / `ui` claims separate from fixture-wide PlayMode diagnostics. `PlayerMovementPlayModeTests` contains topology transition, post-fx, camera shake, and input-lock coverage outside Gameplay VFX migration cleanup. A fixture-wide red in that class is a separately tracked topology/player-movement risk unless the same revision also changes that touched cluster or fails the lane-preserving core subset. Topology bridge, post-fx, and camera shake assets remain outside VFX cleanup scope.
 - missing DeathMotion binding, prefab, source pose, output camera, or target context is diagnostic/no-op with no old fly-away fallback.
 
 FlipDestroySelf legacy fallback is finalized. Suppress compatibility gates were removed. `EnableGameplayVfxFlipDestroySelfMotionMigration` controls only `BoxVfxCue.FlipDestroySelfMotion`; flag off means no flip destroy-self motion VFX and no old clone/fade fallback.
