@@ -455,6 +455,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ProjectileVfx_InactiveFaceExplicitlyAllowed_DoesNotBypassSourceSemanticGate()
+        {
+            using var fixture = new ForwardCellProjectileRuntimeFixture(
+                "ForwardCellProjectileInactiveFaceSourceGate",
+                GameplayVfxVisibilityMode.InactiveFaceExplicitlyAllowed,
+                sourceFrontFaceInactive: true);
+
+            fixture.Present(CreatePresentationData(releaseSignals: new[]
+            {
+                CreateReleaseSignal(targetCell: new SurfaceCell(FaceId.Ceiling, 1, 0)),
+            }));
+
+            Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.Zero);
+            AssertActiveCarrierKeys(fixture.Runtime);
+            Assert.That(fixture.Runtime.ForwardCellProjectilePresentationOnlyMisuseCandidateCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
         public void ProjectileVfx_PresentationOnly_BypassesGameplayFaceGate()
         {
             using var fixture = new ForwardCellProjectileRuntimeFixture(
@@ -1074,16 +1093,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             private readonly VfxBindingDefinitionAsset flightBinding;
             private readonly VfxBindingDefinitionAsset impactBinding;
             private readonly VfxCueMapAsset cueMap;
-            private readonly PresentationContextFactory contextFactory = new();
+            private readonly PresentationContextFactory contextFactory;
 
             public ForwardCellProjectileRuntimeFixture(
                 string name,
-                GameplayVfxVisibilityMode flightVisibilityMode = GameplayVfxVisibilityMode.DefaultGameplay)
+                GameplayVfxVisibilityMode flightVisibilityMode = GameplayVfxVisibilityMode.DefaultGameplay,
+                bool sourceFrontFaceInactive = false)
             {
                 owner = new GameObject(name);
                 markerPrefab = new GameObject($"{name}MarkerPrefab");
                 flightPrefab = new GameObject($"{name}FlightPrefab");
                 impactPrefab = new GameObject($"{name}ImpactPrefab");
+                var sourceView = sourceFrontFaceInactive
+                    ? CreateSourceView(owner.transform)
+                    : null;
                 markerBinding = CreateBinding(
                     ProjectileVfxCue.ForwardCellDangerMarker,
                     markerPrefab,
@@ -1103,6 +1126,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cueMap = CreateCueMap(markerBinding, flightBinding, impactBinding);
                 Runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
                 Runtime.ConfigureHostDefaultMap(cueMap);
+                contextFactory = new PresentationContextFactory(sourceView, sourceFrontFaceInactive);
             }
 
             public GameplayVfxProductionRuntime Runtime { get; }
@@ -1116,6 +1140,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 Destroy(cueMap, markerBinding, flightBinding, impactBinding, impactPrefab, flightPrefab, markerPrefab, owner);
             }
+
+            private static GameplayEntityView CreateSourceView(Transform parent)
+            {
+                var sourceObject = new GameObject("SourceEnemyView");
+                sourceObject.transform.SetParent(parent, worldPositionStays: false);
+                var sourceView = sourceObject.AddComponent<GameplayEntityView>();
+                sourceView.Initialize(40);
+                sourceView.EnsureModelRoot();
+                return sourceView;
+            }
         }
 
         private sealed class PresentationContextFactory
@@ -1126,12 +1160,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
                 1f);
 
-            public PresentationContextFactory(GameplayEntityView sourceView = null)
+            public PresentationContextFactory(
+                GameplayEntityView sourceView = null,
+                bool sourceFrontFaceInactive = false)
             {
                 stateStore.ResetSession(topology);
                 if (sourceView != null)
                 {
                     stateStore.ViewsByEntityId[40] = sourceView;
+                }
+
+                if (sourceFrontFaceInactive)
+                {
+                    stateStore.EnemyVisualSemanticStatesByEntityId[40] =
+                        new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive);
                 }
             }
 
