@@ -149,6 +149,7 @@ namespace Game.Feature.UI.Tests
                         Assert.That(entry.Binding.Definition.Category, Is.EqualTo(AudioCategory.Ui), Describe(cueMap));
                         Assert.That(entry.Binding.Definition.Loop, Is.False, Describe(cueMap));
                         Assert.That(entry.Binding.HasAttachmentSlot, Is.False, Describe(cueMap));
+                        Assert.That(entry.Binding.Policy, Is.Null, Describe(cueMap));
                     }
                 }
                 catch (Exception exception)
