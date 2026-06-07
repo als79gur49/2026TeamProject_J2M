@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4a62f76156244efc8a61d252c819ccb9, type: 3}
-  m_Name: Player_S1_GameplayActionAudioProfile_Test
+  m_Name: Player_S1_GameplayActionAudioProfile
   m_EditorClassIdentifier: Game.Feature.Gameplay.ActionAudio::Game.Feature.Gameplay.ActionAudio.GameplayActionAudioProfile
   entries:
   - Action: 0

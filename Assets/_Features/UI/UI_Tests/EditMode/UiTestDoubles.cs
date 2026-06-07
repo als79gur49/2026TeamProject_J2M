@@ -15,17 +15,7 @@ namespace Game.Feature.UI.Tests
     {
         public int ClearHeldMoveDirectionCallCount { get; private set; }
 
-        public int RequestFlipCallCount { get; private set; }
-
-        public int RequestPushCallCount { get; private set; }
-
         public int SetHeldMoveDirectionCallCount { get; private set; }
-
-        public Func<GameplayUiDirection, GameplayCommandAcceptance> OnRequestFlip { get; set; } =
-            _ => GameplayCommandAcceptance.Accept();
-
-        public Func<GameplayUiDirection, GameplayCommandAcceptance> OnRequestPush { get; set; } =
-            _ => GameplayCommandAcceptance.Accept();
 
         public Func<GameplayUiDirection, GameplayCommandAcceptance> OnSetHeldMoveDirection { get; set; } =
             _ => GameplayCommandAcceptance.Accept();
@@ -45,17 +35,6 @@ namespace Game.Feature.UI.Tests
             return OnClearHeldMoveDirection();
         }
 
-        public GameplayCommandAcceptance RequestFlip(GameplayUiDirection direction)
-        {
-            RequestFlipCallCount++;
-            return OnRequestFlip(direction);
-        }
-
-        public GameplayCommandAcceptance RequestPush(GameplayUiDirection direction)
-        {
-            RequestPushCallCount++;
-            return OnRequestPush(direction);
-        }
     }
 
     internal sealed class FakeGameplayPauseService : IGameplayPauseService, IUiFlowPauseService

@@ -13,9 +13,8 @@ Archive documents that still mention `pushContactTicks`, contact accumulation, o
 - `PlayerTickCommand.PushPressed` means "fresh press on this tick".
 - Holding the Push button does not retrigger `PushPressed` on later ticks.
 - `GameplayInputHost` samples keyboard Push from the `Player/Push.started` edge.
-- UI `RequestPush(direction)` merges into the same one-shot command path.
-- If UI Push and keyboard Push happen on the same tick, runtime consumes one Push only.
-- If UI Push supplies a direction, it overrides the sampled keyboard move direction for that Push.
+- UI-held movement merges into the input path, but UI Push action requests are not part of the current product surface.
+- Push direction comes from the resolved physical/held movement direction for the current tick.
 
 ## Runtime Rules
 - Priority is `Push > Flip > Move`.
@@ -36,4 +35,4 @@ Archive documents that still mention `pushContactTicks`, contact accumulation, o
   - `CanStartAnyActionThisTick`
   - `HasExplicitPushCandidateInCurrentDirection`
 - Push/Flip readiness, recovery, and outcome mapping remain unchanged.
-- There is currently no HUD ActionBar consumer for this mapped readiness data.
+- `ActionBar` is retired HUD vocabulary. Current Push/Flip HUD state flows through `HUDRootPresenter`, `PlayerStatusPresenter`, `GameplayHostPlayerHudQuery`, `UIPresentationSnapshot`, and `UIPlayerActionSlice`; command requests, when present, flow through `GameplayHostCommandGateway` into `GameplayInputHost`.

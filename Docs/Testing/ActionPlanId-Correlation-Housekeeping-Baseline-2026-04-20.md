@@ -16,9 +16,9 @@ python3 Tools/check_gameplay_action_plan_correlation_migration.py --root /mnt/c/
 
 | Test row | Decision | Why |
 | --- | --- | --- |
-| `DamageResolutionRecord_ActionPlanId_AliasesLegacyGroupId` | `Extended` | feature-assembly deterministic carrier-contract row; not a Core assembly gate row |
-| `DestroyResolutionRecord_ActionPlanId_AliasesLegacyGroupId` | `Extended` | feature-assembly deterministic carrier-contract row; not a Core assembly gate row |
-| `DelayedAttackEffectRecord_SourceActionPlanId_AliasesLegacySourceActionGroupId` | `Extended` | feature-assembly deterministic carrier-contract row; not a Core assembly gate row |
+| `DamageResolutionRecord_ActionPlanId_IsCanonicalCorrelationField` | `Extended` | feature-assembly deterministic carrier-contract row; not a Core assembly gate row |
+| `DestroyResolutionRecord_ActionPlanId_IsCanonicalCorrelationField` | `Extended` | feature-assembly deterministic carrier-contract row; not a Core assembly gate row |
+| `DelayedAttackEffectRecord_SourceActionPlanId_IsCanonicalCorrelationField` | `Extended` | feature-assembly deterministic carrier-contract row; not a Core assembly gate row |
 
 ## Before / After Summary
 
@@ -34,13 +34,13 @@ python3 Tools/check_gameplay_action_plan_correlation_migration.py --root /mnt/c/
 
 ## Exact mismatch rows removed
 
-- `Game.Feature.Gameplay.Tests.Unit.ActionPlanCorrelationContractTests.DamageResolutionRecord_ActionPlanId_AliasesLegacyGroupId`
-- `Game.Feature.Gameplay.Tests.Unit.ActionPlanCorrelationContractTests.DestroyResolutionRecord_ActionPlanId_AliasesLegacyGroupId`
-- `Game.Feature.Gameplay.Tests.Unit.ActionPlanCorrelationContractTests.DelayedAttackEffectRecord_SourceActionPlanId_AliasesLegacySourceActionGroupId`
+- `Game.Feature.Gameplay.Tests.Unit.ActionPlanCorrelationContractTests.DamageResolutionRecord_ActionPlanId_IsCanonicalCorrelationField`
+- `Game.Feature.Gameplay.Tests.Unit.ActionPlanCorrelationContractTests.DestroyResolutionRecord_ActionPlanId_IsCanonicalCorrelationField`
+- `Game.Feature.Gameplay.Tests.Unit.ActionPlanCorrelationContractTests.DelayedAttackEffectRecord_SourceActionPlanId_IsCanonicalCorrelationField`
 
 ## Notes
 
-- parity 테스트 3건은 runtime bug가 아니라 metadata drift였다. 세 row는 `RunTick`/pipeline execution이 아니라 record carrier alias parity만 검증한다.
+- correlation 테스트 3건은 runtime bug가 아니라 metadata drift guard다. 세 row는 `RunTick`/pipeline execution이 아니라 canonical carrier field를 검증한다.
 - structured trace `Plan=` / `SourcePlan=`는 canonical structured trace surface다.
 - free-form `G=`는 compatibility token in free-form event log다. current `ActionPlanId` value를 mirror하지만 old semantic GroupId revival이 아니다.
 - 새 테스트/도구는 `G=`를 canonical parser surface로 읽지 않는다.

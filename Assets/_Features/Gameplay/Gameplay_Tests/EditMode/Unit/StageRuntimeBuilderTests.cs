@@ -1790,38 +1790,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void StageRuntimeBuilder_OutputUnchanged_WhenPresentationIdsExist()
-        {
-            var withoutPresentation = CreateStage(
-                "NoPresentationBindings",
-                CreateBoard(new Vector2Int(0, 0), new Vector2Int(4, 4)),
-                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3),
-                CreateSpawn(20, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 1, 2), hp: 2, enemyAiMode: EnemyAiMode.Patrol),
-                CreateSpawn(30, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 2, 2), hp: 1),
-                CreateSpawn(40, StageSpawnKind.Wall, new SurfaceCell(FaceId.Floor, 3, 3), hp: 1));
-            var withPresentation = CreateStage(
-                "WithPresentationBindings",
-                CreateBoard(new Vector2Int(0, 0), new Vector2Int(4, 4)),
-                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, presentationId: "player-view"),
-                CreateSpawn(20, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 1, 2), hp: 2, enemyAiMode: EnemyAiMode.Patrol, presentationId: "enemy-view"),
-                CreateSpawn(30, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 2, 2), hp: 1, presentationId: "box-view"),
-                CreateSpawn(40, StageSpawnKind.Wall, new SurfaceCell(FaceId.Floor, 3, 3), hp: 1, presentationId: "wall-view"));
-
-            try
-            {
-                var expected = StageRuntimeBuilder.Build(withoutPresentation);
-                var actual = StageRuntimeBuilder.Build(withPresentation);
-
-                AssertRuntimeBuildResultsMatch(expected, actual);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(withPresentation);
-                UnityEngine.Object.DestroyImmediate(withoutPresentation);
-            }
-        }
-
-        [Test]
         public void StagePresentationBindings_AreDeterministicallyOrderedByEntityId()
         {
             var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
@@ -2017,65 +1985,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(prefab);
                 UnityEngine.Object.DestroyImmediate(presentation);
-                UnityEngine.Object.DestroyImmediate(stage);
-            }
-        }
-
-        [Test]
-        public void StagePresentationAssembler_GeneratedBindings_AreNormalizedByPresentationLane()
-        {
-            var spawns = new[]
-            {
-                CreateSpawn(30, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 3, 0), hp: 2, presentationId: "enemy-30"),
-                CreateSpawn(50, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 4, 0), hp: 1, presentationId: "static-50"),
-                CreateSpawn(10, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 1, 0), hp: 2, presentationId: "enemy-10"),
-                CreateSpawn(40, StageSpawnKind.Wall, new SurfaceCell(FaceId.Floor, 2, 0), hp: 1, presentationId: "static-40"),
-                CreateSpawn(20, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 0, 1), hp: 2, presentationId: "enemy-20"),
-            };
-            var stage = CreateStage(
-                "GeneratedPresentationBindings",
-                CreateBoard(new Vector2Int(0, 0), new Vector2Int(4, 4)),
-                new[]
-                {
-                    CreateSpawn(1, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
-                    spawns[0],
-                    spawns[1],
-                    spawns[2],
-                    spawns[3],
-                    spawns[4],
-                });
-
-            try
-            {
-                var enemyBindings = InvokeBuildEnemyBindings(spawns);
-                var staticBindings = InvokeBuildStaticBindings(spawns);
-                var buildResult = StageRuntimeBuilder.Build(stage);
-
-                CollectionAssert.AreEqual(
-                    new[] { 10, 20, 30 },
-                    Array.ConvertAll(enemyBindings, binding => binding.EntityId));
-                CollectionAssert.AreEqual(
-                    new[] { 40, 50 },
-                    Array.ConvertAll(staticBindings, binding => binding.EntityId));
-                Assert.That(
-                    typeof(StageRuntimeBuildResult)
-                        .GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static)
-                        .Any(member =>
-                            member.Name.Contains("PresentationBinding", StringComparison.Ordinal) ||
-                            member.Name.Contains("BoardPresentation", StringComparison.Ordinal) ||
-                            member.Name.Contains("BoardRootPrefab", StringComparison.Ordinal) ||
-                            member.Name.Contains("BoardTilePresentation", StringComparison.Ordinal) ||
-                            member.Name.Contains("BoardTileStyle", StringComparison.Ordinal) ||
-                            member.Name.Contains("BoardTilePaint", StringComparison.Ordinal) ||
-                            member.Name.Contains("BoardTileOverlay", StringComparison.Ordinal) ||
-                            member.Name.Contains("Catalog", StringComparison.Ordinal) ||
-                            member.Name.Contains("Material", StringComparison.Ordinal) ||
-                            member.Name.Contains("Color", StringComparison.Ordinal)),
-                    Is.False);
-                Assert.That(buildResult.InitialEntities.Any(entity => entity.entityId == 10), Is.True);
-            }
-            finally
-            {
                 UnityEngine.Object.DestroyImmediate(stage);
             }
         }
@@ -2446,27 +2355,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return pairs;
         }
 
-        private static EnemyPresentationBinding[] InvokeBuildEnemyBindings(IReadOnlyList<StageSpawnDefinition> spawns)
-        {
-            return InvokeAssemblerBindingBuilder<EnemyPresentationBinding>("BuildEnemyBindings", spawns);
-        }
-
-        private static StaticEntityPresentationBinding[] InvokeBuildStaticBindings(IReadOnlyList<StageSpawnDefinition> spawns)
-        {
-            return InvokeAssemblerBindingBuilder<StaticEntityPresentationBinding>("BuildStaticBindings", spawns);
-        }
-
-        private static TBinding[] InvokeAssemblerBindingBuilder<TBinding>(
-            string methodName,
-            IReadOnlyList<StageSpawnDefinition> spawns)
-        {
-            var method = typeof(StagePresentationAssembler).GetMethod(
-                methodName,
-                BindingFlags.Static | BindingFlags.NonPublic);
-            Assert.That(method, Is.Not.Null, $"Missing StagePresentationAssembler.{methodName}.");
-            return (TBinding[])method.Invoke(null, new object[] { spawns });
-        }
-
         private static StageDefinition CreateStage(
             string stageName,
             StageBoardDefinition board,
@@ -2682,7 +2570,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiMode enemyAiMode = EnemyAiMode.None,
             int enemyAiStateTimer = 0,
             EnemyAiProfile enemyAiProfile = null,
-            string presentationId = null,
             string unitStackGroup = null,
             UnitMobilityKind unitMobilityKind = UnitMobilityKind.Ground)
         {
@@ -2699,7 +2586,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 EnemyAiMode = enemyAiMode,
                 EnemyAiStateTimer = enemyAiStateTimer,
                 EnemyAiProfile = enemyAiProfile,
-                PresentationId = presentationId,
                 UnitStackGroup = unitStackGroup,
             };
         }

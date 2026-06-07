@@ -36,9 +36,9 @@ The player fallback branch is currently reachable through this chain:
 
 `PlayerFree2DLocalLocomotionEnabled` and `PlayerSameFaceContinuousLocomotionEnabled` both make synthetic player ordinary expansion a forbidden leak. The expected rejection reason is `PlayerCoveredLocomotionReachedLegacyExpansion`.
 
-Historical Phase 2 note: `GameplayRuntimeFeatureFlags.None` was the player fallback baseline in this phase. Phase 3 superseded that policy: `None` blocks covered player fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 4 supersedes the explicit player baseline too: `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` now rejects player fallback with `PlayerLegacyFallbackRemovedFromRuntime`.
+Historical Phase 2 note: `GameplayRuntimeFeatureFlags.None` was the player fallback baseline in this phase. Phase 3 superseded that policy: `None` blocks covered player fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 4 supersedes the explicit player baseline too: `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` now rejects player fallback with `PlayerLegacyFallbackRemovedFromRuntime`.
 
-Phase 8B/8C names `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical removed-diagnostic preset. `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a deprecated compatibility alias for historical Phase 2/4 tests.
+Phase 8B/8C names `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical removed-diagnostic preset. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` remains a deprecated compatibility alias for historical Phase 2/4 tests.
 
 Historical Phase 2 custom flags with both player Free2D and player same-face kinematic disabled used `EnableLegacyOrdinaryUnitFallback` for player fallback. Phase 4/7 supersede that behavior: the field is diagnostic compatibility only and player fallback rejects with `PlayerLegacyFallbackRemovedFromRuntime`.
 
@@ -79,7 +79,7 @@ The helper vocabulary remains scoped to `LegacyFallback`, legacy `Move` presenta
 
 Actual player fallback deletion is not approved by Phase 2. Before deleting or test-only-scoping the player fallback branch, the next phase needs:
 
-- explicit approval to remove or narrow the deprecated `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` compatibility alias
+- explicit approval to remove or narrow the deprecated `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` compatibility alias
 - replay/golden migration or exemption policy
 - green player default, Free2D-on, and kinematic-on no-fallback canaries
 - green retained topology, box/action, spawn/respawn, cleanup, and scripted relocation canaries

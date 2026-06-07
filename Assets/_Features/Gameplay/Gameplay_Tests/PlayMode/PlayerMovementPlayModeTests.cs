@@ -574,7 +574,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     pushInputLockDurationTicks: 1));
 
             host.InputHost.SetRawMoveInput(Vector2.right);
-            InvokeInputHostBufferUiPush(host.InputHost, Direction.Right);
+            host.InputHost.BufferPush();
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
             Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
 
@@ -895,14 +895,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator GameplayInputHost_PushStartedEdgeOnly_KeyboardAndUiPushSameTick_ConsumesOnceAndUiDirectionWins()
+        public IEnumerator GameplayInputHost_PushStartedEdgeOnly_KeyboardPushConsumesOnce()
         {
             var actions = CreateKeyboardMoveActions();
             var host = CreateHost(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
-                CreateBox(entityId: 31, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Push),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Push),
+                CreateBox(entityId: 31, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
                 CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
                 CreateWall(entityId: 91, position: new SurfaceCell(FaceId.Floor, -4, 0)),
             },
@@ -915,7 +915,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Press(_keyboard.eKey);
             yield return null;
 
-            InvokeInputHostBufferUiPush(host.InputHost, Direction.Right);
             var startTick = host.InputHost.RunSingleTick();
             var startSnapshot = CaptureAuthoritativeSnapshot(host);
 
@@ -924,7 +923,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(startSnapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(controlState.activeAction.sequence, Is.EqualTo(1));
-            Assert.That(controlState.activeAction.direction, Is.EqualTo(Direction.Right));
+            Assert.That(controlState.activeAction.direction, Is.EqualTo(Direction.Left));
             Assert.That(controlState.activeAction.targetEntityId, Is.EqualTo(30));
 
             var executeTick = host.InputHost.RunSingleTick();
@@ -2115,15 +2114,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 modifiers: null);
             Assert.That(method, Is.Not.Null, $"Missing method '{methodName}' on {writeContext.GetType().Name}.");
             method.Invoke(writeContext, arguments);
-        }
-
-        private static void InvokeInputHostBufferUiPush(GameplayInputHost inputHost, Direction direction)
-        {
-            var method = typeof(GameplayInputHost).GetMethod(
-                "BufferUiPush",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(method, Is.Not.Null, "GameplayInputHost.BufferUiPush should remain available for UI push merge coverage.");
-            method.Invoke(inputHost, new object[] { direction });
         }
 
         // TODO(CubeSurface3D): Retire this helper once playmode tests stop using

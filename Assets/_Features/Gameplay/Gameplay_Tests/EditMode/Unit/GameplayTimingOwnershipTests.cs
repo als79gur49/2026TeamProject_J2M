@@ -1822,8 +1822,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 inputHost.SetRawMoveInput(Vector2.right);
                 inputHost.BufferPush();
                 inputHost.BufferFlip();
-                InvokeInstanceMethod(inputHost, "BufferUiPush", Direction.Right);
-                InvokeInstanceMethod(inputHost, "BufferUiFlip", Direction.Left);
 
                 var command = (PlayerTickCommand)InvokeInstanceMethod(inputHost, "BuildPlayerCommand");
 
@@ -1833,10 +1831,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(command.FlipPressed, Is.False);
                 Assert.That(ReadPrivateField<bool>(inputHost, "_hasBufferedPush"), Is.False);
                 Assert.That(ReadPrivateField<bool>(inputHost, "_hasBufferedFlip"), Is.False);
-                Assert.That(ReadPrivateField<bool>(inputHost, "_hasBufferedUiPush"), Is.False);
-                Assert.That(ReadPrivateField<bool>(inputHost, "_hasBufferedUiFlip"), Is.False);
-                Assert.That(ReadPrivateField<Direction>(inputHost, "_uiBufferedPushDirection"), Is.EqualTo(Direction.None));
-                Assert.That(ReadPrivateField<Direction>(inputHost, "_uiBufferedFlipDirection"), Is.EqualTo(Direction.None));
             }
             finally
             {

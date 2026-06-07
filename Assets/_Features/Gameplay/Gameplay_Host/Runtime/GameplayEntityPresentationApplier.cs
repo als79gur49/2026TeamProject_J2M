@@ -1016,11 +1016,8 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                var playerDriver = playerView.GetComponent<PlayerFlipInteractionDriver>();
                 var boxDriver = boxView.GetComponent<BoxFlipInteractionDriver>();
-                var handRestWorldPose = playerDriver != null
-                    ? playerDriver.GetHandRestWorldPose()
-                    : new Pose(playerView.transform.position, playerView.transform.rotation);
+                var handRestWorldPose = new Pose(playerView.transform.position, playerView.transform.rotation);
                 var boxGripWorldPose = boxDriver != null
                     ? boxDriver.GetGripWorldPose()
                     : ResolveFallbackGripPose(boxView);
@@ -1037,11 +1034,6 @@ namespace Game.Feature.Gameplay.Host
                 else if (boxDriver != null)
                 {
                     boxDriver.ResetInteraction();
-                }
-
-                if (playerDriver != null)
-                {
-                    playerDriver.ApplyInteraction(sample.HandTargetWorldPose, sample.HandWeight);
                 }
 
                 track.Advance(deltaTime);
@@ -1088,14 +1080,6 @@ namespace Game.Feature.Gameplay.Host
 
         private void ResetFlipInteraction(int playerEntityId, int boxEntityId)
         {
-            if (_stateStore.ViewsByEntityId.TryGetValue(playerEntityId, out var playerView) &&
-                playerView != null &&
-                playerView.TryGetComponent<PlayerFlipInteractionDriver>(out var playerDriver) &&
-                playerDriver != null)
-            {
-                playerDriver.ResetInteraction();
-            }
-
             if (_stateStore.ViewsByEntityId.TryGetValue(boxEntityId, out var boxView) &&
                 boxView != null &&
                 boxView.TryGetComponent<BoxFlipInteractionDriver>(out var boxDriver) &&

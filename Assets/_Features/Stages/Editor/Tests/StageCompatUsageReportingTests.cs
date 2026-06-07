@@ -45,8 +45,6 @@ namespace Game.Feature.Stages.Editor.Tests
             var report = new StageCompatUsageAuditor().Audit();
 
             Assert.That(report.Snapshot.CanonicalGameplayAssetGuids.Count, Is.GreaterThanOrEqualTo(1));
-            Assert.That(report.CanonicalGameplayWithLegacyPresentationIds, Is.Empty);
-            Assert.That(report.NonCanonicalGameplayWithLegacyPresentationIds, Is.Empty);
             Assert.That(report.BuildSceneResiduePaths, Is.Empty);
             Assert.That(report.BuildSceneCoverageGapPaths, Is.Empty);
             Assert.That(report.DuplicateLegacyGameplayAssetPaths, Is.Empty);

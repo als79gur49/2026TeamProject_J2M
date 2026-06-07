@@ -1470,7 +1470,7 @@ Migration flags own only new Gameplay VFX lane playback. When a migration flag i
 
 Augmentation flags do not own legacy fallback or suppress gates. They may add Gameplay VFX lane playback alongside existing presentation behavior, but missing binding remains diagnostic/no-op and must not create a new old-path ownership rule. `EnableGameplayVfxBoxSlideTrail`, enemy damage burst, and enemy jump cue flags have no legacy suppress gate.
 
-High-risk parameterized motion and clone/source-view VFX required manual parity approval before default-on rollout. `EnableGameplayVfxEnemyDeathBurstMigration`, `EnableGameplayVfxEnemyDeathMotionMigration`, and `EnableGameplayVfxFlipDestroySelfMotionMigration` are approved in the Tier 3 rollout batch. Their old presenter fallbacks are finalized and removed; the flags now control only new VFX playback.
+High-risk parameterized motion and clone/source-view VFX required manual rollout approval before default-on rollout. `EnableGameplayVfxEnemyDeathBurstMigration`, `EnableGameplayVfxEnemyDeathMotionMigration`, and `EnableGameplayVfxFlipDestroySelfMotionMigration` are approved in the Tier 3 rollout batch. Their old presenter fallbacks are finalized and removed; the flags now control only new VFX playback.
 
 Scene-local overrides are separate from runtime defaults:
 

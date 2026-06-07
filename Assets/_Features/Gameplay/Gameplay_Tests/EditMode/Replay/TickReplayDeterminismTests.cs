@@ -1151,7 +1151,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     priority: 5,
                     tickGenerated: 1,
                     executeAtTick: 2,
-                    sourceActionGroupId: 99,
+                    sourceActionPlanId: 99,
                     effectSequence: 1));
 
             var resultWithoutDelayedEvent = pipelineWithoutDelayedEvent.RunTick(new TickInput(1));
@@ -3228,7 +3228,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                         priority: 5,
                         tickGenerated: 1,
                         executeAtTick: 2,
-                        sourceActionGroupId: 99,
+                        sourceActionPlanId: 99,
                         effectSequence: 1),
                 });
         }

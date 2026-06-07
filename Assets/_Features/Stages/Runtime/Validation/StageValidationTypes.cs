@@ -165,8 +165,6 @@ namespace Game.Feature.Stages
 
         public StageValidationWaiverList WaiverList { get; set; }
 
-        public bool EnforceCanonicalLegacyPresentationBridgeWarnings { get; set; } = true;
-
         public IStageValidationAssetMetadataProvider AssetMetadataProvider { get; set; }
 
         internal IStageValidationAssetMetadataProvider ResolvedAssetMetadataProvider { get; private set; }
@@ -184,7 +182,6 @@ namespace Game.Feature.Stages
                 Timing = Timing,
                 Phase = Phase,
                 WaiverList = WaiverList,
-                EnforceCanonicalLegacyPresentationBridgeWarnings = EnforceCanonicalLegacyPresentationBridgeWarnings,
                 AssetMetadataProvider = AssetMetadataProvider,
                 ResolvedAssetMetadataProvider = provider,
             };

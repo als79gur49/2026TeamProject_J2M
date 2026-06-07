@@ -17,14 +17,12 @@ namespace Game.Feature.Stages.Editor
             string assetGuid,
             string assetPath,
             bool isCanonicalCatalogGameplay,
-            bool isDuplicateLegacyGameplayAsset,
-            bool hasLegacyPresentationIds)
+            bool isDuplicateLegacyGameplayAsset)
         {
             AssetGuid = assetGuid ?? string.Empty;
             AssetPath = assetPath ?? string.Empty;
             IsCanonicalCatalogGameplay = isCanonicalCatalogGameplay;
             IsDuplicateLegacyGameplayAsset = isDuplicateLegacyGameplayAsset;
-            HasLegacyPresentationIds = hasLegacyPresentationIds;
         }
 
         public string AssetGuid { get; }
@@ -34,8 +32,6 @@ namespace Game.Feature.Stages.Editor
         public bool IsCanonicalCatalogGameplay { get; }
 
         public bool IsDuplicateLegacyGameplayAsset { get; }
-
-        public bool HasLegacyPresentationIds { get; }
     }
 
     public readonly struct StageBuildSceneInventoryItem
@@ -187,8 +183,7 @@ namespace Game.Feature.Stages.Editor
                     guids[i],
                     assetPath,
                     canonicalGameplayAssetGuids.Contains(guids[i]),
-                    IsDuplicateLegacyGameplayAsset(assetPath),
-                    HasLegacyPresentationIds(stageDefinition)));
+                    IsDuplicateLegacyGameplayAsset(assetPath)));
             }
 
             return items
@@ -292,32 +287,12 @@ namespace Game.Feature.Stages.Editor
             return sceneText.Contains("\ndefaultStageId:", StringComparison.Ordinal);
         }
 
-        private static bool HasLegacyPresentationIds(StageDefinition stageDefinition)
-        {
-            if (stageDefinition == null)
-            {
-                return false;
-            }
-
-            var spawns = stageDefinition.Spawns;
-            for (var i = 0; i < spawns.Length; i++)
-            {
-                if (!string.IsNullOrWhiteSpace(spawns[i].PresentationId))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
     }
 
     public sealed class StageCompatAuditReport
     {
         public StageCompatAuditReport(
             StageContentInventorySnapshot snapshot,
-            string[] canonicalGameplayWithLegacyPresentationIds,
-            string[] nonCanonicalGameplayWithLegacyPresentationIds,
             string[] duplicateLegacyGameplayAssetPaths,
             string[] prunableAliasIds,
             string[] buildSceneResiduePaths,
@@ -325,8 +300,6 @@ namespace Game.Feature.Stages.Editor
             StageAliasUsageScanResult aliasUsage)
         {
             Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
-            CanonicalGameplayWithLegacyPresentationIds = canonicalGameplayWithLegacyPresentationIds ?? Array.Empty<string>();
-            NonCanonicalGameplayWithLegacyPresentationIds = nonCanonicalGameplayWithLegacyPresentationIds ?? Array.Empty<string>();
             DuplicateLegacyGameplayAssetPaths = duplicateLegacyGameplayAssetPaths ?? Array.Empty<string>();
             PrunableAliasIds = prunableAliasIds ?? Array.Empty<string>();
             BuildSceneResiduePaths = buildSceneResiduePaths ?? Array.Empty<string>();
@@ -335,10 +308,6 @@ namespace Game.Feature.Stages.Editor
         }
 
         public StageContentInventorySnapshot Snapshot { get; }
-
-        public IReadOnlyList<string> CanonicalGameplayWithLegacyPresentationIds { get; }
-
-        public IReadOnlyList<string> NonCanonicalGameplayWithLegacyPresentationIds { get; }
 
         public IReadOnlyList<string> DuplicateLegacyGameplayAssetPaths { get; }
 
@@ -377,16 +346,6 @@ namespace Game.Feature.Stages.Editor
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
-            var canonicalGameplayWithLegacyPresentationIds = snapshot.GameplayAssets
-                .Where(item => item.IsCanonicalCatalogGameplay && item.HasLegacyPresentationIds)
-                .Select(item => item.AssetPath)
-                .OrderBy(path => path, StringComparer.Ordinal)
-                .ToArray();
-            var nonCanonicalGameplayWithLegacyPresentationIds = snapshot.GameplayAssets
-                .Where(item => !item.IsCanonicalCatalogGameplay && item.HasLegacyPresentationIds)
-                .Select(item => item.AssetPath)
-                .OrderBy(path => path, StringComparer.Ordinal)
-                .ToArray();
             var duplicateLegacyGameplayAssetPaths = snapshot.GameplayAssets
                 .Where(item => item.IsDuplicateLegacyGameplayAsset)
                 .Select(item => item.AssetPath)
@@ -413,8 +372,6 @@ namespace Game.Feature.Stages.Editor
 
             return new StageCompatAuditReport(
                 snapshot,
-                canonicalGameplayWithLegacyPresentationIds,
-                nonCanonicalGameplayWithLegacyPresentationIds,
                 duplicateLegacyGameplayAssetPaths,
                 prunableAliasIds,
                 buildSceneResiduePaths,

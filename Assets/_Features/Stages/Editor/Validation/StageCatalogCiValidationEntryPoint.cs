@@ -232,8 +232,6 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine();
             writer.WriteLine("## Audit Snapshot");
             writer.WriteLine($"CanonicalGameplayAssetCount: {auditReport.Snapshot.CanonicalGameplayAssetGuids.Count}");
-            writer.WriteLine($"CanonicalGameplayAssetsWithLegacyPresentationIds: {auditReport.CanonicalGameplayWithLegacyPresentationIds.Count}");
-            writer.WriteLine($"NonCanonicalGameplayAssetsWithLegacyPresentationIds: {auditReport.NonCanonicalGameplayWithLegacyPresentationIds.Count}");
             writer.WriteLine($"DuplicateLegacyGameplayAssetCount: {auditReport.DuplicateLegacyGameplayAssetPaths.Count}");
             writer.WriteLine($"BuildSceneResidueCount: {auditReport.BuildSceneResiduePaths.Count}");
             writer.WriteLine($"BuildSceneDirectPlayCatalogCoverageGapCount: {auditReport.BuildSceneCoverageGapPaths.Count}");
@@ -243,8 +241,6 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine($"AliasSerializedAssetHitCount: {auditReport.AliasUsage.SerializedAssetHitCount}");
             writer.WriteLine($"AliasDocsOrExamplesHitCount: {auditReport.AliasUsage.DocsOrExamplesHitCount}");
             writer.WriteLine();
-            WriteLines(writer, "Canonical Gameplay With Legacy PresentationIds", auditReport.CanonicalGameplayWithLegacyPresentationIds);
-            WriteLines(writer, "Non-Canonical Gameplay With Legacy PresentationIds", auditReport.NonCanonicalGameplayWithLegacyPresentationIds);
             WriteLines(writer, "Duplicate Legacy Gameplay Assets", auditReport.DuplicateLegacyGameplayAssetPaths);
             WriteLines(writer, "Prunable Alias Candidates", auditReport.PrunableAliasIds);
             WriteLines(writer, "Build Scene Residues", auditReport.BuildSceneResiduePaths);

@@ -4,7 +4,7 @@ Date: 2026-05-02
 
 ## Decision
 
-Phase 4 removes player legacy ordinary fallback authorization from the runtime path. A player ordinary `MoveIntent` that reaches legacy expansion is rejected even under `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline`.
+Phase 4 removes player legacy ordinary fallback authorization from the runtime path. A player ordinary `MoveIntent` that reaches legacy expansion is rejected even under `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`.
 
 This is a player-only pilot. At Phase 4, enemy ordinary fallback and Charge active fallback remained supported; after glide default adoption, only flag-off glide fallback, retained grid transactions, `MoveEntity`, and `MovementExpander` remain supported.
 
@@ -12,7 +12,7 @@ Phase 5 supersedes the enemy portion of this status. Enemy ordinary fallback is 
 
 Phase 6 supersedes the Charge portion of this status. Charge active fallback is now rejected under `LegacyOrdinaryFallbackBaseline` with `ChargeLegacyFallbackRemovedFromRuntime`.
 
-Phase 8B/8C renames the current diagnostic preset to `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`; `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` remains a deprecated compatibility alias for historical Phase 4 tests.
+Phase 8B/8C renames the current diagnostic preset to `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`; `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` remains a deprecated compatibility alias for historical Phase 4 tests.
 
 ## Runtime Policy
 
@@ -20,7 +20,7 @@ Phase 8B/8C renames the current diagnostic preset to `GameplayRuntimeFeatureFlag
 
 - `DefaultGameplayLocomotion`, Free2D-on, and player kinematic-on lanes keep the existing `PlayerCoveredLocomotionReachedLegacyExpansion` leak reason.
 - `GameplayRuntimeFeatureFlags.None` keeps the Phase 3 `LegacyOrdinaryFallbackRequiresExplicitBaseline` reason.
-- `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` now rejects player ordinary fallback with `PlayerLegacyFallbackRemovedFromRuntime`.
+- `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` now rejects player ordinary fallback with `PlayerLegacyFallbackRemovedFromRuntime`.
 - At Phase 4, enemy ordinary fallback and Charge active fallback remained allowed when `EnableLegacyOrdinaryUnitFallback` was true. Phase 5/6 supersede those allowances.
 
 Retained grid transactions still pass the grid transaction allowlist before player fallback removal applies. Topology handoff, box/action materialization, spawn, respawn, cleanup, scripted relocation, anchor normalization, `MoveEntity`, and the `MovementExpander` grid branch are not deletion targets.
@@ -29,7 +29,7 @@ Retained grid transactions still pass the grid transaction allowlist before play
 
 Phase 4 canonical canaries:
 
-- `Phase4_LegacyOrdinaryFallbackBaseline_PlayerFallbackRemoved`
+- `Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved`
 - `Phase4_None_PlayerFallbackStillBlocked`
 - `Phase4_DefaultGameplay_PlayerFallbackStillAbsent`
 - `Phase4_PlayerKinematicFlagOn_NoLegacyFallback`

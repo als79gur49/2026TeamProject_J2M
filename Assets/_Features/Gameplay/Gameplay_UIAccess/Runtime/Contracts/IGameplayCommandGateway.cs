@@ -7,9 +7,5 @@ namespace Game.Feature.Gameplay.UIAccess.Contracts
         GameplayCommandAcceptance SetHeldMoveDirection(GameplayUiDirection direction);
 
         GameplayCommandAcceptance ClearHeldMoveDirection();
-
-        GameplayCommandAcceptance RequestPush(GameplayUiDirection direction);
-
-        GameplayCommandAcceptance RequestFlip(GameplayUiDirection direction);
     }
 }

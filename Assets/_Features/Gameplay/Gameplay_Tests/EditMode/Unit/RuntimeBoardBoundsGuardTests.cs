@@ -58,14 +58,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void HostConfiguration_LegacyOrdinaryFallbackBaseline_IsNotSceneExposed()
+        public void HostConfiguration_RemovedDiagnosticBaseline_IsNotSceneExposed()
         {
             var configuration = new GameplaySceneHostConfiguration();
 
-            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline);
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
             var flags = configuration.CreateRuntimeFeatureFlags();
 
-            Assert.That(GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline.EnableLegacyOrdinaryUnitFallback, Is.True);
+            Assert.That(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.EnableLegacyOrdinaryUnitFallback, Is.True);
             Assert.That(flags.EnableLegacyOrdinaryUnitFallback, Is.False);
             Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.False);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.False);
@@ -671,7 +671,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
                 host.Initialize(configuration);
 
-                Assert.That(host.UiAccess.CommandGateway.RequestPush(GameplayUiDirection.Right).Accepted, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
                 var startTick = host.InputHost.RunSingleTick();
                 var windupTick = host.InputHost.RunSingleTick();
                 var executeTick = host.InputHost.RunSingleTick();
@@ -880,7 +881,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(host.ViewRegistry.TryGetView(10, out _), Is.False);
 
-                Assert.That(host.UiAccess.CommandGateway.RequestPush(GameplayUiDirection.Right).Accepted, Is.True);
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
                 var startTick = host.InputHost.RunSingleTick();
                 var windupTick = host.InputHost.RunSingleTick();
                 var executeTick = host.InputHost.RunSingleTick();

@@ -31,7 +31,7 @@
   - public/test/doc/trace surface에서 먼저 끊고, 이후 runtime core 밖 참조가 정리되면 `internal`로 축소한다.
 - `ImpactReservation`
   - semantic contract는 유지한다.
-  - `SourceActionGroupId`, `ReservationSequence`는 trace/tests decoupling 이후 제거 대상이다.
+  - `SourceActionPlanId`, `ReservationSequence`는 trace/tests decoupling 이후 제거 대상이다.
 - `ImpactReservationBuffer`
   - 최종 inter-phase handoff는 `ImpactReservationBuffer`로 본다.
   - explicit `MovementPhaseResult -> Attack input` handoff는 현재 `MovementPhaseResult`가 `SortedIntents`, `ExpandedCandidates`, `PlanFinalizationBatch`, `PreMovementStatePhaseResult` 등 internal IR aggregate를 포함하므로 도입하지 않는다.
@@ -76,7 +76,7 @@
     - old mixed file/class `FlipInteractionPresentationTests`는 제거했다.
     - public observable row는 새 `GameplayFlipInteractionObservableTests`로 옮겼다.
       - committed root transform invariance를 `GameplayEntityView.transform.localPosition` baseline으로 읽는다.
-      - `PlayerFlipInteractionDriver` hand IK target이 execute / active 동안 hand rest pose에서 이탈하고 completion 후 rest pose로 복귀하는지 본다.
+      - Historical row: player hand IK target이 execute / active 동안 hand rest pose에서 이탈하고 completion 후 rest pose로 복귀하는지 봤다. Current product removes that player-side hand path and retains box-side presentation coverage.
       - `BoxFlipInteractionDriver` visual root local offset / rotation이 execute / active 동안 base pose에서 이탈하고 completion 후 base pose로 복귀하는지 본다.
       - public coordinator는 flip-specific signal을 노출하지 않으므로 broad oracle은 `GameplayTickViewPresenter.CurrentPresentationPhase`의 `EntityMotion -> Idle`, `IsPresentationActive true -> false`, root/child transform 차이만 사용한다.
     - planner/phase machine rows는 새 `FlipInteractionPlannerInternalTests`로 옮겼다.
@@ -99,11 +99,11 @@
 ## Producer-side IR Cleanup Follow-up
 - `ImpactReservation`
   - public semantic surface는 `SourceId`, `TargetId`, `Position`, `Damage`, `TickGenerated`만 남긴다.
-  - `SourceActionGroupId`, `ReservationSequence`는 public contract에서 제거하고 internal provenance/order metadata로만 유지한다.
+  - `SourceActionPlanId`, `ReservationSequence`는 public contract에서 제거하고 internal provenance/order metadata로만 유지한다.
   - same-tick reservation drain ordering과 replay determinism은 유지한다.
 - result carrier provenance naming
   - post-plan runtime/canonical carrier의 plan correlation key는 `ActionPlanId`로 통일한다.
-  - `DamageResolutionRecord.GroupId`, `DestroyResolutionRecord.GroupId`, `DelayedAttackEffectRecord.SourceActionGroupId`는 compatibility alias로만 남기고 새 runtime reader는 읽지 않는다.
+  - `DamageResolutionRecord.GroupId`, `DestroyResolutionRecord.GroupId`, `DelayedAttackEffectRecord.SourceActionGroupId`는 removed compatibility alias이며 새 runtime reader는 읽지 않는다.
   - `IntentId`는 canonical internal carry-forward ID로 유지하되, result carrier의 semantic field와 혼동하지 않는다.
   - structured trace `Plan=` / `SourcePlan=`는 canonical structured trace surface로 고정한다. free-form `G=` token은 compatibility token in free-form event log로만 남기며 old semantic GroupId revival로 해석하지 않는다.
   - `G=` rename은 지금 하지 않는다. semantic gain 없이 runtime emitters와 textual assertions를 넓게 건드려 불필요한 red를 만들기 때문이다.

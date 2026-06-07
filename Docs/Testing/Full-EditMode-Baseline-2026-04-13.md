@@ -52,7 +52,7 @@
 ## Producer-side IR cleanup snapshot
 
 - declaration changes
-  - `ImpactReservation`의 public metadata fields `SourceActionGroupId`, `ReservationSequence` 제거
+  - `ImpactReservation`의 public metadata fields `SourceActionPlanId`, `ReservationSequence` 제거
   - `ActionGroup`, `ActionGroupKind`, `ActionGroupComparer`를 `internal`로 축소
 - usage changes
   - `TickTraceFormatter`에서 `Attack.NormalizedInputs` section 제거
@@ -211,7 +211,7 @@
   - old mixed file/class `FlipInteractionPresentationTests.cs`는 제거했다.
   - public observable row는 새 `GameplayFlipInteractionObservableTests.cs`로 옮겼다.
     - execute / active 동안 committed root local pose는 불변이어야 한다.
-    - execute / active 동안 `PlayerFlipInteractionDriver` hand IK target과 `BoxFlipInteractionDriver` visual root는 base/rest pose에서 이탈해야 한다.
+    - Historical baseline: execute / active 동안 player hand IK target과 `BoxFlipInteractionDriver` visual root는 base/rest pose에서 이탈해야 했다. Current product removes the player hand IK path and keeps the box-side visual root expectation.
     - completion 후 broad phase는 `EntityMotion -> Idle`로 돌아오고, child visuals는 base/rest pose로 복귀해야 한다.
   - planner/phase machine rows는 새 `FlipInteractionPlannerInternalTests.cs`로 옮겼다.
     - `FlipInteractionTrack` / `FlipInteractionPhase` phase machine 검증 1건

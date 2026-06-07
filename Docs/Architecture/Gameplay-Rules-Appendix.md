@@ -219,7 +219,7 @@
   - `SourceActionPlanId`
   - `EffectSequence`
 - canonical runtime reader는 plan-level correlation에서 `GroupId`가 아니라 `ActionPlanId` 계열을 사용한다.
-- `GroupId` / `SourceActionGroupId` wording은 compatibility diagnostics surface일 뿐 canonical rule text가 아니다.
+- `GroupId` / `SourceActionGroupId` wording은 removed compatibility diagnostics surface일 뿐 canonical rule text가 아니다.
 - source-of-truth reading order는 typed runtime carrier -> canonical structured trace `Plan=` / `SourcePlan=` -> free-form compatibility log `G=`다.
 - free-form `G=` token은 human-readable compatibility surface일 뿐이며 canonical parser input이 아니다. current `ActionPlanId` value를 mirror하지만 obsolete alias token이지 old semantic GroupId revival이 아니다.
 - trace/debug/log를 볼 때 primary source-of-truth는 `ActionPlanId` / `SourceActionPlanId`와 canonical structured trace `Plan=` / `SourcePlan=`다.

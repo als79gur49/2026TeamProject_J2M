@@ -46,20 +46,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(registry.TryGetView(10, out var playerView), Is.True);
                 Assert.That(registry.TryGetView(20, out var boxView), Is.True);
-                Assert.That(viewFactory.PlayerHandRestAnchor, Is.Not.Null);
-                Assert.That(viewFactory.PlayerHandIkTarget, Is.Not.Null);
                 Assert.That(viewFactory.BoxVisualRoot, Is.Not.Null);
 
                 var playerRootBaseline = playerView.transform.localPosition;
                 var boxRootBaseline = boxView.transform.localPosition;
-                var handRestWorldPose = new Pose(
-                    viewFactory.PlayerHandRestAnchor.position,
-                    viewFactory.PlayerHandRestAnchor.rotation);
                 var boxVisualBaseLocalPosition = viewFactory.BoxVisualRoot.localPosition;
                 var boxVisualBaseLocalRotation = viewFactory.BoxVisualRoot.localRotation;
 
-                AssertPositionApproximately(viewFactory.PlayerHandIkTarget.position, handRestWorldPose.position);
-                AssertRotationApproximately(viewFactory.PlayerHandIkTarget.rotation, handRestWorldPose.rotation);
                 AssertPositionApproximately(viewFactory.BoxVisualRoot.localPosition, boxVisualBaseLocalPosition);
                 AssertRotationApproximately(viewFactory.BoxVisualRoot.localRotation, boxVisualBaseLocalRotation);
 
@@ -92,9 +85,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AssertPositionApproximately(playerView.transform.localPosition, playerRootBaseline);
                 AssertPositionApproximately(boxView.transform.localPosition, boxRootBaseline);
                 Assert.That(
-                    Vector3.Distance(viewFactory.PlayerHandIkTarget.position, handRestWorldPose.position),
-                    Is.GreaterThan(0.001f));
-                Assert.That(
                     Vector3.Distance(viewFactory.BoxVisualRoot.localPosition, boxVisualBaseLocalPosition),
                     Is.GreaterThan(0.001f));
                 Assert.That(
@@ -107,9 +97,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.IsPresentationActive, Is.True);
                 AssertPositionApproximately(playerView.transform.localPosition, playerRootBaseline);
                 AssertPositionApproximately(boxView.transform.localPosition, boxRootBaseline);
-                Assert.That(
-                    Vector3.Distance(viewFactory.PlayerHandIkTarget.position, handRestWorldPose.position),
-                    Is.GreaterThan(0.001f));
                 Assert.That(
                     Vector3.Distance(viewFactory.BoxVisualRoot.localPosition, boxVisualBaseLocalPosition),
                     Is.GreaterThan(0.001f));
@@ -142,8 +129,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.IsPresentationActive, Is.False);
                 AssertPositionApproximately(playerView.transform.localPosition, playerRootBaseline);
                 AssertPositionApproximately(boxView.transform.localPosition, boxRootBaseline);
-                AssertPositionApproximately(viewFactory.PlayerHandIkTarget.position, handRestWorldPose.position);
-                AssertRotationApproximately(viewFactory.PlayerHandIkTarget.rotation, handRestWorldPose.rotation);
                 AssertPositionApproximately(viewFactory.BoxVisualRoot.localPosition, boxVisualBaseLocalPosition);
                 AssertRotationApproximately(viewFactory.BoxVisualRoot.localRotation, boxVisualBaseLocalRotation);
             }
@@ -228,10 +213,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 _parent = parent;
             }
 
-            public Transform PlayerHandRestAnchor { get; private set; }
-
-            public Transform PlayerHandIkTarget { get; private set; }
-
             public Transform BoxVisualRoot { get; private set; }
 
             public GameplayEntityView CreateView(in EntityState entity)
@@ -248,18 +229,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 if (entity.type == EntityType.Unit &&
                     entity.unitRole == UnitRole.Player)
                 {
-                    PlayerHandRestAnchor = new GameObject("HandRestAnchor").transform;
-                    PlayerHandRestAnchor.SetParent(view.transform, worldPositionStays: false);
-                    PlayerHandRestAnchor.localPosition = new Vector3(0.1f, 0.2f, 0.3f);
-
-                    PlayerHandIkTarget = new GameObject("HandIkTarget").transform;
-                    PlayerHandIkTarget.SetParent(view.transform, worldPositionStays: false);
-                    PlayerHandIkTarget.localPosition = PlayerHandRestAnchor.localPosition;
-                    PlayerHandIkTarget.localRotation = PlayerHandRestAnchor.localRotation;
-
-                    var playerDriver = viewObject.AddComponent<PlayerFlipInteractionDriver>();
-                    PlayerViewPrefabTestUtility.SetSerializedField(playerDriver, "handRestAnchor", PlayerHandRestAnchor);
-                    PlayerViewPrefabTestUtility.SetSerializedField(playerDriver, "handIkTarget", PlayerHandIkTarget);
                     return view;
                 }
 
