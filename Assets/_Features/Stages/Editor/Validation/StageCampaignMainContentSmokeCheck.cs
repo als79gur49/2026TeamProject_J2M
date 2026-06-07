@@ -139,6 +139,7 @@ namespace Game.Feature.Stages.Editor
             var entryGuid = AssetDatabase.AssetPathToGUID(entryPath);
             ValidateOwner(entry, entry.GameplayDefinition, nameof(entry.GameplayDefinition), entryGuid, errors);
             ValidateOwner(entry, entry.PresentationDefinition, nameof(entry.PresentationDefinition), entryGuid, errors);
+            ValidateOwner(entry, entry.AudioDefinition, nameof(entry.AudioDefinition), entryGuid, errors);
             ValidateOwner(entry, entry.ClearEvaluationDefinition, nameof(entry.ClearEvaluationDefinition), entryGuid, errors);
             ValidateOwner(entry, entry.RewardDefinition, nameof(entry.RewardDefinition), entryGuid, errors);
             ValidateOwner(entry, entry.ProgressionDefinition, nameof(entry.ProgressionDefinition), entryGuid, errors);

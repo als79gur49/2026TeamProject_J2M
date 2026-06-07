@@ -147,7 +147,7 @@ namespace Game.Feature.Stages.Editor
                     }
 
                     var asset = AssetDatabase.LoadMainAssetAtPath(path);
-                    if (asset == null || !IsAllowedStageFolderAsset(asset))
+                    if (asset == null || !IsAllowedStageFolderAsset(path, stageFolder, asset))
                     {
                         AddPathError(
                             report,
@@ -382,7 +382,20 @@ namespace Game.Feature.Stages.Editor
             return result;
         }
 
-        private static bool IsAllowedStageFolderAsset(UnityEngine.Object asset)
+        private static bool IsAllowedStageFolderAsset(
+            string assetPath,
+            string stageFolder,
+            UnityEngine.Object asset)
+        {
+            if (asset is StageAudioDefinition audio)
+            {
+                return IsStageAudioCompanionAsset(assetPath, stageFolder, audio);
+            }
+
+            return IsAllowedStageFolderAssetType(asset);
+        }
+
+        private static bool IsAllowedStageFolderAssetType(UnityEngine.Object asset)
         {
             var type = asset.GetType();
             for (var i = 0; i < AllowedStageFolderAssetTypes.Length; i++)
@@ -394,6 +407,66 @@ namespace Game.Feature.Stages.Editor
             }
 
             return false;
+        }
+
+        private static bool IsStageAudioCompanionAsset(
+            string assetPath,
+            string stageFolder,
+            StageAudioDefinition audio)
+        {
+            if (audio == null ||
+                !IsUnder(stageFolder, StageContentPaths.CampaignLevel01StagesRoot))
+            {
+                return false;
+            }
+
+            var stageIdValue = Path.GetFileName(stageFolder);
+            if (!StageId.TryCreate(stageIdValue, out var stageId) ||
+                !string.Equals(stageId.Value, stageIdValue, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!string.Equals(
+                    Path.GetFileName(assetPath),
+                    $"{stageId.Value}_Audio.asset",
+                    StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var owner = audio.OwnerEntry;
+            if (owner == null ||
+                !owner.StageId.Equals(stageId))
+            {
+                return false;
+            }
+
+            var ownerPath = AssetDatabase.GetAssetPath(owner);
+            if (string.IsNullOrWhiteSpace(ownerPath) ||
+                !string.Equals(Path.GetDirectoryName(ownerPath)?.Replace('\\', '/'), stageFolder, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var ownerGuid = AssetDatabase.AssetPathToGUID(ownerPath);
+            if (string.IsNullOrWhiteSpace(ownerGuid) ||
+                !string.Equals(audio.OwnerEntryGuid, ownerGuid, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var referencedAudio = owner.AudioDefinition;
+            if (referencedAudio == null)
+            {
+                return false;
+            }
+
+            var audioGuid = AssetDatabase.AssetPathToGUID(assetPath);
+            var referencedAudioPath = AssetDatabase.GetAssetPath(referencedAudio);
+            var referencedAudioGuid = AssetDatabase.AssetPathToGUID(referencedAudioPath);
+            return !string.IsNullOrWhiteSpace(audioGuid) &&
+                   string.Equals(referencedAudioGuid, audioGuid, StringComparison.Ordinal);
         }
 
         private static bool IsContentDependency(string path)
