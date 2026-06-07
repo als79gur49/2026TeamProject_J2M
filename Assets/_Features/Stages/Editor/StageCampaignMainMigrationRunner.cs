@@ -79,6 +79,7 @@ namespace Game.Feature.Stages.Editor
                 new StageCatalogValidationOptions
                 {
                     RequirePresentationDefinition = true,
+                    RequireAudioDefinition = true,
                     RequireClearEvaluationDefinition = true,
                     RequireRewardDefinition = true,
                     RequireProgressionDefinition = true,
@@ -845,7 +846,6 @@ namespace Game.Feature.Stages.Editor
                 "Assets/_Features/UI",
                 "Assets/_Features/Flow/Flow_Audio",
                 "Assets/_Shared/Audio",
-                "Assets/_Shared/AudioContracts",
             });
             WriteIssues(writer, "Catalog Validation Issues", report.CatalogReport);
             WriteIssues(writer, "Campaign Governance Issues", report.GovernanceReport);

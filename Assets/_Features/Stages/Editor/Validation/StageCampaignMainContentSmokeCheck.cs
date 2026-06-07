@@ -131,6 +131,7 @@ namespace Game.Feature.Stages.Editor
         {
             RequireCompanion(entry, entry.GameplayDefinition, nameof(entry.GameplayDefinition), errors);
             RequireCompanion(entry, entry.PresentationDefinition, nameof(entry.PresentationDefinition), errors);
+            RequireCompanion(entry, entry.AudioDefinition, nameof(entry.AudioDefinition), errors);
             RequireCompanion(entry, entry.ClearEvaluationDefinition, nameof(entry.ClearEvaluationDefinition), errors);
             RequireCompanion(entry, entry.RewardDefinition, nameof(entry.RewardDefinition), errors);
             RequireCompanion(entry, entry.ProgressionDefinition, nameof(entry.ProgressionDefinition), errors);

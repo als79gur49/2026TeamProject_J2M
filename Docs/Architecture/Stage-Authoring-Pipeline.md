@@ -5,7 +5,8 @@
 Stage content remains data-driven through `StageContentEntry`.
 The gameplay scene/bootstrap scene still resolves a `StageId`, loads the entry,
 builds `StageDefinition` with `StageRuntimeBuilder`, resolves
-`StagePresentationDefinition` with `StagePresentationAssembler`, and composes the
+`StagePresentationDefinition` with `StagePresentationAssembler`, resolves
+`StageAudioDefinition` with `StageAudioAssembler`, and composes the
 same runtime scene.
 
 This pipeline does not create one Unity scene per stage. Production scene
@@ -21,11 +22,18 @@ stable authoring identity.
 and does not receive prefab references, view bindings, UI text ownership, or audio
 playback ownership.
 
-`StagePresentationDefinition` remains the presentation companion. The generator
+`StagePresentationDefinition` remains the visual/text presentation companion. The generator
 syncs entity-id based enemy/static presentation bindings while preserving display
-metadata, preview/background, BGM reference, catalogs, and result text.
+metadata, preview/background, catalogs, and result text.
 Presentation metadata preservation is a pipeline invariant, not a generate
 option.
+
+`StageAudioDefinition` remains the stage audio companion. StageAudioDefinition v1
+supports only gameplay BGM through `gameplayBgm` and direct authored `BgmProfile`
+metadata, but it does not execute playback. Stage result/failure BGM,
+boss/objective phase BGM, preview/menu BGM, ambience, and layered music are
+intentionally out of scope and not modeled. Runtime playback is requested through
+the audio flow path.
 
 `StagePresentationBindingNormalizer` is the narrow presentation-lane owner for
 binding normalization. Enemy and static entity presentation bindings are cloned
@@ -223,6 +231,8 @@ an authoring asset remain valid.
 - Do not generate EntityIds from placement array order.
 - Do not create one gameplay scene per stage.
 - Do not read production scene GameObjects as authoritative placement data.
+- Do not put BGM metadata back into `StagePresentationDefinition`.
+- Do not execute BGM from stage content or scene-local visual adapters.
 - Do not change `TickPipeline`, `WorldState`, `StageRuntimeBuilder`, or gameplay
   semantics for authoring convenience.
 - Do not compile `EnemyAiProfile` inside the stage generator.

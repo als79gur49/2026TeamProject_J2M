@@ -22,6 +22,8 @@ namespace Game.Feature.Flow.Audio
 
         public IBgmFlowCoordinator Coordinator => persistentRoot?.Coordinator;
 
+        public BgmRequestRouter RequestRouter => persistentRoot?.RequestRouter;
+
         private void Awake()
         {
             audioRuntimeInstaller ??= GetComponent<AudioRuntimeInstaller>();
@@ -43,6 +45,16 @@ namespace Game.Feature.Flow.Audio
             }
 
             return persistentRoot.Coordinator;
+        }
+
+        public BgmRequestRouter GetRequestRouterOrThrow()
+        {
+            if (persistentRoot?.RequestRouter == null)
+            {
+                throw new InvalidOperationException(MissingCoordinatorMessage);
+            }
+
+            return persistentRoot.RequestRouter;
         }
 
         private void ValidateInstallerOrThrow()

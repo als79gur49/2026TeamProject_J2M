@@ -9,6 +9,7 @@ namespace Game.Feature.Stages
         [SerializeField] private StageAuthoringDefinition authoringDefinition;
         [SerializeField] private StageDefinition gameplayDefinition;
         [SerializeField] private StagePresentationDefinition presentationDefinition;
+        [SerializeField] private StageAudioDefinition audioDefinition;
         [SerializeField] private StageClearEvaluationDefinition clearEvaluationDefinition;
         [SerializeField] private StageRewardDefinition rewardDefinition;
         [SerializeField] private StageProgressionDefinition progressionDefinition;
@@ -20,6 +21,8 @@ namespace Game.Feature.Stages
         public StageDefinition GameplayDefinition => gameplayDefinition;
 
         public StagePresentationDefinition PresentationDefinition => presentationDefinition;
+
+        public StageAudioDefinition AudioDefinition => audioDefinition;
 
         public StageClearEvaluationDefinition ClearEvaluationDefinition => clearEvaluationDefinition;
 
@@ -45,6 +48,11 @@ namespace Game.Feature.Stages
         public void AssignPresentationDefinition(StagePresentationDefinition definition)
         {
             presentationDefinition = definition;
+        }
+
+        public void AssignAudioDefinition(StageAudioDefinition definition)
+        {
+            audioDefinition = definition;
         }
 
         public void AssignClearEvaluationDefinition(StageClearEvaluationDefinition definition)

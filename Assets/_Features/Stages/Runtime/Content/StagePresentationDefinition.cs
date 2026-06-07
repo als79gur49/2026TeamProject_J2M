@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
-using Game.Shared.AudioContracts;
 using UnityEngine;
 
 namespace Game.Feature.Stages
@@ -42,7 +41,6 @@ namespace Game.Feature.Stages
         [SerializeField] private string summaryText = string.Empty;
         [SerializeField] private Sprite previewSprite;
         [SerializeField] private GameObject backgroundPrefab;
-        [SerializeField] private StageBgmReference bgmReference = StageBgmReference.None;
         [SerializeField] private EnemyPresentationCatalog enemyPresentationCatalog;
         [SerializeField] private EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog;
         [SerializeField] private EnemyPresentationBinding[] enemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
@@ -73,8 +71,6 @@ namespace Game.Feature.Stages
         public Sprite PreviewSprite => previewSprite;
 
         public GameObject BackgroundPrefab => backgroundPrefab;
-
-        public StageBgmReference BgmReference => bgmReference;
 
         public EnemyPresentationCatalog EnemyPresentationCatalog => enemyPresentationCatalog;
 
@@ -131,7 +127,6 @@ namespace Game.Feature.Stages
             summaryText = resolvedData.SummaryText;
             previewSprite = resolvedData.PreviewSprite;
             backgroundPrefab = resolvedData.BackgroundPrefab;
-            bgmReference = resolvedData.BgmReference;
             enemyPresentationCatalog = resolvedData.EnemyPresentationCatalog;
             enemyPresentationArchetypeCatalog = resolvedData.EnemyPresentationArchetypeCatalog;
             enemyPresentationBindings = resolvedData.EnemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();

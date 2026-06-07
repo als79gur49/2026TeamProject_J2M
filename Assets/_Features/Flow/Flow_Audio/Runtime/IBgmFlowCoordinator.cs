@@ -1,3 +1,5 @@
+using Game.Shared.Audio;
+
 namespace Game.Feature.Flow.Audio
 {
     public interface IBgmFlowCoordinator

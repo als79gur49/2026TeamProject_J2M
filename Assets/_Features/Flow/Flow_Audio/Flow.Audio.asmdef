@@ -3,7 +3,6 @@
   "rootNamespace": "Game.Feature.Flow.Audio",
   "references": [
     "Game.Shared.Audio",
-    "Game.Shared.AudioContracts",
     "Game.Feature.Stages"
   ]
 }

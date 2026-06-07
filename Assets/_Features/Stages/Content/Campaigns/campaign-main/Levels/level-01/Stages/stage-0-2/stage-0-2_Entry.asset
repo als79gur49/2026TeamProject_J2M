@@ -17,6 +17,7 @@ MonoBehaviour:
   authoringDefinition: {fileID: 11400000, guid: 8c8f48e603fba5ab231c4756be566a94, type: 2}
   gameplayDefinition: {fileID: 11400000, guid: 603d46b1caad6bc483845b131e8768c7, type: 2}
   presentationDefinition: {fileID: 11400000, guid: bd04d56f4186e6a45207af1f4470871a, type: 2}
+  audioDefinition: {fileID: 11400000, guid: c0333333333333333333333333333333, type: 2}
   clearEvaluationDefinition: {fileID: 11400000, guid: bc0f1630f906b75e3f29362c397cb7b8, type: 2}
   rewardDefinition: {fileID: 11400000, guid: 0f781cf1dcfe184eca2fbff67abb5fd8, type: 2}
   progressionDefinition: {fileID: 11400000, guid: 32aec58a74d52245a7571fe84d7b03ee, type: 2}

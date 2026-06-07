@@ -35,6 +35,11 @@ namespace Game.Feature.Flow.Audio
 
         public void StopCurrent()
         {
+            if (currentProfile == null)
+            {
+                return;
+            }
+
             playbackPort.Stop(new BgmStopRequest(BgmPlaybackTransition.Immediate));
             currentProfile = null;
         }

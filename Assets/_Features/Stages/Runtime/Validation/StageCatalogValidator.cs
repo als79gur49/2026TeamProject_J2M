@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
-using Game.Shared.AudioContracts;
 using UnityEngine;
 
 namespace Game.Feature.Stages
@@ -139,6 +138,14 @@ namespace Game.Feature.Stages
                     report);
                 ValidateCompanion(
                     entry,
+                    entry.AudioDefinition,
+                    ownerByCompanion,
+                    options.RequireAudioDefinition,
+                    "audio",
+                    options,
+                    report);
+                ValidateCompanion(
+                    entry,
                     entry.ClearEvaluationDefinition,
                     ownerByCompanion,
                     options.RequireClearEvaluationDefinition,
@@ -163,6 +170,7 @@ namespace Game.Feature.Stages
                     report);
 
                 ValidatePresentationCatalogIntegrity(entry, options, report);
+                ValidateAudioDefinition(entry, options, report);
                 ValidateObjectiveDisplay(entry, options, report);
                 ValidateEvaluationDefinition(entry, options, report);
                 ValidateRewardDefinition(entry, aliasTable, options, report);
@@ -1133,7 +1141,6 @@ namespace Game.Feature.Stages
 
             if (entry.PresentationDefinition != null)
             {
-                ValidateBgmReference(entry.PresentationDefinition.BgmReference, entry.PresentationDefinition, options, report);
                 ValidateBoardTilePresentationCatalog(entry, options, report);
                 ValidateBoardTilePresentationOverrides(entry, options, report);
                 ValidateBoardTileStyleCatalog(entry, options, report);
@@ -1143,6 +1150,31 @@ namespace Game.Feature.Stages
                 ValidateTileFeaturePresentationCatalog(entry, options, report);
                 ValidateTileFeaturePresentationBindings(entry, options, report);
                 ValidateWorldGuideInstructions(entry, options, report);
+            }
+        }
+
+        private static void ValidateAudioDefinition(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var audio = entry.AudioDefinition;
+            if (audio == null)
+            {
+                return;
+            }
+
+            var audioPath = GetAssetPath(audio, options);
+            var errors = audio.CollectValidationErrors();
+            for (var i = 0; i < errors.Count; i++)
+            {
+                report.Add(
+                    StageValidationSeverity.Error,
+                    "audio.definition.invalid",
+                    $"StageAudioDefinition '{audio.name}' is invalid: {errors[i]}",
+                    audio,
+                    audioPath,
+                    options.Timing);
             }
         }
 
@@ -3003,69 +3035,10 @@ namespace Game.Feature.Stages
             visited.Add(stageId);
         }
 
-        private static void ValidateBgmReference(
-            StageBgmReference bgmReference,
-            UnityEngine.Object context,
-            StageCatalogValidationOptions options,
-            StageValidationReport report)
-        {
-            if (!bgmReference.HasValue)
-            {
-                return;
-            }
-
-            if (!TryValidateBgmKey(bgmReference.BgmKey))
-            {
-                report.Add(
-                    StageValidationSeverity.Error,
-                    "bgm-key.invalid",
-                    $"BgmKey '{bgmReference.BgmKey}' is invalid. Use lower-kebab-case or slash-separated tokens.",
-                    context,
-                    GetAssetPath(context, options),
-                    options.Timing);
-                return;
-            }
-
-            if (options.KnownBgmKeys != null &&
-                !options.KnownBgmKeys.Contains(bgmReference.BgmKey))
-            {
-                report.Add(
-                    StageValidationSeverity.Warning,
-                    "bgm-key.unknown",
-                    $"BgmKey '{bgmReference.BgmKey}' is not present in the optional validation catalog.",
-                    context,
-                    GetAssetPath(context, options),
-                    options.Timing);
-            }
-        }
-
         private static bool TryValidateRewardRuleId(string candidate, out string normalized)
         {
             normalized = candidate?.Trim() ?? string.Empty;
             return StageIdNormalizer.IsCanonical(normalized);
-        }
-
-        private static bool TryValidateBgmKey(string bgmKey)
-        {
-            if (string.IsNullOrWhiteSpace(bgmKey))
-            {
-                return false;
-            }
-
-            for (var i = 0; i < bgmKey.Length; i++)
-            {
-                var c = bgmKey[i];
-                var isValid = (c >= 'a' && c <= 'z') ||
-                              (c >= '0' && c <= '9') ||
-                              c == '-' ||
-                              c == '/';
-                if (!isValid)
-                {
-                    return false;
-                }
-            }
-
-            return true;
         }
 
         private static StageValidationSeverity ResolveNullCompanionSeverity(StageCatalogValidationOptions options)

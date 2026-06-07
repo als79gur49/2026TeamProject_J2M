@@ -97,7 +97,6 @@ namespace Game.Feature.UI.Tests
             var requestSources = FindSceneComponents<SceneBgmRequestSource>(scene);
 
             Assert.That(requestSources, Has.Length.EqualTo(1));
-            Assert.That(ReadRepoFile(MainMenuScenePath), Does.Not.Contain("stageBgmProfileCatalog"));
         }
 
         [Test]

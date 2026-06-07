@@ -49,6 +49,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 {
                     var build = StageRuntimeBuilder.Build(entry.GameplayDefinition);
                     StagePresentationAssembler.Resolve(entry.GameplayDefinition, entry.PresentationDefinition);
+                    StageAudioAssembler.Resolve(entry.AudioDefinition);
                     CompileEnemyRuntime(entry, build);
                 }
                 catch (Exception exception)
@@ -173,6 +174,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             return new StageCatalogValidationOptions
             {
                 RequirePresentationDefinition = true,
+                RequireAudioDefinition = true,
                 RequireClearEvaluationDefinition = true,
                 RequireRewardDefinition = true,
                 RequireProgressionDefinition = true,

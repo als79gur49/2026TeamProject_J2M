@@ -122,12 +122,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void StageCatalogValidator_InvalidBgmKey_ReportsError()
+        public void StageCatalogValidator_MissingAudioCompanion_ReportsErrorWhenRequired()
         {
-            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-            SetPrivateField(presentation, "bgmReference", new Game.Shared.AudioContracts.StageBgmReference("Invalid Key"));
-            var entry = CreateEntry("stage-a", presentationDefinition: presentation);
-            presentation.SetOwnerMetadata(entry, string.Empty);
+            var entry = CreateEntry("stage-a");
+            entry.AssignAudioDefinition(null);
 
             var validator = new StageCatalogValidator();
             var report = validator.ValidateEntries(
@@ -136,10 +134,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new StageCatalogValidationOptions
                 {
                     RequirePresentationDefinition = true,
+                    RequireAudioDefinition = true,
                     Timing = StageValidationTiming.TestOrCi,
                 });
 
-            Assert.That(report.Issues.Any(issue => issue.Code == "bgm-key.invalid"), Is.True);
+            Assert.That(report.Issues.Any(issue => issue.Code == "companion.audio.null"), Is.True);
         }
 
         [Test]
@@ -508,6 +507,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static StageContentEntry CreateEntry(
             string rawStageId,
             StagePresentationDefinition presentationDefinition = null,
+            StageAudioDefinition audioDefinition = null,
             StageClearEvaluationDefinition clearEvaluationDefinition = null,
             StageRewardDefinition rewardDefinition = null,
             StageProgressionDefinition progressionDefinition = null)
@@ -519,16 +519,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             entry.AssignGameplayDefinition(CreateMinimalStageDefinition(stageId.Value));
 
             presentationDefinition ??= ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            audioDefinition ??= ScriptableObject.CreateInstance<StageAudioDefinition>();
             clearEvaluationDefinition ??= ScriptableObject.CreateInstance<StageClearEvaluationDefinition>();
             rewardDefinition ??= ScriptableObject.CreateInstance<StageRewardDefinition>();
             progressionDefinition ??= ScriptableObject.CreateInstance<StageProgressionDefinition>();
 
-            presentationDefinition.SetOwnerMetadata(entry, string.Empty);
-            clearEvaluationDefinition.SetOwnerMetadata(entry, string.Empty);
-            rewardDefinition.SetOwnerMetadata(entry, string.Empty);
-            progressionDefinition.SetOwnerMetadata(entry, string.Empty);
+            var ownerGuid = Guid.NewGuid().ToString("N");
+            presentationDefinition.SetOwnerMetadata(entry, ownerGuid);
+            audioDefinition.SetOwnerMetadata(entry, ownerGuid);
+            clearEvaluationDefinition.SetOwnerMetadata(entry, ownerGuid);
+            rewardDefinition.SetOwnerMetadata(entry, ownerGuid);
+            progressionDefinition.SetOwnerMetadata(entry, ownerGuid);
 
             entry.AssignPresentationDefinition(presentationDefinition);
+            entry.AssignAudioDefinition(audioDefinition);
             entry.AssignClearEvaluationDefinition(clearEvaluationDefinition);
             entry.AssignRewardDefinition(rewardDefinition);
             entry.AssignProgressionDefinition(progressionDefinition);
@@ -623,6 +627,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new StageCatalogValidationOptions
                 {
                     RequirePresentationDefinition = true,
+                    RequireAudioDefinition = true,
                     Timing = StageValidationTiming.TestOrCi,
                 });
         }

@@ -9,7 +9,7 @@
     "Game.Feature.Gameplay.Vfx",
     "Game.Feature.Gameplay.Vfx.Authoring",
     "Game.Feature.UI.Composition",
-    "Game.Shared.AudioContracts"
+    "Game.Shared.Audio"
   ],
   "includePlatforms": [
     "Editor"
