@@ -27,7 +27,7 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_Configuration_CarriesStageTileFeatureVisualBindings",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageBackedGameplaySceneInstallerTests.StageBackedGameplaySceneInstaller_Configuration_CarriesStageTileFeatureVisualBindings",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
@@ -36,7 +36,7 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageBackedGameplaySceneInstallerTests.StageBackedGameplaySceneInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
@@ -45,7 +45,7 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageBackedGameplaySceneInstallerTests.StageBackedGameplaySceneInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
@@ -54,7 +54,7 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.MechanicsShowcaseStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageBackedGameplaySceneInstallerTests.MechanicsShowcaseStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
@@ -63,7 +63,7 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.MechanicsShowcaseStage_BuildsEnemyProfileOverrideForConfiguredShowcaseEnemy",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageBackedGameplaySceneInstallerTests.MechanicsShowcaseStage_BuildsEnemyProfileOverrideForConfiguredShowcaseEnemy",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
@@ -72,7 +72,7 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.MechanicsShowcaseStage_BuildsJumpShowcaseProfileOverride",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageBackedGameplaySceneInstallerTests.MechanicsShowcaseStage_BuildsJumpShowcaseProfileOverride",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
@@ -81,7 +81,7 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.MechanicsShowcaseStage_BuildsRandomWalkPilotProfileOverrideForNonAttackingEnemy",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageBackedGameplaySceneInstallerTests.MechanicsShowcaseStage_BuildsRandomWalkPilotProfileOverrideForNonAttackingEnemy",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
@@ -90,7 +90,7 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.MechanicsShowcaseStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageBackedGameplaySceneInstallerTests.MechanicsShowcaseStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
@@ -99,7 +99,7 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.MechanicsShowcaseStage_PlacesConfiguredShowcaseEnemy",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageBackedGameplaySceneInstallerTests.MechanicsShowcaseStage_PlacesConfiguredShowcaseEnemy",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,
@@ -108,7 +108,7 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.MechanicsShowcaseStage_PlacesJumpShowcaseEnemyOnFarFloorLane",
+      "testFullName": "Game.Feature.Gameplay.Tests.Unit.StageBackedGameplaySceneInstallerTests.MechanicsShowcaseStage_PlacesJumpShowcaseEnemyOnFarFloorLane",
       "assembly": "Game.Feature.Gameplay.Tests.dll",
       "domain": "Gameplay",
       "authoringRelated": false,

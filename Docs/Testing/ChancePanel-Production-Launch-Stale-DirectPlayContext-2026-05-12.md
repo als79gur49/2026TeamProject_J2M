@@ -19,7 +19,7 @@ MainMenu에서 production campaign stage를 실행했는데 HUD의 ChancePanel�
 - `EditorDirectPlayMode.CampaignTempSlot` stale context가 남으면 installer가 production save namespace가 아니라 temp direct-play namespace를 본다.
 - `EditorDirectPlayMode.NonCampaign` stale context가 남으면 `SuppressCampaignFlow=true`로 평가되어 campaign runtime activation이 꺼진다.
 
-그 결과 `StageBackedGameplayShowcaseInstallerBase`에서 `CampaignRuntimeActive=false`가 되고 `CampaignChancesReadSource`가 생성되지 않았다.
+그 결과 `StageBackedGameplaySceneInstallerBase`에서 `CampaignRuntimeActive=false`가 되고 `CampaignChancesReadSource`가 생성되지 않았다.
 
 후속 흐름은 다음과 같았다.
 

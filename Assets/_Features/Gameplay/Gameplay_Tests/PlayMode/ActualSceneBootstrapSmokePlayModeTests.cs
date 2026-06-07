@@ -11,6 +11,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
 #if UNITY_EDITOR
+using UnityEditor;
 using UnityEditor.SceneManagement;
 #endif
 
@@ -20,12 +21,21 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
     {
         private const int FirstTickSmokeCount = 5;
         private const string UIAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
+#if UNITY_EDITOR
+        private const string StageBackedGameplaySceneInstallerGuid = "41909c3f1846cad878e314473f74442c";
+        private const string StageBackedGameplaySceneInstallerBasePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs";
+        private const string StageBackedGameplaySceneInstallerBaseGuid = "c22c31beb01e4098b026132a77fcc93d";
+#endif
 
         [UnityTearDown]
         public IEnumerator TearDown()
         {
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
+            CampaignChanceHudDiagnostics.Clear();
+            CampaignChanceHudDiagnostics.IsEnabled = false;
+            CampaignChanceHudDiagnostics.LogToUnityConsole = false;
             yield return CleanupSceneRuntime();
         }
 
@@ -56,35 +66,80 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 StageId.CreateOrThrow("stage-0-1"));
         }
 
-        private static IEnumerator AssertSceneBootstrapFirstFiveTicks(string scenePath, StageId stageId)
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage1_1_DirectPlayEvidence_FirstFiveTicks_NoException()
         {
-            StageLaunchContextStore.SetCurrent(stageId);
-            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
-            yield return LoadScene(scenePath);
+            yield return AssertSceneBootstrapFirstFiveTicks(
+                UIAudioScenePath,
+                StageId.CreateOrThrow("stage-1-1"),
+                assertDirectPlayEvidence: true);
+        }
 
-            Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(stageId), scenePath);
+        private static IEnumerator AssertSceneBootstrapFirstFiveTicks(
+            string scenePath,
+            StageId stageId,
+            bool assertDirectPlayEvidence = false)
+        {
+            var bootstrapRuntimeErrorCount = 0;
 
-            var hosts = Object.FindObjectsByType<GameplaySceneHost>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
-            Assert.That(hosts, Has.Length.EqualTo(1), $"{scenePath} must have exactly one active GameplaySceneHost.");
-            var host = hosts[0];
-            Assert.That(host.InputHost, Is.Not.Null, $"{scenePath} must install GameplayInputHost.");
-            Assert.That(host.Presenter, Is.Not.Null, $"{scenePath} must install GameplayTickViewPresenter.");
-            Assert.That(host.UiAccess, Is.Not.Null, $"{scenePath} must expose UIAccess as the read/intent seam.");
-
-            AssertAudioBootstrap(scenePath, host);
-            AssertUiBootstrap(scenePath);
-            AssertTopologyBootstrap(scenePath, host);
-
-            var hashes = new string[FirstTickSmokeCount];
-            for (var i = 0; i < FirstTickSmokeCount; i++)
+            void CountBootstrapRuntimeErrors(string condition, string stackTrace, LogType type)
             {
-                var result = host.InputHost.RunSingleTick();
-                yield return null;
-                Assert.That(result, Is.Not.Null, $"{scenePath} tick {i + 1} returned null.");
-                hashes[i] = string.IsNullOrEmpty(result.DeterminismHash) ? "<empty>" : result.DeterminismHash;
+                if (type == LogType.Error || type == LogType.Exception)
+                {
+                    bootstrapRuntimeErrorCount++;
+                }
             }
 
-            TestContext.WriteLine($"{scenePath} first-five determinism hashes: {string.Join(", ", hashes)}");
+            CampaignChanceHudDiagnostics.Clear();
+            CampaignChanceHudDiagnostics.IsEnabled = assertDirectPlayEvidence;
+            Application.logMessageReceived += CountBootstrapRuntimeErrors;
+            try
+            {
+                StageLaunchContextStore.SetCurrent(stageId);
+                EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+                yield return LoadScene(scenePath);
+
+                Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(stageId), scenePath);
+
+                var hosts = Object.FindObjectsByType<GameplaySceneHost>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+                Assert.That(hosts, Has.Length.EqualTo(1), $"{scenePath} must have exactly one active GameplaySceneHost.");
+                var host = hosts[0];
+                Assert.That(host.InputHost, Is.Not.Null, $"{scenePath} must install GameplayInputHost.");
+                Assert.That(host.Presenter, Is.Not.Null, $"{scenePath} must install GameplayTickViewPresenter.");
+                Assert.That(host.TickRunner, Is.Not.Null, $"{scenePath} must initialize TickRunner.");
+                Assert.That(host.WorldState, Is.Not.Null, $"{scenePath} must reach the initial gameplay state.");
+                Assert.That(host.BoardRoot, Is.Not.Null, $"{scenePath} must create the runtime board root.");
+                Assert.That(host.UiAccess, Is.Not.Null, $"{scenePath} must expose UIAccess as the read/intent seam.");
+
+                AssertAudioBootstrap(scenePath, host);
+                AssertUiBootstrap(scenePath);
+                AssertTopologyBootstrap(scenePath, host);
+                if (assertDirectPlayEvidence)
+                {
+                    AssertStage1_1DirectPlayEvidence(scenePath, stageId, host);
+                }
+
+                var hashes = new string[FirstTickSmokeCount];
+                for (var i = 0; i < FirstTickSmokeCount; i++)
+                {
+                    var result = host.InputHost.RunSingleTick();
+                    yield return null;
+                    Assert.That(result, Is.Not.Null, $"{scenePath} tick {i + 1} returned null.");
+                    hashes[i] = string.IsNullOrEmpty(result.DeterminismHash) ? "<empty>" : result.DeterminismHash;
+                }
+
+                Assert.That(
+                    bootstrapRuntimeErrorCount,
+                    Is.Zero,
+                    $"{scenePath} bootstrap/runtime console error count must be zero.");
+                TestContext.WriteLine($"{scenePath} first-five determinism hashes: {string.Join(", ", hashes)}");
+            }
+            finally
+            {
+                Application.logMessageReceived -= CountBootstrapRuntimeErrors;
+                CampaignChanceHudDiagnostics.IsEnabled = false;
+            }
         }
 
         private static void AssertAudioBootstrap(string scenePath, GameplaySceneHost host)
@@ -122,6 +177,84 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(host.GetComponent<TopologyTransitionPostFxController>(), Is.Not.Null, $"{scenePath} must install topology post-fx controller.");
             Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False, $"{scenePath} should not start stuck in a topology presentation lock.");
         }
+
+        private static void AssertStage1_1DirectPlayEvidence(
+            string scenePath,
+            StageId stageId,
+            GameplaySceneHost host)
+        {
+            Assert.That(stageId.Value, Is.EqualTo("stage-1-1"), "This evidence smoke is scoped to stage-1-1.");
+            Assert.That(scenePath, Is.EqualTo(UIAudioScenePath));
+            Assert.That(stageId.Value, Is.Not.EqualTo("mechanics-showcase"));
+            Assert.That(stageId.Value, Is.Not.EqualTo("onboarding"));
+            Assert.That(stageId.Value, Is.Not.EqualTo("legacy-stage-5-1"));
+            Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(stageId), "requested id must be stage-1-1.");
+
+            var resolveRecord = CampaignChanceHudDiagnostics.Snapshot()
+                .SingleOrDefault(record => record.Kind == CampaignChanceHudDiagnosticKind.StageResolve);
+            Assert.That(resolveRecord, Is.Not.Null, "Runtime bootstrap must record a StageResolve diagnostic.");
+            Assert.That(resolveRecord.LaunchStageId, Is.EqualTo("stage-1-1"), "resolved launch id must match the requested id.");
+            Assert.That(resolveRecord.ResolvedStageId, Is.EqualTo("stage-1-1"), "alias use must be false for canonical stage-1-1.");
+
+            var installerRecord = CampaignChanceHudDiagnostics.Snapshot()
+                .SingleOrDefault(record => record.Kind == CampaignChanceHudDiagnosticKind.Installer);
+            Assert.That(installerRecord, Is.Not.Null, "Runtime bootstrap must record installer diagnostics.");
+            Assert.That(installerRecord.LaunchStageId, Is.EqualTo("stage-1-1"));
+            Assert.That(installerRecord.ResolvedStageId, Is.EqualTo("stage-1-1"));
+            Assert.That(installerRecord.SuppressCampaignFlow, Is.True);
+            Assert.That(installerRecord.CampaignRuntimeActive, Is.False);
+
+            Assert.That(host.WorldState, Is.Not.Null, "first gameplay state reached.");
+            Assert.That(host.TickRunner.NextTickIndex, Is.GreaterThanOrEqualTo(1), "initial presentation refresh reached before manual tick smoke.");
+            AssertSceneInstallerIntegrity(scenePath);
+        }
+
+        private static void AssertSceneInstallerIntegrity(string scenePath)
+        {
+            var installers = Object.FindObjectsByType<StageBackedGameplaySceneInstaller>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            Assert.That(installers, Has.Length.EqualTo(1), $"{scenePath} must have exactly one StageBackedGameplaySceneInstaller.");
+
+#if UNITY_EDITOR
+            Assert.That(CountMissingScripts(), Is.Zero, $"{scenePath} must not contain missing MonoBehaviour scripts.");
+            var script = MonoScript.FromMonoBehaviour(installers[0]);
+            Assert.That(script, Is.Not.Null, $"{scenePath} concrete installer script must resolve.");
+            Assert.That(
+                AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(script)),
+                Is.EqualTo(StageBackedGameplaySceneInstallerGuid),
+                "concrete StageBackedGameplaySceneInstaller script GUID must stay stable.");
+            Assert.That(
+                AssetDatabase.AssetPathToGUID(StageBackedGameplaySceneInstallerBasePath),
+                Is.EqualTo(StageBackedGameplaySceneInstallerBaseGuid),
+                "base StageBackedGameplaySceneInstallerBase script GUID must stay stable.");
+#endif
+        }
+
+#if UNITY_EDITOR
+        private static int CountMissingScripts()
+        {
+            var total = 0;
+            var scene = SceneManager.GetActiveScene();
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                total += CountMissingScripts(root);
+            }
+
+            return total;
+        }
+
+        private static int CountMissingScripts(GameObject root)
+        {
+            var total = GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(root);
+            foreach (Transform child in root.transform)
+            {
+                total += CountMissingScripts(child.gameObject);
+            }
+
+            return total;
+        }
+#endif
 
         private static IEnumerator LoadScene(string scenePath)
         {

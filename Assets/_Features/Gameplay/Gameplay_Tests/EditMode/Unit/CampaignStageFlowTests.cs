@@ -453,7 +453,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
 
                 var resolvedRoot = (Transform)InvokeInstanceMethod(installer, "ResolveStageBackgroundRoot");
 
@@ -478,7 +478,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
 
                 var resolvedRoot = (Transform)InvokeInstanceMethod(installer, "ResolveStageBackgroundRoot");
 
@@ -1340,11 +1340,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
                 });
                 activeSlotProvider.SetActiveSlot(1);
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var installer = installerObject.AddComponent<StageBackedGameplaySceneInstaller>();
                 SetPrivateField(installer, "_saveSlotStore", saveStore);
                 SetPrivateField(installer, "_activeSlotProvider", activeSlotProvider);
 
-                var method = typeof(StageBackedGameplayShowcaseInstallerBase).GetMethod(
+                var method = typeof(StageBackedGameplaySceneInstallerBase).GetMethod(
                     "ValidateActiveSlotMatchesLaunchStage",
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 Assert.That(method, Is.Not.Null);
@@ -1388,7 +1388,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var provider = root.AddComponent<FakeStageLaunchRouterProvider>();
-                var method = typeof(StageBackedGameplayShowcaseInstallerBase).GetMethod(
+                var method = typeof(StageBackedGameplaySceneInstallerBase).GetMethod(
                     "CreateStageLaunchRouter",
                     BindingFlags.Static | BindingFlags.NonPublic);
                 Assert.That(method, Is.Not.Null);

@@ -232,7 +232,7 @@ namespace Game.Feature.Stages.Editor
                 var rootObjects = scene.GetRootGameObjects();
                 for (var i = 0; i < rootObjects.Length; i++)
                 {
-                    var installer = rootObjects[i].GetComponentInChildren<StageBackedGameplayShowcaseInstallerBase>(true);
+                    var installer = rootObjects[i].GetComponentInChildren<StageBackedGameplaySceneInstallerBase>(true);
                     if (installer == null)
                     {
                         continue;

@@ -36,8 +36,8 @@ Generated: 2026-05-09
 
 ## Legacy Folders
 - Deleted/emptied legacy support roots:
-  - `Assets/_Features/Stages/Stage_CombinedGameplayShowcase`
-  - `Assets/_Features/Stages/Stage_TutorialScene`
+  - the deleted legacy combined gameplay showcase stage folder under `Assets/_Features/Stages`
+  - the deleted legacy tutorial scene stage folder under `Assets/_Features/Stages`
 - Deleted/emptied loose content roots:
   - `Assets/_Features/Stages/Content/mechanics-showcase`
   - `Assets/_Features/Stages/Content/onboarding`
@@ -123,12 +123,14 @@ The ledger update is therefore part of the rename contract, not unrelated churn.
 
 ## Deferred Follow-up
 
-`CombinedGameplayShowcaseInstaller` remains as a bootstrap code symbol.
-It is not used as a StageCatalog id, StageContentEntry id, direct-play id, or alias id.
-Renaming it may affect Unity serialized MonoScript/component references in `UIAudioScene.unity`, so it is intentionally split into a separate change.
+`StageBackedGameplaySceneInstaller` is the concrete scene bootstrap installer used by `UIAudioScene`.
+It is a scene/bootstrap component, not a StageCatalog id, StageContentEntry id, direct-play id, or alias id.
+The old `CombinedGameplayShowcaseInstaller` concrete symbol was renamed with its MonoScript `.cs.meta` GUID preserved.
+`StageBackedGameplaySceneInstallerBase` is the abstract base for stage-backed gameplay scene bootstrap installers.
+The base class rename removes the old `Showcase` vocabulary from the current bootstrap composition contract without changing StageCatalog ids, StageContentEntry assets, alias governance, direct-play catalog entries, stage sequence, or save compatibility.
 
 Follow-up issue:
-`Bootstrap symbol rename: CombinedGameplayShowcaseInstaller -> StageBackedGameplayInstaller`
+`Bootstrap symbol rename: CombinedGameplayShowcaseInstaller -> StageBackedGameplaySceneInstaller` and base vocabulary cleanup complete.
 
 ## Old Token Allowlist
 
@@ -140,11 +142,10 @@ Allowed remaining runtime/governance old-token hits:
 - save compatibility:
   - retired completed `stage-5-1`
 - forbidden legacy path validators:
-  - `Stage_CombinedGameplayShowcase`
-  - `Stage_TutorialScene`
-  - deleted scene path audits
-- deferred bootstrap symbol:
-  - `CombinedGameplayShowcaseInstaller`
+  - deleted combined gameplay showcase stage path audits
+  - deleted tutorial scene stage path audits
+- concrete bootstrap scene installer:
+  - `StageBackedGameplaySceneInstaller`
 
 Allowed docs/history old-token hits:
 - historical docs/archive only
@@ -243,7 +244,7 @@ Not allowed:
 - No target failure was confirmed as a Campaign migration path/reference/value side-effect.
 - No code, test assertion, runtime asset, replay baseline, `StageDefinition`, `EnemyAiProfile`, patrol, or brain asset repair was made in this follow-up.
 - `StageRuntimeBuilderTests.StageRuntimeBuilder_CombinedShowcaseStageBuild_ReflectsCurrentConfiguredContract`: classified `C` existing baseline. The test already loads via `StageContentPaths`; the failure is current showcase asset contract drift (`BoxSpawns.Length` expected 12, actual 13, including current extra box `EntityId 201`), not old path/reference breakage.
-- `EnemyAiProfileAssetContractTests.EnemyAiProfileAssets_PatrolPilotRollout_MatchesExpectedPatrolKinds`: classified `C` existing baseline. `EnemyBrain_JumpChaser.asset` currently points at the non-attacking random-walk patrol asset; the same JumpChaser random-walk drift appears in older pre-Campaign results under `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/...`.
+- `EnemyAiProfileAssetContractTests.EnemyAiProfileAssets_PatrolPilotRollout_MatchesExpectedPatrolKinds`: classified `C` existing baseline. `EnemyBrain_JumpChaser.asset` currently points at the non-attacking random-walk patrol asset; the same JumpChaser random-walk drift appears in older pre-Campaign results under the deleted legacy combined gameplay showcase stage folder.
 - `EnemyAiProfileAssetContractTests.EnemyAiProfileAssets_ForwardArchetypes_RetainForwardPatrolKind`: classified `C` existing baseline for the same JumpChaser patrol-kind drift.
 - `EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingEnemyFrames_DoesNotChangeLaterTickAuthoritativeResults`: classified `C` existing gameplay/presentation baseline. The test uses generated in-memory test profiles and views, not Campaign presentation assets or moved prefab paths.
 - `EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingEnemyMotionAuthoring_DoesNotChangeLocomotionCooldownAuthority`: classified `C` existing gameplay/presentation baseline. The test uses generated in-memory test profiles and views, not Campaign presentation assets or moved prefab paths.

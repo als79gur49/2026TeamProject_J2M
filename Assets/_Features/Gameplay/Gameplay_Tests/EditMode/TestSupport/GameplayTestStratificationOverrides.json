@@ -3116,7 +3116,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayShowcaseInstaller_DefaultBundle_IncludesGlideKinematic",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageBackedGameplaySceneInstallerTests.StageBackedGameplaySceneInstaller_DefaultBundle_IncludesGlideKinematic",
       "category": "Full",
       "contracts": [
         "enemy_kinematic_locomotion"

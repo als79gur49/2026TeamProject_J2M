@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
-    public class CombinedGameplayShowcaseInstaller : StageBackedGameplayShowcaseInstallerBase
+    public class StageBackedGameplaySceneInstaller : StageBackedGameplaySceneInstallerBase
     {
         [SerializeField] private GameplayEntityView playerViewPrefab;
 

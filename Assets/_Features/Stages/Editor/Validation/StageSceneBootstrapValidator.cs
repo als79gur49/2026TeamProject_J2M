@@ -91,7 +91,7 @@ namespace Game.Feature.Stages.Editor
                     for (var rootIndex = 0; rootIndex < installers.Length; rootIndex++)
                     {
                         var stageInstaller = installers[rootIndex]
-                            .GetComponentInChildren<StageBackedGameplayShowcaseInstallerBase>(true);
+                            .GetComponentInChildren<StageBackedGameplaySceneInstallerBase>(true);
                         if (stageInstaller == null)
                         {
                             continue;
@@ -160,7 +160,7 @@ namespace Game.Feature.Stages.Editor
                 var hasStageInstaller = false;
                 for (var i = 0; i < installers.Length; i++)
                 {
-                    var stageInstaller = installers[i].GetComponentInChildren<StageBackedGameplayShowcaseInstallerBase>(true);
+                    var stageInstaller = installers[i].GetComponentInChildren<StageBackedGameplaySceneInstallerBase>(true);
                     if (stageInstaller == null)
                     {
                         continue;
@@ -189,7 +189,7 @@ namespace Game.Feature.Stages.Editor
 
         private static void ValidateInstaller(
             string scenePath,
-            StageBackedGameplayShowcaseInstallerBase installer,
+            StageBackedGameplaySceneInstallerBase installer,
             StageEditorDirectPlayCatalog directPlayCatalog,
             IDictionary<StageId, string> cameraTopologyPresetPathByStageId,
             StageCatalogValidationOptions options,
@@ -337,7 +337,7 @@ namespace Game.Feature.Stages.Editor
 
         private static void ValidateCameraTopologyAuthoring(
             string scenePath,
-            StageBackedGameplayShowcaseInstallerBase installer,
+            StageBackedGameplaySceneInstallerBase installer,
             StageEditorDirectPlayCatalog directPlayCatalog,
             IDictionary<StageId, string> cameraTopologyPresetPathByStageId,
             StageCatalogValidationOptions options,

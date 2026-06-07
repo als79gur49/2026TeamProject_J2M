@@ -120,7 +120,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 try
                 {
-                    var installer = Object.FindFirstObjectByType<CombinedGameplayShowcaseInstaller>();
+                    var installer = Object.FindFirstObjectByType<StageBackedGameplaySceneInstaller>();
                     Assert.That(installer, Is.Not.Null, $"Missing installer in {scene.path}.");
                     var authoring = installer.GetComponent<GameplayCameraTopologyAuthoring>();
                     Assert.That(authoring, Is.Not.Null, $"Missing {nameof(GameplayCameraTopologyAuthoring)} in {scene.path}.");
@@ -148,7 +148,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var installer = Object.FindFirstObjectByType<CombinedGameplayShowcaseInstaller>();
+                var installer = Object.FindFirstObjectByType<StageBackedGameplaySceneInstaller>();
                 Assert.That(installer, Is.Not.Null);
                 var authoring = installer.GetComponent<GameplayCameraTopologyAuthoring>();
                 Assert.That(authoring, Is.Not.Null);

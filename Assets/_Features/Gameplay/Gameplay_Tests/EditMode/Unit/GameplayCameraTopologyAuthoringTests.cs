@@ -646,13 +646,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var owner = rootObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var owner = rootObject.AddComponent<StageBackedGameplaySceneInstaller>();
 
                 var exception = Assert.Throws<InvalidOperationException>(
                     () => GameplayCameraTopologyAuthoring.GetRequiredValidated(owner));
 
                 Assert.That(exception?.Message, Does.Contain(nameof(GameplayCameraTopologyAuthoring)));
-                Assert.That(exception?.Message, Does.Contain(nameof(CombinedGameplayShowcaseInstaller)));
+                Assert.That(exception?.Message, Does.Contain(nameof(StageBackedGameplaySceneInstaller)));
             }
             finally
             {
@@ -901,7 +901,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string QualityPostFxPresetAssetPath =
             StageContentPaths.SharedTopologyPresentationRoot + "/CameraProfiles/GameplayCameraTopologyPreset_CampaignMainQualityPostFx.asset";
         private const string GameplayShellInstallerMarker =
-            "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
+            "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.StageBackedGameplaySceneInstaller";
         private const string GameplayCameraTopologyAuthoringMarker =
             "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayCameraTopologyAuthoring";
 
@@ -1185,7 +1185,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 try
                 {
-                    var installer = Object.FindFirstObjectByType<CombinedGameplayShowcaseInstaller>();
+                    var installer = Object.FindFirstObjectByType<StageBackedGameplaySceneInstaller>();
                     Assert.That(installer, Is.Not.Null);
                     var authoring = installer.GetComponent<GameplayCameraTopologyAuthoring>();
                     Assert.That(authoring, Is.Not.Null);
@@ -1222,7 +1222,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 try
                 {
-                    var installer = Object.FindFirstObjectByType<CombinedGameplayShowcaseInstaller>();
+                    var installer = Object.FindFirstObjectByType<StageBackedGameplaySceneInstaller>();
                     Assert.That(installer, Is.Not.Null);
                     var authoring = installer.GetComponent<GameplayCameraTopologyAuthoring>();
                     Assert.That(authoring, Is.Not.Null);
@@ -1261,7 +1261,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 try
                 {
-                    var installer = Object.FindFirstObjectByType<CombinedGameplayShowcaseInstaller>();
+                    var installer = Object.FindFirstObjectByType<StageBackedGameplaySceneInstaller>();
                     Assert.That(installer, Is.Not.Null);
                     var authoring = installer.GetComponent<GameplayCameraTopologyAuthoring>();
                     Assert.That(authoring, Is.Not.Null);
@@ -1284,7 +1284,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static GameplaySceneHostConfiguration BuildConfiguration(
-            CombinedGameplayShowcaseInstaller installer,
+            StageBackedGameplaySceneInstaller installer,
             string scenePath)
         {
             var buildInitialGameplayState = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(

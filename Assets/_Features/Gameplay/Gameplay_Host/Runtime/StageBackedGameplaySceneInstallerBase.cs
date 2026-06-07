@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Host
 {
     [DisallowMultipleComponent]
-    public abstract class StageBackedGameplayShowcaseInstallerBase : GameplayShowcaseSceneInstallerBase, IDemoStageControlGameplayContextProvider
+    public abstract class StageBackedGameplaySceneInstallerBase : GameplayShowcaseSceneInstallerBase, IDemoStageControlGameplayContextProvider
     {
         private const string StageBackgroundRootObjectName = "StageBackgroundRoot";
 
