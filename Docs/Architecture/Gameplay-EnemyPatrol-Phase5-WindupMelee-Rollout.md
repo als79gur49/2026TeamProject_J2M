@@ -11,32 +11,35 @@
 - `closed`는 broad/full suite closed, `Forward` cleanup, other archetype rollout 승인, phase 6 자동 착수를 뜻하지 않는다.
 
 ## 1. Phase 5 목표 요약
-- 이번 단계의 목표는 `WindupMelee`를 `RandomWalk`의 두 번째 bounded pilot archetype으로 확장하되, 기존 전투 semantics와 authored baseline 체감을 검증 가능한 범위에서만 바꾸는 것이다.
-- live rollout은 showcase 단일 슬롯 1건만 opt-in 한다.
-- `EnemyAi_WindupMelee.asset` repository profile은 Stage 미배치 cleanup에서 제거됐다. `EnemyBrain_WindupMelee.asset`는 Stage-reachable `EnemyAi_WindupProjectile.asset`가 공유하므로 유지한다.
+- 이 historical phase의 목표는 `WindupMelee`를 `RandomWalk`의 두 번째 bounded pilot archetype으로 확장하되, 기존 전투 semantics와 authored baseline 체감을 검증 가능한 범위에서만 바꾸는 것이었다.
+- historical live rollout은 showcase 단일 슬롯 1건만 opt-in 했다.
+- `EnemyAi_WindupMelee.asset` repository profile은 Stage 미배치 cleanup에서 제거됐다. Current production windup lane은 Stage-reachable `EnemyAi_WindupProjectile.asset` / `WindupForwardCellProjectileCapabilityAsset` 경로다.
+- `EnemyCore_WindupMelee.asset`와 `EnemyBrain_WindupMelee.asset`는 WindupProjectile shared authoring으로 남아 있으므로 유지한다.
 - `Forward`는 계속 fallback oracle이다.
 - `JumpChaser`, `Charge`, `TutorialPassiveContact`, `WallFollower` 기본 patrol 정책은 이 단계에서 바꾸지 않는다.
 
-## 2. 현재 상태와 왜 `WindupMelee`가 다음 bounded pilot 후보인지
+## 2. historical 상태와 왜 `WindupMelee`가 bounded pilot 후보였는지
 - 현재 simple proposal support matrix는 `Forward`, `RandomWalk`만 공통 frame에 들어가며 `WallFollow`는 phase 4 verdict대로 independent bounded strategy로 유지한다.
-- `WindupMelee` baseline은 authored fallback로 유지한다.
+- `WindupMelee` baseline은 historical authored fallback이었다. Current repository profile inventory에는 retired profile이 없고, current production windup behavior는 explicit WindupProjectile profile 기준이다.
   - baseline AI profile: retired repository profile, previously `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset`
+  - current windup AI profile: `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_WindupProjectile/EnemyAi_WindupProjectile.asset`
+  - baseline core: `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Core/Enemy_WindupMelee/EnemyCore_WindupMelee.asset`
   - baseline brain: `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Brain/Enemy_WindupMelee/EnemyBrain_WindupMelee.asset`
   - patrol: `Forward`
   - detection: `NearestOpponent`
   - state resolver: `Default`
   - combat: melee + passive contact
-  - windup / recover / locomotion timing은 현재 authored asset 그대로 유지한다.
-- `WindupMelee`는 `JumpChaser` / `Charge`보다 patrol 위 상위 resolver surface가 작다.
+  - historical windup / recover / locomotion timing은 authored asset 그대로 유지했다.
+- 당시 `WindupMelee`는 `JumpChaser` / `Charge`보다 patrol 위 상위 resolver surface가 작았다.
   - `JumpChaser`는 jump windup / airborne / cooldown owner surface가 patrol semantics 위에 더 크게 얹힌다.
   - `Charge`는 dedicated resolver와 charge cadence owner surface가 patrol보다 더 크게 개입한다.
-- 따라서 `WindupMelee`는 `NonAttacking` 다음 bounded pilot 후보로 가장 보수적이다.
+- 따라서 당시 `WindupMelee`는 `NonAttacking` 다음 bounded pilot 후보로 가장 보수적이었다.
 
-## 3. current baseline / rollout target / fallback / rollback
-### 3.1 `WindupMelee` current baseline
-- baseline profile은 `Forward` patrol을 유지한다.
-- baseline asset destructive overwrite 금지.
-- baseline은 parity oracle이자 rollback seam이다.
+## 3. historical baseline / rollout target / fallback / rollback
+### 3.1 retired `WindupMelee` historical baseline
+- retired baseline profile은 `Forward` patrol을 유지했다.
+- retired baseline asset destructive overwrite는 금지였다.
+- baseline은 phase 5 parity oracle이자 rollback seam이었다.
 
 ### 3.2 rollout target / fallback / rollback
 | surface | target | fallback | rollback |
@@ -200,8 +203,8 @@
   - phase 5 waiver `0`
 
 ## 12. 성공 기준
-- baseline `WindupMelee` asset은 계속 `Forward`다.
-- pilot variant만 `RandomWalk`다.
+- retired baseline `WindupMelee` asset은 당시 계속 `Forward`였다.
+- retired pilot variant만 `RandomWalk`였다.
 - exact-contract fixture는 drift `0`이다.
 - bounded-exposure fixture는 earlier drift `0`, later drift `+1` 이내다.
 - same-cell ordering / accepted-rejected shape / HP delta가 exact 유지다.
