@@ -254,7 +254,7 @@ Rollback:
 
 Scope:
 
-- Decide future of `EnableLegacyOrdinaryUnitFallback`.
+- Keep `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical removed-fallback diagnostics field.
 - Either keep with clearer docs, add `[Obsolete]` window, introduce canonical replacement field, or remove after replay/API migration.
 
 Files:
@@ -265,7 +265,7 @@ Files:
 
 Delete candidates:
 
-- `EnableLegacyOrdinaryUnitFallback` field and named constructor parameter only after compatibility approval.
+- Old diagnostics API projection removal and canonical constructor parameter migration after C안 approval.
 
 Migration needed:
 

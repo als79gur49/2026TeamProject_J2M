@@ -6,11 +6,11 @@ Date: 2026-05-02
 
 Phase 5 removes enemy legacy ordinary fallback authorization from the runtime path. An enemy ordinary `MoveIntent` that reaches legacy expansion is rejected even under `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`.
 
-This is an enemy-only removal pilot. Player ordinary fallback remains removed from Phase 4, Charge active fallback was still supported under the explicit legacy baseline at Phase 5, and after glide default adoption only flag-off glide fallback remains a retained exception. Phase 6/7 supersede the Charge baseline allowance: `LegacyOrdinaryFallbackBaseline` is now diagnostic compatibility only.
+This is an enemy-only removal pilot. Player ordinary fallback remains removed from Phase 4, Charge active fallback was still supported under the explicit legacy baseline at Phase 5, and after glide default adoption only flag-off glide fallback remains a retained exception. Phase 6/7 supersede the Charge baseline allowance: `RemovedLegacyFallbackDiagnosticBaseline` is now diagnostic routing only.
 
-Phase 6 supersedes the Charge portion of this status. Charge active fallback is now rejected under `LegacyOrdinaryFallbackBaseline` with `ChargeLegacyFallbackRemovedFromRuntime`.
+Phase 6 supersedes the Charge portion of this status. Charge active fallback is now rejected under `RemovedLegacyFallbackDiagnosticBaseline` with `ChargeLegacyFallbackRemovedFromRuntime`.
 
-Phase 8B/8C renames the current diagnostic preset to `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`; `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` remains a deprecated compatibility alias for historical Phase 5 tests.
+Phase 8B/8C names the current diagnostic preset `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`; old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
 
 ## Runtime Policy
 
@@ -20,7 +20,7 @@ Phase 8B/8C renames the current diagnostic preset to `GameplayRuntimeFeatureFlag
 - `GameplayRuntimeFeatureFlags.None` keeps the Phase 3 `LegacyOrdinaryFallbackRequiresExplicitBaseline` reason.
 - `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` now rejects enemy ordinary fallback with `EnemyLegacyFallbackRemovedFromRuntime`.
 - Player ordinary fallback continues to reject with `PlayerLegacyFallbackRemovedFromRuntime`.
-- At Phase 5, Charge active fallback remained allowed when `EnableLegacyOrdinaryUnitFallback` was true. Phase 6 supersedes this allowance.
+- At Phase 5, Charge active fallback remained allowed when `RemovedLegacyFallbackDiagnosticsEnabled` was true. Phase 6 supersedes this allowance.
 
 Retained grid transactions still pass the grid transaction allowlist before fallback removal applies. Topology handoff, box/action materialization, spawn, respawn, cleanup, scripted relocation, anchor normalization, `MoveEntity`, and the `MovementExpander` grid branch are not deletion targets.
 

@@ -36,7 +36,7 @@ If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement is d
 
 Set `EnablePlayerSameFaceContinuousLocomotion` to false or pass `GameplayRuntimeFeatureFlags.None`.
 The legacy `MovementExpander` path remains present for retained grid transactions. It is not migrated in-place.
-Phase 4 removes player legacy ordinary fallback from the runtime path. Phase 5/6 remove enemy and Charge covered fallback authorization too. After Phase 8B/8C, current removed diagnostics use `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`; `LegacyOrdinaryFallbackBaseline` is only a deprecated compatibility alias. `MoveEntity`, `MovementExpander`, retained grid transactions, and glide retained fallback stay retained.
+Phase 4 removes player legacy ordinary fallback from the runtime path. Phase 5/6 remove enemy and Charge covered fallback authorization too. After Phase 8B/8C, current removed diagnostics use the canonical `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`; old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code. `MoveEntity`, `MovementExpander`, retained grid transactions, and glide retained fallback stay retained.
 Scoped deletion preparation for the player branch is now covered by `Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved`; player legacy discrete fallback is no longer a supported runtime fallback after Phase 4.
 To reproduce the old 4tick flag-on cadence for migration comparison, set
 `PlayerKinematicLocomotionTiming.KinematicMoveDurationSeconds` to `4f / SimulationTicksPerSecond`.

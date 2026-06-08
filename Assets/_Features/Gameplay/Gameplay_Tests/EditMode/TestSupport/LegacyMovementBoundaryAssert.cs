@@ -219,7 +219,7 @@ namespace Game.Feature.Gameplay.Tests
         }
 
         [System.Obsolete("Fallback wrapper cleanup: historical compatibility wrapper only; use AssertCoveredFallbackRemovedDiagnostics.")]
-        public static void AllowsLegacyOrdinaryFallbackBaseline(TickResult result, int entityId, bool chargeMove = false)
+        public static void AllowsRemovedDiagnosticBaselineAlias(TickResult result, int entityId, bool chargeMove = false)
         {
             AssertCoveredFallbackRemovedDiagnostics(result, entityId);
         }

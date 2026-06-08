@@ -4,9 +4,9 @@ Date: 2026-05-02
 
 ## Decision
 
-Phase 8C changed tests and documentation only. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is the canonical preset for deterministic removed-fallback diagnostics. The old `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` alias has since been removed.
+Phase 8C changed tests and documentation only. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is the canonical preset for deterministic removed-fallback diagnostics. The old `GameplayRuntimeFeatureFlags.RemovedDiagnosticBaselineAlias` alias has since been removed.
 
-Runtime validation semantics are unchanged. Covered player, enemy, and Charge fallback attempts reject with removed diagnostics under the canonical preset. `GameplayRuntimeFeatureFlags.None` still rejects covered fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 8D supersedes the helper naming inventory with `RemovedLegacyFallbackDiagnosticsEnabled`; the old `LegacyOrdinaryFallbackEnabled` alias has since been removed, and `EnableLegacyOrdinaryUnitFallback` remains the underlying compatibility field.
+Runtime validation semantics are unchanged. Covered player, enemy, and Charge fallback attempts reject with removed diagnostics under the canonical preset. `GameplayRuntimeFeatureFlags.None` still rejects covered fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 8D supersedes the helper naming inventory with `RemovedLegacyFallbackDiagnosticsEnabled`; Phase 8E makes that name the canonical runtime field and removes old-name compatibility projection.
 
 `TickPipeline`, `MovementExpander`, `MoveEntity`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, glide retained fallback, replay assets, and golden files are not changed in Phase 8C.
 
@@ -14,12 +14,12 @@ Runtime validation semantics are unchanged. Covered player, enemy, and Charge fa
 
 | usage location | usage kind | current text/symbol | canonical replacement | allowed to keep? | action |
 |---|---|---|---|---|---|
-| `GameplayRuntimeFeatureFlags.cs` | alias definition | `LegacyOrdinaryFallbackBaseline => RemovedLegacyFallbackDiagnosticBaseline` | `RemovedLegacyFallbackDiagnosticBaseline` | no | removed |
-| `BoundaryInventoryScenarioTests.cs` | alias absence test | `Phase8C_LegacyOrdinaryFallbackBaseline_IsRemoved` | canonical absence canary | yes | keep |
+| `GameplayRuntimeFeatureFlags.cs` | alias definition | `RemovedDiagnosticBaselineAlias => RemovedLegacyFallbackDiagnosticBaseline` | `RemovedLegacyFallbackDiagnosticBaseline` | no | removed |
+| `BoundaryInventoryScenarioTests.cs` | alias absence test | `Phase8C_RemovedDiagnosticBaselineAlias_IsRemoved` | canonical absence canary | yes | keep |
 | scenario and replay current diagnostics | canonical usage | old alias direct calls | `RemovedLegacyFallbackDiagnosticBaseline` | no | migrated |
 | retained grid transaction tests | unrelated retained behavior | old alias direct calls | canonical or default non-old lane | no | migrated away from old alias |
 | docs current policy | current preset wording | old alias as current baseline | `RemovedLegacyFallbackDiagnosticBaseline` | no | update wording |
-| docs historical notes | historical preset name | `LegacyOrdinaryFallbackBaseline` | `RemovedLegacyFallbackDiagnosticBaseline` | yes | mark historical/removed |
+| docs historical notes | historical preset name | `RemovedDiagnosticBaselineAlias` | `RemovedLegacyFallbackDiagnosticBaseline` | yes | mark historical/removed |
 | obsolete helper wrappers | compatibility wrapper | old helper names mentioning old alias | none | yes | keep definitions only |
 
 ## Canonical Migration Policy
@@ -42,7 +42,7 @@ Disallowed wording patterns:
 Phase 8C adds or updates these canaries:
 
 - `Phase8C_RemovedDiagnosticBaseline_IsCanonicalUsage`
-- `Phase8C_LegacyOrdinaryFallbackBaseline_IsRemoved`
+- `Phase8C_RemovedDiagnosticBaselineAlias_IsRemoved`
 - `Phase8C_CurrentPolicyDocs_UseRemovedDiagnosticBaseline`
 - `Phase8C_AllowedOldAliasUsage_IsLimited`
 - `Phase8C_GridTransactionsRemainAllowed`
@@ -55,7 +55,7 @@ The replay canaries compare deterministic trace/state output under `RemovedLegac
 ## Phase 8D Follow-up
 
 - `RemovedLegacyFallbackDiagnosticsEnabled` is the canonical helper property for removed diagnostic routing.
-- `LegacyOrdinaryFallbackEnabled` has been removed; use `RemovedLegacyFallbackDiagnosticsEnabled`.
-- `EnableLegacyOrdinaryUnitFallback` remains the underlying compatibility field and is a Phase 8E rename/delete candidate.
-- `LegacyOrdinaryFallbackBaseline` has been removed; use `RemovedLegacyFallbackDiagnosticBaseline`.
+- `RemovedDiagnosticHelperAlias` has been removed; use `RemovedLegacyFallbackDiagnosticsEnabled`.
+- `RemovedLegacyFallbackDiagnosticsEnabled` is the canonical runtime field after Phase 8E.
+- `RemovedDiagnosticBaselineAlias` has been removed; use `RemovedLegacyFallbackDiagnosticBaseline`.
 - Continue retained presentation inventory for `TickEntityMotionKind.Move` and `TickEntityMotionKind.ChargeMove` without changing retained grid transaction or glide policy.

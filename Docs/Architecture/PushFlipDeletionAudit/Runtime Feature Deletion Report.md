@@ -107,16 +107,16 @@ Delete action: do not delete; rename/migration only. Profile content and Push/Fl
 | --- | --- | --- | --- |
 | Direct `PlayerTickCommand.PushPressed/FlipPressed` construction | Scenario/unit coverage of command contract | KEEP_TEST_GOVERNANCE when testing command edges | Do not delete just because tests build commands directly |
 | Plain move into Push box no-op/suppression | Guards against old auto-push fallback returning | KEEP_TEST_GOVERNANCE | Keep or rename tests to clarify removed fallback governance |
-| Legacy ordinary fallback aliases | Diagnostic/replay compatibility | REMOVED_ALIAS | Canonical names retained; `EnableLegacyOrdinaryUnitFallback` field intentionally not deleted |
+| Legacy ordinary fallback aliases | Diagnostic/replay compatibility | REMOVED_ALIAS | Canonical names retained; old diagnostics API and trace projection removed |
 | Stage presentation legacy id validator tests | Former migration guard for serialized content | REMOVED_LEGACY_FIELD | Legacy `StageSpawnDefinition.PresentationId` read path and tests removed after asset migration |
 
 ## Runtime Delete Candidates
 
 | Priority | Candidate | Classification | Required action |
 | --- | --- | --- | --- |
-| P1 | `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackBaseline` | REMOVED_ALIAS | Tests/docs migrated to canonical removed-diagnostic preset. |
-| P1 | `GameplayRuntimeFeatureFlags.LegacyOrdinaryFallbackEnabled` | REMOVED_ALIAS | Tests/docs migrated to canonical removed-diagnostic helper. |
-| P1/P3 | `GameplayRuntimeFeatureFlags.EnableLegacyOrdinaryUnitFallback` | DELETE_CANDIDATE_LEGACY_INPUT_COMPAT | Requires API/replay compatibility decision. |
+| P1 | `GameplayRuntimeFeatureFlags.RemovedDiagnosticBaselineAlias` | REMOVED_ALIAS | Tests/docs migrated to canonical removed-diagnostic preset. |
+| P1 | `GameplayRuntimeFeatureFlags.RemovedDiagnosticHelperAlias` | REMOVED_ALIAS | Tests/docs migrated to canonical removed-diagnostic helper. |
+| P1/P3 | `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` | CANONICAL_DIAGNOSTICS_FIELD | C안 completed; canonical field retained and old-name compatibility removed. |
 | P1 | `StageSpawnDefinition.PresentationId` | REMOVED_LEGACY_FIELD | Migrated to `StagePresentationDefinition`, content and validators updated. |
 | P1/P3 | `GroupId` / `SourceActionGroupId` compatibility aliases | REMOVED_ALIAS | Tests migrated to `ActionPlanId` / `SourceActionPlanId`; `IntentId` remains canonical internal ID. |
 | P2/P3 | Push/Item stale trace ledger rows | REMOVED_STALE_LEDGER | Active stale legacy Push/Item trace-token rows removed from DeferredStale and Lane-A ledgers. |

@@ -2,13 +2,13 @@
 
 ## Decision
 
-Phase 8A changes naming and test support only. Runtime boundary policy is unchanged: `GameplayRuntimeFeatureFlags.None` and `DefaultGameplayLocomotion` do not authorize covered player/enemy/Charge fallback. Phase 8B/8C supersedes the diagnostic preset name with `RemovedLegacyFallbackDiagnosticBaseline`; Phase 8D adds `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical helper for diagnostic routing. `LegacyOrdinaryFallbackBaseline` and `LegacyOrdinaryFallbackEnabled` remain deprecated compatibility aliases. `EnableLegacyOrdinaryUnitFallback`, `LegacyOrdinaryFallbackBaseline`, `MoveEntity`, `MovementExpander`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, and glide retained fallback are not removed or renamed in Phase 8A.
+Phase 8A changes naming and test support only. Runtime boundary policy is unchanged: `GameplayRuntimeFeatureFlags.None` and `DefaultGameplayLocomotion` do not authorize covered player/enemy/Charge fallback. Phase 8B/8C supersedes the diagnostic preset name with `RemovedLegacyFallbackDiagnosticBaseline`; Phase 8D adds `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical helper for diagnostic routing. C안 later removes old diagnostic alias vocabulary. `RemovedLegacyFallbackDiagnosticsEnabled`, `MoveEntity`, `MovementExpander`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, and glide retained fallback are not removed or renamed in Phase 8A.
 
 ## Obsolete Helper Inventory
 
 | helper | Phase 8A state | canonical replacement | action |
 |---|---|---|---|
-| `AllowsLegacyOrdinaryFallbackBaseline` | obsolete wrapper, definition only | `AssertCoveredFallbackRemovedDiagnostics` | keep for compatibility; no internal callers |
+| `AllowsRemovedDiagnosticBaselineAlias` | obsolete wrapper, definition only | `AssertCoveredFallbackRemovedDiagnostics` | keep for compatibility; no internal callers |
 | `AllowsPlayerFlagOffLegacyOrdinaryFallback` | not present | `AssertPlayerFallbackRemovedFromRuntime` | do not restore |
 | `AllowsEnemyFlagOffLegacyOrdinaryFallback` | obsolete wrapper, definition only | `AssertEnemyFallbackRemovedFromRuntime` | keep for compatibility; no internal callers |
 | `AllowsChargeFlagOffLegacyFallback` | obsolete wrapper, definition only | `AssertChargeFallbackRemovedFromRuntime` | keep for compatibility; no internal callers |
@@ -38,6 +38,6 @@ No golden or replay assets are rewritten in Phase 8A. The Phase 8A replay canary
 ## Next Phase Candidates
 
 - Phase 8B: add `RemovedLegacyFallbackDiagnosticBaseline` as the canonical diagnostic preset name.
-- Phase 8C: migrate current internal usage to `RemovedLegacyFallbackDiagnosticBaseline` while keeping `LegacyOrdinaryFallbackBaseline` as a deprecated compatibility alias only.
-- Phase 8D: add `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical diagnostic helper while keeping `LegacyOrdinaryFallbackEnabled` as a deprecated compatibility alias.
+- Phase 8C: migrate current internal usage to `RemovedLegacyFallbackDiagnosticBaseline`.
+- Phase 8D: add `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical diagnostic helper.
 - Continue presentation cleanup inventory for retained `TickEntityMotionKind.Move` and `TickEntityMotionKind.ChargeMove` without deleting retained grid presentation.

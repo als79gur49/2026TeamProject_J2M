@@ -6,7 +6,7 @@ Date: 2026-05-02
 
 Phase 3 chooses Option B. Player ordinary, enemy ordinary, and Charge active legacy fallback are no longer authorized by `GameplayRuntimeFeatureFlags.None`.
 
-`GameplayRuntimeFeatureFlags.None` now means no advanced locomotion flags and no explicit legacy ordinary fallback authorization. Phase 3 introduced `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as a test/replay/migration preset, but Phase 4/5/6 supersede that authorization. After Phase 8B/8C, `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is the canonical removed-diagnostic preset, and `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is a deprecated compatibility alias.
+`GameplayRuntimeFeatureFlags.None` now means no advanced locomotion flags and no explicit legacy ordinary fallback authorization. Phase 3 introduced `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as a test/replay/migration preset, but Phase 4/5/6 supersede that authorization. After Phase 8B/8C, `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is the canonical removed-diagnostic preset; old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
 
 This phase does not delete the player fallback branch, enemy ordinary fallback branch, Charge fallback branch, `MoveEntity`, `MovementExpander`, retained grid transactions, or active glide retained fallback.
 
@@ -17,14 +17,14 @@ This phase does not delete the player fallback branch, enemy ordinary fallback b
 | `None` | false | false | false |
 | `DefaultGameplayLocomotion` | false | true | false |
 | `RemovedLegacyFallbackDiagnosticBaseline` | true | false | false |
-| `LegacyOrdinaryFallbackBaseline` | true | false | false |
+| `RemovedLegacyFallbackDiagnosticBaseline` | true | false | false |
 | `AllKinematicLocomotionEnabled` | false | true | true |
 
-`GameplaySceneHostConfiguration` does not expose `EnableLegacyOrdinaryUnitFallback`. Scene-authored hosts cannot enable this fallback accidentally; tests and migration replay helpers must pass the preset directly.
+`GameplaySceneHostConfiguration` does not expose `RemovedLegacyFallbackDiagnosticsEnabled`. Scene-authored hosts cannot enable this fallback accidentally; tests and migration replay helpers must pass the preset directly.
 
 ## Validation Policy
 
-`TickPipeline.ValidateLegacyExpansionIntents` rejects covered player ordinary, enemy ordinary, and Charge active fallback when `EnableLegacyOrdinaryUnitFallback` is false. The diagnostic reason is `LegacyOrdinaryFallbackRequiresExplicitBaseline`.
+`TickPipeline.ValidateLegacyExpansionIntents` rejects covered player ordinary, enemy ordinary, and Charge active fallback when `RemovedLegacyFallbackDiagnosticsEnabled` is false. The diagnostic reason is `LegacyOrdinaryFallbackRequiresExplicitBaseline`.
 
 Phase 4 supersedes the player portion of this policy. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` no longer authorizes player ordinary fallback; player attempts are rejected with `PlayerLegacyFallbackRemovedFromRuntime`.
 
@@ -58,7 +58,7 @@ Older Phase 2 `FlagOffBaseline` tests are historical/pre-Phase6 compatibility wr
 
 ## Replay And Golden Policy
 
-Replay harness defaults remain equivalent to `GameplayRuntimeFeatureFlags.None`. That default no longer authorizes covered fallback. Removed-diagnostic compatibility replay tests should pass `RemovedLegacyFallbackDiagnosticBaseline`; historical tests may still pass `LegacyOrdinaryFallbackBaseline` as a deprecated compatibility alias. They must assert deterministic removed diagnostics, not fallback output.
+Replay harness defaults remain equivalent to `GameplayRuntimeFeatureFlags.None`. That default no longer authorizes covered fallback. Removed-diagnostic compatibility replay tests should pass `RemovedLegacyFallbackDiagnosticBaseline`. They must assert deterministic removed diagnostics, not fallback output.
 
 No golden files are rewritten in Phase 3. Golden migration remains owner-approved future work.
 

@@ -544,13 +544,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_Phase8E_DiagnosticRouting_Unchanged()
+        public void Replay_Phase8E_RemovedDiagnosticRouting_Deterministic()
         {
             Assert.That(
                 GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.RemovedLegacyFallbackDiagnosticsEnabled,
                 Is.True);
             Assert.That(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.EnableLegacyOrdinaryUnitFallback,
+                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.RemovedLegacyFallbackDiagnosticsEnabled,
                 Is.True);
             AssertRemovedDiagnosticBaselineReplayDeterministic(
                 GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
@@ -572,7 +572,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.RemovedLegacyFallbackDiagnosticsEnabled,
                 Is.True);
             Assert.That(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.EnableLegacyOrdinaryUnitFallback,
+                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.RemovedLegacyFallbackDiagnosticsEnabled,
                 Is.True);
             AssertRemovedDiagnosticBaselineReplayDeterministic(
                 GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);

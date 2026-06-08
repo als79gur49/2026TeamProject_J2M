@@ -90,7 +90,7 @@ namespace Game.Feature.Gameplay.Loop
             bool enablePlayerFree2DLocalLocomotion,
             bool enablePlayerFree2DActionAssist,
             bool enablePlayerFree2DNativeTopologyTransition = false,
-            bool enableLegacyOrdinaryUnitFallback = false)
+            bool removedLegacyFallbackDiagnosticsEnabled = false)
         {
             EnablePlayerSameFaceContinuousLocomotion = enablePlayerSameFaceContinuousLocomotion;
             EnableEnemySameFaceContinuousLocomotion = enableEnemySameFaceContinuousLocomotion;
@@ -103,7 +103,7 @@ namespace Game.Feature.Gameplay.Loop
                                              enablePlayerFree2DActionAssist;
             EnablePlayerFree2DNativeTopologyTransition = enablePlayerFree2DLocalLocomotion &&
                                                          enablePlayerFree2DNativeTopologyTransition;
-            EnableLegacyOrdinaryUnitFallback = enableLegacyOrdinaryUnitFallback;
+            RemovedLegacyFallbackDiagnosticsEnabled = removedLegacyFallbackDiagnosticsEnabled;
         }
 
         public static GameplayRuntimeFeatureFlags None => default;
@@ -176,7 +176,7 @@ namespace Game.Feature.Gameplay.Loop
                 enablePlayerStoppableKinematicLocomotion: false,
                 enablePlayerFree2DLocalLocomotion: false,
                 enablePlayerFree2DActionAssist: false,
-                enableLegacyOrdinaryUnitFallback: true);
+                removedLegacyFallbackDiagnosticsEnabled: true);
 
         public static GameplayRuntimeFeatureFlags EnemySameFaceContinuousLocomotionEnabled =>
             new(
@@ -238,11 +238,9 @@ namespace Game.Feature.Gameplay.Loop
 
         public bool EnablePlayerFree2DNativeTopologyTransition { get; }
 
-        // Compatibility diagnostic field. When true, removed covered fallback attempts surface
-        // player/enemy/Charge-specific removed reasons instead of the explicit-baseline gate.
-        public bool EnableLegacyOrdinaryUnitFallback { get; }
-
-        public bool RemovedLegacyFallbackDiagnosticsEnabled => EnableLegacyOrdinaryUnitFallback;
+        // When true, removed covered fallback attempts surface player/enemy/Charge-specific
+        // removed reasons instead of the explicit-baseline gate.
+        public bool RemovedLegacyFallbackDiagnosticsEnabled { get; }
 
     }
 }

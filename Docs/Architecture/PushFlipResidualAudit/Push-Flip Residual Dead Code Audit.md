@@ -9,7 +9,7 @@ No core Push/Flip gameplay feature qualifies for immediate deletion. `Player/Pus
 The highest-value residual candidates are:
 
 - `P0/P1`: docs-only stale ledger rows and historical Push contact threshold wording.
-- `P1/P3`: `GameplayRuntimeFeatureFlags.EnableLegacyOrdinaryUnitFallback` remains as a misleading compatibility field, not a Push/Flip runtime feature.
+- `P1/P3`: `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` is now the canonical removed-fallback diagnostics field, not a Push/Flip runtime feature.
 - `P2`: the gameplay UI Push/Flip action command injection route was not wired to any production UI button/surface and is removed by current product policy. Settings/rebind Push/Flip UI remains active.
 - `P2`: Flip is keyboard-only by current product input policy; the existing Push controller binding remains authored.
 - `P2`: low-usage box capability combos exist only in `combined-gameplay-showcase`.
@@ -23,8 +23,8 @@ Verified removed or current status:
 - `PushChange_Legacy` / `FlipChange_Legacy`: no active repo artifact found.
 - `Player_S1_GameplayActionAudioProfile_Test`: no active repo artifact found.
 - Old action audio GUID `42a2e109fc5141ec9e866925a0a85c3b`: still points to the renamed production asset at `Assets/_Features/Gameplay/Gameplay_ActionAudio/Profiles/Player_S1_GameplayActionAudioProfile.asset` and is referenced by `Player_S1.prefab`.
-- `LegacyOrdinaryFallbackBaseline` / `LegacyOrdinaryFallbackEnabled`: no runtime aliases found in `Assets`; mentions remain in migration/readiness docs and previous audit docs.
-- `EnableLegacyOrdinaryUnitFallback`: still present in `GameplayRuntimeFeatureFlags` and tests as compatibility-only diagnostic routing.
+- removed baseline/helper aliases: no runtime aliases found in `Assets`; current code uses canonical removed-fallback diagnostics vocabulary.
+- `RemovedLegacyFallbackDiagnosticsEnabled`: still present in `GameplayRuntimeFeatureFlags` and tests as canonical diagnostic routing.
 - `GroupId`: active internal action-group vocabulary remains. The public `DamageResolutionRecord.GroupId` / `DestroyResolutionRecord.GroupId` compatibility alias pattern was not found.
 - `SourceActionGroupId`: not found as active compatibility alias. `SourceActionPlanId` remains active presentation/VFX/audio correlation vocabulary.
 - `StageSpawnDefinition.PresentationId`: generated gameplay assets have no `PresentationId` rows. Authoring placements and presentation bindings still use `PresentationId` for active editor/content presentation selection.
@@ -58,7 +58,7 @@ Verified removed or current status:
 ## Meaningless / Low-Value Findings
 
 - `GameplayInputHost` subscribes Flip to both `started` and `performed`; Push subscribes only `started`. Since both Flip callbacks set the same bool buffer, this is potentially duplicate edge handling. It is still behavior-affecting for Input System interaction differences, so classify as `NEEDS_PRODUCT_DECISION`, not immediate deletion.
-- `EnableLegacyOrdinaryUnitFallback` name is misleading. Current docs/tests define it as removed-fallback diagnostic routing, not fallback authorization. This is `DELETE_AFTER_API_COMPAT_DECISION` or rename/refactor after replay/API owner approval.
+- `RemovedLegacyFallbackDiagnosticsEnabled` is the canonical removed-fallback diagnostic routing field. It must not be described as fallback authorization.
 - `SourceActionPlanId` and `IntentId` are active correlation/determinism fields. They are not deletion candidates.
 - `PresentationId` in authoring placements is active editor/content presentation selection. Generated gameplay spawn-side rows are absent, so no generated migration miss was found.
 
@@ -157,7 +157,7 @@ Core gameplay one-shot duplication was not proven as an exact duplicate. Governa
 - UI command gateway deletion is medium/high because it is a public UI-access interface and tests exercise it, even though product UI does not call it.
 - Capability simplification risk is high without content owner approval because campaign content heavily uses `Push+Flip+Destroy+JumpCrushable` and `Push+Destroy`.
 - Audio cleanup risk is medium: deleting optional null entries changes authoring diagnostics and tests; adding bindings changes audible product behavior.
-- API/compat cleanup risk is high for `EnableLegacyOrdinaryUnitFallback`, replay traces, and named constructor/API uses.
+- API/compat cleanup was high risk because it changed runtime flag shape, replay traces, and named constructor/API uses.
 
 ## Final Recommendation
 
@@ -178,8 +178,8 @@ Product/content decision before deletion or simplification:
 
 API/replay compatibility decision:
 
-- `EnableLegacyOrdinaryUnitFallback` rename/removal.
+- old diagnostics API projection removal.
 
 Do not delete:
 
-- Current physical InputActions, host route, command fields, Push/Flip runtime branches, broad campaign box capabilities, `FlipImpactSignals`, `PlayerActionAttemptSignals`, `BoxFlipInteractionDriver`, production action-audio profile asset, current settings/rebind rows, and `EnableLegacyOrdinaryUnitFallback`.
+- Current physical InputActions, host route, command fields, Push/Flip runtime branches, broad campaign box capabilities, `FlipImpactSignals`, `PlayerActionAttemptSignals`, `BoxFlipInteractionDriver`, production action-audio profile asset, current settings/rebind rows, and canonical removed-fallback diagnostics routing.

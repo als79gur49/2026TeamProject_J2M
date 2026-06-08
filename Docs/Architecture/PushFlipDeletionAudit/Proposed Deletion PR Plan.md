@@ -91,9 +91,9 @@ Files:
 
 Expected deletions:
 
-- `LegacyOrdinaryFallbackBaseline` after consumers migrate to `RemovedLegacyFallbackDiagnosticBaseline`.
-- `LegacyOrdinaryFallbackEnabled` after tests/docs no longer require alias compatibility.
-- `EnableLegacyOrdinaryUnitFallback` only after a separate API/replay decision, or after introducing a canonical projection field and compatibility window.
+- `RemovedDiagnosticBaselineAlias` after consumers migrate to `RemovedLegacyFallbackDiagnosticBaseline`.
+- `RemovedDiagnosticHelperAlias` after tests/docs no longer require alias compatibility.
+- Old diagnostics API projection after the C안 API/replay decision; keep `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical field.
 
 Migration required:
 

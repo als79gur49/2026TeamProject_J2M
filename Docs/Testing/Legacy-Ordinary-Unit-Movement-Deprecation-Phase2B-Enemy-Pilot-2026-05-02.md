@@ -28,7 +28,7 @@ The enemy ordinary fallback branch is currently reachable through this chain:
 | leak guard | `TickPipeline.ValidateLegacyExpansionIntents` and `TryResolveForbiddenLegacyUnitOrdinaryMovement` reject covered enemy ordinary `Move` with `EnemyCoveredOrdinaryKinematicReachedLegacyExpansion` | enemy flag-on leak is a regression |
 | legacy candidate | `MovementExpander.ExpandMoveLike` and `ExpandMove` create ordinary `ActionGroupKind.Move` | retained for flag-off and grid transaction support |
 | boundary | `TickPipeline` movement boundary resolution classifies ordinary Unit `Move` groups as `LegacyFallback` | deletion candidate only for enemy ordinary fallback |
-| presentation | `TickResultBuilder` maps unsuppressed `MovementSemanticKind.Move` to `TickEntityMotionKind.Move` | Phase 2B allowed this for documented enemy `None` baseline; Phase 3 moved it to `LegacyOrdinaryFallbackBaseline` |
+| presentation | `TickResultBuilder` maps unsuppressed `MovementSemanticKind.Move` to `TickEntityMotionKind.Move` | Phase 2B allowed this for documented enemy `None` baseline; Phase 3 moved diagnostics to `RemovedLegacyFallbackDiagnosticBaseline` |
 
 ## Flag Reachability
 
@@ -38,7 +38,7 @@ The enemy ordinary fallback branch is currently reachable through this chain:
 
 Historical Phase 2B note: `GameplayRuntimeFeatureFlags.None` was the enemy ordinary fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered enemy ordinary fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 5 supersedes the explicit baseline policy: `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` now blocks enemy ordinary fallback with `EnemyLegacyFallbackRemovedFromRuntime`.
 
-Custom flags with `EnableEnemySameFaceContinuousLocomotion` disabled no longer authorize enemy ordinary fallback at runtime. Phase 6/7 also supersede the Charge explicit baseline path. Phase 8B/8C names `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical diagnostic preset; `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` remains a deprecated compatibility alias.
+Custom flags with `EnableEnemySameFaceContinuousLocomotion` disabled no longer authorize enemy ordinary fallback at runtime. Phase 6/7 also supersede the Charge explicit baseline path. Phase 8B/8C names `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical diagnostic preset; old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
 
 ## Retained And Out-Of-Scope Paths
 
@@ -78,7 +78,7 @@ The helper vocabulary remains scoped to `LegacyFallback`, legacy `Move` presenta
 
 Actual enemy fallback deletion is not approved by Phase 2B. Before deleting or test-only-scoping the enemy fallback branch, the next phase needs:
 
-- explicit approval to remove or narrow the deprecated `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` compatibility alias
+- explicit approval to remove or narrow only old diagnostic baseline alias vocabulary; `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` remains canonical
 - historical EnemyAi baseline owner approval
 - replay/golden migration or exemption policy
 - green enemy default and kinematic-on no-fallback canaries

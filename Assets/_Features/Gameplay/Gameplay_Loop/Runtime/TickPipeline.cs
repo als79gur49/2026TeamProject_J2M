@@ -2131,7 +2131,7 @@ namespace Game.Feature.Gameplay.Loop
                 $"EnemyKinematic={(_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion ? 1 : 0)}," +
                 $"ChargeKinematic={(_runtimeFeatureFlags.EnableEnemyChargeKinematicLocomotion ? 1 : 0)}," +
                 $"GlideKinematic={(_runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion ? 1 : 0)}," +
-                $"LegacyFallback={(_runtimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled ? 1 : 0)}";
+                $"RemovedLegacyFallbackDiagnosticsEnabled={(_runtimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled ? 1 : 0)}";
         }
 
         private List<MoveIntent> BuildPlayerSameFaceKinematicLocomotionPlans(
