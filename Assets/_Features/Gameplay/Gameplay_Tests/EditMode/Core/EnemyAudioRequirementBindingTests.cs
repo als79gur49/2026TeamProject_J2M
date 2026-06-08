@@ -62,6 +62,24 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void OptionalCueWithInvalidAuthoredBinding_Fails()
+        {
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Move, new DefinitionSpec(AudioCategory.Sfx, loop: true)));
+            using var bundle = CreateBindingBundle(
+                profileBundle.Profile,
+                CreatePolicy(optionalCues: new[] { EnemyAudioCue.Move }));
+
+            var exception = Assert.Throws<InvalidOperationException>(() => bundle.Binding.ValidateOrThrow());
+
+            StringAssert.Contains("targetProfile", exception.Message);
+            StringAssert.Contains("Move", exception.Message);
+            StringAssert.Contains("loop playback", exception.Message);
+            StringAssert.Contains("one-shot definitions", exception.Message);
+        }
+
+        [Test]
+        [Category("Core")]
         public void ImplicitDisabledCueWithBinding_Fails()
         {
             using var profileBundle = CreateEnemyAudioProfile(
