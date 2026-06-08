@@ -412,8 +412,12 @@ namespace Game.Feature.UI.Flow
 
             if (_screenController.HandleBackRequested())
             {
-                if (_pauseReturnMode == PauseReturnMode.RestorePausePopupAfterBack &&
-                    _screenController.CurrentScreenId == ScreenId.Gameplay &&
+                var pauseReturnDecision = PauseReturnPolicy.Decide(new PauseReturnContext(
+                    _pauseReturnMode == PauseReturnMode.RestorePausePopupAfterBack,
+                    screenHandledBack: true,
+                    _screenController.CurrentScreenId));
+
+                if (pauseReturnDecision.ShouldReopenPausePopup &&
                     RequestPausePopupCore(acquirePauseOwnership: false))
                 {
                     ClearPauseReturnMode();
