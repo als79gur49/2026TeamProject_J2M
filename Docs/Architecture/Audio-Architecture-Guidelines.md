@@ -123,6 +123,14 @@ TickResult
   - enemy-local `EnemyAudioProfile`의 `ChargeActiveLoop` binding을 attached loop로 재생하고 handle을 소유한다
   - active phase 이탈, sequence 변경, session reset, runtime detach에서 handle을 정지한다
   - core required gameplay semantic set이나 action-audio moment set을 확장하지 않는다
+- `EnemyAudioRequirementPolicy` / `EnemyAudioRequirementBinding`
+  - archetype-level policy와 sparse profile binding으로 prefab-local enemy `EnemyAudioProfile_*`의 runtime can-emit cue를 governance한다
+  - policy는 `Required` / `Optional` cue만 명시하며 unspecified runtime cue는 implicit `Disabled`다
+  - validation은 `EnemyAudioCueCatalog.RuntimeCues` 전체를 순회한다
+  - required cue missing binding은 production content error다
+  - optional cue missing binding은 intentional no-op다
+  - disabled cue는 binding을 가지면 안 된다
+  - `GameplayPresentationAudioConfig`에 포함되지 않는다
 - `GameplayAudioPresentationController`
   - host-owned orchestration controller다
   - `GameplayTickPresentationCoordinator` 내부 collaborator로 존재한다
@@ -180,7 +188,7 @@ TickResult
 - `GameplayPresentationAudioConfig`는 typed gameplay host presentation SFX maps를 group하는 data + validation owner다.
 - `GameplayPresentationAudioConfig`는 dispatcher, planner, controller factory, service locator, playback owner가 아니다.
 - `GameplayPresentationAudioConfig`는 `GameplayAudioMap`, `BlockAudioMap`, `PlayerLocomotionAudioMap`, `TopologyAudioMap`, `GravityFieldAudioMap`, `TileFeatureAudioMap`만 소유한다.
-- action/enemy prefab-local profiles, UI cue maps, BGM profiles, `StageAudioDefinition`, runtime installers, audio settings bridges는 이 config 밖에 남는다.
+- action/enemy prefab-local profiles, enemy requirement policies/bindings, UI cue maps, BGM profiles, `StageAudioDefinition`, runtime installers, audio settings bridges는 이 config 밖에 남는다.
 - `GameplayHostRuntimeFactory`는 scene-global lookup을 하지 않는다.
 - missing installer fail-fast message는 아래 exact string으로 고정한다.
   - `GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayPresentationAudioConfig is assigned.`
@@ -325,7 +333,7 @@ future extension note:
 - later stage-wide/default action audio가 필요하면 `GameplaySceneHostConfiguration` 또는 `StagePresentationDefinition`에 ad-hoc audio field를 늘리지 않는다.
 - BGM profile metadata는 `StageAudioDefinition`에만 둔다. `StagePresentationDefinition`은 BGM을 소유하지 않는다.
 - gameplay host presentation SFX map growth는 grouped `GameplayPresentationAudioConfig`를 통해 관리한다.
-- `GameplayPresentationAudioConfig`는 action/enemy prefab-local profiles, UI cue maps, BGM/stage audio metadata, runtime installers, settings bridges를 소유하지 않는다.
+- `GameplayPresentationAudioConfig`는 action/enemy prefab-local profiles, enemy requirement policies/bindings, UI cue maps, BGM/stage audio metadata, runtime installers, settings bridges를 소유하지 않는다.
 
 금지:
 

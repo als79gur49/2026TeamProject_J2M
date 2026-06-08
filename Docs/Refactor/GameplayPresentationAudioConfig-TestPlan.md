@@ -59,7 +59,7 @@ Decision: TEST_UPDATE_REQUIRED
 | `GameplayHostRuntimeFactory_UsesPresentationAudioConfigButStillCreatesTypedControllers` | core/extended | orchestration/architecture | Factory resolves the config then calls existing typed presenter attach methods. |
 | `GameplayShellUiAudioContractTests_UIAudioScene_ReferencesGameplayPresentationAudioConfig` | ui | scene contract | `UIAudioScene` serializes one config reference, not six lane map fields. |
 | `AudioArchitectureTests_NoGenericAudioDispatcherIntroduced` | core/extended | source guard | Reject `GenericAudioDispatcher`, string-key dispatch, or config-owned playback/planning. |
-| `AudioArchitectureTests_GameplayPresentationAudioConfig_ExcludesOtherOwnership` | core/extended | architecture | Config does not expose `GameplayActionAudioProfile`, `EnemyAudioProfile`, `UiAudioCueMap`, `BgmProfile`, `StageAudioDefinition`, `AudioRuntimeInstaller`, or settings bridge types. |
+| `AudioArchitectureTests_GameplayPresentationAudioConfig_ExcludesOtherOwnership` | core/extended | architecture | Config does not expose action profiles, enemy prefab-local profiles, enemy requirement policy/binding assets, UI cue maps, BGM/stage metadata, runtime installers, or settings bridge types. |
 
 ## Smoke Coverage Update
 

@@ -82,17 +82,17 @@ Implementation order:
 
 ## Enemy Audio Implementation
 
-Recommended model:
+Implemented model:
 
-- Add `EnemyAudioCueRequirementProfile` or an equivalent enemy-lane policy table keyed by production enemy profile/prefab identity.
+- Add archetype-level `EnemyAudioRequirementPolicy` assets plus sparse `EnemyAudioRequirementBinding` assets keyed by production enemy profile identity.
 - Keep it prefab-local or enemy-lane-owned. Do not move it into `GameplayPresentationAudioConfig`.
-- Validation should run in repository/prefab smoke tests first. Runtime fail-fast can be added later at prefab load/authoring validation if desired.
+- Validation runs in repository smoke tests first. Runtime missing owner/authoring no-op behavior is unchanged.
 
 Requirement rules:
 
 - Required cue must have exactly one valid binding.
 - Optional cue may be absent; if present, binding must be valid.
-- Disabled cue must be absent. This catches accidental content drift.
+- Unspecified cue is implicit Disabled and must be absent from the target profile. This catches accidental content drift without full disabled rows.
 - `ChargeActiveLoop` keeps special validation: looping definition and attachment slot required.
 
 Initial production policy candidates:
@@ -103,17 +103,17 @@ Initial production policy candidates:
 | `EnemyAudioProfile_JumpChaserAstra` | `Move`, `Landing`, `Death` | Non-jump cues disabled |
 | `EnemyAudioProfile_BlackEye` | `Move`, `Active`, `ProjectileImpact`, `Death` | `ProjectileImpact` required for projectile arrival |
 | `EnemyAudioProfile_DrSaturn` | `Move`, `Windup`, `Active`, `Recover`, `Death` | DrSaturn profile is identity-named; `Active` remains authored for GravityField-oriented utility evaluation. |
-| `EnemyAudioProfile_UtilitySummoner` | `Active`, `Death`; `Move` DEFER | Test expectation drift should be resolved |
+| `EnemyAudioProfile_UtilitySummoner` | `Move`, `Active`, `Death` | JPeter expectation drift resolved; `Windup` disabled |
 | `EnemyAudioProfile_Nebulous` | `Move`, `Windup`, `Active`, `Recover`, `Death` | `PassiveContact` disabled by current test |
-| `EnemyAudioProfile_RocketFace` | `Move`, `ChargeActiveLoop`, `Death` | one-shot `Active` should be DISABLED if charge loop is product policy |
+| `EnemyAudioProfile_RocketFace` | `Move`, `ChargeActiveLoop`, `Death` | one-shot `Active` is disabled; charge active audio is loop-only |
 | `EnemyAudioProfile_SecBot` | `Move`, `StationaryActive`, `Death` | Other cues disabled |
-| `EnemyAudioProfile_Startis` | `Move`, `Death` | Other cues disabled |
+| `EnemyAudioProfile_Startis` | `Move`, `PassiveContact`, `Death` | PassiveContact is required for NonAttacking contact damage |
 
 Implementation order:
 
 1. Fix or document the JPeter/UtilitySummoner expectation drift.
-2. Add enemy requirement profile/table in `Gameplay_EnemyAudio`.
-3. Add tests that load production prefabs and assert required, optional, and disabled cue sets.
+2. Add enemy requirement policy/binding assets in the enemy lane.
+3. Add tests that load production bindings and assert required, optional, and implicit disabled cue behavior.
 4. Keep `EnemyAudioRequestPlanner` unchanged unless disabled cues should stop being emitted for a specific archetype.
 5. Keep `ChargeActiveLoop` loop/attachment tests and add requirement coverage for RocketFace.
 

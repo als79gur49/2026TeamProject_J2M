@@ -24,7 +24,7 @@ Shared runtime remains unaware of gameplay semantics.
 |---|---|---|---|---|---|---|---|---|
 | Gameplay core one-shot | `TickResult.PresentationData` damage/exit facts | `GameplayAudioRequestPlanner` / `GameplayAudioPresentationController` | `GameplayAudioMap_CampaignV1.asset` | `AudioBinding` | `Sfx`, one-shot | required six semantics, duplicate/null/category loop checks | add semantic enum, catalog descriptor, planner, map entry, tests, docs | high governance cost by design |
 | Gameplay action | `PlayerActionSignals`, `PlayerActionAttemptSignals` | `GameplayActionAudioRequestPlanner` / `GameplayActionAudioPresentationController` | `Player_S1_GameplayActionAudioProfile.asset` | `AudioBinding` via SerializeReference | `Sfx`, one-shot | duplicate/category/loop; optional null warning | add enum/planner moment or profile entry; update prefab/profile/tests | optional no-op can hide content miss |
-| Enemy one-shot/loop | enemy presentation facts and final entity state | `EnemyAudioRequestPlanner` / `EnemyAudioPresentationController` / `EnemyChargeLoopAudioPresentationController` | prefab-local `EnemyAudioProfile_*` | `AudioBinding` | `Sfx`; `ChargeActiveLoop` must loop and attach | duplicate/null/category; loop cue requires loop + attachment | add cue enum/planner branch/profile entries/prefab tests | optional missing cue no-op |
+| Enemy one-shot/loop | enemy presentation facts and final entity state | `EnemyAudioRequestPlanner` / `EnemyAudioPresentationController` / `EnemyChargeLoopAudioPresentationController` | prefab-local `EnemyAudioProfile_*` + `EnemyAudioRequirementPolicy_*` / `EnemyAudioRequirementBinding_*` | `AudioBinding` | `Sfx`; `ChargeActiveLoop` must loop and attach | duplicate/null/category; loop cue requires loop + attachment; sparse policy/binding required/optional/implicit-disabled validation | add cue enum/planner branch/profile entry/runtime-cue catalog/policy tests | explicit optional no-op only |
 | Block | flip/box slide presentation facts | `BlockAudioRequestPlanner` / `BlockAudioPresentationController` | `BlockAudioMap_PlayerSounds.asset` | `AudioBinding` | `Sfx`, one-shot | required `FlipLanding`, `BoxSlideSolidStop`, `BoxSlideStarted` | enum/catalog/planner/map/tests | production naming normalized |
 | Player locomotion | locomotion presentation facts | `PlayerLocomotionAudioRequestPlanner` / `PlayerLocomotionAudioPresentationController` | `PlayerLocomotionAudioMap_PlayerSounds.asset` | `AudioBinding` | `Sfx`, one-shot/loop timing via controller | required cue validation | enum/catalog/planner/map/tests | production naming normalized |
 | Topology | topology motion facts | `TopologyAudioRequestPlanner` / `TopologyAudioPresentationController` | `TopologyAudioMap_ObjectSounds.asset` | `AudioBinding` | `Sfx`, one-shot | required cue validation | enum/catalog/planner/map/tests | low |
@@ -106,9 +106,9 @@ Enemy view prefab
   -> AudioBinding
 ```
 
-`ChargeActiveLoop` is a special persistent loop cue and must use looping definition plus attachment slot. Other cues are SFX one-shots. Missing authoring/profile/cue can no-op at runtime.
+`ChargeActiveLoop` is a special persistent loop cue and must use looping definition plus attachment slot. Other cues are SFX one-shots. Missing authoring/profile/cue can no-op at runtime, but production `EnemyAudioRequirementPolicy_*` plus sparse `EnemyAudioRequirementBinding_*` assets classify missing profile cues as required content, intentional optional no-op, or implicit disabled.
 
-Decision: `OK_CURRENT`, `TEST_GAP` for broader production profile completeness policy.
+Decision: `OK_CURRENT`; production profile completeness policy is covered by enemy requirement policies/bindings and repository smoke validation.
 
 ## Block / Locomotion / Topology / Gravity / Tile Feature
 
