@@ -101,15 +101,15 @@ Near-dead:
 
 Planner emits lifecycle moments for Push and Flip, but production profile coverage is uneven:
 
-- Assigned and audible: Push Windup; Flip Windup; Flip Blocked; Push/Flip fake attempt failure moments.
-- Optional null: Push Contact, Push ImpactEnemy, Push Blocked.
-- No entry: Push Execute, Push Recovery, Flip Execute, Flip Contact, Flip ImpactEnemy, Flip Recovery.
+- Assigned and audible: Push Windup; Flip Windup; Push/Flip fake attempt failure moments.
+- Optional v1 lifecycle with no production profile entry: Push Execute, Push Recovery, Flip Execute, Flip Recovery.
+- Removed from current action-audio moment vocabulary: Contact, ImpactEnemy, Blocked.
 
 Classification:
 
 - Assigned moments: `KEEP_AUDIBLE_CURRENT`
-- Optional null moments: `EMPTY_OPTIONAL_ENTRY`
-- Planner-emitted no-entry moments: `AUTHORING_GAP` / `NEAR_DEAD_AUDIO_MOMENT`
+- Optional lifecycle no-entry moments: `DEFERRED_AUDIO_POLICY`
+- Removed moment vocabulary: `REMOVED_CURRENT_MOMENT_VOCABULARY`
 
 ## Feature Residue Delete Candidates
 

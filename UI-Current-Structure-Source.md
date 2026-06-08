@@ -36,6 +36,12 @@ This file is the external current-structure source for the completed UI cleanup 
   - `SurfaceBeltIndicator`
   - `PlayerStatus`
 
+- HUD responsibility:
+  - HUD is a display consumer of mapped UI presentation state.
+  - HUD is not a gameplay command owner.
+  - HUD may raise bounded UI-owned requests such as pause flow, but it must not dispatch gameplay Push/Flip commands.
+  - `PlayerStatus` displays current player status/readiness state only; it does not own Push/Flip command routing.
+
 ## Preserved Classification Decisions
 
 - `DemoStageControl` is not a gameplay popup catalog entry.
@@ -45,6 +51,8 @@ This file is the external current-structure source for the completed UI cleanup 
 - Future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision.
 
 - `ActionBar` is removed retired HUD proof residue. It is not a current HUD member.
+- `ActionBarView` and `ActionBarPresenter` are not current display components.
+- If an ActionBar-like display is reintroduced later, it must be documented as display-only and must not restore Push/Flip command injection.
 - `Help` and `Inventory` are not current gameplay screens.
 - UI diagnostics are removed unused runtime feature residue:
   - no `DiagnosticsLayer`
@@ -55,6 +63,9 @@ This file is the external current-structure source for the completed UI cleanup 
 
 ## Canonical Runtime Paths
 
+- Push/Flip physical gameplay commands flow through the gameplay input route, not UI HUD command injection.
+- `RequestPush`, `RequestFlip`, `BufferUiPush`, and `BufferUiFlip` are removed UI command-route vocabulary and are not current paths.
+- Settings/rebind Push/Flip UI remains active for binding display, override, save, and restore.
 - Scene transition UI uses only `SceneTransitionOverlayShell` plus `SceneTransitionOverlayContentCatalog`.
 - `SceneTransitionOverlayView`, `UI/SceneTransitionOverlayView`, generated fallback, and legacy overlay fallback are not current paths.
 - `UiNavigationInputRouter` is a resolver-only input router initialized through `IUiNavigationTargetResolver`.

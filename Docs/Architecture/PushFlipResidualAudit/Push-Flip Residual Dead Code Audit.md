@@ -21,8 +21,9 @@ The highest-value residual candidates are:
 Verified removed or current status:
 
 - `PushChange_Legacy` / `FlipChange_Legacy`: no active repo artifact found.
-- `Player_S1_GameplayActionAudioProfile_Test`: no active repo artifact found.
-- Old action audio GUID `42a2e109fc5141ec9e866925a0a85c3b`: still points to the renamed production asset at `Assets/_Features/Gameplay/Gameplay_ActionAudio/Profiles/Player_S1_GameplayActionAudioProfile.asset` and is referenced by `Player_S1.prefab`.
+- `Player_S1_GameplayActionAudioProfile.asset`: canonical production profile exists at `Assets/_Features/Gameplay/Gameplay_ActionAudio/Profiles/Player_S1_GameplayActionAudioProfile.asset`.
+- Old `_Test` action-audio profile name: no active repo artifact found; historical-only after rename.
+- Action audio GUID `42a2e109fc5141ec9e866925a0a85c3b`: points to the canonical production asset and is referenced by `Player_S1.prefab`.
 - removed baseline/helper aliases: no runtime aliases found in `Assets`; current code uses canonical removed-fallback diagnostics vocabulary.
 - `RemovedLegacyFallbackDiagnosticsEnabled`: still present in `GameplayRuntimeFeatureFlags` and tests as canonical diagnostic routing.
 - `GroupId`: active internal action-group vocabulary remains. The public `DamageResolutionRecord.GroupId` / `DestroyResolutionRecord.GroupId` compatibility alias pattern was not found.
@@ -128,20 +129,14 @@ Moment coverage:
 | Action | Moment | Planner can emit | Profile state | Verdict |
 | --- | --- | --- | --- | --- |
 | Push | Windup | yes | assigned binding | keep |
-| Push | Execute | yes | no entry | near-dead/audio authoring gap |
-| Push | Contact | yes | optional null entry | empty optional entry |
-| Push | ImpactEnemy | yes | optional null entry | empty optional entry |
-| Push | Blocked | yes | optional null entry | empty optional entry |
-| Push | Recovery | yes | no entry | near-dead/audio authoring gap |
+| Push | Execute | yes | no entry | optional v1 lifecycle moment |
+| Push | Recovery | yes | no entry | optional v1 lifecycle moment |
 | Flip | Windup | yes | assigned binding | keep |
-| Flip | Execute | yes | no entry | near-dead/audio authoring gap |
-| Flip | Contact | yes, via contact timing | no entry | authoring gap |
-| Flip | ImpactEnemy | yes when resolution is impact | no entry | authoring gap |
-| Flip | Blocked | yes | assigned binding | keep |
-| Flip | Recovery | yes | no entry | near-dead/audio authoring gap |
+| Flip | Execute | yes | no entry | optional v1 lifecycle moment |
+| Flip | Recovery | yes | no entry | optional v1 lifecycle moment |
 | Push/Flip | AssistOutOfRange/NoTarget/Invalid | yes, attempt signals | assigned bindings | keep |
 
-Core gameplay one-shot duplication was not proven as an exact duplicate. Governance explicitly allows action-side `ImpactEnemy` to coexist with core `EnemyDamage`, and the arbiter has layering/deduplication tests.
+`Contact`, `ImpactEnemy`, and `Blocked` are not current `GameplayActionAudioMoment` members and are not emitted by the current production action-audio planner. Impact and blocked presentation/audio remain owned by their existing gameplay presentation lanes.
 
 ## Presentation Findings
 

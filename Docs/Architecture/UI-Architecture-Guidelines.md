@@ -373,7 +373,14 @@ HUD classification notes:
 
 - Current canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`.
 - ActionBar was removed as retired HUD proof residue after product option B selected deletion instead of wiring recovery.
+- `ActionBarView` and `ActionBarPresenter` are not current display components.
+- HUD is a display consumer of mapped UI presentation state. It is not a gameplay command owner.
+- HUD may raise bounded UI-owned requests such as pause flow, but it must not dispatch gameplay Push/Flip commands.
+- Push/Flip physical gameplay commands flow through the gameplay input route, not UI HUD command injection.
+- `RequestPush`, `RequestFlip`, `BufferUiPush`, and `BufferUiFlip` are removed UI command-route vocabulary and are not current paths.
+- Settings/rebind Push/Flip UI remains active for binding display, override, save, and restore.
 - This deletion decision does not change Push/Flip readiness mapping or gameplay command ownership.
+- The current HUD-side mapping is display semantics only.
 
 Deletion protection notes:
 

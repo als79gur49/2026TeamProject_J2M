@@ -35,6 +35,13 @@ production prefab contract:
 - optional enemy profiles remain optional unless the prefab declares the component
 - primitive fallback views are not auto-mutated with action authoring
 
+canonical player profile identity:
+
+- production asset path: `Assets/_Features/Gameplay/Gameplay_ActionAudio/Profiles/Player_S1_GameplayActionAudioProfile.asset`
+- asset name: `Player_S1_GameplayActionAudioProfile`
+- GUID: `42a2e109fc5141ec9e866925a0a85c3b`
+- the old `_Test` profile name is historical-only and must not be listed as current authored content
+
 v1 canonical-player required coverage:
 
 - `Push`: `Windup`, `AssistOutOfRange`, `NoTarget`, `Invalid`
