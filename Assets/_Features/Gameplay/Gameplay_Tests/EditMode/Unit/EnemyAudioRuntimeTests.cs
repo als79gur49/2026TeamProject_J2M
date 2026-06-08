@@ -35,6 +35,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string DrSaturnAudioProfilePath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioProfiles/EnemyAudioProfile_DrSaturn.asset";
         private const string DrSaturnAudioProfileGuid = "42ebae281b3c4fffa43d495c3a98dd73";
+        private const string StartisAudioProfilePath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioProfiles/EnemyAudioProfile_Startis.asset";
+        private const string StartisPassiveContactDefinitionPath =
+            "Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/Starteeth_Move_Def.asset";
 
         [Test]
         [Category("Extended")]
@@ -2426,6 +2430,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 EnemyAudioCue.PassiveContact);
         }
 
+        [Test]
+        [Category("Core")]
+        public void StartisAudioProfile_BindsPassiveContactForNonAttackingContactDamage()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(StartisAudioProfilePath);
+            var definition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(StartisPassiveContactDefinitionPath);
+
+            Assert.That(profile, Is.Not.Null, $"Missing Startis audio profile at '{StartisAudioProfilePath}'.");
+            Assert.That(definition, Is.Not.Null, $"Missing Startis passive-contact definition at '{StartisPassiveContactDefinitionPath}'.");
+            Assert.That(profile.TryResolve(EnemyAudioCue.PassiveContact, out var binding), Is.True);
+            Assert.That(binding.Definition, Is.SameAs(definition));
+            Assert.That(definition.Category, Is.EqualTo(AudioCategory.Sfx));
+            Assert.That(definition.Loop, Is.False);
+        }
+
         private static void AssertEnemyPrefabProfileDoesNotHaveCue(string prefabPath, EnemyAudioCue cue)
         {
             var view = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(prefabPath);
@@ -2465,12 +2484,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_JPeter.prefab",
-                    EnemyAudioCue.Windup,
+                    EnemyAudioCue.Move,
                     EnemyAudioCue.Active,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_Startis.prefab",
                     EnemyAudioCue.Move,
+                    EnemyAudioCue.PassiveContact,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_Nebulous.prefab",

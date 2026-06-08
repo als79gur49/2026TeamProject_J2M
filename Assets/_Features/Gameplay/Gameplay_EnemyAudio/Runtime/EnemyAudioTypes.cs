@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Shared.Audio;
 
@@ -108,6 +109,22 @@ namespace Game.Feature.Gameplay.EnemyAudio
 
     public static class EnemyAudioCueCatalog
     {
+        private static readonly EnemyAudioCue[] RuntimeCueValues =
+        {
+            EnemyAudioCue.Move,
+            EnemyAudioCue.Death,
+            EnemyAudioCue.Windup,
+            EnemyAudioCue.Landing,
+            EnemyAudioCue.Active,
+            EnemyAudioCue.Recover,
+            EnemyAudioCue.ProjectileImpact,
+            EnemyAudioCue.ChargeActiveLoop,
+            EnemyAudioCue.StationaryActive,
+            EnemyAudioCue.PassiveContact,
+        };
+
+        public static IReadOnlyList<EnemyAudioCue> RuntimeCues => RuntimeCueValues;
+
         public static string Format(EnemyAudioCue cue)
         {
             return cue switch

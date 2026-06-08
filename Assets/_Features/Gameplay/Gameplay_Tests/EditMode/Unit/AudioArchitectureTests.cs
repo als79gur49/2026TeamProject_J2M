@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.ActionAudio;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
+using Game.Feature.Gameplay.EnemyAudio;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
@@ -316,6 +317,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 nameof(GameplayActionAudioProfile),
                 "EnemyAudioProfile",
+                nameof(EnemyAudioRequirementPolicy),
+                nameof(EnemyAudioRequirementBinding),
                 "UiAudioCueMap",
                 nameof(BgmProfile),
                 nameof(StageAudioDefinition),
@@ -365,6 +368,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(hostSource, Does.Not.Contain("FindAnyObjectByType<"));
             Assert.That(hostSource, Does.Not.Contain("new AudioManager"));
             Assert.That(hostSource, Does.Not.Contain(".PlayBgm("));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAudioRequirementPolicy_IsEnemyLaneOwned()
+        {
+            var enemyAudioAssembly = typeof(EnemyAudioProfile).Assembly;
+            var references = typeof(EnemyAudioRequirementPolicy).Assembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+
+            Assert.That(typeof(EnemyAudioRequirementPolicy).Assembly, Is.EqualTo(enemyAudioAssembly));
+            Assert.That(enemyAudioAssembly.GetName().Name, Is.EqualTo("Game.Feature.Gameplay.EnemyAudio"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Host"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.UIAccess"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.UI.Application"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAudioRequirementBinding_IsEnemyLaneOwned()
+        {
+            var enemyAudioAssembly = typeof(EnemyAudioProfile).Assembly;
+            var references = typeof(EnemyAudioRequirementBinding).Assembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+
+            Assert.That(typeof(EnemyAudioRequirementBinding).Assembly, Is.EqualTo(enemyAudioAssembly));
+            Assert.That(enemyAudioAssembly.GetName().Name, Is.EqualTo("Game.Feature.Gameplay.EnemyAudio"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Host"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.UIAccess"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.UI.Application"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SharedAudioRuntime_DoesNotReferenceEnemyAudioCueNames()
+        {
+            var runtimeSource = ReadRepoFilesUnder("Assets/_Shared/Audio/Runtime");
+
+            Assert.That(runtimeSource, Does.Not.Contain(nameof(EnemyAudioCue)));
+            Assert.That(runtimeSource, Does.Not.Contain(nameof(EnemyAudioCue.ChargeActiveLoop)));
+            Assert.That(runtimeSource, Does.Not.Contain(nameof(EnemyAudioCue.ProjectileImpact)));
+            Assert.That(runtimeSource, Does.Not.Contain(nameof(EnemyAudioCue.StationaryActive)));
+            Assert.That(runtimeSource, Does.Not.Contain(nameof(EnemyAudioCue.PassiveContact)));
         }
 
         [Test]

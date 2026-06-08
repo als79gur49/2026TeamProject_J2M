@@ -44,6 +44,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             "Assets/_Features/Gameplay/Gameplay_TileFeatureAudio/Maps/TileFeatureAudioMap_ObjectSounds.asset";
         private const string TileFeatureAudioMapGuid =
             "b4f6650dfd7e4aecb59dcad3cabe0489";
+        private const string ProductionEnemyAudioRoot =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/";
 
         private static readonly string[] ProductionRoots =
         {
@@ -87,6 +89,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 LoadProductionAssets<EnemyAudioProfile>(),
                 profile => profile.ValidateOrThrow(),
                 failures);
+            AppendEnemyAudioRequirementValidationFailures(failures);
 
             Assert.That(
                 failures,
@@ -132,6 +135,80 @@ namespace Game.Feature.Gameplay.Tests.Core
                 Is.Not.Empty,
                 $"Repository scan found no production {typeof(T).Name} assets.");
             return assets;
+        }
+
+        private static void AppendEnemyAudioRequirementValidationFailures(ICollection<string> failures)
+        {
+            var profiles = LoadProductionEnemyAudioAssets<EnemyAudioProfile>();
+            var policies = LoadProductionEnemyAudioAssets<EnemyAudioRequirementPolicy>();
+            var bindings = LoadProductionEnemyAudioAssets<EnemyAudioRequirementBinding>();
+            var profileCoverage = new Dictionary<EnemyAudioProfile, List<EnemyAudioRequirementBinding>>();
+
+            AppendValidationFailures(policies, policy => policy.ValidateOrThrow(), failures);
+            AppendValidationFailures(bindings, binding => binding.ValidateOrThrow(), failures);
+            AppendLegacyEnemyAudioRequirementProfileFailures(failures);
+
+            foreach (var profile in profiles)
+            {
+                profileCoverage[profile] = new List<EnemyAudioRequirementBinding>();
+            }
+
+            foreach (var binding in bindings)
+            {
+                if (binding.TargetProfile != null &&
+                    profileCoverage.TryGetValue(binding.TargetProfile, out var coveredProfiles))
+                {
+                    coveredProfiles.Add(binding);
+                }
+                else if (binding.TargetProfile != null)
+                {
+                    failures.Add(
+                        $"{Describe(binding)} targets non-production {nameof(EnemyAudioProfile)} {Describe(binding.TargetProfile)}.");
+                }
+            }
+
+            foreach (var profile in profiles)
+            {
+                var coveredProfiles = profileCoverage[profile];
+                if (coveredProfiles.Count == 0)
+                {
+                    failures.Add($"{Describe(profile)} has no production {nameof(EnemyAudioRequirementBinding)}.");
+                }
+                else if (coveredProfiles.Count > 1)
+                {
+                    failures.Add(
+                        $"{Describe(profile)} has duplicate production {nameof(EnemyAudioRequirementBinding)} assets: " +
+                        string.Join(", ", coveredProfiles.Select(Describe)));
+                }
+            }
+        }
+
+        private static IReadOnlyList<T> LoadProductionEnemyAudioAssets<T>() where T : UnityEngine.Object
+        {
+            var assets = LoadProductionAssets<T>()
+                .Where(asset => AssetDatabase.GetAssetPath(asset).StartsWith(ProductionEnemyAudioRoot, StringComparison.Ordinal))
+                .ToArray();
+
+            Assert.That(
+                assets,
+                Is.Not.Empty,
+                $"Repository scan found no production enemy audio {typeof(T).Name} assets.");
+            return assets;
+        }
+
+        private static void AppendLegacyEnemyAudioRequirementProfileFailures(ICollection<string> failures)
+        {
+            var legacyPaths = AssetDatabase.FindAssets("EnemyAudioRequirementProfile")
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(path => path.StartsWith(ProductionEnemyAudioRoot, StringComparison.Ordinal))
+                .Where(path => path.EndsWith(".asset", StringComparison.Ordinal))
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray();
+
+            for (var i = 0; i < legacyPaths.Length; i++)
+            {
+                failures.Add($"Legacy full-matrix enemy audio requirement asset remains in production roots: {legacyPaths[i]}");
+            }
         }
 
         private static void AppendValidationFailures<T>(

@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.ActionAudio;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
+using Game.Feature.Gameplay.EnemyAudio;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
@@ -24,6 +25,8 @@ namespace Game.Feature.Gameplay.Tests.Core
     {
         private const string PlayerS1GameplayActionAudioProfilePath =
             "Assets/_Features/Gameplay/Gameplay_ActionAudio/Profiles/Player_S1_GameplayActionAudioProfile.asset";
+        private const string ProductionEnemyAudioRoot =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/";
 
         [Test]
         [Category("Core")]
@@ -132,6 +135,57 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(profileYaml, Does.Not.Contain("Moment: 2"));
             Assert.That(profileYaml, Does.Not.Contain("Moment: 3"));
             Assert.That(profileYaml, Does.Not.Contain("Moment: 4"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAudioProfiles_RepositoryAssets_ValidateRequirementBindings()
+        {
+            var profiles = LoadProductionAssets<EnemyAudioProfile>();
+            var policies = LoadProductionAssets<EnemyAudioRequirementPolicy>();
+            var bindings = LoadProductionAssets<EnemyAudioRequirementBinding>();
+            Assert.That(profiles, Is.Not.Empty, "Repository scan found no EnemyAudioProfile assets.");
+            Assert.That(policies, Is.Not.Empty, "Repository scan found no EnemyAudioRequirementPolicy assets.");
+            Assert.That(bindings, Is.Not.Empty, "Repository scan found no EnemyAudioRequirementBinding assets.");
+
+            var failures = new List<string>();
+            AppendValidationFailures(policies, policy => policy.ValidateOrThrow(), failures);
+            AppendValidationFailures(bindings, binding => binding.ValidateOrThrow(), failures);
+            AppendLegacyEnemyAudioRequirementProfileFailures(failures);
+
+            var coverage = profiles.ToDictionary(
+                profile => profile,
+                _ => new List<EnemyAudioRequirementBinding>());
+            foreach (var binding in bindings)
+            {
+                if (binding.TargetProfile != null &&
+                    coverage.TryGetValue(binding.TargetProfile, out var coveredProfiles))
+                {
+                    coveredProfiles.Add(binding);
+                }
+                else if (binding.TargetProfile != null)
+                {
+                    failures.Add(
+                        $"{Describe(binding)} targets non-production {nameof(EnemyAudioProfile)} {Describe(binding.TargetProfile)}.");
+                }
+            }
+
+            foreach (var profile in profiles)
+            {
+                var coveredProfiles = coverage[profile];
+                if (coveredProfiles.Count == 0)
+                {
+                    failures.Add($"{Describe(profile)} has no {nameof(EnemyAudioRequirementBinding)}.");
+                }
+                else if (coveredProfiles.Count > 1)
+                {
+                    failures.Add(
+                        $"{Describe(profile)} has duplicate {nameof(EnemyAudioRequirementBinding)} assets: " +
+                        string.Join(", ", coveredProfiles.Select(Describe)));
+                }
+            }
+
+            Assert.That(failures, Is.Empty, "EnemyAudioProfile requirement binding smoke failures:\n" + string.Join("\n", failures));
         }
 
         [Test]
@@ -310,6 +364,13 @@ namespace Game.Feature.Gameplay.Tests.Core
                 .ToArray();
         }
 
+        private static IReadOnlyList<T> LoadProductionAssets<T>() where T : UnityEngine.Object
+        {
+            return LoadAllAssets<T>()
+                .Where(asset => IsProductionEnemyAudioAssetPath(AssetDatabase.GetAssetPath(asset)))
+                .ToArray();
+        }
+
         private static void AppendValidationFailures<T>(
             IEnumerable<T> assets,
             Action<T> validate,
@@ -332,6 +393,46 @@ namespace Game.Feature.Gameplay.Tests.Core
         private static bool IsPositiveFinite(float value)
         {
             return value > 0f && !float.IsNaN(value) && !float.IsInfinity(value);
+        }
+
+        private static void AppendLegacyEnemyAudioRequirementProfileFailures(ICollection<string> failures)
+        {
+            var legacyPaths = AssetDatabase.FindAssets("EnemyAudioRequirementProfile")
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(IsProductionEnemyAudioAssetPath)
+                .Where(path => path.EndsWith(".asset", StringComparison.Ordinal))
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .ToArray();
+
+            for (var i = 0; i < legacyPaths.Length; i++)
+            {
+                failures.Add($"Legacy full-matrix enemy audio requirement asset remains in production roots: {legacyPaths[i]}");
+            }
+        }
+
+        private static bool IsProductionEnemyAudioAssetPath(string path)
+        {
+            if (string.IsNullOrEmpty(path) ||
+                !path.StartsWith(ProductionEnemyAudioRoot, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            var segments = path.Split('/');
+            for (var i = 0; i < segments.Length - 1; i++)
+            {
+                var segment = segments[i];
+                if (segment.Contains("Tests", StringComparison.Ordinal) ||
+                    segment.Contains("TestSupport", StringComparison.Ordinal) ||
+                    segment.Contains("Fixtures", StringComparison.Ordinal) ||
+                    segment.Contains("Samples", StringComparison.Ordinal) ||
+                    string.Equals(segment, "Docs", StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static string Describe(UnityEngine.Object asset)
