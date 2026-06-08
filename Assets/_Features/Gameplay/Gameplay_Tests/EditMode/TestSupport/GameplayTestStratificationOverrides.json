@@ -2190,15 +2190,6 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8A_ObsoleteHelpers_NoInternalUsage",
-      "category": "Core",
-      "contracts": [
-        "movement_boundary_v1"
-      ],
-      "reason": "Locked Core coverage for Phase 8A obsolete covered fallback helper usage cleanup.",
-      "locked": true
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8A_LegacyFallbackBaseline_IsDiagnosticCompatibilityNaming",
       "category": "Core",
       "contracts": [
@@ -2241,15 +2232,6 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.FallbackWrapperCleanup_ObsoleteAllowsHelpers_HaveNoInternalCallSites",
-      "category": "Core",
-      "contracts": [
-        "movement_boundary_v1"
-      ],
-      "reason": "Locked Core coverage that obsolete Allows compatibility wrappers have no internal callsites.",
-      "locked": true
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.FallbackWrapperCleanup_CurrentPolicyTests_UseRemovedDiagnosticVocabulary",
       "category": "Core",
       "contracts": [
@@ -2259,12 +2241,12 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.FallbackWrapperCleanup_HistoricalWrappers_AreExplicitlyMarked",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.FallbackWrapperCleanup_HistoricalCanaries_AreExplicitlyMarked",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage that retained historical wrappers are explicitly marked as historical compatibility.",
+      "reason": "Locked Core coverage that historical canaries are explicitly marked without retaining obsolete helper surface.",
       "locked": true
     },
     {

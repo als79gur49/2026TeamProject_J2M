@@ -801,7 +801,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        // Historical/pre-Phase6 wrapper: delegates to the canonical Charge removed-diagnostic replay.
+        // Historical/pre-Phase6 canary: delegates to the canonical Charge removed-diagnostic replay.
         public void Replay_Phase2C_ChargeFlagOffLegacyFallback_BaselineDocumented()
         {
             Replay_Phase6_ChargeLegacyBaseline_FallbackRemoved();

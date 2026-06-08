@@ -264,7 +264,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        // Historical/pre-Phase4 wrapper: delegates to the canonical player removed-diagnostic test.
+        // Historical/pre-Phase4 canary: delegates to the canonical player removed-diagnostic test.
         public void Phase2_PlayerLegacyFallback_FlagOffBaseline_RemovedByPhase4()
         {
             Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved();
@@ -396,7 +396,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        // Historical/pre-Phase5 wrapper: delegates to the canonical enemy removed-diagnostic test.
+        // Historical/pre-Phase5 canary: delegates to the canonical enemy removed-diagnostic test.
         public void Phase2B_EnemyLegacyFallback_FlagOffBaseline_RemovedByPhase5()
         {
             Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemoved();
@@ -552,7 +552,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        // Historical/pre-Phase6 wrapper: delegates to the canonical Charge removed-diagnostic test.
+        // Historical/pre-Phase6 canary: delegates to the canonical Charge removed-diagnostic test.
         public void Phase2C_ChargeLegacyFallback_FlagOffBaseline_RemovedByPhase6()
         {
             Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved();
@@ -1166,61 +1166,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase8A_ObsoleteHelpers_NoInternalUsage()
-        {
-            var obsoleteCoveredHelperNames = new[]
-            {
-                "AllowsRemovedDiagnosticBaselineAlias",
-                "AllowsEnemyFlagOffLegacyOrdinaryFallback",
-                "AllowsChargeFlagOffLegacyFallback",
-                "AllowsOnlyFlagOffCoveredFallback",
-                "AllowsFlagOffLegacyFallback",
-            };
-            var removedPlayerHelper = typeof(LegacyMovementBoundaryAssert).GetMethod(
-                "AllowsPlayerFlagOffLegacyOrdinaryFallback",
-                BindingFlags.Public | BindingFlags.Static);
-            Assert.That(removedPlayerHelper, Is.Null);
-
-            for (var i = 0; i < obsoleteCoveredHelperNames.Length; i++)
-            {
-                var method = typeof(LegacyMovementBoundaryAssert).GetMethod(
-                    obsoleteCoveredHelperNames[i],
-                    BindingFlags.Public | BindingFlags.Static);
-                Assert.That(method, Is.Not.Null, obsoleteCoveredHelperNames[i]);
-                Assert.That(method.GetCustomAttribute<ObsoleteAttribute>(), Is.Not.Null, obsoleteCoveredHelperNames[i]);
-            }
-
-            var canonicalHelperNames = new[]
-            {
-                nameof(LegacyMovementBoundaryAssert.AssertCoveredFallbackRemovedDiagnostics),
-                nameof(LegacyMovementBoundaryAssert.AssertPlayerFallbackRemovedFromRuntime),
-                nameof(LegacyMovementBoundaryAssert.AssertEnemyFallbackRemovedFromRuntime),
-                nameof(LegacyMovementBoundaryAssert.AssertChargeFallbackRemovedFromRuntime),
-            };
-            var phase8AUsageInventory = new[]
-            {
-                "AllowsRemovedDiagnosticBaselineAlias: definition only",
-                "AllowsPlayerFlagOffLegacyOrdinaryFallback: not present",
-                "AllowsEnemyFlagOffLegacyOrdinaryFallback: definition only",
-                "AllowsChargeFlagOffLegacyFallback: definition only",
-                "AllowsOnlyFlagOffCoveredFallback: definition only",
-                "AllowsFlagOffLegacyFallback: definition only",
-            };
-
-            Assert.That(canonicalHelperNames.Any(name => name.Contains("Allows", StringComparison.Ordinal)), Is.False);
-            Assert.That(phase8AUsageInventory.Any(row => row.Contains("internal caller", StringComparison.Ordinal)), Is.False);
-            Assert.That(phase8AUsageInventory, Does.Contain("AllowsPlayerFlagOffLegacyOrdinaryFallback: not present"));
-        }
-
-        [Test]
-        [Category("Core")]
         public void Phase8A_LegacyFallbackBaseline_IsDiagnosticCompatibilityNaming()
         {
             var currentVocabulary = new[]
             {
                 "RemovedLegacyFallbackDiagnosticBaseline: diagnostic compatibility preset",
                 "covered fallback authorization: removed",
-                "obsolete covered fallback helpers: wrapper-only",
+                "obsolete covered fallback helpers: deleted",
                 "retained grid transactions remain allowed",
                 "glide retained fallback remains separate",
             };
@@ -1256,59 +1208,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void FallbackWrapperCleanup_ObsoleteAllowsHelpers_HaveNoInternalCallSites()
-        {
-            var helperSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/LegacyMovementBoundaryAssert.cs");
-            var internalCallsiteFiles = new[]
-            {
-                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/BoundaryInventoryScenarioTests.cs",
-                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/MovementPhaseScenarioTests.cs",
-                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/EnemyKinematicLocomotionReplayTests.cs",
-                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/PlayerContinuousLocomotionReplayTests.cs",
-            };
-            var retainedCompatibilityWrappers = new[]
-            {
-                "AllowsRemovedDiagnosticBaselineAlias",
-                "AllowsEnemyFlagOffLegacyOrdinaryFallback",
-                "AllowsChargeFlagOffLegacyFallback",
-                "AllowsOnlyFlagOffCoveredFallback",
-                "AllowsFlagOffLegacyFallback",
-            };
-
-            foreach (var wrapper in retainedCompatibilityWrappers)
-            {
-                Assert.That(helperSource, Does.Contain("[System.Obsolete"));
-                Assert.That(
-                    helperSource,
-                    Does.Contain("public static void " + wrapper + "("),
-                    wrapper);
-                Assert.That(helperSource, Does.Contain("historical compatibility wrapper only"), wrapper);
-            }
-
-            Assert.That(
-                helperSource,
-                Does.Not.Contain("public static void AllowsPlayerFlagOffLegacyOrdinaryFallback" + "("));
-
-            foreach (var relativePath in internalCallsiteFiles)
-            {
-                var source = ReadRepoFile(relativePath);
-                foreach (var wrapper in retainedCompatibilityWrappers)
-                {
-                    Assert.That(source, Does.Not.Contain("LegacyMovementBoundaryAssert." + wrapper + "("), relativePath);
-                    Assert.That(source, Does.Not.Contain(wrapper + "(result"), relativePath);
-                    Assert.That(source, Does.Not.Contain(wrapper + "(tick"), relativePath);
-                    Assert.That(source, Does.Not.Contain(wrapper + "(replay"), relativePath);
-                }
-
-                Assert.That(
-                    source,
-                    Does.Not.Contain("AllowsPlayerFlagOffLegacyOrdinaryFallback" + "("),
-                    relativePath);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
         public void FallbackWrapperCleanup_CurrentPolicyTests_UseRemovedDiagnosticVocabulary()
         {
             var docs = new[]
@@ -1337,7 +1236,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             var scenarioSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/BoundaryInventoryScenarioTests.cs");
-            Assert.That(scenarioSource, Does.Contain(nameof(FallbackWrapperCleanup_ObsoleteAllowsHelpers_HaveNoInternalCallSites)));
+            Assert.That(scenarioSource, Does.Not.Contain("FallbackWrapperCleanup_Obsolete" + "AllowsHelpers_HaveNoInternalCallSites"));
             Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertCoveredFallbackRemovedDiagnostics)));
             Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertPlayerFallbackRemovedFromRuntime)));
             Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertEnemyFallbackRemovedFromRuntime)));
@@ -1346,7 +1245,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void FallbackWrapperCleanup_HistoricalWrappers_AreExplicitlyMarked()
+        public void FallbackWrapperCleanup_HistoricalCanaries_AreExplicitlyMarked()
         {
             var boundarySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/BoundaryInventoryScenarioTests.cs");
             var playerReplaySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/PlayerContinuousLocomotionReplayTests.cs");
@@ -1359,11 +1258,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase3-Explicit-Legacy-Fallback-Policy-2026-05-02.md"),
             };
 
-            Assert.That(boundarySource, Does.Contain("Historical/pre-Phase4 wrapper"));
-            Assert.That(boundarySource, Does.Contain("Historical/pre-Phase5 wrapper"));
-            Assert.That(boundarySource, Does.Contain("Historical/pre-Phase6 wrapper"));
-            Assert.That(playerReplaySource, Does.Contain("Historical/pre-Phase4 wrapper"));
-            Assert.That(enemyReplaySource, Does.Contain("Historical/pre-Phase6 wrapper"));
+            Assert.That(boundarySource, Does.Contain("Historical/pre-Phase4 canary"));
+            Assert.That(boundarySource, Does.Contain("Historical/pre-Phase5 canary"));
+            Assert.That(boundarySource, Does.Contain("Historical/pre-Phase6 canary"));
+            Assert.That(playerReplaySource, Does.Contain("Historical/pre-Phase4 canary"));
+            Assert.That(enemyReplaySource, Does.Contain("Historical/pre-Phase6 canary"));
 
             foreach (var doc in phase2Docs)
             {
