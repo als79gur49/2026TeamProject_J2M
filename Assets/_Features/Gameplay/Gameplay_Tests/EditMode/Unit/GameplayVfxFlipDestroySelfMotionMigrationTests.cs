@@ -172,6 +172,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void FlipDestroySelfMotion_UsesImpactDispositionAdmission_NotLiveSourceGate()
+        {
+            var fixture = CreateBuilderFixture();
+            var signal = CreateSignal(FlipImpactPresentationDisposition.DestroySelf);
+
+            var built = FlipDestroySelfMotionVfxCommandBuilder.TryBuild(
+                signal,
+                fixture.TimingProfile,
+                fixture.MotionTimingResolver,
+                fixture.PoseResolver,
+                fixture.Projector,
+                out var command);
+
+            Assert.That(
+                built,
+                Is.True,
+                "FlipDestroySelfMotion is admitted from the impact disposition presentation fact, not a live source gate.");
+            Assert.That(command.BoxEntityId, Is.EqualTo(signal.BoxEntityId));
+            Assert.That(command.SourceCell, Is.EqualTo(signal.SourceCell));
+            Assert.That(command.ImpactCell, Is.EqualTo(signal.ImpactCell));
+            Assert.That(command.SourceLocalPosition, Is.Not.EqualTo(command.ImpactLocalPosition));
+
+            var parameterized = command.ToParameterizedMotionVfxCommand();
+            Assert.That(
+                parameterized.CueId,
+                Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion)),
+                "Impact disposition admission must preserve the authored FlipDestroySelfMotion cue.");
+            Assert.That(
+                parameterized.CloneMode,
+                Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion),
+                "Impact disposition admission must keep SourceCloneMotion instead of forcing PresentationOnly.");
+            Assert.That(parameterized.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.FlipArc));
+            Assert.That(parameterized.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.ScaleAndAlpha));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PreservesSurfaceCellFaceTopologyAndFacing()
         {
             var sourceCell = new SurfaceCell(FaceId.Front, 2, 3);

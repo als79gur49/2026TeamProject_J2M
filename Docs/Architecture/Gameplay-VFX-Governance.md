@@ -104,6 +104,46 @@ Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage
 - source view missing and prefab missing diagnostics must remain separate.
 - example: `EnemyVfxCue.DeathMotion`.
 
+## Presentation Admission Families
+
+Binding visibility policy is part of the authored VFX binding contract, but direct presentation commands are not automatically admitted through the common live source/target visibility evaluator. EntityExit/death/impact direct commands use their presentation fact admission contract unless explicitly routed through the common planner path.
+
+### Gameplay request VFX
+
+- admission owner: source-target visibility evaluator.
+- common gate: `GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor` and `EvaluateAfterAnchor` are part of admission.
+- examples: `ForwardCellProjectile`, planner request paths, and attached/follower request families.
+- `InactiveFaceExplicitlyAllowed` can allow inactive-face target/anchor projection, but it does not bypass the ForwardCellProjectile source semantic gate.
+
+### EntityExit / Death presentation direct VFX
+
+- admission owner: death, destroy, or out-of-bounds presentation fact.
+- examples: `EnemyDeathMotion`, `BoxVfxCue.DestroyShrink`, and `BoxVfxCue.OutOfBoundsExit` / `EnemyVfxCue.OutOfBoundsExit`.
+- these are presentation fact consumers, not live gameplay action VFX.
+- direct command paths resolve binding policy, but the common live source/target evaluator is not the command admission owner.
+- death, destroy, and out-of-bounds feedback must not disappear only because the source entity is already inactive as part of the exit fact.
+- do not force these paths through `PresentationOnly` as a substitute for their presentation fact admission contract.
+
+### Impact / disposition presentation direct VFX
+
+- admission owner: impact or flip-disposition presentation fact.
+- examples: `BoxVfxCue.FlipDestroySelfMotion` and `BoxVfxCue.ImpactTransientBreak`.
+- this family is similar to EntityExit direct presentation VFX because it builds direct source-clone motion from presentation facts, but it remains a separate impact/disposition family.
+- do not generalize ForwardCellProjectile Phase 6E source-gate semantics to these impact/disposition direct commands.
+
+### Split / mixed path
+
+- `BoxVfxCue.DestroySmoke` is not a single simple direct-command path.
+- immediate BoxDestroy smoke is planned as a gameplay VFX request and keeps planner/common visibility-gate semantics.
+- delayed BoxDestroy smoke is admitted from the scheduled exit presentation fact through the runtime projector/direct presentation path.
+- duplicate guards with DestroySelf/ImpactTransient ownership remain split-path ownership rules, not a reason to treat smoke as one direct EntityExit command family.
+
+### Topology helper
+
+- admission owner: topology visual state or helper context.
+- examples: `TopologyTransitionPostFxController`, `TopologyVisualBridgeVisibilityController`, `GameplayTopologyTransitionController`, and the `GameplayCameraRig` topology adapter.
+- this is the `PresentationOnly` helper lane and remains separate from gameplay VFX visibility policy.
+
 ## Placeholder Prefab Policy
 
 ### SourceCloneMotion
@@ -134,6 +174,7 @@ Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage
 - authored prefab is the visual body.
 - null prefab is invalid and reports `MissingPrefab`.
 - particle/contact visual prefabs are actual visual prefabs, not placeholders.
+- sample-only particle prefabs must not be kept in the production VFX tree.
 - `BoxDestroySmokeVfx.prefab`, `FlipImpactBurstVfx.prefab`, and `BoxSlideSolidStopVfx.prefab` are deletion-protected actual visual examples.
 
 ### Cleanup Rules

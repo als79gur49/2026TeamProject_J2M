@@ -56,7 +56,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ImpactTransientCommand_UsesSourceToImpactPoseAndFadeTiming()
+        public void ImpactTransientBreak_UsesImpactPresentationAdmission_NotLiveSourceGate()
         {
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var impactCell = new SurfaceCell(FaceId.Floor, 2, 1);
@@ -73,16 +73,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projector,
                 out var command);
 
-            Assert.That(built, Is.True);
-            Assert.That(command.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)));
+            Assert.That(
+                built,
+                Is.True,
+                "ImpactTransientBreak is admitted from the impact presentation fact, not a live source gate.");
+            Assert.That(
+                command.CueId,
+                Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)),
+                "Impact presentation admission must preserve the authored ImpactTransientBreak cue.");
             Assert.That(command.SourceEntityId, Is.EqualTo(30));
-            Assert.That(command.SourceLocalPosition, Is.Not.EqualTo(command.TargetLocalPosition));
+            Assert.That(
+                command.SourceLocalPosition,
+                Is.Not.EqualTo(command.TargetLocalPosition),
+                "Impact presentation admission must keep source-to-impact motion shape.");
             Assert.That(command.DurationSeconds, Is.EqualTo(Mathf.Max(
                 GameplayTimingProfile.DefaultBoxDestroyEffectDurationSeconds,
                 GameplayTimingProfile.DefaultFlipMotionDurationSeconds)).Within(0.0001f));
             Assert.That(command.BreakStartSeconds, Is.EqualTo(command.DurationSeconds * 0.62f).Within(0.0001f));
             Assert.That(command.FadeDurationSeconds, Is.EqualTo(command.DurationSeconds - command.BreakStartSeconds).Within(0.0001f));
-            Assert.That(command.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+            Assert.That(
+                command.CloneMode,
+                Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion),
+                "Impact presentation admission must keep SourceCloneMotion instead of forcing PresentationOnly.");
             Assert.That(command.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.ScaleAndAlpha));
             Assert.That(command.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.FlipArc));
         }
@@ -169,7 +181,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EntityExitOutOfBoundsCommand_UsesSourcePoseVanishFade()
+        public void EntityExitOutOfBounds_UsesExitFactAdmission_NotLiveSourceGate()
         {
             var signal = CreateExitSignal(40, TickEntityExitCause.OutOfBounds, entityType: EntityType.Unit);
             Assert.That(EntityExitOutOfBoundsVfxCommandBuilder.TryResolveCue(signal, out var cueId), Is.True);
@@ -183,13 +195,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateProjector(),
                 out var command);
 
-            Assert.That(built, Is.True);
-            Assert.That(command.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit)));
-            Assert.That(command.SourceLocalPosition, Is.EqualTo(command.TargetLocalPosition));
+            Assert.That(
+                built,
+                Is.True,
+                "OutOfBoundsExit is admitted from the EntityExit presentation fact, not a live source gate.");
+            Assert.That(
+                command.CueId,
+                Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit)),
+                "Out-of-bounds exit fact admission must preserve the family-specific cue.");
+            Assert.That(
+                command.SourceLocalPosition,
+                Is.EqualTo(command.TargetLocalPosition),
+                "Out-of-bounds exit feedback is a source-clone vanish at the exit pose, not a live source-target action.");
             Assert.That(command.SourceLocalRotation, Is.EqualTo(command.TargetLocalRotation));
             Assert.That(command.DurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultItemConsumeEffectDurationSeconds).Within(0.0001f));
             Assert.That(command.FadeDurationSeconds, Is.EqualTo(command.DurationSeconds).Within(0.0001f));
-            Assert.That(command.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+            Assert.That(
+                command.CloneMode,
+                Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion),
+                "EntityExit fact admission must keep SourceCloneMotion instead of forcing PresentationOnly.");
             Assert.That(command.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.DestroyShrinkEase));
             Assert.That(command.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.Linear));
         }

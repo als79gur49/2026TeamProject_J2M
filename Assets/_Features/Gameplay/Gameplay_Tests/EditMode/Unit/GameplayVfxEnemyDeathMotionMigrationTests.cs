@@ -246,8 +246,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 runtime.Present(context);
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)), Is.EqualTo(1));
+                Assert.That(
+                    runtime.LastPlannedRequestCount,
+                    Is.EqualTo(1),
+                    "EnemyDeathMotion is admitted from the death presentation fact, not the ForwardCellProjectile live source gate.");
+                Assert.That(
+                    runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)),
+                    Is.EqualTo(1),
+                    "FrontFaceInactive death feedback must remain visible through the presentation fact admission contract.");
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingBindingCount, Is.Zero);
                 Assert.That(runtime.MissingAnchorCount, Is.Zero);
@@ -262,7 +268,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     runtime.ForwardCellProjectilePresentationOnlyMisuseCandidateCount,
                     Is.Zero,
-                    "EnemyDeathMotion death clone is independent from the ForwardCellProjectile flight cue source gate.");
+                    "EnemyDeathMotion death clone is independent from the ForwardCellProjectile live source gate.");
                 Assert.That(
                     runtime.ForwardCellProjectilePresentationOnlyAllowedTopologyHelperCount,
                     Is.Zero,
@@ -281,7 +287,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         builderFixture.TargetResolver,
                         out var command);
 
-                    Assert.That(built, Is.True);
+                    Assert.That(
+                        built,
+                        Is.True,
+                        "Death presentation fact admission must build the command without requiring the live source gate.");
                     AssertEnemyDeathMotionParameterizedContract(command.ToParameterizedMotionVfxCommand());
                 }
                 finally

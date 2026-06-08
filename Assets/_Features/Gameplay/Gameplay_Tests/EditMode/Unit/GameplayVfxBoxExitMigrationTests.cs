@@ -167,7 +167,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EntityExitBoxDestroyShrinkBuilder_BoxDestroy_BuildsSourceCloneEaseCommand()
+        public void EntityExitBoxDestroyShrink_UsesExitFactAdmission_NotLiveSourceGate()
         {
             var cell = new SurfaceCell(FaceId.Back, 2, 3);
             var topology = new CubeTopologyState(FaceId.Back);
@@ -187,15 +187,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 projector,
                 out var command);
 
-            Assert.That(built, Is.True);
-            Assert.That(command.CueId, Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.DestroyShrink)));
+            Assert.That(
+                built,
+                Is.True,
+                "BoxDestroyShrink is admitted from the EntityExit presentation fact, not a live source gate.");
+            Assert.That(
+                command.CueId,
+                Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.DestroyShrink)),
+                "EntityExit fact admission must preserve the authored DestroyShrink cue.");
             Assert.That(command.SourceEntityId, Is.EqualTo(20));
             Assert.That(command.SequenceId, Is.EqualTo(8831));
             Assert.That(command.PresentationSeed, Is.EqualTo(8831));
-            Assert.That(command.SourceLocalPosition, Is.EqualTo(command.TargetLocalPosition));
+            Assert.That(
+                command.SourceLocalPosition,
+                Is.EqualTo(command.TargetLocalPosition),
+                "DestroyShrink exit feedback is a source-clone shrink at the exit pose, not a live source-target action.");
             Assert.That(command.SourceLocalRotation, Is.EqualTo(command.TargetLocalRotation));
             Assert.That(command.DurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultBoxDestroyEffectDurationSeconds).Within(0.0001f));
-            Assert.That(command.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+            Assert.That(
+                command.CloneMode,
+                Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion),
+                "EntityExit fact admission must keep SourceCloneMotion instead of forcing PresentationOnly.");
             Assert.That(command.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.DestroyShrinkEase));
             Assert.That(command.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.Linear));
         }

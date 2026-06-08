@@ -78,6 +78,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "## Gameplay VFX Legacy Old Path Cleanup",
                 "## Gameplay VFX Flag Rollout Policy",
                 "## Visual Source Modes",
+                "## Presentation Admission Families",
                 "## Placeholder Prefab Policy",
                 "## ADR: SourceCloneMotion Host Strategy",
                 "## Test Naming Policy",
@@ -102,6 +103,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("### SourceCloneMotion"));
             Assert.That(document, Does.Contain("### PrefabWithSourceClone"));
             Assert.That(document, Does.Contain("SourceViewCloneWithPrefabFallback"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayVfxGovernance_DocumentsPresentationAdmissionFamilies()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(document, Does.Contain("## Presentation Admission Families"));
+            Assert.That(document, Does.Contain("direct presentation commands are not automatically admitted through the common live source/target visibility evaluator"));
+            Assert.That(document, Does.Contain("EntityExit/death/impact direct commands use their presentation fact admission contract"));
+            Assert.That(document, Does.Contain("### Gameplay request VFX"));
+            Assert.That(document, Does.Contain("### EntityExit / Death presentation direct VFX"));
+            Assert.That(document, Does.Contain("### Impact / disposition presentation direct VFX"));
+            Assert.That(document, Does.Contain("### Split / mixed path"));
+            Assert.That(document, Does.Contain("### Topology helper"));
+            Assert.That(document, Does.Contain("ForwardCellProjectile source semantic gate"));
+            Assert.That(document, Does.Contain("do not force these paths through `PresentationOnly`"));
+            Assert.That(document, Does.Contain("delayed BoxDestroy smoke is admitted from the scheduled exit presentation fact"));
         }
 
         [Test]
