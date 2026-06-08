@@ -11,7 +11,7 @@ namespace Game.Feature.Gameplay.Loop
     {
         public static GameplayBootstrapper CreateDefaultBootstrapper()
         {
-            return CreateDefaultBootstrapper(null);
+            return new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault());
         }
 
         public static GameplayBootstrapper CreateDefaultBootstrapper(EnemyAiProfile enemyAiProfile)

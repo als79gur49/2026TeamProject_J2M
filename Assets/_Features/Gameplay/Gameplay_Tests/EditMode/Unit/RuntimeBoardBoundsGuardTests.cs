@@ -433,20 +433,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_NullDefaultProfile_UsesDefaultMeleeDefinition()
+        public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_NullDefaultProfile_DoesNotCreateDefaultMeleeDefinition()
         {
             var snapshot = new GameplaySceneHostConfiguration
             {
                 SimulationTicksPerSecond = 30,
             }.CreateEnemyAiRuntimeSnapshot();
-            var expected = EnemyAiRuntimeDefinition.CreateDefaultMelee();
 
-            Assert.That(snapshot.DefaultDefinition.CommonSettings.RecoverTicks, Is.EqualTo(expected.CommonSettings.RecoverTicks));
-            Assert.That(snapshot.DefaultDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(expected.AttackTimingSettings.WindupTicks));
-            Assert.That(snapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(expected.LocomotionTimingSettings.MoveCooldownTicks));
-            Assert.That(snapshot.DefaultDefinition.MovementSkillStrategyKind, Is.EqualTo(expected.MovementSkillStrategyKind));
-            Assert.That(snapshot.DefaultDefinition.DetectionStrategy, Is.SameAs(expected.DetectionStrategy));
-            Assert.That(snapshot.DefaultDefinition.AttackDecisionStrategy, Is.SameAs(expected.AttackDecisionStrategy));
+            Assert.That(snapshot.HasDefaultDefinition, Is.False);
             Assert.That(snapshot.DefinitionsByEntityId, Is.Null);
         }
 

@@ -569,9 +569,10 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyActionStateEntityLogicFactory(
             EnemyAiRuntimeDefinition defaultDefinition,
             IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null,
-            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId = null)
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId = null,
+            bool hasDefaultDefinition = true)
         {
-            _enemyLogicFactory = new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId);
+            _enemyLogicFactory = new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId, hasDefaultDefinition);
         }
 
         public bool CanCreate(in EntityLogicCreationContext context)

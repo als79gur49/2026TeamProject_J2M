@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.Entities
     internal sealed class EnemyEntityLogicFactory : IEntityLogicFactory, IEnemyGlidePresentationSettingsResolver
     {
         private readonly EnemyAiRuntimeDefinition _defaultDefinition;
+        private readonly bool _hasDefaultDefinition;
         private readonly IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> _definitionsByEntityId;
         private readonly IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> _definitionsByArchetypeId;
 
@@ -27,11 +28,16 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyEntityLogicFactory(
             EnemyAiRuntimeDefinition defaultDefinition,
             IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null,
-            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId = null)
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId = null,
+            bool hasDefaultDefinition = true)
         {
-            defaultDefinition.Validate(nameof(defaultDefinition));
+            if (hasDefaultDefinition)
+            {
+                defaultDefinition.Validate(nameof(defaultDefinition));
+            }
 
             _defaultDefinition = defaultDefinition;
+            _hasDefaultDefinition = hasDefaultDefinition;
             _definitionsByEntityId = definitionsByEntityId;
             _definitionsByArchetypeId = definitionsByArchetypeId;
         }
@@ -76,7 +82,13 @@ namespace Game.Feature.Gameplay.Entities
                     $"Missing enemy AI archetype definition for binding '{binding.ArchetypeId}' on entity {entity.entityId}.");
             }
 
-            return _defaultDefinition;
+            if (_hasDefaultDefinition)
+            {
+                return _defaultDefinition;
+            }
+
+            throw new InvalidOperationException(
+                $"Enemy entity {entity.entityId} has active EnemyAiMode {entity.aiMode} but no explicit EnemyAiProfile override, archetype binding, or default EnemyAiProfile.");
         }
 
         public bool TryResolveEnemyGlidePresentationSettings(
@@ -109,9 +121,10 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyCombatEntityLogicFactory(
             EnemyAiRuntimeDefinition defaultDefinition,
             IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null,
-            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId = null)
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId = null,
+            bool hasDefaultDefinition = true)
         {
-            _enemyLogicFactory = new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId);
+            _enemyLogicFactory = new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId, hasDefaultDefinition);
         }
 
         public bool CanCreate(in EntityLogicCreationContext context)
@@ -145,9 +158,10 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyFrontFaceSupportEntityLogicFactory(
             EnemyAiRuntimeDefinition defaultDefinition,
             IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null,
-            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId = null)
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId = null,
+            bool hasDefaultDefinition = true)
         {
-            _enemyLogicFactory = new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId);
+            _enemyLogicFactory = new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId, hasDefaultDefinition);
         }
 
         public bool CanCreate(in EntityLogicCreationContext context)

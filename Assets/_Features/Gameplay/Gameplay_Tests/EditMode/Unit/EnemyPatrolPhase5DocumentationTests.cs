@@ -37,7 +37,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(historicalHeadingIndex, Is.GreaterThan(closeExecutionIndex));
             Assert.That(readinessHeadingIndex, Is.GreaterThan(historicalHeadingIndex));
 
-            Assert.That(readme, Does.Contain("current supporting truth for phase 5 official close decision"));
+            Assert.That(readme, Does.Contain("historical supporting truth for phase 5 official close decision"));
             Assert.That(readme, Does.Contain("same-revision targeted evidence bundle"));
             Assert.That(readme, Does.Contain("historical supporting note"));
             Assert.That(readme, Does.Contain("Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md"));
@@ -106,7 +106,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md"));
             Assert.That(doc, Does.Contain("historical supporting note"));
             Assert.That(doc, Does.Contain("inactive readiness template"));
-            Assert.That(doc, Does.Contain("baseline `EnemyAi_WindupMelee.asset` / `EnemyBrain_WindupMelee.asset` untouched"));
+            Assert.That(doc, Does.Contain("retired `EnemyAi_WindupMelee.asset` profile은 current repository inventory가 아니다"));
             Assert.That(doc, Does.Contain("broad/full suite"));
         }
 
