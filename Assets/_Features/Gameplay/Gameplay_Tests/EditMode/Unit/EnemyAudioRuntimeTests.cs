@@ -32,6 +32,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/BlackEye_Plasma_Def.asset";
         private const string BlackEyePlasmaClipPath =
             "Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_BlackEye_plazma.wav";
+        private const string DrSaturnAudioProfilePath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioProfiles/EnemyAudioProfile_DrSaturn.asset";
+        private const string DrSaturnAudioProfileGuid = "42ebae281b3c4fffa43d495c3a98dd73";
+        private const string StartisAudioProfilePath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioProfiles/EnemyAudioProfile_Startis.asset";
+        private const string StartisPassiveContactDefinitionPath =
+            "Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/Starteeth_Move_Def.asset";
 
         [Test]
         [Category("Extended")]
@@ -2351,18 +2358,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void DrSaturnAudioProfile_MoveRandomizesMoveAndActClips()
         {
-            const string profilePath =
-                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioProfiles/EnemyAudioProfile_LockNearbyBoxesDrS.asset";
             const string moveClipPath =
                 "Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_Dr.saturn_move.wav";
             const string actClipPath =
                 "Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_Dr.saturn_act.wav";
 
-            var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(profilePath);
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(DrSaturnAudioProfilePath);
             var moveClip = AssetDatabase.LoadAssetAtPath<AudioClip>(moveClipPath);
             var actClip = AssetDatabase.LoadAssetAtPath<AudioClip>(actClipPath);
 
-            Assert.That(profile, Is.Not.Null, $"Missing Dr.Saturn audio profile at '{profilePath}'.");
+            Assert.That(profile, Is.Not.Null, $"Missing Dr.Saturn audio profile at '{DrSaturnAudioProfilePath}'.");
+            Assert.That(profile.name, Is.EqualTo("EnemyAudioProfile_DrSaturn"));
+            Assert.That(AssetDatabase.AssetPathToGUID(DrSaturnAudioProfilePath), Is.EqualTo(DrSaturnAudioProfileGuid));
+            Assert.That(profile.HasCue(EnemyAudioCue.Move), Is.True);
+            Assert.That(profile.HasCue(EnemyAudioCue.Windup), Is.True);
+            Assert.That(profile.HasCue(EnemyAudioCue.Active), Is.True);
+            Assert.That(profile.HasCue(EnemyAudioCue.Recover), Is.True);
+            Assert.That(profile.HasCue(EnemyAudioCue.Death), Is.True);
+            Assert.That(profile.HasCue(EnemyAudioCue.Landing), Is.False);
+            Assert.That(profile.HasCue(EnemyAudioCue.ProjectileImpact), Is.False);
+            Assert.That(profile.HasCue(EnemyAudioCue.ChargeActiveLoop), Is.False);
+            Assert.That(profile.HasCue(EnemyAudioCue.StationaryActive), Is.False);
+            Assert.That(profile.HasCue(EnemyAudioCue.PassiveContact), Is.False);
             Assert.That(moveClip, Is.Not.Null, $"Missing Dr.Saturn move clip at '{moveClipPath}'.");
             Assert.That(actClip, Is.Not.Null, $"Missing Dr.Saturn act clip at '{actClipPath}'.");
             Assert.That(profile.TryResolve(EnemyAudioCue.Move, out var moveBinding), Is.True);
@@ -2413,6 +2430,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 EnemyAudioCue.PassiveContact);
         }
 
+        [Test]
+        [Category("Core")]
+        public void StartisAudioProfile_BindsPassiveContactForNonAttackingContactDamage()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(StartisAudioProfilePath);
+            var definition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(StartisPassiveContactDefinitionPath);
+
+            Assert.That(profile, Is.Not.Null, $"Missing Startis audio profile at '{StartisAudioProfilePath}'.");
+            Assert.That(definition, Is.Not.Null, $"Missing Startis passive-contact definition at '{StartisPassiveContactDefinitionPath}'.");
+            Assert.That(profile.TryResolve(EnemyAudioCue.PassiveContact, out var binding), Is.True);
+            Assert.That(binding.Definition, Is.SameAs(definition));
+            Assert.That(definition.Category, Is.EqualTo(AudioCategory.Sfx));
+            Assert.That(definition.Loop, Is.False);
+        }
+
         private static void AssertEnemyPrefabProfileDoesNotHaveCue(string prefabPath, EnemyAudioCue cue)
         {
             var view = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(prefabPath);
@@ -2452,12 +2484,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_JPeter.prefab",
-                    EnemyAudioCue.Windup,
+                    EnemyAudioCue.Move,
                     EnemyAudioCue.Active,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_Startis.prefab",
                     EnemyAudioCue.Move,
+                    EnemyAudioCue.PassiveContact,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_Nebulous.prefab",

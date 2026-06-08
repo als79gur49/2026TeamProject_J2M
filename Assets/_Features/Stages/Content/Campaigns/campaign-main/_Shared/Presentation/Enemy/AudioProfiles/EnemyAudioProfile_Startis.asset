@@ -17,7 +17,7 @@ MonoBehaviour:
     Binding:
       definition: {fileID: 11400000, guid: 2b7a7ffe90864641bf00acfca6737656, type: 2}
       attachmentSlot:
-        id: 
+        id:
       policy:
         rid: -2
     IsOptional: 0
@@ -26,6 +26,14 @@ MonoBehaviour:
       definition: {fileID: 11400000, guid: fbcf2d880f044d6997a9ea001799fedc, type: 2}
       attachmentSlot:
         id: 
+      policy:
+        rid: -2
+    IsOptional: 0
+  - Cue: 10
+    Binding:
+      definition: {fileID: 11400000, guid: 2b7a7ffe90864641bf00acfca6737656, type: 2}
+      attachmentSlot:
+        id:
       policy:
         rid: -2
     IsOptional: 0

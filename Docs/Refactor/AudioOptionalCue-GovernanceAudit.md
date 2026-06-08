@@ -106,10 +106,11 @@ Runtime missing behavior:
 
 - Missing owner view: no-op.
 - Missing `EnemyAudioAuthoring`: no-op.
-- Missing profile/cue entry: no-op.
+- Missing profile/cue entry: runtime no-op unless production `EnemyAudioRequirementPolicy_*` plus `EnemyAudioRequirementBinding_*` marks the cue `Required`; repository smoke validation catches that as a content error.
 - `EnemyAudioProfile.IsOptional` only affects validation of null bindings when an entry exists. Current production enemy profiles do not use optional null entries.
 - Duplicate cue, empty cue, invalid binding, wrong category, non-loop one-shot policy violation, and non-null policy are validation errors.
 - `ChargeActiveLoop` validation is in `EnemyAudioProfile.AppendLoopCueValidationErrors`: authored `ChargeActiveLoop` must use a looping `AudioDefinition` and an attachment slot.
+- Enemy requirement policy/binding validation checks every `EnemyAudioCueCatalog.RuntimeCues` value; policy assets list only `Required` and `Optional` cues, and unspecified cues are implicit `Disabled`.
 
 Production profile authoring:
 
@@ -124,12 +125,12 @@ Production profile authoring:
 | `EnemyAudioProfile_BlackEye` / `EnemyView_BlackEye` | `Active` | Yes | Yes | Invalid binding fails validation | REQUIRED for fire release |
 | `EnemyAudioProfile_BlackEye` / `EnemyView_BlackEye` | `ProjectileImpact` | Yes | Yes | Invalid binding fails validation | REQUIRED for projectile arrival |
 | `EnemyAudioProfile_BlackEye` / `EnemyView_BlackEye` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
-| `EnemyAudioProfile_LockNearbyBoxesDrS` / `EnemyView_DrSaturn` | `Move` | Yes | Yes | Invalid binding fails validation | REQUIRED |
-| `EnemyAudioProfile_LockNearbyBoxesDrS` / `EnemyView_DrSaturn` | `Windup` | Yes | Yes | Invalid binding fails validation | REQUIRED for utility windup |
-| `EnemyAudioProfile_LockNearbyBoxesDrS` / `EnemyView_DrSaturn` | `Active` | Yes | Yes | Invalid binding fails validation | REQUIRED for utility active |
-| `EnemyAudioProfile_LockNearbyBoxesDrS` / `EnemyView_DrSaturn` | `Recover` | Yes | Yes | Invalid binding fails validation | REQUIRED for utility recover |
-| `EnemyAudioProfile_LockNearbyBoxesDrS` / `EnemyView_DrSaturn` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
-| `EnemyAudioProfile_UtilitySummoner` / `EnemyView_JPeter` | `Move` | Yes | Yes | Invalid binding fails validation | DEFER: prefab expectation test currently lists `Windup` instead of this authored cue |
+| `EnemyAudioProfile_DrSaturn` / `EnemyView_DrSaturn` | `Move` | Yes | Yes | Invalid binding fails validation | REQUIRED |
+| `EnemyAudioProfile_DrSaturn` / `EnemyView_DrSaturn` | `Windup` | Yes | Yes | Invalid binding fails validation | REQUIRED for utility windup |
+| `EnemyAudioProfile_DrSaturn` / `EnemyView_DrSaturn` | `Active` | Yes | Yes | Invalid binding fails validation | REQUIRED for DrSaturn utility active; interpret through the identity profile rather than the old LockNearbyBoxes-specific name |
+| `EnemyAudioProfile_DrSaturn` / `EnemyView_DrSaturn` | `Recover` | Yes | Yes | Invalid binding fails validation | REQUIRED for utility recover |
+| `EnemyAudioProfile_DrSaturn` / `EnemyView_DrSaturn` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
+| `EnemyAudioProfile_UtilitySummoner` / `EnemyView_JPeter` | `Move` | Yes | Yes | Invalid binding fails validation | REQUIRED; prefab expectation drift resolved |
 | `EnemyAudioProfile_UtilitySummoner` / `EnemyView_JPeter` | `Active` | Yes | Yes | Invalid binding fails validation | REQUIRED for summon/spawn active |
 | `EnemyAudioProfile_UtilitySummoner` / `EnemyView_JPeter` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
 | `EnemyAudioProfile_Nebulous` / `EnemyView_Nebulous` | `Move` | Yes | Yes | Invalid binding fails validation | REQUIRED |
@@ -140,12 +141,13 @@ Production profile authoring:
 | `EnemyAudioProfile_RocketFace` / `EnemyView_RocketFace` | `Move` | Yes | Yes | Invalid binding fails validation | REQUIRED |
 | `EnemyAudioProfile_RocketFace` / `EnemyView_RocketFace` | `ChargeActiveLoop` | Yes, separate loop controller | Yes | Missing cue no-ops; invalid loop/attachment fails validation when authored | REQUIRED |
 | `EnemyAudioProfile_RocketFace` / `EnemyView_RocketFace` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
-| `EnemyAudioProfile_RocketFace` / `EnemyView_RocketFace` | `Active` | Yes, charge active start | No | Missing cue no-op | DISABLED if loop-only charge active is product policy; otherwise DEFER |
+| `EnemyAudioProfile_RocketFace` / `EnemyView_RocketFace` | `Active` | Yes, charge active start | No | Missing cue no-op | DISABLED; charge active audio is loop-only |
 | `EnemyAudioProfile_SecBot` / `EnemyView_SecBot` | `Move` | Yes | Yes | Invalid binding fails validation | REQUIRED |
 | `EnemyAudioProfile_SecBot` / `EnemyView_SecBot` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
 | `EnemyAudioProfile_SecBot` / `EnemyView_SecBot` | `StationaryActive` | Yes, stationary/no-motion path | Yes | Invalid binding fails validation | REQUIRED for SecBot stationary cadence |
 | `EnemyAudioProfile_Startis` / `EnemyView_Startis` | `Move` | Yes | Yes | Invalid binding fails validation | REQUIRED |
 | `EnemyAudioProfile_Startis` / `EnemyView_Startis` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
+| `EnemyAudioProfile_Startis` / `EnemyView_Startis` | `PassiveContact` | Yes | Yes | Invalid binding fails validation | REQUIRED for NonAttacking contact damage |
 | Non-passive-contact production profiles | `PassiveContact` | Yes for passive contact source | No | Missing cue no-op | DISABLED by current tests for JPeter, DrSaturn, Nebulous; DEFER for future passive-contact archetypes |
 | Non-projectile production profiles | `ProjectileImpact` | Can emit only when projectile arrival signal exists | No | Missing cue no-op | DISABLED unless the archetype emits projectile arrivals |
 | Non-jump production profiles | `Landing` | Can emit only when jump landed signal exists | No | Missing cue no-op | DISABLED unless the archetype emits jump landings |
@@ -154,7 +156,7 @@ Production profile authoring:
 Audit notes:
 
 - `EnemyPrefabs_HaveValidEnemyAudioAuthoring` currently verifies authoring/profile validity and at least one cue, but does not enforce `PrefabExpectation.Cues` as an exact required set.
-- The JPeter expectation lists `Windup`, `Active`, `Death`; the prefab references `EnemyAudioProfile_UtilitySummoner`, which authors `Move`, `Active`, `Death`. This is a drift candidate for the implementation PR.
+- The JPeter expectation now follows `EnemyAudioProfile_UtilitySummoner`, which authors `Move`, `Active`, `Death`; `Windup` is disabled.
 
 ## TileFeature Optional Cue Governance
 
@@ -304,13 +306,13 @@ Option B: add cue requirement tables.
 - Best fit for TileFeature and GravityField maps.
 - For action audio, the key must include `GameplayActionKind + GameplayActionAudioMoment`.
 
-Option C: add archetype-specific requirement profiles.
+Option C: add archetype-specific requirement policies/bindings.
 
-- Add an enemy-owned requirement surface such as `EnemyAudioCueRequirementProfile`.
+- Add an enemy-owned requirement surface such as `EnemyAudioRequirementPolicy` plus sparse `EnemyAudioRequirementBinding`.
 - This is the best fit for enemy audio because cue requirements differ by archetype/profile.
-- It can express required, optional, and disabled cue sets without forcing every enum cue onto every enemy profile.
+- It can express required and optional cue sets while leaving unspecified cues as implicit disabled, without forcing every enum cue onto every enemy profile.
 
-Recommended direction: combine B and C. Use lane-owned requirement tables for action, TileFeature, and GravityField; use enemy archetype/profile-specific requirements for enemy audio.
+Recommended direction: combine B and C. Use lane-owned requirement tables for action, TileFeature, and GravityField; use enemy archetype-level policies with sparse profile bindings for enemy audio.
 
 ## Test Plan
 
@@ -326,7 +328,7 @@ Implementation PR:
 Targeted tests to add/update in the implementation PR:
 
 - Action profile requirement tests for canonical player required/optional/deferred coverage.
-- Enemy profile requirement tests that enforce exact required and disabled cue sets per production prefab/profile.
+- Enemy policy/binding requirement tests that enforce required and implicit disabled cue behavior per production prefab/profile.
 - TileFeature map requirement tests that keep `ButtonActivated` required and explicitly mark optional/disabled cues.
 - GravityField map requirement tests that preserve empty required set unless product promotes `Activated`, `Expired`, or `LockedBox`.
 - Existing architecture tests must continue to reject generic dispatchers and keep action/enemy profiles out of `GameplayPresentationAudioConfig`.
@@ -335,6 +337,6 @@ Targeted tests to add/update in the implementation PR:
 
 1. Treat removed action cues (`Contact`, `ImpactEnemy`, and `Blocked`) as closed deletion scope, not deferred optional governance.
 2. Add lane-owned requirement metadata without changing shared audio runtime semantics.
-3. Add enemy archetype requirement profiles or an equivalent enemy-owned requirement table.
+3. Add enemy archetype requirement policies and sparse profile bindings.
 4. Add tests that fail when a REQUIRED cue is missing or a DISABLED cue is authored.
 5. Keep optional cue no-op behavior only where an explicit OPTIONAL decision exists.
