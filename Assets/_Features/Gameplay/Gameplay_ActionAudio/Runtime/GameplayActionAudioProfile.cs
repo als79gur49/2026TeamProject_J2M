@@ -140,6 +140,13 @@ namespace Game.Feature.Gameplay.ActionAudio
             {
                 var entry = entries[i];
                 var entryLabel = $"{entry.Action}/{entry.Moment}";
+                if (!IsKnownMoment(entry.Moment))
+                {
+                    diagnostics.Add(new GameplayActionAudioProfileDiagnostic(
+                        GameplayActionAudioProfileDiagnosticSeverity.Error,
+                        $"{name} contains unsupported gameplay action audio moment value '{(int)entry.Moment}'."));
+                }
+
                 if (!seen.Add(entryLabel))
                 {
                     diagnostics.Add(new GameplayActionAudioProfileDiagnostic(
@@ -189,6 +196,20 @@ namespace Game.Feature.Gameplay.ActionAudio
             }
 
             return validationErrors;
+        }
+
+        private static bool IsKnownMoment(GameplayActionAudioMoment moment)
+        {
+            var moments = GameplayActionAudioMomentCatalog.OrderedMoments;
+            for (var i = 0; i < moments.Length; i++)
+            {
+                if (moments[i] == moment)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }
