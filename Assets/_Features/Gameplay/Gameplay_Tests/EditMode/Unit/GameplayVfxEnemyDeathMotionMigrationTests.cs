@@ -221,6 +221,83 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyDeathMotion_FrontFaceInactiveSource_EmitsSourceCloneFlyAway()
+        {
+            var owner = new GameObject("EnemyDeathMotionFrontFaceInactiveRuntime");
+            var cameraObject = CreateCameraObject("EnemyDeathMotionFrontFaceInactiveCamera");
+            var prefab = CreateRuntimePrefab("EnemyDeathMotionFrontFaceInactivePrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            InactiveSourceViewFixture source = default;
+            try
+            {
+                binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), tailSeconds: 0.2f);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
+                runtime.EnableGameplayVfxEnemyDeathMotionMigration = true;
+                runtime.ConfigureHostDefaultMap(cueMap);
+                runtime.ConfigureOutputCamera(cameraObject.GetComponent<Camera>(), owner.transform);
+                var signal = CreateEnemyExitSignal(40, TickEntityExitCause.Killed);
+                var context = CreateExtensionContext(signal);
+                source = CreateInactiveSourceView(context.StateStore, entityId: 40);
+                context.StateStore.EnemyVisualSemanticStatesByEntityId[40] =
+                    new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive);
+
+                runtime.Present(context);
+
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)), Is.EqualTo(1));
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+                Assert.That(runtime.MissingAnchorCount, Is.Zero);
+                Assert.That(runtime.MissingSourceViewCount, Is.Zero);
+                Assert.That(runtime.MissingPrefabCount, Is.Zero);
+                Assert.That(runtime.CommonHostUnavailableCount, Is.Zero);
+                Assert.That(runtime.InvalidPlaybackModePolicyCount, Is.Zero);
+                Assert.That(
+                    FindParameterizedMotionClone(owner.transform),
+                    Is.Not.Null,
+                    "FrontFaceInactive EnemyDeathMotion must keep the PrefabWithSourceClone fly-away path.");
+                Assert.That(
+                    runtime.ForwardCellProjectilePresentationOnlyMisuseCandidateCount,
+                    Is.Zero,
+                    "EnemyDeathMotion death clone is independent from the ForwardCellProjectile flight cue source gate.");
+                Assert.That(
+                    runtime.ForwardCellProjectilePresentationOnlyAllowedTopologyHelperCount,
+                    Is.Zero,
+                    "EnemyDeathMotion death clone must not use ForwardCellProjectile PresentationOnly counters.");
+
+                var builderFixture = CreateBuilderFixture();
+                try
+                {
+                    builderFixture.StateStore.EnemyVisualSemanticStatesByEntityId[40] =
+                        new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive);
+                    var built = EnemyDeathMotionVfxCommandBuilder.TryBuild(
+                        signal,
+                        builderFixture.TimingProfile,
+                        builderFixture.PoseResolver,
+                        builderFixture.Projector,
+                        builderFixture.TargetResolver,
+                        out var command);
+
+                    Assert.That(built, Is.True);
+                    AssertEnemyDeathMotionParameterizedContract(command.ToParameterizedMotionVfxCommand());
+                }
+                finally
+                {
+                    builderFixture.Destroy();
+                }
+            }
+            finally
+            {
+                source.Destroy();
+                Destroy(cueMap, binding, prefab, cameraObject, owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ProductionRuntime_EnemyDeathMotionFlag_DefaultsTrue()
         {
             var owner = new GameObject("EnemyDeathMotionDefaultFlag");
@@ -656,6 +733,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 fixture.Projector,
                 fixture.TargetResolver,
                 out _);
+        }
+
+        private static void AssertEnemyDeathMotionParameterizedContract(ParameterizedMotionVfxCommand parameterized)
+        {
+            Assert.That(parameterized.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)));
+            Assert.That(parameterized.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
+            Assert.That(parameterized.CloneMode, Is.Not.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+            Assert.That(parameterized.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.EnemyDeathFlyAway));
+            Assert.That(parameterized.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.EnemyDeathFade));
         }
 
         private static BuilderFixture CreateBuilderFixture()
