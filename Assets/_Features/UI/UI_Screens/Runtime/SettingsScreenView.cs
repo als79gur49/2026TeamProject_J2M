@@ -10,10 +10,6 @@ namespace Game.Feature.UI.Screens
 {
     public sealed class SettingsScreenView : MonoBehaviour, IScreenView, IUiNavigationTarget
     {
-        public const string AudioSectionName = "SettingsAudioSection";
-        public const string DisplaySectionName = "SettingsDisplaySection";
-        public const string InputSectionName = "SettingsInputSection";
-
         private const string MissingAudioSectionMessage =
             "Settings screen is missing or miswired required authored audio section. Repair: assign SettingsScreenView._audioView to the SettingsAudioSection child view.";
 
@@ -57,24 +53,6 @@ namespace Game.Feature.UI.Screens
             IsVisible &&
             isActiveAndEnabled;
 
-        public string CurrentDisplayValueText =>
-            DisplayView != null ? DisplayView.CurrentDisplayValueText : string.Empty;
-
-        public string DisplayStatusText =>
-            DisplayView != null ? DisplayView.DisplayStatusText : string.Empty;
-
-        public bool IsDisplayApplyInteractable =>
-            DisplayView != null && DisplayView.IsDisplayApplyInteractable;
-
-        public bool IsDisplayRevertInteractable =>
-            DisplayView != null && DisplayView.IsDisplayRevertInteractable;
-
-        public int SelectedDisplayResolutionIndex =>
-            DisplayView != null ? DisplayView.SelectedResolutionIndex : 0;
-
-        public bool IsDisplayFullscreenOn =>
-            DisplayView != null && DisplayView.IsFullscreenOn;
-
         public bool IsVisible
         {
             get => _isVisible;
@@ -112,9 +90,10 @@ namespace Game.Feature.UI.Screens
 
         public void ValidateAuthoredStructureOrThrow()
         {
-            ValidateSection(_audioView, nameof(_audioView), AudioSectionName, MissingAudioSectionMessage);
-            ValidateSection(_displayView, nameof(_displayView), DisplaySectionName, MissingDisplaySectionMessage);
-            ValidateSection(_inputView, nameof(_inputView), InputSectionName, MissingInputSectionMessage);
+            ValidateSection(_audioView, nameof(_audioView), MissingAudioSectionMessage);
+            ValidateSection(_displayView, nameof(_displayView), MissingDisplaySectionMessage);
+            ValidateSection(_inputView, nameof(_inputView), MissingInputSectionMessage);
+            ValidateDistinctSectionReferences();
         }
 
         public void SetIsCurrent(bool isCurrent)
@@ -130,27 +109,6 @@ namespace Game.Feature.UI.Screens
             }
 
             BackRequested?.Invoke();
-        }
-
-        // Temporary compatibility passthroughs only; no section-local logic belongs here.
-        public void ClickDisplayApply()
-        {
-            if (!IsVisible || DisplayView == null)
-            {
-                return;
-            }
-
-            DisplayView.ClickApply();
-        }
-
-        public void ClickDisplayRevert()
-        {
-            if (!IsVisible || DisplayView == null)
-            {
-                return;
-            }
-
-            DisplayView.ClickRevert();
         }
 
         public void ClickAudioTab()
@@ -181,66 +139,6 @@ namespace Game.Feature.UI.Screens
             }
 
             SectionSelected?.Invoke(SettingsSectionId.Input);
-        }
-
-        public void CommitAudioInteraction(AudioSettingsChannel channel)
-        {
-            if (!IsVisible || AudioView == null)
-            {
-                return;
-            }
-
-            AudioView.CommitInteraction(channel);
-        }
-
-        public void BeginAudioInteraction(AudioSettingsChannel channel)
-        {
-            if (!IsVisible || AudioView == null)
-            {
-                return;
-            }
-
-            AudioView.BeginInteraction(channel);
-        }
-
-        public void SelectDisplayResolution(int index)
-        {
-            if (!IsVisible || DisplayView == null)
-            {
-                return;
-            }
-
-            DisplayView.SelectResolution(index);
-        }
-
-        public void SetAudioMuted(AudioSettingsChannel channel, bool isMuted)
-        {
-            if (!IsVisible || AudioView == null)
-            {
-                return;
-            }
-
-            AudioView.SetMuted(channel, isMuted);
-        }
-
-        public void SetAudioVolume(AudioSettingsChannel channel, float value)
-        {
-            if (!IsVisible || AudioView == null)
-            {
-                return;
-            }
-
-            AudioView.SetVolume(channel, value);
-        }
-
-        public void SetDisplayFullscreen(bool isFullscreen)
-        {
-            if (!IsVisible || DisplayView == null)
-            {
-                return;
-            }
-
-            DisplayView.SetFullscreen(isFullscreen);
         }
 
         public bool HandleNavigate(UiNavigationCommand command)
@@ -559,7 +457,7 @@ namespace Game.Feature.UI.Screens
 
         internal bool AdjustAudioVolume(AudioSettingsChannel channel, int delta)
         {
-            if (AudioView == null)
+            if (!IsVisible || AudioView == null)
             {
                 return false;
             }
@@ -571,22 +469,22 @@ namespace Game.Feature.UI.Screens
                 return false;
             }
 
-            SetAudioVolume(channel, next);
+            AudioView.SetVolume(channel, next);
             return true;
         }
 
         internal bool AdjustResolution(int delta)
         {
-            if (DisplayView == null || DisplayView.ResolutionOptionCount <= 0)
+            if (!IsVisible || DisplayView == null || DisplayView.ResolutionOptionCount <= 0)
             {
                 return false;
             }
 
             var next = Mathf.Clamp(
-                SelectedDisplayResolutionIndex + delta,
+                DisplayView.SelectedResolutionIndex + delta,
                 0,
                 DisplayView.ResolutionOptionCount - 1);
-            SelectDisplayResolution(next);
+            DisplayView.SelectResolution(next);
             return true;
         }
 
@@ -707,7 +605,7 @@ namespace Game.Feature.UI.Screens
             }
         }
 
-        private void ValidateSection(Component sectionView, string fieldName, string expectedSectionName, string baseMessage)
+        private void ValidateSection(Component sectionView, string fieldName, string baseMessage)
         {
             var issues = new List<string>();
             var expectedRoot = _root != null ? _root.transform : transform;
@@ -718,19 +616,36 @@ namespace Game.Feature.UI.Screens
                 throw new InvalidOperationException(BuildValidationMessage(baseMessage, issues));
             }
 
-            if (!string.Equals(sectionView.name, expectedSectionName, StringComparison.Ordinal))
-            {
-                issues.Add($"serialized reference '{fieldName}' resolved '{sectionView.name}' instead of '{expectedSectionName}'");
-            }
-
             if (!sectionView.transform.IsChildOf(expectedRoot))
             {
-                issues.Add($"'{expectedSectionName}' must remain under '{expectedRoot.name}' settings shell");
+                issues.Add($"serialized reference '{fieldName}' must remain under '{expectedRoot.name}' settings shell");
             }
 
             if (issues.Count > 0)
             {
                 throw new InvalidOperationException(BuildValidationMessage(baseMessage, issues));
+            }
+        }
+
+        private void ValidateDistinctSectionReferences()
+        {
+            if (_audioView == null || _displayView == null || _inputView == null)
+            {
+                return;
+            }
+
+            var audioSection = (Component)_audioView;
+            var displaySection = (Component)_displayView;
+            var inputSection = (Component)_inputView;
+            if (audioSection == displaySection || audioSection == inputSection || displaySection == inputSection)
+            {
+                throw new InvalidOperationException(
+                    BuildValidationMessage(
+                        "Settings screen has duplicate section references.",
+                        new[]
+                        {
+                            "audio, display, and input section serialized references must point to distinct section components",
+                        }));
             }
         }
 

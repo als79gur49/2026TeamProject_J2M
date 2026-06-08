@@ -79,3 +79,10 @@ This file is the external current-structure source for the completed UI cleanup 
 - Do not simplify or reroute StageResult, Reward, Confirm, settings, audio, display, or UI bridge paths.
 - Do not revive `ActionBar`, diagnostics runtime UI, or `SceneTransitionOverlayView`.
 - Do not restore `Help` or `Inventory` as current gameplay screens.
+
+## Deferred Policy Items
+
+- UI audio user settings policy is unchanged: UI SFX remains on the hidden `Ui` channel and follows the current Master-only product policy. Visible UI volume/mute, Sfx coupling, or settings copy changes require a separate policy task and `UiAudioUserSettingsPolicyTests`.
+- Inventory is not active authoritative UI. Reintroduction requires a separate `InventoryReadModel`, `InventoryCommandPort`, and permission model design.
+- Diagnostics behavior is unchanged. Current work may strengthen production residue guards, but must not add a new diagnostics runtime feature.
+- TMP, localization, accessibility, and layout modernization are separate contract work. Do not treat Text/TMP swaps as part of this UI architecture refactor.
