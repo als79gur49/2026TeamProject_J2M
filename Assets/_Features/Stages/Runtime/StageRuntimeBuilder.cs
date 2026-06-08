@@ -20,7 +20,7 @@ namespace Game.Feature.Stages
             var initialTileFeatures = BuildInitialTileFeatures(validated.TileFeatures);
             var tileFeatureDefinitions = BuildTileFeatureRuntimeDefinitions(validated.TileFeatures);
             var moonBlockRespawnDefinitions = BuildMoonBlockRespawnDefinitions(validated.TileFeatures, initialEntities);
-            var enemyAiProfileOverrides = BuildEnemyAiProfileOverrides(validated.Spawns);
+            var enemyAiProfileOverrides = BuildEnemyAiProfileOverrides(validated);
             var objectiveRuntimeDefinition = BuildObjectiveRuntimeDefinition(validated, timing, tileFeatureDefinitions);
 
             return new StageRuntimeBuildResult(
@@ -165,18 +165,25 @@ namespace Game.Feature.Stages
             return false;
         }
 
-        private static EnemyAiProfileOverride[] BuildEnemyAiProfileOverrides(IReadOnlyList<StageSpawnDefinition> spawns)
+        private static EnemyAiProfileOverride[] BuildEnemyAiProfileOverrides(
+            StageDefinitionValidator.ValidatedStageData validated)
         {
             var overrides = new List<EnemyAiProfileOverride>();
+            var spawns = validated.Spawns;
 
-            for (var i = 0; i < spawns.Count; i++)
+            for (var i = 0; i < spawns.Length; i++)
             {
                 var spawn = spawns[i];
                 if (spawn.Kind != StageSpawnKind.Enemy ||
-                    spawn.EnemyAiMode == EnemyAiMode.None ||
-                    spawn.EnemyAiProfile == null)
+                    spawn.EnemyAiMode == EnemyAiMode.None)
                 {
                     continue;
+                }
+
+                if (spawn.EnemyAiProfile == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{validated.StageName}' enemy spawn EntityId {spawn.EntityId} uses EnemyAiMode {spawn.EnemyAiMode} and must assign an explicit EnemyAiProfile.");
                 }
 
                 overrides.Add(new EnemyAiProfileOverride

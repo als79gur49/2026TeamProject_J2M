@@ -97,7 +97,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             var provider = GameplayEntityLogicProviderFactory.CreateDefault(
                 enemyRuntime.DefaultDefinition,
                 enemyRuntime.DefinitionsByEntityId,
-                enemyRuntime.DefinitionsByArchetypeId);
+                enemyRuntime.DefinitionsByArchetypeId,
+                enemyRuntime.HasDefaultDefinition);
             var bootstrapper = new GameplayBootstrapper(provider, enemyRuntime.SpawnDefaultsByArchetypeId);
             var respawnTiming = configuration.CreatePlayerRespawnTimingSnapshot();
             var pipeline = bootstrapper.CreateTickPipeline(
@@ -137,7 +138,10 @@ namespace Game.Feature.Gameplay.Tests.Core
         private static IEnumerable<EnemyAiRuntimeDefinition> EnumerateDefinitions(
             EnemyAiRuntimeCollectionSnapshot enemyRuntime)
         {
-            yield return enemyRuntime.DefaultDefinition;
+            if (enemyRuntime.HasDefaultDefinition)
+            {
+                yield return enemyRuntime.DefaultDefinition;
+            }
 
             if (enemyRuntime.DefinitionsByEntityId != null)
             {

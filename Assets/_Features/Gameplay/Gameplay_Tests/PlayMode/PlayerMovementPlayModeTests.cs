@@ -31,6 +31,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
     public sealed class PlayerMovementPlayModeTests : InputTestFixture
     {
         private const string PlayerS1PrefabPath = "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab";
+        private const string TutorialPassiveContactProfilePath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset";
         private Keyboard _keyboard;
 
         [SetUp]
@@ -609,7 +611,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, -2, 0)),
                 CreateAirborneEnemy(entityId: 40, position: sourceCell),
-            });
+            },
+                defaultEnemyAiProfile: LoadTutorialPassiveContactProfile());
             SeedAirborneJumpState(host, 40, sourceCell, landingCell, landingTick: 30);
             var beforeTickIndex = host.TickRunner.NextTickIndex;
             var beforeState = GetEnemyJumpState(host, 40);
@@ -643,7 +646,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, -2, 0)),
                 CreateAirborneEnemy(entityId: 40, position: sourceCell),
-            });
+            },
+                defaultEnemyAiProfile: LoadTutorialPassiveContactProfile());
             SeedAirborneJumpState(host, 40, sourceCell, landingCell, landingTick: 30);
             var baselineTick = host.InputHost.RunSingleTick();
             Assert.That(baselineTick, Is.Not.Null);
@@ -1044,6 +1048,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 {
                     CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
                 },
+                defaultEnemyAiProfile: LoadTutorialPassiveContactProfile(),
                 initialTopology: new CubeTopologyState(FaceId.Floor));
 
             Assert.That(host.ViewRegistry.TryGetView(20, out var boxView), Is.True);
@@ -1098,6 +1103,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 {
                     CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
                 },
+                defaultEnemyAiProfile: LoadTutorialPassiveContactProfile(),
                 initialTopology: new CubeTopologyState(FaceId.Floor));
 
             Assert.That(host.ViewRegistry.TryGetView(20, out var boxView), Is.True);
@@ -1743,7 +1749,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             GameplayRuntimeFeatureFlags? runtimeFeatureFlags = null,
             TileFeatureState[] initialTileFeatures = null,
             TileFeatureRuntimeDefinition[] tileFeatureDefinitions = null,
-            CubeTopologyState? initialTopology = null)
+            CubeTopologyState? initialTopology = null,
+            EnemyAiProfile defaultEnemyAiProfile = null)
         {
             return CreateHostCore(
                 initialEntities,
@@ -1764,7 +1771,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 runtimeFeatureFlags,
                 initialTileFeatures,
                 tileFeatureDefinitions,
-                initialTopology);
+                initialTopology,
+                defaultEnemyAiProfile);
         }
 
         private static GameplaySceneHost CreateHostCore(
@@ -1786,7 +1794,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             GameplayRuntimeFeatureFlags? runtimeFeatureFlags,
             TileFeatureState[] initialTileFeatures,
             TileFeatureRuntimeDefinition[] tileFeatureDefinitions,
-            CubeTopologyState? initialTopology)
+            CubeTopologyState? initialTopology,
+            EnemyAiProfile defaultEnemyAiProfile)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -1845,6 +1854,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 SnapViewCameraToTarget = viewCamera != null,
                 TopologyTransitionPostFxProfile = topologyTransitionPostFxProfile ?? TopologyTransitionPostFxProfile.CreateDefault(),
                 ViewCamera = viewCamera,
+                DefaultEnemyAiProfile = defaultEnemyAiProfile,
             };
             if (runtimeFeatureFlags.HasValue)
             {
@@ -2028,7 +2038,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 {
                     new PlayModeScriptedMovementLogic(new RawMovementIntent(11, 100, new Vector2Int(0, 1), MovementCommandKind.Flip)),
                 },
+                defaultEnemyAiProfile: LoadTutorialPassiveContactProfile(),
                 initialTopology: new CubeTopologyState(FaceId.Floor));
+        }
+
+        private static EnemyAiProfile LoadTutorialPassiveContactProfile()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(TutorialPassiveContactProfilePath);
+            Assert.That(profile, Is.Not.Null, $"Missing EnemyAiProfile asset at '{TutorialPassiveContactProfilePath}'.");
+            return profile;
         }
 
         private static IEnumerator DestroyHost(GameplaySceneHost host, UnityEngine.Object ownedActions = null)

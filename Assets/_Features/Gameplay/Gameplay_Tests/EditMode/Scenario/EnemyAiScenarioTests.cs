@@ -7489,7 +7489,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 passiveTutorialEnemy,
             });
             var factory = new EnemyEntityLogicFactory();
-            var provider = GameplayEntityLogicProviderFactory.CreateDefault((EnemyAiProfile)null);
+            var provider = GameplayEntityLogicProviderFactory.CreateDefault();
             var logicSet = provider.Build(worldState.CreateSnapshot(), Array.Empty<IEntityLogic>());
             worldState.CreateWriteContext().SetEnemyActionState(
                 40,
@@ -9314,7 +9314,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 GameplayEntityLogicProviderFactory.CreateDefault(
                     runtimeSnapshot.DefaultDefinition,
                     runtimeSnapshot.DefinitionsByEntityId,
-                    runtimeSnapshot.DefinitionsByArchetypeId),
+                    runtimeSnapshot.DefinitionsByArchetypeId,
+                    runtimeSnapshot.HasDefaultDefinition),
                 runtimeSnapshot.SpawnDefaultsByArchetypeId)
                 .CreateTickPipeline(worldState);
         }
@@ -9347,7 +9348,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 GameplayEntityLogicProviderFactory.CreateDefault(
                     runtimeSnapshot.DefaultDefinition,
                     runtimeSnapshot.DefinitionsByEntityId,
-                    runtimeSnapshot.DefinitionsByArchetypeId),
+                    runtimeSnapshot.DefinitionsByArchetypeId,
+                    runtimeSnapshot.HasDefaultDefinition),
                 runtimeSnapshot.SpawnDefaultsByArchetypeId);
         }
 

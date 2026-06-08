@@ -104,7 +104,8 @@ namespace Game.Feature.Gameplay.Host
                 GameplayEntityLogicProviderFactory.CreateDefault(
                     enemyAiRuntime.DefaultDefinition,
                     enemyAiRuntime.DefinitionsByEntityId,
-                    enemyAiRuntime.DefinitionsByArchetypeId),
+                    enemyAiRuntime.DefinitionsByArchetypeId,
+                    enemyAiRuntime.HasDefaultDefinition),
                 enemyAiRuntime.SpawnDefaultsByArchetypeId);
             var tickRunner = bootstrapper.CreateTickRunner(
                 worldState,

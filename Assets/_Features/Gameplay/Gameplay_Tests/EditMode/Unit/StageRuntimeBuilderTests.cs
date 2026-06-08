@@ -101,6 +101,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void StageRuntimeBuilder_ActiveEnemySpawnWithoutExplicitProfile_Rejects()
+        {
+            var missingProfileEnemy = CreateSpawn(
+                20,
+                StageSpawnKind.Enemy,
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                hp: 2);
+            missingProfileEnemy.EnemyAiMode = EnemyAiMode.Patrol;
+            missingProfileEnemy.EnemyAiProfile = null;
+            var stage = CreateStage(
+                "MissingEnemyAiProfile",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                missingProfileEnemy);
+
+            AssertBuildThrows(stage, "must assign an explicit EnemyAiProfile");
+        }
+
+        [Test]
+        [Category("Core")]
         public void StageRuntimeBuilder_WallFacing_UsesAuthoredFacing()
         {
             var stage = CreateStage(
@@ -2585,9 +2605,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 BoxArchetype = boxArchetype,
                 EnemyAiMode = enemyAiMode,
                 EnemyAiStateTimer = enemyAiStateTimer,
-                EnemyAiProfile = enemyAiProfile,
+                EnemyAiProfile = ResolveTestEnemyAiProfile(kind, enemyAiMode, enemyAiProfile),
                 UnitStackGroup = unitStackGroup,
             };
+        }
+
+        private static EnemyAiProfile ResolveTestEnemyAiProfile(
+            StageSpawnKind kind,
+            EnemyAiMode enemyAiMode,
+            EnemyAiProfile enemyAiProfile)
+        {
+            if (kind != StageSpawnKind.Enemy ||
+                enemyAiMode == EnemyAiMode.None ||
+                enemyAiProfile != null)
+            {
+                return enemyAiProfile;
+            }
+
+            return AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(TutorialEnemyProfileAssetPath);
         }
 
         private static StageTileFeatureDefinition CreateTileFeature(

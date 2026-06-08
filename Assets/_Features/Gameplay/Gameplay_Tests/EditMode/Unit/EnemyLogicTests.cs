@@ -5155,6 +5155,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void EnemyEntityLogicFactory_ResolveDefinition_NoBindingAndNoDefault_Throws()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 41, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.Patrol),
+            });
+            var factory = new EnemyEntityLogicFactory(default, hasDefaultDefinition: false);
+
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => factory.ResolveDefinition(worldState.CreateSnapshot(), GetEntity(worldState, 41)));
+
+            Assert.That(exception.Message, Does.Contain("no explicit EnemyAiProfile override"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyEntityLogicFactory_ResolveDefinition_UnknownBindingThrows()
         {
             var defaultProfile = CreateDefaultMeleeProfile();
@@ -5696,21 +5712,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayEntityLogicProviderFactory_NullProfile_UsesDefaultMeleeRuntimeDefinition()
+        public void GameplayEntityLogicProviderFactory_NullProfile_ThrowsInsteadOfCreatingDefaultMeleeRuntimeDefinition()
         {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            });
-            var provider = GameplayEntityLogicProviderFactory.CreateDefault((EnemyAiProfile)null);
-            var logicSet = provider.Build(worldState.CreateSnapshot(), Array.Empty<IEntityLogic>());
+            var exception = Assert.Throws<ArgumentNullException>(
+                () => GameplayEntityLogicProviderFactory.CreateDefault((EnemyAiProfile)null));
 
-            Assert.That(logicSet.AiStateLogics, Has.Count.EqualTo(1));
-            Assert.That(logicSet.PreMovementStateLogics, Has.Count.EqualTo(1));
-            Assert.That(logicSet.MovementLogics, Has.Count.EqualTo(1));
-            Assert.That(logicSet.EnemyActionStateLogics, Has.Count.EqualTo(1));
-            Assert.That(logicSet.AttackLogics, Has.Count.EqualTo(1));
+            Assert.That(exception.ParamName, Is.EqualTo("enemyAiProfile"));
+            Assert.That(exception.Message, Does.Contain("Enemy AI profile must be explicit"));
         }
 
         [Test]

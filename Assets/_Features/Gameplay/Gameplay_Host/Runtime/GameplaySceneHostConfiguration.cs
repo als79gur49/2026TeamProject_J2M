@@ -16,17 +16,21 @@ namespace Game.Feature.Gameplay.Host
     {
         public EnemyAiRuntimeCollectionSnapshot(
             EnemyAiRuntimeDefinition defaultDefinition,
+            bool hasDefaultDefinition,
             IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId,
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> definitionsByArchetypeId,
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId)
         {
             DefaultDefinition = defaultDefinition;
+            HasDefaultDefinition = hasDefaultDefinition;
             DefinitionsByEntityId = definitionsByEntityId;
             DefinitionsByArchetypeId = definitionsByArchetypeId;
             SpawnDefaultsByArchetypeId = spawnDefaultsByArchetypeId;
         }
 
         public EnemyAiRuntimeDefinition DefaultDefinition { get; }
+
+        public bool HasDefaultDefinition { get; }
 
         public IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> DefinitionsByEntityId { get; }
 
@@ -282,7 +286,8 @@ namespace Game.Feature.Gameplay.Host
 
         public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()
         {
-            var defaultDefinition = ResolveDefaultEnemyAiRuntimeDefinition();
+            var hasDefaultDefinition = DefaultEnemyAiProfile != null;
+            var defaultDefinition = ResolveDefaultEnemyAiRuntimeDefinition(hasDefaultDefinition);
             var definitionsByEntityId = CreateEnemyAiDefinitionOverrides();
             CreateEnemyAiArchetypeRuntimeCollections(
                 out var definitionsByArchetypeId,
@@ -294,6 +299,7 @@ namespace Game.Feature.Gameplay.Host
                 spawnDefaultsByArchetypeId);
             return new EnemyAiRuntimeCollectionSnapshot(
                 defaultDefinition,
+                hasDefaultDefinition,
                 definitionsByEntityId,
                 definitionsByArchetypeId,
                 spawnDefaultsByArchetypeId);
@@ -409,11 +415,11 @@ namespace Game.Feature.Gameplay.Host
                 repeatedMoveIntervalSeconds);
         }
 
-        private EnemyAiRuntimeDefinition ResolveDefaultEnemyAiRuntimeDefinition()
+        private EnemyAiRuntimeDefinition ResolveDefaultEnemyAiRuntimeDefinition(bool hasDefaultDefinition)
         {
-            return DefaultEnemyAiProfile != null
+            return hasDefaultDefinition
                 ? DefaultEnemyAiProfile.CreateRuntimeDefinition(SimulationTicksPerSecond)
-                : EnemyAiRuntimeDefinition.CreateDefaultMelee();
+                : default;
         }
 
         private PlayerControlTimingSettings ResolvePlayerControlTimingSettings()
@@ -613,7 +619,10 @@ namespace Game.Feature.Gameplay.Host
             var orderedReferences = new List<EnemyUnitArchetypeId>();
             var seenReferences = new HashSet<EnemyUnitArchetypeId>(EnemyUnitArchetypeId.EqualityComparer);
 
-            CollectSummonArchetypeReferences(enemyAiRuntime.DefaultDefinition, seenReferences, orderedReferences);
+            if (enemyAiRuntime.HasDefaultDefinition)
+            {
+                CollectSummonArchetypeReferences(enemyAiRuntime.DefaultDefinition, seenReferences, orderedReferences);
+            }
 
             if (enemyAiRuntime.DefinitionsByEntityId != null)
             {
