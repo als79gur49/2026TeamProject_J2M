@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ab64c1bee5254184a7440f8826bf4d84, type: 3}
-  m_Name: EnemyAudioProfile_LockNearbyBoxesDrS
+  m_Name: EnemyAudioProfile_DrSaturn
   m_EditorClassIdentifier: Game.Feature.Gameplay.EnemyAudio::Game.Feature.Gameplay.EnemyAudio.EnemyAudioProfile
   entries:
   - Cue: 1

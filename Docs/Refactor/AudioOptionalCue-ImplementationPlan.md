@@ -102,7 +102,7 @@ Initial production policy candidates:
 | `EnemyAudioProfile_WallFollowerSun` | `Move`, `Death` | Other cues disabled unless archetype changes |
 | `EnemyAudioProfile_JumpChaserAstra` | `Move`, `Landing`, `Death` | Non-jump cues disabled |
 | `EnemyAudioProfile_BlackEye` | `Move`, `Active`, `ProjectileImpact`, `Death` | `ProjectileImpact` required for projectile arrival |
-| `EnemyAudioProfile_LockNearbyBoxesDrS` | `Move`, `Windup`, `Active`, `Recover`, `Death` | `PassiveContact` disabled by current test |
+| `EnemyAudioProfile_DrSaturn` | `Move`, `Windup`, `Active`, `Recover`, `Death` | DrSaturn profile is identity-named; `Active` remains authored for GravityField-oriented utility evaluation. |
 | `EnemyAudioProfile_UtilitySummoner` | `Active`, `Death`; `Move` DEFER | Test expectation drift should be resolved |
 | `EnemyAudioProfile_Nebulous` | `Move`, `Windup`, `Active`, `Recover`, `Death` | `PassiveContact` disabled by current test |
 | `EnemyAudioProfile_RocketFace` | `Move`, `ChargeActiveLoop`, `Death` | one-shot `Active` should be DISABLED if charge loop is product policy |

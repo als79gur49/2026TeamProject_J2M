@@ -124,11 +124,11 @@ Production profile authoring:
 | `EnemyAudioProfile_BlackEye` / `EnemyView_BlackEye` | `Active` | Yes | Yes | Invalid binding fails validation | REQUIRED for fire release |
 | `EnemyAudioProfile_BlackEye` / `EnemyView_BlackEye` | `ProjectileImpact` | Yes | Yes | Invalid binding fails validation | REQUIRED for projectile arrival |
 | `EnemyAudioProfile_BlackEye` / `EnemyView_BlackEye` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
-| `EnemyAudioProfile_LockNearbyBoxesDrS` / `EnemyView_DrSaturn` | `Move` | Yes | Yes | Invalid binding fails validation | REQUIRED |
-| `EnemyAudioProfile_LockNearbyBoxesDrS` / `EnemyView_DrSaturn` | `Windup` | Yes | Yes | Invalid binding fails validation | REQUIRED for utility windup |
-| `EnemyAudioProfile_LockNearbyBoxesDrS` / `EnemyView_DrSaturn` | `Active` | Yes | Yes | Invalid binding fails validation | REQUIRED for utility active |
-| `EnemyAudioProfile_LockNearbyBoxesDrS` / `EnemyView_DrSaturn` | `Recover` | Yes | Yes | Invalid binding fails validation | REQUIRED for utility recover |
-| `EnemyAudioProfile_LockNearbyBoxesDrS` / `EnemyView_DrSaturn` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
+| `EnemyAudioProfile_DrSaturn` / `EnemyView_DrSaturn` | `Move` | Yes | Yes | Invalid binding fails validation | REQUIRED |
+| `EnemyAudioProfile_DrSaturn` / `EnemyView_DrSaturn` | `Windup` | Yes | Yes | Invalid binding fails validation | REQUIRED for utility windup |
+| `EnemyAudioProfile_DrSaturn` / `EnemyView_DrSaturn` | `Active` | Yes | Yes | Invalid binding fails validation | REQUIRED for DrSaturn utility active; interpret through the identity profile rather than the old LockNearbyBoxes-specific name |
+| `EnemyAudioProfile_DrSaturn` / `EnemyView_DrSaturn` | `Recover` | Yes | Yes | Invalid binding fails validation | REQUIRED for utility recover |
+| `EnemyAudioProfile_DrSaturn` / `EnemyView_DrSaturn` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
 | `EnemyAudioProfile_UtilitySummoner` / `EnemyView_JPeter` | `Move` | Yes | Yes | Invalid binding fails validation | DEFER: prefab expectation test currently lists `Windup` instead of this authored cue |
 | `EnemyAudioProfile_UtilitySummoner` / `EnemyView_JPeter` | `Active` | Yes | Yes | Invalid binding fails validation | REQUIRED for summon/spawn active |
 | `EnemyAudioProfile_UtilitySummoner` / `EnemyView_JPeter` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
