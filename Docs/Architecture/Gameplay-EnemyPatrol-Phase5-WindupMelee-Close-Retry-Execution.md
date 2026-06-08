@@ -14,7 +14,7 @@
 - `Unity.exe -batchmode -nographics -projectPath C:/Users/user/2026TeamProject_J2M -logFile C:/Users/user/2026TeamProject_J2M/TestResults/phase5-red-closure/unit-runtime-targeted.log -runTests -runSynchronously -testPlatform EditMode -assemblyNames Game.Feature.Gameplay.Tests -testFilter Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyLogic_WindupRandomWalkPilot_PatrolStateWrites_OccurOnlyOnInitAndCommittedPatrolMove;Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyLogic_WindupRandomWalkPilot_DoesNotWritePatrolState_DuringChaseAttackRecover;Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAi_WindupRandomWalkPilot_AttackWindupRecoverContract_MatchesForwardBaseline -testResults C:/Users/user/2026TeamProject_J2M/TestResults/phase5-red-closure/unit-runtime-targeted.xml`
 - `Unity.exe -batchmode -nographics -projectPath C:/Users/user/2026TeamProject_J2M -logFile C:/Users/user/2026TeamProject_J2M/TestResults/phase5-red-closure/scenario-targeted.log -runTests -runSynchronously -testPlatform EditMode -assemblyNames Game.Integration.Simulation.Tests -testFilter Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_WindupRandomWalkPilot_DirectLane_MatchesExactTransitionTicks;Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_WindupRandomWalkPilot_OpenRoomOffset_DoesNotAdvanceAggressionEarlierThanBaseline;Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_WindupRandomWalkPilot_LoseTargetDuringWindup_ReturnsHomeThenResumesPatrol;Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_WindupRandomWalkPilot_PrimedSameCell_PreservesCombatThenPassiveOrdering -testResults C:/Users/user/2026TeamProject_J2M/TestResults/phase5-red-closure/scenario-targeted.xml`
 - `Unity.exe -batchmode -nographics -projectPath C:/Users/user/2026TeamProject_J2M -logFile C:/Users/user/2026TeamProject_J2M/TestResults/phase5-red-closure/replay-targeted.log -runTests -runSynchronously -testPlatform EditMode -assemblyNames Game.Integration.Replay.Tests -testFilter Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_WindupRandomWalkPilot_ProducesStableHashTrace_AndBoundedPatrolDump;Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_WindupRandomWalkPilot_PatrolDump_MatchesFinalSnapshotState;Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_WindupRandomWalkPilot_DoesNotRegressForwardOrNonAttackingReplays;Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_WindupRandomWalkPilot_PatrolFootprint_IsLimitedToEnemyPatrolRuntimeState;Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_ForwardProfile_ProducesStableHashTrace_AndNoPatrolStateWrites -testResults C:/Users/user/2026TeamProject_J2M/TestResults/phase5-red-closure/replay-targeted.xml`
-- `Unity.exe -batchmode -nographics -projectPath C:/Users/user/2026TeamProject_J2M -logFile C:/Users/user/2026TeamProject_J2M/TestResults/phase5-red-closure/unit-authoring-doc-targeted.log -runTests -runSynchronously -testPlatform EditMode -assemblyNames Game.Feature.Gameplay.Tests -testFilter Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests;Game.Feature.Gameplay.Tests.Unit.EnemyAiProfileAssetContractTests.EnemyAiProfileAssets_WindupBaseline_RemainsForward_AndPilotVariant_IsRandomWalk;Game.Feature.Gameplay.Tests.Unit.EnemyAiProfileAssetContractTests.EnemyPatrolAssets_WindupRandomWalkPilotAsset_UsesLockedMeleePreset;Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.MechanicsShowcaseStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy -testResults C:/Users/user/2026TeamProject_J2M/TestResults/phase5-red-closure/unit-authoring-doc-targeted.xml`
+- historical authoring/doc targeted evidence included Phase5 WindupMelee repository profile checks that are retired in the current Enemy AI profile cleanup.
 
 ## Artifact List With Exact Dates
 - `TestResults/phase5-red-closure/evidence-summary.md` (`2026-04-24`, final evidence verdict only)
@@ -95,7 +95,7 @@
 ## Allowed Claims
 - `WindupMelee RandomWalk pilot` phase 5 bounded rollout은 same-revision targeted evidence bundle을 기준으로 close되었다.
 - close gate에는 `TestResults/phase5-red-closure/` bundle과 documentation governance lock만 사용한다.
-- baseline `EnemyAi_WindupMelee.asset` / `EnemyBrain_WindupMelee.asset` untouched, `Forward` fallback/oracle 유지, other archetype no-touch가 계속 current truth다.
+- retired `EnemyAi_WindupMelee.asset` profile은 current repository inventory가 아니다. `EnemyBrain_WindupMelee.asset` shared brain, `Forward` fallback/oracle 유지, other archetype no-touch가 계속 current truth다.
 
 ## Explicit Non-Claims
 - 이 close는 broad/full suite가 모두 closed라는 뜻이 아니다.
@@ -104,7 +104,7 @@
 - evidence verdict `Close Retry Ready`와 final decision `Closed`를 한 문구로 합치지 않는다.
 
 ## No-Touch Confirmation
-- baseline `EnemyAi_WindupMelee.asset` / `EnemyBrain_WindupMelee.asset` untouched
+- retired `EnemyAi_WindupMelee.asset` profile은 current repository inventory가 아니며, `EnemyBrain_WindupMelee.asset` shared brain은 유지
 - `Forward` fallback/oracle 유지
 - `NonAttacking` pilot unchanged
 - `JumpChaser`, `Charge`, `WallFollow`, `TutorialPassiveContact` rollout/patrol 정책 unchanged

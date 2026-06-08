@@ -7,7 +7,7 @@
 
 phase 5는 아직 close가 아니다.
 
-이 문서는 `WindupMelee RandomWalk pilot`의 남은 runtime red 3축만 닫기 위한 bounded runtime fix truth다. baseline `EnemyAi_WindupMelee.asset` / `EnemyBrain_WindupMelee.asset`는 untouched fallback/oracle로 유지하고, `Forward` fallback/oracle, `NonAttacking` pilot, `JumpChaser`, `Charge`, `WallFollow`, `TutorialPassiveContact` 기본 patrol 정책은 바꾸지 않는다.
+이 문서는 `WindupMelee RandomWalk pilot`의 남은 runtime red 3축만 닫기 위한 historical bounded runtime fix truth다. Retired `EnemyAi_WindupMelee.asset` profile은 current repository inventory가 아니며, `EnemyBrain_WindupMelee.asset` shared brain은 Stage-reachable WindupProjectile path가 사용하므로 유지한다. `Forward` fallback/oracle, `NonAttacking` pilot, `JumpChaser`, `Charge`, `WallFollow`, `TutorialPassiveContact` 기본 patrol 정책은 바꾸지 않는다.
 
 ## 1. Summary
 - 목표: `AttackCommitted`, `active-windup entry`, `duplicate CommittedMove`를 same-revision targeted Unity evidence로 다시 닫는다.

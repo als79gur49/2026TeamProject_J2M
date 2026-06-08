@@ -61,9 +61,9 @@
 - [Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md](./Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md)
   - current supporting truth for `WallFollow` truth table, owner surface, maintain-vs-redesign verdict, and no-touch / rollback gate
 - [Gameplay-EnemyPatrol-Phase5-WindupMelee-Rollout.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Rollout.md)
-  - current supporting truth for `WindupMelee` final bounded rollout contract, pilot preset scorecard, same-cell ordering, no-touch matrix, and post-close non-claims
+  - historical supporting truth for the retired `WindupMelee` repository profile rollout, pilot preset scorecard, same-cell ordering, no-touch matrix, and post-close non-claims
 - [Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md)
-  - current supporting truth for phase 5 official close decision, same-revision targeted evidence bundle, approve/hold branch, and phase 6 boundary
+  - historical supporting truth for phase 5 official close decision, same-revision targeted evidence bundle, approve/hold branch, and phase 6 boundary
 - [Docs/Testing/UI-EditMode-Baseline-2026-04-15.md](../Testing/UI-EditMode-Baseline-2026-04-15.md)
   - pinned UI evidence truth for the completed Stage 1–9 UI architecture baseline
 - [Docs/Testing/Full-EditMode-Baseline-2026-04-13.md](../Testing/Full-EditMode-Baseline-2026-04-13.md)
@@ -97,8 +97,8 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
 - phase 3는 `Forward` commonization의 single proposal seam consumer 기준과 docs-only defer / rollback checklist를 고정한다.
 - rollout gate는 quantitative unchanged matrix와 post-phase decision matrix를 고정한다.
 - phase 4는 `WallFollow` truth table, maintain-vs-redesign verdict, bounded redesign gate를 고정한다.
-- phase 5 rollout은 `WindupMelee` bounded rollout의 `exact-contract` / `bounded-exposure` drift matrix, pilot preset scorecard, same-cell ordering, sampling matrix, fallback / rollback / success / failure, 그리고 `closed`의 의미를 고정한다.
-- phase 5 close execution은 same-revision targeted evidence bundle, close gate, approve / hold branch, current active truth-source vs historical supporting note hierarchy, close wording migration, no-touch list, phase 6 비자동 경계를 고정한다.
+- phase 5 rollout은 retired `WindupMelee` repository profile cleanup 이전 bounded rollout의 `exact-contract` / `bounded-exposure` drift matrix, pilot preset scorecard, same-cell ordering, sampling matrix, fallback / rollback / success / failure, 그리고 `closed`의 의미를 보존한다.
+- phase 5 close execution은 same-revision targeted evidence bundle, close gate, approve / hold branch, close wording migration, no-touch list, phase 6 비자동 경계를 historical provenance로 보존한다.
 
 ## Historical Supporting Notes
 

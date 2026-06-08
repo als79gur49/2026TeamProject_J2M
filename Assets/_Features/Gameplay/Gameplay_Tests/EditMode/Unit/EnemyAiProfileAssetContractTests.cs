@@ -45,12 +45,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static readonly string[] RequiredCanonicalAssetPaths =
         {
-            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset",
-            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee_RandomWalkPilot.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WallFollower/EnemyAi_WallFollower.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Charge/EnemyAi_Charge.asset",
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupProjectile/EnemyAi_WindupProjectile.asset",
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_UtilitySummoner/EnemyAi_ArchetypeSummoner.asset",
         };
 
         [Test]
@@ -165,22 +165,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyPatrolAssets_WindupRandomWalkPilotAsset_UsesLockedMeleePreset()
-        {
-            const string windupRandomWalkPilotAssetPath = StageContentPaths.SharedEnemyAiRoot + "/Brain/Enemy_WindupMelee/EnemyPatrol_RandomWalk_WindupMelee.asset";
-            var asset = AssetDatabase.LoadAssetAtPath<RandomWalkPatrolAsset>(windupRandomWalkPilotAssetPath);
-
-            Assert.That(asset, Is.Not.Null, $"Missing random-walk patrol asset at '{windupRandomWalkPilotAssetPath}'.");
-            Assert.That(asset.Kind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
-            Assert.That(asset.Settings.LeashRadius, Is.EqualTo(1));
-            Assert.That(asset.Settings.ForwardWeight, Is.EqualTo(6));
-            Assert.That(asset.Settings.SideWeight, Is.EqualTo(1));
-            Assert.That(asset.Settings.BackwardWeight, Is.EqualTo(1));
-            Assert.That(asset.Settings.PreventImmediateBacktrack, Is.True);
-        }
-
-        [Test]
-        [Category("Extended")]
         public void Startis_ProfileBinding_UsesNonAttackingGameplayProfile()
         {
             var bindings = FindCampaignEnemyPresentationProfileBindings("startis");
@@ -236,8 +220,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new EnemyLogic(5, definition),
                 });
 
-            Assert.That(definition.Brain.Patrol.Kind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
-            Assert.That(definition.Brain.Patrol.Strategy, Is.TypeOf<RandomWalkPatrolStrategy>());
+            Assert.That(definition.Brain.Patrol.Kind, Is.EqualTo(PatrolStrategyKind.Stationary));
             Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
             Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
 
@@ -257,7 +240,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void BlackEye_ProfileBinding_DoesNotAssumeSingleGameplayProfile()
+        public void BlackEye_ProfileBinding_KeepsStageReachableProfiles_AndExcludesRetiredWindupMelee()
         {
             var bindings = FindCampaignEnemyPresentationProfileBindings("black_eye");
             var profilePaths = bindings.Select(binding => binding.ProfilePath).Distinct().OrderBy(path => path).ToArray();
@@ -265,10 +248,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(bindings, Is.Not.Empty, "No campaign stage binds presentation id 'black_eye'.");
             Assert.That(
                 profilePaths,
-                Has.Length.GreaterThan(1),
-                "BlackEye is a presentation/prefab id and must not be globally asserted as a single gameplay profile.");
-            Assert.That(profilePaths, Does.Contain(WindupMeleeProfilePath));
-            Assert.That(profilePaths, Does.Contain(WindupProjectileProfilePath));
+                Does.Contain(WindupProjectileProfilePath),
+                "Campaign BlackEye spawns must keep the Stage-reachable WindupProjectile gameplay profile.");
+            Assert.That(
+                profilePaths,
+                Does.Not.Contain(RetiredWindupMeleeProfilePath),
+                "Campaign BlackEye presentation bindings must not keep the retired WindupMelee repository profile.");
             AssertCatalogEntryUsesPrefab("black_eye", "EnemyView_BlackEye.prefab");
         }
 
@@ -389,7 +374,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string TutorialPassiveContactProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset";
 
-        private const string WindupMeleeProfilePath =
+        private const string RetiredWindupMeleeProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset";
 
         private const string WindupProjectileProfilePath =
