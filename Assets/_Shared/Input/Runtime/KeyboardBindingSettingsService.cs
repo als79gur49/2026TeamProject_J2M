@@ -7,10 +7,6 @@ namespace Game.Shared.Input
 {
     public sealed class KeyboardBindingSettingsService : IDisposable
     {
-        private const string MoveActionPath = "Player/Move";
-        private const string UiNavigateActionPath = "UI/Navigate";
-        private const string PushActionPath = "Player/Push";
-        private const string FlipActionPath = "Player/Flip";
         private const string KeyboardGroup = "Keyboard&Mouse";
         private const string EmptyOverridePath = "";
 
@@ -38,6 +34,12 @@ namespace Game.Shared.Input
         };
 
         private readonly InputActionAsset _actions;
+        private readonly InputAction _moveAction;
+        private readonly InputAction _uiNavigateAction;
+        private readonly InputAction _pushAction;
+        private readonly InputAction _flipAction;
+        private readonly InputActionMap _playerMap;
+        private readonly InputActionMap _uiMap;
         private readonly IKeyboardBindingStore _store;
         private InputActionRebindingExtensions.RebindingOperation _rebindOperation;
         private bool _mapWasEnabledBeforeRebind;
@@ -45,9 +47,25 @@ namespace Game.Shared.Input
         private KeyboardBindableAction? _rebindingAction;
         private KeyboardMovementScheme _movementScheme = KeyboardMovementScheme.Wasd;
 
+        public static string MoveActionPath => GameplayInputActionPaths.PlayerMove;
+
+        public static string NavigateActionPath => GameplayInputActionPaths.UiNavigate;
+
+        public static string PushActionPath => GameplayInputActionPaths.PlayerPush;
+
+        public static string FlipActionPath => GameplayInputActionPaths.PlayerFlip;
+
         public KeyboardBindingSettingsService(InputActionAsset actions, IKeyboardBindingStore store = null)
         {
             _actions = actions != null ? actions : throw new ArgumentNullException(nameof(actions));
+            _moveAction = RequireAction(_actions, GameplayInputActionPaths.PlayerMove);
+            _uiNavigateAction = RequireAction(_actions, GameplayInputActionPaths.UiNavigate);
+            _pushAction = RequireAction(_actions, GameplayInputActionPaths.PlayerPush);
+            _flipAction = RequireAction(_actions, GameplayInputActionPaths.PlayerFlip);
+            _playerMap = _moveAction.actionMap;
+            _uiMap = _uiNavigateAction.actionMap;
+            RequireKeyboardBinding(_pushAction, GameplayInputActionPaths.PlayerPush);
+            RequireKeyboardBinding(_flipAction, GameplayInputActionPaths.PlayerFlip);
             _store = store ?? new PlayerPrefsKeyboardBindingStore();
             LoadAndApplySavedSettings();
         }
@@ -295,8 +313,8 @@ namespace Game.Shared.Input
 
         private void ApplyMovementScheme(KeyboardMovementScheme scheme)
         {
-            ApplyMovementSchemeToAction(_actions.FindAction(MoveActionPath, throwIfNotFound: false), scheme);
-            ApplyMovementSchemeToAction(_actions.FindAction(UiNavigateActionPath, throwIfNotFound: false), scheme);
+            ApplyMovementSchemeToAction(_moveAction, scheme);
+            ApplyMovementSchemeToAction(_uiNavigateAction, scheme);
         }
 
         private static void ApplyMovementSchemeToAction(InputAction action, KeyboardMovementScheme scheme)
@@ -344,8 +362,8 @@ namespace Game.Shared.Input
 
         private void ClearMovementOverrides()
         {
-            ClearMovementOverrides(_actions.FindAction(MoveActionPath, throwIfNotFound: false));
-            ClearMovementOverrides(_actions.FindAction(UiNavigateActionPath, throwIfNotFound: false));
+            ClearMovementOverrides(_moveAction);
+            ClearMovementOverrides(_uiNavigateAction);
         }
 
         private static void ClearMovementOverrides(InputAction action)
@@ -448,14 +466,12 @@ namespace Game.Shared.Input
 
         private InputAction ResolveBindableAction(KeyboardBindableAction action)
         {
-            return _actions.FindAction(
-                action == KeyboardBindableAction.Push ? PushActionPath : FlipActionPath,
-                throwIfNotFound: false);
+            return action == KeyboardBindableAction.Push ? _pushAction : _flipAction;
         }
 
         private InputActionMap ResolvePlayerMap()
         {
-            return _actions.FindActionMap("Player", throwIfNotFound: false);
+            return _playerMap;
         }
 
         private static int FindKeyboardBindingIndex(InputAction action)
@@ -487,7 +503,7 @@ namespace Game.Shared.Input
         private void WithManagedMapsDisabled(Action action)
         {
             var playerMap = ResolvePlayerMap();
-            var uiMap = _actions.FindActionMap("UI", throwIfNotFound: false);
+            var uiMap = _uiMap;
             var wasPlayerEnabled = playerMap != null && playerMap.enabled;
             var wasUiEnabled = uiMap != null && uiMap.enabled;
             if (wasPlayerEnabled)
@@ -522,6 +538,48 @@ namespace Game.Shared.Input
         {
             return !string.IsNullOrWhiteSpace(groups) &&
                    groups.IndexOf(KeyboardGroup, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static InputAction RequireAction(InputActionAsset asset, string actionPath)
+        {
+            if (asset == null)
+            {
+                throw new ArgumentNullException(nameof(asset));
+            }
+
+            var action = asset.FindAction(actionPath, throwIfNotFound: false);
+            if (action == null)
+            {
+                throw new InvalidOperationException(
+                    $"Required input action '{actionPath}' was not found. " +
+                    "Settings/rebind cannot be initialized with a mismatched InputActionAsset.");
+            }
+
+            return action;
+        }
+
+        private static void RequireKeyboardBinding(InputAction action, string actionPath)
+        {
+            if (action != null)
+            {
+                for (var i = 0; i < action.bindings.Count; i++)
+                {
+                    var binding = action.bindings[i];
+                    if (binding.isComposite || binding.isPartOfComposite)
+                    {
+                        continue;
+                    }
+
+                    if (IsKeyboardPath(binding.effectivePath) || IsKeyboardPath(binding.path))
+                    {
+                        return;
+                    }
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Required keyboard binding for '{actionPath}' was not found. " +
+                "Current Settings/rebind policy is keyboard-only for Push/Flip.");
         }
 
         private static bool IsKeyboardPath(string path)

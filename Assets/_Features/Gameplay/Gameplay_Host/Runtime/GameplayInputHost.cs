@@ -2,6 +2,7 @@ using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
+using Game.Shared.Input;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -347,22 +348,22 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _actions.Enable();
-            _moveAction = _actions.FindAction("Player/Move", throwIfNotFound: false);
+            _moveAction = _actions.FindAction(GameplayInputActionPaths.PlayerMove, throwIfNotFound: false);
             if (_moveAction == null)
             {
-                throw new InvalidOperationException("GameplayInputHost requires a Player/Move action on the provided InputActionAsset.");
+                throw new InvalidOperationException($"GameplayInputHost requires a {GameplayInputActionPaths.PlayerMove} action on the provided InputActionAsset.");
             }
 
-            _flipAction = _actions.FindAction("Player/Flip", throwIfNotFound: false);
+            _flipAction = _actions.FindAction(GameplayInputActionPaths.PlayerFlip, throwIfNotFound: false);
             if (_flipAction == null)
             {
-                throw new InvalidOperationException("GameplayInputHost requires a Player/Flip action on the provided InputActionAsset.");
+                throw new InvalidOperationException($"GameplayInputHost requires a {GameplayInputActionPaths.PlayerFlip} action on the provided InputActionAsset.");
             }
 
-            _pushAction = _actions.FindAction("Player/Push", throwIfNotFound: false);
+            _pushAction = _actions.FindAction(GameplayInputActionPaths.PlayerPush, throwIfNotFound: false);
             if (_pushAction == null)
             {
-                throw new InvalidOperationException("GameplayInputHost requires a Player/Push action on the provided InputActionAsset.");
+                throw new InvalidOperationException($"GameplayInputHost requires a {GameplayInputActionPaths.PlayerPush} action on the provided InputActionAsset.");
             }
 
             _moveAction.performed += OnMovePerformed;
