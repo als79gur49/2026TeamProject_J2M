@@ -7,7 +7,7 @@
 - `Player/Push`: `<Keyboard>/e`, `<Gamepad>/buttonNorth`
 - `Player/Flip`: `<Keyboard>/q`
 
-`GameplayInputHost` treats all Push/Flip physical input as one-tick buffered action requests. It requires both `Player/Push` and `Player/Flip` actions at bind time.
+`GameplayInputHost` treats all Push/Flip physical input as one-tick buffered action requests. It requires both `Player/Push` and `Player/Flip` actions at bind time through the shared `GameplayInputActionPaths` contract.
 
 Verdict:
 
@@ -17,20 +17,20 @@ Verdict:
 
 ## InputActionAsset Recheck
 
-No generated wrapper code or obsolete generated InputAction collection was found. `GameplayInputHost` uses string action lookups directly:
+No generated wrapper code or obsolete generated InputAction collection was found. `GameplayInputHost` resolves required gameplay actions through `GameplayInputActionPaths`:
 
 - `Player/Move`
 - `Player/Flip`
 - `Player/Push`
 
-The settings service also hardcodes:
+The settings service uses the same shared path owner for:
 
 - `Player/Move`
 - `UI/Navigate`
 - `Player/Push`
 - `Player/Flip`
 
-This is active but carries `HARDCODED_PATH_RISK`.
+The previous production `HARDCODED_PATH_RISK` is closed for these paths: `GameplayInputHost` and `KeyboardBindingSettingsService` no longer own separate hardcoded copies. Missing required settings actions fail fast during settings binding service setup instead of degrading into an empty binding display.
 
 ## Binding Policy Recheck
 
@@ -89,7 +89,8 @@ Verdict: `KEEP_CURRENTLY_USED`.
 Limitations:
 
 - Keyboard-only rebind.
-- Hardcoded action paths can silently degrade into empty display / missing binding status if action names change.
+- Missing required actions are setup defects and fail fast during `KeyboardBindingSettingsService` initialization.
+- Push/Flip settings rows require keyboard bindings; Flip remains keyboard-only and no gamepad binding is required or added.
 
 ## Prompt/Help Recheck
 
@@ -125,4 +126,4 @@ Classification:
 | ActionBar wording not marked retired | `DELETE_NOW_UNUSED` | Remove or rewrite as retired vocabulary |
 | UI Push/Flip gameplay action command injection route | `REMOVED_BY_PRODUCT_DECISION` | Product has no touch/mobile/assist action surface; settings/rebind UI remains |
 | Flip controller binding absence | `DOCUMENTED_CURRENT_POLICY` | Keep Flip keyboard-only |
-| Hardcoded settings paths | `REFACTOR_RENAME_ONLY` | Centralize/fail-fast action path validation |
+| Hardcoded settings paths | `REFACTORED_CURRENT_CONTRACT` | Centralized through `GameplayInputActionPaths`; settings setup now fails fast for missing required actions |

@@ -115,7 +115,7 @@ Low-usage combos are all showcase-only: `Flip`, `Push+Flip`, `Item`, `Push+Item`
 - Settings/rebind Push/Flip rows are active: `PushInputRow`, `FlipInputRow`, `PushKeyDisplay`, `FlipKeyDisplay`.
 - Rebind is effective, not display-only: `KeyboardBindingSettingsService` applies binding overrides, serializes Push/Flip overrides, and `GameplayHostRuntimeFactory` applies saved settings to the runtime InputActionAsset.
 - Rebind limitation: keyboard-only; gamepad bindings are not managed by this service.
-- Hardcoded path risk: `KeyboardBindingSettingsService` uses `Player/Push` and `Player/Flip` string constants. Missing action paths result in missing binding/display behavior rather than a central fail-fast asset contract.
+- Path contract: `GameplayInputHost` and `KeyboardBindingSettingsService` share `GameplayInputActionPaths` for Player/Move, Player/Push, Player/Flip, and UI/Navigate. Missing required settings actions or Push/Flip keyboard bindings fail fast during settings binding service setup.
 
 ## Audio Findings
 
