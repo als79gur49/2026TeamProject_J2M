@@ -1392,9 +1392,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyLogic_WindupRandomWalkPilot_CapturesPatrolOrigin_WhenLeavingPatrolBeforeFirstCommittedMove()
+        public void EnemyLogic_HistoricalTestOnlyWindupMeleeRandomWalkPilot_CapturesPatrolOrigin_WhenLeavingPatrolBeforeFirstCommittedMove()
         {
-            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
+            var profile = CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotProfile(windupTicks: 1);
             var worldState = CreateWorldState(
                 new[]
                 {
@@ -1433,9 +1433,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyLogic_WindupRandomWalkPilot_DoesNotWritePatrolState_DuringChaseAttackRecover()
+        public void EnemyLogic_HistoricalTestOnlyWindupMeleeRandomWalkPilot_DoesNotWritePatrolState_DuringChaseAttackRecover()
         {
-            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
+            var profile = CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotProfile(windupTicks: 1);
             var worldState = CreateWorldState(
                 new[]
                 {
@@ -1519,7 +1519,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void EnemyLogic_WindupCombatScorecard_CurrentKinematicContract()
         {
-            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
+            var profile = CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotProfile(windupTicks: 1);
             var worldState = CreateWorldState(
                 new[]
                 {
@@ -1588,9 +1588,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupRandomWalkPilot_SameCellCombatPassiveOrdering_IsExact()
+        public void EnemyAi_HistoricalTestOnlyWindupMeleeRandomWalkPilot_SameCellCombatPassiveOrdering_IsExact()
         {
-            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1, includePassiveContact: true);
+            var profile = CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotProfile(windupTicks: 1, includePassiveContact: true);
             var sharedCell = new SurfaceCell(FaceId.Floor, 2, 1);
 
             try
@@ -1861,7 +1861,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
             });
-            var logic = new EnemyLogic(entityId: 40, CreateDefaultMeleeProfile());
+            var logic = new EnemyLogic(entityId: 40, CreateTestOnlyMeleeProfile());
             var movementBuffer = new List<RawMovementIntent>();
             var debugEvents = new List<string>();
             ((IPhasedStateCommitContext)worldState.CreateWriteContext()).SetPhasedState(
@@ -1889,7 +1889,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
             });
-            var logic = new EnemyLogic(entityId: 40, CreateDefaultMeleeProfile());
+            var logic = new EnemyLogic(entityId: 40, CreateTestOnlyMeleeProfile());
             var transitions = new List<string>();
             ((IPhasedStateCommitContext)worldState.CreateWriteContext()).SetPhasedState(
                 10,
@@ -4058,7 +4058,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void EnemyAiProfile_CreateRuntimeDefinition_UsesDefaultZeroWindupAndMoveCooldown()
         {
-            var profile = EnemyAiProfileTestFactory.CreateDefaultMelee();
+            var profile = EnemyAiProfileTestFactory.CreateTestOnlyMelee();
 
             try
             {
@@ -4079,7 +4079,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var profiles = new[]
             {
-                EnemyAiProfileTestFactory.CreateDefaultMelee(),
+                EnemyAiProfileTestFactory.CreateTestOnlyMelee(),
                 EnemyAiProfileTestFactory.CreateNonAttacking(),
                 EnemyAiProfileTestFactory.CreateCharging(),
                 EnemyAiProfileTestFactory.CreateWallFollower(),
@@ -4757,7 +4757,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_CompilesArchetypeRegistryAndSpawnDefaults()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var archetypeProfile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset(
                 "BasicMinion",
@@ -4825,7 +4825,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_MissingReferencedArchetype_Throws()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var orphanedArchetypeProfile = CreateNonAttackingEnemyProfile();
             var orphanedArchetype = CreateEnemyUnitArchetypeAsset("OrphanedMinion", orphanedArchetypeProfile, hp: 3, initialAiMode: EnemyAiMode.Patrol);
             var summonerProfile = CreateUtilitySummonerProfile(
@@ -4861,7 +4861,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplaySceneHostConfiguration_CreateEnemyPresentationArchetypeRegistry_MissingSummonedMapping_Throws()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var archetypeProfile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
             var gameplayCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
@@ -4900,7 +4900,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplaySceneHostConfiguration_CreateEnemyPresentationArchetypeRegistry_DuplicateArchetypeId_Throws()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var archetypeProfile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
             var gameplayCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
@@ -4950,7 +4950,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplaySceneHostConfiguration_CreateEnemyPresentationArchetypeRegistry_NullPrefab_Throws()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var archetypeProfile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
             var gameplayCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
@@ -4994,7 +4994,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplaySceneHostConfiguration_CreateEnemyPresentationArchetypeRegistry_PresentationArchetypeMissingFromGameplayRegistry_Throws()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var archetypeProfile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
             var gameplayCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
@@ -5040,7 +5040,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyEntityLogicFactory_ResolveDefinition_EntityOverrideWinsOverArchetypeBinding()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile();
             var overrideProfile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
             var archetypeProfile = CreateNonAttackingEnemyProfile();
 
@@ -5084,7 +5084,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyEntityLogicFactory_ResolveDefinition_ArchetypeBindingWinsOverDefault()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile();
             var archetypeProfile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
 
             try
@@ -5121,7 +5121,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyEntityLogicFactory_ResolveDefinition_NoBindingFallsBackToDefault()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile();
             var archetypeProfile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
 
             try
@@ -5173,7 +5173,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyEntityLogicFactory_ResolveDefinition_UnknownBindingThrows()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
 
             try
             {
@@ -5199,7 +5199,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplayEntityLogicProviderFactory_ArchetypeBoundUtilityOnlyEntity_OmitsCombatLanes()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var utilityProfile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
 
             try
@@ -5794,6 +5794,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     recoverSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
                 AttackTimingSettings = new EnemyAttackTimingAuthoringSettings(
                     windupSeconds: 3f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.WindupForwardCellProjectile,
                 LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(
                     moveCooldownSeconds: 4f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
             });
@@ -5825,6 +5826,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     recoverSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
                 AttackTimingSettings = new EnemyAttackTimingAuthoringSettings(
                     windupSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.WindupForwardCellProjectile,
                 LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(
                     moveCooldownSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
             });
@@ -6248,15 +6250,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static EnemyAiProfile CreateEnemyProfile(int windupTicks, int moveCooldownTicks = 0)
         {
-            return EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks, moveCooldownTicks);
+            return EnemyAiProfileTestFactory.CreateTestOnlyMelee(windupTicks, moveCooldownTicks);
         }
 
-        private static EnemyAiProfile CreateDefaultMeleeProfile(
+        private static EnemyAiProfile CreateTestOnlyMeleeProfile(
             int moveCooldownTicks = 0,
             int recoverTicks = 1,
             bool includePassiveContact = false)
         {
-            return EnemyAiProfileTestFactory.CreateDefaultMelee(
+            return EnemyAiProfileTestFactory.CreateTestOnlyMelee(
                 windupTicks: 0,
                 moveCooldownTicks: moveCooldownTicks,
                 recoverTicks: recoverTicks,
@@ -6286,13 +6288,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
         }
 
-        private static EnemyAiProfile CreateWindupRandomWalkPilotProfile(
+        private static EnemyAiProfile CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotProfile(
             int windupTicks = 1,
             int moveCooldownTicks = 0,
             int recoverTicks = 1,
             bool includePassiveContact = true)
         {
-            return EnemyAiProfileTestFactory.CreateWindupRandomWalkPilot(
+            return EnemyAiProfileTestFactory.CreateHistoricalTestOnlyWindupMeleeRandomWalkPilot(
                 windupTicks,
                 moveCooldownTicks,
                 recoverTicks,

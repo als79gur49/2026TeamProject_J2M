@@ -1491,8 +1491,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void Replay_EnemyAiKinematicScenario_DeterministicCanonicalState()
         {
-            var firstReplay = RunWindupRandomWalkPilotReplaySequence();
-            var secondReplay = RunWindupRandomWalkPilotReplaySequence();
+            var firstReplay = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence();
+            var secondReplay = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence();
 
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -2085,10 +2085,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_WindupRandomWalkPilot_ProducesStableHashTrace_AndBoundedPatrolDump()
+        public void Replay_HistoricalTestOnlyWindupMeleeRandomWalkPilot_ProducesStableHashTrace_AndBoundedPatrolDump()
         {
-            var firstReplay = RunWindupRandomWalkPilotReplaySequence();
-            var secondReplay = RunWindupRandomWalkPilotReplaySequence();
+            var firstReplay = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence();
+            var secondReplay = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence();
 
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -2107,10 +2107,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_WindupRandomWalkPilot_PatrolDump_MatchesFinalSnapshotState()
+        public void Replay_HistoricalTestOnlyWindupMeleeRandomWalkPilot_PatrolDump_MatchesFinalSnapshotState()
         {
-            var replay = RunWindupRandomWalkPilotReplaySequence();
-            var snapshotDumps = RunWindupRandomWalkPilotSnapshotDumpSequence();
+            var replay = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence();
+            var snapshotDumps = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotSnapshotDumpSequence();
 
             CollectionAssert.AreEqual(
                 snapshotDumps,
@@ -2120,9 +2120,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void DeterminismHash_WindupRandomWalkPilot_PatrolFootprint_IsLimitedToEnemyPatrolRuntimeState()
+        public void DeterminismHash_HistoricalTestOnlyWindupMeleeRandomWalkPilot_PatrolFootprint_IsLimitedToEnemyPatrolRuntimeState()
         {
-            var replay = RunWindupRandomWalkPilotReplaySequence();
+            var replay = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence();
 
             Assert.That(replay.Select(frame => frame.EnemyPatrolDump), Has.All.Not.EqualTo("<empty>"));
             foreach (var frame in replay)
@@ -2617,7 +2617,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             }
         }
 
-        private static IReadOnlyList<TickReplayFrame> RunWindupRandomWalkPilotReplaySequence()
+        private static IReadOnlyList<TickReplayFrame> RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -2627,7 +2627,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
                 GameplayTerrainData.Empty);
-            var profile = EnemyAiProfileTestFactory.CreateWindupRandomWalkPilot(windupTicks: 1);
+            var profile = EnemyAiProfileTestFactory.CreateHistoricalTestOnlyWindupMeleeRandomWalkPilot(windupTicks: 1);
 
             try
             {
@@ -2653,7 +2653,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             }
         }
 
-        private static IReadOnlyList<string> RunWindupRandomWalkPilotSnapshotDumpSequence()
+        private static IReadOnlyList<string> RunHistoricalTestOnlyWindupMeleeRandomWalkPilotSnapshotDumpSequence()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -2663,7 +2663,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
                 GameplayTerrainData.Empty);
-            var profile = EnemyAiProfileTestFactory.CreateWindupRandomWalkPilot(windupTicks: 1);
+            var profile = EnemyAiProfileTestFactory.CreateHistoricalTestOnlyWindupMeleeRandomWalkPilot(windupTicks: 1);
             var dumps = new List<string>();
 
             try

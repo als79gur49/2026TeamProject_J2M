@@ -20,7 +20,7 @@ namespace Game.Feature.Gameplay.Tests
         public DetectionStrategyKind DetectionStrategyKind = DetectionStrategyKind.NearestOpponent;
         public DetectionSettings DetectionSettings = DetectionSettings.CreateDefaultMelee();
         public ChaseSettings ChaseSettings = ChaseSettings.CreateDefault();
-        public AttackDecisionStrategyKind AttackDecisionStrategyKind = AttackDecisionStrategyKind.Melee;
+        public AttackDecisionStrategyKind AttackDecisionStrategyKind = AttackDecisionStrategyKind.None;
         public AttackDecisionSettings AttackDecisionSettings = AttackDecisionSettings.CreateDefaultMelee();
         public EnemyAttackTimingAuthoringSettings AttackTimingSettings = EnemyAttackTimingAuthoringSettings.CreateDefaultMelee();
         public WindupMeleeSettings WindupMeleeSettings = WindupMeleeSettings.CreateDefault();
@@ -68,7 +68,7 @@ namespace Game.Feature.Gameplay.Tests
             return profile;
         }
 
-        public static EnemyAiProfile CreateDefaultMelee(
+        public static EnemyAiProfile CreateTestOnlyMelee(
             int windupTicks = 0,
             int moveCooldownTicks = 0,
             int recoverTicks = 1,
@@ -81,6 +81,7 @@ namespace Game.Feature.Gameplay.Tests
                     attackPriority: 50,
                     recoverTicks: recoverTicks)),
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.Melee,
                 AttackTimingSettings = ToAuthoring(new EnemyAttackTimingSettings(windupTicks)),
                 IncludePassiveContact = includePassiveContact,
             });
@@ -128,7 +129,7 @@ namespace Game.Feature.Gameplay.Tests
             });
         }
 
-        public static PatrolSettings CreateWindupRandomWalkPilotPatrolSettings()
+        public static PatrolSettings CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotPatrolSettings()
         {
             return new PatrolSettings(
                 PatrolBlockedMovementResponse.Stop,
@@ -139,7 +140,7 @@ namespace Game.Feature.Gameplay.Tests
                 preventImmediateBacktrack: true);
         }
 
-        public static EnemyAiProfile CreateWindupRandomWalkPilot(
+        public static EnemyAiProfile CreateHistoricalTestOnlyWindupMeleeRandomWalkPilot(
             int windupTicks = 1,
             int moveCooldownTicks = 0,
             int recoverTicks = 1,
@@ -153,7 +154,8 @@ namespace Game.Feature.Gameplay.Tests
                     recoverTicks: recoverTicks)),
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
                 PatrolStrategyKind = PatrolStrategyKind.RandomWalk,
-                PatrolSettings = CreateWindupRandomWalkPilotPatrolSettings(),
+                PatrolSettings = CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotPatrolSettings(),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.Melee,
                 AttackTimingSettings = ToAuthoring(new EnemyAttackTimingSettings(windupTicks)),
                 IncludePassiveContact = includePassiveContact,
             });

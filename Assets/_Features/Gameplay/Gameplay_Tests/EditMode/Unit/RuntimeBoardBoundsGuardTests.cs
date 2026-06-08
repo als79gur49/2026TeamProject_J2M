@@ -392,6 +392,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     recoverSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
                 AttackTimingSettings = new EnemyAttackTimingAuthoringSettings(
                     windupSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.WindupForwardCellProjectile,
                 LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(
                     moveCooldownSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
             });
@@ -453,7 +454,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
-                var profile = EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks: 2);
+                var profile = EnemyAiProfileTestFactory.CreateTestOnlyMelee(windupTicks: 2);
 
                 try
                 {

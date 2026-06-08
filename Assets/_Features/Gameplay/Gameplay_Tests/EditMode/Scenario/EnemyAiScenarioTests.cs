@@ -243,8 +243,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void EnemyAi_RandomWalk_PatrolStateUpdatesOnlyOnCommittedKinematicMove()
         {
-            EnemyAi_WindupRandomWalkPilot_DirectLane_MatchesExactTransitionTicks();
-            EnemyAi_WindupRandomWalkPilot_OpenRoomOffset_DoesNotAdvanceAggressionEarlierThanBaseline();
+            EnemyAi_HistoricalTestOnlyWindupMeleeRandomWalkPilot_DirectLane_MatchesExactTransitionTicks();
+            EnemyAi_HistoricalTestOnlyWindupMeleeRandomWalkPilot_OpenRoomOffset_DoesNotAdvanceAggressionEarlierThanBaseline();
         }
 
         [Test]
@@ -378,7 +378,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupMelee_SimulationDistanceOutsideSlack_BlocksWindup()
+        public void EnemyAi_TestOnlyMelee_SimulationDistanceOutsideSlack_BlocksWindup()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -409,7 +409,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupMelee_SimulationDistanceInsideSlack_StartsWindupAndLocksAnchor()
+        public void EnemyAi_TestOnlyMelee_SimulationDistanceInsideSlack_StartsWindupAndLocksAnchor()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -438,7 +438,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupMelee_StartHold_PreservesLogicCellAndOccupancy()
+        public void EnemyAi_TestOnlyMelee_StartHold_PreservesLogicCellAndOccupancy()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var worldState = CreateWorldState(new[]
@@ -478,7 +478,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupMelee_PlayerMovesOutsideLockedShape_ExecuteMisses()
+        public void EnemyAi_TestOnlyMelee_PlayerMovesOutsideLockedShape_ExecuteMisses()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -512,7 +512,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupMelee_PlayerStaysInsideLockedShape_ExecuteHits()
+        public void EnemyAi_TestOnlyMelee_PlayerStaysInsideLockedShape_ExecuteHits()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -545,7 +545,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupMelee_RecoverComplete_ReleasesKinematicHoldWithoutSnap()
+        public void EnemyAi_TestOnlyMelee_RecoverComplete_ReleasesKinematicHoldWithoutSnap()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var worldState = CreateWorldState(new[]
@@ -589,7 +589,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupMelee_SevereTransition_BlocksWindup()
+        public void EnemyAi_TestOnlyMelee_SevereTransition_BlocksWindup()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -622,7 +622,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupMelee_PlayerAtDeadZoneRange_ApproachesInsteadOfIdling()
+        public void EnemyAi_TestOnlyMelee_PlayerAtDeadZoneRange_ApproachesInsteadOfIdling()
         {
             var profile = CreateEnemyProfile(windupTicks: 1);
             var worldState = CreateWorldState(
@@ -678,7 +678,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupMelee_PlayerAtStartThreshold_StartsWindup()
+        public void EnemyAi_TestOnlyMelee_PlayerAtStartThreshold_StartsWindup()
         {
             var profile = CreateEnemyProfile(windupTicks: 1);
             var windupSettings = WindupMeleeSettings.CreateDefault();
@@ -720,7 +720,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupMelee_OutsideSimulationRange_DoesNotConsumeCombatActionAsHandled()
+        public void EnemyAi_TestOnlyMelee_OutsideSimulationRange_DoesNotConsumeCombatActionAsHandled()
         {
             var profile = CreateEnemyProfile(windupTicks: 1);
             var worldState = CreateWorldState(
@@ -750,7 +750,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupMelee_SlackDoesNotExpandExecuteHitRange()
+        public void EnemyAi_TestOnlyMelee_SlackDoesNotExpandExecuteHitRange()
         {
             var profile = CreateEnemyProfile(windupTicks: 1);
             var worldState = CreateWorldState(new[]
@@ -788,7 +788,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupMelee_SevereTransition_DoesNotApproachAsDistanceFallback()
+        public void EnemyAi_TestOnlyMelee_SevereTransition_DoesNotApproachAsDistanceFallback()
         {
             var profile = CreateEnemyProfile(windupTicks: 1);
             var worldState = CreateWorldState(new[]
@@ -3194,11 +3194,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupRandomWalkPilot_DirectLane_MatchesExactTransitionTicks()
+        public void EnemyAi_HistoricalTestOnlyWindupMeleeRandomWalkPilot_DirectLane_MatchesExactTransitionTicks()
         {
             var controlProfile = CreateEnemyProfile(windupTicks: 1);
             var baselineProfile = CreateEnemyProfile(windupTicks: 1);
-            var pilotProfile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
+            var pilotProfile = CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotProfile(windupTicks: 1);
             var controlWorld = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
@@ -3265,11 +3265,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupRandomWalkPilot_OpenRoomOffset_DoesNotAdvanceAggressionEarlierThanBaseline()
+        public void EnemyAi_HistoricalTestOnlyWindupMeleeRandomWalkPilot_OpenRoomOffset_DoesNotAdvanceAggressionEarlierThanBaseline()
         {
             var controlProfile = CreateEnemyProfile(windupTicks: 1);
             var baselineProfile = CreateEnemyProfile(windupTicks: 1);
-            var pilotProfile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
+            var pilotProfile = CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotProfile(windupTicks: 1);
             var bounds = new BoardBounds(Vector2Int.zero, new Vector2Int(5, 5));
             var controlWorld = CreateWorldState(new[]
             {
@@ -6925,7 +6925,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_MeleeProfile_WithPassiveContact_SameCellProducesCombatAndPassiveCandidates()
+        public void EnemyAi_TestOnlyMeleeProfile_WithPassiveContact_SameCellProducesCombatAndPassiveCandidates()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -6933,7 +6933,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Left),
             });
             PrimeEnemyActionState(worldState, 40, targetId: 10, executeTick: 1);
-            var profile = CreateDefaultMeleeProfile(includePassiveContact: true);
+            var profile = CreateTestOnlyMeleeProfile(includePassiveContact: true);
 
             try
             {
@@ -6964,10 +6964,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupRandomWalkPilot_PrimedSameCell_PreservesCombatThenPassiveOrdering()
+        public void EnemyAi_HistoricalTestOnlyWindupMeleeRandomWalkPilot_PrimedSameCell_PreservesCombatThenPassiveOrdering()
         {
-            var baselineProfile = CreateDefaultMeleeProfile(includePassiveContact: true);
-            var pilotProfile = CreateWindupRandomWalkPilotProfile(includePassiveContact: true);
+            var baselineProfile = CreateTestOnlyMeleeProfile(includePassiveContact: true);
+            var pilotProfile = CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotProfile(includePassiveContact: true);
 
             try
             {
@@ -7221,8 +7221,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var fastContactProfile = CreateContactDamageProfile(recoverTicks: 0);
             var slowContactProfile = CreateContactDamageProfile(recoverTicks: 5);
-            var fastMeleeProfile = CreateDefaultMeleeProfile(recoverTicks: 0);
-            var slowMeleeProfile = CreateDefaultMeleeProfile(recoverTicks: 5);
+            var fastMeleeProfile = CreateTestOnlyMeleeProfile(recoverTicks: 0);
+            var slowMeleeProfile = CreateTestOnlyMeleeProfile(recoverTicks: 5);
 
             try
             {
@@ -7794,7 +7794,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int moveCooldownTicks = 0,
             int recoverTicks = 1)
         {
-            return EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks, moveCooldownTicks, recoverTicks);
+            return EnemyAiProfileTestFactory.CreateTestOnlyMelee(windupTicks, moveCooldownTicks, recoverTicks);
         }
 
         private static EnemyAiProfile CreateUtilitySummonProfile(
@@ -8204,25 +8204,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
         }
 
-        private static EnemyAiProfile CreateDefaultMeleeProfile(
+        private static EnemyAiProfile CreateTestOnlyMeleeProfile(
             int moveCooldownTicks = 0,
             int recoverTicks = 1,
             bool includePassiveContact = false)
         {
-            return EnemyAiProfileTestFactory.CreateDefaultMelee(
+            return EnemyAiProfileTestFactory.CreateTestOnlyMelee(
                 windupTicks: 0,
                 moveCooldownTicks: moveCooldownTicks,
                 recoverTicks: recoverTicks,
                 includePassiveContact: includePassiveContact);
         }
 
-        private static EnemyAiProfile CreateWindupRandomWalkPilotProfile(
+        private static EnemyAiProfile CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotProfile(
             int windupTicks = 1,
             int moveCooldownTicks = 0,
             int recoverTicks = 1,
             bool includePassiveContact = true)
         {
-            return EnemyAiProfileTestFactory.CreateWindupRandomWalkPilot(
+            return EnemyAiProfileTestFactory.CreateHistoricalTestOnlyWindupMeleeRandomWalkPilot(
                 windupTicks,
                 moveCooldownTicks,
                 recoverTicks,

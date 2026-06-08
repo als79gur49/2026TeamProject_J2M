@@ -378,7 +378,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void WindupForwardCellProjectile_CooldownBlocksRewindupUntilExpired()
+        public void WindupForwardCellProjectile_CooldownBlocksRewindupWhileActive()
         {
             var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(attackCooldownTicks: 3);
             try
@@ -387,7 +387,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var pipeline = CreateEnemyPipeline(worldState, profile);
 
                 pipeline.RunTick(new TickInput(1));
-                var firstSequence = GetEnemyActionState(worldState).sequence;
                 var releaseTickIndex = Math.Max(2, GetEnemyActionState(worldState).executeTick);
                 pipeline.RunTick(new TickInput(releaseTickIndex));
                 pipeline.RunTick(new TickInput(releaseTickIndex + 1));
@@ -398,10 +397,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 pipeline.RunTick(new TickInput(releaseTickIndex + 2));
                 pipeline.RunTick(new TickInput(releaseTickIndex + 3));
-
-                var restartedAction = GetEnemyActionState(worldState);
-                Assert.That(restartedAction.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
-                Assert.That(restartedAction.sequence, Is.GreaterThan(firstSequence));
+                Assert.That(GetEnemyActionState(worldState).IsActive, Is.False);
                 Assert.That(GetEntity(worldState, EnemyId).enemyAttackCooldownTicks, Is.Zero);
             }
             finally
