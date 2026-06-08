@@ -23,7 +23,9 @@ EnemyAudioRequirementBinding
   -> sparse overrides
 ```
 
-Requirement policy/binding assets sit beside production enemy audio profiles and define the profile/archetype-owned cue contract. They are content governance metadata, not playback data, and are not part of `GameplayPresentationAudioConfig`. Runtime missing owner, authoring, profile, and cue behavior remains unchanged.
+Requirement policy/binding assets sit beside production enemy audio profiles and define the profile/archetype-owned cue contract. They are content governance metadata, not playback data, and are not part of `GameplayPresentationAudioConfig`. Runtime missing owner, authoring, profile, and cue no-op policy remains unchanged.
+
+Authored content coverage can still change independently from runtime no-op policy. Startis now authors `PassiveContact` as required production content, so `PassiveContact` signals that previously resolved to a missing-cue no-op can now play the authored definition.
 
 ## Requirement Vocabulary
 
@@ -60,6 +62,8 @@ Production policy assets live under `AudioRequirementPolicies/`; production bind
 | `EnemyAudioProfile_RocketFace` / RocketFace | `Move`, `ChargeActiveLoop`, `Death` | One-shot `Active` disabled; charge active audio is loop-only. |
 | `EnemyAudioProfile_SecBot` / SecBot | `Move`, `StationaryActive`, `Death` | Other cues disabled. |
 | `EnemyAudioProfile_Startis` / Startis | `Move`, `PassiveContact`, `Death` | `PassiveContact` is required because Startis uses the NonAttacking passive-contact gameplay profile. |
+
+Startis `PassiveContact` is an authored content coverage change, not a runtime no-op policy change. The runtime still no-ops missing enemy audio cues; Startis production authoring now provides the cue that was previously allowed to be absent.
 
 No current production enemy cue is classified `Optional`. Optional remains available for future archetypes where a runtime cue is intentionally allowed to no-op.
 

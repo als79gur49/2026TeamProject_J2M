@@ -10,7 +10,8 @@ This plan supersedes the earlier full-matrix `EnemyAudioRequirementProfile` draf
 - Any runtime cue not named by the policy or a binding override is effective `Disabled`.
 - `EnemyAudioRequirementBinding` connects one production `EnemyAudioProfile_*` to one policy and may contain sparse overrides for exceptions.
 - Validation stays exhaustive over `EnemyAudioCueCatalog.RuntimeCues`: required missing binding fails, optional missing binding passes, and disabled authored binding fails.
-- Runtime missing owner, authoring, profile, and cue behavior remains no-op.
+- Runtime missing owner, authoring, profile, and cue no-op policy remains unchanged.
+- Startis `PassiveContact` is an authored content coverage change: `PassiveContact` is now required and authored for Startis, so signals that previously resolved to missing-cue no-op can now play the authored definition.
 
 ## Production Seed
 
@@ -43,4 +44,5 @@ Initial overrides are empty. Optional lists are empty until a product decision n
 - Binding tests cover missing target/policy, required/optional/disabled behavior, overrides, duplicate overrides, and `ChargeActiveLoop` loop/attachment validation.
 - Repository smoke tests validate all production policies/bindings, require exactly one binding per production `EnemyAudioProfile`, and reject legacy full-matrix requirement assets in production roots.
 - Architecture tests keep policy/binding in the enemy audio assembly and keep `GameplayPresentationAudioConfig` free of enemy profile/requirement ownership.
+- Binding tests include both Optional missing binding pass and Optional authored invalid binding fail, preserving the distinction between intentional no-op and invalid content.
 - Required validation: `git diff --check`, guardrail scans, and `./run_tests.sh core`.

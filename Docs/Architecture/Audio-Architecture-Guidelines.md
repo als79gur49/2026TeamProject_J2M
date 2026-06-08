@@ -129,7 +129,10 @@ TickResult
   - validation은 `EnemyAudioCueCatalog.RuntimeCues` 전체를 순회한다
   - required cue missing binding은 production content error다
   - optional cue missing binding은 intentional no-op다
+  - optional cue with an authored invalid binding is still a validation error
   - disabled cue는 binding을 가지면 안 된다
+  - runtime missing owner/authoring/profile/cue no-op policy는 변경하지 않는다
+  - Startis는 `PassiveContact`를 production required content로 authoring하므로, 기존에 content 누락으로 no-op였던 `PassiveContact` signal은 이제 authored cue를 재생할 수 있다
   - `GameplayPresentationAudioConfig`에 포함되지 않는다
 - `GameplayAudioPresentationController`
   - host-owned orchestration controller다

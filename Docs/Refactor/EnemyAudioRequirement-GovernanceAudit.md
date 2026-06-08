@@ -39,6 +39,7 @@ Current policy:
 - `EnemyAudioProfile.IsOptional` only permits a null binding when an entry exists; current production profiles do not use optional null entries.
 - `EnemyAudioRequestPlanner` is signal-driven and does not special-case enemy prefab/profile names.
 - The old candidate `EnemyAudioRequirementProfile_*` full-matrix assets/tests were implementation draft work, not audit source of truth. The active implementation uses `EnemyAudioRequirementPolicy_*` plus sparse `EnemyAudioRequirementBinding_*`.
+- Startis `PassiveContact` is production-authored content coverage. Runtime missing cue no-op policy remains unchanged, but Startis `PassiveContact` signals can now play because the cue is authored.
 
 ## Runtime Can-Emit Surface
 
@@ -63,6 +64,7 @@ Current policy:
 - Profile validation catches duplicate cues, empty cue, invalid binding/category/policy, looping one-shot definitions, and invalid `ChargeActiveLoop` loop/attachment authoring.
 - Missing cue is not a runtime warning or runtime failure today.
 - Requirement policy/binding validation moves production `Required`/implicit-`Disabled` mismatches into repository validation, while preserving runtime no-op behavior.
+- Optional requiredness permits missing bindings as intentional no-op only. If an optional cue is authored, the binding must still satisfy normal `EnemyAudioProfile` validation.
 
 ## Production Profile and Prefab Inventory
 
