@@ -21,6 +21,7 @@ MonoBehaviour:
   missingAnchorPolicy: 2
   playbackMode: 0
   stopPolicy: 1
+  visibilityMode: 3
   defaultLifetimeSeconds: 0
   tailSeconds: 0.1
   initialPoolSize: 4
