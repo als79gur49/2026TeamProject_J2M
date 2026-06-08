@@ -2,42 +2,41 @@
 
 ## Decision
 
-Phase 8A changes naming and test support only. Runtime boundary policy is unchanged: `GameplayRuntimeFeatureFlags.None` and `DefaultGameplayLocomotion` do not authorize covered player/enemy/Charge fallback. Phase 8B/8C supersedes the diagnostic preset name with `RemovedLegacyFallbackDiagnosticBaseline`; Phase 8D adds `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical helper for diagnostic routing. C안 later removes old diagnostic alias vocabulary. `RemovedLegacyFallbackDiagnosticsEnabled`, `MoveEntity`, `MovementExpander`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, and glide retained fallback are not removed or renamed in Phase 8A.
+Phase 8A originally changed naming and test support only. The C안 final cleanup now deletes the obsolete test-support helper wrappers that had existed only as a compatibility surface.
 
-## Obsolete Helper Inventory
+Runtime boundary policy is unchanged: `GameplayRuntimeFeatureFlags.None` and `DefaultGameplayLocomotion` do not authorize covered player/enemy/Charge fallback. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`, `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`, and `RemovedLegacyFallbackDiagnosticsEnabled=` remain canonical removed-diagnostic vocabulary.
 
-| helper | Phase 8A state | canonical replacement | action |
-|---|---|---|---|
-| `AllowsRemovedDiagnosticBaselineAlias` | obsolete wrapper, definition only | `AssertCoveredFallbackRemovedDiagnostics` | keep for compatibility; no internal callers |
-| `AllowsPlayerFlagOffLegacyOrdinaryFallback` | not present | `AssertPlayerFallbackRemovedFromRuntime` | do not restore |
-| `AllowsEnemyFlagOffLegacyOrdinaryFallback` | obsolete wrapper, definition only | `AssertEnemyFallbackRemovedFromRuntime` | keep for compatibility; no internal callers |
-| `AllowsChargeFlagOffLegacyFallback` | obsolete wrapper, definition only | `AssertChargeFallbackRemovedFromRuntime` | keep for compatibility; no internal callers |
-| `AllowsOnlyFlagOffCoveredFallback` | obsolete wrapper, definition only | `AssertCoveredFallbackRemovedDiagnostics` | keep for compatibility; no internal callers |
-| `AllowsFlagOffLegacyFallback` | historical compatibility wrapper | covered fallback helpers above | do not use for covered fallback assertions |
-| `AllowsRetainedGlideFallback*` | active retained glide helper | unchanged | retained exception; not covered fallback cleanup |
+`RemovedLegacyFallbackDiagnosticsEnabled` is diagnostic routing only. It is not fallback authorization.
 
-## Naming Policy
+## Helper Surface
 
-New covered-fallback tests and helpers must use `Removed`, `Rejected`, `Diagnostic`, `Compatibility`, or `NoCoveredFallback` wording. `Allowed`, `StillAllowed`, `FlagOffBaseline`, `FallbackAllowed`, and `Allows` are stale for covered fallback authorization and must not be used for new covered-fallback tests. Retained grid transactions may continue using `RemainAllowed` wording because they are explicitly not legacy ordinary Unit fallback.
+Current covered-fallback tests use canonical removed-diagnostic helpers:
 
-Phase 8A adds canonical canaries:
+- `AssertCoveredFallbackRemovedDiagnostics`
+- `AssertPlayerFallbackRemovedFromRuntime`
+- `AssertEnemyFallbackRemovedFromRuntime`
+- `AssertChargeFallbackRemovedFromRuntime`
 
-- `Phase8A_ObsoleteHelpers_NoInternalUsage`
-- `Phase8A_LegacyFallbackBaseline_IsDiagnosticCompatibilityNaming`
-- `Phase8A_Phase7Canaries_StillPass`
-- `Phase8A_GridTransactionsRemainAllowed`
-- `Phase8A_GlideDefaultAdoptionAndFlagOffFallbackRetained`
-- `Replay_Phase8A_DiagnosticBaseline_Deterministic`
+The obsolete `Allows*` test-support helper wrappers are deleted. Historical canary test names may remain only as phase provenance, and they delegate to canonical removed-diagnostic tests.
 
-Historical Phase 2/4/5/6 wrapper names remain for compatibility and stratification continuity. They are historical names for removed diagnostics, not current fallback allowance policy.
+Retained glide helpers and retained grid transaction helpers are separate current governance. They are not covered fallback authorization.
+
+## Protected Scope
+
+The C안 final cleanup does not remove or rename:
+
+- `MoveEntity`
+- `MovementExpander`
+- retained grid transactions
+- `TickEntityMotionKind.Move`
+- retained glide fallback governance
+- `Player/Push`
+- `Player/Flip`
+- `PushPressed`
+- `FlipPressed`
+
+Push and Flip remain explicit player actions. Plain movement must not start Push.
 
 ## Replay And Golden
 
-No golden or replay assets are rewritten in Phase 8A. The Phase 8A replay canary delegates to the deterministic Phase 7 diagnostic baseline behavior and asserts no covered fallback output. Historical fallback output migration remains future owner-approved work.
-
-## Next Phase Candidates
-
-- Phase 8B: add `RemovedLegacyFallbackDiagnosticBaseline` as the canonical diagnostic preset name.
-- Phase 8C: migrate current internal usage to `RemovedLegacyFallbackDiagnosticBaseline`.
-- Phase 8D: add `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical diagnostic helper.
-- Continue presentation cleanup inventory for retained `TickEntityMotionKind.Move` and `TickEntityMotionKind.ChargeMove` without deleting retained grid presentation.
+No golden or replay assets are rewritten for wrapper deletion. Replay canaries continue to use canonical removed-diagnostic vocabulary and assert no covered fallback output.

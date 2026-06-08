@@ -27,7 +27,7 @@ Canonical helper names for new tests are:
 - `AssertEnemyFallbackRemovedFromRuntime`
 - `AssertChargeFallbackRemovedFromRuntime`
 
-Older `Allows*` helper names remain only as obsolete compatibility wrappers. Phase 8A removes internal use of covered-fallback wrappers while keeping their definitions for compatibility; wrapper deletion is a later Phase 8B+ candidate. New test names should use `Removed`, `Rejected`, `Diagnostic`, or `Compatibility` wording instead of `Allowed`, `StillAllowed`, or `FlagOffBaseline` for covered fallback policy.
+The obsolete covered-fallback helper wrapper surface is deleted by the C안 final cleanup. Current tests use canonical removed-diagnostic helpers. New test names should use `Removed`, `Rejected`, `Diagnostic`, or `Compatibility` wording instead of `Allowed`, `StillAllowed`, or `FlagOffBaseline` for covered fallback policy.
 
 Phase 7 canaries:
 

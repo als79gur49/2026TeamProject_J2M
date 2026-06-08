@@ -48,7 +48,7 @@ Phase 8E completes the underlying field and trace vocabulary migration to canoni
 | `RemovedLegacyFallbackDiagnosticsEnabled` | runtime flag | canonical removed-diagnostic routing field | keep |
 | `RemovedLegacyFallbackDiagnosticsEnabled=` | trace token | canonical diagnostic routing trace token | keep |
 | removed diagnostic reasons | diagnostics | current runtime contract | keep canaries |
-| obsolete `Allows*` wrappers | test helpers | historical compatibility wrappers | inventory only |
+| obsolete helper surface | test helpers | deleted by C안 final cleanup | keep canonical removed-diagnostic helpers |
 | `TickEntityMotionKind.Move` | presentation enum | retained by grid/item/topology paths | defer ownership narrowing |
 | legacy Charge entity-motion presentation | removed presentation enum | removed | keep removal record |
 | `MoveEntity` | runtime primitive | retained | exclude from ordinary fallback cleanup |

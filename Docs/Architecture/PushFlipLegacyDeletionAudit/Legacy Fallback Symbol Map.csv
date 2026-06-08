@@ -1,0 +1,21 @@
+Item,Kind,Classification,Decision,Risk
+Retired old runtime/API symbols,old compatibility surface,DELETE_NOW_COMPAT_DEBT,Already absent; keep zero-hit evidence,External old callers are unsupported under C option
+Retired old trace projection,old compatibility surface,DELETE_NOW_COMPAT_DEBT,Already absent; keep zero-hit evidence,External old parsers are unsupported under C option
+Obsolete test-support fallback helper wrappers,test helper surface,DELETE_NOW_COMPAT_DEBT,Deleted in final cleanup,Low
+RemovedLegacyFallbackDiagnosticBaseline,canonical preset,KEEP_CANONICAL_GOVERNANCE,Keep,Removing loses deterministic removed diagnostics
+RemovedLegacyFallbackDiagnosticsEnabled,canonical field,KEEP_CANONICAL_GOVERNANCE,Keep,Removing loses removed-diagnostic routing
+RemovedLegacyFallbackDiagnosticsEnabled=,canonical trace token,KEEP_CANONICAL_GOVERNANCE,Keep,Trace/golden parser churn if renamed
+PlayerLegacyFallbackRemovedFromRuntime,removed diagnostic reason,KEEP_CANONICAL_GOVERNANCE,Keep,Removing weakens fallback removal proof
+EnemyLegacyFallbackRemovedFromRuntime,removed diagnostic reason,KEEP_CANONICAL_GOVERNANCE,Keep,Removing weakens fallback removal proof
+ChargeLegacyFallbackRemovedFromRuntime,removed diagnostic reason,KEEP_CANONICAL_GOVERNANCE,Keep,Removing weakens fallback removal proof
+MovementExecutionBoundaryKind.LegacyFallback,boundary vocabulary,KEEP_CANONICAL_GOVERNANCE,Keep for retained grid/glide governance,High if confused with retired trace projection
+Boundary=LegacyFallback,boundary trace assertion,KEEP_CANONICAL_GOVERNANCE,Keep where retained boundary assertions require it,Medium
+Player/Push,input action,KEEP_PUSH_FLIP_FEATURE,Keep,High if removed
+Player/Flip,input action,KEEP_PUSH_FLIP_FEATURE,Keep,High if removed
+PushPressed,command field,KEEP_PUSH_FLIP_FEATURE,Keep,High if removed
+FlipPressed,command field,KEEP_PUSH_FLIP_FEATURE,Keep,High if removed
+PlayerActionKind.Push,action kind,KEEP_PUSH_FLIP_FEATURE,Keep,High if removed
+PlayerActionKind.Flip,action kind,KEEP_PUSH_FLIP_FEATURE,Keep,High if removed
+BoxCapabilities.Push,stage/runtime capability,KEEP_PUSH_FLIP_FEATURE,Keep,Very high serialized content risk
+BoxCapabilities.Flip,stage/runtime capability,KEEP_PUSH_FLIP_FEATURE,Keep,Very high serialized content risk
+Plain move into Push suppression,governance tests,KEEP_CANONICAL_GOVERNANCE,Keep,Removing can revive implicit Push

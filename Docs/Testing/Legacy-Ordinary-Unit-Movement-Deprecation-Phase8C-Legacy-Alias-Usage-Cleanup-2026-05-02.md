@@ -20,7 +20,7 @@ Runtime validation semantics are unchanged. Covered player, enemy, and Charge fa
 | retained grid transaction tests | unrelated retained behavior | old alias direct calls | canonical or default non-old lane | no | migrated away from old alias |
 | docs current policy | current preset wording | old alias as current baseline | `RemovedLegacyFallbackDiagnosticBaseline` | no | update wording |
 | docs historical notes | historical preset name | `RemovedDiagnosticBaselineAlias` | `RemovedLegacyFallbackDiagnosticBaseline` | yes | mark historical/removed |
-| obsolete helper wrappers | compatibility wrapper | old helper names mentioning old alias | none | yes | keep definitions only |
+| obsolete helper surface | test-support compatibility surface | old helper wording | canonical removed-diagnostic helpers | no | deleted by C안 final cleanup |
 
 ## Canonical Migration Policy
 
@@ -29,7 +29,7 @@ New tests, replay helpers, reports, and current-policy documentation must use `G
 Allowed old alias contexts:
 
 - historical documentation explaining the pre-Phase8B name
-- obsolete compatibility wrapper messages
+- historical canary provenance when marked as removed policy
 
 Disallowed wording patterns:
 

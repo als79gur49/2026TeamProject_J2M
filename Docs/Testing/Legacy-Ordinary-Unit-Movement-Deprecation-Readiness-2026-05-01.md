@@ -21,7 +21,7 @@ Phase 5, `Enemy Fallback Removal Pilot`, removes enemy ordinary fallback authori
 
 Phase 6, `Charge Fallback Removal Pilot`, removes Charge active fallback authorization even from `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`. Charge attempts under that preset are rejected with `ChargeLegacyFallbackRemovedFromRuntime`. Player and enemy fallback remain removed, flag-off glide fallback remains a retained exception, and retained grid transactions remain allowed.
 
-Phase 7, `Fallback Cleanup Readiness`, keeps `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as a diagnostic compatibility preset only. Phase 8A, `Obsolete Helper / Test Naming Cleanup`, aligns helper, test, and documentation vocabulary with that removed-diagnostic policy while keeping runtime boundary behavior unchanged. Obsolete covered-fallback `Allows*` wrappers remain for compatibility, but internal tests should use canonical `Assert*Removed*` helpers.
+Phase 7, `Fallback Cleanup Readiness`, keeps `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as a diagnostic compatibility preset only. Phase 8A, `Obsolete Helper / Test Naming Cleanup`, aligns helper, test, and documentation vocabulary with that removed-diagnostic policy while keeping runtime boundary behavior unchanged. The C안 final cleanup deletes the obsolete covered-fallback helper wrappers; current tests use canonical `Assert*Removed*` helpers.
 
 Phase 8B, `Diagnostic Baseline Rename Readiness`, added `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical preset name for deterministic removed diagnostics. The old `GameplayRuntimeFeatureFlags.RemovedDiagnosticBaselineAlias` alias is now removed; runtime boundary behavior is unchanged.
 
@@ -62,7 +62,7 @@ Jump and phase relocation are not deletion blockers. Glide explicit flag-on acti
 | Phase 5 enemy fallback removal pilot | complete for scoped canaries | enemy runtime fallback is blocked even under explicit baseline |
 | Phase 6 Charge fallback removal pilot | complete for scoped canaries | Charge runtime fallback is blocked even under explicit baseline |
 | Phase 7 diagnostic compatibility preset readiness | complete for scoped canaries | explicit baseline remains only for deterministic removed diagnostics |
-| Phase 8A obsolete helper/test naming cleanup | complete for scoped canaries | canonical removed-diagnostic helper names are stable; obsolete wrappers are retained for compatibility |
+| Phase 8A obsolete helper/test naming cleanup | complete for scoped canaries | canonical removed-diagnostic helper names are stable; obsolete helper wrappers are deleted |
 | Phase 8B diagnostic baseline rename readiness | complete for scoped canaries | `RemovedLegacyFallbackDiagnosticBaseline` is canonical; `RemovedDiagnosticBaselineAlias` is removed |
 | Phase 8C legacy alias usage cleanup readiness | complete for scoped canaries | current tests/docs use `RemovedLegacyFallbackDiagnosticBaseline`; old alias retained only in historical docs |
 | Phase 8D diagnostic helper naming cleanup readiness | complete for scoped canaries | current runtime/tests/docs use `RemovedLegacyFallbackDiagnosticsEnabled`; `RemovedDiagnosticHelperAlias` is removed |
