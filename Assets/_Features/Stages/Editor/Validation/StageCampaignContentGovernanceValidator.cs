@@ -14,6 +14,7 @@ namespace Game.Feature.Stages.Editor
             typeof(StageAuthoringDefinition),
             typeof(StageDefinition),
             typeof(StagePresentationDefinition),
+            typeof(StageAudioDefinition),
             typeof(StageClearEvaluationDefinition),
             typeof(StageRewardDefinition),
             typeof(StageProgressionDefinition),
