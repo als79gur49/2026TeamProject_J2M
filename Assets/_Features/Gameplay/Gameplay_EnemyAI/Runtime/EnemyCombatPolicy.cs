@@ -267,21 +267,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState target,
             in AttackDecisionSettings settings)
         {
-            settings.Validate(nameof(settings));
-
-            var distance = GetPlanarDistance(source.position, target.position);
-            return distance.HasValue && distance.Value <= settings.AttackRange;
-        }
-
-        private static int? GetPlanarDistance(SurfaceCell source, SurfaceCell target)
-        {
-            if (source.face != target.face)
-            {
-                return null;
-            }
-
-            var delta = target - source;
-            return Math.Abs(delta.x) + Math.Abs(delta.y);
+            return EnemyAttackRangeQueries.IsTargetInRange(source, target, settings);
         }
     }
 
@@ -306,7 +292,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState target,
             in AttackDecisionSettings settings)
         {
-            return MeleeAttackDecisionStrategy.Instance.IsTargetInRange(source, target, settings);
+            return EnemyAttackRangeQueries.IsTargetInRange(source, target, settings);
         }
     }
 

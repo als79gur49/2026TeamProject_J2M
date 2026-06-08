@@ -112,6 +112,21 @@ namespace Game.Feature.Gameplay.Entities
                 return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.OutsideLogicRange);
             }
 
+            return QueryStartShortRangeWindupFromSimulationPose(
+                snapshot,
+                enemy,
+                player,
+                attackDecisionSettings,
+                windupMeleeSettings);
+        }
+
+        private static WindupMeleeStartQueryResult QueryStartShortRangeWindupFromSimulationPose(
+            WorldSnapshot snapshot,
+            in EntityState enemy,
+            in EntityState player,
+            in AttackDecisionSettings attackDecisionSettings,
+            in WindupMeleeSettings windupMeleeSettings)
+        {
             if (IsInSevereCombatOriginTransition(snapshot, enemy) ||
                 IsInSevereCombatOriginTransition(snapshot, player))
             {
@@ -182,13 +197,31 @@ namespace Game.Feature.Gameplay.Entities
             targetCell = default;
             settings.Validate(nameof(settings));
 
-            var startQuery = QueryStartWindupMeleeA(
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            attackDecisionSettings.Validate(nameof(attackDecisionSettings));
+            var windupStartSettings = settings.ToWindupStartSettings();
+            windupStartSettings.Validate(nameof(settings));
+
+            if (attackDecisionStrategy is not WindupForwardCellProjectileAttackDecisionStrategy)
+            {
+                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.TargetInvalid);
+            }
+
+            if (!EnemyAttackRangeQueries.IsTargetInRange(enemy, player, attackDecisionSettings))
+            {
+                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.OutsideLogicRange);
+            }
+
+            var startQuery = QueryStartShortRangeWindupFromSimulationPose(
                 snapshot,
                 enemy,
                 player,
-                attackDecisionStrategy,
                 attackDecisionSettings,
-                settings.ToWindupStartSettings());
+                windupStartSettings);
             if (!startQuery.CanStart)
             {
                 return startQuery;
