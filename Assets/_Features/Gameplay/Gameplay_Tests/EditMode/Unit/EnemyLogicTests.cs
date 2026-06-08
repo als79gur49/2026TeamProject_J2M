@@ -6084,7 +6084,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     MeleeAttackDecisionStrategy.Instance,
                     DefaultEnemyAiStateResolver.Instance));
 
-            Assert.That(exception.ParamName, Is.EqualTo("EnemyBrainRuntime"));
+            Assert.That(exception.ParamName, Is.EqualTo("EnemyChaseRuntime"));
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
