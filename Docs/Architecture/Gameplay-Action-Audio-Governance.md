@@ -46,9 +46,9 @@ v1 canonical-player required coverage:
 
 - `Push`: `Windup`, `AssistOutOfRange`, `NoTarget`, `Invalid`
 - `Flip`: `Windup`, `AssistOutOfRange`, `NoTarget`, `Invalid`
-- `Execute`, `Recovery`는 optional이다
-- GameplayActionAudioMoment v1 no longer includes `Contact`, `ImpactEnemy`, or `Blocked`.
-- Push/Flip `Contact`, `ImpactEnemy`, and `Blocked` action-audio cues were removed because they are not emitted by the current production planner.
+- GameplayActionAudioMoment v1 no longer includes `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, or `Blocked`.
+- Push/Flip action-audio `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, and `Blocked` cues were removed because they are not emitted by the current production planner.
+- gameplay action timeline still has execute/recovery; only the action-audio moments were removed.
 
 ## 3. Frozen V1 Moment Mapping
 
@@ -57,8 +57,6 @@ v1 canonical-player required coverage:
 mapping table:
 
 - `Windup` => `StartedThisTick`
-- `Execute` => `ExecutedThisTick`
-- `Recovery` => `ExecutedThisTick && IsRecoveryPhase`
 - `AssistOutOfRange` => `PlayerActionAttemptSignals.FeedbackKind == AssistOutOfRange`
 - `NoTarget` => `PlayerActionAttemptSignals.FeedbackKind == NoTarget`
 - `Invalid` => `PlayerActionAttemptSignals.FeedbackKind == Invalid`
@@ -68,7 +66,8 @@ rules:
 - action kind는 `TickPlayerActionPresentationSignal.ActiveActionKind`가 `Push` 또는 `Flip`일 때만 resolve한다
 - fake attempt action kind는 `TickPlayerActionAttemptPresentationSignal.ActionKind`가 `Push` 또는 `Flip`일 때만 resolve한다
 - `ActiveActionKind == None` 이면 no action audio를 emit한다
-- fixed lifecycle emission order는 `Windup`, `Execute`, `Recovery`
+- action lifecycle audio emission은 `Windup` only다
+- `ExecutedThisTick` and `IsRecoveryPhase` remain gameplay/presentation timeline facts, but they do not emit action-audio moments
 - fake failure moments는 lifecycle moments를 synthesize하지 않고 `AssistOutOfRange`, `NoTarget`, `Invalid`만 emit한다
 - same-tick duplicate suppression은 하지 않는다
 - multiple authored one-shots on the same tick intentionally layer and all play in order

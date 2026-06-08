@@ -129,14 +129,14 @@ Moment coverage:
 | Action | Moment | Planner can emit | Profile state | Verdict |
 | --- | --- | --- | --- | --- |
 | Push | Windup | yes | assigned binding | keep |
-| Push | Execute | yes | no entry | optional v1 lifecycle moment |
-| Push | Recovery | yes | no entry | optional v1 lifecycle moment |
+| Push | Execute | no | not authorable current enum | removed action-audio moment; gameplay execute timeline remains |
+| Push | Recovery | no | not authorable current enum | removed action-audio moment; gameplay recovery timeline remains |
 | Flip | Windup | yes | assigned binding | keep |
-| Flip | Execute | yes | no entry | optional v1 lifecycle moment |
-| Flip | Recovery | yes | no entry | optional v1 lifecycle moment |
+| Flip | Execute | no | not authorable current enum | removed action-audio moment; gameplay execute timeline remains |
+| Flip | Recovery | no | not authorable current enum | removed action-audio moment; gameplay recovery timeline remains |
 | Push/Flip | AssistOutOfRange/NoTarget/Invalid | yes, attempt signals | assigned bindings | keep |
 
-`Contact`, `ImpactEnemy`, and `Blocked` are not current `GameplayActionAudioMoment` members and are not emitted by the current production action-audio planner. Impact and blocked presentation/audio remain owned by their existing gameplay presentation lanes.
+`Execute`, `Recovery`, `Contact`, `ImpactEnemy`, and `Blocked` are not current `GameplayActionAudioMoment` members and are not emitted by the current production action-audio planner. Gameplay execute/recovery timeline facts, impact, and blocked presentation/audio remain owned by their existing gameplay presentation lanes.
 
 ## Presentation Findings
 
