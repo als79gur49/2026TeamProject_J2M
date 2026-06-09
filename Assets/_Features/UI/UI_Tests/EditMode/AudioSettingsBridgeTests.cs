@@ -17,6 +17,15 @@ namespace Game.Feature.UI.Tests
             Assert.That(Enum.GetNames(typeof(AudioSettingsChannel)), Is.EqualTo(new[] { "Main", "Bgm", "Sfx" }));
         }
 
+        [Test]
+        public void VisibleChannels_RemainMainBgmSfx()
+        {
+            Assert.That(Enum.GetNames(typeof(AudioSettingsChannel)), Is.EqualTo(new[] { "Main", "Bgm", "Sfx" }));
+            Assert.That(UIAudioChannelMapper.Map(AudioSettingsChannel.Main), Is.EqualTo(AudioChannel.Master));
+            Assert.That(UIAudioChannelMapper.Map(AudioSettingsChannel.Bgm), Is.EqualTo(AudioChannel.Bgm));
+            Assert.That(UIAudioChannelMapper.Map(AudioSettingsChannel.Sfx), Is.EqualTo(AudioChannel.Sfx));
+        }
+
         [TestCase(AudioSettingsChannel.Main, AudioChannel.Master)]
         [TestCase(AudioSettingsChannel.Bgm, AudioChannel.Bgm)]
         [TestCase(AudioSettingsChannel.Sfx, AudioChannel.Sfx)]
