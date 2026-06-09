@@ -99,16 +99,20 @@ Near-dead:
 
 ## Audio Moment Usage
 
-Planner emits lifecycle moments for Push and Flip, but production profile coverage is uneven:
+Superseded note:
+Later action-audio cleanup removed `Execute` and `Recovery` from the Push/Flip action-audio public surface. The current action-audio surface is `Windup`, `AssistOutOfRange`, `NoTarget`, and `Invalid`.
+Gameplay action timeline still has execute/recovery.
+Only action-audio moments were removed.
 
-- Assigned and audible: Push Windup; Flip Windup; Push/Flip fake attempt failure moments.
-- Optional v1 lifecycle with no production profile entry: Push Execute, Push Recovery, Flip Execute, Flip Recovery.
-- Removed from current action-audio moment vocabulary: Contact, ImpactEnemy, Blocked.
+Current planner emits supported moments for Push and Flip:
+
+- Assigned and audible: Push/Flip `Windup`.
+- Assigned and audible fake attempt failure moments: Push/Flip `AssistOutOfRange`, `NoTarget`, and `Invalid`.
+- Removed from current action-audio moment vocabulary: `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, and `Blocked`.
 
 Classification:
 
 - Assigned moments: `KEEP_AUDIBLE_CURRENT`
-- Optional lifecycle no-entry moments: `DEFERRED_AUDIO_POLICY`
 - Removed moment vocabulary: `REMOVED_CURRENT_MOMENT_VOCABULARY`
 
 ## Feature Residue Delete Candidates
@@ -119,4 +123,4 @@ Classification:
 | Showcase-only Item priority combos | `KEEP_BY_PRODUCT_DECISION` | Preserve showcase content and Item priority |
 | `PlayerFlipInteractionDriver.cs` / `.meta` | `REMOVED_BY_PRODUCT_DECISION` | Remove optional player hand/IK path and tests |
 | `GameplayBoxCapabilityLabelViewFactory` stale mentions | `DELETE_NOW_UNUSED` | Docs cleanup |
-| Audio no-entry lifecycle moments | `DEFERRED_AUDIO_POLICY` | Do not alter action-audio planner/profile entries in this PR |
+| Removed action-audio lifecycle moments | `REMOVED_CURRENT_MOMENT_VOCABULARY` | Keep `Execute`/`Recovery` removed from action-audio; preserve gameplay execute/recovery timeline |

@@ -39,6 +39,81 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void KeyboardBindingSettingsService_UsesCanonicalActionPaths()
+        {
+            Assert.That(GameplayInputActionPaths.PlayerMove, Is.EqualTo("Player/Move"));
+            Assert.That(GameplayInputActionPaths.PlayerPush, Is.EqualTo("Player/Push"));
+            Assert.That(GameplayInputActionPaths.PlayerFlip, Is.EqualTo("Player/Flip"));
+            Assert.That(GameplayInputActionPaths.UiNavigate, Is.EqualTo("UI/Navigate"));
+            Assert.That(KeyboardBindingSettingsService.MoveActionPath, Is.EqualTo(GameplayInputActionPaths.PlayerMove));
+            Assert.That(KeyboardBindingSettingsService.NavigateActionPath, Is.EqualTo(GameplayInputActionPaths.UiNavigate));
+            Assert.That(KeyboardBindingSettingsService.PushActionPath, Is.EqualTo(GameplayInputActionPaths.PlayerPush));
+            Assert.That(KeyboardBindingSettingsService.FlipActionPath, Is.EqualTo(GameplayInputActionPaths.PlayerFlip));
+        }
+
+        [TestCase(nameof(GameplayInputActionPaths.PlayerMove))]
+        [TestCase(nameof(GameplayInputActionPaths.PlayerPush))]
+        [TestCase(nameof(GameplayInputActionPaths.PlayerFlip))]
+        [TestCase(nameof(GameplayInputActionPaths.UiNavigate))]
+        public void KeyboardBindingSettingsService_MissingRequiredAction_ThrowsSetupDefect(string missingPathName)
+        {
+            var missingPath = ResolveCanonicalPath(missingPathName);
+            var actions = CreateActions(
+                includeMove: missingPath != GameplayInputActionPaths.PlayerMove,
+                includePush: missingPath != GameplayInputActionPaths.PlayerPush,
+                includeFlip: missingPath != GameplayInputActionPaths.PlayerFlip,
+                includeUiNavigate: missingPath != GameplayInputActionPaths.UiNavigate);
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+            {
+                using var service = new KeyboardBindingSettingsService(actions, new FakeKeyboardBindingStore());
+            });
+
+            Assert.That(exception.Message, Does.Contain(missingPath));
+            Assert.That(exception.Message, Does.Contain("Required input action"));
+        }
+
+        [Test]
+        public void KeyboardBindingSettingsService_PushRequiresKeyboardBinding()
+        {
+            var actions = CreateActions(pushKeyboardBinding: false, pushGamepadBinding: true);
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+            {
+                using var service = new KeyboardBindingSettingsService(actions, new FakeKeyboardBindingStore());
+            });
+
+            Assert.That(exception.Message, Does.Contain(GameplayInputActionPaths.PlayerPush));
+            Assert.That(exception.Message, Does.Contain("Required keyboard binding"));
+        }
+
+        [Test]
+        public void KeyboardBindingSettingsService_FlipRequiresKeyboardBinding()
+        {
+            var actions = CreateActions(flipKeyboardBinding: false);
+
+            var exception = Assert.Throws<InvalidOperationException>(() =>
+            {
+                using var service = new KeyboardBindingSettingsService(actions, new FakeKeyboardBindingStore());
+            });
+
+            Assert.That(exception.Message, Does.Contain(GameplayInputActionPaths.PlayerFlip));
+            Assert.That(exception.Message, Does.Contain("Required keyboard binding"));
+        }
+
+        [Test]
+        public void KeyboardBindingSettingsService_PushFlipKeyboardBindingsPresent_AllowsSetup()
+        {
+            var actions = CreateActions();
+
+            using var service = new KeyboardBindingSettingsService(actions, new FakeKeyboardBindingStore());
+
+            var snapshot = service.Read();
+            Assert.That(snapshot.PushDisplayName, Is.EqualTo("E"));
+            Assert.That(snapshot.FlipDisplayName, Is.EqualTo("Q"));
+        }
+
+        [Test]
         public void KeyboardBindingSettingsService_SetMovementScheme_StoresAndAppliesArrowKeys()
         {
             var actions = CreateActions();
@@ -49,8 +124,8 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(result, Is.EqualTo(KeyboardBindingValidationStatus.Success));
             Assert.That(store.MovementScheme, Is.EqualTo(KeyboardMovementScheme.ArrowKeys));
-            Assert.That(IsEffective(actions, "Player/Move", "<Keyboard>/w"), Is.False);
-            Assert.That(IsEffective(actions, "Player/Move", "<Keyboard>/upArrow"), Is.True);
+            Assert.That(IsEffective(actions, GameplayInputActionPaths.PlayerMove, "<Keyboard>/w"), Is.False);
+            Assert.That(IsEffective(actions, GameplayInputActionPaths.PlayerMove, "<Keyboard>/upArrow"), Is.True);
         }
 
         [Test]
@@ -63,8 +138,8 @@ namespace Game.Feature.UI.Tests
             var result = service.SetMovementScheme(KeyboardMovementScheme.Wasd);
 
             Assert.That(result, Is.EqualTo(KeyboardBindingValidationStatus.Success));
-            Assert.That(IsEffective(actions, "UI/Navigate", "<Keyboard>/w"), Is.True);
-            Assert.That(IsEffective(actions, "UI/Navigate", "<Keyboard>/upArrow"), Is.False);
+            Assert.That(IsEffective(actions, GameplayInputActionPaths.UiNavigate, "<Keyboard>/w"), Is.True);
+            Assert.That(IsEffective(actions, GameplayInputActionPaths.UiNavigate, "<Keyboard>/upArrow"), Is.False);
         }
 
         [Test]
@@ -77,8 +152,8 @@ namespace Game.Feature.UI.Tests
             var result = service.SetMovementScheme(KeyboardMovementScheme.ArrowKeys);
 
             Assert.That(result, Is.EqualTo(KeyboardBindingValidationStatus.Success));
-            Assert.That(IsEffective(actions, "UI/Navigate", "<Keyboard>/w"), Is.False);
-            Assert.That(IsEffective(actions, "UI/Navigate", "<Keyboard>/upArrow"), Is.True);
+            Assert.That(IsEffective(actions, GameplayInputActionPaths.UiNavigate, "<Keyboard>/w"), Is.False);
+            Assert.That(IsEffective(actions, GameplayInputActionPaths.UiNavigate, "<Keyboard>/upArrow"), Is.True);
         }
 
         [Test]
@@ -88,7 +163,7 @@ namespace Game.Feature.UI.Tests
             var store = new FakeKeyboardBindingStore
             {
                 MovementScheme = KeyboardMovementScheme.ArrowKeys,
-                BindingOverridesJson = BuildOverridesJson(actions, ("Player/Push", "<Keyboard>/r")),
+                BindingOverridesJson = BuildOverridesJson(actions, (GameplayInputActionPaths.PlayerPush, "<Keyboard>/r")),
             };
 
             using var service = new KeyboardBindingSettingsService(actions, store);
@@ -100,8 +175,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(snapshot.FlipDisplayName, Is.EqualTo("Q"));
             Assert.That(store.MovementScheme, Is.EqualTo(KeyboardMovementScheme.Wasd));
             Assert.That(store.BindingOverridesJson, Is.Null);
-            Assert.That(IsEffective(actions, "Player/Move", "<Keyboard>/w"), Is.True);
-            Assert.That(IsEffective(actions, "Player/Move", "<Keyboard>/upArrow"), Is.False);
+            Assert.That(IsEffective(actions, GameplayInputActionPaths.PlayerMove, "<Keyboard>/w"), Is.True);
+            Assert.That(IsEffective(actions, GameplayInputActionPaths.PlayerMove, "<Keyboard>/upArrow"), Is.False);
         }
 
         [Test]
@@ -112,8 +187,8 @@ namespace Game.Feature.UI.Tests
             {
                 BindingOverridesJson = BuildOverridesJson(
                     actions,
-                    ("Player/Push", "<Keyboard>/r"),
-                    ("Player/Flip", "<Keyboard>/t")),
+                    (GameplayInputActionPaths.PlayerPush, "<Keyboard>/r"),
+                    (GameplayInputActionPaths.PlayerFlip, "<Keyboard>/t")),
             };
 
             using var service = new KeyboardBindingSettingsService(actions, store);
@@ -121,6 +196,28 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(snapshot.PushDisplayName, Is.EqualTo("R"));
             Assert.That(snapshot.FlipDisplayName, Is.EqualTo("T"));
+        }
+
+        [Test]
+        public void KeyboardBindingSettingsService_RestoresPushFlipOverrides_FromSavedSettingsClone()
+        {
+            var sourceActions = CreateActions();
+            var clonedActions = CloneActions(sourceActions);
+            var store = new FakeKeyboardBindingStore
+            {
+                BindingOverridesJson = BuildOverridesJson(
+                    sourceActions,
+                    (GameplayInputActionPaths.PlayerPush, "<Keyboard>/r"),
+                    (GameplayInputActionPaths.PlayerFlip, "<Keyboard>/t")),
+            };
+
+            using var service = new KeyboardBindingSettingsService(clonedActions, store);
+            var snapshot = service.Read();
+
+            Assert.That(snapshot.PushDisplayName, Is.EqualTo("R"));
+            Assert.That(snapshot.FlipDisplayName, Is.EqualTo("T"));
+            Assert.That(HasEffectivePath(clonedActions, GameplayInputActionPaths.PlayerPush, "<Keyboard>/r"), Is.True);
+            Assert.That(HasEffectivePath(clonedActions, GameplayInputActionPaths.PlayerFlip, "<Keyboard>/t"), Is.True);
         }
 
         [Test]
@@ -147,7 +244,7 @@ namespace Game.Feature.UI.Tests
             var actions = CreateActions();
             var store = new FakeKeyboardBindingStore
             {
-                BindingOverridesJson = BuildOverridesJson(actions, ("Player/Push", "<Keyboard>/upArrow")),
+                BindingOverridesJson = BuildOverridesJson(actions, (GameplayInputActionPaths.PlayerPush, "<Keyboard>/upArrow")),
             };
 
             using var service = new KeyboardBindingSettingsService(actions, store);
@@ -158,44 +255,103 @@ namespace Game.Feature.UI.Tests
             Assert.That(service.Read().MovementScheme, Is.EqualTo(KeyboardMovementScheme.Wasd));
         }
 
-        private InputActionAsset CreateActions()
+        private InputActionAsset CreateActions(
+            bool includeMove = true,
+            bool includePush = true,
+            bool includeFlip = true,
+            bool includeUiNavigate = true,
+            bool pushKeyboardBinding = true,
+            bool pushGamepadBinding = false,
+            bool flipKeyboardBinding = true)
         {
             var actions = ScriptableObject.CreateInstance<InputActionAsset>();
-            var player = new InputActionMap("Player");
-            var move = player.AddAction("Move", InputActionType.Value);
-            move.AddCompositeBinding("Dpad")
-                .With("Up", "<Keyboard>/w")
-                .With("Down", "<Keyboard>/s")
-                .With("Left", "<Keyboard>/a")
-                .With("Right", "<Keyboard>/d");
-            move.AddCompositeBinding("Dpad")
-                .With("Up", "<Keyboard>/upArrow")
-                .With("Down", "<Keyboard>/downArrow")
-                .With("Left", "<Keyboard>/leftArrow")
-                .With("Right", "<Keyboard>/rightArrow");
-            player.AddAction("Push", InputActionType.Button)
-                .AddBinding("<Keyboard>/e")
-                .WithGroup("Keyboard&Mouse");
-            player.AddAction("Flip", InputActionType.Button)
-                .AddBinding("<Keyboard>/q")
-                .WithGroup("Keyboard&Mouse");
+            var player = new InputActionMap(GameplayInputActionPaths.PlayerActionMap);
+            if (includeMove)
+            {
+                var move = player.AddAction(GameplayInputActionPaths.MoveAction, InputActionType.Value);
+                move.AddCompositeBinding("Dpad")
+                    .With("Up", "<Keyboard>/w")
+                    .With("Down", "<Keyboard>/s")
+                    .With("Left", "<Keyboard>/a")
+                    .With("Right", "<Keyboard>/d");
+                move.AddCompositeBinding("Dpad")
+                    .With("Up", "<Keyboard>/upArrow")
+                    .With("Down", "<Keyboard>/downArrow")
+                    .With("Left", "<Keyboard>/leftArrow")
+                    .With("Right", "<Keyboard>/rightArrow");
+            }
+
+            if (includePush)
+            {
+                var push = player.AddAction(GameplayInputActionPaths.PushAction, InputActionType.Button);
+                if (pushKeyboardBinding)
+                {
+                    push.AddBinding("<Keyboard>/e")
+                        .WithGroup("Keyboard&Mouse");
+                }
+
+                if (pushGamepadBinding)
+                {
+                    push.AddBinding("<Gamepad>/buttonNorth")
+                        .WithGroup("Gamepad");
+                }
+            }
+
+            if (includeFlip)
+            {
+                var flip = player.AddAction(GameplayInputActionPaths.FlipAction, InputActionType.Button);
+                if (flipKeyboardBinding)
+                {
+                    flip.AddBinding("<Keyboard>/q")
+                        .WithGroup("Keyboard&Mouse");
+                }
+            }
+
             actions.AddActionMap(player);
 
-            var ui = new InputActionMap("UI");
-            var navigate = ui.AddAction("Navigate", InputActionType.PassThrough);
-            navigate.AddCompositeBinding("2DVector")
-                .With("Up", "<Keyboard>/w")
-                .With("Down", "<Keyboard>/s")
-                .With("Left", "<Keyboard>/a")
-                .With("Right", "<Keyboard>/d")
-                .With("Up", "<Keyboard>/upArrow")
-                .With("Down", "<Keyboard>/downArrow")
-                .With("Left", "<Keyboard>/leftArrow")
-                .With("Right", "<Keyboard>/rightArrow");
+            var ui = new InputActionMap(GameplayInputActionPaths.UiActionMap);
+            if (includeUiNavigate)
+            {
+                var navigate = ui.AddAction(GameplayInputActionPaths.NavigateAction, InputActionType.PassThrough);
+                navigate.AddCompositeBinding("2DVector")
+                    .With("Up", "<Keyboard>/w")
+                    .With("Down", "<Keyboard>/s")
+                    .With("Left", "<Keyboard>/a")
+                    .With("Right", "<Keyboard>/d")
+                    .With("Up", "<Keyboard>/upArrow")
+                    .With("Down", "<Keyboard>/downArrow")
+                    .With("Left", "<Keyboard>/leftArrow")
+                    .With("Right", "<Keyboard>/rightArrow");
+            }
+
             actions.AddActionMap(ui);
 
             _createdActions.Add(actions);
             return actions;
+        }
+
+        private InputActionAsset CloneActions(InputActionAsset sourceActions)
+        {
+            var clone = InputActionAsset.FromJson(sourceActions.ToJson());
+            _createdActions.Add(clone);
+            return clone;
+        }
+
+        private static string ResolveCanonicalPath(string pathName)
+        {
+            switch (pathName)
+            {
+                case nameof(GameplayInputActionPaths.PlayerMove):
+                    return GameplayInputActionPaths.PlayerMove;
+                case nameof(GameplayInputActionPaths.PlayerPush):
+                    return GameplayInputActionPaths.PlayerPush;
+                case nameof(GameplayInputActionPaths.PlayerFlip):
+                    return GameplayInputActionPaths.PlayerFlip;
+                case nameof(GameplayInputActionPaths.UiNavigate):
+                    return GameplayInputActionPaths.UiNavigate;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(pathName), pathName, "Unknown canonical path name.");
+            }
         }
 
         private static string BuildOverridesJson(
@@ -225,6 +381,13 @@ namespace Game.Feature.UI.Tests
             var action = actions.FindAction(actionPath);
             return action.bindings
                 .Where(binding => string.Equals(binding.path, bindingPath, StringComparison.OrdinalIgnoreCase))
+                .Any(binding => string.Equals(binding.effectivePath, bindingPath, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool HasEffectivePath(InputActionAsset actions, string actionPath, string bindingPath)
+        {
+            var action = actions.FindAction(actionPath);
+            return action.bindings
                 .Any(binding => string.Equals(binding.effectivePath, bindingPath, StringComparison.OrdinalIgnoreCase));
         }
 

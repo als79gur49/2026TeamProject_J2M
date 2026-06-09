@@ -79,13 +79,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             using var profileBundle = CreateActionAudioProfile(
                 new ActionAudioEntrySpec(
                     GameplayActionKind.Push,
-                    GameplayActionAudioMoment.Recovery,
+                    GameplayActionAudioMoment.Windup,
                     definitionSpec: null,
                     isOptional: true));
 
             Assert.DoesNotThrow(() => profileBundle.Profile.ValidateOrThrow());
             Assert.That(
-                profileBundle.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Recovery, out _),
+                profileBundle.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Windup, out _),
                 Is.False);
             Assert.That(
                 profileBundle.Profile.CollectDiagnostics()
@@ -94,8 +94,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .ToArray(),
                 Is.EqualTo(new[]
                 {
-                    $"{profileBundle.Profile.name} optional entry 'Push/Recovery' has no assigned AudioBinding.",
+                    $"{profileBundle.Profile.name} optional entry 'Push/Windup' has no assigned AudioBinding.",
                 }));
+        }
+
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(3)]
+        [TestCase(4)]
+        [TestCase(5)]
+        [Category("Core")]
+        public void GameplayActionAudioProfile_ValidateOrThrow_RejectsRemovedMomentValues(int removedMomentValue)
+        {
+            using var profileBundle = CreateActionAudioProfile(
+                new ActionAudioEntrySpec(
+                    GameplayActionKind.Push,
+                    (GameplayActionAudioMoment)removedMomentValue,
+                    CreateDefinitionSpec()));
+
+            var exception = Assert.Throws<InvalidOperationException>(() => profileBundle.Profile.ValidateOrThrow());
+            Assert.That(
+                exception.Message,
+                Does.Contain($"unsupported gameplay action audio moment value '{removedMomentValue}'"));
         }
 
         [Test]
@@ -238,16 +258,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplayActionAudioMoment_PublicSurface_RemovesUnusedContactImpactBlocked()
+        public void GameplayActionAudioMoment_PublicSurface_ExcludesRemovedLifecycleMoments()
         {
             var names = Enum.GetNames(typeof(GameplayActionAudioMoment));
 
+            Assert.That(names, Does.Not.Contain("Execute"));
+            Assert.That(names, Does.Not.Contain("Recovery"));
             Assert.That(names, Does.Not.Contain("Contact"));
             Assert.That(names, Does.Not.Contain("ImpactEnemy"));
             Assert.That(names, Does.Not.Contain("Blocked"));
             Assert.That(names, Does.Contain(nameof(GameplayActionAudioMoment.Windup)));
-            Assert.That(names, Does.Contain(nameof(GameplayActionAudioMoment.Execute)));
-            Assert.That(names, Does.Contain(nameof(GameplayActionAudioMoment.Recovery)));
             Assert.That(names, Does.Contain(nameof(GameplayActionAudioMoment.AssistOutOfRange)));
             Assert.That(names, Does.Contain(nameof(GameplayActionAudioMoment.NoTarget)));
             Assert.That(names, Does.Contain(nameof(GameplayActionAudioMoment.Invalid)));
@@ -259,14 +279,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var profileYaml = File.ReadAllText(PlayerActionAudioProfilePath);
 
+            Assert.That(profileYaml, Does.Not.Contain("Moment: 1"));
             Assert.That(profileYaml, Does.Not.Contain("Moment: 2"));
             Assert.That(profileYaml, Does.Not.Contain("Moment: 3"));
             Assert.That(profileYaml, Does.Not.Contain("Moment: 4"));
+            Assert.That(profileYaml, Does.Not.Contain("Moment: 5"));
         }
 
         [Test]
         [Category("Extended")]
-        public void GameplayActionAudioRequestPlanner_PushImpactRecovery_MapsToRetainedOrderedMomentSet()
+        public void GameplayActionAudioRequestPlanner_PushImpactRecovery_EmitsWindupOnly()
         {
             var planner = new GameplayActionAudioRequestPlanner();
             var result = CreateTickResult(CreatePresentationData(
@@ -288,15 +310,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(new[]
                 {
                     GameplayActionAudioMoment.Windup,
-                    GameplayActionAudioMoment.Execute,
-                    GameplayActionAudioMoment.Recovery,
                 }));
             Assert.That(requests.All(request => request.Action == GameplayActionKind.Push), Is.True);
         }
 
         [Test]
         [Category("Extended")]
-        public void GameplayActionAudioRequestPlanner_BlockedPush_EmitsExecuteOnly()
+        public void GameplayActionAudioRequestPlanner_BlockedPush_EmitsNoActionAudio()
         {
             var planner = new GameplayActionAudioRequestPlanner();
             var result = CreateTickResult(CreatePresentationData(
@@ -312,12 +332,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var requests = planner.BuildRequests(result);
 
-            Assert.That(
-                requests.Select(request => request.Moment).ToArray(),
-                Is.EqualTo(new[]
-                {
-                    GameplayActionAudioMoment.Execute,
-                }));
+            Assert.That(requests, Is.Empty);
         }
 
         [Test]
@@ -418,10 +433,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GameplayActionAudioMoment.NoTarget,
                     GameplayActionAudioMoment.Invalid,
                 }));
-            Assert.That(requests.Any(request =>
-                request.Moment == GameplayActionAudioMoment.Windup ||
-                request.Moment == GameplayActionAudioMoment.Execute ||
-                request.Moment == GameplayActionAudioMoment.Recovery), Is.False);
+            Assert.That(requests.Any(request => request.Moment == GameplayActionAudioMoment.Windup), Is.False);
+            Assert.That(requests.Select(request => request.Context.DebugTag).ToArray(), Does.Not.Contain("Action:Push:Execute"));
+            Assert.That(requests.Select(request => request.Context.DebugTag).ToArray(), Does.Not.Contain("Action:Push:Recovery"));
+            Assert.That(requests.Select(request => request.Context.DebugTag).ToArray(), Does.Not.Contain("Action:Flip:Execute"));
+            Assert.That(requests.Select(request => request.Context.DebugTag).ToArray(), Does.Not.Contain("Action:Flip:Recovery"));
         }
 
         [Test]
@@ -464,9 +480,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .Select(request => request.Context.DebugTag)
                 .ToArray();
 
+            Assert.That(requestDebugTags, Is.EqualTo(new[] { "Action:Push:Windup", "Action:Flip:Windup" }));
+            Assert.That(requestDebugTags, Does.Not.Contain("Action:Push:Execute"));
+            Assert.That(requestDebugTags, Does.Not.Contain("Action:Push:Recovery"));
             Assert.That(requestDebugTags, Does.Not.Contain("Action:Push:Contact"));
             Assert.That(requestDebugTags, Does.Not.Contain("Action:Push:ImpactEnemy"));
             Assert.That(requestDebugTags, Does.Not.Contain("Action:Push:Blocked"));
+            Assert.That(requestDebugTags, Does.Not.Contain("Action:Flip:Execute"));
+            Assert.That(requestDebugTags, Does.Not.Contain("Action:Flip:Recovery"));
             Assert.That(requestDebugTags, Does.Not.Contain("Action:Flip:Contact"));
             Assert.That(requestDebugTags, Does.Not.Contain("Action:Flip:ImpactEnemy"));
             Assert.That(requestDebugTags, Does.Not.Contain("Action:Flip:Blocked"));
@@ -513,7 +534,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             using var profileBundle = CreateActionAudioProfile(
                 new ActionAudioEntrySpec(
                     GameplayActionKind.Push,
-                    GameplayActionAudioMoment.Recovery,
+                    GameplayActionAudioMoment.Windup,
                     definitionSpec: null,
                     isOptional: true));
             try
@@ -528,15 +549,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         entityId: 10,
                         activeActionKind: PlayerActionKind.Push,
                         activeActionSequence: 1,
-                        startedThisTick: false,
+                        startedThisTick: true,
                         completedThisTick: false,
-                        canceledThisTick: false,
-                        executedThisTick: true,
-                        isRecoveryPhase: true)),
+                        canceledThisTick: false)),
                     new[] { CreateUnit(10, UnitRole.Player) }));
 
                 Assert.That(
-                    profileBundle.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Recovery, out _),
+                    profileBundle.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Windup, out _),
                     Is.False);
                 Assert.That(playbackPort.AttachedCalls, Is.Empty);
                 Assert.That(playbackPort.TwoDCalls, Is.Empty);
@@ -641,14 +660,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplayActionAudio_Execute_PlaysDuringTopologyAudioGate()
+        public void GameplayActionAudio_Windup_PlaysDuringTopologyAudioGate()
         {
-            var rootObject = new GameObject(nameof(GameplayActionAudio_Execute_PlaysDuringTopologyAudioGate));
+            var rootObject = new GameObject(nameof(GameplayActionAudio_Windup_PlaysDuringTopologyAudioGate));
             using var mapBundle = CreateGameplayAudioMap();
             using var profileBundle = CreateActionAudioProfile(
                 new ActionAudioEntrySpec(
                     GameplayActionKind.Push,
-                    GameplayActionAudioMoment.Execute,
+                    GameplayActionAudioMoment.Windup,
                     CreateDefinitionSpec()));
             try
             {
@@ -668,10 +687,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                 entityId: player.entityId,
                                 activeActionKind: PlayerActionKind.Push,
                                 activeActionSequence: 1,
-                                startedThisTick: false,
+                                startedThisTick: true,
                                 completedThisTick: false,
                                 canceledThisTick: false,
-                                executedThisTick: true,
                                 resolutionKind: TickPlayerActionResolutionKind.Impact),
                         },
                         Array.Empty<TickEnemyDamagePresentationSignal>(),
@@ -685,14 +703,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.HasBlockingPresentation, Is.True);
                 Assert.That(
                     playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
-                    Is.EqualTo(new[] { "Action:Push:Execute" }));
+                    Is.EqualTo(new[] { "Action:Push:Windup" }));
 
                 presenter.UpdatePresentation(0.2f);
 
                 Assert.That(presenter.HasBlockingPresentation, Is.False);
                 Assert.That(
                     playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
-                    Is.EqualTo(new[] { "Action:Push:Execute" }));
+                    Is.EqualTo(new[] { "Action:Push:Windup" }));
             }
             finally
             {

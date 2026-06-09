@@ -205,11 +205,16 @@ Rollback:
 
 ## PR 6: Presentation/Audio Residual Cleanup
 
+Superseded note:
+Later action-audio cleanup removed `Execute` and `Recovery` from the Push/Flip action-audio public surface. The current action-audio surface is `Windup`, `AssistOutOfRange`, `NoTarget`, and `Invalid`.
+Gameplay action timeline still has execute/recovery.
+Only action-audio moments were removed.
+
 Scope:
 
 - Remove the player hand flip interaction presentation path because current player IK support is unavailable.
 - Preserve box-side flip presentation and all flip impact carrier consumers.
-- Defer action-audio lifecycle moment policy to a separate audio owner PR.
+- Keep action-audio removed moment policy as already applied; no `Execute`/`Recovery` explicit-null/add-entry migration is planned.
 
 Files:
 
@@ -232,7 +237,8 @@ Migration needed:
 Required owner decision:
 
 - Completed for this PR: remove player hand interaction.
-- Deferred: audio owner decision for audible/no-op moment policy.
+- Completed: action-audio `Execute`/`Recovery` removal decision.
+- Future reintroduction requires a new public-surface decision.
 
 Tests to run:
 

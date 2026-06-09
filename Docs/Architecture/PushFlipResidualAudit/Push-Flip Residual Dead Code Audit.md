@@ -14,7 +14,7 @@ The highest-value residual candidates are:
 - `P2`: Flip is keyboard-only by current product input policy; the existing Push controller binding remains authored.
 - `P2`: low-usage box capability combos exist only in `combined-gameplay-showcase`.
 - `P2`: `PlayerFlipInteractionDriver.cs` and `PlayerFlipInteractionDriver.cs.meta` had no production prefab/scene/asset GUID reference and are removed.
-- `P2`: several action-audio moments are planner-emitted but have no production profile binding.
+- `P2`: removed action-audio moment names remain as documentation/governance residue only.
 
 ## What Was Rechecked From Previous Audit
 
@@ -115,9 +115,14 @@ Low-usage combos are all showcase-only: `Flip`, `Push+Flip`, `Item`, `Push+Item`
 - Settings/rebind Push/Flip rows are active: `PushInputRow`, `FlipInputRow`, `PushKeyDisplay`, `FlipKeyDisplay`.
 - Rebind is effective, not display-only: `KeyboardBindingSettingsService` applies binding overrides, serializes Push/Flip overrides, and `GameplayHostRuntimeFactory` applies saved settings to the runtime InputActionAsset.
 - Rebind limitation: keyboard-only; gamepad bindings are not managed by this service.
-- Hardcoded path risk: `KeyboardBindingSettingsService` uses `Player/Push` and `Player/Flip` string constants. Missing action paths result in missing binding/display behavior rather than a central fail-fast asset contract.
+- Path contract: `GameplayInputHost` and `KeyboardBindingSettingsService` share `GameplayInputActionPaths` for Player/Move, Player/Push, Player/Flip, and UI/Navigate. Missing required settings actions or Push/Flip keyboard bindings fail fast during settings binding service setup.
 
 ## Audio Findings
+
+Superseded note:
+Later action-audio cleanup removed `Execute` and `Recovery` from the Push/Flip action-audio public surface. The current action-audio surface is `Windup`, `AssistOutOfRange`, `NoTarget`, and `Invalid`.
+Gameplay action timeline still has execute/recovery.
+Only action-audio moments were removed.
 
 Production asset:
 
@@ -129,14 +134,14 @@ Moment coverage:
 | Action | Moment | Planner can emit | Profile state | Verdict |
 | --- | --- | --- | --- | --- |
 | Push | Windup | yes | assigned binding | keep |
-| Push | Execute | yes | no entry | optional v1 lifecycle moment |
-| Push | Recovery | yes | no entry | optional v1 lifecycle moment |
+| Push | Execute | no | not authorable current enum | removed action-audio moment; gameplay execute timeline remains |
+| Push | Recovery | no | not authorable current enum | removed action-audio moment; gameplay recovery timeline remains |
 | Flip | Windup | yes | assigned binding | keep |
-| Flip | Execute | yes | no entry | optional v1 lifecycle moment |
-| Flip | Recovery | yes | no entry | optional v1 lifecycle moment |
+| Flip | Execute | no | not authorable current enum | removed action-audio moment; gameplay execute timeline remains |
+| Flip | Recovery | no | not authorable current enum | removed action-audio moment; gameplay recovery timeline remains |
 | Push/Flip | AssistOutOfRange/NoTarget/Invalid | yes, attempt signals | assigned bindings | keep |
 
-`Contact`, `ImpactEnemy`, and `Blocked` are not current `GameplayActionAudioMoment` members and are not emitted by the current production action-audio planner. Impact and blocked presentation/audio remain owned by their existing gameplay presentation lanes.
+`Execute`, `Recovery`, `Contact`, `ImpactEnemy`, and `Blocked` are not current `GameplayActionAudioMoment` members and are not emitted by the current production action-audio planner. Gameplay execute/recovery timeline facts, impact, and blocked presentation/audio remain owned by their existing gameplay presentation lanes.
 
 ## Presentation Findings
 
@@ -151,7 +156,7 @@ Moment coverage:
 - Immediate deletion risk is low only for docs-only stale residue.
 - UI command gateway deletion is medium/high because it is a public UI-access interface and tests exercise it, even though product UI does not call it.
 - Capability simplification risk is high without content owner approval because campaign content heavily uses `Push+Flip+Destroy+JumpCrushable` and `Push+Destroy`.
-- Audio cleanup risk is medium: deleting optional null entries changes authoring diagnostics and tests; adding bindings changes audible product behavior.
+- Audio cleanup risk is medium: reintroducing removed action-audio moments or adding bindings changes authoring diagnostics and audible product behavior.
 - API/compat cleanup was high risk because it changed runtime flag shape, replay traces, and named constructor/API uses.
 
 ## Final Recommendation
@@ -169,7 +174,7 @@ Test/docs migration before deletion:
 Product/content decision before deletion or simplification:
 
 - Showcase-only capability combos and item priority rules.
-- Empty/no-entry action-audio moments.
+- Removed action-audio moment reintroduction.
 
 API/replay compatibility decision:
 

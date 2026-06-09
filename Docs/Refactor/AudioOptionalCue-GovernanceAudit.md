@@ -44,7 +44,7 @@ The optional no-op risk is real in four places:
 Vocabulary:
 
 - `GameplayActionKind`: `Push`, `Flip`
-- `GameplayActionAudioMoment`: `Windup`, `Execute`, `Recovery`, `AssistOutOfRange`, `NoTarget`, `Invalid`
+- `GameplayActionAudioMoment`: `Windup`, `AssistOutOfRange`, `NoTarget`, `Invalid`; removed/reserved action-audio moments are `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, and `Blocked`
 - Removed action-audio moments: `Contact`, `ImpactEnemy`, and `Blocked`
 
 Planner emission:

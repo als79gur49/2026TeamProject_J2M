@@ -14,6 +14,7 @@
 - [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md)
 - [Gameplay-Action-Audio-Governance.md](./Gameplay-Action-Audio-Governance.md)
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
+- [Audio-Current-Structure-Source.md](./Audio-Current-Structure-Source.md)
 
 Conflict rule:
 
@@ -104,12 +105,18 @@ TickResult
 - `GameplayActionKind` / `GameplayActionAudioMoment`
   - gameplay action-audio profile-local typed authoring axes다
   - global required gameplay semantic IDs가 아니다
+  - current Push/Flip action-audio public surface is `Windup`, `AssistOutOfRange`, `NoTarget`, and `Invalid`
+  - removed / reserved Push/Flip action-audio moments are `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, and `Blocked`
+  - gameplay action timeline still has execute/recovery; only action-audio moments were removed
 - `GameplayActionAudioProfile`
   - prefab-local action + moment -> `AudioBinding` authoring asset
   - duplicate detection, category/loop validation, optional/required policy만 소유한다
   - global completeness governance를 소유하지 않는다
 - `GameplayActionAudioRequestPlanner`
   - existing `PlayerActionSignals`를 frozen v1 action moments로 매핑한다
+  - current Push/Flip planner maps `StartedThisTick` to `Windup`
+  - current Push/Flip planner maps `PlayerActionAttemptSignals` to `AssistOutOfRange`, `NoTarget`, or `Invalid`
+  - current Push/Flip planner does not emit `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, or `Blocked`
   - `TickResult`에 audio-specific data를 추가하지 않는다
   - same-tick duplicates를 suppress하지 않고 order-preserving layering을 유지한다
 - `GameplayActionAudioPresentationController`
@@ -181,7 +188,9 @@ TickResult
   - BGM/scene-flow audio는 stage/scene flow presenter path에 남는다.
   - gameplay host audio controller는 `PlayBgm`을 호출하지 않는다.
   - core enemy damage/death reaction sounds는 existing core one-shot path에 남는다.
-  - GameplayActionAudioMoment v1 no longer includes `Contact`, `ImpactEnemy`, or `Blocked`; impact and blocked gameplay/presentation signals remain outside the action-audio lane.
+  - GameplayActionAudioMoment v1 no longer includes `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, or `Blocked`; gameplay action execute/recovery timeline facts and impact/blocked gameplay/presentation signals remain outside the action-audio lane.
+  - core gameplay one-shot audio owns damage and entity-exit reactions, including `PlayerDamage`, `EnemyDamage`, `EntityExitItemConsume`, `EntityExitBoxDestroy`, `EntityExitEnemyDeath`, and `EntityExitOutOfBounds`.
+  - UI explicit all-cue coverage, hidden `Ui` channel policy, persistent BGM flow ownership, and enemy audio requirement policy must not be copied into Push/Flip action-audio profiles.
   - Charge active loop audio remains a separate enemy-local persistent controller, not a core one-shot semantic.
   - persistent BGM ownership/access terminology는 [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md) 를 따른다.
 
@@ -336,6 +345,7 @@ future extension note:
 - later stage-wide/default action audio가 필요하면 `GameplaySceneHostConfiguration` 또는 `StagePresentationDefinition`에 ad-hoc audio field를 늘리지 않는다.
 - BGM profile metadata는 `StageAudioDefinition`에만 둔다. `StagePresentationDefinition`은 BGM을 소유하지 않는다.
 - gameplay host presentation SFX map growth는 grouped `GameplayPresentationAudioConfig`를 통해 관리한다.
+- prefer a grouped `GameplayPresentationAudioConfig`.
 - `GameplayPresentationAudioConfig`는 action/enemy prefab-local profiles, enemy requirement policies/bindings, UI cue maps, BGM/stage audio metadata, runtime installers, settings bridges를 소유하지 않는다.
 
 금지:

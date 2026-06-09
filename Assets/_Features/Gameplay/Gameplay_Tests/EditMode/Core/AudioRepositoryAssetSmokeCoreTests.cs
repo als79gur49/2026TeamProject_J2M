@@ -132,9 +132,11 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.DoesNotThrow(() => profile.ValidateOrThrow());
 
             var profileYaml = File.ReadAllText(PlayerS1GameplayActionAudioProfilePath);
+            Assert.That(profileYaml, Does.Not.Contain("Moment: 1"));
             Assert.That(profileYaml, Does.Not.Contain("Moment: 2"));
             Assert.That(profileYaml, Does.Not.Contain("Moment: 3"));
             Assert.That(profileYaml, Does.Not.Contain("Moment: 4"));
+            Assert.That(profileYaml, Does.Not.Contain("Moment: 5"));
         }
 
         [Test]

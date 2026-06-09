@@ -3,6 +3,7 @@
 이 문서는 gameplay action-audio profile layer의 active supporting truth-source다.
 
 이 layer는 expanding push/flip/action SFX를 `GameplayAudioSemanticId` 밖으로 분리하기 위한 presentation-side authoring lane이다.
+Gameplay action audio is a sparse prefab-local player action SFX lane. It is separate from gameplay core one-shot audio.
 
 ## 1. Governance Split
 
@@ -46,9 +47,10 @@ v1 canonical-player required coverage:
 
 - `Push`: `Windup`, `AssistOutOfRange`, `NoTarget`, `Invalid`
 - `Flip`: `Windup`, `AssistOutOfRange`, `NoTarget`, `Invalid`
-- `Execute`, `Recovery`는 optional이다
-- GameplayActionAudioMoment v1 no longer includes `Contact`, `ImpactEnemy`, or `Blocked`.
-- Push/Flip `Contact`, `ImpactEnemy`, and `Blocked` action-audio cues were removed because they are not emitted by the current production planner.
+- GameplayActionAudioMoment v1 no longer includes `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, or `Blocked`.
+- Push/Flip action-audio `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, and `Blocked` cues were removed because they are not emitted by the current production planner.
+- Gameplay action timeline still has execute/recovery. Only action-audio moments were removed.
+- gameplay action timeline still has execute/recovery; only the action-audio moments were removed.
 
 ## 3. Frozen V1 Moment Mapping
 
@@ -57,8 +59,6 @@ v1 canonical-player required coverage:
 mapping table:
 
 - `Windup` => `StartedThisTick`
-- `Execute` => `ExecutedThisTick`
-- `Recovery` => `ExecutedThisTick && IsRecoveryPhase`
 - `AssistOutOfRange` => `PlayerActionAttemptSignals.FeedbackKind == AssistOutOfRange`
 - `NoTarget` => `PlayerActionAttemptSignals.FeedbackKind == NoTarget`
 - `Invalid` => `PlayerActionAttemptSignals.FeedbackKind == Invalid`
@@ -68,7 +68,8 @@ rules:
 - action kind는 `TickPlayerActionPresentationSignal.ActiveActionKind`가 `Push` 또는 `Flip`일 때만 resolve한다
 - fake attempt action kind는 `TickPlayerActionAttemptPresentationSignal.ActionKind`가 `Push` 또는 `Flip`일 때만 resolve한다
 - `ActiveActionKind == None` 이면 no action audio를 emit한다
-- fixed lifecycle emission order는 `Windup`, `Execute`, `Recovery`
+- action lifecycle audio emission은 `Windup` only다
+- `ExecutedThisTick` and `IsRecoveryPhase` remain gameplay/presentation timeline facts, but they do not emit action-audio moments
 - fake failure moments는 lifecycle moments를 synthesize하지 않고 `AssistOutOfRange`, `NoTarget`, `Invalid`만 emit한다
 - same-tick duplicate suppression은 하지 않는다
 - multiple authored one-shots on the same tick intentionally layer and all play in order
@@ -94,12 +95,23 @@ target-reaction sound examples:
 rules:
 
 - core `EnemyDamage`, `EnemyDeath`, and entity exit sounds remain on the existing core one-shot path
+- Core gameplay one-shot audio owns damage and entity-exit reactions.
+- Push/Flip action audio does not own `ImpactEnemy`, target damage, death, destroy, consume, or blocked reaction feedback by default.
+- Core one-shot required semantics are `PlayerDamage`, `EnemyDamage`, `EntityExitItemConsume`, `EntityExitBoxDestroy`, `EntityExitEnemyDeath`, and `EntityExitOutOfBounds`.
 - impact and blocked gameplay/presentation signals remain owned by their existing gameplay/presentation lanes; they are not action-audio moments
 - action profile does not own enemy damage/death governance
 - lethal enemy hit is the explicit v1 exception: when an enemy-local `EnemyAudioCue.Death` is actually planned and playable for the same enemy/entity, core `EnemyDamage` is suppressed for that entity only
 - generic `EntityExitEnemyDeath` suppression and lethal `EnemyDamage` suppression are separate policies
 - lethal `EnemyDamage` suppression is common enemy-local Death cue policy, not SecBot-specific authoring policy
 - future suppression, if needed, must be added explicitly and must not silently replace the core reaction lane
+
+## 4.1 UI, BGM, And Enemy Boundaries
+
+- UI audio uses explicit all-cue coverage and hidden `Ui` channel policy. This policy must not be copied into Push/Flip action-audio profiles.
+- BGM is persistent flow-owned audio and is not comparable to Push/Flip action-audio one-shot moments.
+- Enemy action/presentation may have windup/execute/recover facts, but enemy presentation phases do not automatically imply required audio cues.
+- Enemy audio uses its own profile/requirement policy.
+- Push/Flip action audio remains a Player-only sparse profile lane.
 
 ## 5. Shared Diagnostics Boundary
 

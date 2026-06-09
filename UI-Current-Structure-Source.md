@@ -65,7 +65,8 @@ This file is the external current-structure source for the completed UI cleanup 
 
 - Push/Flip physical gameplay commands flow through the gameplay input route, not UI HUD command injection.
 - `RequestPush`, `RequestFlip`, `BufferUiPush`, and `BufferUiFlip` are removed UI command-route vocabulary and are not current paths.
-- Settings/rebind Push/Flip UI remains active for binding display, override, save, and restore.
+- Settings/rebind Push/Flip UI remains active for binding display, override, save, and restore through the shared `GameplayInputActionPaths` input contract.
+- Settings/rebind setup fails fast when required action paths or Push/Flip keyboard bindings are missing; Flip remains keyboard-only and no gamepad binding is added.
 - Scene transition UI uses only `SceneTransitionOverlayShell` plus `SceneTransitionOverlayContentCatalog`.
 - `SceneTransitionOverlayView`, `UI/SceneTransitionOverlayView`, generated fallback, and legacy overlay fallback are not current paths.
 - `UiNavigationInputRouter` is a resolver-only input router initialized through `IUiNavigationTargetResolver`.

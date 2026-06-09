@@ -30,6 +30,8 @@
   - current supporting truth for canonical topology transition fact normalization at the TickPresentationData build boundary
 - [Audio-Architecture-Guidelines.md](./Audio-Architecture-Guidelines.md)
   - current supporting truth for 2D non-spatial audio contracts, runtime ownership, and audio seam vocabulary
+- [Audio-Current-Structure-Source.md](./Audio-Current-Structure-Source.md)
+  - external current-structure source for audio documentation regeneration, stale-token audits, and current Push/Flip action-audio moment policy
 - [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md)
   - current supporting truth for gameplay audio semantic-family governance, host one-shot controller scope, and safe semantic expansion protocol
 - [Gameplay-Action-Audio-Governance.md](./Gameplay-Action-Audio-Governance.md)

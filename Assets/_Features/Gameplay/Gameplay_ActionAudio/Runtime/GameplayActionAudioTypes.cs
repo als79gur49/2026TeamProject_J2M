@@ -11,8 +11,13 @@ namespace Game.Feature.Gameplay.ActionAudio
     public enum GameplayActionAudioMoment
     {
         Windup = 0,
-        Execute = 1,
-        Recovery = 5,
+
+        // 1 reserved: Execute removed.
+        // 2 reserved: Contact removed.
+        // 3 reserved: ImpactEnemy removed.
+        // 4 reserved: Blocked removed.
+        // 5 reserved: Recovery removed.
+
         AssistOutOfRange = 6,
         NoTarget = 7,
         Invalid = 8,
@@ -46,8 +51,6 @@ namespace Game.Feature.Gameplay.ActionAudio
         public static readonly GameplayActionAudioMoment[] OrderedMoments =
         {
             GameplayActionAudioMoment.Windup,
-            GameplayActionAudioMoment.Execute,
-            GameplayActionAudioMoment.Recovery,
             GameplayActionAudioMoment.AssistOutOfRange,
             GameplayActionAudioMoment.NoTarget,
             GameplayActionAudioMoment.Invalid,

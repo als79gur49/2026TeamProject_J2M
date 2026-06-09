@@ -50,13 +50,6 @@ namespace Game.Feature.Gameplay.ActionAudio
             ICollection<GameplayActionAudioRequest> requests)
         {
             AppendIf(signal.EntityId, action, GameplayActionAudioMoment.Windup, signal.StartedThisTick, requests);
-            AppendIf(signal.EntityId, action, GameplayActionAudioMoment.Execute, signal.ExecutedThisTick, requests);
-            AppendIf(
-                signal.EntityId,
-                action,
-                GameplayActionAudioMoment.Recovery,
-                signal.ExecutedThisTick && signal.IsRecoveryPhase,
-                requests);
         }
 
         private static void AppendIf(

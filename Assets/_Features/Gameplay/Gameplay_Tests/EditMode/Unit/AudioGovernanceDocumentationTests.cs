@@ -45,7 +45,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("GameplayActionAudioPresentationController"));
             Assert.That(doc, Does.Contain("global required gameplay semantic IDs가 아니다"));
             Assert.That(doc, Does.Contain("core enemy damage/death reaction sounds는 existing core one-shot path에 남는다"));
-            Assert.That(doc, Does.Contain("GameplayActionAudioMoment v1 no longer includes `Contact`, `ImpactEnemy`, or `Blocked`"));
+            Assert.That(doc, Does.Contain("GameplayActionAudioMoment v1 no longer includes `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, or `Blocked`"));
             Assert.That(doc, Does.Contain("IGameplayAudioPlaybackPort"));
             Assert.That(doc, Does.Contain("Owner-Bound Persistent Playback"));
             Assert.That(doc, Does.Contain("Audio Runtime Installer"));
@@ -121,11 +121,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("component가 존재하면 profile must be non-null and valid"));
             Assert.That(doc, Does.Contain("Push`: `Windup`, `AssistOutOfRange`, `NoTarget`, `Invalid`"));
             Assert.That(doc, Does.Contain("Flip`: `Windup`, `AssistOutOfRange`, `NoTarget`, `Invalid`"));
-            Assert.That(doc, Does.Contain("GameplayActionAudioMoment v1 no longer includes `Contact`, `ImpactEnemy`, or `Blocked`"));
+            Assert.That(doc, Does.Contain("GameplayActionAudioMoment v1 no longer includes `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, or `Blocked`"));
+            Assert.That(doc, Does.Contain("gameplay action timeline still has execute/recovery; only the action-audio moments were removed"));
             Assert.That(doc, Does.Contain("Windup` => `StartedThisTick`"));
-            Assert.That(doc, Does.Contain("Execute` => `ExecutedThisTick`"));
-            Assert.That(doc, Does.Contain("Recovery` => `ExecutedThisTick && IsRecoveryPhase`"));
+            Assert.That(doc, Does.Not.Contain("Execute` => `ExecutedThisTick`"));
+            Assert.That(doc, Does.Not.Contain("Recovery` => `ExecutedThisTick && IsRecoveryPhase`"));
             Assert.That(doc, Does.Contain("AssistOutOfRange` => `PlayerActionAttemptSignals.FeedbackKind == AssistOutOfRange`"));
+            Assert.That(doc, Does.Contain("action lifecycle audio emission은 `Windup` only다"));
             Assert.That(doc, Does.Contain("fake failure moments는 lifecycle moments를 synthesize하지 않고"));
             Assert.That(doc, Does.Contain("same-tick duplicate suppression은 하지 않는다"));
             Assert.That(doc, Does.Contain("impact and blocked gameplay/presentation signals remain owned by their existing gameplay/presentation lanes"));
