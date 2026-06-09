@@ -21,8 +21,7 @@ Removed / reserved action-audio moments:
 - `ImpactEnemy`
 - `Blocked`
 
-Gameplay action timeline still has execute/recovery.
-Only action-audio moments were removed.
+Gameplay action timeline still has execute/recovery. Only action-audio moments were removed.
 
 ## Push/Flip Planner Policy
 
@@ -50,7 +49,7 @@ Current production profile:
 - `Assets/_Features/Gameplay/Gameplay_ActionAudio/Profiles/Player_S1_GameplayActionAudioProfile.asset`
 - GUID: `42a2e109fc5141ec9e866925a0a85c3b`
 
-Historical note: the profile previously used a `_Test` suffix, but current production profile naming is `Player_S1_GameplayActionAudioProfile.asset`.
+Historical note: the profile previously used a `_Test` suffix, but the current production profile name is `Player_S1_GameplayActionAudioProfile.asset`.
 
 Current required Push/Flip coverage:
 

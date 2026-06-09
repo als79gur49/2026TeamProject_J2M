@@ -49,8 +49,7 @@ v1 canonical-player required coverage:
 - `Flip`: `Windup`, `AssistOutOfRange`, `NoTarget`, `Invalid`
 - GameplayActionAudioMoment v1 no longer includes `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, or `Blocked`.
 - Push/Flip action-audio `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, and `Blocked` cues were removed because they are not emitted by the current production planner.
-- Gameplay action timeline still has execute/recovery.
-- Only action-audio moments were removed.
+- Gameplay action timeline still has execute/recovery. Only action-audio moments were removed.
 - gameplay action timeline still has execute/recovery; only the action-audio moments were removed.
 
 ## 3. Frozen V1 Moment Mapping
