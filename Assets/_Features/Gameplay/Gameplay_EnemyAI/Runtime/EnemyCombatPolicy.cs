@@ -1,5 +1,4 @@
 using System;
-using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 
@@ -25,7 +24,7 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
-        public static AttackDecisionSettings CreateDefaultMelee()
+        public static AttackDecisionSettings CreateAdjacentRange()
         {
             return new AttackDecisionSettings(attackRange: 1);
         }
@@ -192,14 +191,6 @@ namespace Game.Feature.Gameplay.Entities
 
     public interface IAttackDecisionStrategy
     {
-        bool TryBuildAttackIntent(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in EntityState target,
-            in EnemyAiCommonSettings commonSettings,
-            in AttackDecisionSettings settings,
-            out RawAttackIntent intent);
-
         bool IsTargetInRange(
             in EntityState source,
             in EntityState target,
@@ -210,78 +201,12 @@ namespace Game.Feature.Gameplay.Entities
     {
         public static readonly NoAttackDecisionStrategy Instance = new();
 
-        public bool TryBuildAttackIntent(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in EntityState target,
-            in EnemyAiCommonSettings commonSettings,
-            in AttackDecisionSettings settings,
-            out RawAttackIntent intent)
-        {
-            intent = default;
-            return false;
-        }
-
         public bool IsTargetInRange(
             in EntityState source,
             in EntityState target,
             in AttackDecisionSettings settings)
         {
             return false;
-        }
-    }
-
-    public sealed class MeleeAttackDecisionStrategy : IAttackDecisionStrategy
-    {
-        public static readonly MeleeAttackDecisionStrategy Instance = new();
-
-        public bool TryBuildAttackIntent(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in EntityState target,
-            in EnemyAiCommonSettings commonSettings,
-            in AttackDecisionSettings settings,
-            out RawAttackIntent intent)
-        {
-            if (snapshot == null)
-            {
-                throw new ArgumentNullException(nameof(snapshot));
-            }
-
-            intent = default;
-
-            if (!IsTargetInRange(source, target, settings))
-            {
-                return false;
-            }
-
-            intent = new RawAttackIntent(
-                source.entityId,
-                commonSettings.AttackPriority,
-                target.entityId);
-            return true;
-        }
-
-        public bool IsTargetInRange(
-            in EntityState source,
-            in EntityState target,
-            in AttackDecisionSettings settings)
-        {
-            settings.Validate(nameof(settings));
-
-            var distance = GetPlanarDistance(source.position, target.position);
-            return distance.HasValue && distance.Value <= settings.AttackRange;
-        }
-
-        private static int? GetPlanarDistance(SurfaceCell source, SurfaceCell target)
-        {
-            if (source.face != target.face)
-            {
-                return null;
-            }
-
-            var delta = target - source;
-            return Math.Abs(delta.x) + Math.Abs(delta.y);
         }
     }
 
@@ -289,57 +214,18 @@ namespace Game.Feature.Gameplay.Entities
     {
         public static readonly WindupForwardCellProjectileAttackDecisionStrategy Instance = new();
 
-        public bool TryBuildAttackIntent(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in EntityState target,
-            in EnemyAiCommonSettings commonSettings,
-            in AttackDecisionSettings settings,
-            out RawAttackIntent intent)
-        {
-            intent = default;
-            return false;
-        }
-
         public bool IsTargetInRange(
             in EntityState source,
             in EntityState target,
             in AttackDecisionSettings settings)
         {
-            return MeleeAttackDecisionStrategy.Instance.IsTargetInRange(source, target, settings);
+            return EnemyAttackRangeQueries.IsTargetInRange(source, target, settings);
         }
     }
 
     public sealed class ContactSameCellAttackDecisionStrategy : IAttackDecisionStrategy
     {
         public static readonly ContactSameCellAttackDecisionStrategy Instance = new();
-
-        public bool TryBuildAttackIntent(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in EntityState target,
-            in EnemyAiCommonSettings commonSettings,
-            in AttackDecisionSettings settings,
-            out RawAttackIntent intent)
-        {
-            if (snapshot == null)
-            {
-                throw new ArgumentNullException(nameof(snapshot));
-            }
-
-            intent = default;
-
-            if (!IsTargetInRange(source, target, settings))
-            {
-                return false;
-            }
-
-            intent = new RawAttackIntent(
-                source.entityId,
-                commonSettings.AttackPriority,
-                target.entityId);
-            return true;
-        }
 
         public bool IsTargetInRange(
             in EntityState source,

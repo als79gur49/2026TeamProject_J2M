@@ -547,7 +547,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 new EnemyBrainRuntime(
                     new EnemyStateResolverRuntime(EnemyAiStateResolverKind.Default, DefaultEnemyAiStateResolver.Instance),
                     new EnemyPatrolRuntime(PatrolStrategyKind.Forward, PatrolSettings.CreateDefault(), ForwardPatrolStrategy.Instance),
-                    new EnemyDetectionRuntime(DetectionStrategyKind.NearestOpponent, DetectionSettings.CreateDefaultMelee(), NearestOpponentDetectionStrategy.Instance),
+                    new EnemyDetectionRuntime(DetectionStrategyKind.NearestOpponent, DetectionSettings.CreateStandardEnemyDetection(), NearestOpponentDetectionStrategy.Instance),
                     new EnemyChaseRuntime(ChaseStrategyKind.AxisPriority, ChaseSettings.CreateDefault(), AxisPriorityChaseStrategy.Instance)),
                 new EnemyCapabilityRuntimeSet(
                     null,

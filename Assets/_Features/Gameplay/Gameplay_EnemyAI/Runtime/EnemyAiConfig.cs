@@ -33,7 +33,7 @@ namespace Game.Feature.Gameplay.Entities
 
     public enum AttackDecisionStrategyKind
     {
-        Melee = 0,
+        RetiredMelee = 0,
         None = 1,
         ContactSameCell = 2,
         WindupForwardCellProjectile = 3,
@@ -78,7 +78,7 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
-        public static EnemyAiCommonSettings CreateDefaultMelee()
+        public static EnemyAiCommonSettings CreateStandard()
         {
             return new EnemyAiCommonSettings(
                 movementPriority: 50,
@@ -131,10 +131,10 @@ namespace Game.Feature.Gameplay.Entities
                     allowZero: true));
         }
 
-        public static EnemyAiCommonAuthoringSettings CreateDefaultMelee()
+        public static EnemyAiCommonAuthoringSettings CreateStandard()
         {
             return FromRuntimeSettings(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 GameplayTimingProfile.DefaultSimulationTicksPerSecond);
         }
 
@@ -176,7 +176,7 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
-        public static EnemyAttackTimingSettings CreateDefaultMelee()
+        public static EnemyAttackTimingSettings CreateImmediate()
         {
             return new EnemyAttackTimingSettings(windupTicks: 0);
         }
@@ -213,10 +213,10 @@ namespace Game.Feature.Gameplay.Entities
                     allowZero: true));
         }
 
-        public static EnemyAttackTimingAuthoringSettings CreateDefaultMelee()
+        public static EnemyAttackTimingAuthoringSettings CreateImmediate()
         {
             return FromRuntimeSettings(
-                EnemyAttackTimingSettings.CreateDefaultMelee(),
+                EnemyAttackTimingSettings.CreateImmediate(),
                 GameplayTimingProfile.DefaultSimulationTicksPerSecond);
         }
 
@@ -270,7 +270,7 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
-        public static EnemyLocomotionTimingSettings CreateDefaultMelee()
+        public static EnemyLocomotionTimingSettings CreateImmediate()
         {
             return new EnemyLocomotionTimingSettings(moveCooldownTicks: 0);
         }
@@ -339,10 +339,10 @@ namespace Game.Feature.Gameplay.Entities
                 ordinaryKinematicMoveTicks);
         }
 
-        public static EnemyLocomotionTimingAuthoringSettings CreateDefaultMelee()
+        public static EnemyLocomotionTimingAuthoringSettings CreateImmediate()
         {
             return FromRuntimeSettings(
-                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                EnemyLocomotionTimingSettings.CreateImmediate(),
                 GameplayTimingProfile.DefaultSimulationTicksPerSecond);
         }
 
@@ -1037,7 +1037,7 @@ namespace Game.Feature.Gameplay.Entities
                 chaseSettings,
                 attackDecisionSettings,
                 attackTimingSettings,
-                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                EnemyLocomotionTimingSettings.CreateImmediate(),
                 MovementSkillStrategyKind.None,
                 EnemyJumpTimingSettings.CreateDefault(),
                 patrolStrategy,
@@ -1126,11 +1126,11 @@ namespace Game.Feature.Gameplay.Entities
 
         public AttackDecisionSettings AttackDecisionSettings => Capabilities.TryGetCombat(out var combat)
             ? combat.AttackDecisionSettings
-            : global::Game.Feature.Gameplay.Entities.AttackDecisionSettings.CreateDefaultMelee();
+            : global::Game.Feature.Gameplay.Entities.AttackDecisionSettings.CreateAdjacentRange();
 
         public EnemyAttackTimingSettings AttackTimingSettings => Capabilities.TryGetCombat(out var combat)
             ? combat.AttackTimingSettings
-            : global::Game.Feature.Gameplay.Entities.EnemyAttackTimingSettings.CreateDefaultMelee();
+            : global::Game.Feature.Gameplay.Entities.EnemyAttackTimingSettings.CreateImmediate();
 
         public EnemyLocomotionTimingSettings LocomotionTimingSettings => Core.LocomotionTimingSettings;
 
@@ -1176,25 +1176,6 @@ namespace Game.Feature.Gameplay.Entities
             Capabilities.Validate(paramName);
         }
 
-        public static EnemyAiRuntimeDefinition CreateDefaultMelee()
-        {
-            return new EnemyAiRuntimeDefinition(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                EnemyAttackTimingSettings.CreateDefaultMelee(),
-                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
-                MovementSkillStrategyKind.None,
-                EnemyJumpTimingSettings.CreateDefault(),
-                ForwardPatrolStrategy.Instance,
-                NearestOpponentDetectionStrategy.Instance,
-                AxisPriorityChaseStrategy.Instance,
-                MeleeAttackDecisionStrategy.Instance,
-                DefaultEnemyAiStateResolver.Instance);
-        }
-
         internal static EnemyAiRuntimeDefinition CreateFromProfile(
             EnemyAiProfile profile,
             int simulationTicksPerSecond)
@@ -1211,7 +1192,7 @@ namespace Game.Feature.Gameplay.Entities
         {
             EnemyCombatCapabilityRuntime combat = null;
             var attackKind = ResolveAttackDecisionStrategyKind(attackDecisionStrategy);
-            if (attackKind != AttackDecisionStrategyKind.None)
+            if (attackKind == AttackDecisionStrategyKind.WindupForwardCellProjectile)
             {
                 combat = new EnemyCombatCapabilityRuntime(
                     attackKind,
@@ -1271,7 +1252,6 @@ namespace Game.Feature.Gameplay.Entities
         {
             return attackDecisionStrategy switch
             {
-                MeleeAttackDecisionStrategy _ => AttackDecisionStrategyKind.Melee,
                 WindupForwardCellProjectileAttackDecisionStrategy _ => AttackDecisionStrategyKind.WindupForwardCellProjectile,
                 NoAttackDecisionStrategy _ => AttackDecisionStrategyKind.None,
                 ContactSameCellAttackDecisionStrategy _ => AttackDecisionStrategyKind.ContactSameCell,

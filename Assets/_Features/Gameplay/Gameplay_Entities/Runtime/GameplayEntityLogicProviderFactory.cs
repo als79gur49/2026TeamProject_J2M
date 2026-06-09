@@ -7,7 +7,11 @@ namespace Game.Feature.Gameplay.Entities
     {
         public static ISnapshotEntityLogicProvider CreateDefault()
         {
-            return CreateDefault(EnemyAiRuntimeDefinition.CreateDefaultMelee());
+            return CreateDefault(
+                default,
+                definitionsByEntityId: null,
+                definitionsByArchetypeId: null,
+                hasDefaultDefinition: false);
         }
 
         public static ISnapshotEntityLogicProvider CreateDefault(EnemyAiProfile enemyAiProfile)

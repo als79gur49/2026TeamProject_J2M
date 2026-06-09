@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.Tests;
 
 namespace Game.Feature.Gameplay.Tests.Replay
 {
@@ -25,14 +26,22 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var playerControlTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
-                worldState,
-                entityLogicList,
-                timingProfile,
-                playerControlTiming,
-                runtimeFeatureFlags: runtimeFeatureFlags,
-                playerContinuousLocomotion: playerContinuousLocomotion);
-            return Run(pipeline, entityLogicList, inputs, initialDelayedAttackEffects);
+            var profile = EnemyAiProfileTestFactory.CreateNonAttacking();
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+                    worldState,
+                    entityLogicList,
+                    timingProfile,
+                    playerControlTiming,
+                    runtimeFeatureFlags: runtimeFeatureFlags,
+                    playerContinuousLocomotion: playerContinuousLocomotion);
+                return Run(pipeline, entityLogicList, inputs, initialDelayedAttackEffects);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
         }
 
         public IReadOnlyList<TickReplayFrame> Run(

@@ -64,54 +64,13 @@ namespace Game.Feature.Gameplay.Entities
 
     internal static class WindupMeleeCombatPoseQueries
     {
-        private const int ProvisionalPlayerCombatRadiusUnits = KinematicFixed.UnitsPerCell * 3 / 16;
-
-        public static bool CanStartWindupMeleeA(
+        private static WindupMeleeStartQueryResult QueryStartShortRangeWindupFromSimulationPose(
             WorldSnapshot snapshot,
             in EntityState enemy,
             in EntityState player,
-            IAttackDecisionStrategy attackDecisionStrategy,
-            in AttackDecisionSettings attackDecisionSettings,
-            in WindupMeleeSettings windupMeleeSettings,
-            out CombatOriginAnchor enemyOrigin)
-        {
-            var result = QueryStartWindupMeleeA(
-                snapshot,
-                enemy,
-                player,
-                attackDecisionStrategy,
-                attackDecisionSettings,
-                windupMeleeSettings);
-            enemyOrigin = result.EnemyOrigin;
-            return result.CanStart;
-        }
-
-        public static WindupMeleeStartQueryResult QueryStartWindupMeleeA(
-            WorldSnapshot snapshot,
-            in EntityState enemy,
-            in EntityState player,
-            IAttackDecisionStrategy attackDecisionStrategy,
             in AttackDecisionSettings attackDecisionSettings,
             in WindupMeleeSettings windupMeleeSettings)
         {
-            if (snapshot == null)
-            {
-                throw new ArgumentNullException(nameof(snapshot));
-            }
-
-            attackDecisionSettings.Validate(nameof(attackDecisionSettings));
-            windupMeleeSettings.Validate(nameof(windupMeleeSettings));
-
-            if (!IsShortRangeWindupStrategy(attackDecisionStrategy))
-            {
-                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.TargetInvalid);
-            }
-
-            if (!attackDecisionStrategy.IsTargetInRange(enemy, player, attackDecisionSettings))
-            {
-                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.OutsideLogicRange);
-            }
-
             if (IsInSevereCombatOriginTransition(snapshot, enemy) ||
                 IsInSevereCombatOriginTransition(snapshot, player))
             {
@@ -182,13 +141,31 @@ namespace Game.Feature.Gameplay.Entities
             targetCell = default;
             settings.Validate(nameof(settings));
 
-            var startQuery = QueryStartWindupMeleeA(
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            attackDecisionSettings.Validate(nameof(attackDecisionSettings));
+            var windupStartSettings = settings.ToWindupStartSettings();
+            windupStartSettings.Validate(nameof(settings));
+
+            if (attackDecisionStrategy is not WindupForwardCellProjectileAttackDecisionStrategy)
+            {
+                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.TargetInvalid);
+            }
+
+            if (!EnemyAttackRangeQueries.IsTargetInRange(enemy, player, attackDecisionSettings))
+            {
+                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.OutsideLogicRange);
+            }
+
+            var startQuery = QueryStartShortRangeWindupFromSimulationPose(
                 snapshot,
                 enemy,
                 player,
-                attackDecisionStrategy,
                 attackDecisionSettings,
-                settings.ToWindupStartSettings());
+                windupStartSettings);
             if (!startQuery.CanStart)
             {
                 return startQuery;
@@ -292,13 +269,7 @@ namespace Game.Feature.Gameplay.Entities
                 return result;
             }
 
-            return QueryStartWindupMeleeA(
-                snapshot,
-                enemy,
-                player,
-                combatCapability.AttackDecisionStrategy,
-                combatCapability.AttackDecisionSettings,
-                combatCapability.WindupMeleeSettings);
+            return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.TargetInvalid);
         }
 
         public static bool TryResolveForwardTargetCell(
@@ -454,42 +425,6 @@ namespace Game.Feature.Gameplay.Entities
                    offset.y == delta.y * distanceCells;
         }
 
-        private static bool IsShortRangeWindupStrategy(IAttackDecisionStrategy attackDecisionStrategy)
-        {
-            return attackDecisionStrategy is MeleeAttackDecisionStrategy ||
-                   attackDecisionStrategy is WindupForwardCellProjectileAttackDecisionStrategy;
-        }
-
-        public static bool CanExecuteHitFromLockedCombatAnchor(
-            WorldSnapshot snapshot,
-            in EnemyActionRuntimeState actionState,
-            in EntityState player,
-            in AttackDecisionSettings attackDecisionSettings)
-        {
-            if (snapshot == null)
-            {
-                throw new ArgumentNullException(nameof(snapshot));
-            }
-
-            attackDecisionSettings.Validate(nameof(attackDecisionSettings));
-            if (!actionState.hasLockedCombatAnchor ||
-                !TryResolveSimulationCombatOrigin(snapshot, player, out var playerOrigin) ||
-                actionState.lockedCombatAnchor.AnchorCell.face != playerOrigin.AnchorCell.face)
-            {
-                return false;
-            }
-
-            // Temporary hurtbox approximation: runtime has no combat hurtbox surface yet,
-            // so WindupMelee execute uses the player simulation combat point plus a small radius.
-            return IsPointWithinForwardMeleeShape(
-                actionState.lockedCombatAnchor,
-                actionState.direction,
-                attackDecisionSettings.AttackRange * KinematicFixed.UnitsPerCell,
-                playerOrigin.TileSpaceX,
-                playerOrigin.TileSpaceY,
-                ProvisionalPlayerCombatRadiusUnits);
-        }
-
         public static bool IsMoveLockStartedThisTick(WorldSnapshot snapshot, int entityId, int tickIndex)
         {
             if (snapshot == null)
@@ -608,86 +543,5 @@ namespace Game.Feature.Gameplay.Entities
                    Math.Abs(target.TileSpaceY - source.TileSpaceY);
         }
 
-        private static bool IsPointWithinForwardMeleeShape(
-            CombatOriginAnchor anchor,
-            Direction direction,
-            int rangeUnits,
-            int pointX,
-            int pointY,
-            int radiusUnits)
-        {
-            var deltaX = ResolveDirectionX(direction);
-            var deltaY = ResolveDirectionY(direction);
-            var endX = anchor.TileSpaceX + (deltaX * rangeUnits);
-            var endY = anchor.TileSpaceY + (deltaY * rangeUnits);
-            if (deltaX == 0 && deltaY == 0)
-            {
-                endX = anchor.TileSpaceX;
-                endY = anchor.TileSpaceY;
-            }
-
-            return DistanceSquaredPointToSegment(
-                       pointX,
-                       pointY,
-                       anchor.TileSpaceX,
-                       anchor.TileSpaceY,
-                       endX,
-                       endY) <= (long)radiusUnits * radiusUnits;
-        }
-
-        private static int ResolveDirectionX(Direction direction)
-        {
-            return direction switch
-            {
-                Direction.Right => 1,
-                Direction.Left => -1,
-                _ => 0,
-            };
-        }
-
-        private static int ResolveDirectionY(Direction direction)
-        {
-            return direction switch
-            {
-                Direction.Up => 1,
-                Direction.Down => -1,
-                _ => 0,
-            };
-        }
-
-        private static long DistanceSquaredPointToSegment(
-            int pointX,
-            int pointY,
-            int segmentStartX,
-            int segmentStartY,
-            int segmentEndX,
-            int segmentEndY)
-        {
-            var segmentX = segmentEndX - segmentStartX;
-            var segmentY = segmentEndY - segmentStartY;
-            var pointDeltaX = pointX - segmentStartX;
-            var pointDeltaY = pointY - segmentStartY;
-            var segmentLengthSquared = ((long)segmentX * segmentX) + ((long)segmentY * segmentY);
-            if (segmentLengthSquared == 0)
-            {
-                return ((long)pointDeltaX * pointDeltaX) + ((long)pointDeltaY * pointDeltaY);
-            }
-
-            var projectedNumerator = ((long)pointDeltaX * segmentX) + ((long)pointDeltaY * segmentY);
-            if (projectedNumerator <= 0)
-            {
-                return ((long)pointDeltaX * pointDeltaX) + ((long)pointDeltaY * pointDeltaY);
-            }
-
-            if (projectedNumerator >= segmentLengthSquared)
-            {
-                var endDeltaX = pointX - segmentEndX;
-                var endDeltaY = pointY - segmentEndY;
-                return ((long)endDeltaX * endDeltaX) + ((long)endDeltaY * endDeltaY);
-            }
-
-            var cross = ((long)pointDeltaX * segmentY) - ((long)pointDeltaY * segmentX);
-            return (cross * cross) / segmentLengthSquared;
-        }
     }
 }

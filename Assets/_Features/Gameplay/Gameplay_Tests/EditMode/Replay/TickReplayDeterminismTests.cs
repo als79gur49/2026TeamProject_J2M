@@ -23,6 +23,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
     {
         private static EnemyUnitArchetypeAsset SharedSummonedArchetype;
         private static EnemyAiProfile SharedSummonedProfile;
+        private static EnemyAiProfile ReplayDefaultProfile;
 
         [Test]
         [Category("Core")]
@@ -33,7 +34,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(2, 0), hp: 1),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreateReplayTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -115,10 +116,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3, unitMobilityKind: UnitMobilityKind.Air),
             });
 
-            var groundHash = GameplayCompositionRoot.CreateTickPipeline(groundWorld, Array.Empty<IEntityLogic>())
+            var groundHash = CreateReplayTickPipeline(groundWorld, Array.Empty<IEntityLogic>())
                 .RunTick(new TickInput(1))
                 .DeterminismHash;
-            var airHash = GameplayCompositionRoot.CreateTickPipeline(airWorld, Array.Empty<IEntityLogic>())
+            var airHash = CreateReplayTickPipeline(airWorld, Array.Empty<IEntityLogic>())
                 .RunTick(new TickInput(1))
                 .DeterminismHash;
 
@@ -193,10 +194,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     "E=10"),
                 Is.True);
             Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("DamageCommitted"));
-            Assert.That(firstReplay[0].EnemyActionDump, Does.Contain("E=40|Kind=None|Seq=1|Target=0|Direction=None"));
-            Assert.That(firstReplay[0].EnemyActionDump, Does.Not.Contain("Kind=Melee"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("EnemyAction.BeforeAttackCollectionTransitions"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("E=40|Prev=Melee|Curr=None|PrevSeq=1|CurrSeq=1|Started=False|Canceled=True"));
             Assert.That(firstReplay[0].Trace, Does.Not.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40"));
             Assert.That(firstReplay[0].Trace, Does.Not.Contain("EnemyAiTransition|Stage=AfterAttack|E=40"));
         }
@@ -676,14 +673,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void DeterminismHash_StackedUnitOccupancy_IsIncludedInCanonicalState()
         {
-            var stackedResult = GameplayCompositionRoot.CreateTickPipeline(
+            var stackedResult = CreateReplayTickPipeline(
                 CreateWorldState(new[]
                 {
                     CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                     CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(0, 0), hp: 2),
                 }))
                 .RunTick(new TickInput(1));
-            var separatedResult = GameplayCompositionRoot.CreateTickPipeline(
+            var separatedResult = CreateReplayTickPipeline(
                 CreateWorldState(new[]
                 {
                     CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
@@ -717,8 +714,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     unlockTickExclusive = 11,
                 });
 
-            var unlockedResult = GameplayCompositionRoot.CreateTickPipeline(unlockedWorldState).RunTick(new TickInput(1));
-            var lockedResult = GameplayCompositionRoot.CreateTickPipeline(lockedWorldState).RunTick(new TickInput(1));
+            var unlockedResult = CreateReplayTickPipeline(unlockedWorldState).RunTick(new TickInput(1));
+            var lockedResult = CreateReplayTickPipeline(lockedWorldState).RunTick(new TickInput(1));
 
             Assert.That(unlockedResult.DeterminismHash, Is.Not.EqualTo(lockedResult.DeterminismHash));
             Assert.That(lockedResult.Trace.Text, Does.Contain("Final.ExecutionLocks"));
@@ -1131,13 +1128,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void DeterminismHash_PendingDelayedEvent_IsIncludedInCanonicalState()
         {
-            var pipelineWithoutDelayedEvent = GameplayCompositionRoot.CreateTickPipeline(
+            var pipelineWithoutDelayedEvent = CreateReplayTickPipeline(
                 CreateWorldState(new[]
                 {
                     CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                     CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
                 }));
-            var pipelineWithDelayedEvent = GameplayCompositionRoot.CreateTickPipeline(
+            var pipelineWithDelayedEvent = CreateReplayTickPipeline(
                 CreateWorldState(new[]
                 {
                     CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
@@ -1326,12 +1323,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void DeterminismHash_EnemyAiMode_IsIncludedInCanonicalState()
         {
-            var idlePipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var idlePipeline = CreateReplayTickPipeline(
                 CreateWorldState(new[]
                 {
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.None),
                 }));
-            var chasePipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var chasePipeline = CreateReplayTickPipeline(
                 CreateWorldState(new[]
                 {
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase),
@@ -1367,8 +1364,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
             kineticWorldState.CreateWriteContext().SetBoxKineticOwner(40, instigatorEntityId: 10, instigatorTeamId: 1);
 
-            var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
-            var kineticResult = GameplayCompositionRoot.CreateTickPipeline(kineticWorldState).RunTick(new TickInput(1));
+            var idleResult = CreateReplayTickPipeline(idleWorldState).RunTick(new TickInput(1));
+            var kineticResult = CreateReplayTickPipeline(kineticWorldState).RunTick(new TickInput(1));
             var replay = new TickReplayHarness().Run(
                 kineticWorldState,
                 new IEntityLogic[0],
@@ -1383,12 +1380,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void DeterminismHash_EnemyAiStateTimer_IsIncludedInCanonicalState()
         {
-            var zeroTimerPipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var zeroTimerPipeline = CreateReplayTickPipeline(
                 CreateWorldState(new[]
                 {
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Recover, aiStateTimer: 0),
                 }));
-            var timedPipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var timedPipeline = CreateReplayTickPipeline(
                 CreateWorldState(new[]
                 {
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Recover, aiStateTimer: 2),
@@ -1405,12 +1402,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void DeterminismHash_EnemyLocomotionCooldown_IsIncludedInCanonicalState()
         {
-            var zeroCooldownPipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var zeroCooldownPipeline = CreateReplayTickPipeline(
                 CreateWorldState(new[]
                 {
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase, enemyLocomotionCooldownTicks: 0),
                 }));
-            var cooledDownPipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var cooledDownPipeline = CreateReplayTickPipeline(
                 CreateWorldState(new[]
                 {
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase, enemyLocomotionCooldownTicks: 2),
@@ -1472,10 +1469,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     lastCommittedDirection = Direction.Right,
                 });
 
-            var idleActionResult = GameplayCompositionRoot.CreateTickPipeline(idleActionWorldState).RunTick(new TickInput(1));
-            var actionResult = GameplayCompositionRoot.CreateTickPipeline(actionWorldState).RunTick(new TickInput(1));
-            var idlePatrolResult = GameplayCompositionRoot.CreateTickPipeline(idlePatrolWorldState).RunTick(new TickInput(1));
-            var patrolResult = GameplayCompositionRoot.CreateTickPipeline(patrolWorldState).RunTick(new TickInput(1));
+            var idleActionResult = CreateReplayTickPipeline(idleActionWorldState).RunTick(new TickInput(1));
+            var actionResult = CreateReplayTickPipeline(actionWorldState).RunTick(new TickInput(1));
+            var idlePatrolResult = CreateReplayTickPipeline(idlePatrolWorldState).RunTick(new TickInput(1));
+            var patrolResult = CreateReplayTickPipeline(patrolWorldState).RunTick(new TickInput(1));
 
             Assert.That(idleActionResult.DeterminismHash, Is.Not.EqualTo(actionResult.DeterminismHash));
             Assert.That(actionResult.Trace.Text, Does.Contain("Final.EnemyActions"));
@@ -1491,8 +1488,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void Replay_EnemyAiKinematicScenario_DeterministicCanonicalState()
         {
-            var firstReplay = RunWindupRandomWalkPilotReplaySequence();
-            var secondReplay = RunWindupRandomWalkPilotReplaySequence();
+            var firstReplay = RunWindupForwardCellProjectileRandomWalkReplaySequence();
+            var secondReplay = RunWindupForwardCellProjectileRandomWalkReplaySequence();
 
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -1535,8 +1532,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     retryCount = 3,
                 });
 
-            var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
-            var jumpResult = GameplayCompositionRoot.CreateTickPipeline(jumpWorldState).RunTick(new TickInput(1));
+            var idleResult = CreateReplayTickPipeline(idleWorldState).RunTick(new TickInput(1));
+            var jumpResult = CreateReplayTickPipeline(jumpWorldState).RunTick(new TickInput(1));
 
             Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(jumpResult.DeterminismHash));
             Assert.That(jumpResult.Trace.Text, Does.Contain("Final.EnemyJumps"));
@@ -1571,8 +1568,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     cooldownTicks: 2,
                     lastExitedTick: 0));
 
-            var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
-            var glideResult = GameplayCompositionRoot.CreateTickPipeline(glideWorldState).RunTick(new TickInput(1));
+            var idleResult = CreateReplayTickPipeline(idleWorldState).RunTick(new TickInput(1));
+            var glideResult = CreateReplayTickPipeline(glideWorldState).RunTick(new TickInput(1));
 
             Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(glideResult.DeterminismHash));
             Assert.That(glideResult.Trace.Text, Does.Contain("Final.EnemyGlides"));
@@ -1624,8 +1621,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     lastExitedTick: 0,
                     lockedTargetEntityId: 20));
 
-            var firstResult = GameplayCompositionRoot.CreateTickPipeline(firstWorldState).RunTick(new TickInput(1));
-            var secondResult = GameplayCompositionRoot.CreateTickPipeline(secondWorldState).RunTick(new TickInput(1));
+            var firstResult = CreateReplayTickPipeline(firstWorldState).RunTick(new TickInput(1));
+            var secondResult = CreateReplayTickPipeline(secondWorldState).RunTick(new TickInput(1));
 
             Assert.That(firstResult.DeterminismHash, Is.Not.EqualTo(secondResult.DeterminismHash));
             Assert.That(firstResult.Trace.Text, Does.Contain("LockedTarget=10"));
@@ -1661,8 +1658,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             chargeWorldState.CreateWriteContext().SetEnemyChargeState(40, chargeState);
             replayWorldState.CreateWriteContext().SetEnemyChargeState(40, chargeState);
 
-            var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
-            var chargeResult = GameplayCompositionRoot.CreateTickPipeline(chargeWorldState).RunTick(new TickInput(1));
+            var idleResult = CreateReplayTickPipeline(idleWorldState).RunTick(new TickInput(1));
+            var chargeResult = CreateReplayTickPipeline(chargeWorldState).RunTick(new TickInput(1));
             var replay = new TickReplayHarness().Run(
                 replayWorldState,
                 new IEntityLogic[0],
@@ -1796,10 +1793,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
                         new EnemyUtilityEffectState { cooldownTicksRemaining = 2 },
                     }));
 
-            var baselineResult = GameplayCompositionRoot.CreateTickPipeline(baselineWorldState).RunTick(new TickInput(1));
-            var utilityResult = GameplayCompositionRoot.CreateTickPipeline(utilityWorldState).RunTick(new TickInput(1));
-            var utilitySuppressionResult = GameplayCompositionRoot.CreateTickPipeline(utilitySuppressionWorldState).RunTick(new TickInput(1));
-            var utilitySuspendedWindowResult = GameplayCompositionRoot.CreateTickPipeline(utilitySuspendedWindowWorldState).RunTick(new TickInput(1));
+            var baselineResult = CreateReplayTickPipeline(baselineWorldState).RunTick(new TickInput(1));
+            var utilityResult = CreateReplayTickPipeline(utilityWorldState).RunTick(new TickInput(1));
+            var utilitySuppressionResult = CreateReplayTickPipeline(utilitySuppressionWorldState).RunTick(new TickInput(1));
+            var utilitySuspendedWindowResult = CreateReplayTickPipeline(utilitySuspendedWindowWorldState).RunTick(new TickInput(1));
             var replay = new TickReplayHarness().Run(
                 replayWorldState,
                 Array.Empty<IEntityLogic>(),
@@ -1837,8 +1834,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             lockedWorldState.SetBoxInteractionLockState(20, new BoxInteractionLockState(40, 0, 3, blocksPush: true, blocksFlip: false));
             replayWorldState.SetBoxInteractionLockState(20, new BoxInteractionLockState(40, 0, 3, blocksPush: true, blocksFlip: false));
 
-            var baselineResult = GameplayCompositionRoot.CreateTickPipeline(baselineWorldState).RunTick(new TickInput(1));
-            var lockedResult = GameplayCompositionRoot.CreateTickPipeline(lockedWorldState).RunTick(new TickInput(1));
+            var baselineResult = CreateReplayTickPipeline(baselineWorldState).RunTick(new TickInput(1));
+            var lockedResult = CreateReplayTickPipeline(lockedWorldState).RunTick(new TickInput(1));
             var replay = new TickReplayHarness().Run(
                 replayWorldState,
                 Array.Empty<IEntityLogic>(),
@@ -1884,8 +1881,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             summonedWorldState.SetSummonedEntityState(41, new SummonedEntityState(40, 0));
             replayWorldState.SetSummonedEntityState(41, new SummonedEntityState(40, 0));
 
-            var baselineResult = GameplayCompositionRoot.CreateTickPipeline(baselineWorldState).RunTick(new TickInput(1));
-            var summonedResult = GameplayCompositionRoot.CreateTickPipeline(summonedWorldState).RunTick(new TickInput(1));
+            var baselineResult = CreateReplayTickPipeline(baselineWorldState).RunTick(new TickInput(1));
+            var summonedResult = CreateReplayTickPipeline(summonedWorldState).RunTick(new TickInput(1));
             var replay = new TickReplayHarness().Run(
                 replayWorldState,
                 Array.Empty<IEntityLogic>(),
@@ -2085,10 +2082,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_WindupRandomWalkPilot_ProducesStableHashTrace_AndBoundedPatrolDump()
+        public void Replay_WindupForwardCellProjectileRandomWalk_ProducesStableHashTrace_AndBoundedPatrolDump()
         {
-            var firstReplay = RunWindupRandomWalkPilotReplaySequence();
-            var secondReplay = RunWindupRandomWalkPilotReplaySequence();
+            var firstReplay = RunWindupForwardCellProjectileRandomWalkReplaySequence();
+            var secondReplay = RunWindupForwardCellProjectileRandomWalkReplaySequence();
 
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -2107,10 +2104,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_WindupRandomWalkPilot_PatrolDump_MatchesFinalSnapshotState()
+        public void Replay_WindupForwardCellProjectileRandomWalk_PatrolDump_MatchesFinalSnapshotState()
         {
-            var replay = RunWindupRandomWalkPilotReplaySequence();
-            var snapshotDumps = RunWindupRandomWalkPilotSnapshotDumpSequence();
+            var replay = RunWindupForwardCellProjectileRandomWalkReplaySequence();
+            var snapshotDumps = RunWindupForwardCellProjectileRandomWalkSnapshotDumpSequence();
 
             CollectionAssert.AreEqual(
                 snapshotDumps,
@@ -2120,9 +2117,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void DeterminismHash_WindupRandomWalkPilot_PatrolFootprint_IsLimitedToEnemyPatrolRuntimeState()
+        public void DeterminismHash_WindupForwardCellProjectileRandomWalk_PatrolFootprint_IsLimitedToEnemyPatrolRuntimeState()
         {
-            var replay = RunWindupRandomWalkPilotReplaySequence();
+            var replay = RunWindupForwardCellProjectileRandomWalkReplaySequence();
 
             Assert.That(replay.Select(frame => frame.EnemyPatrolDump), Has.All.Not.EqualTo("<empty>"));
             foreach (var frame in replay)
@@ -2341,18 +2338,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
-            worldState.CreateWriteContext().SetEnemyActionState(
-                40,
-                new EnemyActionRuntimeState
-                {
-                    kind = EnemyActionKind.Melee,
-                    sequence = 1,
-                    lockedTargetEntityId = 10,
-                    direction = Direction.Up,
-                    startTick = 0,
-                    executeTick = 1,
-                });
-
             return new TickReplayHarness().Run(
                 worldState,
                 new IEntityLogic[]
@@ -2617,7 +2602,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             }
         }
 
-        private static IReadOnlyList<TickReplayFrame> RunWindupRandomWalkPilotReplaySequence()
+        private static IReadOnlyList<TickReplayFrame> RunWindupForwardCellProjectileRandomWalkReplaySequence()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -2627,7 +2612,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
                 GameplayTerrainData.Empty);
-            var profile = EnemyAiProfileTestFactory.CreateWindupRandomWalkPilot(windupTicks: 1);
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectileRandomWalk(windupTicks: 1);
 
             try
             {
@@ -2653,7 +2638,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             }
         }
 
-        private static IReadOnlyList<string> RunWindupRandomWalkPilotSnapshotDumpSequence()
+        private static IReadOnlyList<string> RunWindupForwardCellProjectileRandomWalkSnapshotDumpSequence()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -2663,12 +2648,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
                 GameplayTerrainData.Empty);
-            var profile = EnemyAiProfileTestFactory.CreateWindupRandomWalkPilot(windupTicks: 1);
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectileRandomWalk(windupTicks: 1);
             var dumps = new List<string>();
 
             try
             {
-                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var pipeline = CreateReplayTickPipeline(worldState, profile);
                 for (var tickIndex = 1; tickIndex <= 6; tickIndex++)
                 {
                     pipeline.RunTick(new TickInput(tickIndex));
@@ -3576,6 +3561,33 @@ namespace Game.Feature.Gameplay.Tests.Replay
             catalog.hideFlags = HideFlags.HideAndDontSave;
             EnemyAiProfileTestFactory.SetSerializedField(catalog, "entries", entries ?? Array.Empty<EnemyUnitArchetypeAsset>());
             return catalog;
+        }
+
+        private static TickPipeline CreateReplayTickPipeline(WorldState worldState, params IEntityLogic[] entityLogics)
+        {
+            return GameplayCompositionRoot.CreateDefaultBootstrapper(GetReplayDefaultProfile())
+                .CreateTickPipeline(worldState, entityLogics ?? Array.Empty<IEntityLogic>());
+        }
+
+        private static TickPipeline CreateReplayTickPipeline(WorldState worldState, IReadOnlyList<IEntityLogic> entityLogics)
+        {
+            return GameplayCompositionRoot.CreateDefaultBootstrapper(GetReplayDefaultProfile())
+                .CreateTickPipeline(worldState, entityLogics ?? Array.Empty<IEntityLogic>());
+        }
+
+        private static TickPipeline CreateReplayTickPipeline(WorldState worldState, EnemyAiProfile profile)
+        {
+            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
+        }
+
+        private static EnemyAiProfile GetReplayDefaultProfile()
+        {
+            if (ReplayDefaultProfile == null)
+            {
+                ReplayDefaultProfile = EnemyAiProfileTestFactory.CreateNonAttacking();
+            }
+
+            return ReplayDefaultProfile;
         }
 
         private static EnemyAiProfile CreateSharedSummonedProfile()

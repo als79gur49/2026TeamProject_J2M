@@ -130,7 +130,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxUtilityWindupMigration, Is.True);
                 Assert.That(runtime.IsRuntimeInitialized, Is.False);
             }
             finally
@@ -147,7 +146,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxUtilityWindupMigration = false;
 
                 runtime.Present(CreateExtensionContext(CreatePresentationData(
                     summonWindupWarnings: new[]
@@ -173,7 +171,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxUtilityWindupMigration = true;
 
                 var sourceView = AddSourceView(owner);
                 runtime.Present(CreateExtensionContext(CreatePresentationData(
@@ -201,7 +198,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxUtilityWindupMigration = false;
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(new[] { CreateEnemyUnit(40, scenario.SourceCell) }, scenario.Topology);
 
@@ -235,7 +231,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateUtilityWindupBinding(vfxPrefab);
                 cueMap = CreateCueMap(binding);
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxUtilityWindupMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(new[] { CreateEnemyUnit(40, scenario.SourceCell) }, scenario.Topology);
@@ -266,7 +261,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxUtilityWindupMigration = true;
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(new[] { CreateEnemyUnit(40, scenario.SourceCell) }, scenario.Topology);
 

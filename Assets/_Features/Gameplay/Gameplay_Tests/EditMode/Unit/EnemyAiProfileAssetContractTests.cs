@@ -212,12 +212,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             worldState.CreateWriteContext().SetPhasedState(
                 5,
                 PhasedRuntimeStateQueries.ForceDebug(default, tickIndex: 1));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
                     new PlayerLogic(10),
-                    new EnemyLogic(5, definition),
                 });
 
             Assert.That(definition.Brain.Patrol.Kind, Is.EqualTo(PatrolStrategyKind.Stationary));
@@ -262,8 +261,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void BlackEye_WindupProjectileProfileCompiles_WithForwardCellProjectileCapability()
         {
             var profile = LoadRequiredProfile(WindupProjectileProfilePath);
+            var capabilityAsset = AssetDatabase.LoadAssetAtPath<WindupForwardCellProjectileCapabilityAsset>(
+                WindupProjectileCapabilityPath);
             var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.CreateDefault().SimulationTicksPerSecond);
 
+            Assert.That(capabilityAsset, Is.Not.Null, WindupProjectileCapabilityPath);
             Assert.That(definition.Capabilities.TryGetCombat(out var combat), Is.True);
             Assert.That(combat.Kind, Is.EqualTo(AttackDecisionStrategyKind.WindupForwardCellProjectile));
             Assert.That(combat.AttackTimingSettings.WindupTicks, Is.GreaterThan(0));
@@ -379,6 +381,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private const string WindupProjectileProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupProjectile/EnemyAi_WindupProjectile.asset";
+        private const string WindupProjectileCapabilityPath =
+            StageContentPaths.SharedEnemyAiRoot + "/Capabilities/Enemy_WindupProjectile/EnemyCapability_WindupForwardCellProjectile.asset";
 
         private const string JumpChaserProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset";

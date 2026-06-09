@@ -167,7 +167,7 @@ fake failure moment:
 
 이 구조가 필요한 이유:
 
-- fake failure는 actual `Windup`, `Execute`, `Contact`, `Blocked`, `Recovery`를 합성하지 않는다
+- fake failure는 actual `Windup`이나 removed action-audio moments인 `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, `Blocked`를 합성하지 않는다
 - success/blocked audio와 failure audio를 같은 lifecycle path에서 중복 재생하지 않는다
 - audio-specific data를 `TickResult`에 추가하지 않고 presentation facts를 소비한다
 
@@ -324,7 +324,7 @@ fake failure audio는 `AssistOutOfRange`, `NoTarget`, `Invalid`만 생성한다.
 
 주의:
 
-- fake attempt에서 `Windup`, `Execute`, `Contact`, `Blocked`, `Recovery`를 합성하지 않는다
+- fake attempt에서 `Windup`이나 removed action-audio moments인 `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, `Blocked`를 합성하지 않는다
 - actual blocked는 existing `PlayerActionSignals` blocked path에서만 발생해야 한다
 - "맨땅 실패"와 "blocked actual action"은 서로 다른 의미다
 

@@ -392,6 +392,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     recoverSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
                 AttackTimingSettings = new EnemyAttackTimingAuthoringSettings(
                     windupSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.WindupForwardCellProjectile,
                 LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(
                     moveCooldownSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
             });
@@ -433,7 +434,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_NullDefaultProfile_DoesNotCreateDefaultMeleeDefinition()
+        public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_NullDefaultProfile_LeavesDefaultDefinitionUnset()
         {
             var snapshot = new GameplaySceneHostConfiguration
             {
@@ -453,7 +454,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
-                var profile = EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks: 2);
+                var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(windupTicks: 2);
 
                 try
                 {
@@ -504,8 +505,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                     var secondTick = host.InputHost.RunSingleTick();
                     Assert.That(host.WorldState.CreateSnapshot().TryGetEntity(10, out var secondTickPlayer), Is.True);
-                    Assert.That(secondTick.AttackPhaseResult.RawIntents.Count, Is.EqualTo(1));
-                    Assert.That(secondTickPlayer.hp, Is.EqualTo(2));
+                    Assert.That(secondTick.AttackPhaseResult.RawIntents, Is.Empty);
+                    Assert.That(secondTickPlayer.hp, Is.EqualTo(3));
+                    Assert.That(
+                        host.WorldState.CreateSnapshot().CountPendingCellImpactsForOwner(40),
+                        Is.EqualTo(1));
                 }
                 finally
                 {

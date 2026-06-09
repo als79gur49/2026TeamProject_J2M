@@ -144,11 +144,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }.Select(ReadRepoFile));
 
             Assert.That(planningSource, Does.Not.Contain("FlipImpactContactVfxAnchorBuilder"));
-            Assert.That(productionRuntimeSource, Does.Contain("EnableGameplayVfxFlipImpactBurstMigration"));
             Assert.That(productionRuntimeSource, Does.Not.Contain("SuppressLegacyFlipImpact"));
             Assert.That(oldPresenterSource, Does.Not.Contain("FlipImpactContactVfxAnchor"));
             Assert.That(oldPresenterSource, Does.Not.Contain("SuppressLegacyFlipImpact"));
-            Assert.That(oldPresenterSource, Does.Not.Contain("EnableGameplayVfxFlipImpactBurstMigration"));
         }
 
         private static FlipImpactPresentationSignal CreateSignal(

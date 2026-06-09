@@ -44,10 +44,10 @@ namespace Game.Feature.Gameplay.Entities
         public ChaseSettings ChaseSettings => RequireChaseStrategyAsset().Settings;
 
         public AttackDecisionSettings AttackDecisionSettings =>
-            GetCombatCapabilityAsset()?.AttackDecisionSettings ?? global::Game.Feature.Gameplay.Entities.AttackDecisionSettings.CreateDefaultMelee();
+            GetCombatCapabilityAsset()?.AttackDecisionSettings ?? global::Game.Feature.Gameplay.Entities.AttackDecisionSettings.CreateAdjacentRange();
 
         public EnemyAttackTimingAuthoringSettings AttackTimingSettings =>
-            GetCombatCapabilityAsset()?.AttackTimingSettings ?? global::Game.Feature.Gameplay.Entities.EnemyAttackTimingAuthoringSettings.CreateDefaultMelee();
+            GetCombatCapabilityAsset()?.AttackTimingSettings ?? global::Game.Feature.Gameplay.Entities.EnemyAttackTimingAuthoringSettings.CreateImmediate();
 
         public EnemyLocomotionTimingAuthoringSettings LocomotionTimingSettings => RequireCoreAuthoring().LocomotionTimingSettings;
 

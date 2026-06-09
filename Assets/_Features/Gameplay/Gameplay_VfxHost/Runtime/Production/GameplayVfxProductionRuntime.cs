@@ -15,15 +15,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx = true;
         [SerializeField] private bool enableEnemyJumpLandingDustVfx = true;
-        [SerializeField] private bool enableGameplayVfxDamageBurstMigration = true;
-        [SerializeField] private bool enableGameplayVfxEnemyDamageBurstMigration = true;
-        [SerializeField] private bool enableGameplayVfxEnemyDeathBurstMigration = true;
-        [SerializeField] private bool enableGameplayVfxEnemyDeathMotionMigration = true;
-        [SerializeField] private bool enableGameplayVfxBoxDestroySmokeMigration = true;
-        [SerializeField] private bool enableGameplayVfxBoxDestroyShrinkMigration = true;
-        [SerializeField] private bool enableGameplayVfxItemConsumeBurstMigration = true;
-        [SerializeField] private bool enableGameplayVfxFlipImpactBurstMigration = true;
-        [SerializeField] private bool enableGameplayVfxFlipDestroySelfMotionMigration = true;
         [SerializeField] private bool enableGameplayVfxFlipImpactStayTrail = true;
         [SerializeField] private bool enableGameplayVfxGlideWindTrail = true;
         [SerializeField] private bool enableGameplayVfxChargeBoosterTrail = true;
@@ -31,12 +22,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
         [SerializeField] private bool enableGameplayVfxEnemyAttackCooldownFollow = true;
         [SerializeField] private bool enableGameplayVfxBoxSlideTrail = true;
         [SerializeField] private bool enableGameplayVfxBoxSlideSolidStop = true;
-        [SerializeField] private bool enableGameplayVfxImpactTransientBreakMigration = true;
-        [SerializeField] private bool enableGameplayVfxOutOfBoundsExitMigration = true;
-        [SerializeField] private bool enableGameplayVfxUtilityWindupMigration = true;
-        [SerializeField] private bool enableGameplayVfxFrontFaceShieldActiveMigration = true;
-        [SerializeField] private bool enableGameplayVfxFrontFaceShieldBlockMigration = true;
-        [SerializeField] private bool enableGameplayVfxFrontFaceShieldWindupMigration = true;
         [SerializeField] private bool enableGameplayVfxTileFeatureLane = true;
         [SerializeField] private bool enableGameplayVfxGravityFieldEvents = true;
         [SerializeField] private bool enableGameplayVfxGravityFieldContinuous = true;
@@ -115,6 +100,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private bool isStageTerminalVfxSuppressed;
         private GameplayStageTerminalPresentationReason stageTerminalSuppressionReason;
         private int topologyTransitionSuppressEpoch;
+        private const bool CanonicalMigratedGameplayVfxEnabled = true;
         private const float TopologyTransitionSoftSpawnDelaySeconds = 0.12f;
 
         public bool EnableEnemyJumpTargetVfx
@@ -149,141 +135,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
                 enableEnemyJumpLandingDustVfx = value;
                 ResetIfNoEnemyJumpVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxDamageBurstMigration
-        {
-            get => enableGameplayVfxDamageBurstMigration;
-            set
-            {
-                if (enableGameplayVfxDamageBurstMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxDamageBurstMigration = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxEnemyDamageBurstMigration
-        {
-            get => enableGameplayVfxEnemyDamageBurstMigration;
-            set
-            {
-                if (enableGameplayVfxEnemyDamageBurstMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxEnemyDamageBurstMigration = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxBoxDestroySmokeMigration
-        {
-            get => enableGameplayVfxBoxDestroySmokeMigration;
-            set
-            {
-                if (enableGameplayVfxBoxDestroySmokeMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxBoxDestroySmokeMigration = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxBoxDestroyShrinkMigration
-        {
-            get => enableGameplayVfxBoxDestroyShrinkMigration;
-            set
-            {
-                if (enableGameplayVfxBoxDestroyShrinkMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxBoxDestroyShrinkMigration = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxEnemyDeathBurstMigration
-        {
-            get => enableGameplayVfxEnemyDeathBurstMigration;
-            set
-            {
-                if (enableGameplayVfxEnemyDeathBurstMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxEnemyDeathBurstMigration = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxEnemyDeathMotionMigration
-        {
-            get => enableGameplayVfxEnemyDeathMotionMigration;
-            set
-            {
-                if (enableGameplayVfxEnemyDeathMotionMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxEnemyDeathMotionMigration = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxItemConsumeBurstMigration
-        {
-            get => enableGameplayVfxItemConsumeBurstMigration;
-            set
-            {
-                if (enableGameplayVfxItemConsumeBurstMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxItemConsumeBurstMigration = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxFlipImpactBurstMigration
-        {
-            get => enableGameplayVfxFlipImpactBurstMigration;
-            set
-            {
-                if (enableGameplayVfxFlipImpactBurstMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxFlipImpactBurstMigration = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxFlipDestroySelfMotionMigration
-        {
-            get => enableGameplayVfxFlipDestroySelfMotionMigration;
-            set
-            {
-                if (enableGameplayVfxFlipDestroySelfMotionMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxFlipDestroySelfMotionMigration = value;
-                ResetIfNoGameplayVfxEnabled();
             }
         }
 
@@ -469,96 +320,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 }
 
                 enableGameplayVfxGravityFieldLockedTarget = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxImpactTransientBreakMigration
-        {
-            get => enableGameplayVfxImpactTransientBreakMigration;
-            set
-            {
-                if (enableGameplayVfxImpactTransientBreakMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxImpactTransientBreakMigration = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxOutOfBoundsExitMigration
-        {
-            get => enableGameplayVfxOutOfBoundsExitMigration;
-            set
-            {
-                if (enableGameplayVfxOutOfBoundsExitMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxOutOfBoundsExitMigration = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxUtilityWindupMigration
-        {
-            get => enableGameplayVfxUtilityWindupMigration;
-            set
-            {
-                if (enableGameplayVfxUtilityWindupMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxUtilityWindupMigration = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxFrontFaceShieldActiveMigration
-        {
-            get => enableGameplayVfxFrontFaceShieldActiveMigration;
-            set
-            {
-                if (enableGameplayVfxFrontFaceShieldActiveMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxFrontFaceShieldActiveMigration = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxFrontFaceShieldBlockMigration
-        {
-            get => enableGameplayVfxFrontFaceShieldBlockMigration;
-            set
-            {
-                if (enableGameplayVfxFrontFaceShieldBlockMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxFrontFaceShieldBlockMigration = value;
-                ResetIfNoGameplayVfxEnabled();
-            }
-        }
-
-        public bool EnableGameplayVfxFrontFaceShieldWindupMigration
-        {
-            get => enableGameplayVfxFrontFaceShieldWindupMigration;
-            set
-            {
-                if (enableGameplayVfxFrontFaceShieldWindupMigration == value)
-                {
-                    return;
-                }
-
-                enableGameplayVfxFrontFaceShieldWindupMigration = value;
                 ResetIfNoGameplayVfxEnabled();
             }
         }
@@ -971,25 +732,19 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 visibilityContext,
                 RecordPlanningVisibilityPolicy);
             var shouldPlayFlipDestroySelfMotion =
-                enableGameplayVfxFlipDestroySelfMotionMigration &&
                 HasDestroySelfFlipImpactSignal(context.Result.PresentationData);
             var shouldPlayBoxSlideSolidStop =
                 enableGameplayVfxBoxSlideSolidStop &&
                 HasBoxSlideSolidStopSignal(context.Result.PresentationData);
             var shouldPlayBoxDestroyShrink =
-                enableGameplayVfxBoxDestroyShrinkMigration &&
                 HasBoxDestroyExitSignal(context.Result.PresentationData);
             var shouldScheduleAfterEntityMotionBoxDestroyExit =
-                (enableGameplayVfxBoxDestroySmokeMigration || enableGameplayVfxBoxDestroyShrinkMigration) &&
                 HasAfterEntityMotionBoxDestroyExitSignal(context.Result.PresentationData);
             var shouldPlayImpactTransientBreak =
-                enableGameplayVfxImpactTransientBreakMigration &&
                 HasImpactTransientBreakSignal(context.Result.PresentationData);
             var shouldPlayOutOfBoundsExit =
-                enableGameplayVfxOutOfBoundsExitMigration &&
                 HasOutOfBoundsExitSignal(context.Result.PresentationData);
             var shouldPlayEnemyDeathMotion =
-                enableGameplayVfxEnemyDeathMotionMigration &&
                 HasEnemyDeathExitSignal(context.Result.PresentationData);
             var shouldPlayForwardCellProjectile =
                 enableGameplayVfxForwardCellProjectile &&
@@ -1439,15 +1194,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private bool AnyGameplayVfxEnabled =>
             AnyEnemyJumpVfxEnabled ||
-            enableGameplayVfxDamageBurstMigration ||
-            enableGameplayVfxEnemyDamageBurstMigration ||
-            enableGameplayVfxEnemyDeathBurstMigration ||
-            enableGameplayVfxEnemyDeathMotionMigration ||
-            enableGameplayVfxBoxDestroySmokeMigration ||
-            enableGameplayVfxBoxDestroyShrinkMigration ||
-            enableGameplayVfxItemConsumeBurstMigration ||
-            enableGameplayVfxFlipImpactBurstMigration ||
-            enableGameplayVfxFlipDestroySelfMotionMigration ||
+            CanonicalMigratedGameplayVfxEnabled ||
             enableGameplayVfxFlipImpactStayTrail ||
             enableGameplayVfxGlideWindTrail ||
             enableGameplayVfxChargeBoosterTrail ||
@@ -1455,12 +1202,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
             enableGameplayVfxEnemyAttackCooldownFollow ||
             enableGameplayVfxBoxSlideTrail ||
             enableGameplayVfxBoxSlideSolidStop ||
-            enableGameplayVfxImpactTransientBreakMigration ||
-            enableGameplayVfxOutOfBoundsExitMigration ||
-            enableGameplayVfxUtilityWindupMigration ||
-            enableGameplayVfxFrontFaceShieldActiveMigration ||
-            enableGameplayVfxFrontFaceShieldBlockMigration ||
-            enableGameplayVfxFrontFaceShieldWindupMigration ||
             enableGameplayVfxTileFeatureLane ||
             enableGameplayVfxGravityFieldEvents ||
             enableGameplayVfxGravityFieldContinuous ||
@@ -1842,22 +1583,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private bool IsCueEnabled(GameplayVfxCueId cueId)
         {
-            return (enableGameplayVfxDamageBurstMigration && cueId == GameplayVfxCueId.From(PlayerVfxCue.Damage)) ||
-                   (enableGameplayVfxEnemyDamageBurstMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.Damage)) ||
-                   (enableGameplayVfxEnemyDeathBurstMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.Death)) ||
-                   (enableGameplayVfxEnemyDeathMotionMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)) ||
-                   (enableGameplayVfxUtilityWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup)) ||
-                   (enableGameplayVfxFrontFaceShieldActiveMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldActive)) ||
-                   (enableGameplayVfxFrontFaceShieldBlockMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldBlock)) ||
-                   (enableGameplayVfxFrontFaceShieldWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup)) ||
-                   (enableGameplayVfxUtilityWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.GravityFieldAuraWindupArea)) ||
-                   (enableGameplayVfxUtilityWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.GravityFieldAuraActiveArea)) ||
-                   (enableGameplayVfxUtilityWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.GravityFieldAuraActiveStarted)) ||
-                   (enableGameplayVfxBoxDestroySmokeMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)) ||
-                   (enableGameplayVfxBoxDestroyShrinkMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.DestroyShrink)) ||
-                   (enableGameplayVfxItemConsumeBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ItemConsume)) ||
-                   (enableGameplayVfxFlipImpactBurstMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipImpactBurst)) ||
-                   (enableGameplayVfxFlipDestroySelfMotionMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion)) ||
+            return (CanonicalMigratedGameplayVfxEnabled && IsCanonicalMigratedCue(cueId)) ||
                    (enableGameplayVfxFlipImpactStayTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.FlipImpactStayTrail)) ||
                    (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideWindTrail)) ||
                    (enableGameplayVfxGlideWindTrail && cueId == GameplayVfxCueId.From(EnemyVfxCue.GlideWindupLoop)) ||
@@ -1867,16 +1593,36 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableGameplayVfxEnemyAttackCooldownFollow && cueId == GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellAttackCooldownFollow)) ||
                    (enableGameplayVfxBoxSlideTrail && cueId == GameplayVfxCueId.From(BoxVfxCue.BoxSlideFollowLoop)) ||
                    (enableGameplayVfxBoxSlideSolidStop && cueId == GameplayVfxCueId.From(BoxVfxCue.BoxSlideSolidStop)) ||
-                   (enableGameplayVfxImpactTransientBreakMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)) ||
-                   (enableGameplayVfxOutOfBoundsExitMigration && cueId == GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit)) ||
-                   (enableGameplayVfxOutOfBoundsExitMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit)) ||
                    (enableGameplayVfxTileFeatureLane && cueId.Family == GameplayVfxFamily.TileFeature) ||
                    IsGravityFieldCueEnabled(cueId) ||
-                   (enableGameplayVfxUtilityWindupMigration && cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn)) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingTarget)) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperJumpStart)) ||
                    (enableEnemyJumpTargetVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperWindupLoop)) ||
                    (enableEnemyJumpLandingDustVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust));
+        }
+
+        private static bool IsCanonicalMigratedCue(GameplayVfxCueId cueId)
+        {
+            return cueId == GameplayVfxCueId.From(PlayerVfxCue.Damage) ||
+                   cueId == GameplayVfxCueId.From(EnemyVfxCue.Damage) ||
+                   cueId == GameplayVfxCueId.From(EnemyVfxCue.Death) ||
+                   cueId == GameplayVfxCueId.From(EnemyVfxCue.DeathMotion) ||
+                   cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup) ||
+                   cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn) ||
+                   cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldActive) ||
+                   cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldBlock) ||
+                   cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup) ||
+                   cueId == GameplayVfxCueId.From(EnemyVfxCue.GravityFieldAuraWindupArea) ||
+                   cueId == GameplayVfxCueId.From(EnemyVfxCue.GravityFieldAuraActiveArea) ||
+                   cueId == GameplayVfxCueId.From(EnemyVfxCue.GravityFieldAuraActiveStarted) ||
+                   cueId == GameplayVfxCueId.From(EnemyVfxCue.OutOfBoundsExit) ||
+                   cueId == GameplayVfxCueId.From(BoxVfxCue.DestroySmoke) ||
+                   cueId == GameplayVfxCueId.From(BoxVfxCue.DestroyShrink) ||
+                   cueId == GameplayVfxCueId.From(BoxVfxCue.ItemConsume) ||
+                   cueId == GameplayVfxCueId.From(BoxVfxCue.FlipImpactBurst) ||
+                   cueId == GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion) ||
+                   cueId == GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak) ||
+                   cueId == GameplayVfxCueId.From(BoxVfxCue.OutOfBoundsExit);
         }
 
         private void StopAttachedFollowerCue(GameplayVfxCueId cueId, bool tail)
@@ -2468,8 +2214,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
-                var playSmoke = enableGameplayVfxBoxDestroySmokeMigration;
-                var playShrink = enableGameplayVfxBoxDestroyShrinkMigration;
+                var playSmoke = true;
+                var playShrink = true;
                 if (!playSmoke && !playShrink)
                 {
                     continue;

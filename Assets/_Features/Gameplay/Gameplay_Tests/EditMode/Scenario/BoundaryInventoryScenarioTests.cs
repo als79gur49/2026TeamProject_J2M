@@ -3153,17 +3153,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     attackPriority: 50,
                     recoverTicks: 1),
                 PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
+                DetectionSettings.CreateStandardEnemyDetection(),
                 ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
+                AttackDecisionSettings.CreateAdjacentRange(),
                 new EnemyAttackTimingSettings(windupTicks: 1),
-                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                EnemyLocomotionTimingSettings.CreateImmediate(),
                 MovementSkillStrategyKind.PhaseThroughLockedTarget,
                 EnemyJumpTimingSettings.CreateDefault(),
                 ForwardPatrolStrategy.Instance,
                 NearestOpponentDetectionStrategy.Instance,
                 AxisPriorityChaseStrategy.Instance,
-                MeleeAttackDecisionStrategy.Instance,
+                WindupForwardCellProjectileAttackDecisionStrategy.Instance,
                 DefaultEnemyAiStateResolver.Instance);
         }
 

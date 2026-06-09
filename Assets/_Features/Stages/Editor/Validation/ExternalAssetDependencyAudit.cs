@@ -28,11 +28,15 @@ namespace Game.Feature.Stages.Editor
             "Assets/StreamingAssets",
         };
 
-        private static readonly string[] ProductionScenes =
+        private static readonly string[] ActiveProductionScenes =
+        {
+            "Assets/Scenes/UIAudioScene.unity",
+        };
+
+        private static readonly string[] RemovedObsoleteRawScenePaths =
         {
             "Assets/Scenes/CombinedGameplayShowcase.unity",
             "Assets/Scenes/TutorialScene.unity",
-            "Assets/Scenes/UIAudioScene.unity",
         };
 
         private const string ReportDirectory = "TestResults";
@@ -51,7 +55,8 @@ namespace Game.Feature.Stages.Editor
 
             var rows = new List<AuditRow>();
             AuditOwnerRoots(rows);
-            AuditProductionScenes(rows);
+            AuditActiveProductionScenes(rows);
+            AuditRemovedObsoleteRawScenes(rows);
             AuditStageCatalogGraph(rows);
 
             WriteReport(rows);
@@ -86,18 +91,30 @@ namespace Game.Feature.Stages.Editor
             }
         }
 
-        private static void AuditProductionScenes(List<AuditRow> rows)
+        private static void AuditActiveProductionScenes(List<AuditRow> rows)
         {
-            for (var i = 0; i < ProductionScenes.Length; i++)
+            for (var i = 0; i < ActiveProductionScenes.Length; i++)
             {
-                var scenePath = ProductionScenes[i];
+                var scenePath = ActiveProductionScenes[i];
                 if (!File.Exists(ToAbsolutePath(scenePath)))
                 {
-                    rows.Add(AuditRow.Missing("ProductionScene", scenePath));
+                    rows.Add(AuditRow.Missing("ActiveProductionScene", scenePath));
                     continue;
                 }
 
-                AddDependencyRow(rows, "ProductionSceneDirect", scenePath, scenePath, recursive: true);
+                AddDependencyRow(rows, "ActiveProductionSceneDirect", scenePath, scenePath, recursive: true);
+            }
+        }
+
+        private static void AuditRemovedObsoleteRawScenes(List<AuditRow> rows)
+        {
+            for (var i = 0; i < RemovedObsoleteRawScenePaths.Length; i++)
+            {
+                var scenePath = RemovedObsoleteRawScenePaths[i];
+                if (File.Exists(ToAbsolutePath(scenePath)))
+                {
+                    rows.Add(AuditRow.Missing("RemovedObsoleteRawSceneStillPresent", scenePath));
+                }
             }
         }
 

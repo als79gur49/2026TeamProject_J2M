@@ -21,7 +21,11 @@ namespace Game.Feature.Gameplay.Entities
         private readonly IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition> _definitionsByArchetypeId;
 
         public EnemyEntityLogicFactory()
-            : this(EnemyAiRuntimeDefinition.CreateDefaultMelee())
+            : this(
+                default,
+                definitionsByEntityId: null,
+                definitionsByArchetypeId: null,
+                hasDefaultDefinition: false)
         {
         }
 
@@ -114,7 +118,11 @@ namespace Game.Feature.Gameplay.Entities
         private readonly EnemyEntityLogicFactory _enemyLogicFactory;
 
         public EnemyCombatEntityLogicFactory()
-            : this(EnemyAiRuntimeDefinition.CreateDefaultMelee())
+            : this(
+                default,
+                definitionsByEntityId: null,
+                definitionsByArchetypeId: null,
+                hasDefaultDefinition: false)
         {
         }
 
@@ -151,7 +159,11 @@ namespace Game.Feature.Gameplay.Entities
         private readonly EnemyEntityLogicFactory _enemyLogicFactory;
 
         public EnemyFrontFaceSupportEntityLogicFactory()
-            : this(EnemyAiRuntimeDefinition.CreateDefaultMelee())
+            : this(
+                default,
+                definitionsByEntityId: null,
+                definitionsByArchetypeId: null,
+                hasDefaultDefinition: false)
         {
         }
 

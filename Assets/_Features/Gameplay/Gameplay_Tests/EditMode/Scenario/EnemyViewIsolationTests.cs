@@ -26,8 +26,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             };
             var baselineWorld = CreateWorldState(initialEntities);
             var presentedWorld = CreateWorldState(initialEntities);
-            var baselinePipeline = GameplayCompositionRoot.CreateTickPipeline(baselineWorld);
-            var presentedPipeline = GameplayCompositionRoot.CreateTickPipeline(presentedWorld);
+            var profile = EnemyAiProfileTestFactory.CreateNonAttacking();
+            var baselinePipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(baselineWorld);
+            var presentedPipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(presentedWorld);
             var rootObject = new GameObject("EnemyViewIsolationTests_Presenter");
 
             try
@@ -79,6 +80,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
+                EnemyAiProfileTestFactory.Destroy(profile);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -418,7 +420,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static EnemyAiProfile CreateEnemyProfile(int windupTicks)
         {
-            return EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks);
+            return EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(windupTicks: windupTicks);
         }
 
         private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks)

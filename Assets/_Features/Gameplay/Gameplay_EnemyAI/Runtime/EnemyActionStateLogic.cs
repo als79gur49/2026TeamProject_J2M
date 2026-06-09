@@ -17,8 +17,9 @@ namespace Game.Feature.Gameplay.Entities
         private IReadOnlyList<TileFeatureRuntimeDefinition> _tileFeatureDefinitions = Array.Empty<TileFeatureRuntimeDefinition>();
 
         public EnemyActionStateLogic(int entityId)
-            : this(entityId, EnemyAiRuntimeDefinition.CreateDefaultMelee())
         {
+            throw new InvalidOperationException(
+                "Enemy AI runtime definition must be explicit. Use an EnemyAiProfile or EnemyAiRuntimeDefinition constructor.");
         }
 
         public EnemyActionStateLogic(int entityId, EnemyAiProfile profile)
@@ -287,13 +288,7 @@ namespace Game.Feature.Gameplay.Entities
                 return result;
             }
 
-            return WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
-                snapshot,
-                source,
-                target,
-                _combatCapability.AttackDecisionStrategy,
-                _combatCapability.AttackDecisionSettings,
-                _combatCapability.WindupMeleeSettings);
+            return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.TargetInvalid);
         }
 
         private EnemyActionRuntimeState CommitForwardCellProjectileRelease(
@@ -562,7 +557,11 @@ namespace Game.Feature.Gameplay.Entities
         private readonly EnemyEntityLogicFactory _enemyLogicFactory;
 
         public EnemyActionStateEntityLogicFactory()
-            : this(EnemyAiRuntimeDefinition.CreateDefaultMelee())
+            : this(
+                default,
+                definitionsByEntityId: null,
+                definitionsByArchetypeId: null,
+                hasDefaultDefinition: false)
         {
         }
 

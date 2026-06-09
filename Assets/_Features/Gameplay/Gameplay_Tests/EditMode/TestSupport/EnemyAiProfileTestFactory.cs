@@ -11,18 +11,18 @@ namespace Game.Feature.Gameplay.Tests
 {
     internal sealed class EnemyAiTestProfileSpec
     {
-        public EnemyAiCommonAuthoringSettings CommonSettings = EnemyAiCommonAuthoringSettings.CreateDefaultMelee();
-        public EnemyLocomotionTimingAuthoringSettings LocomotionTimingSettings = EnemyLocomotionTimingAuthoringSettings.CreateDefaultMelee();
+        public EnemyAiCommonAuthoringSettings CommonSettings = EnemyAiCommonAuthoringSettings.CreateStandard();
+        public EnemyLocomotionTimingAuthoringSettings LocomotionTimingSettings = EnemyLocomotionTimingAuthoringSettings.CreateImmediate();
         public EnemyChargeTimingAuthoringSettings ChargeTimingSettings = EnemyChargeTimingAuthoringSettings.CreateDefault();
         public EnemyAiStateResolverKind StateResolverKind = EnemyAiStateResolverKind.Default;
         public PatrolStrategyKind PatrolStrategyKind = PatrolStrategyKind.Forward;
         public PatrolSettings PatrolSettings = PatrolSettings.CreateDefault();
         public DetectionStrategyKind DetectionStrategyKind = DetectionStrategyKind.NearestOpponent;
-        public DetectionSettings DetectionSettings = DetectionSettings.CreateDefaultMelee();
+        public DetectionSettings DetectionSettings = DetectionSettings.CreateStandardEnemyDetection();
         public ChaseSettings ChaseSettings = ChaseSettings.CreateDefault();
-        public AttackDecisionStrategyKind AttackDecisionStrategyKind = AttackDecisionStrategyKind.Melee;
-        public AttackDecisionSettings AttackDecisionSettings = AttackDecisionSettings.CreateDefaultMelee();
-        public EnemyAttackTimingAuthoringSettings AttackTimingSettings = EnemyAttackTimingAuthoringSettings.CreateDefaultMelee();
+        public AttackDecisionStrategyKind AttackDecisionStrategyKind = AttackDecisionStrategyKind.None;
+        public AttackDecisionSettings AttackDecisionSettings = AttackDecisionSettings.CreateAdjacentRange();
+        public EnemyAttackTimingAuthoringSettings AttackTimingSettings = EnemyAttackTimingAuthoringSettings.CreateImmediate();
         public WindupMeleeSettings WindupMeleeSettings = WindupMeleeSettings.CreateDefault();
         public WindupForwardCellProjectileSettings WindupForwardCellProjectileSettings =
             WindupForwardCellProjectileSettings.CreateDefault();
@@ -68,24 +68,6 @@ namespace Game.Feature.Gameplay.Tests
             return profile;
         }
 
-        public static EnemyAiProfile CreateDefaultMelee(
-            int windupTicks = 0,
-            int moveCooldownTicks = 0,
-            int recoverTicks = 1,
-            bool includePassiveContact = false)
-        {
-            return Create(new EnemyAiTestProfileSpec
-            {
-                CommonSettings = ToAuthoring(new EnemyAiCommonSettings(
-                    movementPriority: 50,
-                    attackPriority: 50,
-                    recoverTicks: recoverTicks)),
-                LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
-                AttackTimingSettings = ToAuthoring(new EnemyAttackTimingSettings(windupTicks)),
-                IncludePassiveContact = includePassiveContact,
-            });
-        }
-
         public static EnemyAiProfile CreateWindupForwardCellProjectile(
             int windupTicks = 1,
             int impactDelayTicks = 1,
@@ -116,34 +98,10 @@ namespace Game.Feature.Gameplay.Tests
             });
         }
 
-        public static EnemyAiProfile CreateNonAttacking(int moveCooldownTicks = 0, bool includePassiveContact = false)
-        {
-            return Create(new EnemyAiTestProfileSpec
-            {
-                LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
-                PatrolStrategyKind = PatrolStrategyKind.RandomWalk,
-                PatrolSettings = PatrolSettings.CreateDefaultRandomWalk(),
-                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                IncludePassiveContact = includePassiveContact,
-            });
-        }
-
-        public static PatrolSettings CreateWindupRandomWalkPilotPatrolSettings()
-        {
-            return new PatrolSettings(
-                PatrolBlockedMovementResponse.Stop,
-                leashRadius: 1,
-                forwardWeight: 6,
-                sideWeight: 1,
-                backwardWeight: 1,
-                preventImmediateBacktrack: true);
-        }
-
-        public static EnemyAiProfile CreateWindupRandomWalkPilot(
+        public static EnemyAiProfile CreateWindupForwardCellProjectileRandomWalk(
             int windupTicks = 1,
             int moveCooldownTicks = 0,
-            int recoverTicks = 1,
-            bool includePassiveContact = true)
+            int recoverTicks = 1)
         {
             return Create(new EnemyAiTestProfileSpec
             {
@@ -153,8 +111,20 @@ namespace Game.Feature.Gameplay.Tests
                     recoverTicks: recoverTicks)),
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
                 PatrolStrategyKind = PatrolStrategyKind.RandomWalk,
-                PatrolSettings = CreateWindupRandomWalkPilotPatrolSettings(),
+                PatrolSettings = PatrolSettings.CreateDefaultRandomWalk(),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.WindupForwardCellProjectile,
                 AttackTimingSettings = ToAuthoring(new EnemyAttackTimingSettings(windupTicks)),
+            });
+        }
+
+        public static EnemyAiProfile CreateNonAttacking(int moveCooldownTicks = 0, bool includePassiveContact = false)
+        {
+            return Create(new EnemyAiTestProfileSpec
+            {
+                LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
+                PatrolStrategyKind = PatrolStrategyKind.RandomWalk,
+                PatrolSettings = PatrolSettings.CreateDefaultRandomWalk(),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 IncludePassiveContact = includePassiveContact,
             });
         }
@@ -447,16 +417,6 @@ namespace Game.Feature.Gameplay.Tests
             {
                 case AttackDecisionStrategyKind.None:
                     break;
-
-                case AttackDecisionStrategyKind.Melee:
-                {
-                    var melee = CreateHiddenAsset<MeleeCombatCapabilityAsset>("Test_MeleeCombatCapability");
-                    SetSerializedField(melee, "attackDecisionSettings", spec.AttackDecisionSettings);
-                    SetSerializedField(melee, "attackTimingSettings", spec.AttackTimingSettings);
-                    SetSerializedField(melee, "windupMeleeSettings", spec.WindupMeleeSettings);
-                    yield return melee;
-                    break;
-                }
 
                 case AttackDecisionStrategyKind.WindupForwardCellProjectile:
                 {

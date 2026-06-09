@@ -60,7 +60,7 @@ Decision: `OK_CURRENT`.
 Vocabulary owners:
 
 - `GameplayActionKind`: `Push`, `Flip`
-- `GameplayActionAudioMoment`: `Windup`, `Execute`, `Recovery`, `AssistOutOfRange`, `NoTarget`, `Invalid`
+- `GameplayActionAudioMoment`: `Windup`, `AssistOutOfRange`, `NoTarget`, `Invalid`; removed/reserved action-audio moments are `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, and `Blocked`
 - removed action-audio moments: `Contact`, `ImpactEnemy`, and `Blocked`
 
 Profile evidence:

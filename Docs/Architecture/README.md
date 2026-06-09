@@ -30,6 +30,8 @@
   - current supporting truth for canonical topology transition fact normalization at the TickPresentationData build boundary
 - [Audio-Architecture-Guidelines.md](./Audio-Architecture-Guidelines.md)
   - current supporting truth for 2D non-spatial audio contracts, runtime ownership, and audio seam vocabulary
+- [Audio-Current-Structure-Source.md](./Audio-Current-Structure-Source.md)
+  - external current-structure source for audio documentation regeneration, stale-token audits, and current Push/Flip action-audio moment policy
 - [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md)
   - current supporting truth for gameplay audio semantic-family governance, host one-shot controller scope, and safe semantic expansion protocol
 - [Gameplay-Action-Audio-Governance.md](./Gameplay-Action-Audio-Governance.md)
@@ -92,7 +94,7 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
 6. [Gameplay-EnemyPatrol-Phase5-WindupMelee-Rollout.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Rollout.md)
 7. [Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md)
 
-이 묶음은 patrol bounded rollout의 active supporting truth-source다.
+이 묶음은 patrol bounded rollout의 active/historical supporting truth-source다. Phase 5 `WindupMelee` 문서는 retired repository profile의 historical provenance이며, current production windup lane은 explicit `WindupProjectile` profile path다.
 
 - phase 2는 `EnemyLogic` 책임 분해, `RandomWalk` special-case 경계, `Forward` readiness, `WallFollow` no-touch 이유를 고정한다.
 - proposal contract는 patrol common decision layer가 direction / facing / init hint까지만 제안한다는 owner boundary를 고정한다.

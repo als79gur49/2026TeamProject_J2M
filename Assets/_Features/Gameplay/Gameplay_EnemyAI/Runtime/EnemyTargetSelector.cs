@@ -36,7 +36,7 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
-        public static DetectionSettings CreateDefaultMelee()
+        public static DetectionSettings CreateStandardEnemyDetection()
         {
             return new DetectionSettings(
                 senseRange: 8,

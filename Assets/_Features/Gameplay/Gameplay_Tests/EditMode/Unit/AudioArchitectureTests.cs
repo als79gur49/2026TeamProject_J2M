@@ -423,6 +423,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var names = Enum.GetNames(typeof(GameplayActionAudioMoment));
 
+            Assert.That(names, Does.Not.Contain("Execute"));
+            Assert.That(names, Does.Not.Contain("Recovery"));
+            Assert.That(names, Does.Not.Contain("Contact"));
+            Assert.That(names, Does.Not.Contain("ImpactEnemy"));
+            Assert.That(names, Does.Not.Contain("Blocked"));
             Assert.That(names, Does.Not.Contain("Loop"));
             Assert.That(names, Does.Not.Contain("SlideLoop"));
             Assert.That(names, Does.Not.Contain("ChargeLoop"));

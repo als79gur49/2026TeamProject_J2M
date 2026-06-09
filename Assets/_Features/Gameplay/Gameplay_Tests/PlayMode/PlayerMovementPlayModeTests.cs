@@ -2321,10 +2321,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static InputActionAsset CreateKeyboardMoveActions(bool includeArrowKeys = false)
         {
             var actions = ScriptableObject.CreateInstance<InputActionAsset>();
-            var map = new InputActionMap("Player");
-            var move = map.AddAction("Move", InputActionType.Value);
-            var pushAction = map.AddAction("Push", InputActionType.Button);
-            var flipAction = map.AddAction("Flip", InputActionType.Button);
+            var map = new InputActionMap(GameplayInputActionPaths.PlayerActionMap);
+            var move = map.AddAction(GameplayInputActionPaths.MoveAction, InputActionType.Value);
+            var pushAction = map.AddAction(GameplayInputActionPaths.PushAction, InputActionType.Button);
+            var flipAction = map.AddAction(GameplayInputActionPaths.FlipAction, InputActionType.Button);
             move.AddCompositeBinding("2DVector")
                 .With("Up", "<Keyboard>/w")
                 .With("Down", "<Keyboard>/s")
@@ -2342,6 +2342,24 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             pushAction.AddBinding("<Keyboard>/e");
             flipAction.AddBinding("<Keyboard>/q");
             actions.AddActionMap(map);
+
+            var uiMap = new InputActionMap(GameplayInputActionPaths.UiActionMap);
+            var navigate = uiMap.AddAction(GameplayInputActionPaths.NavigateAction, InputActionType.PassThrough);
+            navigate.AddCompositeBinding("2DVector")
+                .With("Up", "<Keyboard>/w")
+                .With("Down", "<Keyboard>/s")
+                .With("Left", "<Keyboard>/a")
+                .With("Right", "<Keyboard>/d");
+            if (includeArrowKeys)
+            {
+                navigate.AddCompositeBinding("2DVector")
+                    .With("Up", "<Keyboard>/upArrow")
+                    .With("Down", "<Keyboard>/downArrow")
+                    .With("Left", "<Keyboard>/leftArrow")
+                    .With("Right", "<Keyboard>/rightArrow");
+            }
+
+            actions.AddActionMap(uiMap);
             return actions;
         }
 
