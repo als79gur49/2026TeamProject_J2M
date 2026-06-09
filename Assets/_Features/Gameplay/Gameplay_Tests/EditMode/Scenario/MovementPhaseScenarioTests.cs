@@ -4698,11 +4698,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void Movement_FrontFaceShieldPresentation_InactiveSourceCasesEmitNoSourceSignal(string inactiveCase)
         {
             var enemy = CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Front, 0, 0));
-            EnemyAiProfile profile = null;
-            if (!string.Equals(inactiveCase, "NoCapability", StringComparison.Ordinal))
-            {
-                profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect(radius: 1));
-            }
+            var profile = string.Equals(inactiveCase, "NoCapability", StringComparison.Ordinal)
+                ? CreateNoFrontFaceSupportProfile()
+                : CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect(radius: 1));
 
             switch (inactiveCase)
             {
@@ -5790,6 +5788,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 DetectionStrategyKind = DetectionStrategyKind.None,
                 PatrolStrategyKind = PatrolStrategyKind.Stationary,
                 FrontFaceSupportEffects = new[] { effect },
+            });
+        }
+
+        private static EnemyAiProfile CreateNoFrontFaceSupportProfile()
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
             });
         }
 
