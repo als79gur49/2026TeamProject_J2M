@@ -107,7 +107,7 @@ Recommended Phase 6B scope is Option A+B only. Do not combine it with Presentati
 | --- | --- |
 | `Gameplay_Vfx/Runtime` | keep |
 | `Gameplay_VfxHost/Runtime/Pool` | keep |
-| `Gameplay_VfxHost/Runtime/Lifecycle` | keep |
+| `Gameplay_Vfx/Runtime/Lifecycle` | keep |
 | `Gameplay_VfxHost/Runtime/Production` | keep |
 | `GameplayVfxRuntimeRoot.cs` | keep |
 | `GameplayVfxHostDefaultCueMap.asset` | keep |

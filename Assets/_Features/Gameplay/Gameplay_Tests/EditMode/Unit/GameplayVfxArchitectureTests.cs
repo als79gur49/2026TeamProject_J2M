@@ -76,7 +76,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "## VFX Planner Dependency Rule",
                 "## Production Runtime Dependency Rule",
                 "## Gameplay VFX Legacy Old Path Cleanup",
-                "## Gameplay VFX Flag Rollout Policy",
+                "## Gameplay VFX Canonical Toggle Policy",
                 "## Visual Source Modes",
                 "## Presentation Admission Families",
                 "## Placeholder Prefab Policy",
@@ -97,8 +97,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("must not read WorldState"));
             Assert.That(document, Does.Contain("must not call WorldState.CreateSnapshot"));
             Assert.That(document, Does.Contain("Binding missing, anchor missing, and invalid policy are distinct failure modes"));
-            Assert.That(document, Does.Contain("flag off means that VFX is off"));
-            Assert.That(document, Does.Contain("it does not mean old presenter fallback"));
+            Assert.That(document, Does.Contain("Migrated cues are now canonical Gameplay VFX playback and are not scene/public flag gated."));
+            Assert.That(document, Does.Contain("must not restore any old presenter path"));
             Assert.That(document, Does.Contain("### PrefabOnly"));
             Assert.That(document, Does.Contain("### SourceCloneMotion"));
             Assert.That(document, Does.Contain("### PrefabWithSourceClone"));
