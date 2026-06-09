@@ -1491,8 +1491,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void Replay_EnemyAiKinematicScenario_DeterministicCanonicalState()
         {
-            var firstReplay = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence();
-            var secondReplay = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence();
+            var firstReplay = RunWindupForwardCellProjectileRandomWalkReplaySequence();
+            var secondReplay = RunWindupForwardCellProjectileRandomWalkReplaySequence();
 
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -2085,10 +2085,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_HistoricalTestOnlyWindupMeleeRandomWalkPilot_ProducesStableHashTrace_AndBoundedPatrolDump()
+        public void Replay_WindupForwardCellProjectileRandomWalk_ProducesStableHashTrace_AndBoundedPatrolDump()
         {
-            var firstReplay = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence();
-            var secondReplay = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence();
+            var firstReplay = RunWindupForwardCellProjectileRandomWalkReplaySequence();
+            var secondReplay = RunWindupForwardCellProjectileRandomWalkReplaySequence();
 
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -2107,10 +2107,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_HistoricalTestOnlyWindupMeleeRandomWalkPilot_PatrolDump_MatchesFinalSnapshotState()
+        public void Replay_WindupForwardCellProjectileRandomWalk_PatrolDump_MatchesFinalSnapshotState()
         {
-            var replay = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence();
-            var snapshotDumps = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotSnapshotDumpSequence();
+            var replay = RunWindupForwardCellProjectileRandomWalkReplaySequence();
+            var snapshotDumps = RunWindupForwardCellProjectileRandomWalkSnapshotDumpSequence();
 
             CollectionAssert.AreEqual(
                 snapshotDumps,
@@ -2120,9 +2120,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void DeterminismHash_HistoricalTestOnlyWindupMeleeRandomWalkPilot_PatrolFootprint_IsLimitedToEnemyPatrolRuntimeState()
+        public void DeterminismHash_WindupForwardCellProjectileRandomWalk_PatrolFootprint_IsLimitedToEnemyPatrolRuntimeState()
         {
-            var replay = RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence();
+            var replay = RunWindupForwardCellProjectileRandomWalkReplaySequence();
 
             Assert.That(replay.Select(frame => frame.EnemyPatrolDump), Has.All.Not.EqualTo("<empty>"));
             foreach (var frame in replay)
@@ -2617,7 +2617,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             }
         }
 
-        private static IReadOnlyList<TickReplayFrame> RunHistoricalTestOnlyWindupMeleeRandomWalkPilotReplaySequence()
+        private static IReadOnlyList<TickReplayFrame> RunWindupForwardCellProjectileRandomWalkReplaySequence()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -2627,7 +2627,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
                 GameplayTerrainData.Empty);
-            var profile = EnemyAiProfileTestFactory.CreateHistoricalTestOnlyWindupMeleeRandomWalkPilot(windupTicks: 1);
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectileRandomWalk(windupTicks: 1);
 
             try
             {
@@ -2653,7 +2653,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             }
         }
 
-        private static IReadOnlyList<string> RunHistoricalTestOnlyWindupMeleeRandomWalkPilotSnapshotDumpSequence()
+        private static IReadOnlyList<string> RunWindupForwardCellProjectileRandomWalkSnapshotDumpSequence()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -2663,7 +2663,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
                 GameplayTerrainData.Empty);
-            var profile = EnemyAiProfileTestFactory.CreateHistoricalTestOnlyWindupMeleeRandomWalkPilot(windupTicks: 1);
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectileRandomWalk(windupTicks: 1);
             var dumps = new List<string>();
 
             try

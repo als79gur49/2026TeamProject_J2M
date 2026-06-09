@@ -210,7 +210,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             EnemyPatrol_KinematicMovement();
             EnemyMovesIntoPlayer_Kinematic_NoPassiveContactWithoutFinalizedSameCellMove();
             EnemyMovesIntoPlayer_Kinematic_PassiveContactFiresOnFinalizedSameCellMove();
-            EnemyAi_WindupProfile_TelegraphsBeforeExecuteAndThenEntersRecover();
+            EnemyAi_WindupForwardCellProjectile_TelegraphsBeforeReleaseAndThenEntersRecover();
         }
 
         [Test]
@@ -237,14 +237,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             EnemyAi_WallFollowerProfile_PlayerInSenseRange_RemainsInPatrolPermanently();
             EnemyAi_WallFollowerProfile_WithLocomotionCooldown_PreservesWallFollowRule();
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_RandomWalk_PatrolStateUpdatesOnlyOnCommittedKinematicMove()
-        {
-            EnemyAi_HistoricalTestOnlyWindupMeleeRandomWalkPilot_DirectLane_MatchesExactTransitionTicks();
-            EnemyAi_HistoricalTestOnlyWindupMeleeRandomWalkPilot_OpenRoomOffset_DoesNotAdvanceAggressionEarlierThanBaseline();
         }
 
         [Test]
@@ -315,7 +307,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_WindupProfile_TelegraphsBeforeExecuteAndThenEntersRecover()
+        public void EnemyAi_WindupForwardCellProjectile_TelegraphsBeforeReleaseAndThenEntersRecover()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -336,7 +328,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(actionStateAfterWindupTick.executeTick, Is.EqualTo(2));
             Assert.That(actionStateAfterWindupTick.executionAttempted, Is.False);
             Assert.That(windupSignal.EntityId, Is.EqualTo(40));
-            Assert.That(windupSignal.ActiveActionKind, Is.EqualTo(EnemyActionKind.Melee));
+            Assert.That(windupSignal.ActiveActionKind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
             Assert.That(windupSignal.StartedThisTick, Is.True);
             Assert.That(windupSignal.CanceledThisTick, Is.False);
             Assert.That(windupSignal.ExecutedThisTick, Is.False);
@@ -348,20 +340,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var actionStateAfterExecuteTick = GetEnemyActionState(worldState, 40);
             var executeSignal = executeTick.PresentationData.EnemyActionSignals.Single();
 
-            Assert.That(
-                executeTick.AttackPhaseResult.DamageResolutions.Any(
-                    record => record.Accepted &&
-                              record.SourceId == 40 &&
-                              record.TargetId == 10 &&
-                              record.SourceKind == AttackSourceKind.Combat),
-                Is.True);
-            Assert.That(playerAfterExecuteTick.hp, Is.EqualTo(2));
+            Assert.That(executeTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+            Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(40), Is.EqualTo(1));
+            Assert.That(playerAfterExecuteTick.hp, Is.EqualTo(3));
             Assert.That(enemyAfterExecuteTick.aiMode, Is.EqualTo(EnemyAiMode.Recover));
             Assert.That(enemyAfterExecuteTick.aiStateTimer, Is.EqualTo(1));
             Assert.That(actionStateAfterExecuteTick.IsActive, Is.True);
             Assert.That(actionStateAfterExecuteTick.executionAttempted, Is.True);
             Assert.That(executeSignal.EntityId, Is.EqualTo(40));
-            Assert.That(executeSignal.ActiveActionKind, Is.EqualTo(EnemyActionKind.Melee));
+            Assert.That(executeSignal.ActiveActionKind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
             Assert.That(executeSignal.StartedThisTick, Is.False);
             Assert.That(executeSignal.CanceledThisTick, Is.False);
             Assert.That(executeSignal.ExecutedThisTick, Is.True);
@@ -378,7 +365,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_TestOnlyMelee_SimulationDistanceOutsideSlack_BlocksWindup()
+        public void EnemyAi_WindupForwardCellProjectile_SimulationDistanceOutsideSlack_BlocksWindup()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -409,187 +396,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_TestOnlyMelee_SimulationDistanceInsideSlack_StartsWindupAndLocksAnchor()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
-            });
-            SetUnitContinuousLocomotionState(worldState, 40, localX: -256, localY: 0);
-            var profile = CreateEnemyProfile(windupTicks: 1);
-
-            try
-            {
-                CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
-                var actionState = GetEnemyActionState(worldState, 40);
-
-                Assert.That(actionState.IsActive, Is.True);
-                Assert.That(actionState.hasLockedCombatAnchor, Is.True);
-                Assert.That(actionState.lockedCombatAnchor.AnchorCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-                Assert.That(actionState.lockedCombatAnchor.LocalOffset.X.RawValue, Is.EqualTo(-256));
-                Assert.That(actionState.lockedCombatAnchor.TileSpaceX, Is.EqualTo(-256));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_TestOnlyMelee_StartHold_PreservesLogicCellAndOccupancy()
-        {
-            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
-            });
-            SetUnitContinuousLocomotionState(
-                worldState,
-                40,
-                localX: -256,
-                localY: 0,
-                velocityX: 128,
-                velocityY: 0,
-                mode: ContinuousLocomotionMode.Moving);
-            var profile = CreateEnemyProfile(windupTicks: 1);
-
-            try
-            {
-                CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
-                var snapshot = worldState.CreateSnapshot();
-
-                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
-                Assert.That(enemy.position, Is.EqualTo(sourceCell));
-                Assert.That(snapshot.TryGetPrimaryUnitAt(sourceCell, out var occupant), Is.True);
-                Assert.That(occupant.entityId, Is.EqualTo(40));
-                Assert.That(snapshot.TryGetUnitContinuousLocomotionState(40, out var heldState), Is.True);
-                Assert.That(heldState.localOffset.X.RawValue, Is.EqualTo(-256));
-                Assert.That(heldState.velocity.IsZero, Is.True);
-                Assert.That(heldState.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_TestOnlyMelee_PlayerMovesOutsideLockedShape_ExecuteMisses()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
-            });
-            var profile = CreateEnemyProfile(windupTicks: 1);
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                pipeline.RunTick(new TickInput(1));
-                SetUnitContinuousLocomotionState(worldState, 10, localX: 0, localY: KinematicFixed.MaxPositiveLocalOffset);
-                var executeTick = pipeline.RunTick(new TickInput(2));
-
-                Assert.That(
-                    executeTick.AttackPhaseResult.DamageResolutions.Any(record =>
-                        record.Accepted &&
-                        record.SourceId == 40 &&
-                        record.TargetId == 10 &&
-                        record.SourceKind == AttackSourceKind.Combat),
-                    Is.False);
-                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
-                Assert.That(GetEnemyActionState(worldState, 40).executionAttempted, Is.True);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_TestOnlyMelee_PlayerStaysInsideLockedShape_ExecuteHits()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
-            });
-            var profile = CreateEnemyProfile(windupTicks: 1);
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                pipeline.RunTick(new TickInput(1));
-                SetUnitContinuousLocomotionState(worldState, 10, localX: 0, localY: 256);
-                var executeTick = pipeline.RunTick(new TickInput(2));
-
-                Assert.That(
-                    executeTick.AttackPhaseResult.DamageResolutions.Any(record =>
-                        record.Accepted &&
-                        record.SourceId == 40 &&
-                        record.TargetId == 10 &&
-                        record.SourceKind == AttackSourceKind.Combat),
-                    Is.True);
-                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(2));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_TestOnlyMelee_RecoverComplete_ReleasesKinematicHoldWithoutSnap()
-        {
-            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
-            });
-            SetUnitKinematicLocomotionState(worldState, 40, localX: 256, localY: 0, stepDirectionX: 1, stepDirectionY: 0);
-            var profile = CreateEnemyProfile(windupTicks: 1);
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                pipeline.RunTick(new TickInput(1));
-                Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(40, out var heldState), Is.True);
-                Assert.That(heldState.mode, Is.EqualTo(MotionMode.Held));
-                var heldAnchorCell = GetEnemyActionState(worldState, 40).lockedCombatAnchor.AnchorCell;
-                var heldOffsetX = heldState.localOffset.X.RawValue;
-                var heldOffsetY = heldState.localOffset.Y.RawValue;
-                var expectedReleasedOffsetX = heldOffsetX + (heldState.stepDirectionX * KinematicFixed.UnitsPerCell / heldState.totalTicks);
-                var expectedReleasedOffsetY = heldOffsetY + (heldState.stepDirectionY * KinematicFixed.UnitsPerCell / heldState.totalTicks);
-
-                pipeline.RunTick(new TickInput(2));
-                pipeline.RunTick(new TickInput(3));
-                worldState.CreateWriteContext().MoveEntity(10, new SurfaceCell(FaceId.Floor, 5, 0));
-                pipeline.RunTick(new TickInput(4));
-                var snapshot = worldState.CreateSnapshot();
-
-                Assert.That(snapshot.TryGetUnitKinematicState(40, out var releasedState), Is.True);
-                Assert.That(releasedState.mode, Is.EqualTo(MotionMode.Voluntary));
-                Assert.That(releasedState.localOffset.X.RawValue, Is.EqualTo(expectedReleasedOffsetX));
-                Assert.That(releasedState.localOffset.Y.RawValue, Is.EqualTo(expectedReleasedOffsetY));
-                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
-                Assert.That(enemy.position, Is.EqualTo(heldAnchorCell));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_TestOnlyMelee_SevereTransition_BlocksWindup()
+        public void EnemyAi_WindupForwardCellProjectile_SevereTransition_BlocksWindup()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -622,7 +429,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_TestOnlyMelee_PlayerAtDeadZoneRange_ApproachesInsteadOfIdling()
+        public void EnemyAi_WindupForwardCellProjectile_PlayerAtDeadZoneRange_ApproachesInsteadOfIdling()
         {
             var profile = CreateEnemyProfile(windupTicks: 1);
             var worldState = CreateWorldState(
@@ -639,17 +446,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var beforeSnapshot = worldState.CreateSnapshot();
                 Assert.That(beforeSnapshot.TryGetEntity(40, out var enemy), Is.True);
                 Assert.That(beforeSnapshot.TryGetEntity(10, out var player), Is.True);
-                var logicRange = MeleeAttackDecisionStrategy.Instance.IsTargetInRange(
+                var logicRange = EnemyAttackRangeQueries.IsTargetInRange(
                     enemy,
                     player,
                     AttackDecisionSettings.CreateDefaultMelee());
-                var query = WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
+                var query = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
                     beforeSnapshot,
                     enemy,
                     player,
-                    MeleeAttackDecisionStrategy.Instance,
+                    WindupForwardCellProjectileAttackDecisionStrategy.Instance,
                     AttackDecisionSettings.CreateDefaultMelee(),
-                    WindupMeleeSettings.CreateDefault());
+                    WindupForwardCellProjectileSettings.CreateDefault(),
+                    out _);
 
                 var result = CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
                 var enemyAfterTick = GetEntity(worldState, 40);
@@ -678,49 +486,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_TestOnlyMelee_PlayerAtStartThreshold_StartsWindup()
-        {
-            var profile = CreateEnemyProfile(windupTicks: 1);
-            var windupSettings = WindupMeleeSettings.CreateDefault();
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
-            });
-            SetUnitContinuousLocomotionState(worldState, 40, localX: -windupSettings.VisualRangeSlackUnits, localY: 0);
-
-            try
-            {
-                var beforeSnapshot = worldState.CreateSnapshot();
-                Assert.That(beforeSnapshot.TryGetEntity(40, out var enemy), Is.True);
-                Assert.That(beforeSnapshot.TryGetEntity(10, out var player), Is.True);
-                var query = WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
-                    beforeSnapshot,
-                    enemy,
-                    player,
-                    MeleeAttackDecisionStrategy.Instance,
-                    AttackDecisionSettings.CreateDefaultMelee(),
-                    windupSettings);
-
-                var result = CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
-                var actionState = GetEnemyActionState(worldState, 40);
-
-                Assert.That(query.CanStart, Is.True, BuildWindupStartGateDebug(true, query, result));
-                Assert.That(query.DistanceFixedUnits, Is.EqualTo(query.ThresholdFixedUnits));
-                Assert.That(actionState.IsActive, Is.True);
-                Assert.That(actionState.hasLockedCombatAnchor, Is.True);
-                Assert.That(actionState.lockedCombatAnchor.LocalOffset.X.RawValue, Is.EqualTo(-windupSettings.VisualRangeSlackUnits));
-                Assert.That(result.PresentationData.EnemyActionSignals.Any(signal => signal.EntityId == 40 && signal.StartedThisTick), Is.True);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_TestOnlyMelee_OutsideSimulationRange_DoesNotConsumeCombatActionAsHandled()
+        public void EnemyAi_WindupForwardCellProjectile_OutsideSimulationRange_DoesNotConsumeCombatActionAsHandled()
         {
             var profile = CreateEnemyProfile(windupTicks: 1);
             var worldState = CreateWorldState(
@@ -750,45 +516,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_TestOnlyMelee_SlackDoesNotExpandExecuteHitRange()
-        {
-            var profile = CreateEnemyProfile(windupTicks: 1);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
-            });
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                pipeline.RunTick(new TickInput(1));
-                SetUnitContinuousLocomotionState(
-                    worldState,
-                    10,
-                    localX: 0,
-                    localY: KinematicFixed.UnitsPerCell / 4);
-                var executeTick = pipeline.RunTick(new TickInput(2));
-
-                Assert.That(
-                    executeTick.AttackPhaseResult.DamageResolutions.Any(record =>
-                        record.Accepted &&
-                        record.SourceId == 40 &&
-                        record.TargetId == 10 &&
-                        record.SourceKind == AttackSourceKind.Combat),
-                    Is.False);
-                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
-                Assert.That(WindupMeleeSettings.CreateDefault().VisualRangeSlackUnits, Is.LessThanOrEqualTo(Mathf.RoundToInt(WindupMeleeSettings.MaxVisualRangeSlackCells * KinematicFixed.UnitsPerCell)));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_TestOnlyMelee_SevereTransition_DoesNotApproachAsDistanceFallback()
+        public void EnemyAi_WindupForwardCellProjectile_SevereTransition_DoesNotApproachAsDistanceFallback()
         {
             var profile = CreateEnemyProfile(windupTicks: 1);
             var worldState = CreateWorldState(new[]
@@ -812,13 +540,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var beforeSnapshot = worldState.CreateSnapshot();
                 Assert.That(beforeSnapshot.TryGetEntity(40, out var enemy), Is.True);
                 Assert.That(beforeSnapshot.TryGetEntity(10, out var player), Is.True);
-                var query = WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
+                var query = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
                     beforeSnapshot,
                     enemy,
                     player,
-                    MeleeAttackDecisionStrategy.Instance,
+                    WindupForwardCellProjectileAttackDecisionStrategy.Instance,
                     AttackDecisionSettings.CreateDefaultMelee(),
-                    WindupMeleeSettings.CreateDefault());
+                    WindupForwardCellProjectileSettings.CreateDefault(),
+                    out _);
 
                 var result = CreateEnemyPipeline(worldState, profile).RunTick(new TickInput(1));
 
@@ -3155,190 +2884,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(executeTick.Trace.Text, Does.Not.Contain("PhaseEnter|Entity=40|Tick=2|Owner=EnemyPreMovement"));
             Assert.That(executeTick.Trace.Text, Does.Not.Contain("EnemyPhaseRelocation|E=40"));
         }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_WindupProfile_LosingLockedTarget_CancelsActionAndFallsBackToPatrol()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
-            });
-            var pipeline = CreateEnemyPipeline(worldState, CreateEnemyProfile(windupTicks: 2));
-
-            var windupTick = pipeline.RunTick(new TickInput(1));
-            worldState.CreateWriteContext().ApplyDamage(10, 3);
-
-            var cancelTick = pipeline.RunTick(new TickInput(2));
-            var enemyAfterCancelTick = GetEntity(worldState, 40);
-            var actionStateAfterCancelTick = GetEnemyActionState(worldState, 40);
-            var cancelSignal = cancelTick.PresentationData.EnemyActionSignals.Single();
-
-            Assert.That(windupTick.PresentationData.EnemyActionSignals.Single().StartedThisTick, Is.True);
-            Assert.That(cancelTick.AttackPhaseResult.RawIntents, Is.Empty);
-            Assert.That(cancelTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-            Assert.That(enemyAfterCancelTick.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-            Assert.That(enemyAfterCancelTick.aiStateTimer, Is.Zero);
-            Assert.That(actionStateAfterCancelTick.IsActive, Is.False);
-            Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(cancelTick.EventLog), Does.Contain(10));
-            Assert.That(cancelSignal.EntityId, Is.EqualTo(40));
-            Assert.That(cancelSignal.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
-            Assert.That(cancelSignal.StartedThisTick, Is.False);
-            Assert.That(cancelSignal.CanceledThisTick, Is.True);
-            Assert.That(cancelSignal.ExecutedThisTick, Is.False);
-            Assert.That(cancelSignal.StartedRecoveryThisTick, Is.False);
-            Assert.That(cancelTick.Trace.Text, Does.Contain("LockedTargetLost"));
-        }
-
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_HistoricalTestOnlyWindupMeleeRandomWalkPilot_DirectLane_MatchesExactTransitionTicks()
-        {
-            var controlProfile = CreateEnemyProfile(windupTicks: 1);
-            var baselineProfile = CreateEnemyProfile(windupTicks: 1);
-            var pilotProfile = CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotProfile(windupTicks: 1);
-            var controlWorld = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
-            });
-            var baselineWorld = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            });
-            var pilotWorld = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            });
-
-            try
-            {
-                var expectedRecoverTicks = ResolveRecoverTicks(controlProfile);
-                AssertWindupAttackControlGreen(
-                    RunWindupContractMetrics(controlWorld, controlProfile, ticks: 4),
-                    "forward baseline self-check",
-                    expectedRecoverTicks);
-                var comparison = RunWindupParityComparison(baselineWorld, baselineProfile, pilotWorld, pilotProfile, ticks: 7);
-                var baselineMetrics = comparison.Baseline;
-                var pilotMetrics = comparison.Pilot;
-                TestContext.Progress.WriteLine($"WindupGateSummary|Label=baseline direct-lane|{BuildWindupMetricsSummary(baselineMetrics)}");
-                TestContext.Progress.WriteLine($"WindupGateSummary|Label=pilot direct-lane|{BuildWindupMetricsSummary(pilotMetrics)}");
-                AssertWindupProbeComplete(baselineMetrics, "baseline direct-lane", ResolveRecoverTicks(baselineProfile));
-                AssertWindupProbeComplete(pilotMetrics, "pilot direct-lane", ResolveRecoverTicks(pilotProfile));
-
-                Assert.That(pilotMetrics.TargetSensedTick, Is.EqualTo(baselineMetrics.TargetSensedTick));
-                Assert.That(pilotMetrics.TargetInRangeTick, Is.EqualTo(baselineMetrics.TargetInRangeTick));
-                Assert.That(pilotMetrics.AttackEntryTick, Is.EqualTo(baselineMetrics.AttackEntryTick));
-                Assert.That(pilotMetrics.ActionStartTick, Is.EqualTo(baselineMetrics.ActionStartTick));
-                Assert.That(pilotMetrics.AttackExecuteTick, Is.EqualTo(baselineMetrics.AttackExecuteTick));
-                Assert.That(pilotMetrics.AttackExecuteActionStateActiveTick, Is.EqualTo(baselineMetrics.AttackExecuteActionStateActiveTick));
-                Assert.That(pilotMetrics.AttackExecuteExecutionAttemptedTick, Is.EqualTo(baselineMetrics.AttackExecuteExecutionAttemptedTick));
-                Assert.That(pilotMetrics.AttackCommittedTraceTick, Is.EqualTo(baselineMetrics.AttackCommittedTraceTick));
-                Assert.That(pilotMetrics.AttackCommittedRecoverTick, Is.EqualTo(baselineMetrics.AttackCommittedRecoverTick));
-                Assert.That(pilotMetrics.RecoverEntryTick, Is.EqualTo(baselineMetrics.RecoverEntryTick));
-                Assert.That(pilotMetrics.RecoverCompleteTick, Is.EqualTo(baselineMetrics.RecoverCompleteTick));
-                Assert.That(pilotMetrics.RecoverTickCount, Is.EqualTo(baselineMetrics.RecoverTickCount));
-                Assert.That(pilotMetrics.RecoverPatrolWriteCount, Is.EqualTo(baselineMetrics.RecoverPatrolWriteCount));
-                Assert.That(pilotMetrics.FirstCombatDamageTick, Is.EqualTo(baselineMetrics.FirstCombatDamageTick));
-                Assert.That(
-                    pilotMetrics.AttackCommittedTick - pilotMetrics.AttackEntryTick,
-                    Is.EqualTo(baselineMetrics.AttackCommittedTick - baselineMetrics.AttackEntryTick));
-                Assert.That(
-                    pilotMetrics.RecoverEntryTick - pilotMetrics.AttackCommittedTick,
-                    Is.EqualTo(baselineMetrics.RecoverEntryTick - baselineMetrics.AttackCommittedTick));
-                Assert.That(
-                    pilotMetrics.RecoverCompleteTick - pilotMetrics.RecoverEntryTick,
-                    Is.EqualTo(baselineMetrics.RecoverCompleteTick - baselineMetrics.RecoverEntryTick));
-                Assert.That(comparison.FirstDivergentPositionOrFacingTick, Is.Zero);
-            }
-            finally
-            {
-                DestroyProfile(controlProfile);
-                DestroyProfile(baselineProfile);
-                DestroyProfile(pilotProfile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_HistoricalTestOnlyWindupMeleeRandomWalkPilot_OpenRoomOffset_DoesNotAdvanceAggressionEarlierThanBaseline()
-        {
-            var controlProfile = CreateEnemyProfile(windupTicks: 1);
-            var baselineProfile = CreateEnemyProfile(windupTicks: 1);
-            var pilotProfile = CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotProfile(windupTicks: 1);
-            var bounds = new BoardBounds(Vector2Int.zero, new Vector2Int(5, 5));
-            var controlWorld = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
-            });
-            var baselineWorld = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 3), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 2), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            }, bounds);
-            var pilotWorld = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 3), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 2), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            }, bounds);
-
-            try
-            {
-                var expectedRecoverTicks = ResolveRecoverTicks(controlProfile);
-                AssertWindupAttackControlGreen(
-                    RunWindupContractMetrics(controlWorld, controlProfile, ticks: 4),
-                    "forward baseline self-check",
-                    expectedRecoverTicks);
-                var comparison = RunWindupParityComparison(baselineWorld, baselineProfile, pilotWorld, pilotProfile, ticks: 10);
-                var baselineMetrics = comparison.Baseline;
-                var pilotMetrics = comparison.Pilot;
-                TestContext.Progress.WriteLine($"WindupGateSummary|Label=baseline open-room|{BuildWindupMetricsSummary(baselineMetrics)}");
-                TestContext.Progress.WriteLine($"WindupGateSummary|Label=pilot open-room|{BuildWindupMetricsSummary(pilotMetrics)}");
-                AssertWindupProbeComplete(baselineMetrics, "baseline open-room", ResolveRecoverTicks(baselineProfile));
-                AssertWindupProbeComplete(pilotMetrics, "pilot open-room", ResolveRecoverTicks(pilotProfile));
-
-                AssertLaterOnlyBoundedDrift(baselineMetrics.TargetSensedTick, pilotMetrics.TargetSensedTick, "TargetSensed");
-                AssertLaterOnlyBoundedDrift(baselineMetrics.TargetInRangeTick, pilotMetrics.TargetInRangeTick, "TargetInRange");
-                AssertLaterOnlyBoundedDrift(baselineMetrics.AttackEntryTick, pilotMetrics.AttackEntryTick, "AttackEntry");
-                AssertLaterOnlyBoundedDrift(baselineMetrics.ActionStartTick, pilotMetrics.ActionStartTick, "ActionStart");
-                AssertLaterOnlyBoundedDrift(baselineMetrics.AttackExecuteTick, pilotMetrics.AttackExecuteTick, "AttackExecute");
-                AssertLaterOnlyBoundedDrift(baselineMetrics.AttackExecuteActionStateActiveTick, pilotMetrics.AttackExecuteActionStateActiveTick, "AttackExecuteActionStateActive");
-                AssertLaterOnlyBoundedDrift(baselineMetrics.AttackExecuteExecutionAttemptedTick, pilotMetrics.AttackExecuteExecutionAttemptedTick, "AttackExecuteExecutionAttempted");
-                AssertLaterOnlyBoundedDrift(baselineMetrics.AttackCommittedTraceTick, pilotMetrics.AttackCommittedTraceTick, "AttackCommittedTrace");
-                AssertLaterOnlyBoundedDrift(baselineMetrics.AttackCommittedRecoverTick, pilotMetrics.AttackCommittedRecoverTick, "AttackCommittedRecover");
-                Assert.That(pilotMetrics.RecoverTickCount, Is.EqualTo(baselineMetrics.RecoverTickCount));
-                Assert.That(pilotMetrics.RecoverPatrolWriteCount, Is.EqualTo(baselineMetrics.RecoverPatrolWriteCount));
-                AssertLaterOnlyBoundedDrift(baselineMetrics.FirstCombatDamageTick, pilotMetrics.FirstCombatDamageTick, "FirstCombatDamage");
-                Assert.That(
-                    pilotMetrics.AttackCommittedTick - pilotMetrics.AttackEntryTick,
-                    Is.EqualTo(baselineMetrics.AttackCommittedTick - baselineMetrics.AttackEntryTick));
-                Assert.That(
-                    pilotMetrics.RecoverEntryTick - pilotMetrics.AttackCommittedTick,
-                    Is.EqualTo(baselineMetrics.RecoverEntryTick - baselineMetrics.AttackCommittedTick));
-                Assert.That(
-                    pilotMetrics.RecoverCompleteTick - pilotMetrics.RecoverEntryTick,
-                    Is.EqualTo(baselineMetrics.RecoverCompleteTick - baselineMetrics.RecoverEntryTick));
-                if (comparison.FirstDivergentPositionOrFacingTick != 0)
-                {
-                    Assert.That(
-                        comparison.FirstDivergentPositionOrFacingTick,
-                        Is.GreaterThanOrEqualTo(baselineMetrics.TargetSensedTick),
-                        "Position/facing divergence must not predate the first baseline sense tick.");
-                }
-            }
-            finally
-            {
-                DestroyProfile(controlProfile);
-                DestroyProfile(baselineProfile);
-                DestroyProfile(pilotProfile);
-            }
-        }
-
 
         [Test]
         [Category("Extended")]
@@ -6925,105 +6470,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_TestOnlyMeleeProfile_WithPassiveContact_SameCellProducesCombatAndPassiveCandidates()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Left),
-            });
-            PrimeEnemyActionState(worldState, 40, targetId: 10, executeTick: 1);
-            var profile = CreateTestOnlyMeleeProfile(includePassiveContact: true);
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
-                var result = pipeline.RunTick(new TickInput(1));
-                var resolutions = result.AttackPhaseResult.DamageResolutions;
-
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        AttackSourceKind.Combat,
-                        AttackSourceKind.PassiveContact,
-                    },
-                    result.AttackPhaseResult.DamageResolutions.Select(record => record.SourceKind).ToArray());
-                Assert.That(resolutions.Count, Is.EqualTo(2));
-                Assert.That(resolutions[0].Accepted, Is.True);
-                Assert.That(resolutions[0].SourceKind, Is.EqualTo(AttackSourceKind.Combat));
-                Assert.That(resolutions[1].Accepted, Is.False);
-                Assert.That(resolutions[1].SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
-                Assert.That(resolutions[1].RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
-                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(4));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_HistoricalTestOnlyWindupMeleeRandomWalkPilot_PrimedSameCell_PreservesCombatThenPassiveOrdering()
-        {
-            var baselineProfile = CreateTestOnlyMeleeProfile(includePassiveContact: true);
-            var pilotProfile = CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotProfile(includePassiveContact: true);
-
-            try
-            {
-                var baselineResult = RunPrimedSameCellCombatPassiveTick(baselineProfile);
-                var pilotResult = RunPrimedSameCellCombatPassiveTick(pilotProfile);
-
-                CollectionAssert.AreEqual(
-                    baselineResult.AttackPhaseResult.RawIntents.Select(intent => (intent.SourceKind, intent.LocalSequence)).ToArray(),
-                    pilotResult.AttackPhaseResult.RawIntents.Select(intent => (intent.SourceKind, intent.LocalSequence)).ToArray());
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        (AttackSourceKind.Combat, 0),
-                        (AttackSourceKind.PassiveContact, 1),
-                    },
-                    pilotResult.AttackPhaseResult.RawIntents.Select(intent => (intent.SourceKind, intent.LocalSequence)).ToArray());
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        AttackSourceKind.Combat,
-                        AttackSourceKind.PassiveContact,
-                    },
-                    pilotResult.AttackPhaseResult.DamageResolutions.Select(record => record.SourceKind).ToArray());
-                Assert.That(pilotResult.AttackPhaseResult.DamageResolutions[0].Accepted, Is.True);
-                Assert.That(pilotResult.AttackPhaseResult.DamageResolutions[1].Accepted, Is.False);
-                Assert.That(pilotResult.AttackPhaseResult.DamageResolutions[1].RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
-                Assert.That(GetEntityAfterTick(pilotResult, 10).hp, Is.EqualTo(4));
-
-                var passiveOnlyWorld = CreateWorldState(new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
-                });
-                var passiveOnlyPipeline = CreateEnemyPipeline(passiveOnlyWorld, pilotProfile, playerDamageCooldownTicks: 1);
-                var passiveOnlyTick = passiveOnlyPipeline.RunTick(new TickInput(1));
-
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        AttackSourceKind.PassiveContact,
-                    },
-                    passiveOnlyTick.AttackPhaseResult.RawIntents.Select(intent => intent.SourceKind).ToArray());
-                Assert.That(
-                    passiveOnlyTick.AttackPhaseResult.DamageResolutions.Count(record => record.Accepted),
-                    Is.EqualTo(1));
-                Assert.That(GetEntityAfterTick(passiveOnlyTick, 10).hp, Is.EqualTo(4));
-            }
-            finally
-            {
-                DestroyProfile(baselineProfile);
-                DestroyProfile(pilotProfile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
         public void EnemyAi_JumpChaserProfile_WithPassiveContact_SameCellDealsDamage()
         {
             var worldState = CreateWorldState(new[]
@@ -7217,12 +6663,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_ContactDamageProfile_RecoverTicks_NoLongerControlContactCadence_ButRegularMeleeStillUsesRecover()
+        public void EnemyAi_ContactDamageProfile_RecoverTicks_DoNotControlContactCadence()
         {
             var fastContactProfile = CreateContactDamageProfile(recoverTicks: 0);
             var slowContactProfile = CreateContactDamageProfile(recoverTicks: 5);
-            var fastMeleeProfile = CreateTestOnlyMeleeProfile(recoverTicks: 0);
-            var slowMeleeProfile = CreateTestOnlyMeleeProfile(recoverTicks: 5);
 
             try
             {
@@ -7246,34 +6690,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 }
 
                 Assert.That(GetEntity(contactFastWorld, 10).hp, Is.EqualTo(GetEntity(contactSlowWorld, 10).hp));
-
-                var fastMeleeWorld = CreateWorldState(new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
-                });
-                var slowMeleeWorld = CreateWorldState(new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
-                });
-                var fastMeleePipeline = CreateEnemyPipeline(fastMeleeWorld, fastMeleeProfile);
-                var slowMeleePipeline = CreateEnemyPipeline(slowMeleeWorld, slowMeleeProfile);
-
-                for (var tick = 1; tick <= 3; tick++)
-                {
-                    fastMeleePipeline.RunTick(new TickInput(tick));
-                    slowMeleePipeline.RunTick(new TickInput(tick));
-                }
-
-                Assert.That(GetEntity(fastMeleeWorld, 10).hp, Is.LessThan(GetEntity(slowMeleeWorld, 10).hp));
             }
             finally
             {
                 DestroyProfile(fastContactProfile);
                 DestroyProfile(slowContactProfile);
-                DestroyProfile(fastMeleeProfile);
-                DestroyProfile(slowMeleeProfile);
             }
         }
 
@@ -7530,7 +6951,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void EnemyLocomotionCooldown_Authority_ComesFromEnemyAiProfileRuntimeDefinitionAndEntityState()
         {
-            var profile = CreateEnemyProfile(windupTicks: 0, moveCooldownTicks: 2);
+            var profile = CreateNonAttackingEnemyProfile(moveCooldownTicks: 2);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
@@ -7794,7 +7215,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int moveCooldownTicks = 0,
             int recoverTicks = 1)
         {
-            return EnemyAiProfileTestFactory.CreateTestOnlyMelee(windupTicks, moveCooldownTicks, recoverTicks);
+            return EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(
+                windupTicks: windupTicks,
+                recoverTicks: recoverTicks);
         }
 
         private static EnemyAiProfile CreateUtilitySummonProfile(
@@ -8202,31 +7625,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 IncludePassiveContact = includePassiveContact,
             });
-        }
-
-        private static EnemyAiProfile CreateTestOnlyMeleeProfile(
-            int moveCooldownTicks = 0,
-            int recoverTicks = 1,
-            bool includePassiveContact = false)
-        {
-            return EnemyAiProfileTestFactory.CreateTestOnlyMelee(
-                windupTicks: 0,
-                moveCooldownTicks: moveCooldownTicks,
-                recoverTicks: recoverTicks,
-                includePassiveContact: includePassiveContact);
-        }
-
-        private static EnemyAiProfile CreateHistoricalTestOnlyWindupMeleeRandomWalkPilotProfile(
-            int windupTicks = 1,
-            int moveCooldownTicks = 0,
-            int recoverTicks = 1,
-            bool includePassiveContact = true)
-        {
-            return EnemyAiProfileTestFactory.CreateHistoricalTestOnlyWindupMeleeRandomWalkPilot(
-                windupTicks,
-                moveCooldownTicks,
-                recoverTicks,
-                includePassiveContact);
         }
 
         private static EnemyAiProfile CreateContactDamageProfile(int moveCooldownTicks = 0, int recoverTicks = 1)
@@ -8805,11 +8203,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var firstCombatDamageTick = metrics.FirstCombatDamageTick;
 
             if (firstCombatDamageTick == 0 &&
-                tick.AttackPhaseResult.DamageResolutions.Any(record =>
+                (tick.AttackPhaseResult.DamageResolutions.Any(record =>
                     record.Accepted &&
                     record.SourceId == 40 &&
                     record.TargetId == 10 &&
-                    record.SourceKind == AttackSourceKind.Combat))
+                    record.SourceKind == AttackSourceKind.Combat) ||
+                 worldState.CreateSnapshot().CountPendingCellImpactsForOwner(40) > 0))
             {
                 firstCombatDamageTick = tickIndex;
             }

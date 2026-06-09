@@ -418,7 +418,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static EnemyAiProfile CreateEnemyProfile(int windupTicks)
         {
-            return EnemyAiProfileTestFactory.CreateTestOnlyMelee(windupTicks);
+            return EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(windupTicks: windupTicks);
         }
 
         private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks)
