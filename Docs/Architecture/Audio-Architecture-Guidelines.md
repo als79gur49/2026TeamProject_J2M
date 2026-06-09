@@ -402,13 +402,18 @@ future extension note:
 - internal runtime channel은 `Master`, `Bgm`, `Sfx`, `Ui`, `Voice`, `Ambience`다.
 - `Ui`, `Voice`, `Ambience`는 v1에서 user-facing control이 없다.
 - hidden channel leaf state는 내부 snapshot에 존재하지만 default `volume=1`, `muted=false`를 유지한다.
-- hidden channel은 `Master`에는 반응하지만 `Bgm` 또는 `Sfx` control에는 반응하지 않는다.
+- hidden channel은 `Master`에는 반응한다.
+- `Voice`와 `Ambience`는 `Bgm` 또는 `Sfx` control에 반응하지 않는다.
+- `Ui`는 authored/routing channel로는 hidden `Ui`를 유지하지만, effective user-facing mix는 `Master`와 `Sfx` volume/mute를 함께 따른다.
 
-### 8.7 UI SFX v1 Hidden Ui-Channel Policy And Ownership Matrix
+### 8.7 UI SFX v1 Hidden Ui-Channel Sfx-Setting Policy And Ownership Matrix
 
 - UI SFX v1는 hidden `Ui` channel로 route한다.
-- hidden `Ui` channel은 `Master`를 따른다. `Sfx` mute/volume을 따라가지 않는다.
-- 이 동작은 v1에서 intentional하다. `Sfx`를 mute해도 UI feedback은 계속 들릴 수 있다.
+- UI SFX authored/routing category는 `AudioCategory.Ui`다. `AudioCategory.Sfx`로 바꾸지 않는다.
+- hidden `Ui` channel state는 유지한다.
+- effective UI SFX mix는 `Master` volume/mute, `Sfx` volume/mute, hidden `Ui` volume/mute를 모두 반영한다.
+- `Bgm` volume/mute는 UI SFX에 영향을 주지 않는다.
+- `Voice`와 `Ambience`는 `Sfx` volume/mute에 종속되지 않는다.
 - public `Ui` slider 또는 mute를 Settings에 노출하는 것은 separate future product decision이다. 이번 작업 범위가 아니다.
 - UI SFX playback은 `Play2D`만 사용한다. `PlayAttached`, spatial ownership, attachment slot authoring은 금지다.
 - UI SFX owner split은 아래 셋뿐이다.

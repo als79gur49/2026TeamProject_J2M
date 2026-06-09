@@ -84,7 +84,7 @@ This file is the external current-structure source for the completed UI cleanup 
 
 ## Deferred Policy Items
 
-- UI audio user settings policy is unchanged: UI SFX remains on the hidden `Ui` channel and follows the current Master-only product policy. Visible UI volume/mute, Sfx coupling, or settings copy changes require a separate policy task and `UiAudioUserSettingsPolicyTests`.
+- UI audio user settings policy: UI SFX remains authored/routed through hidden `Ui`, but its effective user-facing mix follows `Master` and `Sfx` volume/mute plus hidden `Ui` state. Settings still exposes only `Main`, `Bgm`, and `Sfx`; there is no visible UI volume/mute row. `Voice` and `Ambience` do not follow `Sfx`.
 - Inventory is not active authoritative UI. Reintroduction requires a separate `InventoryReadModel`, `InventoryCommandPort`, and permission model design.
 - Diagnostics behavior is unchanged. Current work may strengthen production residue guards, but must not add a new diagnostics runtime feature.
 - TMP, localization, accessibility, and layout modernization are separate contract work. Do not treat Text/TMP swaps as part of this UI architecture refactor.

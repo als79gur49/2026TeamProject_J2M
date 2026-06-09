@@ -216,26 +216,26 @@
 
 ## UI SFX verification wording / UI SFX verification wording
 ### 한국어
-- UI SFX v1 결과는 hidden `Ui` channel policy와 targeted UI lane 범위만 말해야 한다.
+- UI SFX v1 결과는 hidden `Ui` authored channel, `Sfx` setting-dependent effective mix policy, targeted UI lane 범위만 말해야 한다.
 - 아래 세 reporting level만 공식적으로 사용한다.
   - `build verified`
     - claim 가능 조건: relevant build가 통과했을 때
   - `ui lane validated`
     - claim 가능 조건: `./run_tests.sh ui` 또는 동등한 focused UI lane이 통과했을 때
   - `targeted UI SFX architecture validated`
-    - claim 가능 조건: cue ownership, hidden-channel policy, cue-map validation, slider commit dedupe, screen/popup lifecycle contract tests가 통과했을 때
+    - claim 가능 조건: cue ownership, hidden-`Ui` authored channel policy, `Sfx` setting-dependent effective mix, cue-map validation, slider commit dedupe, screen/popup lifecycle contract tests가 통과했을 때
 - placeholder `Ui` asset authoring은 wiring evidence일 뿐 final content polish claim이 아니다.
 - hover, disabled/no-op, backdrop-consume feedback는 v1 scope 밖이다.
 
 ### English Original
-- UI SFX v1 reporting must describe only the hidden-`Ui`-channel product policy and the UI-focused validation lanes that actually ran.
+- UI SFX v1 reporting must describe only the hidden-`Ui` authored channel, the `Sfx` setting-dependent effective mix policy, and the UI-focused validation lanes that actually ran.
 - Use only these three reporting levels.
   - `build verified`
     - may be claimed when the relevant build passes
   - `ui lane validated`
     - may be claimed when `./run_tests.sh ui` or an equivalent focused UI lane passes
   - `targeted UI SFX architecture validated`
-    - may be claimed when cue-ownership, hidden-channel-policy, cue-map-validation, slider-commit-dedupe, and screen/popup lifecycle contract tests pass
+    - may be claimed when cue-ownership, hidden-`Ui` authored-channel policy, `Sfx` setting-dependent effective mix, cue-map-validation, slider-commit-dedupe, and screen/popup lifecycle contract tests pass
 - Placeholder `Ui` asset authoring is wiring evidence only; it does not claim final content polish.
 - Hover, disabled/no-op, and backdrop-consume feedback remain out of scope in v1.
 ## Persistent BGM flow reporting wording / Persistent BGM flow reporting wording

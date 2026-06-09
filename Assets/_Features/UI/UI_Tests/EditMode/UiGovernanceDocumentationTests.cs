@@ -267,8 +267,11 @@ namespace Game.Feature.UI.Tests
             var audioGuidelines = ReadRepoFile("Docs/Architecture/Audio-Architecture-Guidelines.md");
             var automationGuide = ReadRepoFile("Docs/Testing/Gameplay-Test-Automation-Guide.md");
 
-            Assert.That(audioGuidelines, Does.Contain("UI SFX v1 Hidden Ui-Channel Policy And Ownership Matrix"));
-            Assert.That(audioGuidelines, Does.Contain("hidden `Ui` channel은 `Master`를 따른다. `Sfx` mute/volume을 따라가지 않는다."));
+            Assert.That(audioGuidelines, Does.Contain("UI SFX v1 Hidden Ui-Channel Sfx-Setting Policy And Ownership Matrix"));
+            Assert.That(audioGuidelines, Does.Contain("UI SFX authored/routing category는 `AudioCategory.Ui`다. `AudioCategory.Sfx`로 바꾸지 않는다."));
+            Assert.That(audioGuidelines, Does.Contain("effective UI SFX mix는 `Master` volume/mute, `Sfx` volume/mute, hidden `Ui` volume/mute를 모두 반영한다."));
+            Assert.That(audioGuidelines, Does.Contain("`Bgm` volume/mute는 UI SFX에 영향을 주지 않는다."));
+            Assert.That(audioGuidelines, Does.Contain("`Voice`와 `Ambience`는 `Sfx` volume/mute에 종속되지 않는다."));
             Assert.That(audioGuidelines, Does.Contain("public `Ui` slider 또는 mute를 Settings에 노출하는 것은 separate future product decision이다."));
             Assert.That(audioGuidelines, Does.Contain("mechanical lifecycle signal이다. direct audio trigger가 아니다."));
             Assert.That(audioGuidelines, Does.Contain("one interaction may contain multiple raw lifecycle deltas but still emit only one cue"));
@@ -290,9 +293,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(audioGuidelines, Does.Contain("placeholder `Ui` definitions/clips는 wiring과 architecture validation 용도로 허용된다."));
             Assert.That(audioGuidelines, Does.Contain("placeholder clip reuse may make distinct cues sound similar"));
             Assert.That(audioGuidelines, Does.Contain("hover, disabled/no-op, backdrop-consume feedback는 v1 shipped scope가 아니다."));
+            Assert.That(audioGuidelines, Does.Not.Contain("hidden `Ui` channel은 `Master`를 따른다. `Sfx` mute/volume을 따라가지 않는다."));
+            Assert.That(audioGuidelines, Does.Not.Contain("`Sfx`를 mute해도 UI feedback은 계속 들릴 수 있다."));
             Assert.That(audioGuidelines, Does.Not.Contain("flow success cue: `UIFlowCoordinator`가 `ScreenTransitioned`, `PopupOpened`, `PopupCompleted` lifecycle signal에서만 재생한다."));
             Assert.That(audioGuidelines, Does.Not.Contain("controller lifecycle signal은 UI SFX trigger seam이다"));
             Assert.That(automationGuide, Does.Contain("UI SFX verification wording"));
+            Assert.That(automationGuide, Does.Contain("hidden `Ui` authored channel, `Sfx` setting-dependent effective mix policy"));
+            Assert.That(automationGuide, Does.Contain("hidden-`Ui` authored-channel policy, `Sfx` setting-dependent effective mix"));
             Assert.That(automationGuide, Does.Contain("build verified"));
             Assert.That(automationGuide, Does.Contain("ui lane validated"));
             Assert.That(automationGuide, Does.Contain("targeted UI SFX architecture validated"));
