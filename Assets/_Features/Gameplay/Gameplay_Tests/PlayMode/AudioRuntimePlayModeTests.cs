@@ -196,8 +196,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         public IEnumerator AudioManager_Play2D_OneShotCompletion_UnregistersLivePlayback()
         {
             var rootObject = new GameObject("AudioOneShotCompletionRoot");
-            var clip = AudioClip.Create("OneShotCompletion", 64, 1, 44100, false);
+            var clip = AudioClip.Create("OneShotCompletion", 11025, 1, 44100, false);
             var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            var previousTimeScale = Time.timeScale;
 
             try
             {
@@ -207,13 +208,21 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var handle = manager.Play2D(definition);
                 Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
 
-                yield return null;
+                Time.timeScale = 0f;
+                var deadline = Time.realtimeSinceStartupAsDouble + 1d;
+                while (handle.IsValid &&
+                       manager.CaptureLivePlaybackCount() > 0 &&
+                       Time.realtimeSinceStartupAsDouble < deadline)
+                {
+                    yield return null;
+                }
 
                 Assert.That(handle.IsValid, Is.False);
                 Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(0));
             }
             finally
             {
+                Time.timeScale = previousTimeScale;
                 UnityEngine.Object.DestroyImmediate(rootObject);
                 UnityEngine.Object.DestroyImmediate(definition);
                 UnityEngine.Object.DestroyImmediate(clip);
