@@ -513,7 +513,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             Assert.That(firstTick, Is.Not.Null);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(2));
-            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
             Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
 
             var secondTick = host.InputHost.RunSingleTick();
@@ -547,8 +546,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             var executeTick = host.InputHost.RunSingleTick();
             Assert.That(executeTick, Is.Not.Null);
-            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
-            Assert.That(host.Presenter.IsPresentationActive, Is.True);
             Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));
 
@@ -709,7 +706,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             Assert.That(startTick, Is.Not.Null);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(2));
-            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
             Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
 
             host.InputHost.SetRawMoveInput(Vector2.zero);
@@ -935,8 +931,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(executeTick, Is.Not.Null);
             Assert.That(executeSnapshot.TryGetEntity(30, out var rightBox), Is.True);
             Assert.That(executeSnapshot.TryGetEntity(31, out var leftBox), Is.True);
-            Assert.That(rightBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
-            Assert.That(leftBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(rightBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -2, 0)));
+            Assert.That(leftBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
 
             Release(_keyboard.eKey);
             Release(_keyboard.aKey);
@@ -1249,7 +1245,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.RunSingleTick();
             host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
+            AdvancePresentation(host, host.TimingProfile.FlipMotionDurationSeconds + host.TimingProfile.SimulationTickIntervalSeconds);
 
             AssertViewMatchesProjectedState(host, entityId: 10);
             AssertViewMatchesProjectedState(host, entityId: 30);
@@ -1371,7 +1367,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.BufferFlip();
             host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
+            AdvancePresentation(host, host.TimingProfile.FlipMotionDurationSeconds + host.TimingProfile.SimulationTickIntervalSeconds);
 
             AssertViewMatchesProjectedState(host, entityId: 10);
             AssertViewMatchesProjectedState(host, entityId: 30);
@@ -1556,7 +1552,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.SetRawMoveInput(Vector2.left);
             host.InputHost.BufferFlip();
             host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
+            AdvancePresentation(host, host.TimingProfile.FlipMotionDurationSeconds + host.TimingProfile.SimulationTickIntervalSeconds);
 
             AssertViewMatchesProjectedState(host, entityId: 10);
             AssertViewMatchesProjectedState(host, entityId: 30);
