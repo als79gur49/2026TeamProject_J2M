@@ -102,7 +102,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxDamageBurstMigration, Is.True);
             }
             finally
             {
@@ -118,7 +117,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxDamageBurstMigration = true;
 
                 runtime.Present(CreateExtensionContext());
 
@@ -146,7 +144,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(prefab);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxDamageBurstMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
 
                 runtime.Present(CreateExtensionContext());
@@ -175,7 +172,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(prefab);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxDamageBurstMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
 
                 SnapshotMaterializationCounts counts;
@@ -237,7 +233,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cueMap = CreateCueMap(binding);
                 var presenter = CreatePresenter(rootObject, playerViewPrefab);
                 var runtime = rootObject.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxDamageBurstMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 presenter.AttachPresentationExtension(runtime);
                 var topology = new CubeTopologyState(FaceId.Floor);
@@ -268,7 +263,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var presenter = CreatePresenter(rootObject, playerViewPrefab);
                 var runtime = rootObject.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxDamageBurstMigration = true;
                 presenter.AttachPresentationExtension(runtime);
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);

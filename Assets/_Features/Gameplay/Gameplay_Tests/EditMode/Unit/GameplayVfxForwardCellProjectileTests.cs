@@ -12,6 +12,7 @@ using Game.Feature.Gameplay.Vfx;
 using Game.Feature.Gameplay.Vfx.Authoring;
 using Game.Feature.Gameplay.Vfx.Host;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -28,6 +29,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileFlight);
         private static GameplayVfxCueId ImpactCueId =>
             GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact);
+        private const string ForwardCellProjectileFlightBindingPath =
+            "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/ForwardCellProjectileFlight_Binding.asset";
 
         [Test]
         [Category("Core")]
@@ -455,6 +458,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ProjectileVfx_VisibleSurfaceAllowed_DoesNotBypassSourceSemanticGate()
+        {
+            using var fixture = new ForwardCellProjectileRuntimeFixture(
+                "ForwardCellProjectileVisibleSurfaceSourceGate",
+                GameplayVfxVisibilityMode.VisibleSurfaceAllowed,
+                sourceFrontFaceInactive: true);
+
+            fixture.Present(CreatePresentationData(releaseSignals: new[]
+            {
+                CreateReleaseSignal(targetCell: new SurfaceCell(FaceId.Ceiling, 1, 0)),
+            }));
+
+            Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.Zero);
+            AssertActiveCarrierKeys(fixture.Runtime);
+            Assert.That(fixture.Runtime.ForwardCellProjectilePresentationOnlyMisuseCandidateCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProjectileVfx_InactiveFaceExplicitlyAllowed_AllowsInactiveTargetAfterSourceGate()
+        {
+            using var fixture = new ForwardCellProjectileRuntimeFixture(
+                "ForwardCellProjectileInactiveTargetOptIn",
+                GameplayVfxVisibilityMode.InactiveFaceExplicitlyAllowed,
+                createSourceView: true);
+
+            fixture.Present(CreatePresentationData(releaseSignals: new[]
+            {
+                CreateReleaseSignal(targetCell: new SurfaceCell(FaceId.Ceiling, 1, 0)),
+            }));
+
+            Assert.That(fixture.Runtime.GetActiveVfxInstanceCount(FlightCueId), Is.EqualTo(1));
+            AssertActiveCarrierKeys(fixture.Runtime, 4000001);
+            Assert.That(fixture.Runtime.ForwardCellProjectilePresentationOnlyMisuseCandidateCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
         public void ProjectileVfx_InactiveFaceExplicitlyAllowed_DoesNotBypassSourceSemanticGate()
         {
             using var fixture = new ForwardCellProjectileRuntimeFixture(
@@ -492,6 +533,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 fixture.Runtime.LastForwardCellProjectilePresentationOnlyUsageDiagnostic.Kind,
                 Is.EqualTo(GameplayVfxPresentationOnlyUsageKind.MisuseCandidate));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ForwardCellProjectileFlight_ProductionBinding_UsesVisibleSurfaceAllowed()
+        {
+            var binding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                ForwardCellProjectileFlightBindingPath);
+
+            Assert.That(binding, Is.Not.Null, ForwardCellProjectileFlightBindingPath);
+            Assert.That(binding.CueId, Is.EqualTo(FlightCueId));
+            Assert.That(binding.VisibilityMode, Is.EqualTo(GameplayVfxVisibilityMode.VisibleSurfaceAllowed));
+            Assert.That(
+                binding.BuildRuntimePolicy().VisibilityMode,
+                Is.EqualTo(GameplayVfxVisibilityMode.VisibleSurfaceAllowed));
         }
 
         [Test]
@@ -1098,13 +1154,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public ForwardCellProjectileRuntimeFixture(
                 string name,
                 GameplayVfxVisibilityMode flightVisibilityMode = GameplayVfxVisibilityMode.DefaultGameplay,
-                bool sourceFrontFaceInactive = false)
+                bool sourceFrontFaceInactive = false,
+                bool createSourceView = false)
             {
                 owner = new GameObject(name);
                 markerPrefab = new GameObject($"{name}MarkerPrefab");
                 flightPrefab = new GameObject($"{name}FlightPrefab");
                 impactPrefab = new GameObject($"{name}ImpactPrefab");
-                var sourceView = sourceFrontFaceInactive
+                var sourceView = sourceFrontFaceInactive || createSourceView
                     ? CreateSourceView(owner.transform)
                     : null;
                 markerBinding = CreateBinding(

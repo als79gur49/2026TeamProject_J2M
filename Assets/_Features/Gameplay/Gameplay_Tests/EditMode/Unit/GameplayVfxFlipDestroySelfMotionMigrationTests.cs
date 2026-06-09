@@ -172,6 +172,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void FlipDestroySelfMotion_UsesImpactDispositionAdmission_NotLiveSourceGate()
+        {
+            var fixture = CreateBuilderFixture();
+            var signal = CreateSignal(FlipImpactPresentationDisposition.DestroySelf);
+
+            var built = FlipDestroySelfMotionVfxCommandBuilder.TryBuild(
+                signal,
+                fixture.TimingProfile,
+                fixture.MotionTimingResolver,
+                fixture.PoseResolver,
+                fixture.Projector,
+                out var command);
+
+            Assert.That(
+                built,
+                Is.True,
+                "FlipDestroySelfMotion is admitted from the impact disposition presentation fact, not a live source gate.");
+            Assert.That(command.BoxEntityId, Is.EqualTo(signal.BoxEntityId));
+            Assert.That(command.SourceCell, Is.EqualTo(signal.SourceCell));
+            Assert.That(command.ImpactCell, Is.EqualTo(signal.ImpactCell));
+            Assert.That(command.SourceLocalPosition, Is.Not.EqualTo(command.ImpactLocalPosition));
+
+            var parameterized = command.ToParameterizedMotionVfxCommand();
+            Assert.That(
+                parameterized.CueId,
+                Is.EqualTo(GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion)),
+                "Impact disposition admission must preserve the authored FlipDestroySelfMotion cue.");
+            Assert.That(
+                parameterized.CloneMode,
+                Is.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion),
+                "Impact disposition admission must keep SourceCloneMotion instead of forcing PresentationOnly.");
+            Assert.That(parameterized.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.FlipArc));
+            Assert.That(parameterized.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.ScaleAndAlpha));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PreservesSurfaceCellFaceTopologyAndFacing()
         {
             var sourceCell = new SurfaceCell(FaceId.Front, 2, 3);
@@ -218,7 +255,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxFlipDestroySelfMotionMigration, Is.True);
             }
             finally
             {
@@ -235,7 +271,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = false;
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
@@ -262,8 +297,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(null, BoxVfxCue.FlipDestroySelfMotion, tailSeconds: 0.18f);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFlipImpactBurstMigration = false;
-                runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 runtime.ConfigureCommonEmptyHostPrefab(commonHost);
 
@@ -303,8 +336,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFlipImpactBurstMigration = false;
-                runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
 
@@ -327,12 +358,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = false;
-                runtime.EnableGameplayVfxFlipImpactBurstMigration = true;
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
 
-                Assert.That(runtime.EnableGameplayVfxFlipDestroySelfMotionMigration, Is.False);
             }
             finally
             {
@@ -357,8 +385,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 burstBinding = CreateBinding(prefab, BoxVfxCue.FlipImpactBurst, tailSeconds: 0.2f);
                 cueMap = CreateCueMap(motionBinding, burstBinding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
-                runtime.EnableGameplayVfxFlipImpactBurstMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 runtime.ConfigureCommonEmptyHostPrefab(commonHost);
 
@@ -386,8 +412,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFlipImpactBurstMigration = false;
-                runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.Stay)));
 
@@ -750,8 +774,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cueMap = CreateCueMap(hostBinding);
                 profile = CreateProfile(profileBinding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxFlipImpactBurstMigration = false;
-                runtime.EnableGameplayVfxFlipDestroySelfMotionMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 runtime.ConfigureFamilyProfiles(new[] { profile });
                 runtime.ConfigureCommonEmptyHostPrefab(commonHost);

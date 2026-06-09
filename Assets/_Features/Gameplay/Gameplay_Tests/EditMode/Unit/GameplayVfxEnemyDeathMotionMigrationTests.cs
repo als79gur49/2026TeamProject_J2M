@@ -221,15 +221,97 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ProductionRuntime_EnemyDeathMotionFlag_DefaultsTrue()
+        public void EnemyDeathMotion_FrontFaceInactiveSource_EmitsSourceCloneFlyAway()
+        {
+            var owner = new GameObject("EnemyDeathMotionFrontFaceInactiveRuntime");
+            var cameraObject = CreateCameraObject("EnemyDeathMotionFrontFaceInactiveCamera");
+            var prefab = CreateRuntimePrefab("EnemyDeathMotionFrontFaceInactivePrefab");
+            VfxBindingDefinitionAsset binding = null;
+            VfxCueMapAsset cueMap = null;
+            InactiveSourceViewFixture source = default;
+            try
+            {
+                binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), tailSeconds: 0.2f);
+                cueMap = CreateCueMap(binding);
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
+                runtime.ConfigureOutputCamera(cameraObject.GetComponent<Camera>(), owner.transform);
+                var signal = CreateEnemyExitSignal(40, TickEntityExitCause.Killed);
+                var context = CreateExtensionContext(signal);
+                source = CreateInactiveSourceView(context.StateStore, entityId: 40);
+                context.StateStore.EnemyVisualSemanticStatesByEntityId[40] =
+                    new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive);
+
+                runtime.Present(context);
+
+                Assert.That(
+                    runtime.LastPlannedRequestCount,
+                    Is.EqualTo(1),
+                    "EnemyDeathMotion is admitted from the death presentation fact, not the ForwardCellProjectile live source gate.");
+                Assert.That(
+                    runtime.GetActiveVfxInstanceCount(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)),
+                    Is.EqualTo(1),
+                    "FrontFaceInactive death feedback must remain visible through the presentation fact admission contract.");
+                Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
+                Assert.That(runtime.MissingAnchorCount, Is.Zero);
+                Assert.That(runtime.MissingSourceViewCount, Is.Zero);
+                Assert.That(runtime.MissingPrefabCount, Is.Zero);
+                Assert.That(runtime.CommonHostUnavailableCount, Is.Zero);
+                Assert.That(runtime.InvalidPlaybackModePolicyCount, Is.Zero);
+                Assert.That(
+                    FindParameterizedMotionClone(owner.transform),
+                    Is.Not.Null,
+                    "FrontFaceInactive EnemyDeathMotion must keep the PrefabWithSourceClone fly-away path.");
+                Assert.That(
+                    runtime.ForwardCellProjectilePresentationOnlyMisuseCandidateCount,
+                    Is.Zero,
+                    "EnemyDeathMotion death clone is independent from the ForwardCellProjectile live source gate.");
+                Assert.That(
+                    runtime.ForwardCellProjectilePresentationOnlyAllowedTopologyHelperCount,
+                    Is.Zero,
+                    "EnemyDeathMotion death clone must not use ForwardCellProjectile PresentationOnly counters.");
+
+                var builderFixture = CreateBuilderFixture();
+                try
+                {
+                    builderFixture.StateStore.EnemyVisualSemanticStatesByEntityId[40] =
+                        new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive);
+                    var built = EnemyDeathMotionVfxCommandBuilder.TryBuild(
+                        signal,
+                        builderFixture.TimingProfile,
+                        builderFixture.PoseResolver,
+                        builderFixture.Projector,
+                        builderFixture.TargetResolver,
+                        out var command);
+
+                    Assert.That(
+                        built,
+                        Is.True,
+                        "Death presentation fact admission must build the command without requiring the live source gate.");
+                    AssertEnemyDeathMotionParameterizedContract(command.ToParameterizedMotionVfxCommand());
+                }
+                finally
+                {
+                    builderFixture.Destroy();
+                }
+            }
+            finally
+            {
+                source.Destroy();
+                Destroy(cueMap, binding, prefab, cameraObject, owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProductionRuntime_EnemyDeathMotion_IsCanonical()
         {
             var owner = new GameObject("EnemyDeathMotionDefaultFlag");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
-                Assert.That(runtime.EnableGameplayVfxEnemyDeathMotionMigration, Is.True);
-                Assert.That(runtime.EnableGameplayVfxEnemyDeathBurstMigration, Is.True);
             }
             finally
             {
@@ -239,14 +321,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyDeathMotionFlagOff_DisablesMotionVfxWithoutFallback()
+        public void EnemyDeathMotion_MissingBindingDoesNotFallback()
         {
             var owner = new GameObject("EnemyDeathMotionFlagOffNoFallback");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = true;
                 runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.Killed)));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
@@ -260,7 +340,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyDeathMotionFlagOn_WithBinding_PlaysParameterizedMotion()
+        public void EnemyDeathMotion_WithBinding_PlaysParameterizedMotionAlongsideCanonicalBurst()
         {
             var owner = new GameObject("EnemyDeathMotionRuntime");
             var cameraObject = CreateCameraObject("EnemyDeathMotionRuntimeCamera");
@@ -272,15 +352,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), tailSeconds: 0.2f);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 runtime.ConfigureOutputCamera(cameraObject.GetComponent<Camera>(), owner.transform);
 
                 runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.EnemyDeath)));
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.MissingBindingCount, Is.Zero);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingAnchorCount, Is.Zero);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
             }
@@ -292,7 +370,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void MotionFlagOn_AtContactTime_SpawnsDeathMotionAtVisualContact()
+        public void EnemyDeathMotion_AtContactTime_SpawnsDeathMotionAtVisualContact()
         {
             var owner = new GameObject("EnemyDeathMotionDelayedRuntime");
             var cameraObject = CreateCameraObject("EnemyDeathMotionDelayedRuntimeCamera");
@@ -304,8 +382,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), tailSeconds: 0.2f);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 runtime.ConfigureOutputCamera(cameraObject.GetComponent<Camera>(), owner.transform);
                 var context = CreateExtensionContext(
@@ -320,7 +396,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 runtime.Present(context);
 
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
                 Assert.That(runtime.MissingBindingCount, Is.Zero);
 
@@ -381,8 +457,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), tailSeconds: 0.2f);
                 cueMap = CreateCueMap(binding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 runtime.ConfigureOutputCamera(cameraObject.GetComponent<Camera>(), owner.transform);
                 var context = CreateExtensionContext(
@@ -453,15 +527,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = true;
                 runtime.ConfigureOutputCamera(cameraObject.GetComponent<Camera>(), owner.transform);
 
                 runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.EnemyDeath)));
 
                 Assert.That(runtime.IsRuntimeInitialized, Is.True);
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.MissingBindingCount, Is.EqualTo(2));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
             finally
@@ -472,19 +544,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void MotionFlagOn_MissingCamera_DiagnosticNoOp()
+        public void EnemyDeathMotion_MissingCamera_DiagnosticNoOp()
         {
             var owner = new GameObject("EnemyDeathMotionMissingCamera");
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = true;
 
                 runtime.Present(CreateExtensionContext(CreateEnemyExitSignal(40, TickEntityExitCause.EnemyDeath)));
 
                 Assert.That(runtime.IsRuntimeInitialized, Is.True);
-                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.MissingAnchorCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
@@ -510,8 +580,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 burstBinding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.Death), tailSeconds: 0.25f, defaultLifetimeSeconds: 0.35f);
                 cueMap = CreateCueMap(motionBinding, burstBinding);
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = true;
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 runtime.ConfigureOutputCamera(cameraObject.GetComponent<Camera>(), owner.transform);
 
@@ -540,8 +608,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binding = CreateBinding(prefab, GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), tailSeconds: 0.2f);
                 cueMap = CreateCueMap(binding);
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
-                runtime.EnableGameplayVfxEnemyDeathBurstMigration = false;
-                runtime.EnableGameplayVfxEnemyDeathMotionMigration = true;
                 runtime.ConfigureHostDefaultMap(cueMap);
                 scenario.Presenter.AttachOutputCamera(cameraObject.GetComponent<Camera>());
                 scenario.Presenter.AttachPresentationExtension(runtime);
@@ -557,7 +623,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(entityExitSignals: new[] { CreateEnemyExitSignal(40, TickEntityExitCause.EnemyDeath, scenario.EnemyCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
                 Assert.That(scenario.Registry.TryGetView(40, out var enemyView), Is.True);
                 Assert.That(enemyView.gameObject.activeSelf, Is.False);
@@ -656,6 +722,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 fixture.Projector,
                 fixture.TargetResolver,
                 out _);
+        }
+
+        private static void AssertEnemyDeathMotionParameterizedContract(ParameterizedMotionVfxCommand parameterized)
+        {
+            Assert.That(parameterized.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)));
+            Assert.That(parameterized.CloneMode, Is.EqualTo(ParameterizedMotionVfxCloneMode.PrefabWithSourceClone));
+            Assert.That(parameterized.CloneMode, Is.Not.EqualTo(ParameterizedMotionVfxCloneMode.SourceCloneMotion));
+            Assert.That(parameterized.SamplerMode, Is.EqualTo(ParameterizedMotionVfxSamplerMode.EnemyDeathFlyAway));
+            Assert.That(parameterized.FadeMode, Is.EqualTo(ParameterizedMotionVfxFadeMode.EnemyDeathFade));
         }
 
         private static BuilderFixture CreateBuilderFixture()

@@ -76,8 +76,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "## VFX Planner Dependency Rule",
                 "## Production Runtime Dependency Rule",
                 "## Gameplay VFX Legacy Old Path Cleanup",
-                "## Gameplay VFX Flag Rollout Policy",
+                "## Gameplay VFX Canonical Toggle Policy",
                 "## Visual Source Modes",
+                "## Presentation Admission Families",
                 "## Placeholder Prefab Policy",
                 "## ADR: SourceCloneMotion Host Strategy",
                 "## Test Naming Policy",
@@ -96,12 +97,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("must not read WorldState"));
             Assert.That(document, Does.Contain("must not call WorldState.CreateSnapshot"));
             Assert.That(document, Does.Contain("Binding missing, anchor missing, and invalid policy are distinct failure modes"));
-            Assert.That(document, Does.Contain("flag off means that VFX is off"));
-            Assert.That(document, Does.Contain("it does not mean old presenter fallback"));
+            Assert.That(document, Does.Contain("Migrated cues are now canonical Gameplay VFX playback and are not scene/public flag gated."));
+            Assert.That(document, Does.Contain("must not restore any old presenter path"));
             Assert.That(document, Does.Contain("### PrefabOnly"));
             Assert.That(document, Does.Contain("### SourceCloneMotion"));
             Assert.That(document, Does.Contain("### PrefabWithSourceClone"));
             Assert.That(document, Does.Contain("SourceViewCloneWithPrefabFallback"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayVfxGovernance_DocumentsPresentationAdmissionFamilies()
+        {
+            var document = ReadRepoFile(GovernancePath);
+
+            Assert.That(document, Does.Contain("## Presentation Admission Families"));
+            Assert.That(document, Does.Contain("direct presentation commands are not automatically admitted through the common live source/target visibility evaluator"));
+            Assert.That(document, Does.Contain("EntityExit/death/impact direct commands use their presentation fact admission contract"));
+            Assert.That(document, Does.Contain("### Gameplay request VFX"));
+            Assert.That(document, Does.Contain("### EntityExit / Death presentation direct VFX"));
+            Assert.That(document, Does.Contain("### Impact / disposition presentation direct VFX"));
+            Assert.That(document, Does.Contain("### Split / mixed path"));
+            Assert.That(document, Does.Contain("### Topology helper"));
+            Assert.That(document, Does.Contain("ForwardCellProjectile source semantic gate"));
+            Assert.That(document, Does.Contain("do not force these paths through `PresentationOnly`"));
+            Assert.That(document, Does.Contain("delayed BoxDestroy smoke is admitted from the scheduled exit presentation fact"));
         }
 
         [Test]

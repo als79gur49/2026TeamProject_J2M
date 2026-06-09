@@ -104,6 +104,46 @@ Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage
 - source view missing and prefab missing diagnostics must remain separate.
 - example: `EnemyVfxCue.DeathMotion`.
 
+## Presentation Admission Families
+
+Binding visibility policy is part of the authored VFX binding contract, but direct presentation commands are not automatically admitted through the common live source/target visibility evaluator. EntityExit/death/impact direct commands use their presentation fact admission contract unless explicitly routed through the common planner path.
+
+### Gameplay request VFX
+
+- admission owner: source-target visibility evaluator.
+- common gate: `GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor` and `EvaluateAfterAnchor` are part of admission.
+- examples: `ForwardCellProjectile`, planner request paths, and attached/follower request families.
+- `InactiveFaceExplicitlyAllowed` can allow inactive-face target/anchor projection, but it does not bypass the ForwardCellProjectile source semantic gate.
+
+### EntityExit / Death presentation direct VFX
+
+- admission owner: death, destroy, or out-of-bounds presentation fact.
+- examples: `EnemyDeathMotion`, `BoxVfxCue.DestroyShrink`, and `BoxVfxCue.OutOfBoundsExit` / `EnemyVfxCue.OutOfBoundsExit`.
+- these are presentation fact consumers, not live gameplay action VFX.
+- direct command paths resolve binding policy, but the common live source/target evaluator is not the command admission owner.
+- death, destroy, and out-of-bounds feedback must not disappear only because the source entity is already inactive as part of the exit fact.
+- do not force these paths through `PresentationOnly` as a substitute for their presentation fact admission contract.
+
+### Impact / disposition presentation direct VFX
+
+- admission owner: impact or flip-disposition presentation fact.
+- examples: `BoxVfxCue.FlipDestroySelfMotion` and `BoxVfxCue.ImpactTransientBreak`.
+- this family is similar to EntityExit direct presentation VFX because it builds direct source-clone motion from presentation facts, but it remains a separate impact/disposition family.
+- do not generalize ForwardCellProjectile Phase 6E source-gate semantics to these impact/disposition direct commands.
+
+### Split / mixed path
+
+- `BoxVfxCue.DestroySmoke` is not a single simple direct-command path.
+- immediate BoxDestroy smoke is planned as a gameplay VFX request and keeps planner/common visibility-gate semantics.
+- delayed BoxDestroy smoke is admitted from the scheduled exit presentation fact through the runtime projector/direct presentation path.
+- duplicate guards with DestroySelf/ImpactTransient ownership remain split-path ownership rules, not a reason to treat smoke as one direct EntityExit command family.
+
+### Topology helper
+
+- admission owner: topology visual state or helper context.
+- examples: `TopologyTransitionPostFxController`, `TopologyVisualBridgeVisibilityController`, `GameplayTopologyTransitionController`, and the `GameplayCameraRig` topology adapter.
+- this is the `PresentationOnly` helper lane and remains separate from gameplay VFX visibility policy.
+
 ## Placeholder Prefab Policy
 
 ### SourceCloneMotion
@@ -134,6 +174,7 @@ Removed host-default prefab/binding authoring includes PlayerDamage, EnemyDamage
 - authored prefab is the visual body.
 - null prefab is invalid and reports `MissingPrefab`.
 - particle/contact visual prefabs are actual visual prefabs, not placeholders.
+- sample-only particle prefabs must not be kept in the production VFX tree.
 - `BoxDestroySmokeVfx.prefab`, `FlipImpactBurstVfx.prefab`, and `BoxSlideSolidStopVfx.prefab` are deletion-protected actual visual examples.
 
 ### Cleanup Rules
@@ -328,12 +369,10 @@ Anchor and lifecycle:
 - lifecycle: transient one-shot
 - timing: `VfxTimingKind.ImmediateOnTickPresentation`
 
-Feature flag:
+Canonical playback policy:
 
-- `EnableGameplayVfxFlipImpactBurstMigration`
-- default true after the Tier 1/2 rollout batch
-- flag off drops the new burst request
-- flag on allows only the new contact burst request
+- `BoxVfxCue.FlipImpactBurst` is canonical Gameplay VFX playback and is not scene/public flag gated.
+- source facts emit only the new contact burst request.
 
 Original-view motion:
 
@@ -514,11 +553,9 @@ Timing contract:
 - fade duration is the remaining flight duration after break onset
 - cleanup uses the pooled transient VFX lifecycle plus authored binding tail
 
-Feature flag:
+Canonical playback policy:
 
-- `EnableGameplayVfxFlipDestroySelfMotionMigration`
-- default true after the Tier 3 rollout batch
-- flag off means no `BoxVfxCue.FlipDestroySelfMotion` playback and no old clone/arc/fade fallback
+- `BoxVfxCue.FlipDestroySelfMotion` is canonical Gameplay VFX playback and is not scene/public flag gated.
 - suppress compatibility gates were removed in Legacy Surface Simplification; no old fallback switch remains
 - `ApplyEntityExitOwnership()` remains active and still hides/cleans the authoritative view
 - missing `FlipDestroySelfMotion` binding, source view, or common host is diagnostic/no-op with no old fallback
@@ -617,12 +654,9 @@ Cues and lifecycle:
 - `EnemyVfxCue.FrontFaceShieldWindup`: persistent desired-state windup warning telegraph keyed by source entity id, effect index, and activation sequence.
 - `EnemyVfxCue.UtilityWindup` remains separate and consumes `TickPresentationData.SummonWindupWarnings`; it must not consume FrontFace shield windup warning facts.
 
-Feature flags:
+Canonical playback policy:
 
-- `EnableGameplayVfxFrontFaceShieldActiveMigration`
-- `EnableGameplayVfxFrontFaceShieldBlockMigration`
-- `EnableGameplayVfxFrontFaceShieldWindupMigration`
-- all default true after the Tier 1/2 rollout batch and filter their cues independently.
+- `EnemyVfxCue.FrontFaceShieldActive`, `EnemyVfxCue.FrontFaceShieldBlock`, and `EnemyVfxCue.FrontFaceShieldWindup` are canonical Gameplay VFX playback and are not scene/public flag gated.
 
 Old presenter bypass:
 
@@ -631,8 +665,7 @@ Old presenter bypass:
 - after FrontFace shield windup migration, old telegraph creation/update is always skipped.
 - suppress compatibility gates were removed in Legacy Surface Simplification.
 - `GameplayFrontFaceShieldVfxPresenter` is not removed. The coordinator must still call cleanup-only empty refreshes so legacy active loops and windup telegraphs cannot linger.
-- Missing Gameplay VFX binding is diagnostic/no-op with no old fallback whenever the corresponding migration flag is on.
-- If `EnableGameplayVfxFrontFaceShieldWindupMigration` is false, no windup warning VFX plays and no old telegraph fallback is restored.
+- Missing Gameplay VFX binding is diagnostic/no-op with no old fallback.
 
 Binding precedence remains source presentation-local profile, then family profile, then host default map. The old host default FrontFaceShield active/block/windup bindings were removed in the non-particle authoring cleanup.
 
@@ -824,21 +857,20 @@ Ownership:
 - new path: `PlayerVfxRequestPlanner` emits one `PlayerVfxCue.Damage` request for a non-fatal `TookDamageThisTick` signal.
 - old path: Player damage direct hit prefab fallback.
 - suppress compatibility gates were removed in Legacy Surface Simplification.
-- production flag: `GameplayVfxProductionRuntime.EnableGameplayVfxDamageBurstMigration`.
+- runtime toggle status: `PlayerVfxCue.Damage` is canonical Gameplay VFX playback and is not scene/public flag gated.
 
-Flag policy:
+Canonical playback policy:
 
-- default true after the Tier 1/2 rollout batch means the Gameplay VFX lane owns playback.
-- after legacy old path cleanup, setting `EnableGameplayVfxDamageBurstMigration` false disables `PlayerVfxCue.Damage` and does not restore the old presenter hit prefab.
-- old presenter path is skipped regardless of the flag value.
-- missing binding under the true flag is diagnostic/no-op; it must not fall back to the old presenter path.
+- `PlayerVfxCue.Damage` is always owned by the Gameplay VFX lane when the source fact is present.
+- old presenter path is skipped and no scene/public rollback flag exists.
+- missing binding is diagnostic/no-op; it must not fall back to the old presenter path.
 
 Default binding:
 
 - default host prefab/binding authoring was removed in the non-particle authoring cleanup.
 - missing binding remains diagnostic/no-op with no old presenter fallback.
 
-Duplicate-prevention tests for this slice must cover flag off no VFX after legacy cleanup, flag on new-only, same fact not double-playing, missing binding no old fallback, and no authority/snapshot materialization impact.
+Duplicate-prevention tests for this slice must cover canonical new-only playback, same fact not double-playing, missing binding no old fallback, and no authority/snapshot materialization impact.
 
 ## Enemy Damage VFX Lane Slice
 
@@ -849,15 +881,13 @@ Ownership:
 - new path: `EnemyVfxRequestPlanner` emits one `EnemyVfxCue.Damage` request for a non-fatal `TookDamageThisTick` signal.
 - current old visual response: `EnemyAnimatorDriver` consumes the mapped enemy damage state and fires the Hit animation trigger.
 - bypass: no old transient presenter bypass is added for enemy damage in this slice because current source has no enemy transient hit burst presenter path.
-- production flag: `GameplayVfxProductionRuntime.EnableGameplayVfxEnemyDamageBurstMigration`.
+- runtime toggle status: `EnemyVfxCue.Damage` is canonical Gameplay VFX playback and is not scene/public flag gated.
 
-Flag policy:
+Canonical playback policy:
 
-- default true after the Tier 1/2 rollout batch means the Gameplay VFX lane owns the enemy damage burst.
-- true means the Gameplay VFX lane owns the enemy damage burst.
-- player damage and enemy damage flags are independent.
-- missing binding under the true flag is diagnostic/no-op; it must not fall back to a legacy transient presenter path.
-- rollback is setting `EnableGameplayVfxEnemyDamageBurstMigration` false.
+- the Gameplay VFX lane owns the enemy damage burst when the source fact is present.
+- player damage and enemy damage cues are independent.
+- missing binding is diagnostic/no-op; it must not fall back to a legacy transient presenter path.
 
 Source fact and suppression:
 
@@ -873,7 +903,7 @@ Default binding:
 - default host prefab/binding authoring was removed in the non-particle authoring cleanup.
 - missing binding remains diagnostic/no-op with no legacy transient presenter fallback.
 
-Duplicate-prevention tests for this slice cover flag filtering, missing binding diagnostic/no-op, source profile precedence, host fallback, no authority/snapshot materialization, and checked presenter files not directly referencing `EnemyVfxCue.Damage`.
+Duplicate-prevention tests for this slice cover canonical new-only playback, missing binding diagnostic/no-op, source profile precedence, host fallback, no authority/snapshot materialization, and checked presenter files not directly referencing `EnemyVfxCue.Damage`.
 
 ## Box Exit VFX Migration
 
@@ -890,16 +920,14 @@ Ownership:
 - destroy shrink resolves the source exit pose through `GameplayPoseResolver` and plays a parameterized source-view clone/fallback at the source cell center.
 - lifecycle: transient one-shot request with no persistent key.
 
-Migration flags and bypass:
+Canonical playback and bypass:
 
-- `GameplayVfxProductionRuntime.EnableGameplayVfxBoxDestroySmokeMigration` gates `BoxVfxCue.DestroySmoke` playback.
-- `GameplayVfxProductionRuntime.EnableGameplayVfxBoxDestroyShrinkMigration` gates `BoxVfxCue.DestroyShrink` playback and defaults true as a Tier 2 default-on candidate.
-- `GameplayVfxProductionRuntime.EnableGameplayVfxItemConsumeBurstMigration` gates `BoxVfxCue.ItemConsume` playback.
-- after legacy old path cleanup, old BoxDestroy shrink/fade playback is always skipped; `EnableGameplayVfxBoxDestroyShrinkMigration` false means no shrink VFX.
-- `EnableGameplayVfxBoxDestroySmokeMigration` gates smoke only and does not own shrink playback.
-- after legacy old path cleanup, old item consume playback is always skipped; `EnableGameplayVfxItemConsumeBurstMigration` false means no item consume VFX.
+- `BoxVfxCue.DestroySmoke`, `BoxVfxCue.DestroyShrink`, and `BoxVfxCue.ItemConsume` are canonical Gameplay VFX playback and are not scene/public flag gated.
+- after legacy old path cleanup, old BoxDestroy shrink/fade playback is always skipped.
+- destroy smoke owns smoke only and does not own shrink playback.
+- after legacy old path cleanup, old item consume playback is always skipped.
 - `GameplayExitPresentationController.ApplyEntityExitOwnership()` remains active; view visibility and state cleanup are not bypassed.
-- missing binding under either migration flag is diagnostic/no-op and must not fall back to old entity exit playback.
+- missing binding is diagnostic/no-op and must not fall back to old entity exit playback.
 
 BoxDestroy composite combinations:
 
@@ -940,12 +968,12 @@ Ownership:
 - anchor rationale: the exit tick may no longer have a stable live entity pose, while `SourceCell` is carried by the exit presentation fact.
 - lifecycle: transient one-shot request with no persistent key.
 
-Migration flag and bypass:
+Canonical playback and bypass:
 
-- `GameplayVfxProductionRuntime.EnableGameplayVfxEnemyDeathBurstMigration` gates `EnemyVfxCue.Death` playback.
-- `EnableGameplayVfxEnemyDeathBurstMigration` does not suppress the old `GameplayExitPresentationController` enemy death exit VFX playback.
+- `EnemyVfxCue.Death` is canonical Gameplay VFX playback and is not scene/public flag gated.
+- the old `GameplayExitPresentationController` enemy death exit VFX playback is not restored.
 - `GameplayExitPresentationController.ApplyEntityExitOwnership()` remains active; view visibility and state cleanup are not bypassed.
-- missing burst binding under the migration flag is diagnostic/no-op and does not affect old enemy death clone/arc/fade playback unless the Death Motion flag is also on.
+- missing burst binding is diagnostic/no-op and does not restore old enemy death clone/arc/fade playback.
 
 Default binding:
 
@@ -990,14 +1018,9 @@ Legacy motion spec locked for parity:
 
 Runtime policy:
 
-- `GameplayVfxProductionRuntime.EnableGameplayVfxEnemyDeathMotionMigration` gates `EnemyVfxCue.DeathMotion`.
+- `EnemyVfxCue.DeathMotion` is canonical Gameplay VFX playback and is not scene/public flag gated.
 - suppress compatibility gates were removed in Legacy Surface Simplification; no enemy death old fallback switch remains.
-- `EnableGameplayVfxEnemyDeathBurstMigration` and `EnableGameplayVfxEnemyDeathMotionMigration` are independent.
-- flag combinations:
-  - burst off / motion off: no enemy death VFX.
-  - burst on / motion off: `EnemyVfxCue.Death` burst only.
-  - burst off / motion on: `EnemyVfxCue.DeathMotion` only.
-  - burst on / motion on: `EnemyVfxCue.DeathMotion` plus `EnemyVfxCue.Death`.
+- `EnemyVfxCue.Death` and `EnemyVfxCue.DeathMotion` remain independent canonical requests from the same exit source fact.
 - missing DeathMotion binding, prefab, source pose, output camera, or target context is diagnostic/no-op with no old fly-away fallback.
 - missing source clone uses the fallback prefab through `PrefabWithSourceClone`.
 - `GameplayExitPresentationController.ApplyEntityExitOwnership()` remains active; source view cleanup is not bypassed.
@@ -1028,14 +1051,13 @@ Ownership:
 - anchor: source entity center with source-cell fallback, matching the legacy source-view-attached warning default.
 - lifecycle: persistent request with `VfxPersistentKey` built from cue, entity anchor kind, source entity id, effect index, and activation sequence.
 
-Migration flag and bypass:
+Canonical playback and bypass:
 
-- `GameplayVfxProductionRuntime.EnableGameplayVfxUtilityWindupMigration` gates `EnemyVfxCue.UtilityWindup` playback and defaults true after the Tier 1/2 rollout batch.
+- `EnemyVfxCue.UtilityWindup` is canonical Gameplay VFX playback and is not scene/public flag gated.
 - after legacy old path cleanup, old `GameplayUtilityWindupVfxPresenter` summon warning spawning is always skipped.
 - suppress compatibility gates were removed in Legacy Surface Simplification.
 - the coordinator still calls a cleanup-only empty refresh so legacy summon warning instances cannot linger.
-- missing binding under the migration flag is diagnostic/no-op and must not fall back to the old presenter.
-- setting `EnableGameplayVfxUtilityWindupMigration` false disables `EnemyVfxCue.UtilityWindup` and does not restore old warning spawning.
+- missing binding is diagnostic/no-op and must not fall back to the old presenter.
 
 Default binding:
 
@@ -1357,11 +1379,9 @@ Duplicate relationship:
 - existing `BoxVfxExitSignalGuards` still treats ImpactTransient as the owner of same-entity box destroy visuals.
 - a same-entity BoxDestroy exit does not also emit duplicate BoxDestroy smoke/shrink when an ImpactTransient signal owns the break/fade.
 
-Flag and fallback:
+Canonical playback and fallback:
 
-- flag: `EnableGameplayVfxImpactTransientBreakMigration`
-- default true
-- flag off means no ImpactTransient break VFX and no old presenter fallback
+- `BoxVfxCue.ImpactTransientBreak` is canonical Gameplay VFX playback and is not scene/public flag gated.
 - old `GameplayTransientEffectPresenter.PlayImpactBreakEffect` playback surface is removed
 - missing binding, source view, common host, anchor, source pose, or impact pose is diagnostic/no-op
 - null cue prefab is allowed for `SourceCloneMotion` and must not report `MissingPrefab`
@@ -1395,11 +1415,9 @@ Playback:
 - fade: `DestroyShrinkEase` over `ItemConsumeEffectDurationSeconds`
 - anchor: source cell center
 
-Flag and fallback:
+Canonical playback and fallback:
 
-- flag: `EnableGameplayVfxOutOfBoundsExitMigration`
-- default true
-- flag off means no OutOfBounds VFX and no old presenter fallback
+- `BoxVfxCue.OutOfBoundsExit` and `EnemyVfxCue.OutOfBoundsExit` are canonical Gameplay VFX playback and are not scene/public flag gated.
 - old `GameplayExitPresentationController.PlayExitEffect` playback surface is removed for OutOfBounds
 - missing binding, source view, common host, anchor, or source pose is diagnostic/no-op
 - null cue prefab is allowed for `SourceCloneMotion` and must not report `MissingPrefab`
@@ -1408,23 +1426,23 @@ Flag and fallback:
 
 ## Gameplay VFX Legacy Old Path Cleanup
 
-After runtime default-on and legacy finalization, all current Gameplay VFX migration cues use the Gameplay VFX lane as the canonical playback path. For all current migrated cues, flag off means that VFX is off; it does not mean old presenter fallback. Cleanup, visibility, transform reset, and motion ownership responsibilities remain in their existing presentation owners.
+After runtime default-on, legacy finalization, and migration-residue cleanup, all migrated Gameplay VFX cues use the Gameplay VFX lane as the canonical playback path. These cues no longer expose serialized or public migration rollout fields. Cleanup, visibility, transform reset, and motion ownership responsibilities remain in their existing presentation owners.
 
 Cleaned legacy direct playback:
 
-| Old path | New VFX | Cleanup status | Flag-off semantics | Notes |
+| Old path | New VFX | Cleanup status | Runtime toggle status | Notes |
 |---|---|---|---|---|
-| Player damage direct hit prefab fallback | `PlayerVfxCue.Damage` | old hit playback disabled | no damage VFX | direct hit prefab fallback removed |
-| BoxDestroy old entity exit transient track | `BoxVfxCue.DestroyShrink` + `BoxVfxCue.DestroySmoke` | old shrink/fade track removed; `ApplyEntityExitOwnership()` retained | shrink flag off disables shrink; smoke flag off disables smoke | smoke does not own shrink suppression |
-| ItemConsume old entity exit transient track | `BoxVfxCue.ItemConsume` | old consume fade track removed; `ApplyEntityExitOwnership()` retained | no item consume VFX | cleanup remains exit ownership |
-| `GameplayUtilityWindupVfxPresenter.RefreshSummonWarnings` | `EnemyVfxCue.UtilityWindup` | old spawn disabled; cleanup-only empty refresh retained | no utility windup VFX | presenter kept for legacy instance disposal |
-| `GameplayFrontFaceShieldVfxPresenter.RefreshActiveSources` | `EnemyVfxCue.FrontFaceShieldActive` | old active-loop spawn disabled; cleanup-only empty refresh retained | no active shield VFX | active loop old fallback removed |
-| `GameplayFrontFaceShieldVfxPresenter.PlayBlockBursts` | `EnemyVfxCue.FrontFaceShieldBlock` | old block burst disabled | no block burst VFX | one-shot old fallback removed |
-| `GameplayFrontFaceShieldVfxPresenter.RefreshWindupWarnings` | `EnemyVfxCue.FrontFaceShieldWindup` | old telegraph spawn disabled; cleanup-only empty refresh retained | no FrontFace shield windup VFX | `telegraphPrefab` and old telegraph assets retained for deferred cleanup |
-| enemy killed old entity exit transient track | `EnemyVfxCue.DeathMotion` + `EnemyVfxCue.Death` | old fly-away track removed; `ApplyEntityExitOwnership()` retained; `EnemyDeathExitEffectPlanBuilder` retained for DeathMotion target math | no death motion VFX when motion flag is off; no burst VFX when burst flag is off | death flags control new VFX playback only |
-| old flip destroy-self clone/fade transient track | `BoxVfxCue.FlipDestroySelfMotion` | old clone/fade track removed; DestroySelf entity membership bookkeeping retained | no flip destroy-self motion VFX | `PresentationMotionTrack` Stay branch remains unchanged |
-| old impact break transient track | `BoxVfxCue.ImpactTransientBreak` | old impact break playback removed; duplicate ownership retained | no ImpactTransient break VFX | no normal producer added |
-| OutOfBounds old entity exit transient track | `BoxVfxCue.OutOfBoundsExit` / `EnemyVfxCue.OutOfBoundsExit` | old OutOfBounds fade track removed; `ApplyEntityExitOwnership()` retained | no OutOfBounds VFX | reserved SourceCloneMotion hook; no normal producer added |
+| Player damage direct hit prefab fallback | `PlayerVfxCue.Damage` | old hit playback disabled | canonical, no migration toggle | direct hit prefab fallback removed |
+| BoxDestroy old entity exit transient track | `BoxVfxCue.DestroyShrink` + `BoxVfxCue.DestroySmoke` | old shrink/fade track removed; `ApplyEntityExitOwnership()` retained | canonical, no migration toggle | smoke does not own shrink suppression |
+| ItemConsume old entity exit transient track | `BoxVfxCue.ItemConsume` | old consume fade track removed; `ApplyEntityExitOwnership()` retained | canonical, no migration toggle | cleanup remains exit ownership |
+| `GameplayUtilityWindupVfxPresenter.RefreshSummonWarnings` | `EnemyVfxCue.UtilityWindup` | old spawn disabled; cleanup-only empty refresh retained | canonical, no migration toggle | presenter kept for legacy instance disposal |
+| `GameplayFrontFaceShieldVfxPresenter.RefreshActiveSources` | `EnemyVfxCue.FrontFaceShieldActive` | old active-loop spawn disabled; cleanup-only empty refresh retained | canonical, no migration toggle | active loop old fallback removed |
+| `GameplayFrontFaceShieldVfxPresenter.PlayBlockBursts` | `EnemyVfxCue.FrontFaceShieldBlock` | old block burst disabled | canonical, no migration toggle | one-shot old fallback removed |
+| `GameplayFrontFaceShieldVfxPresenter.RefreshWindupWarnings` | `EnemyVfxCue.FrontFaceShieldWindup` | old telegraph spawn disabled; cleanup-only empty refresh retained | canonical, no migration toggle | `telegraphPrefab` and old telegraph assets retained for deferred cleanup |
+| enemy killed old entity exit transient track | `EnemyVfxCue.DeathMotion` + `EnemyVfxCue.Death` | old fly-away track removed; `ApplyEntityExitOwnership()` retained; `EnemyDeathExitEffectPlanBuilder` retained for DeathMotion target math | canonical, no migration toggle | burst and motion can play together |
+| old flip destroy-self clone/fade transient track | `BoxVfxCue.FlipDestroySelfMotion` | old clone/fade track removed; DestroySelf entity membership bookkeeping retained | canonical, no migration toggle | `PresentationMotionTrack` Stay branch remains unchanged |
+| old impact break transient track | `BoxVfxCue.ImpactTransientBreak` | old impact break playback removed; duplicate ownership retained | canonical, no migration toggle | no normal producer added |
+| OutOfBounds old entity exit transient track | `BoxVfxCue.OutOfBoundsExit` / `EnemyVfxCue.OutOfBoundsExit` | old OutOfBounds fade track removed; `ApplyEntityExitOwnership()` retained | canonical, no migration toggle | reserved SourceCloneMotion hook; no normal producer added |
 
 No stale old transient playback fallback remains: `GameplayTransientEffectPresenter`, `ImpactBreakEffectTrack`, `EntityExitEffectTrack`, `PlayImpactBreakEffect`, and `PlayExitEffect` playback APIs are removed.
 
@@ -1460,79 +1478,60 @@ Serialized reference cleanup status:
 
 Authority and carrier boundaries remain unchanged: no `TickPipeline`, `WorldState`, `WorldSnapshot`, `ProjectedWorld`, `FinalizationBatch`, `DeterminismHashBuilder`, `TickPresentationData`, `TickEntityExitPresentationSignal`, `TickEntityMotion`, or `TickResultBuilder` changes are part of legacy old path cleanup.
 
-## Gameplay VFX Flag Rollout Policy
+## Gameplay VFX Canonical Toggle Policy
 
-Every current Gameplay VFX flag is a long-term default-true candidate once its targeted tests pass. Tier 1 and Tier 2 flags are default-on after the Tier 1/2 rollout batch, based on targeted tests, visual spot check/manual visual approval, no missing binding / missing anchor / missing source pose / missing target context diagnostics in target scenes, no double-play with legacy presenters, successful targeted VFX regression tests, and a rollback path through the same flag. Tier 3 flags are approved in the Tier 3 rollout batch after parity review.
+The former migration rollout fields are deleted from `GameplayVfxProductionRuntime` and from the canonical `UIAudioScene` YAML. Migrated cues are now canonical Gameplay VFX playback and are not scene/public flag gated. Missing binding, prefab, anchor, source pose, or target context remains diagnostic/no-op and must not restore any old presenter path.
 
-After Tier 3 rollout, all current Gameplay VFX flags are runtime default-on. Scene-local overrides may still opt out. Flag off disables that VFX and does not restore old presenter fallback.
+Live non-migration toggles remain available for authored presentation features that still need runtime review switches. Scene-local overrides are separate from runtime defaults:
 
-Migration flags own only new Gameplay VFX lane playback. When a migration flag is on and its binding, prefab, anchor, source pose, or target context is missing, the new path reports diagnostic/no-op and does not fall back to the old presenter path. After legacy old path cleanup, all current migrated cue flags use canonical/off semantics: flag off disables that VFX and does not restore old presenter fallback.
+- `UIAudioScene` is the canonical gameplay shell and visual review shell with retained live VFX toggles on.
+- `Assets/Scenes/UIAudioScene.unity` is an explicit visual review scene override; this is not production default policy.
+- Stage-specific production VFX policy must be expressed through stage/runtime presentation profile assets, not through removed scene-local migration fields.
 
-Augmentation flags do not own legacy fallback or suppress gates. They may add Gameplay VFX lane playback alongside existing presentation behavior, but missing binding remains diagnostic/no-op and must not create a new old-path ownership rule. `EnableGameplayVfxBoxSlideTrail`, enemy damage burst, and enemy jump cue flags have no legacy suppress gate.
+Enemy death legacy fallback is finalized. Suppress compatibility gates were removed. `EnemyVfxCue.Death` and `EnemyVfxCue.DeathMotion` are independent canonical cues; both can be emitted on the same death presentation fact.
 
-High-risk parameterized motion and clone/source-view VFX required manual rollout approval before default-on rollout. `EnableGameplayVfxEnemyDeathBurstMigration`, `EnableGameplayVfxEnemyDeathMotionMigration`, and `EnableGameplayVfxFlipDestroySelfMotionMigration` are approved in the Tier 3 rollout batch. Their old presenter fallbacks are finalized and removed; the flags now control only new VFX playback.
+The Phase 3B-Gate historical report recorded obsolete scene-local migration YAML residue. That report is historical evidence only. Current baseline:
 
-Scene-local overrides are separate from runtime defaults:
-
-- `UIAudioScene` is the canonical gameplay shell and visual review shell with `EnableEnemyJumpTargetVfx` and `EnableEnemyJumpLandingDustVfx` on; Tier 3 flags use runtime default-on for broad VFX review unless explicitly added for rollback review.
-- `Assets/Scenes/UIAudioScene.unity` is an explicit visual review scene override with all current Gameplay VFX flags on; this is not production default policy and covers documented high-risk flag combinations for review only.
-- Stage-specific production VFX policy must be expressed through stage/runtime presentation profile assets, not through deleted scene-local false overrides.
-
-Enemy death legacy fallback is finalized. Suppress compatibility gates were removed. `EnableGameplayVfxEnemyDeathBurstMigration` controls only `EnemyVfxCue.Death`, and `EnableGameplayVfxEnemyDeathMotionMigration` controls only `EnemyVfxCue.DeathMotion`. Both enemy death Tier 3 flags are runtime default-on after the Tier 3 rollout batch. Burst + Motion simultaneous output remains visually monitored. The supported combinations are:
-
-- burst off / motion off: no enemy death VFX.
-- burst on / motion off: `EnemyVfxCue.Death` only.
-- burst off / motion on: `EnemyVfxCue.DeathMotion` only.
-- burst on / motion on: `EnemyVfxCue.DeathMotion` plus `EnemyVfxCue.Death`.
-
-Phase 3B-Gate inventory recorded historical migration YAML residue as exactly 45 scene-local entries:
-
-- current shell evidence: `Assets/Scenes/UIAudioScene.unity` had 15 historical `EnableGameplayVfx*Migration` serialized fields, all true.
-- historical legacy scene evidence: `Assets/Scenes/CombinedGameplayShowcase.unity` had 15 historical `EnableGameplayVfx*Migration` serialized fields, all true.
-- historical legacy scene evidence: `Assets/Scenes/TutorialScene.unity` had 15 historical `EnableGameplayVfx*Migration` serialized fields, all false.
-
-These historical entries were not active feature flags and did not change canonical migrated cue playback. Current runtime policy belongs to `UIAudioScene`, `GameplayShell`, stage ids such as `mechanics-showcase` and `onboarding`, and stage/runtime presentation profile ownership. Standalone YAML deletion is not a stable cleanup gate while `GameplayVfxProductionRuntime` still declares serialized compatibility fields; field deletion must remove the field/property declarations and reserialize only current retained shell assets in the same cleanup package, then require migration residue search results to be zero.
+- `Assets/Scenes/UIAudioScene.unity` exists and must contain no removed migration rollout serialized entries.
+- `Assets/Scenes/CombinedGameplayShowcase.unity` is absent by design.
+- `Assets/Scenes/TutorialScene.unity` is absent by design.
+- Residue cleanup evidence is a positive search over the current active assets; no-match alone is not broad validation.
 
 Phase 3B-Gate test evidence must keep broad `core` / `ui` claims separate from fixture-wide PlayMode diagnostics. `PlayerMovementPlayModeTests` contains topology transition, post-fx, camera shake, and input-lock coverage outside Gameplay VFX migration cleanup. A fixture-wide red in that class is a separately tracked topology/player-movement risk unless the same revision also changes that touched cluster or fails the lane-preserving core subset. Topology bridge, post-fx, and camera shake assets remain outside VFX cleanup scope.
-- missing DeathMotion binding, prefab, source pose, output camera, or target context is diagnostic/no-op with no old fly-away fallback.
 
-FlipDestroySelf legacy fallback is finalized. Suppress compatibility gates were removed. `EnableGameplayVfxFlipDestroySelfMotionMigration` controls only `BoxVfxCue.FlipDestroySelfMotion`; flag off means no flip destroy-self motion VFX and no old clone/fade fallback.
-
-Box destroy suppress ownership is cleaned up. Old BoxDestroy shrink/fade playback is disabled independently of `EnableGameplayVfxBoxDestroyShrinkMigration`. `EnableGameplayVfxBoxDestroySmokeMigration` gates smoke only and does not own shrink playback. The shrink flag is runtime default-on as a Tier 2 candidate; setting it false now means no shrink VFX.
-
-TileFeature and GravityField visual migration is VFX-lane only. `GameplayTickPresentationCoordinator` must not own `TileFeatureVisualPresentationController`, `GravityFieldVisualPresentationController`, visual registries, or direct VFX controller references for these lanes. TileFeature visuals are planned from `TickPresentationData.TileEvents` by `TileFeatureVfxRequestPlanner`; direction-bearing slide and barricade events encode direction in cue identity, and unsupported directions produce no request. GravityField one-shot activation/expiry events are request-planned by `GravityFieldVfxRequestPlanner`. GravityField continuous area and locked-target visuals are persistent VFX requests reconciled inside `GameplayVfxProductionRuntime`, so missing state in the next presentation tick clears the previous persistent desire through the VFX controller. There is no coordinator fallback for TileFeature or GravityField visual lanes. Turning off `EnableGameplayVfxTileFeatureLane`, `EnableGameplayVfxGravityFieldEvents`, `EnableGameplayVfxGravityFieldContinuous`, or `EnableGameplayVfxGravityFieldLockedTarget` disables only that new VFX lane and does not restore PR #28 direct visual controllers.
+TileFeature and GravityField visuals are VFX-lane only. `GameplayTickPresentationCoordinator` must not own `TileFeatureVisualPresentationController`, `GravityFieldVisualPresentationController`, visual registries, or direct VFX controller references for these lanes. TileFeature visuals are planned from `TickPresentationData.TileEvents` by `TileFeatureVfxRequestPlanner`; direction-bearing slide and barricade events encode direction in cue identity, and unsupported directions produce no request. GravityField one-shot activation/expiry events are request-planned by `GravityFieldVfxRequestPlanner`. GravityField continuous area and locked-target visuals are persistent VFX requests reconciled inside `GameplayVfxProductionRuntime`, so missing state in the next presentation tick clears the previous persistent desire through the VFX controller. There is no coordinator fallback for TileFeature or GravityField visual lanes. Turning off `EnableGameplayVfxTileFeatureLane`, `EnableGameplayVfxGravityFieldEvents`, `EnableGameplayVfxGravityFieldContinuous`, or `EnableGameplayVfxGravityFieldLockedTarget` disables only that VFX lane and does not restore PR #28 direct visual controllers.
 
 TileFeatureAudio and GravityFieldAudio are not VFX. If those lanes are needed, they must remain in an audio-specific path and must not be merged into Gameplay VFX planner/runtime ownership.
 
-| Flag | Cue | Type | Actual Default | Tier | Candidate | Approval Gate |
+| Live toggle / canonical cue | Cue | Type | Actual Default | Tier | Candidate | Approval Gate |
 |---|---|---|---|---|---|---|
-| `EnableGameplayVfxDamageBurstMigration` | `PlayerVfxCue.Damage` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
-| `EnableGameplayVfxEnemyDamageBurstMigration` | `EnemyVfxCue.Damage` | Augmentation-style VFX lane | True | Tier 1 | Yes | targeted tests + visual spot check |
-| `EnableGameplayVfxBoxDestroySmokeMigration` | `BoxVfxCue.DestroySmoke` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
-| `EnableGameplayVfxBoxDestroyShrinkMigration` | `BoxVfxCue.DestroyShrink` | Migration / parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxItemConsumeBurstMigration` | `BoxVfxCue.ItemConsume` | Migration | True | Tier 1 | Yes | targeted tests + visual spot check |
+| canonical | `PlayerVfxCue.Damage` | migrated cue | True | Tier 1 | Yes | targeted tests + visual spot check |
+| canonical | `EnemyVfxCue.Damage` | VFX lane | True | Tier 1 | Yes | targeted tests + visual spot check |
+| canonical | `BoxVfxCue.DestroySmoke` | migrated cue | True | Tier 1 | Yes | targeted tests + visual spot check |
+| canonical | `BoxVfxCue.DestroyShrink` | parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| canonical | `BoxVfxCue.ItemConsume` | migrated cue | True | Tier 1 | Yes | targeted tests + visual spot check |
 | `EnableEnemyJumpLandingDustVfx` | `EnemyVfxCue.JumperLandingDust` | Augmentation | True | Tier 1 | Yes | targeted tests + visual spot check |
 | `EnableGameplayVfxBoxSlideTrail` | `BoxVfxCue.BoxSlideFollowLoop` | Augmentation / attached follower | True | Tier 1 | Yes | targeted attached-follow regression + visual spot check |
 | `EnableGameplayVfxBoxSlideSolidStop` | `BoxVfxCue.BoxSlideSolidStop` | Augmentation / signal-owned boundary VFX | True | Tier 1 | Yes | targeted planner/runtime regression + visual spot check |
-| `EnableGameplayVfxImpactTransientBreakMigration` | `BoxVfxCue.ImpactTransientBreak` | Migration / reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
-| `EnableGameplayVfxOutOfBoundsExitMigration` | `BoxVfxCue.OutOfBoundsExit / EnemyVfxCue.OutOfBoundsExit` | Migration / reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
+| canonical | `BoxVfxCue.ImpactTransientBreak` | reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
+| canonical | `BoxVfxCue.OutOfBoundsExit / EnemyVfxCue.OutOfBoundsExit` | reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
 | `EnableEnemyJumpTargetVfx` | `EnemyVfxCue.JumperLandingTarget` | Augmentation | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxUtilityWindupMigration` | `EnemyVfxCue.UtilityWindup` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxFrontFaceShieldActiveMigration` | `EnemyVfxCue.FrontFaceShieldActive` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxFrontFaceShieldBlockMigration` | `EnemyVfxCue.FrontFaceShieldBlock` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxFrontFaceShieldWindupMigration` | `EnemyVfxCue.FrontFaceShieldWindup` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxFlipImpactBurstMigration` | `BoxVfxCue.FlipImpactBurst` | Migration | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| `EnableGameplayVfxEnemyDeathBurstMigration` | `EnemyVfxCue.Death` | Migration burst | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
-| `EnableGameplayVfxEnemyDeathMotionMigration` | `EnemyVfxCue.DeathMotion` | Migration / parameterized motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
-| `EnableGameplayVfxFlipDestroySelfMotionMigration` | `BoxVfxCue.FlipDestroySelfMotion` | Migration / parameterized clone motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring + rollback review |
+| canonical | `EnemyVfxCue.UtilityWindup` | migrated cue | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| canonical | `EnemyVfxCue.FrontFaceShieldActive` | migrated cue | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| canonical | `EnemyVfxCue.FrontFaceShieldBlock` | migrated cue | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| canonical | `EnemyVfxCue.FrontFaceShieldWindup` | migrated cue | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| canonical | `BoxVfxCue.FlipImpactBurst` | migrated cue | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| canonical | `EnemyVfxCue.Death` | migrated burst | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring |
+| canonical | `EnemyVfxCue.DeathMotion` | parameterized motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring |
+| canonical | `BoxVfxCue.FlipDestroySelfMotion` | parameterized clone motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring |
 | `EnableGameplayVfxFlipImpactStayTrail` | `BoxVfxCue.FlipImpactStayTrail` | Augmentation / MotionTrack-attached VFX | True | Tier 1 | Yes | targeted MotionTrack-following tests + visual spot check |
 | `EnableGameplayVfxGlideWindTrail` | `EnemyVfxCue.GlideWindTrail` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
 | `EnableGameplayVfxChargeBoosterTrail` | `EnemyVfxCue.ChargeBoosterTrail` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
 | `EnableGameplayVfxEnemyUtilityCooldownAura` | `EnemyVfxCue.UtilityCooldownAura` | Augmentation / enemy attached follower | True | Tier 2 | Yes | manual visual approval + targeted motion-attached follower regression |
-| `EnableGameplayVfxTileFeatureLane` | `TileFeatureVfxCue.*` | Migration / VFX request lane | True | Tier 2 | Yes | targeted planner/runtime regression + visual spot check |
-| `EnableGameplayVfxGravityFieldEvents` | `GravityFieldVfxCue.ChargeStarted / GravityFieldVfxCue.ActiveStarted` | Migration / VFX request lane | True | Tier 2 | Yes | targeted planner/runtime regression + visual spot check |
-| `EnableGameplayVfxGravityFieldContinuous` | `GravityFieldVfxCue.ChargingArea / GravityFieldVfxCue.ActiveArea` | Migration / persistent state adapter | True | Tier 2 | Yes | targeted planner/runtime regression + manual state visual spot check |
-| `EnableGameplayVfxGravityFieldLockedTarget` | `GravityFieldVfxCue.LockedTarget` | Migration / persistent target adapter | True | Tier 2 | Yes | targeted planner/runtime regression + manual target visual spot check |
+| `EnableGameplayVfxTileFeatureLane` | `TileFeatureVfxCue.*` | VFX request lane | True | Tier 2 | Yes | targeted planner/runtime regression + visual spot check |
+| `EnableGameplayVfxGravityFieldEvents` | `GravityFieldVfxCue.ChargeStarted / GravityFieldVfxCue.ActiveStarted` | VFX request lane | True | Tier 2 | Yes | targeted planner/runtime regression + visual spot check |
+| `EnableGameplayVfxGravityFieldContinuous` | `GravityFieldVfxCue.ChargingArea / GravityFieldVfxCue.ActiveArea` | persistent state adapter | True | Tier 2 | Yes | targeted planner/runtime regression + manual state visual spot check |
+| `EnableGameplayVfxGravityFieldLockedTarget` | `GravityFieldVfxCue.LockedTarget` | persistent target adapter | True | Tier 2 | Yes | targeted planner/runtime regression + manual target visual spot check |
 
 ## Binding Asset Ownership
 
