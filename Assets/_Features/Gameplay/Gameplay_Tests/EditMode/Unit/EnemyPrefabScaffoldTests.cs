@@ -23,22 +23,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void WindupMeleeSharedEnemyPrefab_UsesMoveOnlyLocomotionAuthoringAlongsideEnemyAnimationTiming()
-        {
-            var prefabText = ReadNormalizedText(StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_WindupMelee.prefab");
-
-            StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
-            StringAssert.Contains("moveMotionDurationSeconds: -1", prefabText);
-            StringAssert.Contains("EnemyAnimationTimingAuthoring", prefabText);
-            StringAssert.Contains("attackWindupReferenceClip:", prefabText);
-            StringAssert.Contains("recoverReferenceClip:", prefabText);
-            StringAssert.DoesNotContain("EntityMotionPresentationAuthoring", prefabText);
-            StringAssert.DoesNotContain("pushMotionDurationSeconds", prefabText);
-            StringAssert.DoesNotContain("flipMotionDurationSeconds", prefabText);
-        }
-
-        [Test]
-        [Category("Full")]
         public void EnemyViewAttackingPrefab_BindsExplicitEnemyTimingReferenceClips()
         {
             var prefabText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Attacking.prefab");

@@ -393,7 +393,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             var entity = CreateUnit(entityId, position, teamId: 2);
             entity.unitRole = UnitRole.Enemy;
-            entity.aiMode = EnemyAiMode.Attack;
+            entity.aiMode = EnemyAiMode.None;
             return entity;
         }
 

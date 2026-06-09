@@ -308,7 +308,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyLogic_ImplementsMovementAndAttackContracts()
         {
-            var logic = new EnemyLogic(entityId: 40);
+            var logic = new EnemyLogic(entityId: 40, CreateWindupProjectileRuntimeDefinition());
 
             Assert.That(logic, Is.InstanceOf<IMovementEntityLogic>());
             Assert.That(logic, Is.InstanceOf<IAttackEntityLogic>());
@@ -332,7 +332,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
             });
-            var logic = new EnemyLogic(entityId: 40);
+            var logic = new EnemyLogic(entityId: 40, CreateWindupProjectileRuntimeDefinition());
             var buffer = new List<RawMovementIntent>();
 
             logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
@@ -360,7 +360,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         facing: Direction.Up),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
-            var logic = new EnemyLogic(entityId: 40);
+            var logic = new EnemyLogic(entityId: 40, CreateWindupProjectileRuntimeDefinition());
             var buffer = new List<RawMovementIntent>();
 
             logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
@@ -408,7 +408,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = ForwardPatrolStrategy.Instance.TryBuildMovementIntent(
                 snapshot,
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 new PatrolSettings(PatrolBlockedMovementResponse.Stop),
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -1392,9 +1392,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyLogic_WindupRandomWalkPilot_CapturesPatrolOrigin_WhenLeavingPatrolBeforeFirstCommittedMove()
+        public void EnemyLogic_RandomWalkPatrol_CapturesPatrolOrigin_WhenLeavingPatrolBeforeFirstCommittedMove()
         {
-            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
+            var profile = CreateNonAttackingEnemyProfile();
             var worldState = CreateWorldState(
                 new[]
                 {
@@ -1433,53 +1433,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyLogic_WindupRandomWalkPilot_DoesNotWritePatrolState_DuringChaseAttackRecover()
-        {
-            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None, hp: 3),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                var tick1 = pipeline.RunTick(new TickInput(1));
-                var tick2 = pipeline.RunTick(new TickInput(2));
-                var tick3 = pipeline.RunTick(new TickInput(3));
-                var tick4 = pipeline.RunTick(new TickInput(4));
-                var patrolState = GetEnemyPatrolState(worldState, 40);
-                var tick1Updates = ParsePatrolStateUpdates(tick1.Trace.Text, 40);
-                var tick2Updates = ParsePatrolStateUpdates(tick2.Trace.Text, 40);
-                var tick3Updates = ParsePatrolStateUpdates(tick3.Trace.Text, 40);
-                var tick4Updates = ParsePatrolStateUpdates(tick4.Trace.Text, 40);
-
-                TestContext.Progress.WriteLine($"PatrolTraceDiagnostic|Tick=1|Entity=40|RawCount={CountPatrolStateUpdates(tick1.Trace.Text, 40)}");
-                TestContext.Progress.WriteLine(
-                    $"PatrolNoWriteZone|Tick2={tick2Updates.Length}|Tick3={tick3Updates.Length}|Tick4={tick4Updates.Length}");
-                Assert.That(tick1Updates.All(update => update.Label == "Initialized"), Is.True);
-                Assert.That(tick1Updates.Select(update => update.Sequence).ToArray(), Is.EqualTo(new[] { 1 }));
-                Assert.That(tick1Updates.Select(update => update.Home).Distinct().ToArray(), Is.EqualTo(new[] { "Floor(0,0)" }));
-                Assert.That(tick1Updates.Select(update => update.LastDirection).Distinct().ToArray(), Is.EqualTo(new[] { "None" }));
-                Assert.That(tick1.Trace.Text, Does.Contain("EnemyPatrolStateUpdated|E=40|Label=Initialized"));
-                Assert.That(tick1.Trace.Text, Does.Not.Contain("Label=CommittedMove"));
-                Assert.That(tick2Updates, Is.Empty);
-                Assert.That(tick3Updates, Is.Empty);
-                Assert.That(tick4Updates, Is.Empty);
-                Assert.That(patrolState.sequence, Is.EqualTo(1));
-                Assert.That(patrolState.lastCommittedDirection, Is.EqualTo(Direction.None));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
         public void EnemyLogic_RandomWalkPatrolState_CommitsOnlyOnKinematicMovementCommit()
         {
             var homeCell = new SurfaceCell(FaceId.Floor, 2, 2);
@@ -1508,135 +1461,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(patrolState.homeCell, Is.EqualTo(homeCell));
                 Assert.That(patrolState.sequence, Is.GreaterThanOrEqualTo(2));
                 Assert.That(patrolState.lastCommittedDirection, Is.Not.EqualTo(Direction.None));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyLogic_WindupCombatScorecard_CurrentKinematicContract()
-        {
-            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None, hp: 3),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
-
-            try
-            {
-                var metrics = RunWindupContractMetrics(worldState, profile, ticks: 4);
-
-                TestContext.Progress.WriteLine($"WindupKinematicContract|{BuildWindupMetricsSummary(metrics)}");
-                AssertWindupAttackControlGreen(metrics, "windup random walk current kinematic", ResolveRecoverTicks(profile));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_WindupForwardBaseline_AttackCommittedControlProbe_IsComplete()
-        {
-            var profile = CreateEnemyProfile(windupTicks: 1);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None, hp: 3),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
-
-            try
-            {
-                var metrics = RunWindupContractMetrics(worldState, profile, ticks: 4);
-                TestContext.Progress.WriteLine($"WindupGateSummary|Label=forward baseline self-check|{BuildWindupMetricsSummary(metrics)}");
-                AssertWindupAttackControlGreen(metrics, "forward baseline self-check", ResolveRecoverTicks(profile));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_WindupForwardBaseline_LockedTargetLostControlProbe_IsComplete()
-        {
-            var profile = CreateEnemyProfile(windupTicks: 2);
-            var metrics = RunLockedTargetLostControlProbe(profile);
-
-            try
-            {
-                TestContext.Progress.WriteLine($"LockedTargetLostGateSummary|Label=forward locked-target-lost self-check|{BuildLockedTargetLostMetricsSummary(metrics)}");
-                AssertLockedTargetLostControlGreen(metrics, "forward locked-target-lost self-check", EnemyAiMode.Patrol);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_WindupRandomWalkPilot_SameCellCombatPassiveOrdering_IsExact()
-        {
-            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1, includePassiveContact: true);
-            var sharedCell = new SurfaceCell(FaceId.Floor, 2, 1);
-
-            try
-            {
-                var passiveOnlyWorld = CreateWorldState(new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
-                    CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
-                });
-                var passiveOnlyLogic = new EnemyLogic(entityId: 40, profile);
-                var passiveOnlyBuffer = new List<RawAttackIntent>();
-
-                passiveOnlyLogic.CollectAttackIntents(passiveOnlyWorld.CreateSnapshot(), new TickInput(1), passiveOnlyBuffer);
-
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        (SourceKind: AttackSourceKind.PassiveContact, LocalSequence: 1),
-                    },
-                    passiveOnlyBuffer.Select(intent => (intent.SourceKind, intent.LocalSequence)).ToArray());
-
-                var primedWorld = CreateWorldState(new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
-                    CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Attack, facing: Direction.Left),
-                });
-                primedWorld.CreateWriteContext().SetEnemyActionState(
-                    40,
-                    CreateExecutableMeleeActionState(
-                        sourceCell: sharedCell,
-                        targetEntityId: 10,
-                        direction: Direction.Left,
-                        startTick: 0,
-                        executeTick: 1));
-                var primedLogic = new EnemyLogic(entityId: 40, profile);
-                var primedBuffer = new List<RawAttackIntent>();
-
-                primedLogic.CollectAttackIntents(primedWorld.CreateSnapshot(), new TickInput(1), primedBuffer);
-
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        (SourceKind: AttackSourceKind.Combat, LocalSequence: 0),
-                        (SourceKind: AttackSourceKind.PassiveContact, LocalSequence: 1),
-                    },
-                    primedBuffer.Select(intent => (intent.SourceKind, intent.LocalSequence)).ToArray());
             }
             finally
             {
@@ -1703,7 +1527,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var expectedHasIntent = ForwardPatrolStrategy.Instance.TryBuildMovementIntent(
                     snapshot,
                     source,
-                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    EnemyAiCommonSettings.CreateStandard(),
                     fixture.Settings,
                     Array.Empty<TileFeatureRuntimeDefinition>(),
                     out var expectedIntent);
@@ -1861,27 +1685,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
             });
-            var logic = new EnemyLogic(entityId: 40, CreateDefaultMeleeProfile());
+            var profile = EnemyAiProfileTestFactory.CreateNonAttacking(includePassiveContact: true);
+            var logic = new EnemyLogic(entityId: 40, profile);
             var movementBuffer = new List<RawMovementIntent>();
             var debugEvents = new List<string>();
             ((IPhasedStateCommitContext)worldState.CreateWriteContext()).SetPhasedState(
                 10,
                 PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
 
-            logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), movementBuffer);
-            ((IMovementEntityDebugLogic)logic).CollectMovementDebugEvents(
-                worldState.CreateSnapshot(),
-                new TickInput(1),
-                movementBuffer,
-                debugEvents);
+            try
+            {
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), movementBuffer);
+                ((IMovementEntityDebugLogic)logic).CollectMovementDebugEvents(
+                    worldState.CreateSnapshot(),
+                    new TickInput(1),
+                    movementBuffer,
+                    debugEvents);
 
-            Assert.That(movementBuffer.Where(intent => intent.SourceId == 40), Is.Empty);
-            Assert.That(debugEvents, Has.Some.Contains("OrdinaryMovementSuppressedByLocalEngagement"));
+                Assert.That(movementBuffer.Where(intent => intent.SourceId == 40), Is.Empty);
+                Assert.That(debugEvents, Has.Some.Contains("OrdinaryMovementSuppressedByLocalEngagement"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyDoesNotTransitionToPatrolWhenSameCellPlayerFlipWindupPhases()
+        public void EnemyDoesNotTransitionToPatrolWhenSameCellPlayerFlipPhases()
         {
             var sharedCell = new SurfaceCell(FaceId.Floor, 2, 1);
             var worldState = CreateWorldState(new[]
@@ -1889,23 +1721,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
             });
-            var logic = new EnemyLogic(entityId: 40, CreateDefaultMeleeProfile());
+            var profile = EnemyAiProfileTestFactory.CreateNonAttacking(includePassiveContact: true);
+            var logic = new EnemyLogic(entityId: 40, profile);
             var transitions = new List<string>();
             ((IPhasedStateCommitContext)worldState.CreateWriteContext()).SetPhasedState(
                 10,
                 PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
 
-            ((IEnemyAiStateLogic)logic).CommitAiTransitions(
-                worldState.CreateSnapshot(),
-                new TickInput(1),
-                EnemyAiTransitionStage.BeforeMovement,
-                worldState.CreateWriteContext(),
-                transitions);
+            try
+            {
+                ((IEnemyAiStateLogic)logic).CommitAiTransitions(
+                    worldState.CreateSnapshot(),
+                    new TickInput(1),
+                    EnemyAiTransitionStage.BeforeMovement,
+                    worldState.CreateWriteContext(),
+                    transitions);
 
-            var enemy = GetEntity(worldState, 40);
-            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
-            Assert.That(transitions, Has.Some.Contains("Reason=LocalEngagementHeldSameCell"));
-            Assert.That(transitions, Has.None.Contains("To=Patrol"));
+                var enemy = GetEntity(worldState, 40);
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(transitions, Has.Some.Contains("Reason=LocalEngagementHeldSameCell"));
+                Assert.That(transitions, Has.None.Contains("To=Patrol"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
@@ -2104,7 +1944,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(0, 4), aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Up),
             });
-            var logic = new EnemyLogic(entityId: 40);
+            var logic = new EnemyLogic(entityId: 40, CreateWindupProjectileRuntimeDefinition());
             var buffer = new List<RawMovementIntent>();
 
             logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
@@ -2135,7 +1975,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 source,
                 target,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 ChaseSettings.CreateDefault(),
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -2166,7 +2006,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 source,
                 target,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 ChaseSettings.CreateDefault(),
                 new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
                 out var intent);
@@ -2198,7 +2038,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 source,
                 target,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 ChaseSettings.CreateDefault(),
                 new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
                 out var intent);
@@ -2229,7 +2069,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 source,
                 target,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 ChaseSettings.CreateDefault(),
                 new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
                 out _);
@@ -2277,7 +2117,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 source,
                 target,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 ChaseSettings.CreateDefault(),
                 new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) },
                 out var intent);
@@ -2303,7 +2143,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
             });
-            var logic = new EnemyLogic(entityId: 40);
+            var logic = new EnemyLogic(entityId: 40, CreateWindupProjectileRuntimeDefinition());
             var buffer = new List<RawMovementIntent>();
 
             logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
@@ -2466,7 +2306,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyLogic_JumpCooldown_DoesNotSuppressMovementOrAttack()
+        public void EnemyLogic_JumpCooldown_DoesNotSuppressMovement()
         {
             var profile = CreateJumpEnemyProfile();
             var worldState = CreateWorldState(new[]
@@ -2476,7 +2316,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
             var logic = new EnemyLogic(entityId: 40, profile);
             var movementBuffer = new List<RawMovementIntent>();
-            var attackBuffer = new List<RawAttackIntent>();
             worldState.CreateWriteContext().SetEnemyJumpState(
                 40,
                 CreateEnemyJumpState(
@@ -2485,19 +2324,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     lockedTargetCell: new SurfaceCell(FaceId.Floor, 2, 0),
                     landingTick: 4,
                     cooldownRemainingTicks: 2));
-            worldState.CreateWriteContext().SetEnemyActionState(
-                40,
-                CreateExecutableMeleeActionState(
-                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
-                    targetEntityId: 10,
-                    direction: Direction.Right,
-                    startTick: 1,
-                    executeTick: 5));
-
             try
             {
                 logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(5), movementBuffer);
-                logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(5), attackBuffer);
 
                 CollectionAssert.AreEqual(
                     new[]
@@ -2505,12 +2334,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         (SourceId: 40, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Move),
                     },
                     movementBuffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        (SourceId: 40, TargetId: 10),
-                    },
-                    attackBuffer.Select(intent => (intent.SourceId, intent.TargetId)).ToArray());
             }
             finally
             {
@@ -2520,7 +2343,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyLogic_JumpLandingTick_SuppressesMovementButNotAttack()
+        public void EnemyLogic_JumpLandingTick_SuppressesMovement()
         {
             var profile = CreateJumpEnemyProfile();
             var worldState = CreateWorldState(new[]
@@ -2530,7 +2353,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
             var logic = new EnemyLogic(entityId: 40, profile);
             var movementBuffer = new List<RawMovementIntent>();
-            var attackBuffer = new List<RawAttackIntent>();
             worldState.CreateWriteContext().SetEnemyJumpState(
                 40,
                 CreateEnemyJumpState(
@@ -2539,27 +2361,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     lockedTargetCell: new SurfaceCell(FaceId.Floor, 2, 0),
                     landingTick: 5,
                     cooldownRemainingTicks: 2));
-            worldState.CreateWriteContext().SetEnemyActionState(
-                40,
-                CreateExecutableMeleeActionState(
-                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
-                    targetEntityId: 10,
-                    direction: Direction.Right,
-                    startTick: 1,
-                    executeTick: 5));
-
             try
             {
                 logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(5), movementBuffer);
-                logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(5), attackBuffer);
 
                 Assert.That(movementBuffer, Is.Empty);
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        (SourceId: 40, TargetId: 10),
-                    },
-                    attackBuffer.Select(intent => (intent.SourceId, intent.TargetId)).ToArray());
             }
             finally
             {
@@ -2604,66 +2410,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyLogic_ExecuteTick_ProducesRawAttackIntentForLockedTarget()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Attack, facing: Direction.Right),
-            });
-            var logic = new EnemyLogic(entityId: 40);
-            var buffer = new List<RawAttackIntent>();
-            worldState.CreateWriteContext().SetEnemyActionState(
-                40,
-                CreateExecutableMeleeActionState(
-                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
-                    targetEntityId: 10,
-                    direction: Direction.Right,
-                    startTick: 1,
-                    executeTick: 1));
-
-            logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
-
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 40, TargetId: 10),
-                },
-                buffer.Select(intent => (intent.SourceId, intent.TargetId)).ToArray());
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyLogic_ExecuteTickActionState_DoesNotRequireAttackModeToProduceRawAttackIntent()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
-            });
-            var logic = new EnemyLogic(entityId: 40);
-            var buffer = new List<RawAttackIntent>();
-            worldState.CreateWriteContext().SetEnemyActionState(
-                40,
-                CreateExecutableMeleeActionState(
-                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
-                    targetEntityId: 10,
-                    direction: Direction.Right,
-                    startTick: 1,
-                    executeTick: 1));
-
-            logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
-
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 40, TargetId: 10),
-                },
-                buffer.Select(intent => (intent.SourceId, intent.TargetId)).ToArray());
-        }
-
-        [Test]
-        [Category("Extended")]
         public void EnemyLogic_AttackMode_WithoutActiveActionState_DoesNotProduceRawAttackIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -2671,7 +2417,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Attack, facing: Direction.Right),
             });
-            var logic = new EnemyLogic(entityId: 40);
+            var logic = new EnemyLogic(entityId: 40, CreateWindupProjectileRuntimeDefinition());
             var buffer = new List<RawAttackIntent>();
 
             logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
@@ -2706,7 +2452,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void ContactSameCellAttackDecisionStrategy_RequiresExactSameCell()
         {
             var strategy = ContactSameCellAttackDecisionStrategy.Instance;
-            var settings = AttackDecisionSettings.CreateDefaultMelee();
+            var settings = AttackDecisionSettings.CreateAdjacentRange();
             var source = CreateUnit(
                 entityId: 40,
                 teamId: 2,
@@ -2737,7 +2483,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Recover, facing: Direction.Right),
             });
-            var logic = new EnemyLogic(entityId: 40);
+            var logic = new EnemyLogic(entityId: 40, CreateWindupProjectileRuntimeDefinition());
             var movementBuffer = new List<RawMovementIntent>();
             var attackBuffer = new List<RawAttackIntent>();
 
@@ -2757,7 +2503,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
             });
-            var logic = new EnemyLogic(entityId: 40);
+            var logic = new EnemyLogic(entityId: 40, CreateWindupProjectileRuntimeDefinition());
             var transitions = new List<string>();
 
             ((IEnemyAiStateLogic)logic).CommitAiTransitions(
@@ -2787,7 +2533,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, hp: 0),
             });
-            var logic = new EnemyLogic(entityId: 40);
+            var logic = new EnemyLogic(entityId: 40, CreateWindupProjectileRuntimeDefinition());
             var transitions = new List<string>();
 
             ((IEnemyAiStateLogic)logic).CommitAiTransitions(
@@ -3116,14 +2862,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var stopped = strategy.TryBuildMovementIntent(
                 snapshot,
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 new PatrolSettings(PatrolBlockedMovementResponse.Stop),
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out _);
             var steppedBackward = strategy.TryBuildMovementIntent(
                 snapshot,
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 new PatrolSettings(PatrolBlockedMovementResponse.TryStepBackward),
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var backwardIntent);
@@ -3151,7 +2897,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = strategy.TryBuildMovementIntent(
                 snapshot,
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 settings,
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -3180,7 +2926,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = WallFollowPatrolStrategy.Instance.TryBuildMovementIntent(
                 snapshot,
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 settings,
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -3203,7 +2949,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = WallFollowPatrolStrategy.Instance.TryBuildMovementIntent(
                 worldState.CreateSnapshot(),
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Left),
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -3226,7 +2972,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = WallFollowPatrolStrategy.Instance.TryBuildMovementIntent(
                 worldState.CreateSnapshot(),
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Left),
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -3250,7 +2996,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = WallFollowPatrolStrategy.Instance.TryBuildMovementIntent(
                 worldState.CreateSnapshot(),
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Left),
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -3276,7 +3022,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = WallFollowPatrolStrategy.Instance.TryBuildMovementIntent(
                 worldState.CreateSnapshot(),
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Left),
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -3299,7 +3045,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = WallFollowPatrolStrategy.Instance.TryBuildMovementIntent(
                 worldState.CreateSnapshot(),
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Right),
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -3393,7 +3139,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var builtIntent = WallFollowPatrolStrategy.Instance.TryBuildMovementIntent(
                     snapshot,
                     source,
-                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    EnemyAiCommonSettings.CreateStandard(),
                     settings,
                     Array.Empty<TileFeatureRuntimeDefinition>(),
                     out var intent);
@@ -3424,7 +3170,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = WallFollowPatrolStrategy.Instance.TryBuildMovementIntent(
                 worldState.CreateSnapshot(),
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Left),
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -3507,7 +3253,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = strategy.TryBuildMovementIntent(
                 snapshot,
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 settings,
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -3536,7 +3282,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = strategy.TryBuildMovementIntent(
                 snapshot,
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 settings,
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -3567,7 +3313,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = strategy.TryBuildMovementIntent(
                 snapshot,
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 settings,
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -3721,7 +3467,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 EnemyMovementStrategyShared.TryBuildMoveIntent(
                     unitOnlyWorld.CreateSnapshot(),
                     GetEntity(unitOnlyWorld, 40),
-                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    EnemyAiCommonSettings.CreateStandard(),
                     Vector2Int.right,
                     out _),
                 Is.True);
@@ -3729,7 +3475,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 EnemyMovementStrategyShared.TryBuildMoveIntent(
                     solidWorld.CreateSnapshot(),
                     GetEntity(solidWorld, 40),
-                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    EnemyAiCommonSettings.CreateStandard(),
                     Vector2Int.right,
                     out _),
                 Is.False);
@@ -3874,7 +3620,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = strategy.TryBuildMovementIntent(
                 snapshot,
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 settings,
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out _);
@@ -3902,7 +3648,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = WallFollowPatrolStrategy.Instance.TryBuildMovementIntent(
                 worldState.CreateSnapshot(),
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Left),
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -3926,7 +3672,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var builtIntent = WallFollowPatrolStrategy.Instance.TryBuildMovementIntent(
                 worldState.CreateSnapshot(),
                 source,
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Left),
                 Array.Empty<TileFeatureRuntimeDefinition>(),
                 out var intent);
@@ -4056,15 +3802,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyAiProfile_CreateRuntimeDefinition_UsesDefaultZeroWindupAndMoveCooldown()
+        public void EnemyAiProfile_CreateRuntimeDefinition_UsesWindupProjectileTimingAndDefaultZeroMoveCooldown()
         {
-            var profile = EnemyAiProfileTestFactory.CreateDefaultMelee();
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(windupTicks: 1);
 
             try
             {
                 var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
-                Assert.That(definition.AttackTimingSettings.WindupTicks, Is.Zero);
+                Assert.That(definition.AttackTimingSettings.WindupTicks, Is.EqualTo(1));
                 Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.Zero);
             }
             finally
@@ -4079,7 +3825,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var profiles = new[]
             {
-                EnemyAiProfileTestFactory.CreateDefaultMelee(),
+                EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(),
                 EnemyAiProfileTestFactory.CreateNonAttacking(),
                 EnemyAiProfileTestFactory.CreateCharging(),
                 EnemyAiProfileTestFactory.CreateWallFollower(),
@@ -4198,7 +3944,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(definition.Brain.Detection.Kind, Is.EqualTo(DetectionStrategyKind.NearestOpponent));
                 Assert.That(definition.Brain.Chase.Kind, Is.EqualTo(ChaseStrategyKind.AxisPriority));
                 Assert.That(definition.Capabilities.TryGetCombat(out var combat), Is.True);
-                Assert.That(combat.Kind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
+                Assert.That(combat.Kind, Is.EqualTo(AttackDecisionStrategyKind.WindupForwardCellProjectile));
                 Assert.That(combat.AttackTimingSettings.WindupTicks, Is.EqualTo(9));
                 Assert.That(definition.Capabilities.TryGetMovementSkill(out var movementSkill), Is.True);
                 Assert.That(movementSkill.Kind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
@@ -4227,7 +3973,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var definition = profile.CreateRuntimeDefinition(60);
 
                 Assert.That(definition.Capabilities.TryGetCombat(out var combat), Is.True);
-                Assert.That(combat.Kind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
+                Assert.That(combat.Kind, Is.EqualTo(AttackDecisionStrategyKind.WindupForwardCellProjectile));
                 Assert.That(definition.Capabilities.TryGetMovementSkill(out var movementSkill), Is.True);
                 Assert.That(movementSkill.Kind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
                 Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
@@ -4757,7 +4503,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_CompilesArchetypeRegistryAndSpawnDefaults()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var archetypeProfile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset(
                 "BasicMinion",
@@ -4825,7 +4571,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_MissingReferencedArchetype_Throws()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var orphanedArchetypeProfile = CreateNonAttackingEnemyProfile();
             var orphanedArchetype = CreateEnemyUnitArchetypeAsset("OrphanedMinion", orphanedArchetypeProfile, hp: 3, initialAiMode: EnemyAiMode.Patrol);
             var summonerProfile = CreateUtilitySummonerProfile(
@@ -4861,7 +4607,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplaySceneHostConfiguration_CreateEnemyPresentationArchetypeRegistry_MissingSummonedMapping_Throws()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var archetypeProfile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
             var gameplayCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
@@ -4900,7 +4646,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplaySceneHostConfiguration_CreateEnemyPresentationArchetypeRegistry_DuplicateArchetypeId_Throws()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var archetypeProfile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
             var gameplayCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
@@ -4950,7 +4696,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplaySceneHostConfiguration_CreateEnemyPresentationArchetypeRegistry_NullPrefab_Throws()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var archetypeProfile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
             var gameplayCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
@@ -4994,7 +4740,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplaySceneHostConfiguration_CreateEnemyPresentationArchetypeRegistry_PresentationArchetypeMissingFromGameplayRegistry_Throws()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var archetypeProfile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
             var gameplayCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
@@ -5040,7 +4786,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyEntityLogicFactory_ResolveDefinition_EntityOverrideWinsOverArchetypeBinding()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile();
             var overrideProfile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
             var archetypeProfile = CreateNonAttackingEnemyProfile();
 
@@ -5084,7 +4830,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyEntityLogicFactory_ResolveDefinition_ArchetypeBindingWinsOverDefault()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile();
             var archetypeProfile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
 
             try
@@ -5121,7 +4867,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyEntityLogicFactory_ResolveDefinition_NoBindingFallsBackToDefault()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile();
             var archetypeProfile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
 
             try
@@ -5173,7 +4919,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyEntityLogicFactory_ResolveDefinition_UnknownBindingThrows()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
 
             try
             {
@@ -5199,7 +4945,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GameplayEntityLogicProviderFactory_ArchetypeBoundUtilityOnlyEntity_OmitsCombatLanes()
         {
-            var defaultProfile = CreateDefaultMeleeProfile();
+            var defaultProfile = CreateNonAttackingEnemyProfile();
             var utilityProfile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
 
             try
@@ -5544,16 +5290,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void EnemyAiProfileCompiler_HybridAuthoring_DuplicateCombatCapabilities_ThrowsClearException()
         {
             var profile = CreateHybridAuthoringProfile(includeCombat: true, includeJump: false, out var createdAssets);
-            var duplicateCombat = ScriptableObject.CreateInstance<MeleeCombatCapabilityAsset>();
+            var duplicateCombat = ScriptableObject.CreateInstance<WindupForwardCellProjectileCapabilityAsset>();
             createdAssets.Add(duplicateCombat);
             SetSerializedField(duplicateCombat, "attackDecisionSettings", new AttackDecisionSettings(attackRange: 1));
             SetSerializedField(duplicateCombat, "attackTimingSettings", new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f));
+            SetSerializedField(
+                duplicateCombat,
+                "windupForwardCellProjectileSettings",
+                WindupForwardCellProjectileSettings.CreateDefault());
             SetSerializedField(
                 profile,
                 "capabilityAssets",
                 new List<EnemyCapabilityAsset>
                 {
-                    (EnemyCapabilityAsset)createdAssets.OfType<MeleeCombatCapabilityAsset>().First(),
+                    (EnemyCapabilityAsset)createdAssets.OfType<WindupForwardCellProjectileCapabilityAsset>().First(),
                     duplicateCombat,
                 });
 
@@ -5712,7 +5462,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayEntityLogicProviderFactory_NullProfile_ThrowsInsteadOfCreatingDefaultMeleeRuntimeDefinition()
+        public void GameplayEntityLogicProviderFactory_NullProfile_RequiresExplicitEnemyAiRuntimeDefinition()
         {
             var exception = Assert.Throws<ArgumentNullException>(
                 () => GameplayEntityLogicProviderFactory.CreateDefault((EnemyAiProfile)null));
@@ -5794,6 +5544,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     recoverSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
                 AttackTimingSettings = new EnemyAttackTimingAuthoringSettings(
                     windupSeconds: 3f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.WindupForwardCellProjectile,
                 LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(
                     moveCooldownSeconds: 4f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
             });
@@ -5825,6 +5576,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     recoverSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
                 AttackTimingSettings = new EnemyAttackTimingAuthoringSettings(
                     windupSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.WindupForwardCellProjectile,
                 LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(
                     moveCooldownSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
             });
@@ -6033,16 +5785,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var exception = Assert.Throws<ArgumentException>(
                 () => new EnemyAiRuntimeDefinition(
-                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    EnemyAiCommonSettings.CreateStandard(),
                     PatrolSettings.CreateDefault(),
-                    DetectionSettings.CreateDefaultMelee(),
+                    DetectionSettings.CreateStandardEnemyDetection(),
                     ChaseSettings.CreateDefault(),
-                    AttackDecisionSettings.CreateDefaultMelee(),
+                    AttackDecisionSettings.CreateAdjacentRange(),
                     new EnemyAttackTimingSettings(windupTicks: -1),
                     ForwardPatrolStrategy.Instance,
                     NearestOpponentDetectionStrategy.Instance,
                     AxisPriorityChaseStrategy.Instance,
-                    MeleeAttackDecisionStrategy.Instance,
+                    WindupForwardCellProjectileAttackDecisionStrategy.Instance,
                     DefaultEnemyAiStateResolver.Instance));
 
             Assert.That(exception.ParamName, Is.EqualTo("EnemyCombatCapabilityRuntime"));
@@ -6054,17 +5806,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var exception = Assert.Throws<ArgumentException>(
                 () => new EnemyAiRuntimeDefinition(
-                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    EnemyAiCommonSettings.CreateStandard(),
                     PatrolSettings.CreateDefault(),
-                    DetectionSettings.CreateDefaultMelee(),
+                    DetectionSettings.CreateStandardEnemyDetection(),
                     ChaseSettings.CreateDefault(),
-                    AttackDecisionSettings.CreateDefaultMelee(),
-                    EnemyAttackTimingSettings.CreateDefaultMelee(),
+                    AttackDecisionSettings.CreateAdjacentRange(),
+                    EnemyAttackTimingSettings.CreateImmediate(),
                     new EnemyLocomotionTimingSettings(moveCooldownTicks: -1),
                     ForwardPatrolStrategy.Instance,
                     NearestOpponentDetectionStrategy.Instance,
                     AxisPriorityChaseStrategy.Instance,
-                    MeleeAttackDecisionStrategy.Instance,
+                    NoAttackDecisionStrategy.Instance,
                     DefaultEnemyAiStateResolver.Instance));
 
             Assert.That(exception.ParamName, Is.EqualTo("EnemyCoreRuntime"));
@@ -6076,20 +5828,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var exception = Assert.Throws<ArgumentException>(
                 () => new EnemyAiRuntimeDefinition(
-                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    EnemyAiCommonSettings.CreateStandard(),
                     PatrolSettings.CreateDefault(),
-                    DetectionSettings.CreateDefaultMelee(),
+                    DetectionSettings.CreateStandardEnemyDetection(),
                     new ChaseSettings(
                         ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak,
                         trySecondaryAxisWhenBlocked: true,
                         desiredChaseDistance: -1),
-                    AttackDecisionSettings.CreateDefaultMelee(),
-                    EnemyAttackTimingSettings.CreateDefaultMelee(),
-                    EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                    AttackDecisionSettings.CreateAdjacentRange(),
+                    EnemyAttackTimingSettings.CreateImmediate(),
+                    EnemyLocomotionTimingSettings.CreateImmediate(),
                     ForwardPatrolStrategy.Instance,
                     NearestOpponentDetectionStrategy.Instance,
                     AxisPriorityChaseStrategy.Instance,
-                    MeleeAttackDecisionStrategy.Instance,
+                    NoAttackDecisionStrategy.Instance,
                     DefaultEnemyAiStateResolver.Instance));
 
             Assert.That(exception.ParamName, Is.EqualTo("EnemyChaseRuntime"));
@@ -6248,19 +6000,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static EnemyAiProfile CreateEnemyProfile(int windupTicks, int moveCooldownTicks = 0)
         {
-            return EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks, moveCooldownTicks);
-        }
-
-        private static EnemyAiProfile CreateDefaultMeleeProfile(
-            int moveCooldownTicks = 0,
-            int recoverTicks = 1,
-            bool includePassiveContact = false)
-        {
-            return EnemyAiProfileTestFactory.CreateDefaultMelee(
-                windupTicks: 0,
-                moveCooldownTicks: moveCooldownTicks,
-                recoverTicks: recoverTicks,
-                includePassiveContact: includePassiveContact);
+            return EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(windupTicks: windupTicks);
         }
 
         private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks)
@@ -6284,19 +6024,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     canTargetMarkedForDeath: false),
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
             });
-        }
-
-        private static EnemyAiProfile CreateWindupRandomWalkPilotProfile(
-            int windupTicks = 1,
-            int moveCooldownTicks = 0,
-            int recoverTicks = 1,
-            bool includePassiveContact = true)
-        {
-            return EnemyAiProfileTestFactory.CreateWindupRandomWalkPilot(
-                windupTicks,
-                moveCooldownTicks,
-                recoverTicks,
-                includePassiveContact);
         }
 
         private static EnemyAiProfile CreateForwardPatrolOnlyProfile(PatrolSettings patrolSettings)
@@ -6854,11 +6581,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var firstCombatDamageTick = metrics.FirstCombatDamageTick;
 
             if (firstCombatDamageTick == 0 &&
-                tick.AttackPhaseResult.DamageResolutions.Any(record =>
+                (tick.AttackPhaseResult.DamageResolutions.Any(record =>
                     record.Accepted &&
                     record.SourceId == 40 &&
                     record.TargetId == 10 &&
-                    record.SourceKind == AttackSourceKind.Combat))
+                    record.SourceKind == AttackSourceKind.Combat) ||
+                 worldState.CreateSnapshot().CountPendingCellImpactsForOwner(40) > 0))
             {
                 firstCombatDamageTick = tickIndex;
             }
@@ -7302,8 +7030,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
+        private static EnemyAiRuntimeDefinition CreateWindupProjectileRuntimeDefinition(int windupTicks = 0)
+        {
+            return new EnemyAiRuntimeDefinition(
+                EnemyAiCommonSettings.CreateStandard(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateStandardEnemyDetection(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateAdjacentRange(),
+                new EnemyAttackTimingSettings(windupTicks),
+                EnemyLocomotionTimingSettings.CreateImmediate(),
+                MovementSkillStrategyKind.None,
+                EnemyJumpTimingSettings.CreateDefault(),
+                ForwardPatrolStrategy.Instance,
+                NearestOpponentDetectionStrategy.Instance,
+                AxisPriorityChaseStrategy.Instance,
+                WindupForwardCellProjectileAttackDecisionStrategy.Instance,
+                DefaultEnemyAiStateResolver.Instance);
+        }
+
         private static EnemyAiProfile CreateJumpEnemyProfile(
-            AttackDecisionStrategyKind attackDecisionStrategyKind = AttackDecisionStrategyKind.Melee)
+            AttackDecisionStrategyKind attackDecisionStrategyKind = AttackDecisionStrategyKind.WindupForwardCellProjectile)
         {
             return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
             {
@@ -7319,7 +7066,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
             {
-                AttackDecisionStrategyKind = AttackDecisionStrategyKind.Melee,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.WindupForwardCellProjectile,
                 MovementSkillStrategyKind = MovementSkillStrategyKind.PhaseThroughLockedTarget,
             });
         }
@@ -7688,11 +7435,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var capabilities = new List<EnemyCapabilityAsset>();
             if (includeCombat)
             {
-                var melee = ScriptableObject.CreateInstance<MeleeCombatCapabilityAsset>();
-                SetSerializedField(melee, "attackDecisionSettings", new AttackDecisionSettings(attackRange: 1));
-                SetSerializedField(melee, "attackTimingSettings", new EnemyAttackTimingAuthoringSettings(windupSeconds: 0.15f));
-                capabilities.Add(melee);
-                createdAssets.Add(melee);
+                var projectile = ScriptableObject.CreateInstance<WindupForwardCellProjectileCapabilityAsset>();
+                SetSerializedField(projectile, "attackDecisionSettings", new AttackDecisionSettings(attackRange: 1));
+                SetSerializedField(projectile, "attackTimingSettings", new EnemyAttackTimingAuthoringSettings(windupSeconds: 0.15f));
+                SetSerializedField(
+                    projectile,
+                    "windupForwardCellProjectileSettings",
+                    WindupForwardCellProjectileSettings.CreateDefault());
+                capabilities.Add(projectile);
+                createdAssets.Add(projectile);
             }
 
             if (includeJump)

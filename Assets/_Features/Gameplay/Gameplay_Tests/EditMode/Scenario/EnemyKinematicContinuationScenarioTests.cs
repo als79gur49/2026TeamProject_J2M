@@ -252,7 +252,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void MovementStage_EnemyChaseBlockedReaction_AttackOpportunityTakesPriorityOverMovementRetry()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 11, 4);
-            var profile = EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks: 1, moveCooldownTicks: 0, recoverTicks: 1);
+            var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile(windupTicks: 1, recoverTicks: 1);
             var worldState = CreateWorldState(new[]
             {
                 CreatePlayer(10, new SurfaceCell(FaceId.Floor, 10, 4)),

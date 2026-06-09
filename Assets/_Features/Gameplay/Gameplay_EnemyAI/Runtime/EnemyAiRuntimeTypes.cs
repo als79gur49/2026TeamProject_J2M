@@ -398,6 +398,13 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Combat capability runtime requires a concrete combat kind.", nameof(kind));
             }
 
+            if (kind == AttackDecisionStrategyKind.RetiredMelee)
+            {
+                throw new ArgumentException(
+                    "RetiredMelee is a serialized compatibility slot and cannot compile as a combat capability.",
+                    nameof(kind));
+            }
+
             if (kind == AttackDecisionStrategyKind.ContactSameCell)
             {
                 throw new ArgumentException(
@@ -438,7 +445,6 @@ namespace Game.Feature.Gameplay.Entities
 
             var strategyKind = AttackDecisionStrategy switch
             {
-                MeleeAttackDecisionStrategy _ => AttackDecisionStrategyKind.Melee,
                 WindupForwardCellProjectileAttackDecisionStrategy _ => AttackDecisionStrategyKind.WindupForwardCellProjectile,
                 ContactSameCellAttackDecisionStrategy _ => AttackDecisionStrategyKind.ContactSameCell,
                 NoAttackDecisionStrategy _ => AttackDecisionStrategyKind.None,

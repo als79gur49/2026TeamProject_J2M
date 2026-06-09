@@ -168,7 +168,7 @@ public struct EnemyAttackTimingSettings
 - 2026-04-04 구현 완료
 - `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAiConfig.cs`에 `EnemyAttackTimingSettings`를 추가하고 `EnemyAiRuntimeDefinition`이 해당 값을 검증 및 보관하도록 연결했다.
 - `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAiProfile.cs` serialized surface에 `attackTimingSettings`를 추가해 profile이 logic-only wind-up timing authoring을 runtime definition으로 전달하도록 반영했다.
-- 기존 구형 `EnemyAiConfig` 경로는 wind-up 기본값 `0`을 유지하도록 맞춰 default melee profile의 즉시 공격 동작이 깨지지 않게 했다.
+- 기존 구형 `EnemyAiConfig` 경로는 당시 retired predecessor profile의 wind-up 기본값 `0`을 유지하도록 맞춰 즉시 공격 동작이 깨지지 않게 했다.
 - `GameplayTimingOwnershipTests`, `EnemyLogicTests`에 serialized contract, default `0`, custom wind-up 전달, 음수 validation 회귀 테스트를 추가했다.
 - 검증은 Unity `6000.3.11f1` batchmode script compilation 성공 로그 기준으로 확인했다. CLI `-runTests`는 현재 환경에서 결과 XML을 남기지 않아 새 테스트 실행 결과는 후속 확인이 필요하다.
 
@@ -453,7 +453,7 @@ public readonly struct TickEnemyActionPresentationSignal
 진행 상태:
 
 - 2026-04-05 구현 완료
-- `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyAi_WindupMelee.asset`를 추가해 기본 melee resolver에 `attackTimingSettings.windupSeconds = 2 / 60`를 주는 showcase 전용 wind-up profile을 만들었다.
+- `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyAi_WindupMelee.asset`를 추가해 당시 retired predecessor resolver에 `attackTimingSettings.windupSeconds = 2 / 60`를 주는 showcase 전용 wind-up profile을 만들었다.
 - `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset`에 `entityId 52` floor striker를 `(Floor, 2, 2)`에 추가해 기존 charger lane을 막지 않으면서 시작 구역 근처에서 wind-up -> execute -> recover presentation을 볼 수 있게 했다.
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcaseInstaller.cs`는 floor striker용 serialized `enemyAnimationTimingOverrides`와 showcase 전용 wrapper view factory를 추가해 실제 scene runtime path에서 `EnemyAnimationTimingAuthoring`와 fallback `Animator`가 연결되도록 확장했고, overlay highlight에도 tuned wind-up / recover timing 의도를 반영했다.
 - legacy combined gameplay showcase scene asset은 `entityId 52`용 `0.35s / 0.5s / 0.08s` timing override를 serialize하도록 갱신돼 scene asset 자체가 showcase authoring 연결 상태를 보존한다.
@@ -695,7 +695,7 @@ StageSpawnDefinition
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs`는 stage binding과 `EnemyPresentationCatalog`를 host configuration으로 넘기고, binding이 있을 때만 prefab dictionary를 fail-fast 해석하도록 확장했다.
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyViewPrefabRequirements.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayBoxCapabilityLabelViewFactory.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcasePlayerPrefabViewFactory.cs`는 catalog-bound enemy prefab instantiate, prefab root validation, renderer가 없는 debug/hybrid prefab용 primitive visual fallback을 지원하도록 갱신했다.
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcaseInstaller.cs`는 기존 `enemyAnimationTimingOverrides` hardcoding을 제거하고 `EnemyPresentationCatalog enemyPresentationCatalog` scene reference 기반으로 showcase enemy presentation을 조립하도록 바꿨다.
-- `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset`에 `entityId 52`의 `EnemyPresentationId = windup_melee_showcase`를 추가했고, `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyView_WindupMelee.prefab`, `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyPresentationCatalog_CombinedGameplayShowcase.asset`, legacy combined gameplay showcase scene asset을 함께 갱신해 timing override 숫자를 prefab authoring으로 이동시켰다.
+- `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset`에 `entityId 52`의 retired predecessor presentation binding을 추가했고, showcase enemy prefab, `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyPresentationCatalog_CombinedGameplayShowcase.asset`, legacy combined gameplay showcase scene asset을 함께 갱신해 timing override 숫자를 prefab authoring으로 이동시켰다.
 - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/StageRuntimeBuilderTests.cs`, `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/CombinedGameplayShowcaseInstallerTests.cs`, `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayTimingOwnershipTests.cs`, `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayShowcaseScaffoldTests.cs`에 binding build, host fail-fast, catalog-bound prefab hookup, showcase scene serialization 회귀 테스트를 추가 및 갱신했다.
 - 검증은 Unity `6000.3.11f1` batchmode project load/script compilation 성공과 `cmd.exe /c dotnet build 2026TeamProject_J2M.sln -c Debug` 통과로 확인했다. Unity `-runTests`는 현재 환경에서 이번에도 결과 XML을 남기지 않아 targeted EditMode 실행 결과는 별도 후속 확인이 필요하다.
 

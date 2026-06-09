@@ -86,7 +86,6 @@ Enemy prefabs under the same production presentation folder without an `EnemyAud
 - `EnemyView_Jumping`
 - `EnemyView_Kali`
 - `EnemyView_LockNearbyBoxes`
-- `EnemyView_WindupMelee`
 
 Those prefabs are outside this profile-level requirement table unless production content decides to give them `EnemyAudioProfile_*` authoring.
 
