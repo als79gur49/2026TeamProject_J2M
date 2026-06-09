@@ -41,7 +41,8 @@ This document is the display-settings-specific supplement to the canonical UI ar
 - Future refresh-rate UI must treat the current v1 behavior as “resolution labels stay visible-only while refresh remains internal and persisted.” Do not reinterpret v1 as if refresh never existed.
 
 ## Settings Resolution Hover Hint Policy
-- The Settings resolution hover hint is a local SettingsDisplaySection affordance, remains available regardless of the Tooltips accessibility toggle, and does not use TooltipPopup or popup flow.
+- The Settings resolution hover hint is a local SettingsDisplaySection affordance and does not use TooltipPopup or popup flow.
+- Removed Settings accessibility toggles such as tooltip on/off and large text on/off must not be restored as part of display settings work.
 - It is pointer-hover-only in v1 and must not be treated as precedent for popup tooltip auto-hide or global hover infrastructure.
 
 ## Settings Preview Countdown Policy

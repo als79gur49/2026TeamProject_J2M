@@ -17,11 +17,11 @@
 - Preserve root `UI-Current-Structure-Source.md` as the current-structure reference for the 3-layer shell, retired ActionBar status, removed diagnostics status, and canonical scene transition path.
 
 ## 3. Remaining Execution Risks
-- The `SettingsScreen` tooltip info icon can regress into a broken or missing authored affordance even though the gameplay shell smoke now expects a real player-facing tooltip path.
+- Removed Settings accessibility toggle rows must not be treated as required manual-smoke affordances.
 - Stage-clear validation can expand into an unbounded gameplay session if it is not explicitly time-boxed and classified carefully.
 - Removed diagnostics overlay residue can be misclassified as a runtime smoke target instead of a structural absence check.
 - The highest-risk runtime subset can be crowded out unless it is executed first in a fixed order.
-- Failures can be misclassified if the bounded `SettingsScreen` tooltip choice is mistaken for a universal tooltip product rule or if tooltip behavior drifts toward help-screen scale.
+- Failures can be misclassified if `TooltipPopup` preservation is mistaken for a requirement to restore removed Settings accessibility toggles.
 
 ## 4. Required Corrections
 - Split the smoke into two tiers.
@@ -35,7 +35,7 @@
 - `Tier 2` runs only after Tier 1 completes:
   - `ObjectiveStatusScreen`
   - `SettingsScreen`
-  - `TooltipPopup` via `SettingsScreen` tooltip info icon
+  - `TooltipPopup` through the canonical popup flow when the test scene exposes a tooltip request
   - removed diagnostics overlay absence in the canonical root shell
 - If Tier 1 reveals a likely structural blocker, capture evidence immediately and do not spend remaining time on secondary checks unless they are needed to disambiguate severity.
 
@@ -54,15 +54,15 @@
 
 ## 6. Tooltip Path Classification Rules
 - `TooltipPopup` remains the intended non-modal representative popup case.
-- The gameplay shell smoke is now explicitly expected to expose `TooltipPopup` through the SettingsScreen tooltip info icon beside the tooltip toggle row.
-- This `SettingsScreen` tooltip entry point is the current gameplay shell choice only. It must not be treated as the universal tooltip affordance pattern; future tooltip expansion requires separate plan/review.
+- The gameplay shell smoke may validate `TooltipPopup` only through an existing canonical popup request path. It must not restore Settings tooltip on/off or large text toggle rows to create a tooltip entry point.
+- Tooltip entry points are local product choices only. They must not be treated as the universal tooltip affordance pattern; future tooltip expansion requires separate plan/review.
 - Valid tooltip outcome:
-  - `Reachable and valid`: the `SettingsScreen` tooltip info icon opens `TooltipPopup` under `PopupLayer`, it remains non-modal, it stays tooltip-scale, and first back closes the tooltip before second back closes `SettingsScreen`.
+  - `Reachable and valid`: an existing canonical tooltip request opens `TooltipPopup` under `PopupLayer`, it remains non-modal, and it stays tooltip-scale.
 - Classify as `Runtime integration or placement issue` when:
-  - the `SettingsScreen` tooltip info icon is missing, non-functional, or routes through a non-canonical popup path
+  - an existing tooltip request route is non-functional or routes through a non-canonical popup path
   - the tooltip opens but uses the wrong layer, dimming, lower-layer blocking, or screen-like content scale
 - Escalate tooltip coverage to blocker only when:
-  - the canonical `SettingsScreen` tooltip path is missing or broken in the gameplay shell
+  - an existing canonical tooltip request path is broken in the gameplay shell
   - the tooltip path violates popup ownership, layering, dimming, lower-layer blocking, or bounded tooltip semantics
   - a legacy or duplicate popup path appears
 - Do not add scene-local helpers, alternate bootstrap objects, or artificial debug triggers to satisfy tooltip coverage.
@@ -107,10 +107,10 @@
 
 ## 10. Freeze Gate
 - The manual runtime smoke is only freezeable if the high-risk runtime subset is executed first and validated before lower-priority checks consume time.
-- Tooltip representative coverage is acceptable only if the `SettingsScreen` tooltip info icon reaches `TooltipPopup` on the canonical gameplay shell path.
+- Tooltip representative coverage is acceptable only if an existing canonical tooltip request reaches `TooltipPopup` on the gameplay shell path.
 - Stage-clear validation remains mandatory, but it must stay operationally bounded. If the result is `Inconclusive/manual follow-up needed`, that is not an architecture verdict, but the manual runtime freeze gate remains open until terminal flow is proven.
 - Diagnostics overlay must remain absent from canonical runtime UI.
-- The `SettingsScreen` tooltip affordance must remain bounded. It is the current gameplay shell choice, not a universal tooltip rule for every screen.
+- Tooltip affordances must remain bounded local product choices, not a universal tooltip rule for every screen.
 - Click-only open and center anchoring remain current-task defaults for this gameplay shell affordance, not universal architecture laws.
 - Structural regressions, runtime integration issues, scene-affordance gaps, inconclusive bounded outcomes, and pure presentation/tuning issues must remain clearly separated.
 - The smoke is acceptable only if it stays architecture-focused and time-bounded rather than expanding into open-ended scene playtesting.

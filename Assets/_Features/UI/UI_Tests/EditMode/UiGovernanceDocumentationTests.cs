@@ -162,7 +162,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(smokePlan, Does.Contain("SettingsScreen"));
             Assert.That(smokePlan, Does.Contain("StageResultScreen"));
             Assert.That(smokePlan, Does.Contain("TooltipPopup"));
-            Assert.That(smokePlan, Does.Contain("SettingsScreen tooltip info icon"));
+            Assert.That(smokePlan, Does.Contain("Removed Settings accessibility toggle rows must not be treated as required manual-smoke affordances."));
+            Assert.That(smokePlan, Does.Contain("must not restore Settings tooltip on/off or large text toggle rows"));
             Assert.That(smokePlan, Does.Contain("future tooltip expansion requires separate plan/review"));
             Assert.That(smokePlan, Does.Contain("Inconclusive/manual follow-up needed"));
             Assert.That(smokePlan, Does.Contain("up to 3 deliberate attempts"));
@@ -212,9 +213,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Contain("`SceneTransitionOverlayView`, `UI/SceneTransitionOverlayView`, generated fallback, and legacy overlay fallback are not current paths."));
             Assert.That(source, Does.Contain("resolver-only input router initialized through `IUiNavigationTargetResolver`"));
             Assert.That(source, Does.Contain("must not regain `PopupController`, `PopupLayerView`, or `MainMenuScreenView` direct legacy overloads"));
+            Assert.That(source, Does.Contain("Settings tooltip on/off and large text on/off accessibility toggles are removed residue."));
+            Assert.That(source, Does.Contain("`AccessibilitySettingsStore` is not a current runtime composition dependency."));
             Assert.That(source, Does.Contain("Do not modify runtime code for this source regeneration."));
             Assert.That(source, Does.Contain("Do not modify prefabs or catalogs for this source regeneration."));
             Assert.That(source, Does.Contain("Do not simplify or reroute StageResult, Reward, Confirm, settings, audio, display, or UI bridge paths."));
+            Assert.That(source, Does.Contain("Do not restore Settings tooltip on/off or large text on/off toggles without a separate product decision."));
             AssertDemoStageControlStalePolicyPhrasesAreAbsent(source);
             Assert.That(source, Does.Not.Contain("HelpScreen remains"));
             Assert.That(source, Does.Not.Contain("InventoryScreen remains"));
@@ -240,7 +244,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(displayGuidelines, Does.Contain("SettingsScreenView` must serialize `_audioView` and `_displayView` directly"));
             Assert.That(
                 displayGuidelines,
-                Does.Contain("The Settings resolution hover hint is a local SettingsDisplaySection affordance, remains available regardless of the Tooltips accessibility toggle, and does not use TooltipPopup or popup flow."));
+                Does.Contain("The Settings resolution hover hint is a local SettingsDisplaySection affordance and does not use TooltipPopup or popup flow."));
+            Assert.That(
+                displayGuidelines,
+                Does.Contain("Removed Settings accessibility toggles such as tooltip on/off and large text on/off must not be restored as part of display settings work."));
             Assert.That(displayGuidelines, Does.Contain("DisplayPreviewSessionHost"));
             Assert.That(displayGuidelines, Does.Contain("confirm popup open succeeds"));
             Assert.That(displayGuidelines, Does.Contain("whole-second stepwise text plus bar"));
