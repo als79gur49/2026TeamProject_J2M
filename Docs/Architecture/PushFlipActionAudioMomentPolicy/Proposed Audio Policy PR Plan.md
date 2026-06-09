@@ -2,7 +2,12 @@
 
 Date: 2026-06-09 KST
 
-This plan removes Push/Flip action-audio `Execute` and `Recovery` moments. It does not remove Push/Flip gameplay.
+This plan is retained as a historical planning artifact. The `Execute`/`Recovery` removal decision has already been applied.
+No profile explicit-null/add-entry migration is planned for `Execute`/`Recovery`.
+Future reintroduction would require a new public-surface decision.
+
+Gameplay action timeline still has execute/recovery.
+Only action-audio moments were removed.
 
 ## Scope
 
@@ -12,7 +17,7 @@ Remove:
 - `GameplayActionAudioMoment.Recovery`
 - Push/Flip action-audio planner emissions from `ExecutedThisTick`
 - Push/Flip action-audio planner emissions from `ExecutedThisTick && IsRecoveryPhase`
-- docs/tests that describe `Execute` and `Recovery` as current optional action-audio seams
+- docs/tests that described `Execute` and `Recovery` as current action-audio seams before the removal decision
 
 Preserve:
 
@@ -26,14 +31,20 @@ Preserve:
 - `Windup`, `AssistOutOfRange`, `NoTarget`, and `Invalid` action-audio moments
 - core gameplay one-shot audio, enemy audio, UI audio, and BGM
 
-## Implementation
+## Applied Implementation State
 
-- Reserve old enum numeric values `1-5`; keep `AssistOutOfRange = 6`, `NoTarget = 7`, and `Invalid = 8`.
-- Remove removed moments from `GameplayActionAudioMomentCatalog`.
-- Update `GameplayActionAudioRequestPlanner` so lifecycle action audio emits `Windup` only.
-- Keep fake failure request planning unchanged.
-- Reject profile rows carrying raw removed moment values.
-- Keep `Player_S1_GameplayActionAudioProfile.asset` and GUID `42a2e109fc5141ec9e866925a0a85c3b` unchanged unless a stale row is found.
+- Removed raw serialized values `1..5` remain invalid authoring values.
+- Current surface is `Windup`, `AssistOutOfRange`, `NoTarget`, and `Invalid`.
+- Removed surface is `Execute`, `Recovery`, `Contact`, `ImpactEnemy`, and `Blocked`.
+- The planner emits lifecycle action audio for `Windup` only.
+- Fake failure request planning emits `AssistOutOfRange`, `NoTarget`, and `Invalid`.
+- `Player_S1_GameplayActionAudioProfile.asset` and GUID `42a2e109fc5141ec9e866925a0a85c3b` remain unchanged.
+
+## Follow-Up Candidate: Removed Moment Governance Hardening
+
+- Keep raw serialized values `1..5` invalid.
+- Ensure Player S1 profile contains only current supported moments.
+- Keep docs/tests preventing `Contact`, `ImpactEnemy`, `Blocked`, `Execute`, and `Recovery` reintroduction.
 
 ## Tests
 
