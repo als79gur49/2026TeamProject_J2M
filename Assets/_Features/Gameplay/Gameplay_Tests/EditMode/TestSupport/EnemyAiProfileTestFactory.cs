@@ -11,18 +11,18 @@ namespace Game.Feature.Gameplay.Tests
 {
     internal sealed class EnemyAiTestProfileSpec
     {
-        public EnemyAiCommonAuthoringSettings CommonSettings = EnemyAiCommonAuthoringSettings.CreateDefaultMelee();
-        public EnemyLocomotionTimingAuthoringSettings LocomotionTimingSettings = EnemyLocomotionTimingAuthoringSettings.CreateDefaultMelee();
+        public EnemyAiCommonAuthoringSettings CommonSettings = EnemyAiCommonAuthoringSettings.CreateStandard();
+        public EnemyLocomotionTimingAuthoringSettings LocomotionTimingSettings = EnemyLocomotionTimingAuthoringSettings.CreateImmediate();
         public EnemyChargeTimingAuthoringSettings ChargeTimingSettings = EnemyChargeTimingAuthoringSettings.CreateDefault();
         public EnemyAiStateResolverKind StateResolverKind = EnemyAiStateResolverKind.Default;
         public PatrolStrategyKind PatrolStrategyKind = PatrolStrategyKind.Forward;
         public PatrolSettings PatrolSettings = PatrolSettings.CreateDefault();
         public DetectionStrategyKind DetectionStrategyKind = DetectionStrategyKind.NearestOpponent;
-        public DetectionSettings DetectionSettings = DetectionSettings.CreateDefaultMelee();
+        public DetectionSettings DetectionSettings = DetectionSettings.CreateStandardEnemyDetection();
         public ChaseSettings ChaseSettings = ChaseSettings.CreateDefault();
         public AttackDecisionStrategyKind AttackDecisionStrategyKind = AttackDecisionStrategyKind.None;
-        public AttackDecisionSettings AttackDecisionSettings = AttackDecisionSettings.CreateDefaultMelee();
-        public EnemyAttackTimingAuthoringSettings AttackTimingSettings = EnemyAttackTimingAuthoringSettings.CreateDefaultMelee();
+        public AttackDecisionSettings AttackDecisionSettings = AttackDecisionSettings.CreateAdjacentRange();
+        public EnemyAttackTimingAuthoringSettings AttackTimingSettings = EnemyAttackTimingAuthoringSettings.CreateImmediate();
         public WindupMeleeSettings WindupMeleeSettings = WindupMeleeSettings.CreateDefault();
         public WindupForwardCellProjectileSettings WindupForwardCellProjectileSettings =
             WindupForwardCellProjectileSettings.CreateDefault();
@@ -417,16 +417,6 @@ namespace Game.Feature.Gameplay.Tests
             {
                 case AttackDecisionStrategyKind.None:
                     break;
-
-                case AttackDecisionStrategyKind.Melee:
-                {
-                    var melee = CreateHiddenAsset<MeleeCombatCapabilityAsset>("Test_MeleeCombatCapability");
-                    SetSerializedField(melee, "attackDecisionSettings", spec.AttackDecisionSettings);
-                    SetSerializedField(melee, "attackTimingSettings", spec.AttackTimingSettings);
-                    SetSerializedField(melee, "windupMeleeSettings", spec.WindupMeleeSettings);
-                    yield return melee;
-                    break;
-                }
 
                 case AttackDecisionStrategyKind.WindupForwardCellProjectile:
                 {

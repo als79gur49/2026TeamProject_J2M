@@ -212,12 +212,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             worldState.CreateWriteContext().SetPhasedState(
                 5,
                 PhasedRuntimeStateQueries.ForceDebug(default, tickIndex: 1));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
                     new PlayerLogic(10),
-                    new EnemyLogic(5, definition),
                 });
 
             Assert.That(definition.Brain.Patrol.Kind, Is.EqualTo(PatrolStrategyKind.Stationary));

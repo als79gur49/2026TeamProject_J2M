@@ -110,7 +110,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 NearestOpponentDetectionStrategy.Instance.TryFindTarget(
                     snapshot,
                     source,
-                    DetectionSettings.CreateDefaultMelee(),
+                    DetectionSettings.CreateStandardEnemyDetection(),
                     out _),
                 Is.False);
         }
@@ -135,9 +135,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     snapshot,
                     source,
                     NearestOpponentDetectionStrategy.Instance,
-                    MeleeAttackDecisionStrategy.Instance,
-                    DetectionSettings.CreateDefaultMelee(),
-                    AttackDecisionSettings.CreateDefaultMelee(),
+                    WindupForwardCellProjectileAttackDecisionStrategy.Instance,
+                    DetectionSettings.CreateStandardEnemyDetection(),
+                    AttackDecisionSettings.CreateAdjacentRange(),
                     out var target,
                     out var direction),
                 Is.True);
@@ -173,9 +173,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     snapshot,
                     source,
                     actionState,
-                    MeleeAttackDecisionStrategy.Instance,
-                    DetectionSettings.CreateDefaultMelee(),
-                    AttackDecisionSettings.CreateDefaultMelee(),
+                    WindupForwardCellProjectileAttackDecisionStrategy.Instance,
+                    DetectionSettings.CreateStandardEnemyDetection(),
+                    AttackDecisionSettings.CreateAdjacentRange(),
                     out var lockedTarget),
                 Is.True);
             Assert.That(lockedTarget.entityId, Is.EqualTo(20));
@@ -201,7 +201,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 source,
                 target,
-                DetectionSettings.CreateDefaultMelee());
+                DetectionSettings.CreateStandardEnemyDetection());
             var localHold = EnemyTargetEligibilityPolicy.EvaluateLocalEngagementHold(
                 snapshot,
                 source,
@@ -242,7 +242,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 source,
                 target,
-                DetectionSettings.CreateDefaultMelee());
+                DetectionSettings.CreateStandardEnemyDetection());
             var retained = EnemyTargetEligibilityPolicy.EvaluateRetainLockedTarget(
                 snapshot,
                 source,
@@ -273,7 +273,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 source,
                 target,
-                DetectionSettings.CreateDefaultMelee());
+                DetectionSettings.CreateStandardEnemyDetection());
             var localHold = EnemyTargetEligibilityPolicy.EvaluateLocalEngagementHold(
                 snapshot,
                 source,
@@ -610,9 +610,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     snapshot,
                     source,
                     NearestOpponentDetectionStrategy.Instance,
-                    MeleeAttackDecisionStrategy.Instance,
-                    DetectionSettings.CreateDefaultMelee(),
-                    AttackDecisionSettings.CreateDefaultMelee(),
+                    WindupForwardCellProjectileAttackDecisionStrategy.Instance,
+                    DetectionSettings.CreateStandardEnemyDetection(),
+                    AttackDecisionSettings.CreateAdjacentRange(),
                     out var target,
                     out _),
                 Is.False);
@@ -788,17 +788,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static EnemyCombatCapabilityRuntime CreateDefaultCombatCapability()
         {
             return new EnemyCombatCapabilityRuntime(
-                AttackDecisionStrategyKind.Melee,
-                AttackDecisionSettings.CreateDefaultMelee(),
-                EnemyAttackTimingSettings.CreateDefaultMelee(),
-                MeleeAttackDecisionStrategy.Instance);
+                AttackDecisionStrategyKind.WindupForwardCellProjectile,
+                AttackDecisionSettings.CreateAdjacentRange(),
+                EnemyAttackTimingSettings.CreateImmediate(),
+                WindupForwardCellProjectileAttackDecisionStrategy.Instance);
         }
 
         private static EnemyPassiveContactCapabilityRuntime CreatePassiveContactCapability()
         {
             return new EnemyPassiveContactCapabilityRuntime(
                 AttackDecisionStrategyKind.ContactSameCell,
-                AttackDecisionSettings.CreateDefaultMelee(),
+                AttackDecisionSettings.CreateAdjacentRange(),
                 ContactSameCellAttackDecisionStrategy.Instance);
         }
 

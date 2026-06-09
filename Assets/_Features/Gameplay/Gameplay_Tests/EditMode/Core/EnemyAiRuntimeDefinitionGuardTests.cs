@@ -34,7 +34,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             var exception = Assert.Throws<ArgumentException>(() =>
                 new EnemyDetectionRuntime(
                     DetectionStrategyKind.None,
-                    DetectionSettings.CreateDefaultMelee(),
+                    DetectionSettings.CreateStandardEnemyDetection(),
                     NearestOpponentDetectionStrategy.Instance));
 
             AssertGuardMessage(exception, "detection runtime kind", "None", "NearestOpponent", nameof(NearestOpponentDetectionStrategy));
@@ -47,7 +47,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             var exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new EnemyDetectionRuntime(
                     DetectionStrategyKind.NearestOpponent,
-                    DetectionSettings.CreateDefaultMelee(),
+                    DetectionSettings.CreateStandardEnemyDetection(),
                     new UnknownDetectionStrategy()));
 
             Assert.That(exception.Message, Does.Contain("Unknown detection strategy implementation"));
@@ -73,11 +73,25 @@ namespace Game.Feature.Gameplay.Tests.Core
             var exception = Assert.Throws<ArgumentException>(() =>
                 new EnemyCombatCapabilityRuntime(
                     AttackDecisionStrategyKind.WindupForwardCellProjectile,
-                    AttackDecisionSettings.CreateDefaultMelee(),
-                    EnemyAttackTimingSettings.CreateDefaultMelee(),
-                    MeleeAttackDecisionStrategy.Instance));
+                    AttackDecisionSettings.CreateAdjacentRange(),
+                    EnemyAttackTimingSettings.CreateImmediate(),
+                    NoAttackDecisionStrategy.Instance));
 
-            AssertGuardMessage(exception, "combat capability runtime kind", "WindupForwardCellProjectile", "Melee", nameof(MeleeAttackDecisionStrategy));
+            AssertGuardMessage(exception, "requires a concrete attack decision strategy implementation");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyCombatCapabilityRuntime_RetiredMeleeKind_FailsBeforeRuntimeTick()
+        {
+            var exception = Assert.Throws<ArgumentException>(() =>
+                new EnemyCombatCapabilityRuntime(
+                    AttackDecisionStrategyKind.RetiredMelee,
+                    AttackDecisionSettings.CreateAdjacentRange(),
+                    EnemyAttackTimingSettings.CreateImmediate(),
+                    WindupForwardCellProjectileAttackDecisionStrategy.Instance));
+
+            Assert.That(exception.Message, Does.Contain("RetiredMelee is a serialized compatibility slot"));
         }
 
         [Test]
@@ -86,9 +100,9 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             var exception = Assert.Throws<ArgumentException>(() =>
                 new EnemyCombatCapabilityRuntime(
-                    AttackDecisionStrategyKind.Melee,
-                    AttackDecisionSettings.CreateDefaultMelee(),
-                    EnemyAttackTimingSettings.CreateDefaultMelee(),
+                    AttackDecisionStrategyKind.WindupForwardCellProjectile,
+                    AttackDecisionSettings.CreateAdjacentRange(),
+                    EnemyAttackTimingSettings.CreateImmediate(),
                     ContactSameCellAttackDecisionStrategy.Instance));
 
             Assert.That(exception.Message, Does.Contain("ContactSameCell must compile as passive contact"));
@@ -101,10 +115,10 @@ namespace Game.Feature.Gameplay.Tests.Core
             var exception = Assert.Throws<ArgumentException>(() =>
                 new EnemyPassiveContactCapabilityRuntime(
                     AttackDecisionStrategyKind.ContactSameCell,
-                    AttackDecisionSettings.CreateDefaultMelee(),
-                    MeleeAttackDecisionStrategy.Instance));
+                    AttackDecisionSettings.CreateAdjacentRange(),
+                    NoAttackDecisionStrategy.Instance));
 
-            AssertGuardMessage(exception, "passive contact runtime kind", "ContactSameCell", nameof(MeleeAttackDecisionStrategy));
+            AssertGuardMessage(exception, "passive contact runtime kind", "ContactSameCell", nameof(NoAttackDecisionStrategy));
         }
 
         [Test]
@@ -138,7 +152,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             {
                 var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
 
-                AssertGuardMessage(exception, "combat capability runtime kind", "WindupForwardCellProjectile", "Melee", nameof(MeleeAttackDecisionStrategy));
+                AssertGuardMessage(exception, "requires a concrete attack decision strategy implementation");
             }
             finally
             {
@@ -157,7 +171,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             {
                 var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
 
-                AssertGuardMessage(exception, "passive contact runtime kind", "ContactSameCell", nameof(MeleeAttackDecisionStrategy));
+                AssertGuardMessage(exception, "passive contact runtime kind", "ContactSameCell", nameof(NoAttackDecisionStrategy));
             }
             finally
             {
@@ -209,8 +223,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             var detection = detectionAsset ?? CreateAsset<NoDetectionStrategyAsset>("Test_NoDetection");
             var chase = CreateAsset<AxisPriorityChaseAsset>("Test_AxisPriorityChase");
 
-            SetSerializedField(core, "commonSettings", EnemyAiCommonAuthoringSettings.CreateDefaultMelee());
-            SetSerializedField(core, "locomotionTimingSettings", EnemyLocomotionTimingAuthoringSettings.CreateDefaultMelee());
+            SetSerializedField(core, "commonSettings", EnemyAiCommonAuthoringSettings.CreateStandard());
+            SetSerializedField(core, "locomotionTimingSettings", EnemyLocomotionTimingAuthoringSettings.CreateImmediate());
             SetSerializedField(core, "chargeTimingSettings", EnemyChargeTimingAuthoringSettings.CreateDefault());
             SetSerializedField(brain, "stateResolver", stateResolver);
             SetSerializedField(brain, "patrolStrategy", patrol);
@@ -252,7 +266,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             public override DetectionStrategyKind Kind => DetectionStrategyKind.None;
 
-            public override DetectionSettings Settings => DetectionSettings.CreateDefaultMelee();
+            public override DetectionSettings Settings => DetectionSettings.CreateStandardEnemyDetection();
 
             protected override IDetectionStrategy ResolveStrategy()
             {
@@ -264,14 +278,14 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             public override AttackDecisionStrategyKind Kind => AttackDecisionStrategyKind.WindupForwardCellProjectile;
 
-            public override AttackDecisionSettings AttackDecisionSettings => AttackDecisionSettings.CreateDefaultMelee();
+            public override AttackDecisionSettings AttackDecisionSettings => AttackDecisionSettings.CreateAdjacentRange();
 
             public override EnemyAttackTimingAuthoringSettings AttackTimingSettings =>
-                EnemyAttackTimingAuthoringSettings.CreateDefaultMelee();
+                EnemyAttackTimingAuthoringSettings.CreateImmediate();
 
             protected override IAttackDecisionStrategy ResolveStrategy()
             {
-                return MeleeAttackDecisionStrategy.Instance;
+                return NoAttackDecisionStrategy.Instance;
             }
         }
 
@@ -283,8 +297,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             {
                 return new EnemyPassiveContactCapabilityRuntime(
                     AttackDecisionStrategyKind.ContactSameCell,
-                    AttackDecisionSettings.CreateDefaultMelee(),
-                    MeleeAttackDecisionStrategy.Instance);
+                    AttackDecisionSettings.CreateAdjacentRange(),
+                    NoAttackDecisionStrategy.Instance);
             }
         }
 

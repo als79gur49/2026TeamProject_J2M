@@ -7,7 +7,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         public override DetectionStrategyKind Kind => DetectionStrategyKind.None;
 
-        public override DetectionSettings Settings => DetectionSettings.CreateDefaultMelee();
+        public override DetectionSettings Settings => DetectionSettings.CreateStandardEnemyDetection();
 
         protected override IDetectionStrategy ResolveStrategy()
         {

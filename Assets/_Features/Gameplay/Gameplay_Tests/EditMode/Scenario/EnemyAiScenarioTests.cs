@@ -449,13 +449,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var logicRange = EnemyAttackRangeQueries.IsTargetInRange(
                     enemy,
                     player,
-                    AttackDecisionSettings.CreateDefaultMelee());
+                    AttackDecisionSettings.CreateAdjacentRange());
                 var query = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
                     beforeSnapshot,
                     enemy,
                     player,
                     WindupForwardCellProjectileAttackDecisionStrategy.Instance,
-                    AttackDecisionSettings.CreateDefaultMelee(),
+                    AttackDecisionSettings.CreateAdjacentRange(),
                     WindupForwardCellProjectileSettings.CreateDefault(),
                     out _);
 
@@ -545,7 +545,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     enemy,
                     player,
                     WindupForwardCellProjectileAttackDecisionStrategy.Instance,
-                    AttackDecisionSettings.CreateDefaultMelee(),
+                    AttackDecisionSettings.CreateAdjacentRange(),
                     WindupForwardCellProjectileSettings.CreateDefault(),
                     out _);
 
@@ -2845,8 +2845,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var actionState = GetEnemyActionState(worldState, 40);
 
             Assert.That(GetEntity(worldState, 11).hp, Is.EqualTo(3));
-            Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
-            Assert.That(actionState.IsActive, Is.False);
+            Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(actionState.IsActive, Is.True);
+            Assert.That(actionState.executionAttempted, Is.True);
             Assert.That(worldState.CreateSnapshot().TryGetPhasedState(40, out _), Is.False);
             Assert.That(executeTick.AttackPhaseResult.RawIntents, Is.Empty);
             Assert.That(executeTick.AttackPhaseResult.DamageResolutions, Is.Empty);
@@ -2892,13 +2893,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 1, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
-            });
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 1, aiMode: EnemyAiMode.None, facing: Direction.Left),
+                });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
                     new ScriptedAttackLogic(10, 40),
+                    new ScriptedAttackLogic(40, 10),
                 });
 
             var result = pipeline.RunTick(new TickInput(1));
@@ -2917,7 +2919,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(new[] { 40 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out _), Is.False);
             Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(2));
-            Assert.That(result.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40|From=Patrol|FromTimer=0|To=Attack|ToTimer=0|Reason=TargetInRange"));
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=40"));
         }
 
@@ -2935,20 +2936,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 40, teamId: 2, position: enemyCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
                 },
                 new CubeTopologyState(FaceId.Floor));
-            var pipeline = CreateEnemyPipeline(worldState);
+            var profile = CreateNonAttackingEnemyProfile();
+            var pipeline = CreateEnemyPipeline(worldState, profile);
 
-            var firstTick = pipeline.RunTick(new TickInput(1));
-            var secondTick = pipeline.RunTick(new TickInput(2));
-            var thirdTick = pipeline.RunTick(new TickInput(3));
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var thirdTick = pipeline.RunTick(new TickInput(3));
 
-            Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(enemyCell));
-            Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
-            Assert.That(firstTick.MovementPhaseResult.RawIntents, Is.Empty);
-            Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
-            Assert.That(thirdTick.MovementPhaseResult.RawIntents, Is.Empty);
-            Assert.That(firstTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-            Assert.That(secondTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-            Assert.That(thirdTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(enemyCell));
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
+                Assert.That(firstTick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(thirdTick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(firstTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+                Assert.That(secondTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+                Assert.That(thirdTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
@@ -2957,25 +2966,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
             });
-            var pipeline = CreateEnemyPipeline(worldState);
+            var profile = CreateStationaryPassiveContactProfile();
+            var pipeline = CreateEnemyPipeline(worldState, profile);
 
-            var activeTick = pipeline.RunTick(new TickInput(1));
-            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
-            var suspendedTick = pipeline.RunTick(new TickInput(2));
+            try
+            {
+                var activeTick = pipeline.RunTick(new TickInput(1));
+                worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
+                var suspendedTick = pipeline.RunTick(new TickInput(2));
 
-            Assert.That(
-                activeTick.AttackPhaseResult.DamageResolutions.Any(
-                    record => record.Accepted && record.SourceId == 40),
-                Is.True);
-            Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(2));
-            Assert.That(suspendedTick.MovementPhaseResult.RawIntents, Is.Empty);
-            Assert.That(suspendedTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-            Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-            Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40"));
-            Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40"));
+                Assert.That(
+                    activeTick.AttackPhaseResult.DamageResolutions.Any(
+                        record => record.Accepted && record.SourceId == 40),
+                    Is.True);
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(2));
+                Assert.That(suspendedTick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(suspendedTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40"));
+                Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
@@ -2985,26 +3002,34 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[]
                 {
-                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 1, 0), hp: 3),
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3),
                     CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
                 },
                 new CubeTopologyState(FaceId.Floor));
-            var pipeline = CreateEnemyPipeline(worldState);
+            var profile = CreateStationaryPassiveContactProfile();
+            var pipeline = CreateEnemyPipeline(worldState, profile);
 
-            var suspendedTick = pipeline.RunTick(new TickInput(1));
-            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
-            var resumedTick = pipeline.RunTick(new TickInput(2));
+            try
+            {
+                var suspendedTick = pipeline.RunTick(new TickInput(1));
+                worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
+                var resumedTick = pipeline.RunTick(new TickInput(2));
 
-            Assert.That(suspendedTick.MovementPhaseResult.RawIntents, Is.Empty);
-            Assert.That(suspendedTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-            Assert.That(
-                resumedTick.AttackPhaseResult.DamageResolutions.Any(
-                    record => record.Accepted &&
-                              record.SourceId == 40 &&
-                              record.TargetId == 10),
-                Is.True);
-            Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(2));
-            Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Recover));
+                Assert.That(suspendedTick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(suspendedTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+                Assert.That(
+                    resumedTick.AttackPhaseResult.DamageResolutions.Any(
+                        record => record.Accepted &&
+                                  record.SourceId == 40 &&
+                                  record.TargetId == 10),
+                    Is.True);
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(2));
+                Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
@@ -3078,25 +3103,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         facing: Direction.Up),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
-            var pipeline = CreateEnemyPipeline(worldState);
+            var profile = CreateForwardNonAttackingProfile();
+            var pipeline = CreateEnemyPipeline(worldState, profile);
 
-            var firstTick = pipeline.RunTick(new TickInput(1));
-            var topologyAfterFirstTick = worldState.CreateSnapshot().Topology;
-            var secondTick = pipeline.RunTick(new TickInput(2));
-            var topologyAfterSecondTick = worldState.CreateSnapshot().Topology;
-            var thirdTick = pipeline.RunTick(new TickInput(3));
-            var topologyAfterThirdTick = worldState.CreateSnapshot().Topology;
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var topologyAfterFirstTick = worldState.CreateSnapshot().Topology;
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var topologyAfterSecondTick = worldState.CreateSnapshot().Topology;
+                var thirdTick = pipeline.RunTick(new TickInput(3));
+                var topologyAfterThirdTick = worldState.CreateSnapshot().Topology;
 
-            Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
-            Assert.That(topologyAfterFirstTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
-            Assert.That(topologyAfterSecondTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
-            Assert.That(topologyAfterThirdTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
-            Assert.That(firstTick.EventLog, Has.None.Contains("TopologyCommitted"));
-            Assert.That(secondTick.EventLog, Has.None.Contains("TopologyCommitted"));
-            Assert.That(thirdTick.EventLog, Has.None.Contains("TopologyCommitted"));
-            Assert.That(firstTick.Trace.Text, Does.Not.Contain("TopologyCommitted"));
-            Assert.That(secondTick.Trace.Text, Does.Not.Contain("TopologyCommitted"));
-            Assert.That(thirdTick.Trace.Text, Does.Not.Contain("TopologyCommitted"));
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+                Assert.That(topologyAfterFirstTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+                Assert.That(topologyAfterSecondTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+                Assert.That(topologyAfterThirdTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+                Assert.That(firstTick.EventLog, Has.None.Contains("TopologyCommitted"));
+                Assert.That(secondTick.EventLog, Has.None.Contains("TopologyCommitted"));
+                Assert.That(thirdTick.EventLog, Has.None.Contains("TopologyCommitted"));
+                Assert.That(firstTick.Trace.Text, Does.Not.Contain("TopologyCommitted"));
+                Assert.That(secondTick.Trace.Text, Does.Not.Contain("TopologyCommitted"));
+                Assert.That(thirdTick.Trace.Text, Does.Not.Contain("TopologyCommitted"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
 
@@ -7564,17 +7597,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     attackPriority: 50,
                     recoverTicks: recoverTicks),
                 PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
+                DetectionSettings.CreateStandardEnemyDetection(),
                 ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
+                AttackDecisionSettings.CreateAdjacentRange(),
                 new EnemyAttackTimingSettings(windupTicks),
-                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                EnemyLocomotionTimingSettings.CreateImmediate(),
                 MovementSkillStrategyKind.PhaseThroughLockedTarget,
                 EnemyJumpTimingSettings.CreateDefault(),
                 ForwardPatrolStrategy.Instance,
                 NearestOpponentDetectionStrategy.Instance,
                 AxisPriorityChaseStrategy.Instance,
-                MeleeAttackDecisionStrategy.Instance,
+                WindupForwardCellProjectileAttackDecisionStrategy.Instance,
                 DefaultEnemyAiStateResolver.Instance);
         }
 
@@ -7630,6 +7663,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static EnemyAiProfile CreateContactDamageProfile(int moveCooldownTicks = 0, int recoverTicks = 1)
         {
             return EnemyAiProfileTestFactory.CreateContactDamage(moveCooldownTicks, recoverTicks);
+        }
+
+        private static EnemyAiProfile CreateStationaryPassiveContactProfile()
+        {
+            return EnemyAiProfileTestFactory.CreateStationaryPassiveContact();
+        }
+
+        private static EnemyAiProfile CreateForwardNonAttackingProfile()
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Forward,
+            });
         }
 
         private static EnemyAiProfile CreateGlideContactDamageProfile(int durationTicks)

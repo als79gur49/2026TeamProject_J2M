@@ -321,8 +321,13 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         private static TickPipeline CreatePipeline(WorldState worldState)
         {
+            return CreatePipeline(worldState, CreateChaseRuntime());
+        }
+
+        private static TickPipeline CreatePipeline(WorldState worldState, EnemyAiRuntimeDefinition enemyAiRuntime)
+        {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault(enemyAiRuntime)).CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,
@@ -332,17 +337,21 @@ namespace Game.Feature.Gameplay.Tests.Core
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
         }
 
-        private static TickPipeline CreatePipeline(WorldState worldState, EnemyAiRuntimeDefinition enemyAiRuntime)
+        private static EnemyAiRuntimeDefinition CreateChaseRuntime()
         {
-            var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateTickPipeline(
-                worldState,
-                new IEntityLogic[] { new EnemyLogic(61, enemyAiRuntime) },
-                timingProfile,
-                PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
-                    timingProfile.SimulationTicksPerSecond,
-                    timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
+            return new EnemyAiRuntimeDefinition(
+                EnemyAiCommonSettings.CreateStandard(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateStandardEnemyDetection(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateAdjacentRange(),
+                EnemyAttackTimingSettings.CreateImmediate(),
+                EnemyLocomotionTimingSettings.CreateImmediate(),
+                ForwardPatrolStrategy.Instance,
+                NearestOpponentDetectionStrategy.Instance,
+                AxisPriorityChaseStrategy.Instance,
+                NoAttackDecisionStrategy.Instance,
+                DefaultEnemyAiStateResolver.Instance);
         }
 
         private static EnemyAiRuntimeDefinition CreateForwardPatrolRuntime()
@@ -360,13 +369,13 @@ namespace Game.Feature.Gameplay.Tests.Core
             IPatrolStrategy patrolStrategy)
         {
             return new EnemyAiRuntimeDefinition(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 patrolSettings,
-                DetectionSettings.CreateDefaultMelee(),
+                DetectionSettings.CreateStandardEnemyDetection(),
                 ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                EnemyAttackTimingSettings.CreateDefaultMelee(),
-                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                AttackDecisionSettings.CreateAdjacentRange(),
+                EnemyAttackTimingSettings.CreateImmediate(),
+                EnemyLocomotionTimingSettings.CreateImmediate(),
                 patrolStrategy,
                 NoDetectionStrategy.Instance,
                 AxisPriorityChaseStrategy.Instance,

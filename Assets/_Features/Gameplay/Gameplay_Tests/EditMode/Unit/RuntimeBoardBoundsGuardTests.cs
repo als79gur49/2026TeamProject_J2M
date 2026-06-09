@@ -434,7 +434,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_NullDefaultProfile_DoesNotCreateDefaultMeleeDefinition()
+        public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_NullDefaultProfile_LeavesDefaultDefinitionUnset()
         {
             var snapshot = new GameplaySceneHostConfiguration
             {

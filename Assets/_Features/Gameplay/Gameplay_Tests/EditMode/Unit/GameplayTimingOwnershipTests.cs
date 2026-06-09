@@ -4183,7 +4183,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                 new EnemyPresentationBinding
                                 {
                                     EntityId = 40,
-                                    PresentationId = "windup_melee_showcase",
+                                    PresentationId = "windup_projectile_showcase",
                                 },
                             },
                         }));
@@ -4226,7 +4226,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         new EnemyPresentationCatalogEntry
                         {
-                            PresentationId = "windup_melee_showcase",
+                            PresentationId = "windup_projectile_showcase",
                             ViewPrefab = enemyPrefabView,
                         },
                     });
@@ -4252,7 +4252,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             new EnemyPresentationBinding
                             {
                                 EntityId = 40,
-                                PresentationId = "windup_melee_showcase",
+                                PresentationId = "windup_projectile_showcase",
                             },
                         },
                     });

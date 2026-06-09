@@ -77,8 +77,9 @@ namespace Game.Feature.Gameplay.Entities
         private Direction _pendingChaseBlockedDirectionToAvoid = Direction.None;
 
         public EnemyLogic(int entityId)
-            : this(entityId, EnemyAiRuntimeDefinition.CreateDefaultMelee())
         {
+            throw new InvalidOperationException(
+                "Enemy AI runtime definition must be explicit. Use an EnemyAiProfile or EnemyAiRuntimeDefinition constructor.");
         }
 
         public EnemyLogic(int entityId, EnemyAiProfile profile)
@@ -451,54 +452,18 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            if (_combatCapability != null &&
-                !ShouldSuppressCombatAttackForJump(snapshot) &&
-                snapshot.TryGetEnemyActionState(_entityId, out var actionState) &&
-                actionState.kind == EnemyActionKind.Melee &&
-                EnemyActionQueries.CanExecute(actionState, input.TickIndex) &&
-                EnemyActionStateTargeting.TryResolveLockedTarget(
-                    snapshot,
-                    source,
-                    actionState,
-                    _combatCapability,
-                    _detectionSettings,
-                    out var combatTarget) &&
-                WindupMeleeCombatPoseQueries.CanExecuteHitFromLockedCombatAnchor(
-                    snapshot,
-                    actionState,
-                    combatTarget,
-                    _combatCapability.AttackDecisionSettings) &&
-                _combatCapability.AttackDecisionStrategy.TryBuildAttackIntent(
-                    snapshot,
-                    source,
-                    combatTarget,
-                    _commonSettings,
-                    _combatCapability.AttackDecisionSettings,
-                    out var combatIntent))
-            {
-                buffer.Add(new RawAttackIntent(
-                    combatIntent.SourceId,
-                    combatIntent.Priority,
-                    combatIntent.TargetId,
-                    AttackSourceKind.Combat,
-                    localSequence: 0));
-            }
-
             if (_passiveContactCapability != null &&
                 CanCollectPassiveContact(snapshot) &&
                 TryResolvePassiveContactTarget(snapshot, source, out var passiveContactTarget) &&
-                _passiveContactCapability.AttackDecisionStrategy.TryBuildAttackIntent(
-                    snapshot,
+                _passiveContactCapability.AttackDecisionStrategy.IsTargetInRange(
                     source,
                     passiveContactTarget,
-                    _commonSettings,
-                    _passiveContactCapability.AttackDecisionSettings,
-                    out var passiveContactIntent))
+                    _passiveContactCapability.AttackDecisionSettings))
             {
                 buffer.Add(new RawAttackIntent(
-                    passiveContactIntent.SourceId,
-                    passiveContactIntent.Priority,
-                    passiveContactIntent.TargetId,
+                    source.entityId,
+                    _commonSettings.AttackPriority,
+                    passiveContactTarget.entityId,
                     AttackSourceKind.PassiveContact,
                     localSequence: 1));
             }
@@ -2831,13 +2796,7 @@ namespace Game.Feature.Gameplay.Entities
                     out _);
             }
 
-            return WindupMeleeCombatPoseQueries.QueryStartWindupMeleeA(
-                snapshot,
-                source,
-                target,
-                combatCapability.AttackDecisionStrategy,
-                combatCapability.AttackDecisionSettings,
-                combatCapability.WindupMeleeSettings);
+            return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.TargetInvalid);
         }
 
         private bool TryResolveScheduledJumpStart(

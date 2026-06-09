@@ -28,7 +28,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 RandomWalkPatrolStrategy.Instance.TryBuildMovementIntent(
                     snapshot,
                     enemy,
-                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    EnemyAiCommonSettings.CreateStandard(),
                     PatrolSettings.CreateDefaultRandomWalk(),
                     Array.Empty<TileFeatureRuntimeDefinition>(),
                     out _));
@@ -90,13 +90,13 @@ namespace Game.Feature.Gameplay.Tests.Core
             worldState.CreateWriteContext().SetPhasedState(
                 5,
                 PhasedRuntimeStateQueries.ForceDebug(default, tickIndex: 1));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
-                worldState,
-                new IEntityLogic[]
-                {
-                    new PlayerLogic(10),
-                    new EnemyLogic(5, CreateRandomWalkRuntime()),
-                });
+            var pipeline = new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault(CreateRandomWalkRuntime()))
+                .CreateTickPipeline(
+                    worldState,
+                    new IEntityLogic[]
+                    {
+                        new PlayerLogic(10),
+                    });
 
             TickResult executeResult = null;
             Assert.DoesNotThrow(() => pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left))));
@@ -128,13 +128,13 @@ namespace Game.Feature.Gameplay.Tests.Core
         private static EnemyAiRuntimeDefinition CreateRandomWalkRuntime()
         {
             return new EnemyAiRuntimeDefinition(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonSettings.CreateStandard(),
                 PatrolSettings.CreateDefaultRandomWalk(),
-                DetectionSettings.CreateDefaultMelee(),
+                DetectionSettings.CreateStandardEnemyDetection(),
                 ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                EnemyAttackTimingSettings.CreateDefaultMelee(),
-                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                AttackDecisionSettings.CreateAdjacentRange(),
+                EnemyAttackTimingSettings.CreateImmediate(),
+                EnemyLocomotionTimingSettings.CreateImmediate(),
                 RandomWalkPatrolStrategy.Instance,
                 NoDetectionStrategy.Instance,
                 AxisPriorityChaseStrategy.Instance,

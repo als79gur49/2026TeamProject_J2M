@@ -195,12 +195,30 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         private static TickPipeline CreatePlayerPipeline(WorldState worldState)
         {
-            return GameplayCompositionRoot.CreateTickPipeline(
-                worldState,
-                new IEntityLogic[]
-                {
-                    new PlayerLogic(10),
-                });
+            return new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault(CreateNonAttackingRuntime()))
+                .CreateTickPipeline(
+                    worldState,
+                    new IEntityLogic[]
+                    {
+                        new PlayerLogic(10),
+                    });
+        }
+
+        private static EnemyAiRuntimeDefinition CreateNonAttackingRuntime()
+        {
+            return new EnemyAiRuntimeDefinition(
+                EnemyAiCommonSettings.CreateStandard(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateStandardEnemyDetection(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateAdjacentRange(),
+                EnemyAttackTimingSettings.CreateImmediate(),
+                EnemyLocomotionTimingSettings.CreateImmediate(),
+                ForwardPatrolStrategy.Instance,
+                NoDetectionStrategy.Instance,
+                AxisPriorityChaseStrategy.Instance,
+                NoAttackDecisionStrategy.Instance,
+                DefaultEnemyAiStateResolver.Instance);
         }
 
         private static void SetActiveGlide(WorldState worldState, int entityId)
@@ -228,7 +246,7 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         private static EntityState CreateEnemy(int entityId, SurfaceCell position, int hp = 3)
         {
-            return CreateUnit(entityId, position, teamId: 2, UnitRole.Enemy, EnemyAiMode.Attack, hp);
+            return CreateUnit(entityId, position, teamId: 2, UnitRole.Enemy, EnemyAiMode.None, hp);
         }
 
         private static EntityState CreateUnit(
