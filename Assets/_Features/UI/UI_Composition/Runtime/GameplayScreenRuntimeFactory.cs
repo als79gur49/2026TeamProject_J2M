@@ -22,13 +22,11 @@ namespace Game.Feature.UI.Composition
         private readonly DisplayStatusTransientRelay _displayStatusTransientRelay;
         private readonly ScreenPrefabCatalog _screenPrefabCatalog;
         private readonly ScreenLayerView _screenLayerView;
-        private readonly AccessibilitySettingsStore _accessibilitySettingsStore;
 
         internal GameplayScreenRuntimeFactory(
             ScreenLayerView screenLayerView,
             IGameplayQueryFacade queryFacade,
             IGameplayUiPresentationSource presentationSource,
-            AccessibilitySettingsStore accessibilitySettingsStore,
             IAudioSettingsPort audioSettingsPort,
             IDisplaySettingsPort displaySettingsPort,
             IUiAudioPort uiAudioPort,
@@ -40,7 +38,6 @@ namespace Game.Feature.UI.Composition
                 screenLayerView,
                 queryFacade,
                 presentationSource,
-                accessibilitySettingsStore,
                 audioSettingsPort,
                 displaySettingsPort,
                 NoOpKeyboardBindingSettingsPort.Instance,
@@ -56,7 +53,6 @@ namespace Game.Feature.UI.Composition
             ScreenLayerView screenLayerView,
             IGameplayQueryFacade queryFacade,
             IGameplayUiPresentationSource presentationSource,
-            AccessibilitySettingsStore accessibilitySettingsStore,
             IAudioSettingsPort audioSettingsPort,
             IDisplaySettingsPort displaySettingsPort,
             IKeyboardBindingSettingsPort keyboardBindingSettingsPort,
@@ -69,7 +65,6 @@ namespace Game.Feature.UI.Composition
             _screenLayerView = screenLayerView ?? throw new ArgumentNullException(nameof(screenLayerView));
             _queryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
             _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
-            _accessibilitySettingsStore = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
             _audioSettingsPort = audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort));
             _displaySettingsPort = displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort));
             _keyboardBindingSettingsPort = keyboardBindingSettingsPort ?? NoOpKeyboardBindingSettingsPort.Instance;
@@ -149,7 +144,6 @@ namespace Game.Feature.UI.Composition
                 new SettingsScreenRuntimeBuilder().Build(new SettingsScreenRuntimeBuildContext(
                     _screenLayerView.ContentRoot,
                     _screenPrefabCatalog.SettingsPrefab,
-                    _accessibilitySettingsStore,
                     _audioSettingsPort,
                     _displaySettingsPort,
                     _keyboardBindingSettingsPort,

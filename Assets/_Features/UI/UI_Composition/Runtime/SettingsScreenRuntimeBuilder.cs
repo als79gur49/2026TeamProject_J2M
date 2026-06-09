@@ -13,7 +13,6 @@ namespace Game.Feature.UI.Composition
         public SettingsScreenRuntimeBuildContext(
             Transform parent,
             SettingsScreenView prefab,
-            AccessibilitySettingsStore accessibilitySettingsStore,
             IAudioSettingsPort audioSettingsPort,
             IDisplaySettingsPort displaySettingsPort,
             IKeyboardBindingSettingsPort keyboardBindingSettingsPort,
@@ -24,7 +23,6 @@ namespace Game.Feature.UI.Composition
         {
             Parent = parent ?? throw new ArgumentNullException(nameof(parent));
             Prefab = prefab ?? throw new ArgumentNullException(nameof(prefab));
-            AccessibilitySettingsStore = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
             AudioSettingsPort = audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort));
             DisplaySettingsPort = displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort));
             KeyboardBindingSettingsPort = keyboardBindingSettingsPort ?? NoOpKeyboardBindingSettingsPort.Instance;
@@ -37,8 +35,6 @@ namespace Game.Feature.UI.Composition
         public Transform Parent { get; }
 
         public SettingsScreenView Prefab { get; }
-
-        public AccessibilitySettingsStore AccessibilitySettingsStore { get; }
 
         public IAudioSettingsPort AudioSettingsPort { get; }
 
@@ -71,7 +67,6 @@ namespace Game.Feature.UI.Composition
             view.InputView.ValidateAuthoredControlsOrThrow();
 
             var presenter = new SettingsScreenPresenter(
-                context.AccessibilitySettingsStore,
                 context.AudioSettingsPort,
                 context.DisplaySettingsPort,
                 context.KeyboardBindingSettingsPort);

@@ -217,12 +217,10 @@ namespace Game.Feature.UI.Composition
                 surfaceBeltIndicatorPresenter,
                 playerStatusPresenter);
 
-            var accessibilitySettingsStore = new AccessibilitySettingsStore();
             ScreenController = new ScreenController(new GameplayScreenRuntimeFactory(
                 _rootView.ScreenLayerView,
                 Ports.QueryFacade,
                 PresentationSource,
-                accessibilitySettingsStore,
                 audioSettingsPort,
                 displaySettingsPort,
                 _keyboardBindingSettingsPort,

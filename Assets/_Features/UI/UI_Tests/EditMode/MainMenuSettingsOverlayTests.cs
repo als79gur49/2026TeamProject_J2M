@@ -912,7 +912,6 @@ namespace Game.Feature.UI.Tests
             return new MainMenuSettingsRuntime(
                 UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath),
                 contentRoot,
-                new AccessibilitySettingsStore(),
                 audioPort,
                 displayPort,
                 keyboardBindingSettingsPort ?? NoOpKeyboardBindingSettingsPort.Instance,

@@ -138,19 +138,6 @@ namespace Game.Feature.UI.Screens
         public bool IsMuted { get; }
     }
 
-    public readonly struct SettingsScreenState
-    {
-        public SettingsScreenState(bool areTooltipsEnabled, bool isLargeTextEnabled)
-        {
-            AreTooltipsEnabled = areTooltipsEnabled;
-            IsLargeTextEnabled = isLargeTextEnabled;
-        }
-
-        public bool AreTooltipsEnabled { get; }
-
-        public bool IsLargeTextEnabled { get; }
-    }
-
     public enum SettingsSectionId
     {
         Audio = 0,

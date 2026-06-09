@@ -59,7 +59,6 @@ namespace Game.Feature.UI.Tests
                         FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
                         new Game.Feature.Gameplay.UIAccess.Models.GameplayObjectiveReadModel(false, false, false, false)),
                     new ManualGameplayUiPresentationSource(),
-                    new AccessibilitySettingsStore(),
                     audioPort,
                     displayPort,
                     new RecordingUiAudioPort(),

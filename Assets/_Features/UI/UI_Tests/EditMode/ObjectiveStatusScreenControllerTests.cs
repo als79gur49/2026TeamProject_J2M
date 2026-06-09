@@ -124,7 +124,6 @@ namespace Game.Feature.UI.Tests
         public void SettingsScreenPresenter_RootState_RemainsBoundedToShellOnly()
         {
             var presenter = new SettingsScreenPresenter(
-                new AccessibilitySettingsStore(),
                 new FakeAudioSettingsPort(),
                 new FakeDisplaySettingsPort());
 
@@ -139,7 +138,6 @@ namespace Game.Feature.UI.Tests
         public void SettingsScreenPresenter_StaticAudioAndDisplayCopy_RemainsPrefabAuthored()
         {
             var presenter = new SettingsScreenPresenter(
-                new AccessibilitySettingsStore(),
                 new FakeAudioSettingsPort(),
                 new FakeDisplaySettingsPort());
 

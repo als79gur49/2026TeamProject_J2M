@@ -977,8 +977,8 @@ namespace Game.Feature.UI.Tests
                 GetConstructorSignatures(typeof(SettingsScreenPresenter)),
                 Is.EqualTo(new[]
                 {
-                    "SettingsScreenPresenter(AccessibilitySettingsStore, IAudioSettingsPort, IDisplaySettingsPort)",
-                    "SettingsScreenPresenter(AccessibilitySettingsStore, IAudioSettingsPort, IDisplaySettingsPort, IKeyboardBindingSettingsPort)",
+                    "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort)",
+                    "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort, IKeyboardBindingSettingsPort)",
                 }));
         }
 

@@ -4,23 +4,6 @@ using Game.Feature.UI.Screens;
 
 namespace Game.Feature.UI.Application
 {
-    public sealed class AccessibilitySettingsStore
-    {
-        public SettingsScreenState State { get; private set; } = new SettingsScreenState(
-            areTooltipsEnabled: true,
-            isLargeTextEnabled: false);
-
-        public void ToggleTooltips()
-        {
-            State = new SettingsScreenState(!State.AreTooltipsEnabled, State.IsLargeTextEnabled);
-        }
-
-        public void ToggleLargeText()
-        {
-            State = new SettingsScreenState(State.AreTooltipsEnabled, !State.IsLargeTextEnabled);
-        }
-    }
-
     public readonly struct SettingsAudioPresenterInput
     {
     }
@@ -608,11 +591,9 @@ namespace Game.Feature.UI.Application
         private SettingsSectionId _selectedSection = SettingsSectionId.Audio;
 
         public SettingsScreenPresenter(
-            AccessibilitySettingsStore accessibilitySettingsStore,
             IAudioSettingsPort audioSettingsPort,
             IDisplaySettingsPort displaySettingsPort)
             : this(
-                accessibilitySettingsStore,
                 audioSettingsPort,
                 displaySettingsPort,
                 NoOpKeyboardBindingSettingsPort.Instance)
@@ -620,12 +601,10 @@ namespace Game.Feature.UI.Application
         }
 
         public SettingsScreenPresenter(
-            AccessibilitySettingsStore accessibilitySettingsStore,
             IAudioSettingsPort audioSettingsPort,
             IDisplaySettingsPort displaySettingsPort,
             IKeyboardBindingSettingsPort keyboardBindingSettingsPort)
         {
-            _ = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
             AudioPresenter = new SettingsAudioPresenter(audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort)));
             DisplayPresenter = new SettingsDisplayPresenter(displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort)));
             InputPresenter = new SettingsInputPresenter(keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort)));
