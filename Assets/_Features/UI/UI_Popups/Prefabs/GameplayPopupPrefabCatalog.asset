@@ -13,6 +13,5 @@ MonoBehaviour:
   m_Name: GameplayPopupPrefabCatalog
   m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.PopupPrefabCatalog
   _pausePrefab: {fileID: 8438809890590712221, guid: 9d7e88136e1546d478862dd16e82b931, type: 3}
-  _objectiveInfoPrefab: {fileID: 5613530688319659949, guid: fc48a7db19d86374ba6a432dfd699dad, type: 3}
   _confirmPrefab: {fileID: 230156798764944720, guid: db44a1cb2da823f4386eb9628ad1f9e7, type: 3}
   _tooltipPrefab: {fileID: 3085915511985081818, guid: 74c4ec6a23ac43149b8072802f83a2e0, type: 3}

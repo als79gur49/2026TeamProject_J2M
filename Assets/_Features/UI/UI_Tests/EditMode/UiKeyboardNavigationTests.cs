@@ -463,7 +463,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var viewModel = new PausePopupViewModel();
-                viewModel.SetContent("Paused", "Body", "Resume", string.Empty, "Settings", "Retry", "Main Menu");
+                viewModel.SetContent("Paused", "Body", "Resume", "Settings", "Retry", "Main Menu");
                 view.Bind(viewModel);
                 view.IsVisible = true;
                 view.SetIsTopmost(true);
@@ -935,10 +935,6 @@ namespace Game.Feature.UI.Tests
                 "_navigationGroup",
                 1);
             AssertButtonGroupFrames(
-                UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath),
-                "_navigationGroup",
-                2);
-            AssertButtonGroupFrames(
                 UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath),
                 "_navigationGroup",
                 2);
@@ -950,10 +946,6 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(UiTestPrefabAssetUtility.PausePopupPrefabPath),
                 "_navigationGroup",
                 4);
-            AssertButtonGroupFrames(
-                UiTestPrefabAssetUtility.LoadPopupPrefab<ObjectiveInfoPopupView>(UiTestPrefabAssetUtility.ObjectiveInfoPopupPrefabPath),
-                "_navigationGroup",
-                1);
             AssertButtonGroupFrames(
                 UiTestPrefabAssetUtility.LoadHudPrefab(),
                 "_navigationGroup",
@@ -998,7 +990,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var viewModel = new PausePopupViewModel();
-                viewModel.SetContent("Paused", "Body", "Resume", string.Empty, "Settings", "Retry", "Main Menu");
+                viewModel.SetContent("Paused", "Body", "Resume", "Settings", "Retry", "Main Menu");
                 view.Bind(viewModel);
                 view.IsVisible = true;
                 view.OnNavigationFocusGained();
@@ -1664,7 +1656,7 @@ namespace Game.Feature.UI.Tests
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             harness.View.OnNavigationFocusGained();
-            var initialIndex = harness.View.SelectedDisplayResolutionIndex;
+            var initialIndex = harness.View.DisplayView.SelectedResolutionIndex;
 
             var opened = TryEnterResolutionDropdownList(harness);
 
@@ -1678,12 +1670,12 @@ namespace Game.Feature.UI.Tests
         {
             using var harness = CreateSettingsHarness(SettingsSectionId.Display);
             harness.View.OnNavigationFocusGained();
-            var initialIndex = harness.View.SelectedDisplayResolutionIndex;
+            var initialIndex = harness.View.DisplayView.SelectedResolutionIndex;
 
             var opened = TryEnterResolutionDropdownList(harness);
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
 
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(initialIndex));
+            Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(initialIndex));
             if (opened)
             {
                 Assert.That(harness.View.DisplayView.ResolutionKeyboardHighlightedIndex, Is.EqualTo(initialIndex + 1));
@@ -1705,7 +1697,7 @@ namespace Game.Feature.UI.Tests
             var opened = TryEnterResolutionDropdownList(harness);
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
 
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(1));
             Assert.That(
                 harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
                 Is.EqualTo(opened ? 0 : -1));
@@ -1720,7 +1712,7 @@ namespace Game.Feature.UI.Tests
             var opened = TryEnterResolutionDropdownList(harness);
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
 
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(2));
+            Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(2));
             Assert.That(
                 harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
                 Is.EqualTo(opened ? 2 : -1));
@@ -1735,7 +1727,7 @@ namespace Game.Feature.UI.Tests
             var opened = TryEnterResolutionDropdownList(harness);
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
 
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
+            Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(0));
             Assert.That(
                 harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
                 Is.EqualTo(opened ? 0 : -1));
@@ -1750,7 +1742,7 @@ namespace Game.Feature.UI.Tests
             var opened = TryEnterResolutionDropdownList(harness);
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.EqualTo(opened));
 
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(1));
             Assert.That(
                 harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
                 Is.EqualTo(opened ? 1 : -1));
@@ -1765,7 +1757,7 @@ namespace Game.Feature.UI.Tests
             var opened = TryEnterResolutionDropdownList(harness);
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.EqualTo(opened));
 
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(1));
             Assert.That(
                 harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
                 Is.EqualTo(opened ? 1 : -1));
@@ -1781,7 +1773,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Left), Is.EqualTo(opened));
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Right), Is.EqualTo(opened));
 
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+            Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(1));
             Assert.That(
                 harness.View.DisplayView.ResolutionKeyboardHighlightedIndex,
                 Is.EqualTo(opened ? 1 : -1));
@@ -1802,13 +1794,13 @@ namespace Game.Feature.UI.Tests
                 Assert.That(harness.View.HandleSubmit(), Is.True);
 
                 Assert.That(changedIndex, Is.EqualTo(1));
-                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+                Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(1));
                 Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
             }
             else
             {
                 Assert.That(changedIndex, Is.EqualTo(-1));
-                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
+                Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(0));
                 Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
             }
         }
@@ -1843,7 +1835,7 @@ namespace Game.Feature.UI.Tests
             {
                 Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
                 Assert.That(harness.View.HandleSubmit(), Is.True);
-                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+                Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(1));
             }
 
             Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Up), Is.True);
@@ -1865,17 +1857,17 @@ namespace Game.Feature.UI.Tests
             if (firstOpened && secondOpened)
             {
                 Assert.That(changedIndices, Is.EqualTo(new[] { 1, 2 }));
-                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(2));
+                Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(2));
             }
             else if (firstOpened)
             {
                 Assert.That(changedIndices, Is.EqualTo(new[] { 1 }));
-                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+                Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(1));
             }
             else
             {
                 Assert.That(changedIndices, Is.Empty);
-                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
+                Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(0));
             }
 
             Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
@@ -1900,7 +1892,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.View.HandleCancel(), Is.True);
 
             Assert.That(changedCount, Is.EqualTo(0));
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
+            Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(0));
             Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
             Assert.That(backCount, Is.EqualTo(opened ? 0 : 1));
         }
@@ -1915,7 +1907,7 @@ namespace Game.Feature.UI.Tests
             harness.View.DisplayView.SelectResolution(2);
 
             Assert.That(changedIndex, Is.EqualTo(2));
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(2));
+            Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(2));
         }
 
         [Test]
@@ -1929,11 +1921,11 @@ namespace Game.Feature.UI.Tests
             {
                 Assert.That(harness.View.HandleNavigate(UiNavigationCommand.Down), Is.True);
                 Assert.That(harness.View.HandleSubmit(), Is.True);
-                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(1));
+                Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(1));
             }
             else
             {
-                Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
+                Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(0));
                 Assert.That(GetSettingsFocusNodeId(harness.View), Is.EqualTo("Display.Resolution.Dropdown"));
             }
         }
@@ -1958,7 +1950,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(harness.View.DisplayView.IsResolutionKeyboardListOpen, Is.False);
             }
 
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(0));
+            Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(0));
         }
 
         [Test]
@@ -2098,7 +2090,7 @@ namespace Game.Feature.UI.Tests
             AssertResolutionDropdownSubmitResult(
                 harness,
                 handled,
-                harness.View.SelectedDisplayResolutionIndex);
+                harness.View.DisplayView.SelectedResolutionIndex);
             return handled;
         }
 
@@ -2107,7 +2099,7 @@ namespace Game.Feature.UI.Tests
             bool opened,
             int expectedSelectedIndex)
         {
-            Assert.That(harness.View.SelectedDisplayResolutionIndex, Is.EqualTo(expectedSelectedIndex));
+            Assert.That(harness.View.DisplayView.SelectedResolutionIndex, Is.EqualTo(expectedSelectedIndex));
             if (opened)
             {
                 Assert.That(IsSettingsDropdownListMode(harness.View), Is.True);

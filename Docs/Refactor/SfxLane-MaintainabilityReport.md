@@ -151,7 +151,7 @@ Current `UiAudioCueId` set:
 
 `UiAudioCueMap_V1.asset` has one explicit binding per cue. Tests freeze this as 18 entries. Any old 7-cue documentation is stale.
 
-UI SFX uses `AudioCategory.Ui`, therefore `AudioChannel.Ui`. `Sfx` mute does not mute UI feedback; `Master` still affects hidden `Ui`.
+UI SFX uses `AudioCategory.Ui`, therefore `AudioChannel.Ui`. Its effective user-facing mix follows `Master` and `Sfx` volume/mute plus hidden `Ui` state. `Bgm`, `Voice`, and `Ambience` are not part of that dependency.
 
 Decision: `OK_CURRENT`; `DOC_MISMATCH` if stale docs remain.
 

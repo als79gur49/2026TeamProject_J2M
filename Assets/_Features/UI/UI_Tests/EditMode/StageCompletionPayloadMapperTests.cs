@@ -41,15 +41,42 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void StageResultPayloadMapper_MapsCanonicalCampaignNextStageRequest()
+        public void StageResultPayloadMapper_NonFinalClear_MapsNextStageAndContinueAsStageNavigationRequests()
         {
             var payload = StageResultPayloadMapper.Map(CreateMinimalReadModel("stage-1-1"));
-            var finalPayload = StageResultPayloadMapper.Map(CreateMinimalReadModel("stage-4-2"));
 
             Assert.That(payload.NextStageRequest.IsValid, Is.True);
             Assert.That(payload.NextStageRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(payload.NextStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.NextStage));
             Assert.That(payload.ContinueStageRequest.StageId.Value, Is.EqualTo("stage-2-1"));
+            Assert.That(payload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.NextStage));
+            Assert.That(payload.ContinueStageRequest.TransitionHint.Kind, Is.EqualTo(StageTransitionKind.StageClearNext));
+        }
+
+        [Test]
+        public void StageResultPayloadMapper_FinalClear_HasNoNextStageAndContinueFallsBackToCurrentStage()
+        {
+            var finalPayload = StageResultPayloadMapper.Map(CreateMinimalReadModel("stage-4-2"));
+
             Assert.That(finalPayload.NextStageRequest.IsValid, Is.False);
+            Assert.That(finalPayload.ContinueStageRequest.IsValid, Is.True);
+            Assert.That(finalPayload.ContinueStageRequest.StageId.Value, Is.EqualTo("stage-4-2"));
+            Assert.That(finalPayload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
+            Assert.That(finalPayload.ContinueStageRequest.TransitionHint.Kind, Is.EqualTo(StageTransitionKind.StageClearNext));
+        }
+
+        [Test]
+        public void StageResultPayloadMapper_RetryRequest_StaysStageIdBasedAndDoesNotDependOnSceneLocalDefault()
+        {
+            var payload = StageResultPayloadMapper.Map(CreateMinimalReadModel("stage-2-2"));
+
+            Assert.That(
+                payload.RetryStageRequest.StageId.Value,
+                Is.EqualTo("stage-2-2"),
+                "Retry is a StageNavigationRequest boundary from the StageCompletionReadModel stage id; UI does not rebuild stage runtime or fall back to a scene-local default stage.");
+            Assert.That(payload.RetryStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
+            Assert.That(payload.RetryStageRequest.Source, Is.EqualTo("stage-result-retry"));
+            Assert.That(payload.RetryStageRequest.TransitionHint.Kind, Is.EqualTo(StageTransitionKind.StageRetryManual));
         }
 
         [Test]

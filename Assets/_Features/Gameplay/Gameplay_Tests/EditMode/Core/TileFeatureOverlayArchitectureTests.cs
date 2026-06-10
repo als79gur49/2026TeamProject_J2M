@@ -710,7 +710,6 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "TileEvents",
                 "GameplayAudio",
                 "AudioMap",
-                "ObjectiveStatusScreen",
                 "Hud",
             };
 

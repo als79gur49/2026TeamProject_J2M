@@ -199,7 +199,6 @@ namespace Game.Feature.UI.Tests
         {
             return screenId switch
             {
-                ScreenId.ObjectiveStatus => catalog.ObjectiveStatusPrefab,
                 ScreenId.Settings => catalog.SettingsPrefab,
                 ScreenId.StageResult => catalog.StageResultPrefab,
                 ScreenId.LevelFailed => catalog.LevelFailedPrefab,
@@ -213,7 +212,6 @@ namespace Game.Feature.UI.Tests
             return popupId switch
             {
                 PopupId.Pause => catalog.PausePrefab,
-                PopupId.ObjectiveInfo => catalog.ObjectiveInfoPrefab,
                 PopupId.Confirm => catalog.ConfirmPrefab,
                 PopupId.Tooltip => catalog.TooltipPrefab,
                 _ => throw new ArgumentOutOfRangeException(nameof(popupId), popupId, null),

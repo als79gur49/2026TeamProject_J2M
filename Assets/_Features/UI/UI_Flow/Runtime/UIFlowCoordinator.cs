@@ -72,11 +72,6 @@ namespace Game.Feature.UI.Flow
             RefreshBlockSnapshot();
         }
 
-        public bool OpenObjectiveStatusScreen()
-        {
-            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => PushScreenCore(BuildObjectiveStatusRequest()));
-        }
-
         public bool OpenSettingsScreen()
         {
             return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => PushScreenCore(BuildSettingsRequest()));
@@ -85,11 +80,6 @@ namespace Game.Feature.UI.Flow
         public bool RequestPausePopup()
         {
             return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => RequestPausePopupCore());
-        }
-
-        public bool RequestObjectiveInfoPopup(ObjectiveInfoPopupPayload payload)
-        {
-            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => RequestObjectiveInfoPopupCore(payload));
         }
 
         public bool RequestConfirmPopup(
@@ -179,16 +169,6 @@ namespace Game.Feature.UI.Flow
                 case PopupCompletionKind.SettingsRequested:
                     SetPauseReturnMode(PauseReturnMode.RestorePausePopupAfterBack);
                     if (!PushScreenCore(BuildSettingsRequest(), preservePauseReturnMode: true))
-                    {
-                        ClearPauseReturnMode();
-                        RequestPausePopupCore(acquirePauseOwnership: false);
-                    }
-
-                    break;
-
-                case PopupCompletionKind.ObjectiveRequested:
-                    SetPauseReturnMode(PauseReturnMode.RestorePausePopupAfterBack);
-                    if (!PushScreenCore(BuildObjectiveStatusRequest(), preservePauseReturnMode: true))
                     {
                         ClearPauseReturnMode();
                         RequestPausePopupCore(acquirePauseOwnership: false);
@@ -403,8 +383,12 @@ namespace Game.Feature.UI.Flow
 
             if (_screenController.HandleBackRequested())
             {
-                if (_pauseReturnMode == PauseReturnMode.RestorePausePopupAfterBack &&
-                    _screenController.CurrentScreenId == ScreenId.Gameplay &&
+                var pauseReturnDecision = PauseReturnPolicy.Decide(new PauseReturnContext(
+                    _pauseReturnMode == PauseReturnMode.RestorePausePopupAfterBack,
+                    screenHandledBack: true,
+                    _screenController.CurrentScreenId));
+
+                if (pauseReturnDecision.ShouldReopenPausePopup &&
                     RequestPausePopupCore(acquirePauseOwnership: false))
                 {
                     ClearPauseReturnMode();
@@ -449,16 +433,6 @@ namespace Game.Feature.UI.Flow
             }
 
             return true;
-        }
-
-        private bool RequestObjectiveInfoPopupCore(ObjectiveInfoPopupPayload payload)
-        {
-            if (_screenController.CurrentScreenId != ScreenId.ObjectiveStatus || payload == null)
-            {
-                return false;
-            }
-
-            return _popupController.Push(new PopupRequest(PopupId.ObjectiveInfo, payload), out _);
         }
 
         private bool RequestConfirmPopupCore(
@@ -678,18 +652,9 @@ namespace Game.Feature.UI.Flow
                     return completion.CompletionKind switch
                     {
                         PopupCompletionKind.SettingsRequested => UiFlowAudioIntentKind.OpenForward,
-                        PopupCompletionKind.ObjectiveRequested => UiFlowAudioIntentKind.OpenForward,
                         PopupCompletionKind.RetryRequested => UiFlowAudioIntentKind.Confirm,
                         PopupCompletionKind.MainMenuRequested => UiFlowAudioIntentKind.Back,
                         PopupCompletionKind.Resumed => UiFlowAudioIntentKind.Confirm,
-                        PopupCompletionKind.Closed => UiFlowAudioIntentKind.Back,
-                        _ => UiFlowAudioIntentKind.None,
-                    };
-
-                case PopupId.ObjectiveInfo:
-                    return completion.CompletionKind switch
-                    {
-                        PopupCompletionKind.Acknowledged => UiFlowAudioIntentKind.Back,
                         PopupCompletionKind.Closed => UiFlowAudioIntentKind.Back,
                         _ => UiFlowAudioIntentKind.None,
                     };
@@ -747,14 +712,6 @@ namespace Game.Feature.UI.Flow
         private static ScreenRequest BuildGameplayRequest()
         {
             return new ScreenRequest(ScreenId.Gameplay, GameplayRootPayload.Default, ScreenId.Gameplay.ToString());
-        }
-
-        private static ScreenRequest BuildObjectiveStatusRequest()
-        {
-            return new ScreenRequest(
-                ScreenId.ObjectiveStatus,
-                ObjectiveStatusScreenPayload.Default,
-                ScreenId.ObjectiveStatus.ToString());
         }
 
         private static ScreenRequest BuildSettingsRequest()

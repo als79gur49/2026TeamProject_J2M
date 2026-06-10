@@ -305,6 +305,6 @@ UI/scene changes additionally require:
 - Feature code depends on `IAudioService` or narrower ports, not `AudioManager`.
 - Public playback contract remains 2D non-spatial only.
 - BGM continuity is owned by Flow_Audio, not scenes or gameplay host.
-- UI SFX uses hidden `Ui` channel; settings UI exposes only `Main`, `Bgm`, `Sfx`.
+- UI SFX uses hidden `Ui` channel with `Sfx` setting-dependent effective mix; settings UI exposes only `Main`, `Bgm`, `Sfx`.
 - Gameplay core one-shot, gameplay action audio, BGM, UI SFX, and other host presentation audio lanes must not be collapsed into a generic dispatcher.
 - `StageAudioDefinition` stays symbolic content metadata; actual playback ownership remains `Flow_Audio`.

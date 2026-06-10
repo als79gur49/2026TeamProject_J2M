@@ -7,17 +7,17 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class UIBlockPolicyTests
     {
-        private static readonly ScreenEntry ObjectiveStatusScreenEntry = new(
+        private static readonly ScreenEntry BlockingSettingsScreenEntry = new(
             new ScreenInstanceId(1),
-            ScreenId.ObjectiveStatus,
-            ObjectiveStatusScreenPayload.Default,
+            ScreenId.Settings,
+            SettingsScreenPayload.Default,
             new ScreenPolicy(
-                ScreenPolicyClass.GameplayAdjacentOverlay,
+                ScreenPolicyClass.Configuration,
                 ScreenRetentionMode.RetainMountedHistory,
                 ScreenBackAction.Pop,
-                HudShellMode.Visible,
+                HudShellMode.Hidden,
                 blocksUiGameplayInput: true),
-            ScreenId.ObjectiveStatus.ToString());
+            ScreenId.Settings.ToString());
 
         private static readonly ScreenEntry GameplayRootEntry = new(
             new ScreenInstanceId(2),
@@ -32,11 +32,11 @@ namespace Game.Feature.UI.Tests
             ScreenId.Gameplay.ToString());
 
         [Test]
-        public void Evaluate_ObjectiveStatusScreenWithoutPopup_BlocksHudAndGameplayInputOnly()
+        public void Evaluate_BlockingScreenWithoutPopup_BlocksHudAndGameplayInputOnly()
         {
             var policy = new UIBlockPolicy();
 
-            var snapshot = policy.Evaluate(new UIFlowStateSnapshot(ObjectiveStatusScreenEntry, null, popupCount: 0));
+            var snapshot = policy.Evaluate(new UIFlowStateSnapshot(BlockingSettingsScreenEntry, null, popupCount: 0));
 
             Assert.That(snapshot.BlocksHudInteraction, Is.True);
             Assert.That(snapshot.BlocksScreenInteraction, Is.False);

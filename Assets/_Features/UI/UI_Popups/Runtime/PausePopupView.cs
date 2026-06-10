@@ -15,8 +15,6 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private TMP_Text _descriptionLabel;
         [SerializeField] private Button _resumeButton;
         [SerializeField] private TMP_Text _resumeButtonLabel;
-        [SerializeField] private Button _objectiveButton;
-        [SerializeField] private TMP_Text _objectiveButtonLabel;
         [SerializeField] private Button _settingsButton;
         [SerializeField] private TMP_Text _settingsButtonLabel;
         [SerializeField] private Button _retryButton;
@@ -71,7 +69,6 @@ namespace Game.Feature.UI.Popups
         private void OnEnable()
         {
             RebindButton(_resumeButton, ClickResume);
-            RebindButton(_objectiveButton, ClickObjective);
             RebindButton(_settingsButton, ClickSettings);
             RebindButton(_retryButton, ClickRetry);
             RebindButton(_mainMenuButton, ClickMainMenu);
@@ -83,7 +80,6 @@ namespace Game.Feature.UI.Popups
         {
             StopRootEnterMotion();
             UnbindButton(_resumeButton, ClickResume);
-            UnbindButton(_objectiveButton, ClickObjective);
             UnbindButton(_settingsButton, ClickSettings);
             UnbindButton(_retryButton, ClickRetry);
             UnbindButton(_mainMenuButton, ClickMainMenu);
@@ -108,16 +104,6 @@ namespace Game.Feature.UI.Popups
             }
 
             CompletionRequested?.Invoke(PopupCompletionKind.Resumed);
-        }
-
-        public void ClickObjective()
-        {
-            if (!IsVisible || _viewModel == null || _canvasGroup == null || !_canvasGroup.interactable)
-            {
-                return;
-            }
-
-            CompletionRequested?.Invoke(PopupCompletionKind.ObjectiveRequested);
         }
 
         public void ClickSettings()
@@ -183,11 +169,6 @@ namespace Game.Feature.UI.Popups
                 _navigationGroup?.PlaySelectedSubmitFeedback();
                 ClickResume();
             }
-            else if (selected == _objectiveButton)
-            {
-                _navigationGroup?.PlaySelectedSubmitFeedback();
-                ClickObjective();
-            }
             else if (selected == _settingsButton)
             {
                 _navigationGroup?.PlaySelectedSubmitFeedback();
@@ -236,7 +217,6 @@ namespace Game.Feature.UI.Popups
             }
 
             UnbindButton(_resumeButton, ClickResume);
-            UnbindButton(_objectiveButton, ClickObjective);
             UnbindButton(_settingsButton, ClickSettings);
             UnbindButton(_retryButton, ClickRetry);
             UnbindButton(_mainMenuButton, ClickMainMenu);
@@ -269,11 +249,6 @@ namespace Game.Feature.UI.Popups
             if (_resumeButtonLabel != null)
             {
                 _resumeButtonLabel.text = _viewModel.ResumeLabel;
-            }
-
-            if (_objectiveButtonLabel != null)
-            {
-                _objectiveButtonLabel.text = _viewModel.ObjectiveLabel;
             }
 
             if (_settingsButtonLabel != null)

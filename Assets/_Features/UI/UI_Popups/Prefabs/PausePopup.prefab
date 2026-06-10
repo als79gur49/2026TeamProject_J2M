@@ -682,8 +682,6 @@ MonoBehaviour:
   _descriptionLabel: {fileID: 2581567651527016550}
   _resumeButton: {fileID: 3602179882493590805}
   _resumeButtonLabel: {fileID: 5903951643069850275}
-  _objectiveButton: {fileID: 0}
-  _objectiveButtonLabel: {fileID: 0}
   _settingsButton: {fileID: 1796191660059802174}
   _settingsButtonLabel: {fileID: 3747369608509365208}
   _retryButton: {fileID: 4731855746619076134}

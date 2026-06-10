@@ -14,10 +14,10 @@
 - 이 섹션의 baseline row는 pinned snapshot reference다. 서로 다른 날짜 artifact를 한 validation claim으로 합산하는 근거가 아니다.
 - 현재 기준점은 다음과 같다.
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
-  - `./run_tests.sh ui`: green on 2026-06-06 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `646 total / 0 failed`
+  - `./run_tests.sh ui`: green on 2026-06-11 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `688 total / 0 failed`
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode는 EditMode failure 때문에 아직 실행되지 않았다.
-- 2차 UI canonical 보정 보고서에 기록된 UI red 사유는 Windows `dotnet build` 단계의 `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction` 누락 compile error였으나, 2026-06-06 KST 현재 재실행에서는 재현되지 않았다.
+- 2차 UI canonical 보정 보고서에 기록된 UI red 사유는 Windows `dotnet build` 단계의 `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction` 누락 compile error였으나, 2026-06-10 KST 현재 재실행에서는 재현되지 않았다.
 - 삭제 후보는 별도 제품 결정, 현재 lane evidence, baseline note 갱신이 같은 변경에 포함될 때만 제거한다.
 - 후속 PR은 per-class fail histogram 기준으로 direct touched cluster와 unrelated baseline cluster를 분리해 판정한다.
 - 자세한 baseline은 [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md)를 따른다.
@@ -32,10 +32,10 @@
 - The baseline rows in this section are pinned snapshot references. They are not permission to merge artifacts from different dates into one validation claim.
 - The current baseline is:
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
-  - `./run_tests.sh ui`: green on 2026-06-06 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `646 total / 0 failed`
+  - `./run_tests.sh ui`: green on 2026-06-11 KST, Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors, Unity UI EditMode `688 total / 0 failed`
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode has not run yet because EditMode failed first.
-- The second UI canonical correction report recorded a UI red reason at Windows `dotnet build` for missing `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, and `PendingEnemyBlockedReaction` compile symbols, but that failure was not reproduced on the 2026-06-06 KST rerun.
+- The second UI canonical correction report recorded a UI red reason at Windows `dotnet build` for missing `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, and `PendingEnemyBlockedReaction` compile symbols, but that failure was not reproduced on the 2026-06-10 KST rerun.
 - UI deletion candidates are removed only when the product decision, current lane evidence, and baseline note update land in the same change.
 - Follow-up PRs are judged by per-class fail histograms split into direct touched clusters and unrelated baseline clusters.
 - See [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md) for the pinned baseline.
@@ -216,26 +216,26 @@
 
 ## UI SFX verification wording / UI SFX verification wording
 ### 한국어
-- UI SFX v1 결과는 hidden `Ui` channel policy와 targeted UI lane 범위만 말해야 한다.
+- UI SFX v1 결과는 hidden `Ui` authored channel, `Sfx` setting-dependent effective mix policy, targeted UI lane 범위만 말해야 한다.
 - 아래 세 reporting level만 공식적으로 사용한다.
   - `build verified`
     - claim 가능 조건: relevant build가 통과했을 때
   - `ui lane validated`
     - claim 가능 조건: `./run_tests.sh ui` 또는 동등한 focused UI lane이 통과했을 때
   - `targeted UI SFX architecture validated`
-    - claim 가능 조건: cue ownership, hidden-channel policy, cue-map validation, slider commit dedupe, screen/popup lifecycle contract tests가 통과했을 때
+    - claim 가능 조건: cue ownership, hidden-`Ui` authored channel policy, `Sfx` setting-dependent effective mix, cue-map validation, slider commit dedupe, screen/popup lifecycle contract tests가 통과했을 때
 - placeholder `Ui` asset authoring은 wiring evidence일 뿐 final content polish claim이 아니다.
 - hover, disabled/no-op, backdrop-consume feedback는 v1 scope 밖이다.
 
 ### English Original
-- UI SFX v1 reporting must describe only the hidden-`Ui`-channel product policy and the UI-focused validation lanes that actually ran.
+- UI SFX v1 reporting must describe only the hidden-`Ui` authored channel, the `Sfx` setting-dependent effective mix policy, and the UI-focused validation lanes that actually ran.
 - Use only these three reporting levels.
   - `build verified`
     - may be claimed when the relevant build passes
   - `ui lane validated`
     - may be claimed when `./run_tests.sh ui` or an equivalent focused UI lane passes
   - `targeted UI SFX architecture validated`
-    - may be claimed when cue-ownership, hidden-channel-policy, cue-map-validation, slider-commit-dedupe, and screen/popup lifecycle contract tests pass
+    - may be claimed when cue-ownership, hidden-`Ui` authored-channel policy, `Sfx` setting-dependent effective mix, cue-map-validation, slider-commit-dedupe, and screen/popup lifecycle contract tests pass
 - Placeholder `Ui` asset authoring is wiring evidence only; it does not claim final content polish.
 - Hover, disabled/no-op, and backdrop-consume feedback remain out of scope in v1.
 ## Persistent BGM flow reporting wording / Persistent BGM flow reporting wording

@@ -626,16 +626,6 @@ namespace Game.Feature.UI.Tests
                     blocksLowerLayers: true)
             },
             {
-                PopupId.ObjectiveInfo,
-                new PopupPolicy(
-                    PopupPolicyClass.NonModalInformational,
-                    PopupLifetimeScope.CurrentScreen,
-                    PopupBackAction.Close,
-                    PopupBackdropMode.None,
-                    showsDim: false,
-                    blocksLowerLayers: false)
-            },
-            {
                 PopupId.Confirm,
                 new PopupPolicy(
                     PopupPolicyClass.ModalBlocking,
@@ -721,15 +711,6 @@ namespace Game.Feature.UI.Tests
                     ScreenBackAction.None,
                     HudShellMode.Visible,
                     blocksUiGameplayInput: false)
-            },
-            {
-                ScreenId.ObjectiveStatus,
-                new ScreenPolicy(
-                    ScreenPolicyClass.GameplayAdjacentOverlay,
-                    ScreenRetentionMode.RetainMountedHistory,
-                    ScreenBackAction.Pop,
-                    HudShellMode.Visible,
-                    blocksUiGameplayInput: true)
             },
             {
                 ScreenId.Settings,

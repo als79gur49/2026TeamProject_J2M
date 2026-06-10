@@ -59,7 +59,6 @@ namespace Game.Feature.UI.Tests
                         FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
                         new Game.Feature.Gameplay.UIAccess.Models.GameplayObjectiveReadModel(false, false, false, false)),
                     new ManualGameplayUiPresentationSource(),
-                    new AccessibilitySettingsStore(),
                     audioPort,
                     displayPort,
                     new RecordingUiAudioPort(),
@@ -74,15 +73,15 @@ namespace Game.Feature.UI.Tests
                 var view = screenLayerView.FindScreenView<SettingsScreenView>();
                 Assert.That(view, Is.Not.Null);
 
-                view.BeginAudioInteraction(AudioSettingsChannel.Main);
-                view.SetAudioVolume(AudioSettingsChannel.Main, 0.25f);
+                view.AudioView.BeginInteraction(AudioSettingsChannel.Main);
+                view.AudioView.SetVolume(AudioSettingsChannel.Main, 0.25f);
                 Assert.That(audioPort.Read().Main.Volume, Is.EqualTo(0.25f).Within(0.0001f));
                 Assert.That(audioPort.FlushCallCount, Is.EqualTo(0));
 
-                view.CommitAudioInteraction(AudioSettingsChannel.Main);
+                view.AudioView.CommitInteraction(AudioSettingsChannel.Main);
                 Assert.That(audioPort.FlushCallCount, Is.EqualTo(1));
 
-                view.SetAudioMuted(AudioSettingsChannel.Bgm, true);
+                view.AudioView.SetMuted(AudioSettingsChannel.Bgm, true);
                 Assert.That(audioPort.Read().Bgm.IsMuted, Is.True);
                 Assert.That(audioPort.FlushCallCount, Is.EqualTo(1));
 

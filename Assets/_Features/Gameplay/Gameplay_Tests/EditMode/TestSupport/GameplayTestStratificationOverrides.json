@@ -3470,13 +3470,23 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioManager_Play2D_SfxMute_DoesNotMuteHiddenUiOneShot",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.AudioManager_Play2D_SfxMuteSkipsHiddenUiOneShotWithoutPoolAcquire",
       "category": "Core",
       "contracts": [
         "hidden_ui_audio_channel",
         "silent_play2d_skip"
       ],
-      "reason": "Locked Core PlayMode coverage that Sfx mute does not silence hidden Ui one-shots or trigger the silent skip path.",
+      "reason": "Locked Core PlayMode coverage that Sfx mute silences hidden Ui one-shots through the shared mix policy before consuming shared pool capacity.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.AudioRuntimePlayModeTests.SfxSettingChange_UpdatesLiveUiSources",
+      "category": "Core",
+      "contracts": [
+        "hidden_ui_audio_channel",
+        "live_audio_mix_update"
+      ],
+      "reason": "Locked Core PlayMode coverage that Sfx setting changes immediately update already playing hidden Ui sources through the shared mix policy.",
       "locked": true
     },
     {

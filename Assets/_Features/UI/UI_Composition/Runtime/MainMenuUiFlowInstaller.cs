@@ -186,7 +186,6 @@ namespace Game.Feature.UI.Composition
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
 
-            var accessibilitySettingsStore = new AccessibilitySettingsStore();
             var uiAudioPort = EnsureUiAudioPort();
             var displayPreviewSessionHost = new DisplayPreviewSessionHost(
                 PopupController,
@@ -199,7 +198,6 @@ namespace Game.Feature.UI.Composition
                 contentRoot => new MainMenuSettingsRuntime(
                     _settingsScreenPrefab,
                     contentRoot,
-                    accessibilitySettingsStore,
                     audioSettingsPort,
                     displaySettingsPort,
                     _keyboardBindingSettingsPort,

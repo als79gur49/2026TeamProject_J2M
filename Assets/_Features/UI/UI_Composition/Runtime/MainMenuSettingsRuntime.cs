@@ -9,7 +9,6 @@ namespace Game.Feature.UI.Composition
 {
     internal sealed class MainMenuSettingsRuntime : IDisposable
     {
-        private readonly AccessibilitySettingsStore accessibilitySettingsStore;
         private readonly IAudioSettingsPort audioSettingsPort;
         private readonly IDisplaySettingsPort displaySettingsPort;
         private readonly IKeyboardBindingSettingsPort keyboardBindingSettingsPort;
@@ -33,7 +32,6 @@ namespace Game.Feature.UI.Composition
         public MainMenuSettingsRuntime(
             SettingsScreenView settingsScreenPrefab,
             RectTransform settingsContentRoot,
-            AccessibilitySettingsStore accessibilitySettingsStore,
             IAudioSettingsPort audioSettingsPort,
             IDisplaySettingsPort displaySettingsPort,
             IKeyboardBindingSettingsPort keyboardBindingSettingsPort,
@@ -51,7 +49,6 @@ namespace Game.Feature.UI.Composition
             this.settingsContentRoot = settingsContentRoot != null
                 ? settingsContentRoot
                 : throw new ArgumentNullException(nameof(settingsContentRoot));
-            this.accessibilitySettingsStore = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
             this.audioSettingsPort = audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort));
             this.displaySettingsPort = displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort));
             this.keyboardBindingSettingsPort = keyboardBindingSettingsPort ?? throw new ArgumentNullException(nameof(keyboardBindingSettingsPort));
@@ -77,7 +74,6 @@ namespace Game.Feature.UI.Composition
         public MainMenuSettingsRuntime(
             SettingsScreenView settingsScreenPrefab,
             RectTransform settingsContentRoot,
-            AccessibilitySettingsStore accessibilitySettingsStore,
             IAudioSettingsPort audioSettingsPort,
             IDisplaySettingsPort displaySettingsPort,
             PopupController popupController,
@@ -90,7 +86,6 @@ namespace Game.Feature.UI.Composition
             : this(
                 settingsScreenPrefab,
                 settingsContentRoot,
-                accessibilitySettingsStore,
                 audioSettingsPort,
                 displaySettingsPort,
                 NoOpKeyboardBindingSettingsPort.Instance,
@@ -134,7 +129,7 @@ namespace Game.Feature.UI.Composition
                 audioView = view.AudioView ?? throw new InvalidOperationException("Settings screen view is missing an audio section.");
                 displayView = view.DisplayView ?? throw new InvalidOperationException("Settings screen view is missing a display section.");
                 inputView = view.InputView ?? throw new InvalidOperationException("Settings screen view is missing an input section.");
-                presenter = new SettingsScreenPresenter(accessibilitySettingsStore, audioSettingsPort, displaySettingsPort, keyboardBindingSettingsPort);
+                presenter = new SettingsScreenPresenter(audioSettingsPort, displaySettingsPort, keyboardBindingSettingsPort);
                 view.ValidateAuthoredStructureOrThrow();
                 audioView.ValidateAuthoredControlsOrThrow();
                 displayView.ValidateAuthoredControlsOrThrow();

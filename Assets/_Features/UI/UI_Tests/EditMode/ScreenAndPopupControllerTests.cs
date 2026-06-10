@@ -22,8 +22,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(controller.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
             Assert.That(controller.BackStackCount, Is.EqualTo(0));
 
-            Assert.That(controller.Push(new ScreenRequest(ScreenId.ObjectiveStatus, ObjectiveStatusScreenPayload.Default, ScreenId.ObjectiveStatus.ToString())), Is.True);
-            Assert.That(controller.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings-push")), Is.True);
+            Assert.That(controller.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
             Assert.That(controller.BackStackCount, Is.EqualTo(1));
             Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsDisposed, Is.False);
             Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsCurrent, Is.False);
@@ -50,8 +50,8 @@ namespace Game.Feature.UI.Tests
             using var controller = new ScreenController(runtimeFactory);
 
             controller.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayRootPayload.Default, ScreenId.Gameplay.ToString()));
-            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, ScreenId.Settings.ToString())), Is.True);
-            Assert.That(controller.Push(new ScreenRequest(ScreenId.ObjectiveStatus, ObjectiveStatusScreenPayload.Default, ScreenId.ObjectiveStatus.ToString())), Is.True);
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings-pushed")), Is.True);
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings-replacement")), Is.True);
 
             Assert.That(runtimeFactory.CreatedRuntimes[1].Runtime.IsDisposed, Is.True);
 
@@ -68,16 +68,16 @@ namespace Game.Feature.UI.Tests
             using var controller = new ScreenController(runtimeFactory);
 
             controller.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayRootPayload.Default, ScreenId.Gameplay.ToString()));
-            Assert.That(controller.Push(new ScreenRequest(ScreenId.ObjectiveStatus, ObjectiveStatusScreenPayload.Default, ScreenId.ObjectiveStatus.ToString())), Is.True);
-            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, ScreenId.Settings.ToString())), Is.True);
-            Assert.That(controller.Push(new ScreenRequest(ScreenId.ObjectiveStatus, new ObjectiveStatusScreenPayload("Updated"), ScreenId.ObjectiveStatus.ToString())), Is.True);
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings-a")), Is.True);
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings-b")), Is.True);
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, new SettingsScreenPayload("Updated", "Back"), "settings-a")), Is.True);
 
-            Assert.That(controller.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+            Assert.That(controller.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
             Assert.That(controller.BackStackCount, Is.EqualTo(1));
             Assert.That(runtimeFactory.CreatedRuntimes, Has.Count.EqualTo(3));
 
-            Assert.That(controller.Push(new ScreenRequest(ScreenId.ObjectiveStatus, ObjectiveStatusScreenPayload.Default, reuseKey: null)), Is.True);
-            Assert.That(controller.Push(new ScreenRequest(ScreenId.ObjectiveStatus, ObjectiveStatusScreenPayload.Default, reuseKey: null)), Is.True);
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, reuseKey: null)), Is.True);
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, reuseKey: null)), Is.True);
             Assert.That(controller.BackStackCount, Is.EqualTo(3));
             Assert.That(runtimeFactory.CreatedRuntimes, Has.Count.EqualTo(5));
         }
@@ -89,8 +89,8 @@ namespace Game.Feature.UI.Tests
             using var controller = new ScreenController(runtimeFactory);
 
             controller.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayRootPayload.Default, ScreenId.Gameplay.ToString()));
-            Assert.That(controller.Push(new ScreenRequest(ScreenId.ObjectiveStatus, ObjectiveStatusScreenPayload.Default, ScreenId.ObjectiveStatus.ToString())), Is.True);
-            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, ScreenId.Settings.ToString())), Is.True);
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings-transition")), Is.True);
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings-overlay")), Is.True);
 
             Assert.That(controller.PopTo(ScreenId.Gameplay), Is.True);
             Assert.That(controller.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
@@ -132,27 +132,33 @@ namespace Game.Feature.UI.Tests
             controller.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayRootPayload.Default, ScreenId.Gameplay.ToString()));
             Assert.That(transitions, Is.Empty);
 
-            Assert.That(controller.Show(new ScreenRequest(ScreenId.ObjectiveStatus, ObjectiveStatusScreenPayload.Default, ScreenId.ObjectiveStatus.ToString())), Is.True);
+            Assert.That(controller.Show(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, ScreenId.Settings.ToString())), Is.True);
             Assert.That(transitions, Has.Count.EqualTo(1));
             Assert.That(transitions[0].Kind, Is.EqualTo(ScreenTransitionKind.Show));
             Assert.That(transitions[0].PreviousEntry.HasValue, Is.True);
             Assert.That(transitions[0].CurrentEntry.HasValue, Is.True);
-            Assert.That(transitions[0].CurrentEntry.Value.ScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+            Assert.That(transitions[0].CurrentEntry.Value.ScreenId, Is.EqualTo(ScreenId.Settings));
 
             Assert.That(controller.Show(new ScreenRequest(
-                ScreenId.ObjectiveStatus,
-                new ObjectiveStatusScreenPayload("Updated"),
-                ScreenId.ObjectiveStatus.ToString())), Is.True);
+                ScreenId.Settings,
+                new SettingsScreenPayload("Updated", "Back"),
+                ScreenId.Settings.ToString())), Is.True);
             Assert.That(transitions, Has.Count.EqualTo(1));
 
-            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, ScreenId.Settings.ToString())), Is.True);
+            Assert.That(controller.Replace(new ScreenRequest(
+                ScreenId.StageResult,
+                new StageResultScreenPayload(
+                    "Title",
+                    "Summary",
+                    "Detail",
+                    "Continue",
+                    StageNavigationRequest.None,
+                    StageNavigationRequest.None,
+                    StageNavigationRequest.None),
+                ScreenId.StageResult.ToString())), Is.True);
             Assert.That(transitions, Has.Count.EqualTo(2));
-            Assert.That(transitions[1].Kind, Is.EqualTo(ScreenTransitionKind.Push));
-
-            Assert.That(controller.Pop(), Is.True);
-            Assert.That(transitions, Has.Count.EqualTo(3));
-            Assert.That(transitions[2].Kind, Is.EqualTo(ScreenTransitionKind.Pop));
-            Assert.That(transitions[2].CurrentEntry.Value.ScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+            Assert.That(transitions[1].Kind, Is.EqualTo(ScreenTransitionKind.Replace));
+            Assert.That(transitions[1].CurrentEntry.Value.ScreenId, Is.EqualTo(ScreenId.StageResult));
         }
 
         [Test]
