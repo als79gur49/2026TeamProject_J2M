@@ -19,7 +19,7 @@
   - all targets die + landing denied면 `Stay`다.
   - `Destroy` capability는 Push first-step blocked fallback이다.
   - `Destroy` fallback은 sliding continuation blocked path에 재적용하지 않는다.
-  - `BoxSlideShield`와 active Barricade는 PlayerControl이 동일한 contributor/tile-definition context를 받기 전까지 execute-time policy다.
+  - active Barricade는 PlayerControl이 동일한 tile-definition context를 받기 전까지 execute-time policy다.
 
 ## Flip
 - 관련 코드:

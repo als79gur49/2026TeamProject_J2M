@@ -93,7 +93,7 @@ The cleanup target is narrower:
 | `GameplayVfxFlipDestroySelfMotionMigrationTests.cs` | 2 | Rewrite/Rename | Composition failures are gone. Remaining failures are flag/off behavior and coexistence count drift. |
 | `GameplayVfxFlipImpactBurstMigrationTests.cs` | 1 | Rewrite/Rename | Composition failures are gone. Remaining failure is duplicate guard expectation drift. |
 | `GameplayVfxFlipImpactMotionTrackGateTests.cs` | 0 | Consolidate | Gate language is still useful only until MotionTrack ownership is fully canonicalized. Merge into architecture/MotionTrack tests when renamed. |
-| `GameplayVfxFrontFaceShieldMigrationTests.cs` | 0 | Rewrite/Rename | Pruned synthetic active/block/windup playback and source-profile override checks for removed default authoring; missing-binding diagnostics now pass source visibility context. |
+| retired FrontFaceShield migration tests | 0 | Deleted | Removed with the retired FrontFaceSupport / BoxSlideShield feature family. |
 | `GameplayVfxReservedHookMigrationTests.cs` | 0 | Rewrite/Rename | Reserved hook binding fixture failure is resolved. Rename remains useful later. |
 | `GameplayVfxTileFeatureGravityFieldMigrationTests.cs` | 2 | Rewrite/Rename | TileFeature/GravityField VFX lane is current behavior. Keep topology completion and PR28 controller absence checks, but avoid stale legacy symbol phrasing. |
 | `GameplayVfxUtilityWindupMigrationTests.cs` | 0 | Rewrite/Rename | Pruned synthetic persistent lifecycle/profile checks for removed default authoring; missing-binding diagnostics now pass source visibility context. |
@@ -115,10 +115,10 @@ Do not delete whole runtime suites yet. The safe delete candidates are individua
    - Treat these as runtime/oracle classification work, not binding composition failures.
 
 2. Keep removed-default-authoring guards narrow.
-   - Enemy damage, enemy death, front-face shield, and utility windup should prove removed default authoring, missing-binding diagnostics, and old-path absence, not synthetic default-host playback.
+   - Enemy damage, enemy death, and utility windup should prove removed default authoring, missing-binding diagnostics, and old-path absence, not synthetic default-host playback.
 
 3. Rename migration suites.
-   - Prefer names such as `GameplayVfxBoxExitRuntimeTests`, `GameplayVfxFrontFaceShieldRuntimeTests`, `GameplayVfxUtilityWindupRuntimeTests`, `GameplayVfxPlayerDamageRuntimeTests`, and `GameplayVfxEnemyDeathRuntimeTests`.
+   - Prefer names such as `GameplayVfxBoxExitRuntimeTests`, `GameplayVfxUtilityWindupRuntimeTests`, `GameplayVfxPlayerDamageRuntimeTests`, and `GameplayVfxEnemyDeathRuntimeTests`.
 
 4. Consolidate rollout/cleanup tests.
    - Keep one `GameplayVfxCanonicalFlagPolicyTests` and one `GameplayVfxOldPathAbsenceTests`.
