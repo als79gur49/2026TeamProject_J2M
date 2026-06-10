@@ -4790,6 +4790,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 tileFeatureIdsByCell,
                 new Dictionary<int, EnemyActionRuntimeState>(),
                 new Dictionary<int, PendingCellImpact>(),
+                new Dictionary<int, PendingEnemyBlockedReaction>(),
                 new Dictionary<int, EnemyPatrolRuntimeState>(),
                 new Dictionary<int, EnemyChargeRuntimeState>(),
                 new Dictionary<int, EntityExecutionLockState>(),
@@ -4807,6 +4808,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new Dictionary<int, UnitKinematicRuntimeState>(),
                 new Dictionary<int, UnitContinuousLocomotionState>(),
                 new CubeTopologyState(FaceId.Floor),
+                0,
                 TestBounds,
                 GameplayTerrainData.Empty,
             };

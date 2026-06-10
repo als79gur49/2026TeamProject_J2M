@@ -825,7 +825,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (!binding.isPartOfComposite ||
                     !TryResolveCompositeDirection(binding.name, out var direction) ||
-                    !TryResolveKeyboardPath(binding.effectivePath, out var keyboardPath))
+                    !TryResolveKeyboardPath(binding.effectivePath, binding.path, out var keyboardPath))
                 {
                     continue;
                 }
@@ -885,7 +885,7 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 var candidate = FromIndex(i);
-                if (!IsRawDirectionActive(rawInput, candidate, _deadzone))
+                if (rawInput.sqrMagnitude <= _deadzone * _deadzone)
                 {
                     continue;
                 }
@@ -975,12 +975,13 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private static bool TryResolveKeyboardPath(string effectivePath, out string keyboardPath)
+        private static bool TryResolveKeyboardPath(string effectivePath, string fallbackPath, out string keyboardPath)
         {
-            if (!string.IsNullOrWhiteSpace(effectivePath) &&
-                effectivePath.StartsWith("<Keyboard>/", StringComparison.OrdinalIgnoreCase))
+            var path = !string.IsNullOrWhiteSpace(effectivePath) ? effectivePath : fallbackPath;
+            if (!string.IsNullOrWhiteSpace(path) &&
+                path.StartsWith("<Keyboard>/", StringComparison.OrdinalIgnoreCase))
             {
-                keyboardPath = effectivePath;
+                keyboardPath = path;
                 return true;
             }
 
