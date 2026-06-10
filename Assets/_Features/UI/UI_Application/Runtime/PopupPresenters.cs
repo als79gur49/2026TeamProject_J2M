@@ -96,35 +96,4 @@ namespace Game.Feature.UI.Application
         }
     }
 
-    public sealed class RewardPopupPresenter
-    {
-        public RewardPopupPresenter()
-        {
-            ViewModel = new RewardPopupViewModel();
-        }
-
-        public RewardPopupViewModel ViewModel { get; }
-
-        public void Apply(RewardPopupPayload payload)
-        {
-            if (payload == null)
-            {
-                throw new ArgumentNullException(nameof(payload));
-            }
-
-            var itemLines = new List<string>(payload.Items.Count);
-            for (var i = 0; i < payload.Items.Count; i++)
-            {
-                var item = payload.Items[i];
-                itemLines.Add($"{item.LabelText} x{item.Amount}");
-            }
-
-            ViewModel.SetContent(
-                payload.TitleText,
-                itemLines,
-                payload.SummaryText,
-                payload.CloseLabel);
-        }
-    }
-
 }

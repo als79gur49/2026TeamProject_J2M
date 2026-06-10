@@ -35,8 +35,6 @@ namespace Game.Feature.UI.Composition
 
         public bool IsArmed => _isArmed;
 
-        public bool IsPausedByRewardPopup => _isArmed && _popupController.Contains(PopupId.Reward);
-
         public void Tick(float deltaTime)
         {
             if (!_isArmed || _launched)
@@ -47,11 +45,6 @@ namespace Game.Feature.UI.Composition
             if (deltaTime < 0f)
             {
                 throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
-            }
-
-            if (_popupController.Contains(PopupId.Reward))
-            {
-                return;
             }
 
             RemainingSeconds -= deltaTime;

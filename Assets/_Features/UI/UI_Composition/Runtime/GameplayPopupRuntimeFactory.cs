@@ -44,9 +44,6 @@ namespace Game.Feature.UI.Composition
                 case PopupId.Tooltip:
                     return CreateTooltipPopup(ExpectPayload<TooltipPopupPayload>(request.Payload));
 
-                case PopupId.Reward:
-                    return CreateRewardPopup(ExpectPayload<RewardPopupPayload>(request.Payload));
-
                 case PopupId.DemoStageControl:
                     return CreateDemoStageControlPopup(ExpectPayload<DemoStageControlPanelPayload>(request.Payload));
 
@@ -145,30 +142,6 @@ namespace Game.Feature.UI.Composition
                     showsDim: false,
                     blocksLowerLayers: false),
                 new PopupRuntime<TooltipPopupView>(view, () =>
-                {
-                    view.Bind(null);
-                    DestroyObject(view.gameObject);
-                }));
-        }
-
-        private PopupRuntimeFactoryResult CreateRewardPopup(RewardPopupPayload payload)
-        {
-            var presenter = new RewardPopupPresenter();
-            presenter.Apply(payload);
-
-            var view = InstantiatePopupPrefab(_popupPrefabCatalog.RewardPrefab, PopupId.Reward);
-            view.Bind(presenter.ViewModel);
-            view.IsVisible = true;
-
-            return new PopupRuntimeFactoryResult(
-                new PopupPolicy(
-                    PopupPolicyClass.ExplicitCloseRewardResult,
-                    PopupLifetimeScope.CurrentScreen,
-                    PopupBackAction.Consume,
-                    PopupBackdropMode.Consume,
-                    showsDim: true,
-                    blocksLowerLayers: true),
-                new PopupRuntime<RewardPopupView>(view, () =>
                 {
                     view.Bind(null);
                     DestroyObject(view.gameObject);

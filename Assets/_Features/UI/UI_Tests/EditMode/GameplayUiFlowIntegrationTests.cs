@@ -161,22 +161,6 @@ namespace Game.Feature.UI.Tests
                 Assert.That(gameplayTooltipCompletions, Has.Count.EqualTo(1));
                 Assert.That(gameplayTooltipCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.ScreenTransition));
 
-                var rewardCompletions = new List<PopupCompletion>();
-                Assert.That(installer.Coordinator.RequestRewardPopup(
-                    new RewardPopupPayload(
-                        "Reward",
-                        new[] { new RewardPopupItemPayload("Crystal", 2) },
-                        "Summary",
-                        "Claim"),
-                    rewardCompletions.Add), Is.True);
-                Assert.That(installer.PopupLayerView.IsDimVisible, Is.True);
-                Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
-                Assert.That(rewardCompletions, Is.Empty);
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1));
-
-                installer.RewardPopupView.ClickAcknowledge();
-                Assert.That(rewardCompletions, Has.Count.EqualTo(1));
-                Assert.That(rewardCompletions[0].CompletionKind, Is.EqualTo(PopupCompletionKind.Acknowledged));
             }
             finally
             {

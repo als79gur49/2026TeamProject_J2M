@@ -83,7 +83,7 @@ namespace Game.Feature.UI.Tests
                 new[]
                 {
                     UiFlowAudioDelta.FromRootScreenSet(ScreenId.Gameplay),
-                    CreatePopupOpenDelta(PopupId.Reward),
+                    CreatePopupOpenDelta(PopupId.Tooltip),
                 },
                 isAborted: false,
                 UiFlowAudioSilenceReason.None);
@@ -121,7 +121,7 @@ namespace Game.Feature.UI.Tests
                 new[]
                 {
                     UiFlowAudioDelta.FromRootScreenSet(screenId),
-                    CreatePopupOpenDelta(PopupId.Reward),
+                    CreatePopupOpenDelta(PopupId.Tooltip),
                 },
                 isAborted: false,
                 UiFlowAudioSilenceReason.None);
@@ -226,7 +226,6 @@ namespace Game.Feature.UI.Tests
                 PopupId.ObjectiveInfo => new ObjectiveInfoPopupPayload("Info", "Body"),
                 PopupId.Confirm => new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false),
                 PopupId.Tooltip => new TooltipPopupPayload("Tip", "Body"),
-                PopupId.Reward => new RewardPopupPayload("Reward", new[] { new RewardPopupItemPayload("Crystal", 1) }, "Summary", "Claim"),
                 _ => new TooltipPopupPayload("Tip", "Body"),
             };
         }

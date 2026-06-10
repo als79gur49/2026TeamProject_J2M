@@ -88,7 +88,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void StageResultAutoNextDriver_PausesForRewardPopupAndLaunchesOnce()
+        public void StageResultAutoNextDriver_LaunchesOnceAfterCountdown()
         {
             var screenController = new ScreenController(new FakeScreenRuntimeFactory());
             var popupController = new PopupController(new FakePopupRuntimeFactory());
@@ -109,17 +109,8 @@ namespace Game.Feature.UI.Tests
 
             screenController.Show(new ScreenRequest(ScreenId.StageResult, payload, "result"));
             driver.Tick(1f);
-            popupController.Push(
-                new PopupRequest(
-                    PopupId.Reward,
-                    new RewardPopupPayload("Rewards", Array.Empty<RewardPopupItemPayload>(), string.Empty, "Close")),
-                out var rewardInstanceId);
-            driver.Tick(10f);
-
-            Assert.That(driver.IsPausedByRewardPopup, Is.True);
             Assert.That(router.Requests, Is.Empty);
 
-            popupController.Close(rewardInstanceId, PopupCloseReason.Programmatic);
             driver.Tick(2f);
             driver.Tick(2f);
 

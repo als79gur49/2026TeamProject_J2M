@@ -186,7 +186,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void PopupController_OnlyTopPopupInteractive_AndNonDismissibleRewardConsumesBack()
+        public void PopupController_OnlyTopPopupInteractive_AndBackClosesTopPopup()
         {
             var runtimeFactory = new FakePopupRuntimeFactory();
             using var controller = new PopupController(runtimeFactory);
@@ -196,22 +196,20 @@ namespace Game.Feature.UI.Tests
                 out _), Is.True);
             Assert.That(controller.Push(
                 new PopupRequest(
-                    PopupId.Reward,
-                    new RewardPopupPayload(
-                        "Rewards",
-                        new[] { new RewardPopupItemPayload("Crystal", 2) },
-                        "Collected",
-                        "Close")),
+                    PopupId.Confirm,
+                    new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)),
                 out _), Is.True);
 
             Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsTopmost, Is.False);
             Assert.That(runtimeFactory.CreatedRuntimes[1].Runtime.IsTopmost, Is.True);
             Assert.That(controller.HandleBackRequested(), Is.True);
-            Assert.That(controller.PopupCount, Is.EqualTo(2));
-
-            runtimeFactory.CreatedRuntimes[1].Runtime.Emit(PopupCompletionKind.Acknowledged);
             Assert.That(controller.PopupCount, Is.EqualTo(1));
+            Assert.That(runtimeFactory.CreatedRuntimes[1].Runtime.IsDisposed, Is.True);
             Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsTopmost, Is.True);
+
+            Assert.That(controller.HandleBackRequested(), Is.True);
+            Assert.That(controller.PopupCount, Is.EqualTo(0));
+            Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsDisposed, Is.True);
         }
 
         [Test]

@@ -12,7 +12,6 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private ObjectiveInfoPopupView _objectiveInfoPrefab;
         [SerializeField] private ConfirmPopupView _confirmPrefab;
         [SerializeField] private TooltipPopupView _tooltipPrefab;
-        [SerializeField] private RewardPopupView _rewardPrefab;
 
         public PausePopupView PausePrefab => _pausePrefab;
 
@@ -21,7 +20,5 @@ namespace Game.Feature.UI.Composition
         public ConfirmPopupView ConfirmPrefab => _confirmPrefab;
 
         public TooltipPopupView TooltipPrefab => _tooltipPrefab;
-
-        public RewardPopupView RewardPrefab => _rewardPrefab;
     }
 }

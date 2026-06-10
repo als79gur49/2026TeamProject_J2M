@@ -149,47 +149,6 @@ namespace Game.Feature.UI.Popups
         public TooltipPopupAnchorPreset AnchorPreset { get; }
     }
 
-    public readonly struct RewardPopupItemPayload
-    {
-        public RewardPopupItemPayload(string labelText, int amount)
-        {
-            LabelText = labelText ?? string.Empty;
-            Amount = amount;
-        }
-
-        public string LabelText { get; }
-
-        public int Amount { get; }
-    }
-
-    public sealed class RewardPopupPayload : IPopupPayload
-    {
-        public RewardPopupPayload(
-            string titleText,
-            IEnumerable<RewardPopupItemPayload> items,
-            string summaryText,
-            string closeLabel)
-        {
-            if (items == null)
-            {
-                throw new ArgumentNullException(nameof(items));
-            }
-
-            TitleText = titleText ?? string.Empty;
-            SummaryText = summaryText ?? string.Empty;
-            CloseLabel = closeLabel ?? string.Empty;
-            Items = new List<RewardPopupItemPayload>(items).ToArray();
-        }
-
-        public string TitleText { get; }
-
-        public IReadOnlyList<RewardPopupItemPayload> Items { get; }
-
-        public string SummaryText { get; }
-
-        public string CloseLabel { get; }
-    }
-
     public sealed class PausePopupViewModel
     {
         public event Action Changed;
@@ -295,37 +254,6 @@ namespace Game.Feature.UI.Popups
             TitleText = titleText ?? string.Empty;
             BodyText = bodyText ?? string.Empty;
             AnchorPreset = anchorPreset;
-            Changed?.Invoke();
-        }
-    }
-
-    public sealed class RewardPopupViewModel
-    {
-        public event Action Changed;
-
-        public string TitleText { get; private set; } = string.Empty;
-
-        public string SummaryText { get; private set; } = string.Empty;
-
-        public string CloseLabel { get; private set; } = string.Empty;
-
-        public string[] ItemLines { get; private set; } = Array.Empty<string>();
-
-        public void SetContent(
-            string titleText,
-            IEnumerable<string> itemLines,
-            string summaryText,
-            string closeLabel)
-        {
-            if (itemLines == null)
-            {
-                throw new ArgumentNullException(nameof(itemLines));
-            }
-
-            TitleText = titleText ?? string.Empty;
-            SummaryText = summaryText ?? string.Empty;
-            CloseLabel = closeLabel ?? string.Empty;
-            ItemLines = new List<string>(itemLines).ToArray();
             Changed?.Invoke();
         }
     }

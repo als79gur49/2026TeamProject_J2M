@@ -99,8 +99,6 @@ namespace Game.Feature.UI.Composition
 
         public TooltipPopupView TooltipPopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<TooltipPopupView>() : null;
 
-        public RewardPopupView RewardPopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<RewardPopupView>() : null;
-
         public bool TryCreateStageLaunchRouter(string currentSceneName, out IStageLaunchRouter router)
         {
             router = new CurrentSceneStageLaunchRouter(currentSceneName);

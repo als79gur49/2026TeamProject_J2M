@@ -7,7 +7,6 @@ namespace Game.Feature.UI.Flow
         ObjectiveInfo = 2,
         Confirm = 3,
         Tooltip = 4,
-        Reward = 5,
         DemoStageControl = 7,
     }
 }

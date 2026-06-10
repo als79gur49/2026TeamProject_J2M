@@ -955,10 +955,6 @@ namespace Game.Feature.UI.Tests
                 "_navigationGroup",
                 1);
             AssertButtonGroupFrames(
-                UiTestPrefabAssetUtility.LoadPopupPrefab<RewardPopupView>(UiTestPrefabAssetUtility.RewardPopupPrefabPath),
-                "_navigationGroup",
-                1);
-            AssertButtonGroupFrames(
                 UiTestPrefabAssetUtility.LoadHudPrefab(),
                 "_navigationGroup",
                 1);

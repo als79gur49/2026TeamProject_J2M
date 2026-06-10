@@ -26,7 +26,6 @@ namespace Game.Feature.UI.Tests
         internal const string ObjectiveInfoPopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/ObjectiveInfoPopup.prefab";
         internal const string ConfirmPopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab";
         internal const string TooltipPopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/TooltipPopup.prefab";
-        internal const string RewardPopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/RewardPopup.prefab";
 
         internal static HUDRootView LoadHudPrefab()
         {

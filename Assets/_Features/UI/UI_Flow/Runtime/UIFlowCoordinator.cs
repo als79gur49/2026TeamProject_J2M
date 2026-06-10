@@ -110,15 +110,6 @@ namespace Game.Feature.UI.Flow
                 () => RequestTooltipPopupCore(payload, completionCallback));
         }
 
-        public bool RequestRewardPopup(
-            RewardPopupPayload payload,
-            Action<PopupCompletion> completionCallback = null)
-        {
-            return ExecuteIntent(
-                UiFlowAudioIntentKind.OpenForward,
-                () => RequestRewardPopupCore(payload, completionCallback));
-        }
-
         public bool RequestDemoStageControlPopup(IPopupPayload payload)
         {
             return ExecuteIntent(
@@ -496,20 +487,6 @@ namespace Game.Feature.UI.Flow
             return TryPushPopupRequestCore(new PopupRequest(PopupId.Tooltip, payload, completionCallback));
         }
 
-        private bool RequestRewardPopupCore(
-            RewardPopupPayload payload,
-            Action<PopupCompletion> completionCallback)
-        {
-            if (payload == null)
-            {
-                return false;
-            }
-
-            return _popupController.Push(
-                new PopupRequest(PopupId.Reward, payload, completionCallback),
-                out _);
-        }
-
         private bool TryPushPopupRequestCore(PopupRequest request)
         {
             if (request.PopupId == PopupId.Tooltip &&
@@ -732,11 +709,6 @@ namespace Game.Feature.UI.Flow
                         PopupCompletionKind.Cancelled => UiFlowAudioIntentKind.Cancel,
                         _ => UiFlowAudioIntentKind.None,
                     };
-
-                case PopupId.Reward:
-                    return completion.CompletionKind == PopupCompletionKind.Acknowledged
-                        ? UiFlowAudioIntentKind.Confirm
-                        : UiFlowAudioIntentKind.None;
 
                 case PopupId.DemoStageControl:
                     return completion.CompletionKind == PopupCompletionKind.Closed
