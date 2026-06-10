@@ -299,7 +299,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateJumpLandingContest(contestId: 3, actionPlanId: 7, sourceId: 40, affectedEntityId: 50, targetCell: targetCell),
             };
             var reservationBook = new MovementReservationBook();
-            reservationBook.ReservePhaseRelocation(entityId: 70, destinationCell: targetCell);
+            reservationBook.ReserveJumpLanding(
+                entityId: 70,
+                destinationCell: targetCell,
+                blocksUnitSharedSettlement: false);
             var movementRecords = new List<ResolutionRecord>();
             var movementCommitEvents = new List<string>();
 
@@ -487,7 +490,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PhaseRelocation_UnitOnlyTerminalCell_AllowsStack()
+        public void PhasedLandingPlacement_UnitOnlyTerminalCell_AllowsStack()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var terminalCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -510,41 +513,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
-        public void ReadPhaseRelocationTerminalReservationStatus_UnitSharedReservationsAllowSettlement()
-        {
-            var terminalCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var phaseReservationBook = new MovementReservationBook();
-            phaseReservationBook.ReservePhaseRelocation(entityId: 40, destinationCell: terminalCell);
-
-            Assert.That(
-                ReadPhaseRelocationTerminalReservationStatus(phaseReservationBook, terminalCell),
-                Is.EqualTo(ReservationStatus.None));
-
-            var jumpReservationBook = new MovementReservationBook();
-            jumpReservationBook.ReserveJumpLanding(
-                entityId: 41,
-                destinationCell: terminalCell,
-                blocksUnitSharedSettlement: false);
-
-            Assert.That(
-                ReadPhaseRelocationTerminalReservationStatus(jumpReservationBook, terminalCell),
-                Is.EqualTo(ReservationStatus.None));
-
-            var blockingReservationBook = new MovementReservationBook();
-            blockingReservationBook.ReserveJumpLanding(
-                entityId: 42,
-                destinationCell: terminalCell,
-                blocksUnitSharedSettlement: true);
-
-            Assert.That(
-                ReadPhaseRelocationTerminalReservationStatus(blockingReservationBook, terminalCell),
-                Is.EqualTo(ReservationStatus.Conflicted));
-        }
-
-        [Test]
         [Category("Extended")]
-        public void PhaseRelocation_StillBlocksSolidTerrainBoundsOrReservation()
+        public void PhasedLandingPlacement_StillBlocksSolidTerrainBoundsOrReservation()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var solidCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -624,32 +594,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         reservationBook,
                         movementResolutionRecords,
                         movementCommitEvents,
-                    });
-            }
-            catch (TargetInvocationException exception) when (exception.InnerException != null)
-            {
-                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
-                throw;
-            }
-        }
-
-        private static ReservationStatus ReadPhaseRelocationTerminalReservationStatus(
-            MovementReservationBook reservationBook,
-            SurfaceCell terminalCell)
-        {
-            var method = typeof(TickPipeline).GetMethod(
-                "ReadPhaseRelocationTerminalReservationStatus",
-                BindingFlags.Static | BindingFlags.NonPublic);
-            Assert.That(method, Is.Not.Null);
-
-            try
-            {
-                return (ReservationStatus)method.Invoke(
-                    null,
-                    new object[]
-                    {
-                        reservationBook,
-                        terminalCell,
                     });
             }
             catch (TargetInvocationException exception) when (exception.InnerException != null)

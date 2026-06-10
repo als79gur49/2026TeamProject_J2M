@@ -52,18 +52,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Extended")]
-        public void MovementReservationBook_RuntimeCellRead_UsesConflictedStatusForPreSettleConsumer()
-        {
-            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var reservationBook = new MovementReservationBook();
-
-            reservationBook.ReservePhaseRelocation(entityId: 40, destinationCell: destinationCell);
-
-            Assert.That(reservationBook.GetCellStatus(destinationCell), Is.EqualTo(ReservationStatus.Conflicted));
-        }
-
-        [Test]
         [Category("Core")]
         public void MovementReservationBook_CellReservationInfo_DistinguishesUnitSharedSettlementCompatibility()
         {
@@ -114,14 +102,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(blockingJumpInfo.Status, Is.EqualTo(ReservationStatus.Conflicted));
             Assert.That(blockingJumpInfo.ReservedEntityType, Is.EqualTo(EntityType.Unit));
             Assert.That(blockingJumpInfo.IsUnitSharedSettlementCompatible, Is.False);
-
-            var phaseReservationBook = new MovementReservationBook();
-            phaseReservationBook.ReservePhaseRelocation(entityId: 40, destinationCell: destinationCell);
-
-            var phaseInfo = phaseReservationBook.GetCellReservationInfo(destinationCell);
-            Assert.That(phaseInfo.Status, Is.EqualTo(ReservationStatus.Conflicted));
-            Assert.That(phaseInfo.ReservedEntityType, Is.EqualTo(EntityType.Unit));
-            Assert.That(phaseInfo.IsUnitSharedSettlementCompatible, Is.True);
 
             var impactReservationBook = new MovementReservationBook();
             impactReservationBook.ReserveImpactPayload(

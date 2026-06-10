@@ -1823,47 +1823,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PhaseThroughExplicitMovementNotSuppressedByLocalEngagement()
-        {
-            var profile = CreatePhaseThroughEnemyProfile();
-            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
-            var lockedTargetCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: sourceCell, aiMode: EnemyAiMode.None),
-                    CreateUnit(entityId: 20, teamId: 1, position: lockedTargetCell, aiMode: EnemyAiMode.None),
-                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
-            var logic = new EnemyLogic(entityId: 40, profile);
-            worldState.CreateWriteContext().SetEnemyActionState(
-                40,
-                CreateExecutableMeleeActionState(
-                    sourceCell,
-                    targetEntityId: 20,
-                    direction: Direction.Right,
-                    startTick: 1,
-                    executeTick: 5));
-            ((IPhasedStateCommitContext)worldState.CreateWriteContext()).SetPhasedState(
-                10,
-                PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 5));
-
-            try
-            {
-                var updates = CommitPreMovementState(logic, worldState, tickIndex: 5);
-
-                Assert.That(updates, Has.Some.Contains("PhaseEnter|Entity=40"));
-                Assert.That(updates, Has.Some.Contains("Rule=LockedTargetCrossThrough"));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
         public void JumpAndChargeProgressionNotSuppressedByLocalEngagement()
         {
             var sharedCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -5140,6 +5099,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyMovementSkillCapabilityRuntime_RetiredPhaseThroughSlot_IsRejectedWithoutShiftingEnum()
+        {
+            Assert.That((int)MovementSkillStrategyKind.RetiredPhaseThroughLockedTarget, Is.EqualTo(2));
+
+            var exception = Assert.Throws<ArgumentException>(
+                () => new EnemyMovementSkillCapabilityRuntime(
+                    MovementSkillStrategyKind.RetiredPhaseThroughLockedTarget,
+                    EnemyJumpTimingSettings.CreateDefault(),
+                    EnemyGlideTimingSettings.CreateDefault(),
+                    EnemyGlidePresentationSettings.CreateDefault()));
+
+            Assert.That(exception.Message, Does.Contain("retired"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAiProfile_CreateRuntimeDefinition_JumpChaserProfile_OnlyCompilesJumpCapability()
         {
             var profile = EnemyAiProfileTestFactory.CreateJumpChaser(
@@ -6817,15 +6792,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 JumpTimingSettings = EnemyJumpTimingAuthoringSettings.FromRuntimeSettings(
                     new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1),
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond),
-            });
-        }
-
-        private static EnemyAiProfile CreatePhaseThroughEnemyProfile()
-        {
-            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
-            {
-                AttackDecisionStrategyKind = AttackDecisionStrategyKind.WindupForwardCellProjectile,
-                MovementSkillStrategyKind = MovementSkillStrategyKind.PhaseThroughLockedTarget,
             });
         }
 

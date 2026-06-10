@@ -553,7 +553,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/IWorldWriteContext.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldState.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldStateWriteContext.cs"),
-                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/SystemPreMovementValidationLogic.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.FinalizationBatch.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.ProjectedWorld.cs"),
@@ -572,11 +571,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var nonTestBeginEnemyReferences = FilterNonTestFiles(FindFilesContainingToken("BeginEnemyPreMovement("));
             CollectionAssert.AreEquivalent(
-                new[]
-                {
-                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/SpatialState.cs"),
-                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs"),
-                },
+                Array.Empty<string>(),
                 nonTestBeginEnemyReferences);
 
             var nonTestBeginSystemValidationReferences = FilterNonTestFiles(FindFilesContainingToken("BeginSystemPreMovementValidation("));
@@ -609,11 +604,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var nonTestEnemyPhaseThroughReferences = FilterNonTestFiles(FindFilesContainingToken("EnemyPhaseThroughLockedTargetQueries"));
             CollectionAssert.AreEquivalent(
-                new[]
-                {
-                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs"),
-                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"),
-                },
+                Array.Empty<string>(),
                 nonTestEnemyPhaseThroughReferences);
 
             var nonTestCurrentEnemyLockModeReferences = FilterNonTestFiles(FindFilesContainingToken("FreshSelectionSuppressedWithCurrentEnemyLockRetention"));
@@ -625,23 +616,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 },
                 nonTestCurrentEnemyLockModeReferences);
 
-            var nonTestPhaseThroughSkillKindReferences = FilterNonTestFiles(FindFilesContainingToken("MovementSkillStrategyKind.PhaseThroughLockedTarget"));
+            var nonTestPhaseThroughSkillKindReferences = FilterNonTestFiles(FindFilesContainingToken("MovementSkillStrategyKind.RetiredPhaseThroughLockedTarget"));
             CollectionAssert.AreEquivalent(
                 new[]
                 {
-                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyAiConfig.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyAiRuntimeTypes.cs"),
-                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs"),
                 },
                 nonTestPhaseThroughSkillKindReferences);
 
             var nonTestCurrentTerminalCellReferences = FilterNonTestFiles(FindFilesContainingToken("TryResolveCurrentTerminalCell("));
             CollectionAssert.AreEquivalent(
-                new[]
-                {
-                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs"),
-                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"),
-                },
+                Array.Empty<string>(),
                 nonTestCurrentTerminalCellReferences);
         }
 
@@ -700,21 +685,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     PhasedRuntimeStateOwnerKind.MovementPreMovement,
-                    PhasedRuntimeStateOwnerKind.EnemyPreMovement,
+                    PhasedRuntimeStateOwnerKind.RetiredEnemyPreMovement,
                     PhasedRuntimeStateOwnerKind.DebugForced,
                     PhasedRuntimeStateOwnerKind.SystemPreMovementValidation,
                 },
                 coveredOwnerKinds);
 
             Assert.That(
-                PhasedSourceMetadataCatalog.TryGet(PhasedRuntimeStateOwnerKind.EnemyPreMovement, out var enemyMetadata),
+                PhasedSourceMetadataCatalog.TryGet(PhasedRuntimeStateOwnerKind.RetiredEnemyPreMovement, out var retiredEnemyMetadata),
                 Is.True);
-            Assert.That(enemyMetadata.EmittingStage, Is.EqualTo(PhasedSourceEmittingStage.PreMovementState));
-            Assert.That(
-                enemyMetadata.TargetabilityMode,
-                Is.EqualTo(PhasedTargetabilityMode.FreshSelectionSuppressedWithCurrentEnemyLockRetention));
-            Assert.That(enemyMetadata.ReservationReadClass, Is.EqualTo(PhasedReservationReadClass.CellOnlyPreSettle));
-            Assert.That(enemyMetadata.EarliestObservableSnapshot, Is.EqualTo(PhasedEarliestObservableSnapshot.PlanSnapshot));
+            Assert.That(retiredEnemyMetadata.TimingRow, Does.Contain("Retired"));
+            Assert.That(retiredEnemyMetadata.CancelReplaceRule, Is.EqualTo("RetiredCompatibilitySlot"));
+            Assert.That(retiredEnemyMetadata.LifecycleRule, Is.EqualTo("RetiredPhaseThroughLockedTargetCompatibilityOnly"));
 
             Assert.That(
                 PhasedSourceMetadataCatalog.TryGet(PhasedRuntimeStateOwnerKind.SystemPreMovementValidation, out var validationMetadata),
@@ -728,7 +710,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 if (ownerKind == PhasedRuntimeStateOwnerKind.None ||
                     !PhasedSourceMetadataCatalog.TryGet(ownerKind, out var metadata) ||
-                    ownerKind == PhasedRuntimeStateOwnerKind.EnemyPreMovement)
+                    ownerKind == PhasedRuntimeStateOwnerKind.RetiredEnemyPreMovement)
                 {
                     continue;
                 }
@@ -736,79 +718,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     metadata.TargetabilityMode,
                     Is.Not.EqualTo(PhasedTargetabilityMode.FreshSelectionSuppressedWithCurrentEnemyLockRetention),
-                    $"Only EnemyPreMovement may use current enemy lock retention mode. Unexpected owner: {ownerKind}");
+                    $"Only the retired enemy compatibility slot may retain current enemy lock metadata. Unexpected owner: {ownerKind}");
             }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyPhaseRelocationReservationReadPath_RemainsCellOnly()
-        {
-            var pipelineSource = ReadProjectFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");
-            var phaseReservationReadMethod = ExtractMethodWindow(
-                pipelineSource,
-                "private FinalizationBatch ResolveEnemyPhaseRelocationSpaceContestsCanonical(",
-                "private static ReservationStatus ReadPhaseRelocationTerminalReservationStatus(");
-            var reservationHelperWindow = ExtractMethodWindow(
-                pipelineSource,
-                "private static ReservationStatus ReadPhaseRelocationTerminalReservationStatus(",
-                "private static Contest TryFindJumpLandingContest(");
-
-            Assert.That(phaseReservationReadMethod, Does.Contain("ReadPhaseRelocationTerminalReservationStatus("));
-            Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetCellStatus("));
-            Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetCellReservationInfo("));
-            Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetEdgeStatus("));
-            Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetEntityStatus("));
-            Assert.That(phaseReservationReadMethod, Does.Not.Contain("topology-exclusive"));
-            Assert.That(
-                CountOccurrences(reservationHelperWindow, "reservationBook.GetCellReservationInfo("),
-                Is.EqualTo(1),
-                "Inline reservation read count is a secondary sentinel. The primary contract is still cell-only terminal settlement semantics.");
-            Assert.That(reservationHelperWindow, Does.Contain("var reservationInfo = reservationBook.GetCellReservationInfo(terminalCell);"));
-            Assert.That(reservationHelperWindow, Does.Not.Contain("GetEdgeStatus("));
-            Assert.That(reservationHelperWindow, Does.Not.Contain("GetEntityStatus("));
-            Assert.That(reservationHelperWindow, Does.Not.Contain("topology-exclusive"));
-            Assert.That(phaseReservationReadMethod.IndexOf("ReadPhaseRelocationTerminalReservationStatus(", StringComparison.Ordinal),
-                Is.GreaterThan(phaseReservationReadMethod.IndexOf("traverseToDestination.Verdict != LegalityVerdict.Allowed", StringComparison.Ordinal)));
-            Assert.That(phaseReservationReadMethod.IndexOf("ReadPhaseRelocationTerminalReservationStatus(", StringComparison.Ordinal),
-                Is.LessThan(phaseReservationReadMethod.IndexOf("RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(", StringComparison.Ordinal)));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyPhaseRelocationPlanner_And_Finalizer_RemainClosedMinimalValidatorSeams()
-        {
-            var pipelineSource = ReadProjectFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");
-            var planningWindow = ExtractMethodWindow(
-                pipelineSource,
-                "private void ResolvePlanEnemyPhaseRelocations(",
-                "private void ResolvePlanJumpLandings(");
-            var finalizationWindow = ExtractMethodWindow(
-                pipelineSource,
-                "private FinalizationBatch ResolveEnemyPhaseRelocationSpaceContestsCanonical(",
-                "private static Contest TryFindJumpLandingContest(");
-
-            AssertContainsNoForbiddenTokens(
-                planningWindow,
-                "TryResolveStartAction(",
-                "TryResolveLockedTarget(",
-                "TryFindTarget(",
-                "BuildMovementIntents(",
-                "CollectMovementIntents(",
-                "ResolveBaselineGroundLocomotion(",
-                "ResolveFallbackAiMode(",
-                "reservationBook.GetCellStatus(",
-                "reservationBook.GetEdgeStatus(",
-                "reservationBook.GetEntityStatus(");
-            AssertContainsNoForbiddenTokens(
-                finalizationWindow,
-                "TryResolveStartAction(",
-                "TryResolveLockedTarget(",
-                "TryFindTarget(",
-                "BuildMovementIntents(",
-                "CollectMovementIntents(",
-                "EnqueueDelayedAttackEffect(",
-                "SetTopology(");
         }
 
         [Test]
@@ -848,7 +759,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/SpatialState.cs")] = "seam-truth-table",
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/StateQuery.cs")] = "seam-truth-table",
-                [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs")] = "live-lifecycle-proof",
+                [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyTargetEligibilityPolicy.cs")] = "seam-truth-table",
+                [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Core/PlayerFlipLandingRejectCoreTests.cs")] = "seam-truth-table",
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/SystemPreMovementValidationScenarioTests.cs")] = "seam-truth-table",
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/ModifierCapabilityGeneralizationTests.cs")] = "live-lifecycle-proof",
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/PlayerMovementInputTests.cs")] = "live-lifecycle-proof",

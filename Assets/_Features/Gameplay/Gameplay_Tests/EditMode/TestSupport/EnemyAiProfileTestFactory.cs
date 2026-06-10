@@ -456,14 +456,6 @@ namespace Game.Feature.Gameplay.Tests
                     break;
                 }
 
-                case MovementSkillStrategyKind.PhaseThroughLockedTarget:
-                {
-                    var phase = CreateHiddenAsset<TestPhaseThroughLockedTargetCapabilityAsset>("Test_PhaseThroughLockedTargetCapability");
-                    SetSerializedField(phase, "jumpTimingSettings", spec.JumpTimingSettings);
-                    yield return phase;
-                    break;
-                }
-
                 case MovementSkillStrategyKind.GlideOverSolid:
                 {
                     var glide = CreateHiddenAsset<GlideOverSolidCapabilityAsset>("Test_GlideOverSolidCapability");
@@ -555,13 +547,5 @@ namespace Game.Feature.Gameplay.Tests
             }
         }
 
-        private sealed class TestPhaseThroughLockedTargetCapabilityAsset : EnemyMovementSkillCapabilityAsset
-        {
-            [SerializeField] private EnemyJumpTimingAuthoringSettings jumpTimingSettings = new(0f, 0f, 0f);
-
-            public override MovementSkillStrategyKind Kind => MovementSkillStrategyKind.PhaseThroughLockedTarget;
-
-            public override EnemyJumpTimingAuthoringSettings JumpTimingSettings => jumpTimingSettings;
-        }
     }
 }

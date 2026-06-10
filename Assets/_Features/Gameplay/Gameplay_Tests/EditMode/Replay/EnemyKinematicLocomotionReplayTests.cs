@@ -1084,27 +1084,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 EnemyAiProfileTestFactory.Destroy(jumpProfile);
             }
 
-            var phaseInputs = Enumerable.Range(1, 2)
-                .Select(tick => new TickInput(tick))
-                .ToArray();
-            var firstPhaseReplay = harness.Run(
-                CreatePhaseThroughLockedTargetBootstrapper(),
-                CreatePhaseRelocationWorldState(),
-                entityLogics: new IEntityLogic[0],
-                phaseInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
-            var secondPhaseReplay = harness.Run(
-                CreatePhaseThroughLockedTargetBootstrapper(),
-                CreatePhaseRelocationWorldState(),
-                entityLogics: new IEntityLogic[0],
-                phaseInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
-
-            AssertReplayBoundaryCanaryEqual(firstPhaseReplay, secondPhaseReplay);
-            Assert.That(
-                firstPhaseReplay.Any(frame => frame.Trace.Contains("Boundary=ScriptedRelocation", StringComparison.Ordinal)),
-                Is.True);
-
             var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 2, recoveryTicks: 1, cooldownTicks: 1));
             try
@@ -1430,15 +1409,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return worldState;
         }
 
-        private static WorldState CreatePhaseRelocationWorldState()
-        {
-            return GameplayWorldStateTestFactory.CreateBounded(new[]
-            {
-                CreatePlayer(10, hp: 3, new SurfaceCell(FaceId.Floor, 1, 0)),
-                CreateEnemy(40, hp: 3, new SurfaceCell(FaceId.Floor, 0, 0)),
-            });
-        }
-
         private static WorldState CreateGlideWorldState()
         {
             return GameplayWorldStateTestFactory.CreateBounded(new[]
@@ -1558,34 +1528,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 IncludePassiveContact = true,
             });
-        }
-
-        private static GameplayBootstrapper CreatePhaseThroughLockedTargetBootstrapper()
-        {
-            return new GameplayBootstrapper(
-                GameplayEntityLogicProviderFactory.CreateDefault(CreatePhaseThroughLockedTargetDefinition()));
-        }
-
-        private static EnemyAiRuntimeDefinition CreatePhaseThroughLockedTargetDefinition()
-        {
-            return new EnemyAiRuntimeDefinition(
-                new EnemyAiCommonSettings(
-                    movementPriority: 50,
-                    attackPriority: 50,
-                    recoverTicks: 1),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateStandardEnemyDetection(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateAdjacentRange(),
-                new EnemyAttackTimingSettings(windupTicks: 1),
-                EnemyLocomotionTimingSettings.CreateImmediate(),
-                MovementSkillStrategyKind.PhaseThroughLockedTarget,
-                EnemyJumpTimingSettings.CreateDefault(),
-                ForwardPatrolStrategy.Instance,
-                NearestOpponentDetectionStrategy.Instance,
-                AxisPriorityChaseStrategy.Instance,
-                WindupForwardCellProjectileAttackDecisionStrategy.Instance,
-                DefaultEnemyAiStateResolver.Instance);
         }
 
         private static EntityState CreateChargePatrolEnemy(int entityId, int hp, SurfaceCell position)
