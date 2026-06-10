@@ -521,7 +521,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             return false;
         }
 
-        private static TickTraversalBlockerKind ToTickTraversalBlockerKind(LegalityBlockerKind blockerKind)
+        internal static TickTraversalBlockerKind ToTickTraversalBlockerKind(LegalityBlockerKind blockerKind)
         {
             return blockerKind switch
             {

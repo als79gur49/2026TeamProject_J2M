@@ -156,10 +156,6 @@ namespace Game.Feature.Gameplay.Loop
             Dictionary<int, JumpLandingActionPlanPayload> jumpLandingActionPlanPayloads,
             List<int> orderedJumpLandingActionPlanIds,
             List<string> jumpLandingEvents,
-            List<Contest> phaseRelocationSpaceContests,
-            List<PhaseRelocationPlan> phaseRelocationPlans,
-            Dictionary<int, PhaseRelocationActionPlanPayload> phaseRelocationActionPlanPayloads,
-            List<int> orderedPhaseRelocationActionPlanIds,
             List<BarricadeBlockFact> barricadeBlockFacts,
             List<BoxSlideStopResult> boxSlideStops,
             List<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals,
@@ -188,10 +184,6 @@ namespace Game.Feature.Gameplay.Loop
             JumpLandingActionPlanPayloads = jumpLandingActionPlanPayloads ?? throw new ArgumentNullException(nameof(jumpLandingActionPlanPayloads));
             OrderedJumpLandingActionPlanIds = orderedJumpLandingActionPlanIds ?? throw new ArgumentNullException(nameof(orderedJumpLandingActionPlanIds));
             JumpLandingEvents = jumpLandingEvents ?? throw new ArgumentNullException(nameof(jumpLandingEvents));
-            PhaseRelocationSpaceContests = phaseRelocationSpaceContests ?? throw new ArgumentNullException(nameof(phaseRelocationSpaceContests));
-            PhaseRelocationPlans = phaseRelocationPlans ?? throw new ArgumentNullException(nameof(phaseRelocationPlans));
-            PhaseRelocationActionPlanPayloads = phaseRelocationActionPlanPayloads ?? throw new ArgumentNullException(nameof(phaseRelocationActionPlanPayloads));
-            OrderedPhaseRelocationActionPlanIds = orderedPhaseRelocationActionPlanIds ?? throw new ArgumentNullException(nameof(orderedPhaseRelocationActionPlanIds));
             BarricadeBlockFacts = barricadeBlockFacts ?? throw new ArgumentNullException(nameof(barricadeBlockFacts));
             BoxSlideStops = boxSlideStops ?? throw new ArgumentNullException(nameof(boxSlideStops));
             PlayerTopologyTransitionBlockedSignals = playerTopologyTransitionBlockedSignals ??
@@ -234,14 +226,6 @@ namespace Game.Feature.Gameplay.Loop
         public List<int> OrderedJumpLandingActionPlanIds { get; }
 
         public List<string> JumpLandingEvents { get; }
-
-        public List<Contest> PhaseRelocationSpaceContests { get; }
-
-        public List<PhaseRelocationPlan> PhaseRelocationPlans { get; }
-
-        public Dictionary<int, PhaseRelocationActionPlanPayload> PhaseRelocationActionPlanPayloads { get; }
-
-        public List<int> OrderedPhaseRelocationActionPlanIds { get; }
 
         public List<BarricadeBlockFact> BarricadeBlockFacts { get; }
 

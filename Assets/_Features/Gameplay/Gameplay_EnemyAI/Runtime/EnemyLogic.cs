@@ -295,11 +295,6 @@ namespace Game.Feature.Gameplay.Entities
                 CommitGlideState(snapshot, in input, source, writeContext, updates);
             }
 
-            if (HasPhaseMovementSkill())
-            {
-                CommitEnemyOwnedPhasedState(snapshot, in input, source, writeContext, updates);
-            }
-
             if (_utilityCapability != null)
             {
                 CommitEnemyUtilityState(snapshot, in input, source, writeContext, updates);
@@ -436,11 +431,6 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (!TryGetControllableEnemy(snapshot, out var source))
-            {
-                return;
-            }
-
-            if (ShouldSuppressAttackForEnemyPhase(snapshot, input.TickIndex))
             {
                 return;
             }
@@ -612,11 +602,18 @@ namespace Game.Feature.Gameplay.Entities
             int tickIndex)
         {
             return ShouldSuppressMovementForJump(snapshot, tickIndex) ||
+                   ShouldSuppressMovementForActivePhasedState(snapshot) ||
                    ShouldSuppressMovementForGlide(snapshot) ||
-                   ShouldSuppressMovementForEnemyPhase(snapshot) ||
                    ShouldSuppressMovementForUtility(snapshot, source, tickIndex) ||
                    ShouldSuppressMovementForImminentUtilityWindup(snapshot, source, tickIndex) ||
                    ShouldSuppressMovementForCharge(snapshot);
+        }
+
+        private bool ShouldSuppressMovementForActivePhasedState(WorldSnapshot snapshot)
+        {
+            return snapshot != null &&
+                   snapshot.TryGetPhasedState(_entityId, out var phasedState) &&
+                   phasedState.IsActive;
         }
 
         private bool ShouldSuppressMovementForUtility(
@@ -806,25 +803,10 @@ namespace Game.Feature.Gameplay.Entities
                    chargeState.phase == EnemyChargePhase.Active;
         }
 
-        private bool TryGetEnemyOwnedPhasedState(WorldSnapshot snapshot, out PhasedRuntimeState phasedState)
-        {
-            phasedState = default;
-            return snapshot != null &&
-                   snapshot.TryGetPhasedState(_entityId, out phasedState) &&
-                   phasedState.IsActive &&
-                   phasedState.ownerKind == PhasedRuntimeStateOwnerKind.EnemyPreMovement;
-        }
-
         private bool HasJumpMovementSkill()
         {
             return _movementSkillCapability != null &&
                    _movementSkillCapability.Kind == MovementSkillStrategyKind.JumpToLockedTarget;
-        }
-
-        private bool HasPhaseMovementSkill()
-        {
-            return _movementSkillCapability != null &&
-                   _movementSkillCapability.Kind == MovementSkillStrategyKind.PhaseThroughLockedTarget;
         }
 
         private bool HasGlideMovementSkill()
@@ -1030,90 +1012,6 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return changed;
-        }
-
-        private void CommitEnemyOwnedPhasedState(
-            WorldSnapshot snapshot,
-            in TickInput input,
-            in EntityState source,
-            IPreMovementStateCommitContext writeContext,
-            List<string> updates)
-        {
-            if (writeContext is not IPhasedStateCommitContext phasedWriteContext)
-            {
-                throw new InvalidOperationException("Pre-movement write contexts must support phased runtime writes.");
-            }
-
-            var hasCurrentPhasedState = snapshot.TryGetPhasedState(_entityId, out var currentPhasedState) &&
-                                        currentPhasedState.IsActive;
-            var ownsEnemyPreMovementPhase = hasCurrentPhasedState &&
-                                            currentPhasedState.ownerKind == PhasedRuntimeStateOwnerKind.EnemyPreMovement;
-            var shouldOwnEnemyPreMovementPhase = ShouldOwnEnemyPreMovementPhase(snapshot, source, input.TickIndex);
-
-            if (shouldOwnEnemyPreMovementPhase)
-            {
-                if (hasCurrentPhasedState &&
-                    !ownsEnemyPreMovementPhase)
-                {
-                    throw new InvalidOperationException(
-                        $"Entity {_entityId} cannot enter enemy-owned phased state while owner {currentPhasedState.ownerKind} is still active.");
-                }
-
-                if (ownsEnemyPreMovementPhase)
-                {
-                    return;
-                }
-
-                phasedWriteContext.SetPhasedState(
-                    _entityId,
-                    PhasedRuntimeStateQueries.BeginEnemyPreMovement(default, input.TickIndex));
-                updates.Add(
-                    $"PhaseEnter|Entity={_entityId}|Tick={input.TickIndex}|Owner={PhasedRuntimeStateOwnerKind.EnemyPreMovement}|Rule={EnemyPhaseThroughLockedTargetQueries.RuleLabel}");
-                return;
-            }
-
-            if (!ownsEnemyPreMovementPhase)
-            {
-                return;
-            }
-
-            phasedWriteContext.SetPhasedState(_entityId, PhasedRuntimeStateQueries.Clear());
-            updates.Add(
-                $"PhaseExit|Entity={_entityId}|Tick={input.TickIndex}|Owner={PhasedRuntimeStateOwnerKind.EnemyPreMovement}|Reason=LockedTargetCrossThroughWindowClosed");
-        }
-
-        private bool ShouldOwnEnemyPreMovementPhase(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            int tickIndex)
-        {
-            if (!HasPhaseMovementSkill() ||
-                _combatCapability == null ||
-                source.hp <= 0 ||
-                source.markedForDeath ||
-                source.aiMode == EnemyAiMode.Dead ||
-                source.boardPresence != EntityBoardPresence.Occupying ||
-                !snapshot.TryGetEnemyActionState(_entityId, out var actionState) ||
-                !EnemyActionQueries.CanExecute(actionState, tickIndex))
-            {
-                return false;
-            }
-
-            return EnemyPhaseThroughLockedTargetQueries.TryResolveValidatorWindow(
-                snapshot,
-                source,
-                actionState,
-                _combatCapability,
-                _detectionSettings,
-                out _,
-                out _);
-        }
-
-        private bool ShouldSuppressMovementForEnemyPhase(WorldSnapshot snapshot)
-        {
-            return snapshot != null &&
-                   snapshot.TryGetPhasedState(_entityId, out var phasedState) &&
-                   phasedState.IsActive;
         }
 
         private bool ShouldSuppressMovementForGlide(WorldSnapshot snapshot)
@@ -1329,24 +1227,6 @@ namespace Game.Feature.Gameplay.Entities
                            facing == Direction.Right ||
                            planarDelta.x != 0;
             }
-        }
-
-        private bool ShouldSuppressAttackForEnemyPhase(WorldSnapshot snapshot, int tickIndex)
-        {
-            if (!HasPhaseMovementSkill())
-            {
-                return false;
-            }
-
-            if (TryGetEnemyOwnedPhasedState(snapshot, out _))
-            {
-                return true;
-            }
-
-            // The phase-through validator stays relocation-only: the execute window never falls back into same-tick combat.
-            return snapshot.TryGetEnemyActionState(_entityId, out var actionState) &&
-                   actionState.IsActive &&
-                   EnemyActionQueries.CanExecute(actionState, tickIndex);
         }
 
         private bool TryResolvePassiveContactTarget(
@@ -3038,63 +2918,6 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             updates.Add(builder.ToString());
-        }
-    }
-
-    internal static class EnemyPhaseThroughLockedTargetQueries
-    {
-        // Baseline validator-only chooser. This current lock-based rule is not a reusable
-        // template for generalized phase movement.
-        public const string RuleLabel = "LockedTargetCrossThrough";
-
-        public static bool TryResolveValidatorWindow(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in EnemyActionRuntimeState actionState,
-            EnemyCombatCapabilityRuntime combatCapability,
-            in DetectionSettings detectionSettings,
-            out EntityState lockedTarget,
-            out SurfaceCell terminalCell)
-        {
-            lockedTarget = default;
-            terminalCell = default;
-
-            return snapshot != null &&
-                   EnemyActionStateTargeting.TryResolveLockedTarget(
-                       snapshot,
-                       source,
-                       actionState,
-                       combatCapability,
-                       detectionSettings,
-                       out lockedTarget) &&
-                   TryResolveCurrentTerminalCell(source, lockedTarget, actionState.direction, out terminalCell);
-        }
-
-        public static bool TryResolveCurrentTerminalCell(
-            in EntityState source,
-            in EntityState lockedTarget,
-            Direction direction,
-            out SurfaceCell terminalCell)
-        {
-            // Keep the chooser local and deterministic: same-face, committed line, behind-target +1.
-            terminalCell = default;
-            if (source.position.face != lockedTarget.position.face ||
-                !EnemyMovementStrategyShared.TryResolveDelta(direction, out var delta))
-            {
-                return false;
-            }
-
-            var expectedTargetPosition = source.position.PlanarPosition + delta;
-            if (lockedTarget.position.PlanarPosition != expectedTargetPosition)
-            {
-                return false;
-            }
-
-            terminalCell = new SurfaceCell(
-                source.position.face,
-                lockedTarget.position.x + delta.x,
-                lockedTarget.position.y + delta.y);
-            return true;
         }
     }
 

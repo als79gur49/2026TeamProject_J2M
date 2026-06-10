@@ -140,17 +140,6 @@ namespace Game.Feature.Gameplay.Loop
             _reservedAffectedEntities.Add(entityId);
         }
 
-        public void ReservePhaseRelocation(int entityId, SurfaceCell destinationCell)
-        {
-            ThrowIfFrozen();
-            AddDestinationReservation(
-                destinationCell,
-                entityId,
-                EntityType.Unit,
-                blocksUnitSharedSettlement: false);
-            _reservedAffectedEntities.Add(entityId);
-        }
-
         public FrozenMovementReservationExport Freeze(IReadOnlyList<ImpactReservation> impactReservations)
         {
             if (impactReservations == null)

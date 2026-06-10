@@ -509,6 +509,13 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Movement skill runtime requires a concrete movement skill kind.", nameof(kind));
             }
 
+            if (kind == MovementSkillStrategyKind.RetiredPhaseThroughLockedTarget)
+            {
+                throw new ArgumentException(
+                    "Movement skill 'RetiredPhaseThroughLockedTarget' is retired and cannot compile into active runtime behavior.",
+                    nameof(kind));
+            }
+
             Kind = kind;
             _jumpTimingSettings = jumpTimingSettings;
             _glideTimingSettings = glideTimingSettings;
@@ -528,8 +535,7 @@ namespace Game.Feature.Gameplay.Entities
         {
             get
             {
-                if (Kind != MovementSkillStrategyKind.JumpToLockedTarget &&
-                    Kind != MovementSkillStrategyKind.PhaseThroughLockedTarget)
+                if (Kind != MovementSkillStrategyKind.JumpToLockedTarget)
                 {
                     throw new InvalidOperationException(
                         $"Movement skill '{Kind}' does not expose jump timing settings.");
@@ -572,7 +578,6 @@ namespace Game.Feature.Gameplay.Entities
             switch (Kind)
             {
                 case MovementSkillStrategyKind.JumpToLockedTarget:
-                case MovementSkillStrategyKind.PhaseThroughLockedTarget:
                     _jumpTimingSettings.Validate(paramName);
                     break;
 
@@ -580,6 +585,11 @@ namespace Game.Feature.Gameplay.Entities
                     _glideTimingSettings.Validate(paramName);
                     _glidePresentationSettings.Validate(paramName);
                     break;
+
+                case MovementSkillStrategyKind.RetiredPhaseThroughLockedTarget:
+                    throw new ArgumentException(
+                        "Movement skill 'RetiredPhaseThroughLockedTarget' is retired and cannot compile into active runtime behavior.",
+                        paramName);
 
                 case MovementSkillStrategyKind.None:
                 default:
