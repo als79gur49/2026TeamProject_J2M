@@ -38,7 +38,7 @@ namespace Game.Shared.Audio
                 return Mathf.Clamp01(baseClipVolume * masterFactor);
             }
 
-            var leafFactor = snapshot.GetChannelState(channel).EffectiveFactor;
+            var leafFactor = ResolveLeafFactor(channel);
             return Mathf.Clamp01(baseClipVolume * masterFactor * leafFactor);
         }
 
@@ -57,6 +57,17 @@ namespace Game.Shared.Audio
         {
             snapshot = snapshot.WithChannelState(channel, state);
             hasDirtySnapshot = true;
+        }
+
+        private float ResolveLeafFactor(AudioChannel channel)
+        {
+            var leafFactor = snapshot.GetChannelState(channel).EffectiveFactor;
+            if (channel != AudioChannel.Ui)
+            {
+                return leafFactor;
+            }
+
+            return leafFactor * snapshot.Sfx.EffectiveFactor;
         }
     }
 }

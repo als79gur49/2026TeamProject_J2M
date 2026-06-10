@@ -171,11 +171,9 @@ namespace Game.Feature.UI.Tests
                 typeof(StageInfoPresenter).Assembly,
                 typeof(ObjectiveHudPresenter).Assembly,
                 typeof(PlayerStatusPresenter).Assembly,
-                typeof(ObjectiveStatusScreenPresenter).Assembly,
                 typeof(SettingsScreenPresenter).Assembly,
                 typeof(StageResultScreenPresenter).Assembly,
                 typeof(PausePopupPresenter).Assembly,
-                typeof(ObjectiveInfoPopupPresenter).Assembly,
                 typeof(ConfirmPopupPresenter).Assembly,
                 typeof(TooltipPopupPresenter).Assembly,
                 typeof(RewardPopupPresenter).Assembly,
@@ -270,7 +268,6 @@ namespace Game.Feature.UI.Tests
                 typeof(StageInfoPresenter),
                 typeof(ObjectiveHudPresenter),
                 typeof(PlayerStatusPresenter),
-                typeof(ObjectiveStatusPresenter),
                 typeof(SettingsScreenPresenter),
             };
 
@@ -292,7 +289,6 @@ namespace Game.Feature.UI.Tests
             var objectiveUiSourcePaths = new[]
             {
                 "Assets/_Features/UI/UI_Application/Runtime/ObjectiveHudPresenter.cs",
-                "Assets/_Features/UI/UI_Application/Runtime/ObjectiveStatusPresenter.cs",
                 "Assets/_Features/UI/UI_HUD/Runtime/ObjectiveHudView.cs",
                 "Assets/_Features/UI/UI_HUD/Runtime/ObjectiveHudViewModel.cs",
             };
@@ -663,7 +659,6 @@ namespace Game.Feature.UI.Tests
         public void PopupViews_BindOnlyLocalPopupViewModels()
         {
             AssertViewBindSignature(typeof(PausePopupView), typeof(PausePopupViewModel));
-            AssertViewBindSignature(typeof(ObjectiveInfoPopupView), typeof(ObjectiveInfoPopupViewModel));
             AssertViewBindSignature(typeof(ConfirmPopupView), typeof(ConfirmPopupViewModel));
             AssertViewBindSignature(typeof(TooltipPopupView), typeof(TooltipPopupViewModel));
             AssertViewBindSignature(typeof(RewardPopupView), typeof(RewardPopupViewModel));
@@ -676,7 +671,6 @@ namespace Game.Feature.UI.Tests
             var popupViewTypes = new[]
             {
                 typeof(PausePopupView),
-                typeof(ObjectiveInfoPopupView),
                 typeof(ConfirmPopupView),
                 typeof(TooltipPopupView),
                 typeof(RewardPopupView),
@@ -698,7 +692,6 @@ namespace Game.Feature.UI.Tests
             var popupViewTypes = new[]
             {
                 typeof(PausePopupView),
-                typeof(ObjectiveInfoPopupView),
                 typeof(ConfirmPopupView),
                 typeof(TooltipPopupView),
                 typeof(RewardPopupView),
@@ -733,7 +726,6 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "ConfirmPrefab",
-                    "ObjectiveInfoPrefab",
                     "PausePrefab",
                     "RewardPrefab",
                     "TooltipPrefab",
@@ -751,7 +743,6 @@ namespace Game.Feature.UI.Tests
                 {
                     "GameClearPrefab",
                     "LevelFailedPrefab",
-                    "ObjectiveStatusPrefab",
                     "SettingsPrefab",
                     "StageResultPrefab",
                 }));
@@ -765,7 +756,6 @@ namespace Game.Feature.UI.Tests
             var presenterTypes = new[]
             {
                 typeof(PausePopupPresenter),
-                typeof(ObjectiveInfoPopupPresenter),
                 typeof(ConfirmPopupPresenter),
                 typeof(TooltipPopupPresenter),
                 typeof(RewardPopupPresenter),
@@ -798,17 +788,14 @@ namespace Game.Feature.UI.Tests
             var forbiddenTypes = new[]
             {
                 typeof(PausePopupPresenter),
-                typeof(ObjectiveInfoPopupPresenter),
                 typeof(ConfirmPopupPresenter),
                 typeof(TooltipPopupPresenter),
                 typeof(RewardPopupPresenter),
                 typeof(PausePopupViewModel),
-                typeof(ObjectiveInfoPopupViewModel),
                 typeof(ConfirmPopupViewModel),
                 typeof(TooltipPopupViewModel),
                 typeof(RewardPopupViewModel),
                 typeof(PausePopupView),
-                typeof(ObjectiveInfoPopupView),
                 typeof(ConfirmPopupView),
                 typeof(TooltipPopupView),
                 typeof(RewardPopupView),
@@ -839,11 +826,9 @@ namespace Game.Feature.UI.Tests
                     "HandlePopupBackdropClicked()",
                     "HandleScreenActionRequested(ScreenAction)",
                     "Initialize()",
-                    "OpenObjectiveStatusScreen()",
                     "OpenSettingsScreen()",
                     "RequestConfirmPopup(ConfirmPopupPayload, Action<PopupCompletion>)",
                     "RequestDemoStageControlPopup(IPopupPayload)",
-                    "RequestObjectiveInfoPopup(ObjectiveInfoPopupPayload)",
                     "RequestPausePopup()",
                     "RequestRewardPopup(RewardPopupPayload, Action<PopupCompletion>)",
                     "RequestTooltipPopup(TooltipPopupPayload, Action<PopupCompletion>)",
@@ -977,8 +962,8 @@ namespace Game.Feature.UI.Tests
                 GetConstructorSignatures(typeof(SettingsScreenPresenter)),
                 Is.EqualTo(new[]
                 {
-                    "SettingsScreenPresenter(AccessibilitySettingsStore, IAudioSettingsPort, IDisplaySettingsPort)",
-                    "SettingsScreenPresenter(AccessibilitySettingsStore, IAudioSettingsPort, IDisplaySettingsPort, IKeyboardBindingSettingsPort)",
+                    "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort)",
+                    "SettingsScreenPresenter(IAudioSettingsPort, IDisplaySettingsPort, IKeyboardBindingSettingsPort)",
                 }));
         }
 
@@ -1105,7 +1090,6 @@ namespace Game.Feature.UI.Tests
         {
             var guardedViewTypes = new[]
             {
-                typeof(ObjectiveStatusScreenView),
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
                 typeof(LevelFailedScreenView),
@@ -1142,7 +1126,6 @@ namespace Game.Feature.UI.Tests
         {
             var guardedViewTypes = new[]
             {
-                typeof(ObjectiveStatusScreenView),
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
                 typeof(LevelFailedScreenView),
@@ -1166,7 +1149,6 @@ namespace Game.Feature.UI.Tests
         {
             var guardedViewTypes = new[]
             {
-                typeof(ObjectiveStatusScreenView),
                 typeof(SettingsScreenView),
                 typeof(StageResultScreenView),
                 typeof(LevelFailedScreenView),

@@ -80,8 +80,8 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(harness.Runtime.Presenter, Is.Not.Null);
             Assert.That(harness.Runtime.View, Is.Not.Null);
-            Assert.That(harness.Runtime.View.CurrentDisplayValueText, Is.EqualTo("1280 x 720"));
-            Assert.That(harness.Runtime.View.IsDisplayApplyInteractable, Is.False);
+            Assert.That(harness.Runtime.View.DisplayView.CurrentDisplayValueText, Is.EqualTo("1280 x 720"));
+            Assert.That(harness.Runtime.View.DisplayView.IsDisplayApplyInteractable, Is.False);
         }
 
         [Test]
@@ -451,10 +451,10 @@ namespace Game.Feature.UI.Tests
             harness.Runtime.Open();
             harness.UiAudioPort.Clear();
 
-            harness.Runtime.View.BeginAudioInteraction(AudioSettingsChannel.Bgm);
-            harness.Runtime.View.SetAudioVolume(AudioSettingsChannel.Bgm, 0.25f);
-            harness.Runtime.View.SetAudioMuted(AudioSettingsChannel.Sfx, true);
-            harness.Runtime.View.CommitAudioInteraction(AudioSettingsChannel.Bgm);
+            harness.Runtime.View.AudioView.BeginInteraction(AudioSettingsChannel.Bgm);
+            harness.Runtime.View.AudioView.SetVolume(AudioSettingsChannel.Bgm, 0.25f);
+            harness.Runtime.View.AudioView.SetMuted(AudioSettingsChannel.Sfx, true);
+            harness.Runtime.View.AudioView.CommitInteraction(AudioSettingsChannel.Bgm);
 
             Assert.That(harness.AudioPort.SetVolumeCount, Is.EqualTo(1));
             Assert.That(harness.AudioPort.LastVolumeChannel, Is.EqualTo(AudioSettingsChannel.Bgm));
@@ -478,8 +478,8 @@ namespace Game.Feature.UI.Tests
             harness.Runtime.Open();
             harness.Runtime.View.ClickDisplayTab();
 
-            harness.Runtime.View.SelectDisplayResolution(1);
-            harness.Runtime.View.ClickDisplayApply();
+            harness.Runtime.View.DisplayView.SelectResolution(1);
+            harness.Runtime.View.DisplayView.ClickApply();
 
             Assert.That(harness.DisplayPort.BeginPreviewCount, Is.EqualTo(1));
             Assert.That(harness.DisplayPort.LastPreviewRequest.ModeIndex, Is.EqualTo(1));
@@ -495,7 +495,7 @@ namespace Game.Feature.UI.Tests
             harness.Runtime.View.ClickDisplayTab();
             harness.UiAudioPort.Clear();
 
-            harness.Runtime.View.SelectDisplayResolution(1);
+            harness.Runtime.View.DisplayView.SelectResolution(1);
 
             Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Select }));
         }
@@ -508,7 +508,7 @@ namespace Game.Feature.UI.Tests
             harness.Runtime.View.ClickDisplayTab();
             harness.UiAudioPort.Clear();
 
-            harness.Runtime.View.SelectDisplayResolution(harness.Runtime.View.SelectedDisplayResolutionIndex);
+            harness.Runtime.View.DisplayView.SelectResolution(harness.Runtime.View.DisplayView.SelectedResolutionIndex);
 
             Assert.That(harness.UiAudioPort.PlayedCueIds, Is.Empty);
         }
@@ -522,16 +522,16 @@ namespace Game.Feature.UI.Tests
             harness.Runtime.Open();
             harness.Runtime.View.ClickDisplayTab();
 
-            harness.Runtime.View.SelectDisplayResolution(1);
-            harness.Runtime.View.ClickDisplayApply();
+            harness.Runtime.View.DisplayView.SelectResolution(1);
+            harness.Runtime.View.DisplayView.ClickApply();
             harness.PopupHarness.PopupController.CloseTop(PopupCloseReason.UserAction, PopupCompletionKind.Confirmed);
 
-            Assert.That(harness.Runtime.View.DisplayStatusText, Is.EqualTo("Display settings saved."));
+            Assert.That(harness.Runtime.View.DisplayView.DisplayStatusText, Is.EqualTo("Display settings saved."));
 
             now = 2.1d;
             InvokePrivateMethod(harness.PopupHarness.TransientStatusRelay, "Update");
 
-            Assert.That(harness.Runtime.View.DisplayStatusText, Is.Empty);
+            Assert.That(harness.Runtime.View.DisplayView.DisplayStatusText, Is.Empty);
         }
 
         [Test]
@@ -540,8 +540,8 @@ namespace Game.Feature.UI.Tests
             using var harness = new RuntimeHarness();
             harness.Runtime.Open();
             harness.Runtime.View.ClickDisplayTab();
-            harness.Runtime.View.SelectDisplayResolution(1);
-            harness.Runtime.View.ClickDisplayApply();
+            harness.Runtime.View.DisplayView.SelectResolution(1);
+            harness.Runtime.View.DisplayView.ClickApply();
 
             harness.Runtime.Dispose();
 
@@ -570,8 +570,8 @@ namespace Game.Feature.UI.Tests
             harness.Runtime.Open();
             harness.Runtime.View.ClickDisplayTab();
 
-            harness.Runtime.View.SelectDisplayResolution(1);
-            harness.Runtime.View.ClickDisplayApply();
+            harness.Runtime.View.DisplayView.SelectResolution(1);
+            harness.Runtime.View.DisplayView.ClickApply();
 
             Assert.That(harness.PopupHarness.PopupLayerView.BlocksLowerLayerPointer, Is.True);
             Assert.That(harness.PopupHarness.PopupLayerView.BackdropMode, Is.EqualTo(PopupBackdropMode.Consume));
@@ -912,7 +912,6 @@ namespace Game.Feature.UI.Tests
             return new MainMenuSettingsRuntime(
                 UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath),
                 contentRoot,
-                new AccessibilitySettingsStore(),
                 audioPort,
                 displayPort,
                 keyboardBindingSettingsPort ?? NoOpKeyboardBindingSettingsPort.Instance,

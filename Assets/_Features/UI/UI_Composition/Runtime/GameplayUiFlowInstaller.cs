@@ -81,8 +81,6 @@ namespace Game.Feature.UI.Composition
 
         public ScreenLayerView ScreenLayerView => _rootView != null ? _rootView.ScreenLayerView : null;
 
-        public ObjectiveStatusScreenView ObjectiveStatusScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<ObjectiveStatusScreenView>() : null;
-
         public SettingsScreenView SettingsScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<SettingsScreenView>() : null;
 
         public StageResultScreenView StageResultScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<StageResultScreenView>() : null;
@@ -92,8 +90,6 @@ namespace Game.Feature.UI.Composition
         public PopupLayerView PopupLayerView => _rootView != null ? _rootView.PopupLayerView : null;
 
         public PausePopupView PausePopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<PausePopupView>() : null;
-
-        public ObjectiveInfoPopupView ObjectiveInfoPopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<ObjectiveInfoPopupView>() : null;
 
         public ConfirmPopupView ConfirmPopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<ConfirmPopupView>() : null;
 
@@ -217,12 +213,10 @@ namespace Game.Feature.UI.Composition
                 surfaceBeltIndicatorPresenter,
                 playerStatusPresenter);
 
-            var accessibilitySettingsStore = new AccessibilitySettingsStore();
             ScreenController = new ScreenController(new GameplayScreenRuntimeFactory(
                 _rootView.ScreenLayerView,
                 Ports.QueryFacade,
                 PresentationSource,
-                accessibilitySettingsStore,
                 audioSettingsPort,
                 displaySettingsPort,
                 _keyboardBindingSettingsPort,

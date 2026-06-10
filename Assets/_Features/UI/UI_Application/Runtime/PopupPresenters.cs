@@ -24,30 +24,9 @@ namespace Game.Feature.UI.Application
                 payload.TitleText,
                 payload.DescriptionText,
                 payload.ResumeLabel,
-                payload.ObjectiveLabel,
                 payload.SettingsLabel,
                 payload.RetryLabel,
                 payload.MainMenuLabel);
-        }
-    }
-
-    public sealed class ObjectiveInfoPopupPresenter
-    {
-        public ObjectiveInfoPopupPresenter()
-        {
-            ViewModel = new ObjectiveInfoPopupViewModel();
-        }
-
-        public ObjectiveInfoPopupViewModel ViewModel { get; }
-
-        public void Apply(ObjectiveInfoPopupPayload payload)
-        {
-            if (payload == null)
-            {
-                throw new ArgumentNullException(nameof(payload));
-            }
-
-            ViewModel.SetContent(payload.TitleText, payload.BodyText, payload.CloseLabel);
         }
     }
 

@@ -27,8 +27,8 @@ namespace Game.Feature.UI.Tests
             coordinator.Initialize();
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
 
-            Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
-            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+            Assert.That(coordinator.OpenSettingsScreen(), Is.True);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
             Assert.That(coordinator.RequestPausePopup(), Is.True);
             Assert.That(pauseService.IsPaused, Is.True);
             Assert.That(popupController.Contains(PopupId.Pause), Is.True);
@@ -36,7 +36,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(popupController.PopupCount, Is.EqualTo(0));
             Assert.That(pauseService.IsPaused, Is.False);
-            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
 
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
@@ -67,37 +67,11 @@ namespace Game.Feature.UI.Tests
                 new TooltipPopupPayload("Tip", "Body"),
                 completions.Add), Is.True);
 
-            Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
-            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+            Assert.That(coordinator.OpenSettingsScreen(), Is.True);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
             Assert.That(popupController.PopupCount, Is.EqualTo(0));
             Assert.That(completions, Has.Count.EqualTo(1));
             Assert.That(completions[0].CloseReason, Is.EqualTo(PopupCloseReason.ScreenTransition));
-        }
-
-        [Test]
-        public void UIFlowCoordinator_OpensObjectiveInfoAndKeepsPopupPolicyOutOfCoordinator()
-        {
-            var pauseService = new FakeGameplayPauseService();
-            var runtimeFactory = new FakePopupRuntimeFactory();
-            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
-            using var coordinator = CreateCoordinator(
-                pauseService,
-                runtimeFactory,
-                out var screenController,
-                out var popupController,
-                out _);
-
-            coordinator.Initialize();
-            Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
-            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
-
-            var payload = new ObjectiveInfoPopupPayload("Info", "Body");
-            Assert.That(coordinator.RequestObjectiveInfoPopup(payload), Is.True);
-            Assert.That(popupController.TopPopup.HasValue, Is.True);
-            Assert.That(popupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.ObjectiveInfo));
-            Assert.That(popupController.TopPopup.Value.Policy.PolicyClass, Is.EqualTo(PopupPolicyClass.NonModalInformational));
-            Assert.That(coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.False);
-            Assert.That(coordinator.CurrentBlockSnapshot.ShowsPopupDim, Is.False);
         }
 
         [Test]
@@ -156,15 +130,15 @@ namespace Game.Feature.UI.Tests
             Assert.That(popupController.PopupCount, Is.EqualTo(1));
 
             coordinator.HandleScreenActionRequested(ScreenAction.Push(
-                new ScreenRequest(ScreenId.ObjectiveStatus, ObjectiveStatusScreenPayload.Default, ScreenId.ObjectiveStatus.ToString())));
+                new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, ScreenId.Settings.ToString())));
 
-            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
             Assert.That(popupController.PopupCount, Is.EqualTo(0));
 
             coordinator.HandleScreenActionRequested(ScreenAction.Popup(
                 new PopupRequest(PopupId.Confirm, new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false))));
 
-            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
             Assert.That(popupController.PopupCount, Is.EqualTo(1));
             Assert.That(popupController.TopPopup.HasValue, Is.True);
             Assert.That(popupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Confirm));
@@ -219,31 +193,6 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UIFlowCoordinator_PausePopupObjectiveRequested_EmitsSingleForwardCueWithoutPopupCompletionDoublePlay()
-        {
-            var pauseService = new FakeGameplayPauseService();
-            var popupRuntimeFactory = new FakePopupRuntimeFactory();
-            using var coordinator = CreateCoordinator(
-                pauseService,
-                popupRuntimeFactory,
-                out var screenController,
-                out _,
-                out var uiAudioPort);
-
-            coordinator.Initialize();
-            Assert.That(coordinator.RequestPausePopup(), Is.True);
-
-            uiAudioPort.Clear();
-            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.ObjectiveRequested);
-
-            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
-            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateForward }));
-            Assert.That(coordinator.LastFlowAudioTrace, Is.Not.Null);
-            Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.OpenForward));
-            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.NavigateForward));
-        }
-
-        [Test]
         public void UIFlowCoordinator_PausePopupSettingsRequested_OpensSettingsWithoutResuming_AndMarksReturnMode()
         {
             var pauseService = new FakeGameplayPauseService();
@@ -267,29 +216,6 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UIFlowCoordinator_PausePopupObjectiveRequested_OpensObjectiveStatusWithoutResuming_AndMarksReturnMode()
-        {
-            var pauseService = new FakeGameplayPauseService();
-            var popupRuntimeFactory = new FakePopupRuntimeFactory();
-            using var coordinator = CreateCoordinator(
-                pauseService,
-                popupRuntimeFactory,
-                out var screenController,
-                out var popupController);
-
-            coordinator.Initialize();
-
-            Assert.That(coordinator.RequestPausePopup(), Is.True);
-            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.ObjectiveRequested);
-
-            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
-            Assert.That(popupController.PopupCount, Is.EqualTo(0));
-            Assert.That(pauseService.IsPaused, Is.True);
-            Assert.That(pauseService.ResumeCallCount, Is.EqualTo(0));
-            Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("RestorePausePopupAfterBack"));
-        }
-
-        [Test]
         public void UIFlowCoordinator_PauseOriginSettingsBack_RestoresFreshPausePopupExactlyOnce_AndClearsReturnMode()
         {
             var pauseService = new FakeGameplayPauseService();
@@ -306,34 +232,6 @@ namespace Game.Feature.UI.Tests
 
             popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.SettingsRequested);
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
-            Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("RestorePausePopupAfterBack"));
-
-            Assert.That(coordinator.HandleBackRequested(), Is.True);
-            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
-            Assert.That(popupController.Contains(PopupId.Pause), Is.True);
-            Assert.That(pauseService.IsPaused, Is.True);
-            Assert.That(popupRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.PopupId == PopupId.Pause), Has.Count.EqualTo(2));
-            Assert.That(popupRuntimeFactory.CreatedRuntimes[^1].Runtime, Is.Not.SameAs(initialPauseRuntime));
-            Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("None"));
-        }
-
-        [Test]
-        public void UIFlowCoordinator_PauseOriginObjectiveBack_RestoresFreshPausePopupExactlyOnce_AndClearsReturnMode()
-        {
-            var pauseService = new FakeGameplayPauseService();
-            var popupRuntimeFactory = new FakePopupRuntimeFactory();
-            using var coordinator = CreateCoordinator(
-                pauseService,
-                popupRuntimeFactory,
-                out var screenController,
-                out var popupController);
-
-            coordinator.Initialize();
-            Assert.That(coordinator.RequestPausePopup(), Is.True);
-            var initialPauseRuntime = popupRuntimeFactory.CreatedRuntimes[^1].Runtime;
-
-            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.ObjectiveRequested);
-            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
             Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("RestorePausePopupAfterBack"));
 
             Assert.That(coordinator.HandleBackRequested(), Is.True);
@@ -408,8 +306,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(coordinator.RequestPausePopup(), Is.True);
             popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.SettingsRequested);
 
-            Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
-            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+            coordinator.HandleScreenActionRequested(ScreenAction.Push(
+                new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings-forced")));
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
             Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("None"));
 
             Assert.That(coordinator.HandleBackRequested(), Is.True);
@@ -549,7 +448,7 @@ namespace Game.Feature.UI.Tests
 
             coordinator.Initialize();
 
-            Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
+            Assert.That(coordinator.OpenSettingsScreen(), Is.True);
             uiAudioPort.Clear();
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
@@ -564,12 +463,6 @@ namespace Game.Feature.UI.Tests
             uiAudioPort.Clear();
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Cancel }));
-
-            Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
-            Assert.That(coordinator.RequestObjectiveInfoPopup(new ObjectiveInfoPopupPayload("Info", "Body")), Is.True);
-            uiAudioPort.Clear();
-            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Acknowledged);
-            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateBack }));
 
             Assert.That(coordinator.RequestPausePopup(), Is.True);
             uiAudioPort.Clear();
@@ -664,7 +557,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.True);
             uiAudioPort.Clear();
 
-            Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
+            Assert.That(coordinator.OpenSettingsScreen(), Is.True);
 
             Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateForward }));
             Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.NavigateForward));
@@ -689,12 +582,12 @@ namespace Game.Feature.UI.Tests
             coordinator.Initialize();
             Assert.That(coordinator.RequestConfirmPopup(
                 new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false),
-                _ => coordinator.OpenObjectiveStatusScreen()), Is.True);
+                _ => coordinator.OpenSettingsScreen()), Is.True);
 
             uiAudioPort.Clear();
             popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Confirmed);
 
-            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
             Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Confirm }));
             Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.Confirm));
             Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.Confirm));
@@ -710,7 +603,7 @@ namespace Game.Feature.UI.Tests
                 Has.Some.Matches<UiFlowAudioDelta>(delta =>
                     delta.Kind == UiFlowAudioDeltaKind.ScreenTransition &&
                     delta.ScreenTransitionKind == ScreenTransitionKind.Push &&
-                    delta.CurrentScreenId == ScreenId.ObjectiveStatus));
+                    delta.CurrentScreenId == ScreenId.Settings));
         }
 
         [Test]
@@ -772,7 +665,7 @@ namespace Game.Feature.UI.Tests
                 out var stageLaunchRouter);
 
             coordinator.Initialize();
-            Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
+            Assert.That(coordinator.OpenSettingsScreen(), Is.True);
             Assert.That(screenController.BackStackCount, Is.EqualTo(1));
 
             presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(tickIndex: 9, includeReward: true));
@@ -800,8 +693,19 @@ namespace Game.Feature.UI.Tests
             Assert.That(rewardPayload, Is.Not.Null);
             Assert.That(rewardPayload.Items.Count, Is.EqualTo(1));
             Assert.That(rewardPayload.SummaryText, Does.Contain("First-clear"));
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksHudInteraction, Is.True);
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.True);
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksUiGameplayInput, Is.True);
+            Assert.That(coordinator.CurrentBlockSnapshot.ShowsPopupDim, Is.True);
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+            Assert.That(popupController.PopupCount, Is.EqualTo(1), "Reward popup consumes back through popup policy; UI does not treat reward presentation as reward commit ownership.");
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
+
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Acknowledged);
+            Assert.That(popupController.PopupCount, Is.EqualTo(0));
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksUiGameplayInput, Is.True);
 
             coordinator.HandleScreenActionRequested(ScreenAction.LaunchStage(stagePayload.ContinueStageRequest));
             Assert.That(stageLaunchRouter.Requests, Has.Count.EqualTo(1));
@@ -811,6 +715,54 @@ namespace Game.Feature.UI.Tests
             presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(tickIndex: 9, includeReward: true));
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.StageResult), Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_StageClearedWithoutReward_OpensStageResultWithoutRewardPopup_AndKeepsNavigationIntentBoundary()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinatorWithStageLaunchRouter(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out var screenController,
+                out var popupController,
+                out var stageLaunchRouter);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.True);
+
+            presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(tickIndex: 10, includeReward: false));
+            presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 10));
+
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
+            Assert.That(screenController.BackStackCount, Is.EqualTo(0));
+            Assert.That(popupController.PopupCount, Is.EqualTo(0), "Rewardless clear must not open Reward popup; StageResult remains the presentation endpoint.");
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksHudInteraction, Is.True);
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.False);
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksUiGameplayInput, Is.True);
+            Assert.That(coordinator.CurrentBlockSnapshot.ShowsPopupDim, Is.False);
+
+            var stageResultRecord = screenRuntimeFactory.CreatedRuntimes.Find(record => record.Request.ScreenId == ScreenId.StageResult);
+            var stagePayload = stageResultRecord.Request.Payload as StageResultScreenPayload;
+            Assert.That(stagePayload, Is.Not.Null);
+            Assert.That(stagePayload.ContinueStageRequest.StageId, Is.EqualTo(StageId.CreateOrThrow("payload-stage")));
+            Assert.That(stagePayload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
+            Assert.That(stagePayload.RetryStageRequest.StageId, Is.EqualTo(StageId.CreateOrThrow("payload-stage")));
+            Assert.That(stagePayload.RetryStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
+            Assert.That(stagePayload.NextStageRequest.IsValid, Is.False);
+
+            coordinator.HandleScreenActionRequested(ScreenAction.LaunchStage(stagePayload.ContinueStageRequest));
+
+            Assert.That(stageLaunchRouter.Requests, Has.Count.EqualTo(1));
+            Assert.That(
+                stageLaunchRouter.Requests[0].NavigationKind,
+                Is.EqualTo(StageNavigationKind.Continue),
+                "Continue stays a StageNavigationRequest; UI does not directly mutate WorldState or progression.");
         }
 
         [Test]
@@ -851,10 +803,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(gameClearPayload.TitleText, Is.EqualTo("Game Clear"));
             Assert.That(gameClearPayload.MainLabel, Is.EqualTo("Main"));
             Assert.That(popupController.TopPopup.HasValue, Is.False);
+            Assert.That(popupController.PopupCount, Is.EqualTo(0), "Final-stage terminal screen selection bypasses Reward popup in current flow; do not extract or change this policy in PR-1.");
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.StageResult), Is.Empty);
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.GameClear), Has.Count.EqualTo(1));
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.GameClear));
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksUiGameplayInput, Is.True);
 
             var gameClearRecord = screenRuntimeFactory.CreatedRuntimes.Find(record => record.Request.ScreenId == ScreenId.GameClear);
             gameClearRecord.Runtime.Emit(ScreenAction.ReturnToMainMenu());
@@ -879,7 +833,7 @@ namespace Game.Feature.UI.Tests
                 out var uiAudioPort);
 
             coordinator.Initialize();
-            Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
+            Assert.That(coordinator.OpenSettingsScreen(), Is.True);
             Assert.That(coordinator.RequestPausePopup(), Is.True);
             uiAudioPort.Clear();
 

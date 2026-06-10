@@ -18,6 +18,26 @@ namespace Game.Feature.UI.Tests
     public sealed class SettingsDisplayRuntimeContractTests
     {
         [Test]
+        public void GameplayScreenRuntimeFactory_SettingsScreen_UsesSettingsRuntimeBuilder()
+        {
+            var factorySource = System.IO.File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/GameplayScreenRuntimeFactory.cs");
+
+            Assert.That(factorySource, Does.Contain("SettingsScreenRuntimeBuilder"));
+            Assert.That(factorySource, Does.Not.Contain("HandleDisplayApplyRequested"));
+            Assert.That(factorySource, Does.Not.Contain("BuildDisplayPreviewConfirmPayload"));
+        }
+
+        [Test]
+        public void SettingsScreenRuntimeBuilder_DoesNotReferenceSharedAudioRuntime()
+        {
+            var builderSource = System.IO.File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/SettingsScreenRuntimeBuilder.cs");
+
+            Assert.That(builderSource, Does.Not.Contain("Game.Shared.Audio"));
+            Assert.That(builderSource, Does.Not.Contain("AudioRuntimeInstaller"));
+            Assert.That(builderSource, Does.Not.Contain("AudioManager"));
+        }
+
+        [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_StartsPreviewAndCommitsThroughConfirmPopup()
         {
             var rootObject = new GameObject("SettingsDisplayRuntimeContractRoot_Commit");
@@ -37,26 +57,26 @@ namespace Game.Feature.UI.Tests
                 Assert.That(view, Is.Not.Null);
                 view.ClickDisplayTab();
 
-                view.SelectDisplayResolution(2);
-                view.SetDisplayFullscreen(true);
-                view.ClickDisplayApply();
+                view.DisplayView.SelectResolution(2);
+                view.DisplayView.SetFullscreen(true);
+                view.DisplayView.ClickApply();
 
                 Assert.That(displayPort.BeginPreviewCallCount, Is.EqualTo(1));
                 Assert.That(runtimeContext.PopupController.Contains(PopupId.Confirm), Is.True);
-                Assert.That(view.DisplayStatusText, Is.EqualTo("Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in 15 seconds."));
+                Assert.That(view.DisplayView.DisplayStatusText, Is.EqualTo("Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in 15 seconds."));
 
                 runtimeContext.PopupController.CloseTop(PopupCloseReason.UserAction, PopupCompletionKind.Confirmed);
 
                 Assert.That(displayPort.CommitPreviewCallCount, Is.EqualTo(1));
                 Assert.That(runtimeContext.PopupController.PopupCount, Is.EqualTo(0));
-                Assert.That(view.DisplayStatusText, Is.EqualTo("Display settings saved."));
+                Assert.That(view.DisplayView.DisplayStatusText, Is.EqualTo("Display settings saved."));
                 Assert.That(GetDisplayPrivateField<TMP_Text>(view.DisplayView, "_displayStatusLabel").gameObject.activeSelf, Is.True);
-                Assert.That(view.IsDisplayApplyInteractable, Is.False);
+                Assert.That(view.DisplayView.IsDisplayApplyInteractable, Is.False);
 
                 statusNow = 2.1d;
                 InvokePrivateMethod(runtimeContext.TransientStatusRelay, "Update");
 
-                Assert.That(view.DisplayStatusText, Is.Empty);
+                Assert.That(view.DisplayView.DisplayStatusText, Is.Empty);
                 Assert.That(GetDisplayPrivateField<TMP_Text>(view.DisplayView, "_displayStatusLabel").gameObject.activeSelf, Is.False);
             }
             finally
@@ -131,12 +151,12 @@ namespace Game.Feature.UI.Tests
 
                 var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
                 view.ClickDisplayTab();
-                view.SelectDisplayResolution(2);
-                view.SetDisplayFullscreen(true);
-                view.ClickDisplayApply();
+                view.DisplayView.SelectResolution(2);
+                view.DisplayView.SetFullscreen(true);
+                view.DisplayView.ClickApply();
 
                 Assert.That(
-                    view.DisplayStatusText,
+                    view.DisplayView.DisplayStatusText,
                     Is.EqualTo("Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in 21 seconds."));
 
                 Assert.That(runtimeContext.PopupController.TopPopup.HasValue, Is.True);
@@ -256,9 +276,9 @@ namespace Game.Feature.UI.Tests
 
                 var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
                 view.ClickDisplayTab();
-                view.SelectDisplayResolution(1);
-                view.SetDisplayFullscreen(true);
-                view.ClickDisplayApply();
+                view.DisplayView.SelectResolution(1);
+                view.DisplayView.SetFullscreen(true);
+                view.DisplayView.ClickApply();
 
                 Assert.That(runtimeContext.PopupController.Contains(PopupId.Confirm), Is.True);
 
@@ -327,11 +347,11 @@ namespace Game.Feature.UI.Tests
                 var displayView = view.DisplayView;
                 var hintRoot = GetDisplayPrivateField<RectTransform>(displayView, "_resolutionHoverHintRoot");
 
-                view.SelectDisplayResolution(2);
+                view.DisplayView.SelectResolution(2);
                 EnterResolutionHover(displayView);
                 Assert.That(hintRoot.gameObject.activeSelf, Is.True);
 
-                view.ClickDisplayApply();
+                view.DisplayView.ClickApply();
 
                 Assert.That(hintRoot.gameObject.activeSelf, Is.False);
                 Assert.That(runtimeContext.PopupController.Contains(PopupId.Confirm), Is.True);
@@ -468,7 +488,6 @@ namespace Game.Feature.UI.Tests
                     FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
                     new Game.Feature.Gameplay.UIAccess.Models.GameplayObjectiveReadModel(false, false, false, false)),
                 new ManualGameplayUiPresentationSource(),
-                new AccessibilitySettingsStore(),
                 new FakeAudioSettingsPort(),
                 displayPort,
                 new RecordingUiAudioPort(),

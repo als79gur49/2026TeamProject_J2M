@@ -14,22 +14,6 @@ namespace Game.Feature.UI.Tests
     public sealed class UiScreenRuntimeAudioCueTests
     {
         [Test]
-        public void GameplayScreenRuntimeFactory_ObjectiveStatusOverviewOnly_HasNoTabLocalSelectCues()
-        {
-            using var harness = UiAudioHarness.Create();
-
-            Assert.That(harness.Coordinator.OpenObjectiveStatusScreen(), Is.True);
-            harness.UiAudioPort.Clear();
-
-            var view = harness.ScreenLayerView.FindScreenView<ObjectiveStatusScreenView>();
-            Assert.That(view, Is.Not.Null);
-
-            Assert.That(typeof(ObjectiveStatusScreenView).GetMethod("ClickOverview"), Is.Null);
-            Assert.That(typeof(ObjectiveStatusScreenView).GetMethod("ClickSession"), Is.Null);
-            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.Empty);
-        }
-
-        [Test]
         public void GameplayScreenRuntimeFactory_SettingsLocalInteractions_EmitOnlyMappedLocalCues()
         {
             using var harness = UiAudioHarness.Create();
@@ -40,13 +24,13 @@ namespace Game.Feature.UI.Tests
             var view = harness.ScreenLayerView.FindScreenView<SettingsScreenView>();
             Assert.That(view, Is.Not.Null);
 
-            view.SetAudioMuted(AudioSettingsChannel.Sfx, true);
-            view.BeginAudioInteraction(AudioSettingsChannel.Main);
-            view.SetAudioVolume(AudioSettingsChannel.Main, 0.25f);
-            view.CommitAudioInteraction(AudioSettingsChannel.Main);
+            view.AudioView.SetMuted(AudioSettingsChannel.Sfx, true);
+            view.AudioView.BeginInteraction(AudioSettingsChannel.Main);
+            view.AudioView.SetVolume(AudioSettingsChannel.Main, 0.25f);
+            view.AudioView.CommitInteraction(AudioSettingsChannel.Main);
             view.ClickDisplayTab();
-            view.SelectDisplayResolution(1);
-            view.SetDisplayFullscreen(true);
+            view.DisplayView.SelectResolution(1);
+            view.DisplayView.SetFullscreen(true);
 
             Assert.That(
                 harness.UiAudioPort.PlayedCueIds,
@@ -60,7 +44,7 @@ namespace Game.Feature.UI.Tests
                 }));
 
             harness.UiAudioPort.Clear();
-            view.ClickDisplayRevert();
+            view.DisplayView.ClickRevert();
             Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Cancel }));
         }
 
@@ -221,10 +205,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(view, Is.Not.Null);
 
             view.ClickDisplayTab();
-            view.SelectDisplayResolution(1);
+            view.DisplayView.SelectResolution(1);
             harness.UiAudioPort.Clear();
 
-            view.ClickDisplayApply();
+            view.DisplayView.ClickApply();
 
             Assert.That(harness.PopupController.Contains(PopupId.Confirm), Is.True);
             Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateForward }));
@@ -328,7 +312,6 @@ namespace Game.Feature.UI.Tests
                         FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
                         new Game.Feature.Gameplay.UIAccess.Models.GameplayObjectiveReadModel(true, true, false, false)),
                     presentationSource,
-                    new AccessibilitySettingsStore(),
                     new FakeAudioSettingsPort(),
                     new FakeDisplaySettingsPort(),
                     keyboardBindingSettingsPort ?? NoOpKeyboardBindingSettingsPort.Instance,

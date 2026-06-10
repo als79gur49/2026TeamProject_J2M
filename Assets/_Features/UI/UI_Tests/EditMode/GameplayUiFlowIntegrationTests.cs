@@ -105,9 +105,9 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiFlowInstaller_ComposesObjectiveInfoTooltipAndRewardPolicies()
+        public void GameplayUiFlowInstaller_ComposesTooltipAndRewardPolicies()
         {
-            var hostObject = new GameObject("GameplayUiFlowInstaller_ComposesObjectiveInfoTooltipAndRewardPolicies");
+            var hostObject = new GameObject("GameplayUiFlowInstaller_ComposesTooltipAndRewardPolicies");
 
             try
             {
@@ -121,42 +121,27 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(host);
 
-                Assert.That(installer.Coordinator.OpenObjectiveStatusScreen(), Is.True);
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
-
-                installer.ObjectiveStatusScreenView.ClickInfo();
-                Assert.That(installer.PopupController.Contains(PopupId.ObjectiveInfo), Is.True);
-                Assert.That(installer.ObjectiveInfoPopupView, Is.Not.Null);
-                Assert.That(installer.PopupLayerView.IsDimVisible, Is.False);
-                Assert.That(installer.Coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.False);
-
                 var tooltipCompletions = new List<PopupCompletion>();
                 Assert.That(installer.Coordinator.RequestTooltipPopup(
                     new TooltipPopupPayload("Tip", "Tooltip body"),
                     tooltipCompletions.Add), Is.True);
                 Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Tooltip));
-
-                installer.ObjectiveStatusScreenView.ClickBack();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1));
-                Assert.That(tooltipCompletions, Has.Count.EqualTo(1));
-                Assert.That(tooltipCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.Back));
-                Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.ObjectiveInfo));
+                Assert.That(installer.PopupLayerView.IsDimVisible, Is.False);
+                Assert.That(installer.Coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.False);
 
                 Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
-
-                installer.ObjectiveStatusScreenView.ClickBack();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
+                Assert.That(tooltipCompletions, Has.Count.EqualTo(1));
+                Assert.That(tooltipCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.Back));
 
                 var gameplayTooltipCompletions = new List<PopupCompletion>();
                 Assert.That(installer.Coordinator.RequestTooltipPopup(
                     new TooltipPopupPayload("Gameplay Tip", "Tooltip body"),
                     gameplayTooltipCompletions.Add), Is.True);
 
-                Assert.That(installer.Coordinator.OpenObjectiveStatusScreen(), Is.True);
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+                Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
                 Assert.That(gameplayTooltipCompletions, Has.Count.EqualTo(1));
                 Assert.That(gameplayTooltipCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.ScreenTransition));

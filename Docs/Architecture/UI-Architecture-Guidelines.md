@@ -311,7 +311,7 @@ Interaction rules:
 - `Non-Negotiable` Screens do not directly manage popup stack state.
 - `Non-Negotiable` HUD does not manage screen navigation.
 - `Non-Negotiable` Pause remains popup-owned. Gameplay-root back may open the pause popup, but pause is not a screen taxonomy example.
-- `Non-Negotiable` PausePopup completion semantics are coordinator-owned: Resumed and Closed are resume-equivalent exits, while SettingsRequested and ObjectiveRequested keep gameplay paused, open their destination screen, and return back to a fresh PausePopup.
+- `Non-Negotiable` PausePopup completion semantics are coordinator-owned: Resumed and Closed are resume-equivalent exits, while SettingsRequested keeps gameplay paused, opens the settings screen, and returns back to a fresh PausePopup.
 - `Non-Negotiable` `UIBlockPolicy` decides interaction blocking. Visual hierarchy alone does not.
 - `Default Guidance` Keep controllers narrow. Put cross-controller rules in the coordinator, not duplicated in each controller.
 
@@ -342,7 +342,6 @@ Current canonical identity lists:
 - `ScreenId`
   - `None`
   - `Gameplay`
-  - `ObjectiveStatus`
   - `Settings`
   - `StageResult`
   - `LevelFailed`
@@ -350,7 +349,6 @@ Current canonical identity lists:
 - `PopupId`
   - `None`
   - `Pause`
-  - `ObjectiveInfo`
   - `Confirm`
   - `Tooltip`
   - `Reward`
@@ -364,7 +362,7 @@ Screen classification notes:
 
 Popup classification notes:
 
-- `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, and `Reward` are canonical gameplay popup catalog entries.
+- `Pause`, `Confirm`, `Tooltip`, and `Reward` are canonical gameplay popup catalog entries.
 - `DemoStageControl` is not a gameplay popup catalog entry. It is a catalog-less runtime assist popup created through the factory/runtime/hotkey path.
 - `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing. It is not a deletion candidate and is not a dev-only compile exclusion target.
 - Future public-release hiding or disabling for `DemoStageControl` must be controlled by a separate product/build configuration decision, not by a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate.

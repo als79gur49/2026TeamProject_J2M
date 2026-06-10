@@ -9,14 +9,11 @@ namespace Game.Feature.UI.Composition
     public sealed class PopupPrefabCatalog : ScriptableObject
     {
         [SerializeField] private PausePopupView _pausePrefab;
-        [SerializeField] private ObjectiveInfoPopupView _objectiveInfoPrefab;
         [SerializeField] private ConfirmPopupView _confirmPrefab;
         [SerializeField] private TooltipPopupView _tooltipPrefab;
         [SerializeField] private RewardPopupView _rewardPrefab;
 
         public PausePopupView PausePrefab => _pausePrefab;
-
-        public ObjectiveInfoPopupView ObjectiveInfoPrefab => _objectiveInfoPrefab;
 
         public ConfirmPopupView ConfirmPrefab => _confirmPrefab;
 

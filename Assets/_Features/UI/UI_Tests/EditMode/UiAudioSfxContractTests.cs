@@ -146,6 +146,22 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UiCueCategory_RemainsUi()
+        {
+            var cueMap = UiTestPrefabAssetUtility.LoadUiAudioCueMap();
+
+            foreach (var entry in cueMap.Entries)
+            {
+                Assert.That(entry.Binding, Is.Not.Null, $"Missing binding for {entry.CueId}.");
+                Assert.That(entry.Binding.Definition, Is.Not.Null, $"Missing definition for {entry.CueId}.");
+                Assert.That(entry.Binding.Definition.Category, Is.EqualTo(AudioCategory.Ui), entry.CueId.ToString());
+                Assert.That(entry.Binding.Definition.Loop, Is.False, entry.CueId.ToString());
+                Assert.That(entry.Binding.HasAttachmentSlot, Is.False, entry.CueId.ToString());
+                Assert.That(entry.Binding.Policy, Is.Null, entry.CueId.ToString());
+            }
+        }
+
+        [Test]
         public void UiAudioCueMap_CanonicalAuthoredMap_ChanceLossUsesLowerPitchedRetryFailedDefinition()
         {
             var cueMap = UiTestPrefabAssetUtility.LoadUiAudioCueMap();

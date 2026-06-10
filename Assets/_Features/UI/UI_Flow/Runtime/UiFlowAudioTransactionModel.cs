@@ -306,34 +306,34 @@ namespace Game.Feature.UI.Flow
                 case UiFlowAudioIntentKind.Back:
                     if (HasReverseVisibleDelta(deltas))
                     {
-                        return Outcome(UiFlowAudioOutcomeKind.NavigateBack, UiAudioCueId.NavigateBack);
+                        return Outcome(UiFlowAudioOutcomeKind.NavigateBack);
                     }
 
                     if (HasForwardVisibleDelta(deltas))
                     {
-                        return Outcome(UiFlowAudioOutcomeKind.NavigateForward, UiAudioCueId.NavigateForward);
+                        return Outcome(UiFlowAudioOutcomeKind.NavigateForward);
                     }
 
                     return Silent(UiFlowAudioSilenceReason.NoVisibleDelta);
 
                 case UiFlowAudioIntentKind.OpenForward:
                     return HasForwardVisibleDelta(deltas)
-                        ? Outcome(UiFlowAudioOutcomeKind.NavigateForward, UiAudioCueId.NavigateForward)
+                        ? Outcome(UiFlowAudioOutcomeKind.NavigateForward)
                         : Silent(UiFlowAudioSilenceReason.NoVisibleDelta);
 
                 case UiFlowAudioIntentKind.Confirm:
                     return HasPopupCompletionDelta(deltas)
-                        ? Outcome(UiFlowAudioOutcomeKind.Confirm, UiAudioCueId.Confirm)
+                        ? Outcome(UiFlowAudioOutcomeKind.Confirm)
                         : Silent(UiFlowAudioSilenceReason.NoVisibleDelta);
 
                 case UiFlowAudioIntentKind.Cancel:
                     return HasPopupCompletionDelta(deltas)
-                        ? Outcome(UiFlowAudioOutcomeKind.Cancel, UiAudioCueId.Cancel)
+                        ? Outcome(UiFlowAudioOutcomeKind.Cancel)
                         : Silent(UiFlowAudioSilenceReason.NoVisibleDelta);
 
                 case UiFlowAudioIntentKind.SystemPresentation:
-                    return TryResolveSystemPresentationCue(deltas, out var systemOutcome, out var systemCueId)
-                        ? Outcome(systemOutcome, systemCueId)
+                    return TryResolveSystemPresentationCue(deltas, out var systemOutcome)
+                        ? Outcome(systemOutcome)
                         : Silent(UiFlowAudioSilenceReason.SystemPresentationPolicy);
 
                 default:
@@ -370,8 +370,7 @@ namespace Game.Feature.UI.Flow
 
         private static bool TryResolveSystemPresentationCue(
             IReadOnlyList<UiFlowAudioDelta> deltas,
-            out UiFlowAudioOutcomeKind outcomeKind,
-            out UiAudioCueId cueId)
+            out UiFlowAudioOutcomeKind outcomeKind)
         {
             for (var i = 0; i < deltas.Count; i++)
             {
@@ -385,23 +384,19 @@ namespace Game.Feature.UI.Flow
                 {
                     case ScreenId.GameClear:
                         outcomeKind = UiFlowAudioOutcomeKind.GameClear;
-                        cueId = UiAudioCueId.GameClear;
                         return true;
 
                     case ScreenId.StageResult:
                         outcomeKind = UiFlowAudioOutcomeKind.StageClear;
-                        cueId = UiAudioCueId.StageClear;
                         return true;
 
                     case ScreenId.LevelFailed:
                         outcomeKind = UiFlowAudioOutcomeKind.LevelFailed;
-                        cueId = UiAudioCueId.LevelFailed;
                         return true;
                 }
             }
 
             outcomeKind = UiFlowAudioOutcomeKind.Silent;
-            cueId = default;
             return false;
         }
 
@@ -453,10 +448,6 @@ namespace Game.Feature.UI.Flow
                 case PopupId.Pause:
                     return completionKind == PopupCompletionKind.Closed;
 
-                case PopupId.ObjectiveInfo:
-                    return completionKind == PopupCompletionKind.Acknowledged ||
-                           completionKind == PopupCompletionKind.Closed;
-
                 case PopupId.Tooltip:
                     return completionKind == PopupCompletionKind.Closed ||
                            completionKind == PopupCompletionKind.Acknowledged;
@@ -466,10 +457,13 @@ namespace Game.Feature.UI.Flow
             }
         }
 
-        private static UiFlowAudioClassificationResult Outcome(
-            UiFlowAudioOutcomeKind outcomeKind,
-            UiAudioCueId cueId)
+        private static UiFlowAudioClassificationResult Outcome(UiFlowAudioOutcomeKind outcomeKind)
         {
+            if (!UiFlowAudioOutcomeMapper.TryMap(outcomeKind, out var cueId))
+            {
+                return Silent(UiFlowAudioSilenceReason.NoVisibleDelta);
+            }
+
             return new UiFlowAudioClassificationResult(
                 outcomeKind,
                 cueId,

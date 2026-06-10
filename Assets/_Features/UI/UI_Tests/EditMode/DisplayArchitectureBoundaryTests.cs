@@ -12,7 +12,8 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void SettingsPresenterAndView_Sources_DoNotCallScreenOrPlayerPrefs()
         {
-            var presenterSource = ReadRepoFile("Assets/_Features/UI/UI_Application/Runtime/ScreenPresenters.cs");
+            var presenterSource = ReadRepoFile("Assets/_Features/UI/UI_Application/Runtime/ScreenPresenters.cs")
+                + ReadRepoFile("Assets/_Features/UI/UI_Application/Runtime/Settings/SettingsScreenPresenters.cs");
             var rootViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsScreenView.cs");
             var audioViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsAudioView.cs");
             var displayViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsDisplayView.cs");
@@ -27,18 +28,20 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SettingsRootView_Source_RemainsShellOnly_WithTemporaryPassthroughHelpers()
+        public void SettingsRootView_Source_RemainsShellOnly_WithSerializedSectionReferences()
         {
             var rootViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsScreenView.cs");
 
-            Assert.That(rootViewSource, Does.Contain("Temporary compatibility passthroughs only; no section-local logic belongs here."));
-            Assert.That(rootViewSource, Does.Contain("DisplayView.ClickApply();"));
-            Assert.That(rootViewSource, Does.Contain("DisplayView.ClickRevert();"));
-            Assert.That(rootViewSource, Does.Contain("AudioView.CommitInteraction(channel);"));
-            Assert.That(rootViewSource, Does.Contain("DisplayView.SelectResolution(index);"));
-            Assert.That(rootViewSource, Does.Contain("AudioView.SetMuted(channel, isMuted);"));
-            Assert.That(rootViewSource, Does.Contain("AudioView.SetVolume(channel, value);"));
-            Assert.That(rootViewSource, Does.Contain("DisplayView.SetFullscreen(isFullscreen);"));
+            Assert.That(rootViewSource, Does.Contain("SettingsAudioView _audioView"));
+            Assert.That(rootViewSource, Does.Contain("SettingsDisplayView _displayView"));
+            Assert.That(rootViewSource, Does.Not.Contain("Temporary compatibility passthroughs"));
+            Assert.That(rootViewSource, Does.Not.Contain("ClickDisplayApply"));
+            Assert.That(rootViewSource, Does.Not.Contain("ClickDisplayRevert"));
+            Assert.That(rootViewSource, Does.Not.Contain("CommitAudioInteraction"));
+            Assert.That(rootViewSource, Does.Not.Contain("SelectDisplayResolution"));
+            Assert.That(rootViewSource, Does.Not.Contain("SetAudioMuted"));
+            Assert.That(rootViewSource, Does.Not.Contain("SetAudioVolume"));
+            Assert.That(rootViewSource, Does.Not.Contain("SetDisplayFullscreen"));
             Assert.That(rootViewSource, Does.Not.Contain("new GameObject("));
             Assert.That(rootViewSource, Does.Not.Contain("AddComponent<"));
             Assert.That(rootViewSource, Does.Not.Contain("transform.Find("));

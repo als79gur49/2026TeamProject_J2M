@@ -69,23 +69,26 @@ namespace Game.Feature.UI.Screens
                 UiFocusNodeKind.Toggle,
                 1,
                 0,
-                () => SettingsScreenView.InvokeAndReturnTrue(() => view.SetDisplayFullscreen(!view.IsDisplayFullscreenOn)));
+                () => view.DisplayView != null &&
+                      SettingsScreenView.InvokeAndReturnTrue(() => view.DisplayView.SetFullscreen(!view.DisplayView.IsFullscreenOn)));
             view.RegisterFocusNode(
                 DisplayApplyButtonNodeId,
                 UiFocusRegion.Display,
                 UiFocusNodeKind.Button,
                 2,
                 0,
-                () => SettingsScreenView.InvokeAndReturnTrue(view.ClickDisplayApply),
-                isInteractable: () => view.IsDisplayApplyInteractable);
+                () => view.DisplayView != null &&
+                      SettingsScreenView.InvokeAndReturnTrue(view.DisplayView.ClickApply),
+                isInteractable: () => view.DisplayView != null && view.DisplayView.IsDisplayApplyInteractable);
             view.RegisterFocusNode(
                 DisplayRevertButtonNodeId,
                 UiFocusRegion.Display,
                 UiFocusNodeKind.Button,
                 2,
                 1,
-                () => SettingsScreenView.InvokeAndReturnTrue(view.ClickDisplayRevert),
-                isInteractable: () => view.IsDisplayRevertInteractable);
+                () => view.DisplayView != null &&
+                      SettingsScreenView.InvokeAndReturnTrue(view.DisplayView.ClickRevert),
+                isInteractable: () => view.DisplayView != null && view.DisplayView.IsDisplayRevertInteractable);
 
             view.RegisterFocusNode(
                 InputMovementSliderNodeId,
@@ -132,15 +135,15 @@ namespace Game.Feature.UI.Screens
 
             if (string.Equals(nodeId, AudioMainSliderNodeId, StringComparison.Ordinal))
             {
-                view.CommitAudioInteraction(AudioSettingsChannel.Main);
+                view.AudioView?.CommitInteraction(AudioSettingsChannel.Main);
             }
             else if (string.Equals(nodeId, AudioBgmSliderNodeId, StringComparison.Ordinal))
             {
-                view.CommitAudioInteraction(AudioSettingsChannel.Bgm);
+                view.AudioView?.CommitInteraction(AudioSettingsChannel.Bgm);
             }
             else if (string.Equals(nodeId, AudioSfxSliderNodeId, StringComparison.Ordinal))
             {
-                view.CommitAudioInteraction(AudioSettingsChannel.Sfx);
+                view.AudioView?.CommitInteraction(AudioSettingsChannel.Sfx);
             }
         }
 
@@ -153,15 +156,15 @@ namespace Game.Feature.UI.Screens
 
             if (string.Equals(nodeId, AudioMainSliderNodeId, StringComparison.Ordinal))
             {
-                view.BeginAudioInteraction(AudioSettingsChannel.Main);
+                view.AudioView?.BeginInteraction(AudioSettingsChannel.Main);
             }
             else if (string.Equals(nodeId, AudioBgmSliderNodeId, StringComparison.Ordinal))
             {
-                view.BeginAudioInteraction(AudioSettingsChannel.Bgm);
+                view.AudioView?.BeginInteraction(AudioSettingsChannel.Bgm);
             }
             else if (string.Equals(nodeId, AudioSfxSliderNodeId, StringComparison.Ordinal))
             {
-                view.BeginAudioInteraction(AudioSettingsChannel.Sfx);
+                view.AudioView?.BeginInteraction(AudioSettingsChannel.Sfx);
             }
         }
 
@@ -187,7 +190,7 @@ namespace Game.Feature.UI.Screens
                 row,
                 1,
                 () => view.AudioView != null &&
-                      SettingsScreenView.InvokeAndReturnTrue(() => view.SetAudioMuted(channel, !view.AudioView.IsMuted(channel))));
+                      SettingsScreenView.InvokeAndReturnTrue(() => view.AudioView.SetMuted(channel, !view.AudioView.IsMuted(channel))));
         }
 
         private sealed class ResolutionListFocusAdapter : IUiDropdownListControlAdapter
@@ -268,7 +271,7 @@ namespace Game.Feature.UI.Screens
                     return false;
                 }
 
-                _view.SelectDisplayResolution(highlightedIndex);
+                _view.DisplayView.SelectResolution(highlightedIndex);
                 return true;
             }
         }

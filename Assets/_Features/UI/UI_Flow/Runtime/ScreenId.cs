@@ -4,7 +4,6 @@ namespace Game.Feature.UI.Flow
     {
         None = 0,
         Gameplay = 1,
-        ObjectiveStatus = 3,
         Settings = 5,
         StageResult = 6,
         LevelFailed = 7,

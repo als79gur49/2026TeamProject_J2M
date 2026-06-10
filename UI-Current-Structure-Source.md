@@ -13,7 +13,6 @@ This file is the external current-structure source for the completed UI cleanup 
 - `ScreenId`:
   - `None`
   - `Gameplay`
-  - `ObjectiveStatus`
   - `Settings`
   - `StageResult`
   - `LevelFailed`
@@ -22,7 +21,6 @@ This file is the external current-structure source for the completed UI cleanup 
 - `PopupId`:
   - `None`
   - `Pause`
-  - `ObjectiveInfo`
   - `Confirm`
   - `Tooltip`
   - `Reward`
@@ -67,6 +65,7 @@ This file is the external current-structure source for the completed UI cleanup 
 - `RequestPush`, `RequestFlip`, `BufferUiPush`, and `BufferUiFlip` are removed UI command-route vocabulary and are not current paths.
 - Settings/rebind Push/Flip UI remains active for binding display, override, save, and restore through the shared `GameplayInputActionPaths` input contract.
 - Settings/rebind setup fails fast when required action paths or Push/Flip keyboard bindings are missing; Flip remains keyboard-only and no gamepad binding is added.
+- Settings tooltip on/off and large text on/off accessibility toggles are removed residue. `AccessibilitySettingsStore` is not a current runtime composition dependency.
 - Scene transition UI uses only `SceneTransitionOverlayShell` plus `SceneTransitionOverlayContentCatalog`.
 - `SceneTransitionOverlayView`, `UI/SceneTransitionOverlayView`, generated fallback, and legacy overlay fallback are not current paths.
 - `UiNavigationInputRouter` is a resolver-only input router initialized through `IUiNavigationTargetResolver`.
@@ -78,5 +77,13 @@ This file is the external current-structure source for the completed UI cleanup 
 - Do not modify prefabs or catalogs for this source regeneration.
 - Do not change `DemoStageControl` runtime behavior.
 - Do not simplify or reroute StageResult, Reward, Confirm, settings, audio, display, or UI bridge paths.
+- Do not restore Settings tooltip on/off or large text on/off toggles without a separate product decision.
 - Do not revive `ActionBar`, diagnostics runtime UI, or `SceneTransitionOverlayView`.
 - Do not restore `Help` or `Inventory` as current gameplay screens.
+
+## Deferred Policy Items
+
+- UI audio user settings policy: UI SFX remains authored/routed through hidden `Ui`, but its effective user-facing mix follows `Master` and `Sfx` volume/mute plus hidden `Ui` state. Settings still exposes only `Main`, `Bgm`, and `Sfx`; there is no visible UI volume/mute row. `Voice` and `Ambience` do not follow `Sfx`.
+- Inventory is not active authoritative UI. Reintroduction requires a separate `InventoryReadModel`, `InventoryCommandPort`, and permission model design.
+- Diagnostics behavior is unchanged. Current work may strengthen production residue guards, but must not add a new diagnostics runtime feature.
+- TMP, localization, accessibility, and layout modernization are separate contract work. Do not treat Text/TMP swaps as part of this UI architecture refactor.
