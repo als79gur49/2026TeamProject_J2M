@@ -33,7 +33,6 @@
   5. `SettingsScreen` as the representative complex screen
   6. terminal `StageResultScreen` flow attempt
 - `Tier 2` runs only after Tier 1 completes:
-  - `ObjectiveStatusScreen`
   - `SettingsScreen`
   - `TooltipPopup` through the canonical popup flow when the test scene exposes a tooltip request
   - removed diagnostics overlay absence in the canonical root shell
@@ -49,7 +48,7 @@
   - `StageResultScreen` as the terminal special case
 - Root-shell validation uses the current-structure source: top-level canonical gameplay UI shell has `HudLayer`, `ScreenLayer`, and `PopupLayer`, with no `DiagnosticsLayer`.
 - These are the primary freeze-sensitive proof points because they are most likely to expose ownership drift, duplicate roots, layer misuse, or reopened runtime seams.
-- `ObjectiveStatusScreen` and `SettingsScreen` are still required representative coverage, but they are second-tier after the high-risk subset.
+- `SettingsScreen` remains required representative coverage, but it is second-tier after the high-risk subset.
 - Removed diagnostics overlay absence is not a first-pass manual interaction target.
 
 ## 6. Tooltip Path Classification Rules
@@ -76,7 +75,7 @@
   whichever comes first.
 - During those bounded attempts, collect enough evidence to separate non-reachability from broken routing:
   - whether the objective path appears understandable in current gameplay
-  - whether `ObjectiveStatusScreen` reflects progress consistently
+  - whether `ObjectiveHud` reflects progress consistently
   - whether the player ever appears to satisfy final objective state without transition
 - Classify stage-clear outcomes as:
   - `Pass`: stage clear is reached and routes only to `StageResultScreen` with sane HUD/popup/screen behavior.

@@ -463,7 +463,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var viewModel = new PausePopupViewModel();
-                viewModel.SetContent("Paused", "Body", "Resume", string.Empty, "Settings", "Retry", "Main Menu");
+                viewModel.SetContent("Paused", "Body", "Resume", "Settings", "Retry", "Main Menu");
                 view.Bind(viewModel);
                 view.IsVisible = true;
                 view.SetIsTopmost(true);
@@ -935,10 +935,6 @@ namespace Game.Feature.UI.Tests
                 "_navigationGroup",
                 1);
             AssertButtonGroupFrames(
-                UiTestPrefabAssetUtility.LoadScreenPrefab<ObjectiveStatusScreenView>(UiTestPrefabAssetUtility.ObjectiveStatusScreenPrefabPath),
-                "_navigationGroup",
-                2);
-            AssertButtonGroupFrames(
                 UiTestPrefabAssetUtility.LoadScreenPrefab<LevelFailedScreenView>(UiTestPrefabAssetUtility.LevelFailedScreenPrefabPath),
                 "_navigationGroup",
                 2);
@@ -950,10 +946,6 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(UiTestPrefabAssetUtility.PausePopupPrefabPath),
                 "_navigationGroup",
                 4);
-            AssertButtonGroupFrames(
-                UiTestPrefabAssetUtility.LoadPopupPrefab<ObjectiveInfoPopupView>(UiTestPrefabAssetUtility.ObjectiveInfoPopupPrefabPath),
-                "_navigationGroup",
-                1);
             AssertButtonGroupFrames(
                 UiTestPrefabAssetUtility.LoadPopupPrefab<RewardPopupView>(UiTestPrefabAssetUtility.RewardPopupPrefabPath),
                 "_navigationGroup",
@@ -1002,7 +994,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var viewModel = new PausePopupViewModel();
-                viewModel.SetContent("Paused", "Body", "Resume", string.Empty, "Settings", "Retry", "Main Menu");
+                viewModel.SetContent("Paused", "Body", "Resume", "Settings", "Retry", "Main Menu");
                 view.Bind(viewModel);
                 view.IsVisible = true;
                 view.OnNavigationFocusGained();

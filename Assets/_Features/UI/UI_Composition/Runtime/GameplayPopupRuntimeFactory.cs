@@ -35,9 +35,6 @@ namespace Game.Feature.UI.Composition
                 case PopupId.Pause:
                     return CreatePausePopup(ExpectPayload<PausePopupPayload>(request.Payload));
 
-                case PopupId.ObjectiveInfo:
-                    return CreateObjectiveInfoPopup(ExpectPayload<ObjectiveInfoPopupPayload>(request.Payload));
-
                 case PopupId.Confirm:
                     return CreateConfirmPopup(ExpectPayload<ConfirmPopupPayload>(request.Payload));
 
@@ -73,30 +70,6 @@ namespace Game.Feature.UI.Composition
                     showsDim: true,
                     blocksLowerLayers: true),
                 new PopupRuntime<PausePopupView>(view, () =>
-                {
-                    view.Bind(null);
-                    DestroyObject(view.gameObject);
-                }));
-        }
-
-        private PopupRuntimeFactoryResult CreateObjectiveInfoPopup(ObjectiveInfoPopupPayload payload)
-        {
-            var presenter = new ObjectiveInfoPopupPresenter();
-            presenter.Apply(payload);
-
-            var view = InstantiatePopupPrefab(_popupPrefabCatalog.ObjectiveInfoPrefab, PopupId.ObjectiveInfo);
-            view.Bind(presenter.ViewModel);
-            view.IsVisible = true;
-
-            return new PopupRuntimeFactoryResult(
-                new PopupPolicy(
-                    PopupPolicyClass.NonModalInformational,
-                    PopupLifetimeScope.CurrentScreen,
-                    PopupBackAction.Close,
-                    PopupBackdropMode.None,
-                    showsDim: false,
-                    blocksLowerLayers: false),
-                new PopupRuntime<ObjectiveInfoPopupView>(view, () =>
                 {
                     view.Bind(null);
                     DestroyObject(view.gameObject);

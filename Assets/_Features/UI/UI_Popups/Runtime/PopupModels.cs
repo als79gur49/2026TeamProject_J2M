@@ -15,7 +15,6 @@ namespace Game.Feature.UI.Popups
         Acknowledged = 3,
         Resumed = 4,
         SettingsRequested = 5,
-        ObjectiveRequested = 6,
         RetryRequested = 7,
         MainMenuRequested = 8,
     }
@@ -49,7 +48,6 @@ namespace Game.Feature.UI.Popups
             "Paused",
             "Pausing modal popup",
             "Resume",
-            "Objective",
             "Settings",
             "Retry",
             "Main Menu");
@@ -58,7 +56,6 @@ namespace Game.Feature.UI.Popups
             string titleText,
             string descriptionText,
             string resumeLabel,
-            string objectiveLabel,
             string settingsLabel,
             string retryLabel = "Retry",
             string mainMenuLabel = "Main Menu")
@@ -66,7 +63,6 @@ namespace Game.Feature.UI.Popups
             TitleText = titleText ?? string.Empty;
             DescriptionText = descriptionText ?? string.Empty;
             ResumeLabel = resumeLabel ?? string.Empty;
-            ObjectiveLabel = objectiveLabel ?? string.Empty;
             SettingsLabel = settingsLabel ?? string.Empty;
             RetryLabel = retryLabel ?? string.Empty;
             MainMenuLabel = mainMenuLabel ?? string.Empty;
@@ -78,29 +74,11 @@ namespace Game.Feature.UI.Popups
 
         public string ResumeLabel { get; }
 
-        public string ObjectiveLabel { get; }
-
         public string SettingsLabel { get; }
 
         public string RetryLabel { get; }
 
         public string MainMenuLabel { get; }
-    }
-
-    public sealed class ObjectiveInfoPopupPayload : IPopupPayload
-    {
-        public ObjectiveInfoPopupPayload(string titleText, string bodyText, string closeLabel = "Close")
-        {
-            TitleText = titleText ?? string.Empty;
-            BodyText = bodyText ?? string.Empty;
-            CloseLabel = closeLabel ?? string.Empty;
-        }
-
-        public string TitleText { get; }
-
-        public string BodyText { get; }
-
-        public string CloseLabel { get; }
     }
 
     public sealed class ConfirmPopupPayload : IPopupPayload
@@ -200,8 +178,6 @@ namespace Game.Feature.UI.Popups
 
         public string ResumeLabel { get; private set; } = string.Empty;
 
-        public string ObjectiveLabel { get; private set; } = string.Empty;
-
         public string SettingsLabel { get; private set; } = string.Empty;
 
         public string RetryLabel { get; private set; } = string.Empty;
@@ -212,7 +188,6 @@ namespace Game.Feature.UI.Popups
             string titleText,
             string descriptionText,
             string resumeLabel,
-            string objectiveLabel,
             string settingsLabel,
             string retryLabel,
             string mainMenuLabel)
@@ -220,29 +195,9 @@ namespace Game.Feature.UI.Popups
             TitleText = titleText ?? string.Empty;
             DescriptionText = descriptionText ?? string.Empty;
             ResumeLabel = resumeLabel ?? string.Empty;
-            ObjectiveLabel = objectiveLabel ?? string.Empty;
             SettingsLabel = settingsLabel ?? string.Empty;
             RetryLabel = retryLabel ?? string.Empty;
             MainMenuLabel = mainMenuLabel ?? string.Empty;
-            Changed?.Invoke();
-        }
-    }
-
-    public sealed class ObjectiveInfoPopupViewModel
-    {
-        public event Action Changed;
-
-        public string TitleText { get; private set; } = string.Empty;
-
-        public string BodyText { get; private set; } = string.Empty;
-
-        public string CloseLabel { get; private set; } = string.Empty;
-
-        public void SetContent(string titleText, string bodyText, string closeLabel)
-        {
-            TitleText = titleText ?? string.Empty;
-            BodyText = bodyText ?? string.Empty;
-            CloseLabel = closeLabel ?? string.Empty;
             Changed?.Invoke();
         }
     }

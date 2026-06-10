@@ -13,7 +13,6 @@ This file is the external current-structure source for the completed UI cleanup 
 - `ScreenId`:
   - `None`
   - `Gameplay`
-  - `ObjectiveStatus`
   - `Settings`
   - `StageResult`
   - `LevelFailed`
@@ -22,7 +21,6 @@ This file is the external current-structure source for the completed UI cleanup 
 - `PopupId`:
   - `None`
   - `Pause`
-  - `ObjectiveInfo`
   - `Confirm`
   - `Tooltip`
   - `Reward`

@@ -14,22 +14,6 @@ namespace Game.Feature.UI.Tests
     public sealed class UiScreenRuntimeAudioCueTests
     {
         [Test]
-        public void GameplayScreenRuntimeFactory_ObjectiveStatusOverviewOnly_HasNoTabLocalSelectCues()
-        {
-            using var harness = UiAudioHarness.Create();
-
-            Assert.That(harness.Coordinator.OpenObjectiveStatusScreen(), Is.True);
-            harness.UiAudioPort.Clear();
-
-            var view = harness.ScreenLayerView.FindScreenView<ObjectiveStatusScreenView>();
-            Assert.That(view, Is.Not.Null);
-
-            Assert.That(typeof(ObjectiveStatusScreenView).GetMethod("ClickOverview"), Is.Null);
-            Assert.That(typeof(ObjectiveStatusScreenView).GetMethod("ClickSession"), Is.Null);
-            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.Empty);
-        }
-
-        [Test]
         public void GameplayScreenRuntimeFactory_SettingsLocalInteractions_EmitOnlyMappedLocalCues()
         {
             using var harness = UiAudioHarness.Create();

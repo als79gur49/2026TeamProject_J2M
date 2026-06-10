@@ -49,7 +49,7 @@ namespace Game.Feature.UI.Tests
                 new[]
                 {
                     CreatePopupCompletionDelta(PopupId.Confirm, PopupCompletionKind.Confirmed, PopupCloseReason.UserAction),
-                    CreateScreenTransitionDelta(ScreenTransitionKind.Replace, ScreenId.Settings, ScreenId.ObjectiveStatus),
+                    CreateScreenTransitionDelta(ScreenTransitionKind.Replace, ScreenId.Settings, ScreenId.StageResult),
                 },
                 isAborted: false,
                 UiFlowAudioSilenceReason.None);
@@ -204,7 +204,6 @@ namespace Game.Feature.UI.Tests
             return screenId switch
             {
                 ScreenId.Gameplay => GameplayRootPayload.Default,
-                ScreenId.ObjectiveStatus => ObjectiveStatusScreenPayload.Default,
                 ScreenId.Settings => SettingsScreenPayload.Default,
                 ScreenId.StageResult => new StageResultScreenPayload(
                     "Title",
@@ -223,7 +222,6 @@ namespace Game.Feature.UI.Tests
             return popupId switch
             {
                 PopupId.Pause => PausePopupPayload.Default,
-                PopupId.ObjectiveInfo => new ObjectiveInfoPopupPayload("Info", "Body"),
                 PopupId.Confirm => new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false),
                 PopupId.Tooltip => new TooltipPopupPayload("Tip", "Body"),
                 PopupId.Reward => new RewardPopupPayload("Reward", new[] { new RewardPopupItemPayload("Crystal", 1) }, "Summary", "Claim"),

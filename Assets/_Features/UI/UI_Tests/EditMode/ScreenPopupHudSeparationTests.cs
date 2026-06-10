@@ -38,7 +38,6 @@ namespace Game.Feature.UI.Tests
             var screenFactorySource = File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/GameplayScreenRuntimeFactory.cs");
             var settingsBuilderSource = File.ReadAllText("Assets/_Features/UI/UI_Composition/Runtime/SettingsScreenRuntimeBuilder.cs");
 
-            Assert.That(screenFactorySource, Does.Contain("ScreenAction.Popup"));
             Assert.That(settingsBuilderSource, Does.Contain("ScreenAction.Popup"));
             Assert.That(screenFactorySource, Does.Not.Contain("_popupController"));
             Assert.That(settingsBuilderSource, Does.Not.Contain("_popupController"));

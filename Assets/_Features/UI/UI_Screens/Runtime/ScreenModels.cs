@@ -18,18 +18,6 @@ namespace Game.Feature.UI.Screens
         public static readonly GameplayRootPayload Default = new();
     }
 
-    public sealed class ObjectiveStatusScreenPayload : IScreenPayload
-    {
-        public static readonly ObjectiveStatusScreenPayload Default = new("Objective Status");
-
-        public ObjectiveStatusScreenPayload(string titleText)
-        {
-            TitleText = titleText ?? string.Empty;
-        }
-
-        public string TitleText { get; }
-    }
-
     public sealed class SettingsScreenPayload : IScreenPayload
     {
         public static readonly SettingsScreenPayload Default = new(

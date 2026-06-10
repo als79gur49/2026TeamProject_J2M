@@ -454,7 +454,6 @@ future extension note:
 | Interaction | Owner | Result |
 | --- | --- | --- |
 | `PausePopup.SettingsRequested` | Flow only | one `NavigateForward` |
-| `PausePopup.ObjectiveRequested` | Flow only | one `NavigateForward` |
 | `Settings.Back` from gameplay origin | Flow only | one `NavigateBack` |
 | `Settings.Back` from pause origin | Flow only | one `NavigateBack` even if pause popup reopens |
 | `Display Apply` | Flow only | one `NavigateForward` when confirm popup actually opens |

@@ -82,9 +82,6 @@ namespace Game.Feature.UI.Composition
                 case ScreenId.Gameplay:
                     return CreateGameplayRuntime();
 
-                case ScreenId.ObjectiveStatus:
-                    return CreateObjectiveStatusRuntime();
-
                 case ScreenId.Settings:
                     return CreateSettingsRuntime();
 
@@ -112,24 +109,6 @@ namespace Game.Feature.UI.Composition
                     HudShellMode.Visible,
                     blocksUiGameplayInput: false),
                 new GameplayRootRuntime());
-        }
-
-        private ScreenRuntimeFactoryResult CreateObjectiveStatusRuntime()
-        {
-            var objectiveStatusPresenter = new ObjectiveStatusPresenter(_presentationSource);
-            var presenter = new ObjectiveStatusScreenPresenter(objectiveStatusPresenter);
-            var view = InstantiateScreenPrefab(_screenPrefabCatalog.ObjectiveStatusPrefab, ScreenId.ObjectiveStatus);
-            view.Bind(presenter.ViewModel);
-            view.SetIsCurrent(false);
-
-            return new ScreenRuntimeFactoryResult(
-                new ScreenPolicy(
-                    ScreenPolicyClass.GameplayAdjacentOverlay,
-                    ScreenRetentionMode.RetainMountedHistory,
-                    ScreenBackAction.Pop,
-                    HudShellMode.Visible,
-                    blocksUiGameplayInput: true),
-                new ObjectiveStatusRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
         }
 
         private ScreenRuntimeFactoryResult CreateSettingsRuntime()
@@ -327,47 +306,6 @@ namespace Game.Feature.UI.Composition
 
             public void Dispose()
             {
-            }
-        }
-
-        private sealed class ObjectiveStatusRuntime : ScreenRuntimeBase<ObjectiveStatusScreenView>
-        {
-            private readonly ObjectiveStatusScreenPresenter _presenter;
-
-            public ObjectiveStatusRuntime(
-                ObjectiveStatusScreenView view,
-                ObjectiveStatusScreenPresenter presenter,
-                IUiAudioPort uiAudioPort,
-                Action dispose)
-                : base(view, uiAudioPort, dispose)
-            {
-                _presenter = presenter;
-                view.InfoRequested += HandleInfoRequested;
-                view.BackRequested += HandleBackRequested;
-            }
-
-            public override void ApplyPayload(IScreenPayload payload)
-            {
-                _presenter.ApplyPayload(ExpectPayload<ObjectiveStatusScreenPayload>(payload));
-            }
-
-            public override void Dispose()
-            {
-                View.InfoRequested -= HandleInfoRequested;
-                View.BackRequested -= HandleBackRequested;
-                View.Bind(null);
-                _presenter.Dispose();
-                base.Dispose();
-            }
-
-            private void HandleInfoRequested()
-            {
-                RaiseAction(ScreenAction.Popup(new PopupRequest(PopupId.ObjectiveInfo, _presenter.BuildInfoPopupPayload())));
-            }
-
-            private void HandleBackRequested()
-            {
-                RaiseAction(ScreenAction.Back());
             }
         }
 
