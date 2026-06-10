@@ -104,6 +104,15 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
 - phase 5 rollout은 retired `WindupMelee` repository profile cleanup 이전 bounded rollout의 `exact-contract` / `bounded-exposure` drift matrix, pilot preset scorecard, same-cell ordering, sampling matrix, fallback / rollback / success / failure, 그리고 `closed`의 의미를 보존한다.
 - phase 5 close execution은 same-revision targeted evidence bundle, close gate, approve / hold branch, close wording migration, no-touch list, phase 6 비자동 경계를 historical provenance로 보존한다.
 
+## Stage clear save/profile boundary
+
+- Stage clear profile은 save/profile boundary의 current vocabulary다.
+- 저장 모델은 `StageClearProfileSnapshot`, `PlayerStageClearRecord`, `IStageClearProfileStore`, `SaveSlotStageClearProfileStore`를 사용한다.
+- 저장 DTO schema는 `StageClearProfileSnapshot`, `ClearRecordsByStageId`, `HasAttempted`, `ProcessedClearAttemptIds` vocabulary만 쓴다.
+- 현재 테스트 단계에서는 old save compatibility와 migration adapter를 제공하지 않는다. stale PlayerPrefs payload는 테스트 setup/teardown에서 default save slot key와 active slot key를 clear해 격리한다.
+- Progression unlock graph와 player clear record는 다른 개념이다. Stage objective clear와 `MinimalStageCompletionReadModel` 기반 StageResult continue/retry flow는 runtime/UI canonical path로 유지한다.
+- Retired reward/evaluation/progression residue fields must not re-enter save/profile production DTOs.
+
 ## Historical Supporting Notes
 
 아래 문서들은 phase 5 close 당시의 과정과 red-state provenance를 보존하는 historical supporting note다. current active close gate가 아니며, current active truth는 `Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md`다.
