@@ -110,8 +110,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("Prior Phase 1 drift-correction rerun: green on 2026-06-06 KST"));
             Assert.That(baseline, Does.Contain("Current PR-A Objective UI removal baseline rerun: green on 2026-06-11 KST"));
             Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
-            Assert.That(baseline, Does.Contain("Current Unity UI EditMode: `689 total / 0 failed`"));
-            Assert.That(baseline, Does.Contain("Baseline test result: command `./run_tests.sh ui`, result `706 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`"));
+            var resultSection = ExtractMarkdownSection(baseline, "## Result");
+            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `689 total / 0 failed`"));
+            Assert.That(resultSection, Does.Contain("Baseline test result: command `./run_tests.sh ui`, result `689 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`"));
+            Assert.That(resultSection, Does.Not.Contain("706 total / 0 failed"), "Current baseline Result section must not retain stale 706 total evidence.");
             Assert.That(baseline, Does.Contain("PR-A Objective UI removal guards proving `ObjectiveStatus` screen, `ObjectiveInfo` popup, pause objective action semantics, deleted prefab files, and deleted prefab GUID references are absent from production UI vocabulary"));
             Assert.That(baseline, Does.Contain("external structure-source regeneration guard"));
             Assert.That(baseline, Does.Contain("root `UI-Current-Structure-Source.md` is the external current-structure source"));
@@ -355,6 +357,24 @@ namespace Game.Feature.UI.Tests
         private static string ReadRepoFile(string relativePath)
         {
             return File.ReadAllText(GetRepoPath(relativePath));
+        }
+
+        private static string ExtractMarkdownSection(string content, string heading)
+        {
+            var headingLine = heading + "\n";
+            var start = content.StartsWith(headingLine, System.StringComparison.Ordinal)
+                ? 0
+                : content.IndexOf("\n" + headingLine, System.StringComparison.Ordinal);
+            Assert.That(start, Is.GreaterThanOrEqualTo(0), $"Missing markdown section {heading}.");
+            if (start > 0)
+            {
+                start += 1;
+            }
+
+            var nextHeading = content.IndexOf("\n## ", start + heading.Length, System.StringComparison.Ordinal);
+            return nextHeading < 0
+                ? content.Substring(start)
+                : content.Substring(start, nextHeading - start);
         }
 
         private static void AssertDemoStageControlStalePolicyPhrasesAreAbsent(string content)

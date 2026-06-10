@@ -15,7 +15,7 @@
 - Current PR-A Objective UI removal baseline rerun: green on 2026-06-11 KST
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
 - Current Unity UI EditMode: `689 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `706 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Baseline test result: command `./run_tests.sh ui`, result `689 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
