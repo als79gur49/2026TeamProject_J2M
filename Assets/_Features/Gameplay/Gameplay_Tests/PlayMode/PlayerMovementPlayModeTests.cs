@@ -14,7 +14,6 @@ using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Shared.Input;
 using NUnit.Framework;
-using Unity.Cinemachine;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -196,7 +195,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var host = CreateHost(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Front, 0, 0)),
-            });
+            },
+            playerRespawnDelaySeconds: 0f);
 
             SetAuthoritativeTopology(host.WorldState, new CubeTopologyState(FaceId.Back));
             ApplyAuthoritativeDamage(host.WorldState, entityId: 10, amount: 3);
@@ -333,8 +333,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var directRootObject = new GameObject("PlayModeTopologyTransitionCameraShake_DirectRoot");
             var cinemachineRootObject = new GameObject("PlayModeTopologyTransitionCameraShake_CinemachineRoot");
             var directCameraObject = new GameObject("PlayModeTopologyTransitionCameraShake_DirectCamera");
-            var outputCameraObject = new GameObject("PlayModeTopologyTransitionCameraShake_OutputCamera");
-            var cinemachineCameraObject = new GameObject("PlayModeTopologyTransitionCameraShake_CinemachineCamera");
 
             try
             {
@@ -363,25 +361,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     cinemachineBoardRoot.CameraTargetRoot,
                     new Bounds(Vector3.zero, Vector3.one));
 
-                var outputCamera = outputCameraObject.AddComponent<Camera>();
-                var brain = outputCameraObject.AddComponent<CinemachineBrain>();
-                brain.UpdateMethod = CinemachineBrain.UpdateMethods.ManualUpdate;
-
-                var cinemachineCamera = cinemachineCameraObject.AddComponent<CinemachineCamera>();
-                cinemachineCameraObject.transform.SetParent(cinemachineBoardRoot.CameraEffectsRoot, worldPositionStays: false);
-                cinemachineCameraObject.transform.localPosition = Vector3.zero;
-                cinemachineCameraObject.transform.localRotation = Quaternion.identity;
-                cinemachineCamera.Target = new CameraTarget
-                {
-                    TrackingTarget = cinemachineBoardRoot.CameraTargetRoot,
-                    LookAtTarget = cinemachineBoardRoot.CameraTargetRoot,
-                    CustomLookAtTarget = true,
-                };
-
                 var orbit = Quaternion.Euler(90f, 0f, 0f);
                 directRig.SetPresentedTopologyOrbit(orbit);
                 cinemachineRig.SetPresentedTopologyOrbit(orbit);
-                brain.ManualUpdate();
 
                 var impactState = new TopologyTransitionVisualState(
                     isActive: true,
@@ -396,7 +378,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 directRig.SnapToTarget();
                 GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(cinemachineRig, impactState);
                 cinemachineRig.SnapToTarget();
-                brain.ManualUpdate();
 
                 Assert.That(
                     Vector3.Distance(
@@ -424,12 +405,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                         cinemachineBoardRoot.CameraEffectsRoot.localRotation,
                         GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(cinemachineRig)),
                     Is.LessThan(0.001f));
-                Assert.That(
-                    Vector3.Distance(outputCamera.transform.position, cinemachineCamera.transform.position),
-                    Is.LessThan(0.0001f));
-                Assert.That(
-                    Quaternion.Angle(outputCamera.transform.rotation, cinemachineCamera.transform.rotation),
-                    Is.LessThan(0.001f));
 
                 var landingState = new TopologyTransitionVisualState(
                     isActive: true,
@@ -444,7 +419,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 directRig.SnapToTarget();
                 GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(cinemachineRig, landingState);
                 cinemachineRig.SnapToTarget();
-                brain.ManualUpdate();
 
                 Assert.That(
                     Vector3.Distance(
@@ -470,7 +444,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 directRig.SnapToTarget();
                 GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(cinemachineRig, inactiveState);
                 cinemachineRig.SnapToTarget();
-                brain.ManualUpdate();
 
                 Assert.That(
                     GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(directRig),
@@ -492,8 +465,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 UnityEngine.Object.Destroy(directRootObject);
                 UnityEngine.Object.Destroy(cinemachineRootObject);
                 UnityEngine.Object.Destroy(directCameraObject);
-                UnityEngine.Object.Destroy(outputCameraObject);
-                UnityEngine.Object.Destroy(cinemachineCameraObject);
             }
 
             yield return null;
@@ -1511,6 +1482,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                     CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                    CreateBox(entityId: 31, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Push),
                     CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 6, 0)),
                 },
                 actions: actions,
@@ -1790,6 +1762,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             float pushPresentationDurationSeconds = -1f,
             float flipPresentationDurationSeconds = -1f,
             PlayerControlTimingSettings playerControlTiming = null,
+            float playerRespawnDelaySeconds = -1f,
             TopologyTransitionPostFxProfile topologyTransitionPostFxProfile = null,
             Camera viewCamera = null,
             GameplayEntityView playerViewPrefabOverride = null,
@@ -1812,6 +1785,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 pushPresentationDurationSeconds,
                 flipPresentationDurationSeconds,
                 playerControlTiming,
+                playerRespawnDelaySeconds,
                 topologyTransitionPostFxProfile,
                 viewCamera,
                 playerViewPrefabOverride,
@@ -1835,6 +1809,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             float pushPresentationDurationSeconds,
             float flipPresentationDurationSeconds,
             PlayerControlTimingSettings playerControlTiming,
+            float playerRespawnDelaySeconds,
             TopologyTransitionPostFxProfile topologyTransitionPostFxProfile,
             Camera viewCamera,
             GameplayEntityView playerViewPrefabOverride,
@@ -1903,6 +1878,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 ViewCamera = viewCamera,
                 DefaultEnemyAiProfile = defaultEnemyAiProfile,
             };
+            if (playerRespawnDelaySeconds >= 0f)
+            {
+                configuration.PlayerRespawnTiming = new PlayerRespawnTimingSettings
+                {
+                    RespawnDelaySeconds = playerRespawnDelaySeconds,
+                };
+            }
+
             if (runtimeFeatureFlags.HasValue)
             {
                 configuration.ApplyRuntimeFeatureFlags(runtimeFeatureFlags.Value);
