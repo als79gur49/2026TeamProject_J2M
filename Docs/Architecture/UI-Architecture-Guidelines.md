@@ -385,8 +385,8 @@ HUD classification notes:
 
 Deletion protection notes:
 
-- Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path as part of drift correction.
-- Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`; it must not reopen the Reward popup path.
+- Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path as part of drift correction.
+- Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`.
 - UI diagnostics overlay was removed as an unused runtime feature after an explicit owner decision. It is not a hidden or dev-only retained runtime path.
 - Future UI deletion safety requires a separate PR with current lane evidence and an explicit owner decision.
 

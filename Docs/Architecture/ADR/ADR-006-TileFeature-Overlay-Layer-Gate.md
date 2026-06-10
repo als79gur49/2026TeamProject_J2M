@@ -203,7 +203,7 @@ Barricade active-transition crush is separate from movement blocking.
 - Player is the only Exit clear trigger.
 - Enemy, projectile, MoonBlock, and Box do not trigger clear.
 - Box on Exit center blocks player clear through existing solid occupancy.
-- Exit clear uses the existing StageSession/evaluation/reward/progression lane.
+- Exit clear uses the existing StageSession and minimal completion lane.
 - Exit does not directly create `StageClearResult`.
 
 Exit presentation is presentation-only.

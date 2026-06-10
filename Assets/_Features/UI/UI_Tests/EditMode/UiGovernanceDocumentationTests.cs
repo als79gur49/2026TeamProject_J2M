@@ -80,7 +80,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("`StageResult`, `LevelFailed`, and `GameClear` are canonical terminal result screens."));
             Assert.That(guidelines, Does.Contain("`Help` and `Inventory` are not current gameplay screens."));
             Assert.That(guidelines, Does.Contain("`DemoStageControl` is not a gameplay popup catalog entry."));
-            Assert.That(guidelines, Does.Contain("`Reward` remains protected legacy/residue UI and is not the canonical stage-clear result path."));
             Assert.That(guidelines, Does.Contain("catalog-less runtime assist popup created through the factory/runtime/hotkey path"));
             Assert.That(guidelines, Does.Contain("build-included tester/demo/showcase assist feature"));
             Assert.That(guidelines, Does.Contain("tester assist clear, hard-section bypass, showcase navigation, and stage browsing"));
@@ -90,8 +89,8 @@ namespace Game.Feature.UI.Tests
             AssertDemoStageControlStalePolicyPhrasesAreAbsent(guidelines);
             Assert.That(guidelines, Does.Contain("canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
             Assert.That(guidelines, Does.Contain("removed as retired HUD proof residue"));
-            Assert.That(guidelines, Does.Contain("Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path"));
-            Assert.That(guidelines, Does.Contain("Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`; it must not reopen the Reward popup path."));
+            Assert.That(guidelines, Does.Contain("Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path"));
+            Assert.That(guidelines, Does.Contain("Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`."));
             Assert.That(guidelines, Does.Contain("UI diagnostics overlay was removed as an unused runtime feature after an explicit owner decision."));
             Assert.That(guidelines, Does.Contain("Canonical runtime UI must not include a diagnostics overlay, `DiagnosticsLayer`, or F3/F4 diagnostics input path."));
             Assert.That(guidelines, Does.Not.Contain("Diagnostics overlay is also not a deletion-safe item in this phase."));

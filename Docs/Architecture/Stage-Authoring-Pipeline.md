@@ -15,9 +15,9 @@ Catalog grouping and ordering metadata lives directly on `StageContentEntry`
 as world id, chapter id, sort order, and initial availability. It is not a
 progression or unlock-rule graph.
 
-`StageContentEntry` no longer owns ClearEvaluation, Reward, or Progression
-companion assets. Those legacy runtime definition types can still exist until
-their separate PR-3 deletion, but they are not canonical stage content.
+`StageContentEntry` owns authoring, gameplay, presentation, audio, and catalog
+metadata companions. Stage completion no longer carries scoring, award, or
+unlock-rule companion assets as canonical stage content.
 
 This pipeline does not create one Unity scene per stage. Production scene
 GameObjects are not authoritative stage layout data, and stage content must not
