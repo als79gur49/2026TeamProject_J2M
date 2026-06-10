@@ -1389,7 +1389,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .Select(path => "Assets" + path.Replace("\\", "/").Substring(Application.dataPath.Length))
                 .OrderBy(path => path)
                 .ToArray();
-            Assert.That(materialPaths, Has.Length.EqualTo(18));
+            Assert.That(materialPaths, Has.Length.EqualTo(19));
             foreach (var materialPath in materialPaths)
             {
                 var material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);

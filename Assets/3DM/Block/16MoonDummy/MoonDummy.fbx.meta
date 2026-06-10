@@ -28,12 +28,12 @@ ModelImporter:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: Material #2477
-    second: {fileID: 2100000, guid: 609c020e66ed75a4f9ac4fe8160379ed, type: 2}
+    second: {fileID: 2100000, guid: 2ac316deaa7b4f4f9b5b2b34da2477aa, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
       name: Material #332
-    second: {fileID: 2100000, guid: 774b4d0e50728e64a9a8dd78dbc61e81, type: 2}
+    second: {fileID: 2100000, guid: 6417fa3ed85a1b943a6c875cbe540286, type: 2}
   - first:
       type: UnityEngine:Material
       assembly: UnityEngine.CoreModule
