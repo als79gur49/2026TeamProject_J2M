@@ -28,6 +28,8 @@ DOTNET_INTEGRATION_FUZZ_LOG="$RESULT_DIR/wsl-dotnet-integration-fuzz.log"
 
 UNITY_CORE_EDITMODE_LOG="$RESULT_DIR/wsl-unity-core-editmode.log"
 UNITY_CORE_EDITMODE_XML="$RESULT_DIR/wsl-unity-core-editmode.xml"
+UNITY_CORE_FEATURE_GATE_EDITMODE_LOG="$RESULT_DIR/wsl-unity-core-feature-gate-editmode.log"
+UNITY_CORE_FEATURE_GATE_EDITMODE_XML="$RESULT_DIR/wsl-unity-core-feature-gate-editmode.xml"
 UNITY_CORE_PLAYMODE_LOG="$RESULT_DIR/wsl-unity-core-playmode.log"
 UNITY_CORE_PLAYMODE_XML="$RESULT_DIR/wsl-unity-core-playmode.xml"
 
@@ -177,13 +179,37 @@ print_config() {
 }
 
 print_usage() {
-    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|ui|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
+    echo "Usage: ./run_tests.sh [--print-config|--dry-run <lane>|core|core-feature-gate|ui|full|--integration-simulation|--integration-replay|--integration-fuzz] [--filter <test-filter>|--test-filter <test-filter>]"
 }
 
 print_shell_command() {
     printf '  '
     printf '%q ' "$@"
     printf '\n'
+}
+
+format_plan_value() {
+    local value="$1"
+    if [ -z "$value" ]; then
+        printf '<none>'
+    else
+        printf '%s' "$value"
+    fi
+}
+
+print_unity_selection_plan() {
+    local stage_label="$1"
+    local platform="$2"
+    local selection="$3"
+    local assemblies="$4"
+    local categories="$5"
+
+    echo "Unity selection plan [$stage_label]:"
+    echo "  mode:       $platform"
+    echo "  selection:  $selection"
+    echo "  assemblies: $(format_plan_value "$assemblies")"
+    echo "  categories: $(format_plan_value "$categories")"
+    echo "  filter:     $(format_plan_value "$TEST_FILTER")"
 }
 
 validate_xml() {
@@ -423,6 +449,8 @@ run_unity_stage() {
     local log_path="$5"
     local xml_path="$6"
     local execute_method="$7"
+    local selected_assemblies="${8:-}"
+    local selected_categories="${9:-}"
     local log_path_win
     local xml_path_win
     local exit_code
@@ -453,6 +481,7 @@ run_unity_stage() {
     fi
 
     if [ "$DRY_RUN" -eq 1 ]; then
+        print_unity_selection_plan "$stage_label" "$platform" "$selection" "$selected_assemblies" "$selected_categories"
         echo "Would run Unity $stage_label:"
         print_shell_command "${unity_command[@]}"
         return 0
@@ -530,29 +559,33 @@ run_dotnet_integration() {
 }
 
 run_unity_core() {
-    run_unity_stage "core" "core-editmode" "core (EditMode)" "EditMode" "$UNITY_CORE_EDITMODE_LOG" "$UNITY_CORE_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode"
-    run_unity_stage "core" "core-playmode" "core (PlayMode)" "PlayMode" "$UNITY_CORE_PLAYMODE_LOG" "$UNITY_CORE_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode"
+    run_unity_stage "core" "core-editmode" "core (EditMode)" "EditMode" "$UNITY_CORE_EDITMODE_LOG" "$UNITY_CORE_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "Game.Core.Tests" ""
+    run_unity_stage "core" "core-playmode" "core (PlayMode)" "PlayMode" "$UNITY_CORE_PLAYMODE_LOG" "$UNITY_CORE_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode" "Game.Feature.Gameplay.PlayModeTests" "Core"
+}
+
+run_unity_core_feature_gate() {
+    run_unity_stage "core-feature-gate" "core-feature-gate-editmode" "core-feature-gate (EditMode)" "EditMode" "$UNITY_CORE_FEATURE_GATE_EDITMODE_LOG" "$UNITY_CORE_FEATURE_GATE_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "Game.Feature.Gameplay.Tests" "Core"
 }
 
 run_unity_ui() {
-    run_unity_stage "ui" "ui-editmode" "ui (EditMode)" "EditMode" "$UNITY_UI_EDITMODE_LOG" "$UNITY_UI_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode"
+    run_unity_stage "ui" "ui-editmode" "ui (EditMode)" "EditMode" "$UNITY_UI_EDITMODE_LOG" "$UNITY_UI_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "Game.Feature.UI.Tests" ""
 }
 
 run_unity_full() {
-    run_unity_stage "full" "full-editmode" "full (EditMode)" "EditMode" "$UNITY_FULL_EDITMODE_LOG" "$UNITY_FULL_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode"
-    run_unity_stage "full" "full-playmode" "full (PlayMode)" "PlayMode" "$UNITY_FULL_PLAYMODE_LOG" "$UNITY_FULL_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode"
+    run_unity_stage "full" "full-editmode" "full (EditMode)" "EditMode" "$UNITY_FULL_EDITMODE_LOG" "$UNITY_FULL_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "" ""
+    run_unity_stage "full" "full-playmode" "full (PlayMode)" "PlayMode" "$UNITY_FULL_PLAYMODE_LOG" "$UNITY_FULL_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode" "" ""
 }
 
 run_unity_integration_simulation() {
-    run_unity_stage "integration-simulation" "integration-simulation-editmode" "integration-simulation (EditMode)" "EditMode" "$UNITY_INTEGRATION_SIMULATION_EDITMODE_LOG" "$UNITY_INTEGRATION_SIMULATION_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode"
+    run_unity_stage "integration-simulation" "integration-simulation-editmode" "integration-simulation (EditMode)" "EditMode" "$UNITY_INTEGRATION_SIMULATION_EDITMODE_LOG" "$UNITY_INTEGRATION_SIMULATION_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "Game.Integration.Simulation.Tests" ""
 }
 
 run_unity_integration_replay() {
-    run_unity_stage "integration-replay" "integration-replay-editmode" "integration-replay (EditMode)" "EditMode" "$UNITY_INTEGRATION_REPLAY_EDITMODE_LOG" "$UNITY_INTEGRATION_REPLAY_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode"
+    run_unity_stage "integration-replay" "integration-replay-editmode" "integration-replay (EditMode)" "EditMode" "$UNITY_INTEGRATION_REPLAY_EDITMODE_LOG" "$UNITY_INTEGRATION_REPLAY_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "Game.Integration.Replay.Tests" ""
 }
 
 run_unity_integration_fuzz() {
-    run_unity_stage "integration-fuzz" "integration-fuzz-editmode" "integration-fuzz (EditMode)" "EditMode" "$UNITY_INTEGRATION_FUZZ_EDITMODE_LOG" "$UNITY_INTEGRATION_FUZZ_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode"
+    run_unity_stage "integration-fuzz" "integration-fuzz-editmode" "integration-fuzz (EditMode)" "EditMode" "$UNITY_INTEGRATION_FUZZ_EDITMODE_LOG" "$UNITY_INTEGRATION_FUZZ_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode" "Game.Integration.Fuzz.Tests" ""
 }
 
 parse_arguments() {
@@ -589,6 +622,21 @@ parse_arguments() {
                 fi
                 TEST_FILTER="$1"
                 shift
+                ;;
+            --list-tests)
+                echo "ERROR: --list-tests is not supported by this wrapper. Use --dry-run <lane> to inspect the Unity selection plan."
+                print_usage
+                exit 1
+                ;;
+            --verbose)
+                echo "ERROR: --verbose is not supported. Dry-run and failing Unity stages already print the selected assemblies, categories, and filter."
+                print_usage
+                exit 1
+                ;;
+            --repeat)
+                echo "ERROR: --repeat is not supported by this wrapper. Re-run the same explicit lane command when repeat evidence is needed."
+                print_usage
+                exit 1
                 ;;
             *)
                 echo "ERROR: Unsupported argument: $1"
@@ -647,6 +695,10 @@ main() {
         core)
             run_dotnet_core
             run_unity_core
+            ;;
+        core-feature-gate)
+            run_dotnet_core
+            run_unity_core_feature_gate
             ;;
         ui)
             run_dotnet_ui
