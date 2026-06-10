@@ -441,7 +441,7 @@ namespace Game.Feature.UI.Tests
                 popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.SettingsRequested);
                 Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("RestorePausePopupAfterBack"));
 
-                presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(tickIndex: 9, includeReward: false));
+                presentationSource.PublishMinimalStageCompletion(CreateMinimalStageCompletionReadModel(tickIndex: 9));
                 presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
                 Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
                 Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("None"));
@@ -731,13 +731,13 @@ namespace Game.Feature.UI.Tests
                 out _);
 
             coordinator.Initialize();
-            presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(tickIndex: 9, includeReward: true));
+            presentationSource.PublishMinimalStageCompletion(CreateMinimalStageCompletionReadModel(tickIndex: 9));
             uiAudioPort.Clear();
 
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
-            Assert.That(popupController.Contains(PopupId.Reward), Is.True);
+            Assert.That(popupController.Contains(PopupId.Reward), Is.False);
             Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.StageClear }));
             Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.SystemPresentation));
             Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.StageClear));
@@ -750,7 +750,7 @@ namespace Game.Feature.UI.Tests
                     delta.CurrentScreenId == ScreenId.StageResult));
             Assert.That(
                 coordinator.LastFlowAudioTrace.Deltas,
-                Has.Some.Matches<UiFlowAudioDelta>(delta =>
+                Has.None.Matches<UiFlowAudioDelta>(delta =>
                     delta.Kind == UiFlowAudioDeltaKind.PopupOpened &&
                     delta.PopupId == PopupId.Reward));
         }
@@ -775,7 +775,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
             Assert.That(screenController.BackStackCount, Is.EqualTo(1));
 
-            presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(tickIndex: 9, includeReward: true));
+            presentationSource.PublishMinimalStageCompletion(CreateMinimalStageCompletionReadModel(tickIndex: 9));
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
@@ -794,12 +794,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(screenController.CurrentEntry.HasValue, Is.True);
             Assert.That(screenController.CurrentEntry.Value.ScreenId, Is.EqualTo(ScreenId.StageResult));
             Assert.That(screenController.CurrentEntry.Value.Payload, Is.TypeOf<StageResultScreenPayload>());
-            Assert.That(popupController.TopPopup.HasValue, Is.True);
-            Assert.That(popupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Reward));
-            var rewardPayload = popupController.TopPopup.Value.Payload as RewardPopupPayload;
-            Assert.That(rewardPayload, Is.Not.Null);
-            Assert.That(rewardPayload.Items.Count, Is.EqualTo(1));
-            Assert.That(rewardPayload.SummaryText, Does.Contain("First-clear"));
+            Assert.That(popupController.TopPopup.HasValue, Is.False);
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
 
@@ -808,7 +803,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(stageLaunchRouter.Requests[0].StageId, Is.EqualTo(StageId.CreateOrThrow("payload-stage")));
             Assert.That(stageLaunchRouter.Requests[0].NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
 
-            presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(tickIndex: 9, includeReward: true));
+            presentationSource.PublishMinimalStageCompletion(CreateMinimalStageCompletionReadModel(tickIndex: 9));
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.StageResult), Has.Count.EqualTo(1));
         }
@@ -835,9 +830,8 @@ namespace Game.Feature.UI.Tests
             coordinator.Initialize();
             uiAudioPort.Clear();
 
-            presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(
+            presentationSource.PublishMinimalStageCompletion(CreateMinimalStageCompletionReadModel(
                 tickIndex: 9,
-                includeReward: true,
                 stageIdValue: "stage-4-2"));
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
 
@@ -1263,6 +1257,45 @@ namespace Game.Feature.UI.Tests
                 evaluationResult,
                 rewardResult,
                 PlayerStageProgress.CreateEmpty(stageId));
+        }
+
+        private static MinimalStageCompletionReadModel CreateMinimalStageCompletionReadModel(
+            int tickIndex,
+            string stageIdValue = "payload-stage")
+        {
+            var stageId = StageId.CreateOrThrow(stageIdValue);
+            var nextStageRequest = StageNavigationRequest.None;
+            var continueRequest = new StageNavigationRequest(
+                stageId,
+                StageNavigationKind.Continue,
+                "stage-result-continue",
+                StageTransitionHint.ForKind(StageTransitionKind.StageClearNext));
+            var retryRequest = new StageNavigationRequest(
+                stageId,
+                StageNavigationKind.Retry,
+                "stage-result-retry",
+                StageTransitionHint.ForKind(StageTransitionKind.StageRetryManual));
+            var result = new MinimalStageCompletionResult(
+                stageId,
+                new StageRunId("run-01"),
+                new StageCompletionAttemptId("attempt-01"),
+                StageTerminalReason.Cleared,
+                wasCleared: true,
+                tickIndex,
+                new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
+                StageClearSource.Objective);
+
+            return new MinimalStageCompletionReadModel(
+                stageId,
+                "Payload Stage",
+                result,
+                "Payload Title",
+                "Payload Stage",
+                $"Tick {tickIndex} completed.",
+                "Collect",
+                continueRequest,
+                retryRequest,
+                nextStageRequest);
         }
 
         private static string ReadPauseReturnModeName(UIFlowCoordinator coordinator)

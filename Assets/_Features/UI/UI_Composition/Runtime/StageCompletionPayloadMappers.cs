@@ -8,6 +8,11 @@ namespace Game.Feature.UI.Composition
 {
     public static class StageResultPayloadMapper
     {
+        public static StageResultScreenPayload Map(MinimalStageCompletionReadModel readModel)
+        {
+            return StageCompletionStageResultPayloadMapper.Map(readModel);
+        }
+
         public static StageResultScreenPayload Map(StageCompletionReadModel readModel)
         {
             return StageCompletionStageResultPayloadMapper.Map(readModel);

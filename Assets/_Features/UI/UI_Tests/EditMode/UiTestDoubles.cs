@@ -94,6 +94,8 @@ namespace Game.Feature.UI.Tests
         public GameplayPresentationState CurrentState { get; private set; } =
             new GameplayPresentationState(new GameplayUiTopology(GameplayUiFace.Floor), false, false, false);
 
+        public MinimalStageCompletionReadModel CurrentMinimalStageCompletion { get; private set; }
+
         public StageCompletionReadModel CurrentStageCompletion { get; private set; }
 
         public GameplayLevelFailedReadModel CurrentLevelFailed { get; private set; }
@@ -114,6 +116,11 @@ namespace Game.Feature.UI.Tests
         public void PublishStageCompletion(StageCompletionReadModel readModel)
         {
             CurrentStageCompletion = readModel;
+        }
+
+        public void PublishMinimalStageCompletion(MinimalStageCompletionReadModel readModel)
+        {
+            CurrentMinimalStageCompletion = readModel;
         }
 
         public void PublishLevelFailed(GameplayLevelFailedReadModel readModel)
@@ -557,6 +564,8 @@ namespace Game.Feature.UI.Tests
 
         public UITickEventBatch CurrentTickEvents { get; private set; } = UITickEventBatch.Empty;
 
+        public MinimalStageCompletionReadModel CurrentMinimalStageCompletion { get; private set; }
+
         public StageCompletionReadModel CurrentStageCompletion { get; private set; }
 
         public LevelFailedScreenPayload CurrentLevelFailed { get; private set; }
@@ -576,6 +585,11 @@ namespace Game.Feature.UI.Tests
         public void PublishStageCompletion(StageCompletionReadModel readModel)
         {
             CurrentStageCompletion = readModel;
+        }
+
+        public void PublishMinimalStageCompletion(MinimalStageCompletionReadModel readModel)
+        {
+            CurrentMinimalStageCompletion = readModel;
         }
 
         public void PublishLevelFailed(LevelFailedScreenPayload payload)

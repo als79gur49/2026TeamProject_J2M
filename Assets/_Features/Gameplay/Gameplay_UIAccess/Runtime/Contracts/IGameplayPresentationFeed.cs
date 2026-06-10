@@ -14,6 +14,8 @@ namespace Game.Feature.Gameplay.UIAccess.Contracts
 
         GameplayPresentationState CurrentState { get; }
 
+        MinimalStageCompletionReadModel CurrentMinimalStageCompletion { get; }
+
         StageCompletionReadModel CurrentStageCompletion { get; }
 
         GameplayLevelFailedReadModel CurrentLevelFailed { get; }

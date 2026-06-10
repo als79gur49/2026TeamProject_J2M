@@ -188,7 +188,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void DemoStageControl_ForceClear_UsesNormalCompletionPipeline_AndCommitsRewardAndProgress()
+        public void DemoStageControl_ForceClear_UsesMinimalCompletionPipeline()
         {
             var entry = CreateEntry("stage-0-1", rewardDefinition: CreateRewardDefinition());
             var store = new InMemoryStageCompletionProfileStore();
@@ -196,12 +196,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var readModel = runtime.ForceClearCurrentStage();
 
-            Assert.That(readModel.ClearResult.WasCleared, Is.True);
-            Assert.That(readModel.ClearResult.ClearSource, Is.EqualTo(StageClearSource.ForcedByDemoStageControl));
-            Assert.That(readModel.RewardGrantResult.AnyGranted, Is.True);
-            Assert.That(store.Snapshot.ProgressByStageId[entry.StageId].HasCleared, Is.True);
-            Assert.That(store.Snapshot.ProgressByStageId[entry.StageId].ClearCount, Is.EqualTo(1));
-            Assert.That(store.Snapshot.InventoryBalances["coin"], Is.EqualTo(2));
+            Assert.That(readModel.Result.WasCleared, Is.True);
+            Assert.That(readModel.Result.ClearSource, Is.EqualTo(StageClearSource.ForcedByDemoStageControl));
+            Assert.That(readModel.Result.AttemptId.IsValid, Is.True);
+            Assert.That(readModel.ContinueRequest.IsValid, Is.True);
+            Assert.That(readModel.RetryRequest.IsValid, Is.True);
+            Assert.That(store.Snapshot.ProgressByStageId, Is.Empty);
+            Assert.That(store.Snapshot.InventoryBalances, Is.Empty);
         }
 
         [Test]

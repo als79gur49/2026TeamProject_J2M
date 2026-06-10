@@ -223,19 +223,13 @@ namespace Game.Feature.UI.Tests
                 Assert.That(result, Is.Not.Null);
                 Assert.That(result.ObjectiveResult.ClearedThisTick, Is.True);
                 Assert.That(host.CurrentObjectiveResult.IsCleared, Is.True);
-                Assert.That(host.UiAccess.PresentationFeed.CurrentStageCompletion, Is.Not.Null);
-                Assert.That(host.UiAccess.PresentationFeed.CurrentStageCompletion.ClearResult.WasCleared, Is.True);
-                Assert.That(host.UiAccess.PresentationFeed.CurrentStageCompletion.RewardGrantResult.AnyGranted, Is.True);
-                Assert.That(host.UiAccess.PresentationFeed.CurrentStageCompletion.UpdatedProgress.HasCleared, Is.True);
-                Assert.That(host.UiAccess.PresentationFeed.CurrentStageCompletion.UpdatedProgress.ClearCount, Is.EqualTo(1));
+                Assert.That(host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion, Is.Not.Null);
+                Assert.That(host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion.Result.WasCleared, Is.True);
+                Assert.That(host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion.Result.StageRunId.IsValid, Is.True);
+                Assert.That(host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion.Result.ObjectiveSnapshot.IsCleared, Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
                 Assert.That(installer.StageResultScreenView, Is.Not.Null);
                 Assert.That(installer.StageResultScreenView.transform.parent, Is.EqualTo(installer.ScreenLayerView.ContentRoot));
-                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1));
-                Assert.That(installer.PopupController.TopPopup.HasValue, Is.True);
-                Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Reward));
-
-                installer.RewardPopupView.ClickAcknowledge();
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
 
                 var stageResultPayload = installer.ScreenController.CurrentEntry.Value.Payload as StageResultScreenPayload;
@@ -243,6 +237,9 @@ namespace Game.Feature.UI.Tests
                 Assert.That(stageResultPayload.ContinueStageRequest.IsValid, Is.True);
                 Assert.That(stageResultPayload.ContinueStageRequest.StageId, Is.EqualTo(contentEntry.StageId));
                 Assert.That(stageResultPayload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
+                Assert.That(stageResultPayload.RetryStageRequest.IsValid, Is.True);
+                Assert.That(stageResultPayload.RetryStageRequest.StageId, Is.EqualTo(contentEntry.StageId));
+                Assert.That(stageResultPayload.RetryStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
 
                 installer.StageResultScreenView.ClickContinue();
 
@@ -307,8 +304,8 @@ namespace Game.Feature.UI.Tests
             presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
             SetPrivateField(presentationDefinition, "displayName", "UI Flow Clear");
             SetPrivateField(presentationDefinition, "resultTitle", "Clear Confirmed");
-            SetPrivateField(presentationDefinition, "resultSummaryText", "Mapped from StageCompletionReadModel");
-            SetPrivateField(presentationDefinition, "resultDetailText", "Reward popup and stage result share the same completion pipeline.");
+            SetPrivateField(presentationDefinition, "resultSummaryText", "Mapped from minimal stage completion.");
+            SetPrivateField(presentationDefinition, "resultDetailText", "Stage result uses the minimal completion pipeline.");
             SetPrivateField(presentationDefinition, "resultContinueLabel", "Continue");
 
             clearEvaluationDefinition = ScriptableObject.CreateInstance<StageClearEvaluationDefinition>();

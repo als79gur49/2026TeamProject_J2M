@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public bool IsCompletionInProgress =>
             _presentationFeed.IsStageCompletionInProgress ||
-            _presentationFeed.CurrentStageCompletion != null;
+            _presentationFeed.CurrentMinimalStageCompletion != null;
 
         public DemoStageControlResult ForceClearCurrentStage()
         {

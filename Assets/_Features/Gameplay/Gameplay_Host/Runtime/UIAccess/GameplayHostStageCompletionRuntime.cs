@@ -6,9 +6,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 {
     internal sealed class GameplayHostStageCompletionRuntime
     {
-        private readonly StageCompletionCommitter _committer;
         private readonly StageContentEntry _entry;
-        private readonly IStageCompletionProfileStore _profileStore;
         private readonly StageSessionTracker _sessionTracker = new();
         private bool _completionInProgress;
 
@@ -17,16 +15,16 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             IStageCompletionProfileStore profileStore = null)
         {
             _entry = entry;
-            _profileStore = profileStore ?? new InMemoryStageCompletionProfileStore();
-            _committer = new StageCompletionCommitter(_profileStore);
             _sessionTracker.Start(ResolveStageId(entry));
         }
+
+        public MinimalStageCompletionReadModel CurrentMinimalStageCompletion { get; private set; }
 
         public StageCompletionReadModel CurrentStageCompletion { get; private set; }
 
         public bool IsCompletionInProgress => _completionInProgress;
 
-        public StageCompletionReadModel ProcessTick(TickResult result)
+        public MinimalStageCompletionReadModel ProcessTick(TickResult result)
         {
             if (result == null)
             {
@@ -36,15 +34,15 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             _sessionTracker.Advance(result);
             if (!_sessionTracker.TryCreateClearResult(out var clearResult))
             {
-                return CurrentStageCompletion;
+                return CurrentMinimalStageCompletion;
             }
 
             return CompleteStage(clearResult);
         }
 
-        public StageCompletionReadModel ForceClearCurrentStage()
+        public MinimalStageCompletionReadModel ForceClearCurrentStage()
         {
-            if (CurrentStageCompletion != null)
+            if (CurrentMinimalStageCompletion != null)
             {
                 throw new InvalidOperationException("Current stage already has a completion result.");
             }
@@ -57,7 +55,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             return CompleteStage(clearResult);
         }
 
-        private StageCompletionReadModel CompleteStage(StageClearResult clearResult)
+        private MinimalStageCompletionReadModel CompleteStage(StageClearResult clearResult)
         {
             if (!clearResult.StageId.IsValid)
             {
@@ -73,26 +71,8 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             _completionInProgress = true;
             try
             {
-                var clearEvaluationResult = StageClearEvaluator.Evaluate(_entry?.ClearEvaluationDefinition, clearResult);
-                var preUpdateProgress = LoadCurrentProgress(clearResult.StageId);
-                var rewardGrantResult = RewardEvaluator.Evaluate(_entry?.RewardDefinition, clearEvaluationResult, preUpdateProgress);
-                var transaction = StageCompletionTransactionBuilder.Build(
-                    clearResult,
-                    clearEvaluationResult,
-                    rewardGrantResult,
-                    preUpdateProgress);
-                var commitResult = _committer.Commit(transaction);
-
-                var updatedProgress = commitResult.CommittedNow || commitResult.AlreadyCommitted
-                    ? LoadCurrentProgress(clearResult.StageId)
-                    : transaction.ProgressPatch.ApplyTo(preUpdateProgress);
-                CurrentStageCompletion = StageCompletionReadModelBuilder.Build(
-                    _entry,
-                    clearResult,
-                    clearEvaluationResult,
-                    rewardGrantResult,
-                    updatedProgress);
-                return CurrentStageCompletion;
+                CurrentMinimalStageCompletion = MinimalStageCompletionReadModelBuilder.Build(_entry, clearResult);
+                return CurrentMinimalStageCompletion;
             }
             finally
             {
@@ -100,34 +80,11 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             }
         }
 
-        private PlayerStageProgress LoadCurrentProgress(StageId stageId)
-        {
-            var snapshot = _profileStore.Load() ?? new StageCompletionProfileSnapshot();
-            return snapshot.ProgressByStageId.TryGetValue(stageId, out var progress) && progress != null
-                ? progress.Clone()
-                : PlayerStageProgress.CreateEmpty(stageId);
-        }
-
         private static StageId ResolveStageId(StageContentEntry entry)
         {
             return entry != null && entry.StageId.IsValid
                 ? entry.StageId
                 : StageId.None;
-        }
-
-        private sealed class InMemoryStageCompletionProfileStore : IStageCompletionProfileStore
-        {
-            private StageCompletionProfileSnapshot _snapshot = new();
-
-            public StageCompletionProfileSnapshot Load()
-            {
-                return _snapshot.Clone();
-            }
-
-            public void Save(StageCompletionProfileSnapshot snapshot)
-            {
-                _snapshot = snapshot?.Clone() ?? new StageCompletionProfileSnapshot();
-            }
         }
     }
 }

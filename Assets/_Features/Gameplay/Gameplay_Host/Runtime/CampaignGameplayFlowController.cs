@@ -203,7 +203,7 @@ namespace Game.Feature.Gameplay.Host
                     StageTransitionHint.ForKind(StageTransitionKind.LevelFailedRestart))));
         }
 
-        private void HandleStageClearCommitted(TickResult result, StageCompletionReadModel readModel)
+        private void HandleStageClearCommitted(TickResult result, MinimalStageCompletionReadModel readModel)
         {
             if (_handledClear ||
                 _handledDeath ||
@@ -216,7 +216,7 @@ namespace Game.Feature.Gameplay.Host
             HandleStageClear(readModel);
         }
 
-        private void HandleStageClear(StageCompletionReadModel readModel)
+        private void HandleStageClear(MinimalStageCompletionReadModel readModel)
         {
             _handledClear = true;
             _host.InputHost.EnterTerminalHold();

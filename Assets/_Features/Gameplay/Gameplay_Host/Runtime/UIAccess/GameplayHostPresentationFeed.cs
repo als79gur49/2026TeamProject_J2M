@@ -46,9 +46,11 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public event Action<GameplayLevelFailedReadModel> LevelFailedCommitted;
 
-        internal event Action<TickResult, StageCompletionReadModel> StageClearCommitted;
+        internal event Action<TickResult, MinimalStageCompletionReadModel> StageClearCommitted;
 
         public GameplayPresentationState CurrentState { get; private set; }
+
+        public MinimalStageCompletionReadModel CurrentMinimalStageCompletion => _stageCompletionRuntime.CurrentMinimalStageCompletion;
 
         public StageCompletionReadModel CurrentStageCompletion => _stageCompletionRuntime.CurrentStageCompletion;
 
@@ -58,12 +60,12 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public bool HasPendingStageClearPresentation => _pendingStageClearPresentation.HasValue;
 
-        internal StageCompletionReadModel ForceClearCurrentStage()
+        internal MinimalStageCompletionReadModel ForceClearCurrentStage()
         {
             var readModel = _stageCompletionRuntime.ForceClearCurrentStage();
             StageClearCommitted?.Invoke(null, readModel);
             FramePublished?.Invoke(new GameplayPresentationFrame(
-                Math.Max(1, readModel.ClearResult.FinalTickIndex),
+                Math.Max(1, readModel.Result.FinalTickIndex),
                 CurrentState.CurrentTopology,
                 stageEvent: new GameplayStageEventPresentationSlice(GameplayStageEventKind.Cleared)));
             return readModel;

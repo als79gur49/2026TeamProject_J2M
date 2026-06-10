@@ -648,11 +648,11 @@ namespace Game.Feature.UI.Flow
 
         private void OpenStageCompletionFlow()
         {
-            var readModel = _presentationSource.CurrentStageCompletion;
+            var readModel = _presentationSource.CurrentMinimalStageCompletion;
             if (readModel == null)
             {
                 throw new InvalidOperationException(
-                    "Stage clear tick events require a completion read model before UI flow transition.");
+                    "Stage clear tick events require a minimal completion read model before UI flow transition.");
             }
 
             if (IsCanonicalCampaignFinalStage(readModel.StageId))
@@ -670,15 +670,6 @@ namespace Game.Feature.UI.Flow
                 StageCompletionStageResultPayloadMapper.Map(readModel),
                 ScreenId.StageResult.ToString()));
             RecordDelta(UiFlowAudioDelta.FromRootScreenSet(ScreenId.StageResult));
-
-            if (readModel.RewardGrantResult != null && readModel.RewardGrantResult.AnyGranted)
-            {
-                _popupController.Push(
-                    new PopupRequest(
-                        PopupId.Reward,
-                        StageCompletionRewardPopupPayloadMapper.Map(readModel)),
-                    out _);
-            }
         }
 
         private static bool IsCanonicalCampaignFinalStage(StageId stageId)

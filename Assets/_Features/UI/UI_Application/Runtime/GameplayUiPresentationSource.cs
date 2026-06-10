@@ -20,6 +20,8 @@ namespace Game.Feature.UI.Application
 
         UITickEventBatch CurrentTickEvents { get; }
 
+        MinimalStageCompletionReadModel CurrentMinimalStageCompletion { get; }
+
         StageCompletionReadModel CurrentStageCompletion { get; }
 
         LevelFailedScreenPayload CurrentLevelFailed { get; }
@@ -72,6 +74,8 @@ namespace Game.Feature.UI.Application
         public UIPresentationSnapshot CurrentSnapshot { get; private set; }
 
         public UITickEventBatch CurrentTickEvents { get; private set; }
+
+        public MinimalStageCompletionReadModel CurrentMinimalStageCompletion => _presentationFeed.CurrentMinimalStageCompletion;
 
         public StageCompletionReadModel CurrentStageCompletion => _presentationFeed.CurrentStageCompletion;
 

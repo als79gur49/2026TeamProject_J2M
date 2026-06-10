@@ -907,7 +907,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
                 handleStageClearCommitted.Invoke(
                     controller,
-                    new object[] { CreateEmptyTickResult(51), CreateStageCompletionReadModel("stage-2-2", tickIndex: 51) });
+                    new object[] { CreateEmptyTickResult(51), CreateMinimalStageCompletionReadModel("stage-2-2", tickIndex: 51) });
 
                 var pendingSlot = saveStore.LoadSlot(1);
                 Assert.That(pendingSlot.CurrentStageId.Value, Is.EqualTo("stage-2-2"));
@@ -961,7 +961,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 handleTickCompleted.Invoke(controller, new object[] { CreateDeathTickResult(50, eligibleTick: 53) });
                 handleStageClearCommitted.Invoke(
                     controller,
-                    new object[] { CreateEmptyTickResult(51), CreateStageCompletionReadModel("stage-2-2", tickIndex: 51) });
+                    new object[] { CreateEmptyTickResult(51), CreateMinimalStageCompletionReadModel("stage-2-2", tickIndex: 51) });
 
                 var pendingSlot = saveStore.LoadSlot(1);
                 Assert.That(pendingSlot.CurrentStageId.Value, Is.EqualTo("stage-2-1"));
@@ -1013,7 +1013,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 handleStageClearCommitted.Invoke(
                     controller,
-                    new object[] { deathAndClearTick, CreateStageCompletionReadModel("stage-2-2", tickIndex: 50) });
+                    new object[] { deathAndClearTick, CreateMinimalStageCompletionReadModel("stage-2-2", tickIndex: 50) });
                 handleTickCompleted.Invoke(controller, new object[] { deathAndClearTick });
 
                 var slot = saveStore.LoadSlot(1);
@@ -1670,46 +1670,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
         }
 
-        private static StageCompletionReadModel CreateStageCompletionReadModel(string stageIdValue, int tickIndex)
+        private static MinimalStageCompletionReadModel CreateMinimalStageCompletionReadModel(string stageIdValue, int tickIndex)
         {
             var stageId = StageId.CreateOrThrow(stageIdValue);
-            var runId = new StageRunId($"campaign-test-run-{tickIndex}");
-            var clearResult = new StageClearResult(
+            var result = new MinimalStageCompletionResult(
                 stageId,
-                runId,
+                new StageRunId($"campaign-test-run-{tickIndex}"),
+                new StageCompletionAttemptId($"campaign-test-attempt-{tickIndex}"),
                 StageTerminalReason.Cleared,
                 wasCleared: true,
-                tickIndex,
+                finalTickIndex: tickIndex,
                 new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
-                Array.Empty<StageSessionMetricValue>(),
-                Array.Empty<StageChallengeRuntimeState>());
-            var evaluationResult = new StageClearEvaluationResult(
-                stageId,
-                runId,
-                wasCleared: true,
-                score: 100,
-                starsEarned: 3,
-                rankId: "S",
-                challengeResults: Array.Empty<StageChallengeEvaluationResult>());
-            var rewardResult = new RewardGrantResult(
-                stageId,
-                runId,
-                Array.Empty<RewardGrantEntry>(),
-                Array.Empty<string>(),
-                Array.Empty<RewardGrantId>(),
-                wasFirstClear: false);
+                StageClearSource.Objective);
 
-            return new StageCompletionReadModel(
+            return new MinimalStageCompletionReadModel(
                 stageId,
                 "Campaign Test Stage",
+                result,
                 "Stage Clear",
                 string.Empty,
                 string.Empty,
                 "Continue",
-                clearResult,
-                evaluationResult,
-                rewardResult,
-                PlayerStageProgress.CreateEmpty(stageId));
+                new StageNavigationRequest(stageId, StageNavigationKind.Continue, "campaign-test-continue"),
+                new StageNavigationRequest(stageId, StageNavigationKind.Retry, "campaign-test-retry"),
+                StageNavigationRequest.None);
         }
 
         private static string CreatePrefsKey(string suffix)

@@ -458,7 +458,7 @@ future extension note:
 | objective tab changes | Local only | local `Select` only |
 | popup confirm/resume/reward acknowledge | Flow only | one `Confirm` |
 | popup cancel/back-cancel | Flow only | one `Cancel` |
-| `Stage clear -> StageResult + Reward popup` | Flow only | one `StageClear` |
+| `Stage clear -> StageResult` | Flow only | one `StageClear` |
 | `Final stage clear -> GameClear` | Flow only | one `GameClear` |
 | `Level failed -> LevelFailed` | Flow only | one `LevelFailed` |
 | `Death retry chance loss` | Transition overlay only | one `ChanceLoss` using retry-failed definition |
@@ -467,7 +467,7 @@ future extension note:
 - user/system policy:
   - user-driven navigation uses the classifier matrix above.
   - `SystemPresentation` emits only explicit result-screen whitelist cues and must not inherit navigation defaults accidentally.
-  - `Stage clear -> StageResult + Reward popup` is one system-driven transaction and emits `StageClear`, not navigation or reward-popup audio.
+  - `Stage clear -> StageResult` is one system-driven transaction and emits `StageClear`, not navigation or reward-popup audio.
   - `DeathRetryChanceLost` emits `ChanceLoss` from the transition overlay path because campaign retry can launch the next scene before HUD chance deltas are observed.
   - `GameClear/StageClear may share one clip through separate definitions`; Def-level pitch/volume differences are the allowed content variation seam.
   - `LevelFailed/RetryFailed may share one clip through separate definitions`; retry-failed/chance-loss content should stay lower-pitched than terminal level failure.

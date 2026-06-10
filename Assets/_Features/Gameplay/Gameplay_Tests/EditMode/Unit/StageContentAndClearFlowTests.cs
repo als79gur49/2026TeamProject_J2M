@@ -343,6 +343,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void StageClear_EmitsMinimalCompletionOnce()
+        {
+            var tracker = new StageSessionTracker();
+            var stageId = StageId.CreateOrThrow("minimal-completion-stage");
+            tracker.Start(stageId, startTickIndex: 0);
+            var tickResult = new TickResult(7, new[] { TickPhase.Plan, TickPhase.Resolve }, Array.Empty<string>());
+
+            tracker.Advance(tickResult, forcedTerminalReason: StageTerminalReason.Cleared);
+
+            Assert.That(tracker.TryCreateClearResult(out var clearResult), Is.True);
+            var readModel = MinimalStageCompletionReadModelBuilder.Build(entry: null, clearResult);
+            Assert.That(readModel.StageId, Is.EqualTo(stageId));
+            Assert.That(readModel.Result.WasCleared, Is.True);
+            Assert.That(readModel.Result.FinalTickIndex, Is.EqualTo(7));
+            Assert.That(readModel.Result.StageRunId.IsValid, Is.True);
+            Assert.That(readModel.Result.AttemptId.IsValid, Is.True);
+            Assert.That(readModel.ContinueRequest.IsValid, Is.True);
+            Assert.That(readModel.RetryRequest.IsValid, Is.True);
+            Assert.That(tracker.TryCreateClearResult(out _), Is.False);
+        }
+
+        [Test]
         public void StageSessionState_DoesNotExposeWorldAuthorityFields()
         {
             var propertyNames = typeof(StageSessionState)
