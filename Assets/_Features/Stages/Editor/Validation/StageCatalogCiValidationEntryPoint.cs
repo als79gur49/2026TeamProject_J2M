@@ -28,9 +28,6 @@ namespace Game.Feature.Stages.Editor
             {
                 RequirePresentationDefinition = true,
                 RequireAudioDefinition = true,
-                RequireClearEvaluationDefinition = true,
-                RequireRewardDefinition = true,
-                RequireProgressionDefinition = true,
                 Timing = StageValidationTiming.TestOrCi,
                 Phase = StageValidationPhase.Phase6_SunsetFinalization,
                 AssetMetadataProvider = StageEditorAssetMetadataProvider.Instance,

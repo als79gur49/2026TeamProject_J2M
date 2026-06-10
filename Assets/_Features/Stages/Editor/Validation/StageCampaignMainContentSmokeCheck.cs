@@ -132,16 +132,10 @@ namespace Game.Feature.Stages.Editor
             RequireCompanion(entry, entry.GameplayDefinition, nameof(entry.GameplayDefinition), errors);
             RequireCompanion(entry, entry.PresentationDefinition, nameof(entry.PresentationDefinition), errors);
             RequireCompanion(entry, entry.AudioDefinition, nameof(entry.AudioDefinition), errors);
-            RequireCompanion(entry, entry.ClearEvaluationDefinition, nameof(entry.ClearEvaluationDefinition), errors);
-            RequireCompanion(entry, entry.RewardDefinition, nameof(entry.RewardDefinition), errors);
-            RequireCompanion(entry, entry.ProgressionDefinition, nameof(entry.ProgressionDefinition), errors);
 
             var entryGuid = AssetDatabase.AssetPathToGUID(entryPath);
             ValidateOwner(entry, entry.GameplayDefinition, nameof(entry.GameplayDefinition), entryGuid, errors);
             ValidateOwner(entry, entry.PresentationDefinition, nameof(entry.PresentationDefinition), entryGuid, errors);
-            ValidateOwner(entry, entry.ClearEvaluationDefinition, nameof(entry.ClearEvaluationDefinition), entryGuid, errors);
-            ValidateOwner(entry, entry.RewardDefinition, nameof(entry.RewardDefinition), entryGuid, errors);
-            ValidateOwner(entry, entry.ProgressionDefinition, nameof(entry.ProgressionDefinition), entryGuid, errors);
         }
 
         private static void ValidateStageDefinitionReferences(StageContentEntry entry, List<string> errors)

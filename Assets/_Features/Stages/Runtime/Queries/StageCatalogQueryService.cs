@@ -12,7 +12,8 @@ namespace Game.Feature.Stages
             Sprite previewSprite,
             string worldId,
             string chapterId,
-            int sortOrder)
+            int sortOrder,
+            bool isInitiallyAvailable)
         {
             StageId = stageId;
             DisplayName = displayName ?? string.Empty;
@@ -20,6 +21,7 @@ namespace Game.Feature.Stages
             WorldId = worldId ?? string.Empty;
             ChapterId = chapterId ?? string.Empty;
             SortOrder = sortOrder;
+            IsInitiallyAvailable = isInitiallyAvailable;
         }
 
         public StageId StageId { get; }
@@ -33,6 +35,8 @@ namespace Game.Feature.Stages
         public string ChapterId { get; }
 
         public int SortOrder { get; }
+
+        public bool IsInitiallyAvailable { get; }
     }
 
     public sealed class StageCatalogQueryService
@@ -83,7 +87,6 @@ namespace Game.Feature.Stages
         private static StageLaunchCatalogItem BuildItem(StageContentEntry entry)
         {
             var presentation = entry != null ? entry.PresentationDefinition : null;
-            var progression = entry != null ? entry.ProgressionDefinition : null;
 
             return new StageLaunchCatalogItem(
                 entry != null ? entry.StageId : StageId.None,
@@ -91,9 +94,10 @@ namespace Game.Feature.Stages
                     ? presentation.DisplayName
                     : entry != null ? entry.StageId.Value : string.Empty,
                 presentation != null ? presentation.PreviewSprite : null,
-                progression != null ? progression.WorldId : string.Empty,
-                progression != null ? progression.ChapterId : string.Empty,
-                progression != null ? progression.SortOrder : 0);
+                entry != null ? entry.CatalogWorldId : string.Empty,
+                entry != null ? entry.CatalogChapterId : string.Empty,
+                entry != null ? entry.CatalogSortOrder : 0,
+                entry == null || entry.IsInitiallyAvailable);
         }
 
         private static int CompareItems(StageLaunchCatalogItem left, StageLaunchCatalogItem right)

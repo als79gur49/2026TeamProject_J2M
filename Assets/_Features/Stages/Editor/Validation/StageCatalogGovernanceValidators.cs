@@ -151,10 +151,8 @@ namespace Game.Feature.Stages.Editor
                 AddEntryGuid(result, entry, entry);
                 AddEntryGuid(result, entry.GameplayDefinition, entry);
                 AddEntryGuid(result, entry.PresentationDefinition, entry);
+                AddEntryGuid(result, entry.AudioDefinition, entry);
                 AddEntryGuid(result, entry.AuthoringDefinition, entry);
-                AddEntryGuid(result, entry.ClearEvaluationDefinition, entry);
-                AddEntryGuid(result, entry.RewardDefinition, entry);
-                AddEntryGuid(result, entry.ProgressionDefinition, entry);
             }
 
             return result;

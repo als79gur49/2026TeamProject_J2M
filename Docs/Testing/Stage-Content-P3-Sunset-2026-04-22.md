@@ -36,7 +36,8 @@ StageCatalogCiValidationEntryPoint.Run
 
 ## Preserved Strengths
 
-- production runtime path는 계속 `StageId -> StageCatalogResolver -> StageContentEntry -> GameplayDefinition/PresentationDefinition` 단일 경로다.
+- production runtime path는 계속 `StageId -> StageCatalogResolver -> StageContentEntry -> GameplayDefinition/PresentationDefinition/AudioDefinition` 단일 경로다.
+- catalog grouping/sort/default availability metadata는 `StageContentEntry`가 직접 소유하며 Progression companion이나 unlock-rule graph가 아니다.
 - `StageRuntimeBuilder` / `StageRuntimeBuildResult`는 계속 gameplay-only 경계를 유지한다.
 - presentation binding normalization owner는 `StagePresentationAssembler` /
   `StagePresentationBindingNormalizer`다. Enemy/static binding은 `EntityId`

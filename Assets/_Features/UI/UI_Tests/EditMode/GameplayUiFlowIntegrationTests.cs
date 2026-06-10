@@ -191,18 +191,11 @@ namespace Game.Feature.UI.Tests
             var hostObject = new GameObject("GameplayUiFlowInstaller_RunSingleTick_TransitionsStageClearIntoCanonicalStageResultScreen");
             StageContentEntry contentEntry = null;
             StagePresentationDefinition presentationDefinition = null;
-            StageClearEvaluationDefinition clearEvaluationDefinition = null;
-            StageRewardDefinition rewardDefinition = null;
-            StageProgressionDefinition progressionDefinition = null;
 
             try
             {
                 StageLaunchContextStore.Clear();
-                contentEntry = CreateStageContentEntry(
-                    out presentationDefinition,
-                    out clearEvaluationDefinition,
-                    out rewardDefinition,
-                    out progressionDefinition);
+                contentEntry = CreateStageContentEntry(out presentationDefinition);
                 var host = hostObject.AddComponent<GameplaySceneHost>();
                 host.Initialize(CreateConfiguration(
                     new[]
@@ -253,9 +246,6 @@ namespace Game.Feature.UI.Tests
                 DestroySupportObjects(hostObject);
                 DestroyImmediateIfExists(contentEntry);
                 DestroyImmediateIfExists(presentationDefinition);
-                DestroyImmediateIfExists(clearEvaluationDefinition);
-                DestroyImmediateIfExists(rewardDefinition);
-                DestroyImmediateIfExists(progressionDefinition);
             }
         }
 
@@ -292,10 +282,7 @@ namespace Game.Feature.UI.Tests
         }
 
         private static StageContentEntry CreateStageContentEntry(
-            out StagePresentationDefinition presentationDefinition,
-            out StageClearEvaluationDefinition clearEvaluationDefinition,
-            out StageRewardDefinition rewardDefinition,
-            out StageProgressionDefinition progressionDefinition)
+            out StagePresentationDefinition presentationDefinition)
         {
             var stageId = StageId.CreateOrThrow("ui-flow-clear");
             var entry = ScriptableObject.CreateInstance<StageContentEntry>();
@@ -308,49 +295,7 @@ namespace Game.Feature.UI.Tests
             SetPrivateField(presentationDefinition, "resultDetailText", "Stage result uses the minimal completion pipeline.");
             SetPrivateField(presentationDefinition, "resultContinueLabel", "Continue");
 
-            clearEvaluationDefinition = ScriptableObject.CreateInstance<StageClearEvaluationDefinition>();
-            SetPrivateField(clearEvaluationDefinition, "baseScore", 500);
-            SetPrivateField(clearEvaluationDefinition, "starThresholds", new[]
-            {
-                new StageStarThresholdDefinition
-                {
-                    StarCount = 3,
-                    MinimumScore = 500,
-                },
-            });
-            SetPrivateField(clearEvaluationDefinition, "rankThresholds", new[]
-            {
-                new StageRankThresholdDefinition
-                {
-                    RankId = "S",
-                    MinimumScore = 500,
-                },
-            });
-
-            rewardDefinition = ScriptableObject.CreateInstance<StageRewardDefinition>();
-            var clearRewardRule = new StageRewardRuleDefinition
-            {
-                TriggerKind = StageRewardTriggerKind.Clear,
-                GrantOnce = true,
-                Rewards = new[]
-                {
-                    new RewardEntry
-                    {
-                        RewardId = "Crystal",
-                        Amount = 2,
-                    },
-                },
-            };
-            clearRewardRule.SetRuleId("first-clear");
-            clearRewardRule.SetDeprecatedRuleIds(System.Array.Empty<string>());
-            SetPrivateField(rewardDefinition, "rules", new[] { clearRewardRule });
-
-            progressionDefinition = ScriptableObject.CreateInstance<StageProgressionDefinition>();
-
             entry.AssignPresentationDefinition(presentationDefinition);
-            entry.AssignClearEvaluationDefinition(clearEvaluationDefinition);
-            entry.AssignRewardDefinition(rewardDefinition);
-            entry.AssignProgressionDefinition(progressionDefinition);
             return entry;
         }
 

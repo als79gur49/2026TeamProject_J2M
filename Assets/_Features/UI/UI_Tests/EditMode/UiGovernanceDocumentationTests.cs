@@ -80,6 +80,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("`StageResult`, `LevelFailed`, and `GameClear` are canonical terminal result screens."));
             Assert.That(guidelines, Does.Contain("`Help` and `Inventory` are not current gameplay screens."));
             Assert.That(guidelines, Does.Contain("`DemoStageControl` is not a gameplay popup catalog entry."));
+            Assert.That(guidelines, Does.Contain("`Reward` remains protected legacy/residue UI and is not the canonical stage-clear result path."));
             Assert.That(guidelines, Does.Contain("catalog-less runtime assist popup created through the factory/runtime/hotkey path"));
             Assert.That(guidelines, Does.Contain("build-included tester/demo/showcase assist feature"));
             Assert.That(guidelines, Does.Contain("tester assist clear, hard-section bypass, showcase navigation, and stage browsing"));
@@ -90,6 +91,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("canonical runtime-bound HUD members are `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
             Assert.That(guidelines, Does.Contain("removed as retired HUD proof residue"));
             Assert.That(guidelines, Does.Contain("Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path"));
+            Assert.That(guidelines, Does.Contain("Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`; it must not reopen the Reward popup path."));
             Assert.That(guidelines, Does.Contain("UI diagnostics overlay was removed as an unused runtime feature after an explicit owner decision."));
             Assert.That(guidelines, Does.Contain("Canonical runtime UI must not include a diagnostics overlay, `DiagnosticsLayer`, or F3/F4 diagnostics input path."));
             Assert.That(guidelines, Does.Not.Contain("Diagnostics overlay is also not a deletion-safe item in this phase."));
@@ -130,7 +132,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("it is not a deletion candidate or dev-only compile exclusion target"));
             Assert.That(baseline, Does.Contain("future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision"));
             Assert.That(baseline, Does.Contain("not a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate"));
-            Assert.That(baseline, Does.Contain("`Reward` and `Confirm` remain protected canonical popup paths"));
+            Assert.That(baseline, Does.Contain("`Confirm` remains a protected canonical popup path; `Reward` remains protected legacy/residue UI and is not the canonical stage-clear result path"));
             Assert.That(baseline, Does.Contain("canonical HUD composition is `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
             Assert.That(baseline, Does.Contain("UI diagnostics overlay was removed as an unused runtime feature; it is not hidden, dev-only retained, or a protected runtime path"));
             Assert.That(baseline, Does.Contain("protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridges, and `StageNavigationRequest`"));
@@ -214,7 +216,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Contain("must not regain `PopupController`, `PopupLayerView`, or `MainMenuScreenView` direct legacy overloads"));
             Assert.That(source, Does.Contain("Do not modify runtime code for this source regeneration."));
             Assert.That(source, Does.Contain("Do not modify prefabs or catalogs for this source regeneration."));
-            Assert.That(source, Does.Contain("Do not simplify or reroute StageResult, Reward, Confirm, settings, audio, display, or UI bridge paths."));
+            Assert.That(source, Does.Contain("Do not simplify or reroute StageResult, Reward residue, Confirm, settings, audio, display, or UI bridge paths."));
             AssertDemoStageControlStalePolicyPhrasesAreAbsent(source);
             Assert.That(source, Does.Not.Contain("HelpScreen remains"));
             Assert.That(source, Does.Not.Contain("InventoryScreen remains"));

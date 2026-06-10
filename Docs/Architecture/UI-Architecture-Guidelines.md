@@ -364,7 +364,8 @@ Screen classification notes:
 
 Popup classification notes:
 
-- `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, and `Reward` are canonical gameplay popup catalog entries.
+- `Pause`, `ObjectiveInfo`, `Confirm`, and `Tooltip` are canonical gameplay popup catalog entries.
+- `Reward` remains protected legacy/residue UI and is not the canonical stage-clear result path.
 - `DemoStageControl` is not a gameplay popup catalog entry. It is a catalog-less runtime assist popup created through the factory/runtime/hotkey path.
 - `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing. It is not a deletion candidate and is not a dev-only compile exclusion target.
 - Future public-release hiding or disabling for `DemoStageControl` must be controlled by a separate product/build configuration decision, not by a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate.
@@ -385,6 +386,7 @@ HUD classification notes:
 Deletion protection notes:
 
 - Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path as part of drift correction.
+- Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`; it must not reopen the Reward popup path.
 - UI diagnostics overlay was removed as an unused runtime feature after an explicit owner decision. It is not a hidden or dev-only retained runtime path.
 - Future UI deletion safety requires a separate PR with current lane evidence and an explicit owner decision.
 

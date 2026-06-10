@@ -79,7 +79,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void DemoStageControl_StartStage_AllowsLockedStageSelection_AndDoesNotCompletePreviousStages()
         {
             var first = CreateEntry("stage-0-1");
-            var selected = CreateEntry("stage-0-2", CreateLockedProgressionDefinition());
+            var selected = CreateEntry("stage-0-2", initiallyAvailable: false);
             var service = CreateService(new[] { first, selected }, out var saveStore, out _);
             saveStore.UpdateSlot(
                 1,
@@ -190,7 +190,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void DemoStageControl_ForceClear_UsesMinimalCompletionPipeline()
         {
-            var entry = CreateEntry("stage-0-1", rewardDefinition: CreateRewardDefinition());
+            var entry = CreateEntry("stage-0-1");
             var store = new InMemoryStageCompletionProfileStore();
             var runtime = new GameplayHostStageCompletionRuntime(entry, store);
 
@@ -370,15 +370,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private StageContentEntry CreateEntry(
             string rawStageId,
-            StageProgressionDefinition progressionDefinition = null,
-            StageRewardDefinition rewardDefinition = null,
-            string displayName = null)
+            string displayName = null,
+            bool initiallyAvailable = true)
         {
             var entry = ScriptableObject.CreateInstance<StageContentEntry>();
             _createdObjects.Add(entry);
             entry.AssignStageId(StageId.CreateOrThrow(rawStageId));
-            entry.AssignProgressionDefinition(progressionDefinition);
-            entry.AssignRewardDefinition(rewardDefinition);
+            entry.AssignCatalogMetadata(string.Empty, "level-0", 0, initiallyAvailable);
             if (displayName != null)
             {
                 var presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
@@ -393,36 +391,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static CampaignStageSequenceResolver CreateCanonicalSequenceResolver()
         {
             return new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
-        }
-
-        private StageProgressionDefinition CreateLockedProgressionDefinition()
-        {
-            var definition = ScriptableObject.CreateInstance<StageProgressionDefinition>();
-            _createdObjects.Add(definition);
-            return definition;
-        }
-
-        private StageRewardDefinition CreateRewardDefinition()
-        {
-            var definition = ScriptableObject.CreateInstance<StageRewardDefinition>();
-            _createdObjects.Add(definition);
-            var rule = new StageRewardRuleDefinition
-            {
-                TriggerKind = StageRewardTriggerKind.Clear,
-                GrantOnce = true,
-                Rewards = new[]
-                {
-                    new RewardEntry
-                    {
-                        RewardId = "coin",
-                        Amount = 2,
-                    },
-                },
-            };
-            rule.SetRuleId("first-clear");
-            rule.SetDeprecatedRuleIds(Array.Empty<string>());
-            SetPrivateField(definition, "rules", new[] { rule });
-            return definition;
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

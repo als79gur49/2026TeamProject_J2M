@@ -10,9 +10,10 @@ namespace Game.Feature.Stages
         [SerializeField] private StageDefinition gameplayDefinition;
         [SerializeField] private StagePresentationDefinition presentationDefinition;
         [SerializeField] private StageAudioDefinition audioDefinition;
-        [SerializeField] private StageClearEvaluationDefinition clearEvaluationDefinition;
-        [SerializeField] private StageRewardDefinition rewardDefinition;
-        [SerializeField] private StageProgressionDefinition progressionDefinition;
+        [SerializeField] private string catalogWorldId = string.Empty;
+        [SerializeField] private string catalogChapterId = string.Empty;
+        [SerializeField] private int catalogSortOrder;
+        [SerializeField] private bool isInitiallyAvailable = true;
 
         public StageId StageId => stageId;
 
@@ -24,11 +25,13 @@ namespace Game.Feature.Stages
 
         public StageAudioDefinition AudioDefinition => audioDefinition;
 
-        public StageClearEvaluationDefinition ClearEvaluationDefinition => clearEvaluationDefinition;
+        public string CatalogWorldId => catalogWorldId ?? string.Empty;
 
-        public StageRewardDefinition RewardDefinition => rewardDefinition;
+        public string CatalogChapterId => catalogChapterId ?? string.Empty;
 
-        public StageProgressionDefinition ProgressionDefinition => progressionDefinition;
+        public int CatalogSortOrder => catalogSortOrder;
+
+        public bool IsInitiallyAvailable => isInitiallyAvailable;
 
         public void AssignStageId(StageId value)
         {
@@ -55,19 +58,16 @@ namespace Game.Feature.Stages
             audioDefinition = definition;
         }
 
-        public void AssignClearEvaluationDefinition(StageClearEvaluationDefinition definition)
+        public void AssignCatalogMetadata(
+            string worldId,
+            string chapterId,
+            int sortOrder,
+            bool initiallyAvailable)
         {
-            clearEvaluationDefinition = definition;
-        }
-
-        public void AssignRewardDefinition(StageRewardDefinition definition)
-        {
-            rewardDefinition = definition;
-        }
-
-        public void AssignProgressionDefinition(StageProgressionDefinition definition)
-        {
-            progressionDefinition = definition;
+            catalogWorldId = worldId ?? string.Empty;
+            catalogChapterId = chapterId ?? string.Empty;
+            catalogSortOrder = sortOrder;
+            isInitiallyAvailable = initiallyAvailable;
         }
     }
 }

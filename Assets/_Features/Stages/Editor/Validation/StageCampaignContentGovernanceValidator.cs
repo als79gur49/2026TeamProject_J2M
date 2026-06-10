@@ -15,9 +15,6 @@ namespace Game.Feature.Stages.Editor
             typeof(StageDefinition),
             typeof(StagePresentationDefinition),
             typeof(StageAudioDefinition),
-            typeof(StageClearEvaluationDefinition),
-            typeof(StageRewardDefinition),
-            typeof(StageProgressionDefinition),
         };
 
         public StageValidationReport Validate(StageValidationTiming timing = StageValidationTiming.EditorAuthoring)

@@ -144,9 +144,6 @@ namespace Game.Feature.Stages.Editor
                 AddStageCompanion(rows, entry.StageId.Value, entry.GameplayDefinition);
                 AddStageCompanion(rows, entry.StageId.Value, entry.PresentationDefinition);
                 AddStageCompanion(rows, entry.StageId.Value, entry.AudioDefinition);
-                AddStageCompanion(rows, entry.StageId.Value, entry.ClearEvaluationDefinition);
-                AddStageCompanion(rows, entry.StageId.Value, entry.RewardDefinition);
-                AddStageCompanion(rows, entry.StageId.Value, entry.ProgressionDefinition);
                 AddStageCompanion(rows, entry.StageId.Value, entry.AuthoringDefinition);
             }
         }

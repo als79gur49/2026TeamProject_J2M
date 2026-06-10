@@ -76,20 +76,7 @@ namespace Game.Feature.DemoStageControl
 
         public bool IsUnlocked(StageContentEntry entry)
         {
-            if (entry == null)
-            {
-                return false;
-            }
-
-            if (!_activeSlotProvider.TryGetActiveSlotNumber(out var slotNumber))
-            {
-                return StageProgressionEvaluator.IsUnlocked(entry.ProgressionDefinition, null);
-            }
-
-            var snapshot = _saveSlotStore.LoadSlot(slotNumber).StageCompletionProfileSnapshot;
-            return StageProgressionEvaluator.IsUnlocked(
-                entry.ProgressionDefinition,
-                snapshot?.ProgressByStageId);
+            return entry != null && entry.IsInitiallyAvailable;
         }
 
         private string ResolveLevelGroupId(StageContentEntry entry)
@@ -99,9 +86,7 @@ namespace Game.Feature.DemoStageControl
                 return _sequenceResolver.GetLevelGroupId(entry.StageId);
             }
 
-            return entry.ProgressionDefinition != null
-                ? entry.ProgressionDefinition.ChapterId
-                : string.Empty;
+            return entry.CatalogChapterId;
         }
     }
 

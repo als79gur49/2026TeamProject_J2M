@@ -179,9 +179,6 @@ namespace Game.Feature.Gameplay.Tests.Core
             {
                 RequirePresentationDefinition = true,
                 RequireAudioDefinition = true,
-                RequireClearEvaluationDefinition = true,
-                RequireRewardDefinition = true,
-                RequireProgressionDefinition = true,
                 Timing = StageValidationTiming.TestOrCi,
                 Phase = StageValidationPhase.Phase6_SunsetFinalization,
                 AssetMetadataProvider = new AssetDatabaseMetadataProvider(),

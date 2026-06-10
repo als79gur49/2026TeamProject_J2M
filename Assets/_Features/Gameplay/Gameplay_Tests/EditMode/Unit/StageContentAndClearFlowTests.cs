@@ -142,6 +142,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void StageContentEntry_DoesNotExposeRewardProgressionClearEvaluationCompanions()
+        {
+            var memberNames = typeof(StageContentEntry)
+                .GetMembers(BindingFlags.Instance | BindingFlags.Public)
+                .Select(member => member.Name)
+                .ToArray();
+
+            Assert.That(memberNames, Has.No.Member("ClearEvaluationDefinition"));
+            Assert.That(memberNames, Has.No.Member("RewardDefinition"));
+            Assert.That(memberNames, Has.No.Member("ProgressionDefinition"));
+            Assert.That(memberNames, Has.No.Member("AssignClearEvaluationDefinition"));
+            Assert.That(memberNames, Has.No.Member("AssignRewardDefinition"));
+            Assert.That(memberNames, Has.No.Member("AssignProgressionDefinition"));
+        }
+
+        [Test]
+        public void StageCatalogQuery_UsesEntryCatalogMetadata_WithoutProgressionDefinition()
+        {
+            var first = CreateEntry("stage-b");
+            first.AssignCatalogMetadata("world-b", "chapter-b", 20, initiallyAvailable: false);
+            SetPrivateField(first.PresentationDefinition, "displayName", "Stage B");
+
+            var second = CreateEntry("stage-a");
+            second.AssignCatalogMetadata("world-a", "chapter-a", 10, initiallyAvailable: true);
+            SetPrivateField(second.PresentationDefinition, "displayName", "Stage A");
+
+            var provider = CreateCatalogProvider(new[] { first, second }, aliasTable: null);
+            var query = new StageCatalogQueryService(provider);
+
+            var items = query.EnumerateLaunchCatalogItems();
+
+            Assert.That(items.Select(item => item.StageId.Value).ToArray(), Is.EqualTo(new[] { "stage-a", "stage-b" }));
+            Assert.That(items[0].WorldId, Is.EqualTo("world-a"));
+            Assert.That(items[0].ChapterId, Is.EqualTo("chapter-a"));
+            Assert.That(items[0].SortOrder, Is.EqualTo(10));
+            Assert.That(items[0].IsInitiallyAvailable, Is.True);
+            Assert.That(items[1].WorldId, Is.EqualTo("world-b"));
+            Assert.That(items[1].ChapterId, Is.EqualTo("chapter-b"));
+            Assert.That(items[1].SortOrder, Is.EqualTo(20));
+            Assert.That(items[1].IsInitiallyAvailable, Is.False);
+        }
+
+        [Test]
         public void StageCatalogValidator_TileFeatureVisualBinding_WithValidPrefab_Passes()
         {
             var prefab = CreateTileFeatureVisualPrefab("ButtonTileVisualPrefab");
@@ -529,10 +572,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static StageContentEntry CreateEntry(
             string rawStageId,
             StagePresentationDefinition presentationDefinition = null,
-            StageAudioDefinition audioDefinition = null,
-            StageClearEvaluationDefinition clearEvaluationDefinition = null,
-            StageRewardDefinition rewardDefinition = null,
-            StageProgressionDefinition progressionDefinition = null)
+            StageAudioDefinition audioDefinition = null)
         {
             var entry = ScriptableObject.CreateInstance<StageContentEntry>();
             var stageId = StageId.CreateOrThrow(rawStageId);
@@ -542,22 +582,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             presentationDefinition ??= ScriptableObject.CreateInstance<StagePresentationDefinition>();
             audioDefinition ??= ScriptableObject.CreateInstance<StageAudioDefinition>();
-            clearEvaluationDefinition ??= ScriptableObject.CreateInstance<StageClearEvaluationDefinition>();
-            rewardDefinition ??= ScriptableObject.CreateInstance<StageRewardDefinition>();
-            progressionDefinition ??= ScriptableObject.CreateInstance<StageProgressionDefinition>();
 
             var ownerGuid = Guid.NewGuid().ToString("N");
             presentationDefinition.SetOwnerMetadata(entry, ownerGuid);
             audioDefinition.SetOwnerMetadata(entry, ownerGuid);
-            clearEvaluationDefinition.SetOwnerMetadata(entry, ownerGuid);
-            rewardDefinition.SetOwnerMetadata(entry, ownerGuid);
-            progressionDefinition.SetOwnerMetadata(entry, ownerGuid);
 
             entry.AssignPresentationDefinition(presentationDefinition);
             entry.AssignAudioDefinition(audioDefinition);
-            entry.AssignClearEvaluationDefinition(clearEvaluationDefinition);
-            entry.AssignRewardDefinition(rewardDefinition);
-            entry.AssignProgressionDefinition(progressionDefinition);
             return entry;
         }
 

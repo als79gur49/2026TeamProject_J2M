@@ -153,12 +153,6 @@ namespace Game.Feature.Stages
 
         public bool RequireAudioDefinition { get; set; }
 
-        public bool RequireClearEvaluationDefinition { get; set; }
-
-        public bool RequireRewardDefinition { get; set; }
-
-        public bool RequireProgressionDefinition { get; set; }
-
         public StageValidationTiming Timing { get; set; } = StageValidationTiming.EditorAuthoring;
 
         public StageValidationPhase Phase { get; set; } = StageValidationPhase.Phase1_LoadModeFence;
@@ -176,9 +170,6 @@ namespace Game.Feature.Stages
             {
                 RequirePresentationDefinition = RequirePresentationDefinition,
                 RequireAudioDefinition = RequireAudioDefinition,
-                RequireClearEvaluationDefinition = RequireClearEvaluationDefinition,
-                RequireRewardDefinition = RequireRewardDefinition,
-                RequireProgressionDefinition = RequireProgressionDefinition,
                 Timing = Timing,
                 Phase = Phase,
                 WaiverList = WaiverList,

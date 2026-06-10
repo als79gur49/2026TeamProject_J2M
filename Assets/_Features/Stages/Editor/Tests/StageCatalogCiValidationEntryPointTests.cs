@@ -66,6 +66,27 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StageContentEntryCreation_DoesNotCreateRewardProgressionClearEvaluationAssets()
+        {
+            using var fixture = TempCampaignStageAssetFixture.Create();
+            var gameplay = ScriptableObject.CreateInstance<StageDefinition>();
+            fixture.CreateAsset(gameplay, $"{fixture.StageIdValue}.asset");
+
+            var entry = StageContentEntryCreationTool.CreateForStageDefinition(
+                gameplay,
+                StageId.CreateOrThrow(fixture.StageIdValue));
+
+            Assert.That(entry, Is.Not.Null);
+            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_Entry.asset")), Is.True);
+            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_Authoring.asset")), Is.True);
+            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_Presentation.asset")), Is.True);
+            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_Audio.asset")), Is.True);
+            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_ClearEvaluation.asset")), Is.False);
+            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_Reward.asset")), Is.False);
+            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_Progression.asset")), Is.False);
+        }
+
+        [Test]
         public void CampaignGovernance_RejectsSharedAudioDefinitionEvenWhenNamedLikeAudioCompanion()
         {
             using var fixture = TempCampaignStageAssetFixture.Create();
@@ -128,6 +149,11 @@ namespace Game.Feature.Stages.Editor.Tests
             return string.Join(
                 Environment.NewLine,
                 issues.Select(issue => $"{issue.Code}: {issue.Message} ({issue.AssetPath})"));
+        }
+
+        private static string ToAbsolutePath(string assetPath)
+        {
+            return Path.Combine(Directory.GetParent(Application.dataPath)?.FullName ?? Directory.GetCurrentDirectory(), assetPath);
         }
 
         private sealed class TempCampaignStageAssetFixture : IDisposable

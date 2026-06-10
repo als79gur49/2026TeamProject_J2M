@@ -59,9 +59,6 @@ namespace Game.Feature.Stages.Editor.Tests
             var catalogReport = new StageCatalogValidator().Validate(catalog, new StageCatalogValidationOptions
             {
                 RequirePresentationDefinition = true,
-                RequireClearEvaluationDefinition = true,
-                RequireRewardDefinition = true,
-                RequireProgressionDefinition = true,
                 Timing = StageValidationTiming.TestOrCi,
                 Phase = StageValidationPhase.Phase6_SunsetFinalization,
             });
@@ -79,9 +76,6 @@ namespace Game.Feature.Stages.Editor.Tests
             var catalogReport = new StageCatalogValidator().Validate(catalog, new StageCatalogValidationOptions
             {
                 RequirePresentationDefinition = true,
-                RequireClearEvaluationDefinition = true,
-                RequireRewardDefinition = true,
-                RequireProgressionDefinition = true,
                 Timing = StageValidationTiming.TestOrCi,
                 Phase = StageValidationPhase.Phase6_SunsetFinalization,
             });

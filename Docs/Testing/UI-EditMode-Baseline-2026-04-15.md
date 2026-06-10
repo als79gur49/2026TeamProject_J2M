@@ -141,12 +141,12 @@
 - `StageResultScreen`, `LevelFailedScreen`, and `GameClearScreen` remain runtime-owned terminal result screens; their actions stay intent-only and do not locally decide root replacement policy
 - `SettingsScreen` now remains one runtime-managed shell with authored `SettingsAudioSection` and `SettingsDisplaySection` children; audio/display fallback rebuilding is removed while preview/session ownership remains in `SettingsRuntime`
 - Settings authored child-view canonicalization is closed here; future changes should update runtime contracts and focused behavior tests directly
-- stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
+- stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path through `MinimalStageCompletionReadModel`; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
 - current canonical `PopupId` values are `None`, `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, `Reward`, and `DemoStageControl`
 - `DemoStageControl` is a catalog-less runtime assist popup created through the factory/runtime/hotkey path and not a gameplay popup catalog entry
 - `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing; it is not a deletion candidate or dev-only compile exclusion target
 - future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision, not a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate
-- `Reward` and `Confirm` remain protected canonical popup paths
+- `Confirm` remains a protected canonical popup path; `Reward` remains protected legacy/residue UI and is not the canonical stage-clear result path
 - protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridges, and `StageNavigationRequest`
 - no Stage 4–8 contract is widened merely for test/debug convenience
 
