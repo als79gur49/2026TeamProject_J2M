@@ -247,13 +247,39 @@ namespace Game.Feature.Stages
 
     public static class SaveSlotPrefsKeys
     {
-        public const string SaveSlots = "Game.Feature.Stages.SaveSlots";
-        public const string ActiveSaveSlot = "Game.Feature.Stages.ActiveSaveSlot";
+        public const string LegacySaveSlotsKey = "Game.Feature.Stages.SaveSlots";
+        public const string LegacyActiveSaveSlotKey = "Game.Feature.Stages.ActiveSaveSlot";
+        public const string SaveSlotsKey = "Game.Feature.Stages.StageClearSaveSlots";
+        public const string ActiveSaveSlotKey = "Game.Feature.Stages.ActiveStageClearSaveSlot";
+    }
+
+    internal static class StageClearSavePrefsCleanup
+    {
+        public static void DeleteLegacyStageSavePrefs()
+        {
+            var deleted = false;
+            if (PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey))
+            {
+                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacySaveSlotsKey);
+                deleted = true;
+            }
+
+            if (PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey))
+            {
+                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey);
+                deleted = true;
+            }
+
+            if (deleted)
+            {
+                PlayerPrefs.Save();
+            }
+        }
     }
 
     public sealed class ActiveSlotProvider
     {
-        private const string DefaultPlayerPrefsKey = SaveSlotPrefsKeys.ActiveSaveSlot;
+        private const string DefaultPlayerPrefsKey = SaveSlotPrefsKeys.ActiveSaveSlotKey;
         private readonly string _playerPrefsKey;
         private int _activeSlotNumber;
 
@@ -262,6 +288,7 @@ namespace Game.Feature.Stages
             _playerPrefsKey = string.IsNullOrWhiteSpace(playerPrefsKey)
                 ? DefaultPlayerPrefsKey
                 : playerPrefsKey;
+            DeleteLegacyPrefsIfUsingDefaultKey(_playerPrefsKey);
             _activeSlotNumber = PlayerPrefs.GetInt(_playerPrefsKey, 0);
         }
 
@@ -308,6 +335,14 @@ namespace Game.Feature.Stages
             PlayerPrefs.DeleteKey(_playerPrefsKey);
             PlayerPrefs.Save();
         }
+
+        private static void DeleteLegacyPrefsIfUsingDefaultKey(string playerPrefsKey)
+        {
+            if (string.Equals(playerPrefsKey, DefaultPlayerPrefsKey, StringComparison.Ordinal))
+            {
+                StageClearSavePrefsCleanup.DeleteLegacyStageSavePrefs();
+            }
+        }
     }
 
     public sealed class SaveSlotStore
@@ -315,7 +350,7 @@ namespace Game.Feature.Stages
         public const int SaveVersion = 1;
         public const int SlotCount = 3;
         public const int DefaultRemainingChances = 3;
-        public const string DefaultPlayerPrefsKey = SaveSlotPrefsKeys.SaveSlots;
+        public const string DefaultPlayerPrefsKey = SaveSlotPrefsKeys.SaveSlotsKey;
 
         private readonly string _playerPrefsKey;
 
@@ -324,6 +359,7 @@ namespace Game.Feature.Stages
             _playerPrefsKey = string.IsNullOrWhiteSpace(playerPrefsKey)
                 ? DefaultPlayerPrefsKey
                 : playerPrefsKey;
+            DeleteLegacyPrefsIfUsingDefaultKey(_playerPrefsKey);
         }
 
         public string PlayerPrefsKey => _playerPrefsKey;
@@ -436,6 +472,14 @@ namespace Game.Feature.Stages
             {
                 Debug.LogWarning($"Save slot data could not be parsed and will be ignored. {exception.Message}");
                 return SaveSlotDtoMapper.CreateEmptyDto();
+            }
+        }
+
+        private static void DeleteLegacyPrefsIfUsingDefaultKey(string playerPrefsKey)
+        {
+            if (string.Equals(playerPrefsKey, DefaultPlayerPrefsKey, StringComparison.Ordinal))
+            {
+                StageClearSavePrefsCleanup.DeleteLegacyStageSavePrefs();
             }
         }
     }

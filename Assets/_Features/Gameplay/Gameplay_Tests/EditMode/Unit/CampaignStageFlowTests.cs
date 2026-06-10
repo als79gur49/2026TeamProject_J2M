@@ -1843,8 +1843,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             public static void ClearDefaultPlayerPrefs()
             {
-                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.SaveSlots);
-                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlot);
+                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacySaveSlotsKey);
+                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey);
+                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.SaveSlotsKey);
+                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlotKey);
                 PlayerPrefs.Save();
             }
         }

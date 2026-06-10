@@ -15,9 +15,7 @@ namespace Game.Feature.Stages.Editor.Tests
             StageLaunchContextStore.Clear();
             EditorDirectPlayContextStore.Clear();
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
-            PlayerPrefs.DeleteKey(SaveSlotStore.DefaultPlayerPrefsKey);
-            PlayerPrefs.DeleteKey(new ActiveSlotProvider().PlayerPrefsKey);
-            PlayerPrefs.Save();
+            ClearStageSavePrefsForTests();
         }
 
         [Test]
@@ -38,19 +36,100 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void CampaignTempDirectPlay_UsesTempSaveAndActiveKeys_NotProductionKeys()
         {
-            PlayerPrefs.DeleteKey(SaveSlotStore.DefaultPlayerPrefsKey);
-            PlayerPrefs.Save();
+            ClearStageSavePrefsForTests();
+            EditorDirectPlayContextStore.ClearTempDirectPlaySave();
             var resolver = new CampaignStageSequenceResolver(CampaignStageSequenceDefinition.CreateCanonicalRuntimeInstance());
             var stageId = StageId.CreateOrThrow("stage-2-2");
 
             StageEditorDirectPlayLauncher.PrimeCampaignTempSlotForTests(stageId, resolver, remainingChances: 2);
 
             Assert.That(PlayerPrefs.HasKey(SaveSlotStore.DefaultPlayerPrefsKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey), Is.False);
             Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey), Is.True);
             Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey), Is.True);
             Assert.That(EditorDirectPlayContextStore.TryGetCurrent(out var context), Is.True);
             Assert.That(context.SaveSlotStoreKey, Is.EqualTo(EditorDirectPlayContextStore.TempSaveSlotStoreKey));
             Assert.That(context.ActiveSlotProviderKey, Is.EqualTo(EditorDirectPlayContextStore.TempActiveSlotProviderKey));
+        }
+
+        [Test]
+        public void SaveSlotStore_NewWrite_UsesStageClearSaveSlotsKey()
+        {
+            ClearStageSavePrefsForTests();
+            var store = new SaveSlotStore();
+
+            store.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                CurrentLevelGroupId = "level-1",
+            });
+
+            Assert.That(SaveSlotStore.DefaultPlayerPrefsKey, Is.EqualTo(SaveSlotPrefsKeys.SaveSlotsKey));
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.True);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey), Is.False);
+            var dto = JsonUtility.FromJson<SaveSlotStoreDto>(PlayerPrefs.GetString(SaveSlotPrefsKeys.SaveSlotsKey));
+            Assert.That(dto.Slots[0].CurrentStageId, Is.EqualTo("stage-1-1"));
+        }
+
+        [Test]
+        public void ActiveSlotStageClearProfileStore_UsesActiveStageClearSaveSlotKey()
+        {
+            ClearStageSavePrefsForTests();
+            var activeSlotProvider = new ActiveSlotProvider();
+
+            activeSlotProvider.SetActiveSlot(2);
+
+            Assert.That(activeSlotProvider.PlayerPrefsKey, Is.EqualTo(SaveSlotPrefsKeys.ActiveSaveSlotKey));
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
+            Assert.That(PlayerPrefs.GetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.EqualTo(2));
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey), Is.False);
+        }
+
+        [Test]
+        public void SaveSlotStore_OldPrefsKey_IsDeletedOnInitialize()
+        {
+            ClearStageSavePrefsForTests();
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.LegacySaveSlotsKey, "{\"SaveVersion\":1}");
+            PlayerPrefs.SetInt(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey, 1);
+            PlayerPrefs.Save();
+
+            _ = new SaveSlotStore();
+
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey), Is.False);
+        }
+
+        [Test]
+        public void SaveSlotStore_CustomKey_DoesNotDeleteLegacyPrefs()
+        {
+            ClearStageSavePrefsForTests();
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.LegacySaveSlotsKey, "{\"SaveVersion\":1}");
+            PlayerPrefs.SetInt(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey, 1);
+            PlayerPrefs.Save();
+            var customKey = CreatePrefsKey(nameof(SaveSlotStore_CustomKey_DoesNotDeleteLegacyPrefs));
+
+            _ = new SaveSlotStore(customKey);
+
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey), Is.True);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey), Is.True);
+        }
+
+        [Test]
+        public void SaveSlotTestScope_ClearsOldAndNewPrefsKeys()
+        {
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.LegacySaveSlotsKey, "old-save");
+            PlayerPrefs.SetInt(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey, 1);
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, "new-save");
+            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 2);
+            PlayerPrefs.Save();
+
+            ClearStageSavePrefsForTests();
+
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.False);
         }
 
         [Test]
@@ -341,6 +420,20 @@ namespace Game.Feature.Stages.Editor.Tests
             var directory = Path.Combine("Temp", "StandaloneCampaignSeedTests");
             Directory.CreateDirectory(directory);
             return Path.Combine(directory, Guid.NewGuid().ToString("N") + ".json");
+        }
+
+        private static string CreatePrefsKey(string suffix)
+        {
+            return "Game.Feature.Stages.Editor.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
+        }
+
+        private static void ClearStageSavePrefsForTests()
+        {
+            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacySaveSlotsKey);
+            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey);
+            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.SaveSlotsKey);
+            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlotKey);
+            PlayerPrefs.Save();
         }
 
         private static void DeleteFileIfExists(string path)
