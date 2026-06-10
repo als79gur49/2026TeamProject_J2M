@@ -22,8 +22,6 @@ namespace Game.Feature.UI.Application
 
         MinimalStageCompletionReadModel CurrentMinimalStageCompletion { get; }
 
-        StageCompletionReadModel CurrentStageCompletion { get; }
-
         LevelFailedScreenPayload CurrentLevelFailed { get; }
 
         void UpdateUiGameplayInputBlocked(bool isUiGameplayInputBlocked);
@@ -76,8 +74,6 @@ namespace Game.Feature.UI.Application
         public UITickEventBatch CurrentTickEvents { get; private set; }
 
         public MinimalStageCompletionReadModel CurrentMinimalStageCompletion => _presentationFeed.CurrentMinimalStageCompletion;
-
-        public StageCompletionReadModel CurrentStageCompletion => _presentationFeed.CurrentStageCompletion;
 
         public LevelFailedScreenPayload CurrentLevelFailed { get; private set; }
 

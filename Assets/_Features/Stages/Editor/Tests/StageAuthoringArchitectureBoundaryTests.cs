@@ -283,7 +283,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 "AudioRuntime",
                 "IAudioService",
                 "BgmFlow",
-                "StageCompletionReadModel",
+                "MinimalStageCompletionReadModel",
                 "StageNavigationRequest",
                 "WorldState",
                 "TickRunner",
@@ -337,7 +337,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var mapperSource =
                 File.ReadAllText("Assets/_Features/UI/UI_Application/Runtime/StageCompletionPayloadMappers.cs");
 
-            Assert.That(mapperSource, Does.Contain("StageCompletionReadModel"));
+            Assert.That(mapperSource, Does.Contain("MinimalStageCompletionReadModel"));
             foreach (var sourcePath in uiSources)
             {
                 var source = File.ReadAllText(sourcePath);

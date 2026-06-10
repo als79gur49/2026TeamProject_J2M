@@ -96,8 +96,6 @@ namespace Game.Feature.UI.Tests
 
         public MinimalStageCompletionReadModel CurrentMinimalStageCompletion { get; private set; }
 
-        public StageCompletionReadModel CurrentStageCompletion { get; private set; }
-
         public GameplayLevelFailedReadModel CurrentLevelFailed { get; private set; }
 
         public bool HasPendingStageClearPresentation { get; set; }
@@ -111,11 +109,6 @@ namespace Game.Feature.UI.Tests
         {
             CurrentState = state;
             StateChanged?.Invoke(state);
-        }
-
-        public void PublishStageCompletion(StageCompletionReadModel readModel)
-        {
-            CurrentStageCompletion = readModel;
         }
 
         public void PublishMinimalStageCompletion(MinimalStageCompletionReadModel readModel)
@@ -566,8 +559,6 @@ namespace Game.Feature.UI.Tests
 
         public MinimalStageCompletionReadModel CurrentMinimalStageCompletion { get; private set; }
 
-        public StageCompletionReadModel CurrentStageCompletion { get; private set; }
-
         public LevelFailedScreenPayload CurrentLevelFailed { get; private set; }
 
         public void PublishSnapshot(UIPresentationSnapshot snapshot)
@@ -580,11 +571,6 @@ namespace Game.Feature.UI.Tests
         {
             CurrentTickEvents = tickEvents;
             _tickEventsApplied?.Invoke(tickEvents);
-        }
-
-        public void PublishStageCompletion(StageCompletionReadModel readModel)
-        {
-            CurrentStageCompletion = readModel;
         }
 
         public void PublishMinimalStageCompletion(MinimalStageCompletionReadModel readModel)
@@ -668,16 +654,6 @@ namespace Game.Feature.UI.Tests
                     PopupBackdropMode.None,
                     showsDim: false,
                     blocksLowerLayers: false)
-            },
-            {
-                PopupId.Reward,
-                new PopupPolicy(
-                    PopupPolicyClass.ExplicitCloseRewardResult,
-                    PopupLifetimeScope.CurrentScreen,
-                    PopupBackAction.Consume,
-                    PopupBackdropMode.Consume,
-                    showsDim: true,
-                    blocksLowerLayers: true)
             },
         };
 

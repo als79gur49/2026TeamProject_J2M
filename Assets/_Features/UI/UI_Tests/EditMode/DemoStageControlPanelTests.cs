@@ -65,7 +65,6 @@ namespace Game.Feature.UI.Tests
             var source = File.ReadAllText("Assets/_Features/DemoStageControl/UI/DemoStageControlPanelView.cs");
 
             Assert.That(source, Does.Not.Contain("IDemoStageControlCommandPort"));
-            Assert.That(source, Does.Not.Contain("StageCompletionCommitter"));
             Assert.That(source, Does.Not.Contain("SaveSlotStore"));
             Assert.That(source, Does.Not.Contain("ObjectiveTracker"));
             Assert.That(source, Does.Not.Contain("WorldState"));

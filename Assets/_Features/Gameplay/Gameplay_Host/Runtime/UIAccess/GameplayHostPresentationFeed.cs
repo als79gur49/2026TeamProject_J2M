@@ -52,8 +52,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public MinimalStageCompletionReadModel CurrentMinimalStageCompletion => _stageCompletionRuntime.CurrentMinimalStageCompletion;
 
-        public StageCompletionReadModel CurrentStageCompletion => _stageCompletionRuntime.CurrentStageCompletion;
-
         public bool IsStageCompletionInProgress => _stageCompletionRuntime.IsCompletionInProgress;
 
         public GameplayLevelFailedReadModel CurrentLevelFailed { get; private set; }

@@ -101,7 +101,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UIFlowCoordinator_RequestConfirmAndReward_ExposeStageSixValidationDefaults()
+        public void UIFlowCoordinator_RequestConfirm_ExposesStageSixValidationDefaults()
         {
             var pauseService = new FakeGameplayPauseService();
             var runtimeFactory = new FakePopupRuntimeFactory();
@@ -110,7 +110,7 @@ namespace Game.Feature.UI.Tests
                 pauseService,
                 runtimeFactory,
                 out _,
-                out var popupController,
+                out _,
                 out _);
 
             coordinator.Initialize();
@@ -122,18 +122,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(confirmResults, Has.Count.EqualTo(1));
             Assert.That(confirmResults[0].CompletionKind, Is.EqualTo(PopupCompletionKind.Cancelled));
-
-            var rewardResults = new List<PopupCompletion>();
-            Assert.That(coordinator.RequestRewardPopup(
-                new RewardPopupPayload(
-                    "Reward",
-                    new[] { new RewardPopupItemPayload("Crystal", 3) },
-                    "Summary",
-                    "Claim"),
-                rewardResults.Add), Is.True);
-            Assert.That(coordinator.HandleBackRequested(), Is.True);
-            Assert.That(rewardResults, Is.Empty);
-            Assert.That(popupController.PopupCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -516,19 +504,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
             Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.Back));
             Assert.That(coordinator.LastFlowAudioTrace.SilenceReason, Is.EqualTo(UiFlowAudioSilenceReason.NoVisibleDelta));
-
-            Assert.That(coordinator.RequestRewardPopup(
-                new RewardPopupPayload(
-                    "Reward",
-                    new[] { new RewardPopupItemPayload("Crystal", 3) },
-                    "Summary",
-                    "Claim")), Is.True);
-            uiAudioPort.Clear();
-
-            Assert.That(coordinator.HandleBackRequested(), Is.True);
-            Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
-            Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.Back));
-            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.Silent));
         }
 
         [Test]
@@ -574,16 +549,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(coordinator.RequestPausePopup(), Is.True);
             uiAudioPort.Clear();
             popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Resumed);
-            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Confirm }));
-
-            Assert.That(coordinator.RequestRewardPopup(
-                new RewardPopupPayload(
-                    "Reward",
-                    new[] { new RewardPopupItemPayload("Crystal", 1) },
-                    "Summary",
-                    "Claim")), Is.True);
-            uiAudioPort.Clear();
-            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Acknowledged);
             Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Confirm }));
         }
 
@@ -737,7 +702,7 @@ namespace Game.Feature.UI.Tests
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
-            Assert.That(popupController.Contains(PopupId.Reward), Is.False);
+            Assert.That(popupController.PopupCount, Is.EqualTo(0));
             Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.StageClear }));
             Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.SystemPresentation));
             Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.StageClear));
@@ -750,9 +715,7 @@ namespace Game.Feature.UI.Tests
                     delta.CurrentScreenId == ScreenId.StageResult));
             Assert.That(
                 coordinator.LastFlowAudioTrace.Deltas,
-                Has.None.Matches<UiFlowAudioDelta>(delta =>
-                    delta.Kind == UiFlowAudioDeltaKind.PopupOpened &&
-                    delta.PopupId == PopupId.Reward));
+                Has.None.Matches<UiFlowAudioDelta>(delta => delta.Kind == UiFlowAudioDeltaKind.PopupOpened));
         }
 
         [Test]
@@ -809,7 +772,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UIFlowCoordinator_FinalStageClearedAutoOpensTerminalGameClear_WithoutRewardPopup()
+        public void UIFlowCoordinator_FinalStageClearedAutoOpensTerminalGameClear()
         {
             var pauseService = new FakeGameplayPauseService();
             var popupRuntimeFactory = new FakePopupRuntimeFactory();
@@ -1193,70 +1156,6 @@ namespace Game.Feature.UI.Tests
                             actionSequence: 0,
                             resolutionKind: Game.Feature.Gameplay.UIAccess.Models.GameplayUiActionResolutionKind.None)),
                 });
-        }
-
-        private static StageCompletionReadModel CreateStageCompletionReadModel(
-            int tickIndex,
-            bool includeReward,
-            string stageIdValue = "payload-stage")
-        {
-            var stageId = StageId.CreateOrThrow(stageIdValue);
-            var runId = new StageRunId("run-01");
-            var clearResult = new StageClearResult(
-                stageId,
-                runId,
-                StageTerminalReason.Cleared,
-                wasCleared: true,
-                tickIndex,
-                new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
-                System.Array.Empty<StageSessionMetricValue>(),
-                System.Array.Empty<StageChallengeRuntimeState>());
-            var evaluationResult = new StageClearEvaluationResult(
-                stageId,
-                runId,
-                wasCleared: true,
-                score: 120,
-                starsEarned: 3,
-                rankId: "S",
-                challengeResults: System.Array.Empty<StageChallengeEvaluationResult>());
-            var rewardId = new RewardGrantId($"{stageId.Value}:clear");
-            var rewardResult = includeReward
-                ? new RewardGrantResult(
-                    stageId,
-                    runId,
-                    new[]
-                    {
-                        new RewardGrantEntry(
-                            "clear",
-                            new RewardEntry
-                            {
-                                RewardId = "Crystal",
-                                Amount = 2,
-                            },
-                            rewardId),
-                    },
-                    new[] { "clear" },
-                    new[] { rewardId },
-                    wasFirstClear: true)
-                : new RewardGrantResult(
-                    stageId,
-                    runId,
-                    System.Array.Empty<RewardGrantEntry>(),
-                    System.Array.Empty<string>(),
-                    System.Array.Empty<RewardGrantId>(),
-                    wasFirstClear: false);
-
-            return new StageCompletionReadModel(
-                stageId,
-                "Payload Stage",
-                "Payload Title",
-                string.Empty,
-                string.Empty,
-                "Collect",
-                clearResult,
-                evaluationResult,
-                rewardResult,
-                PlayerStageProgress.CreateEmpty(stageId));
         }
 
         private static MinimalStageCompletionReadModel CreateMinimalStageCompletionReadModel(

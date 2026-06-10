@@ -195,18 +195,6 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void RewardPopupPayload_ActualReadModel_MapsSafely()
-        {
-            var readModel = CreateActualReadModel("stage-1-1");
-
-            var payload = RewardPopupPayloadMapper.Map(readModel);
-
-            Assert.That(payload.TitleText, Is.EqualTo("Rewards"));
-            Assert.That(payload.SummaryText, Is.Not.Empty);
-            Assert.That(payload.CloseLabel, Is.EqualTo("Close"));
-            Assert.That(payload.Items, Is.Not.Null);
-        }
-
         private static Component ResolveScreenPrefab(ScreenPrefabCatalog catalog, ScreenId screenId)
         {
             return screenId switch
@@ -228,12 +216,11 @@ namespace Game.Feature.UI.Tests
                 PopupId.ObjectiveInfo => catalog.ObjectiveInfoPrefab,
                 PopupId.Confirm => catalog.ConfirmPrefab,
                 PopupId.Tooltip => catalog.TooltipPrefab,
-                PopupId.Reward => catalog.RewardPrefab,
                 _ => throw new ArgumentOutOfRangeException(nameof(popupId), popupId, null),
             };
         }
 
-        private static StageCompletionReadModel CreateActualReadModel(string stageIdValue)
+        private static MinimalStageCompletionReadModel CreateActualReadModel(string stageIdValue)
         {
             var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(StageContentPaths.StageCatalogAssetPath);
             Assert.That(catalog, Is.Not.Null, StageContentPaths.StageCatalogAssetPath);
@@ -241,13 +228,8 @@ namespace Game.Feature.UI.Tests
             var entry = catalog.Entries.FirstOrDefault(candidate => candidate.StageId.Equals(stageId));
             Assert.That(entry, Is.Not.Null, stageIdValue);
 
-            return new StageCompletionReadModel(
-                entry.StageId,
-                entry.StageId.Value,
-                string.Empty,
-                string.Empty,
-                string.Empty,
-                string.Empty,
+            return MinimalStageCompletionReadModelBuilder.Build(
+                entry,
                 new StageClearResult(
                     entry.StageId,
                     new StageRunId("ui-actual-smoke-" + entry.StageId.Value),
@@ -256,23 +238,7 @@ namespace Game.Feature.UI.Tests
                     finalTickIndex: 5,
                     default,
                     Array.Empty<StageSessionMetricValue>(),
-                    Array.Empty<StageChallengeRuntimeState>()),
-                new StageClearEvaluationResult(
-                    entry.StageId,
-                    new StageRunId("ui-actual-smoke-" + entry.StageId.Value),
-                    wasCleared: true,
-                    score: 100,
-                    starsEarned: 1,
-                    rankId: "smoke",
-                    challengeResults: Array.Empty<StageChallengeEvaluationResult>()),
-                new RewardGrantResult(
-                    entry.StageId,
-                    new StageRunId("ui-actual-smoke-" + entry.StageId.Value),
-                    Array.Empty<RewardGrantEntry>(),
-                    Array.Empty<string>(),
-                    Array.Empty<RewardGrantId>(),
-                    wasFirstClear: false),
-                PlayerStageProgress.CreateEmpty(entry.StageId));
+                    Array.Empty<StageChallengeRuntimeState>()));
         }
 
         private static IReadOnlyList<T> LoadAllAssets<T>() where T : UnityEngine.Object

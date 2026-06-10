@@ -206,13 +206,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void DemoStageControl_ServiceDoesNotReferenceLegacyDeveloperCommandsOrCompletionCommitter()
+        public void DemoStageControl_ServiceDoesNotReferenceLegacyDeveloperCommandsOrSceneLoading()
         {
             var source = File.ReadAllText("Assets/_Features/DemoStageControl/Runtime/DemoStageControlService.cs");
             var removedCommandPrefix = "Debug" + "Command";
 
             Assert.That(source, Does.Not.Contain(removedCommandPrefix));
-            Assert.That(source, Does.Not.Contain("StageCompletionCommitter"));
             Assert.That(source, Does.Not.Contain("ObjectiveTracker"));
             Assert.That(source, Does.Not.Contain("SceneManager.LoadScene"));
         }

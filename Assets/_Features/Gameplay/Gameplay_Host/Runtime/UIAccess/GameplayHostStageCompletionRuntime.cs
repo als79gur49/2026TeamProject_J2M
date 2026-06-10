@@ -20,8 +20,6 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public MinimalStageCompletionReadModel CurrentMinimalStageCompletion { get; private set; }
 
-        public StageCompletionReadModel CurrentStageCompletion { get; private set; }
-
         public bool IsCompletionInProgress => _completionInProgress;
 
         public MinimalStageCompletionReadModel ProcessTick(TickResult result)

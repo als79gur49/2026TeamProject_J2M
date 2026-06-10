@@ -16,8 +16,6 @@ namespace Game.Feature.Gameplay.UIAccess.Contracts
 
         MinimalStageCompletionReadModel CurrentMinimalStageCompletion { get; }
 
-        StageCompletionReadModel CurrentStageCompletion { get; }
-
         GameplayLevelFailedReadModel CurrentLevelFailed { get; }
 
         bool HasPendingStageClearPresentation { get; }
