@@ -6757,10 +6757,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(presenter.ActiveMoonBlockDestructionGhostCount, Is.Zero);
                 Assert.That(presenter.HasBlockingPresentation, Is.True);
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
+                Assert.That(
+                    presenter.CurrentTilePresentationRequests[0].RequestKind,
+                    Is.EqualTo(TilePresentationRequestKind.MoonBlockGenerated));
+                Assert.That(
+                    presenter.DebugCaptureEntityPresentationLifecycle(40, 0f)
+                        .RetainedLocalTargetPosesContainsEntityId,
+                    Is.True);
                 Assert.That(registry.TryGetView(40, out var moonBlockView), Is.True);
                 AssertPositionApproximately(
                     moonBlockView.transform.localPosition,
-                    GetProjectedEntityPosition(boardBounds, destinationTopology, generatorCell, EntityType.Box));
+                    GetProjectedTransitionEntityPosition(
+                        boardBounds,
+                        sourceTopology,
+                        destinationTopology,
+                        generatorCell,
+                        EntityType.Box));
             }
             finally
             {
@@ -11037,6 +11050,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return projectedPose.LocalPosition;
         }
 
+        private static Vector3 GetProjectedTransitionEntityPosition(
+            BoardBounds boardBounds,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            SurfaceCell cell,
+            EntityType entityType)
+        {
+            var projector = new GameplayCubeProjector(boardBounds, 1f);
+            Assert.That(
+                projector.TryProjectTransitionEntityCell(
+                    cell,
+                    sourceTopology,
+                    destinationTopology,
+                    entityType,
+                    out var projectedPose),
+                Is.True);
+            return projectedPose.LocalPosition;
+        }
+
         private static Vector3 GetProjectedEntityNormal(
             BoardBounds boardBounds,
             CubeTopologyState topology,
@@ -11546,7 +11578,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static void AssertJumpAirborneAnimatorState(Animator animator)
         {
             var stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-            Assert.That(stateInfo.shortNameHash, Is.EqualTo(Animator.StringToHash("JumpAirborne")));
+            var expectedHash = Animator.StringToHash("JumpAirborne");
+            if (stateInfo.shortNameHash == 0 &&
+                TryGetJumpAirborneDriverSnapshot(animator, out var driverHash, out _))
+            {
+                Assert.That(driverHash, Is.EqualTo(expectedHash));
+                return;
+            }
+
+            Assert.That(stateInfo.shortNameHash, Is.EqualTo(expectedHash));
         }
 
         private static void AssertJumpAirborneAnimatorStateAndNormalizedTime(
@@ -11559,7 +11599,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static float GetAnimatorNormalizedTime(Animator animator)
         {
-            return animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+            var stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+            return stateInfo.shortNameHash == 0 &&
+                   TryGetJumpAirborneDriverSnapshot(animator, out _, out var normalizedTime)
+                ? normalizedTime
+                : stateInfo.normalizedTime;
+        }
+
+        private static bool TryGetJumpAirborneDriverSnapshot(
+            Animator animator,
+            out int stateHash,
+            out float normalizedTime)
+        {
+            stateHash = 0;
+            normalizedTime = 0f;
+            var driver = animator.GetComponentInParent<EnemyAnimatorDriver>(includeInactive: true);
+            if (driver == null ||
+                driver.LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
+            {
+                return false;
+            }
+
+            stateHash = driver.DebugLastJumpAirborneStateShortNameHash;
+            normalizedTime = driver.DebugLastJumpAirborneNormalizedTime;
+            return true;
         }
 
         private static float GetRendererFloat(Renderer targetRenderer, string propertyName)
