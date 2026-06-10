@@ -2043,41 +2043,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[1].Trace, Does.Contain("Box=20|Source=40|Effect=0|Reason=EnemyUtility|Expires=4|BlocksPush=1|BlocksFlip=0"));
         }
 
-        [Test]
-        [Category("Core")]
-        public void Replay_FrontFaceShieldScenario_ProducesStableHashTraceAndEventLog()
-        {
-            var firstReplay = RunFrontFaceShieldReplaySequence();
-            var secondReplay = RunFrontFaceShieldReplaySequence();
-
-            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
-            Assert.That(firstReplay[0].Trace, Does.Contain("Final.EnemyFrontFaceSupports"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("E=40|Effect=0|Phase=Windup"));
-            Assert.That(firstReplay[0].Trace, Does.Not.Contain("Reason=BoxSlideBlockedByFrontFaceShield"));
-            Assert.That(firstReplay[1].Trace, Does.Contain("Reason=BoxSlideBlockedByFrontFaceShield"));
-            Assert.That(firstReplay[1].Trace, Does.Contain("MovementKind=PushStart"));
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[1].EventLogDump,
-                    "BoxSlideBlockedByFrontFaceShield",
-                    "MovementKind=PushStart",
-                    "Box=20",
-                    "ShieldSource=40",
-                    "Tick=2"),
-                Is.True);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[1].EventLogDump,
-                    "PlayerActionBlockedByFrontFaceShield",
-                    "Action=Push",
-                    "Actor=10",
-                    "Box=20",
-                    "ShieldSource=40",
-                    "Tick=2"),
-                Is.True);
-            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=20|Pos=(0,1)|Hp=1|MaxHp=1|Team=0|Type=Box"));
-        }
-
 
 
         [Test]
@@ -2523,43 +2488,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     {
                         new TickInput(1),
                         new TickInput(2),
-                    });
-            }
-            finally
-            {
-                EnemyAiProfileTestFactory.Destroy(profile);
-            }
-        }
-
-        private static IReadOnlyList<TickReplayFrame> RunFrontFaceShieldReplaySequence()
-        {
-            var profile = CreateFrontFaceSupportProfile(
-                CreateBoxSlideShieldSupportEffect(radius: 1));
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, facing: Direction.Up),
-                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
-                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 1), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
-                GameplayTerrainData.Empty);
-
-            try
-            {
-                var bootstrapper = GameplayCompositionRoot.CreateDefaultBootstrapper(profile);
-
-                return new TickReplayHarness().Run(
-                    bootstrapper,
-                    worldState,
-                    new IEntityLogic[]
-                    {
-                        CreateImmediatePushPlayerLogic(10),
-                    },
-                    new[]
-                    {
-                        new TickInput(1),
-                        new TickInput(2, PlayerTickCommand.Push(Direction.Up)),
                     });
             }
             finally
@@ -3418,17 +3346,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             });
         }
 
-        private static EnemyAiProfile CreateFrontFaceSupportProfile(params EnemyFrontFaceSupportEffectAuthoring[] effects)
-        {
-            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
-            {
-                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                DetectionStrategyKind = DetectionStrategyKind.None,
-                PatrolStrategyKind = PatrolStrategyKind.Stationary,
-                FrontFaceSupportEffects = effects,
-            });
-        }
-
         private static EnemyUtilityEffectAuthoring CreateSummonUtilityEffect(
             int initialDelayTicks,
             int cooldownTicks,
@@ -3492,24 +3409,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", TicksToSeconds(initialDelayTicks));
             EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", TicksToSeconds(cooldownTicks));
             EnemyAiProfileTestFactory.SetSerializedField(effect, "lockNearbyBoxes", lockNearbyBoxes);
-            return effect;
-        }
-
-        private static EnemyFrontFaceSupportEffectAuthoring CreateBoxSlideShieldSupportEffect(
-            int radius,
-            bool includeSourceCell = false,
-            FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius)
-        {
-            var boxSlideShield = new BoxSlideShieldAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "radius", radius);
-            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "includeSourceCell", includeSourceCell);
-            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "targetPattern", targetPattern);
-            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "windupSeconds", TicksToSeconds(1));
-            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "cooldownSeconds", TicksToSeconds(1));
-
-            var effect = new EnemyFrontFaceSupportEffectAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyFrontFaceSupportEffectKind.BoxSlideShield);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "boxSlideShield", boxSlideShield);
             return effect;
         }
 

@@ -122,7 +122,6 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.EnemyJumps", GetEnemyJumpEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyGlides", GetEnemyGlideEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyUtilities", GetEnemyUtilityEntries(snapshot), FormatString);
-            AppendSection(builder, $"{label}.EnemyFrontFaceSupports", GetEnemyFrontFaceSupportEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.BoxInteractionLocks", GetBoxInteractionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyCharges", GetEnemyChargeEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.Phased", GetPhasedEntries(snapshot), FormatString);
@@ -337,25 +336,6 @@ namespace Game.Feature.Gameplay.Debug
                     var effectState = entries[i].State.EffectStates[effectIndex];
                     lines.Add(
                         $"E={entries[i].EntityId}|Effect={effectIndex}|Cooldown={effectState.cooldownTicksRemaining}|Phase={effectState.phase}|WindupStart={effectState.windupStartTick}|WindupEnd={effectState.windupEndTick}|ActiveStart={effectState.activeStartTick}|ActiveEnd={effectState.activeEndTickExclusive}|ActiveOrigin={FormatCell(effectState.activeOriginCell)}|RecoverStart={effectState.recoverStartTick}|RecoverEnd={effectState.recoverEndTickExclusive}|Sequence={effectState.activationSequence}|MoveSuppressUntil={effectState.movementSuppressionUntilTickInclusive}|Kind={effectState.effectKind}");
-                }
-            }
-
-            return lines;
-        }
-
-        private static List<string> GetEnemyFrontFaceSupportEntries(WorldSnapshot snapshot)
-        {
-            var entries = new List<EnemyFrontFaceSupportSnapshotEntry>();
-            var lines = new List<string>();
-            snapshot.EnumerateEnemyFrontFaceSupportStatesOrdered(entries);
-
-            for (var i = 0; i < entries.Count; i++)
-            {
-                for (var effectIndex = 0; effectIndex < entries[i].State.EffectStates.Count; effectIndex++)
-                {
-                    var effectState = entries[i].State.EffectStates[effectIndex];
-                    lines.Add(
-                        $"E={entries[i].EntityId}|Effect={effectIndex}|Phase={effectState.phase}|WindupStart={effectState.windupStartTick}|WindupEnd={effectState.windupEndTick}|Sequence={effectState.activationSequence}|Cooldown={effectState.cooldownTicksRemaining}|Radius={effectState.radius}|IncludeSource={effectState.includeSourceCell}|TargetPattern={effectState.targetPattern}");
                 }
             }
 
@@ -634,37 +614,6 @@ namespace Game.Feature.Gameplay.Debug
                             .Append(effectState.activationSequence)
                             .Append(':')
                             .Append(effectState.movementSuppressionUntilTickInclusive);
-                    }
-                    break;
-
-                case FinalizationOperationKind.SetEnemyFrontFaceSupportState:
-                    if (operation.EnemyFrontFaceSupportState == null)
-                    {
-                        builder.Append("|FrontFaceSupport=<null>");
-                        break;
-                    }
-
-                    for (var effectIndex = 0; effectIndex < operation.EnemyFrontFaceSupportState.EffectStates.Count; effectIndex++)
-                    {
-                        var effectState = operation.EnemyFrontFaceSupportState.EffectStates[effectIndex];
-                        builder.Append(effectIndex == 0 ? "|FrontFaceSupport=" : ",")
-                            .Append(effectIndex)
-                            .Append(':')
-                            .Append(effectState.phase)
-                            .Append(':')
-                            .Append(effectState.windupStartTick)
-                            .Append(':')
-                            .Append(effectState.windupEndTick)
-                            .Append(':')
-                            .Append(effectState.activationSequence)
-                            .Append(':')
-                            .Append(effectState.cooldownTicksRemaining)
-                            .Append(':')
-                            .Append(effectState.radius)
-                            .Append(':')
-                            .Append(effectState.includeSourceCell ? 1 : 0)
-                            .Append(':')
-                            .Append(effectState.targetPattern);
                     }
                     break;
 

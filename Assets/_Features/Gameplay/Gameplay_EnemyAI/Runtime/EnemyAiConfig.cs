@@ -1210,7 +1210,7 @@ namespace Game.Feature.Gameplay.Entities
                     jumpTimingSettings);
             }
 
-            return new EnemyCapabilityRuntimeSet(combat, movementSkill, passiveContact: null, utility: null, frontFaceSupport: null);
+            return new EnemyCapabilityRuntimeSet(combat, movementSkill, passiveContact: null, utility: null);
         }
 
         private static PatrolStrategyKind ResolvePatrolStrategyKind(IPatrolStrategy patrolStrategy)

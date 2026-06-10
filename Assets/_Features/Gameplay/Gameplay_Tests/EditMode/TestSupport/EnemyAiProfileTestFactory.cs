@@ -31,7 +31,6 @@ namespace Game.Feature.Gameplay.Tests
         public EnemyJumpTimingAuthoringSettings JumpTimingSettings = EnemyJumpTimingAuthoringSettings.CreateDefault();
         public EnemyGlideTimingAuthoringSettings GlideTimingSettings = EnemyGlideTimingAuthoringSettings.CreateDefault();
         public EnemyUtilityEffectAuthoring[] UtilityEffects;
-        public EnemyFrontFaceSupportEffectAuthoring[] FrontFaceSupportEffects;
     }
 
     internal static class EnemyAiProfileTestFactory
@@ -487,12 +486,6 @@ namespace Game.Feature.Gameplay.Tests
                 yield return utility;
             }
 
-            if (spec.FrontFaceSupportEffects != null)
-            {
-                var frontFaceSupport = CreateHiddenAsset<EnemyFrontFaceSupportCapabilityAsset>("Test_EnemyFrontFaceSupportCapability");
-                SetSerializedField(frontFaceSupport, "effects", spec.FrontFaceSupportEffects);
-                yield return frontFaceSupport;
-            }
         }
 
         private static T CreateHiddenAsset<T>(string assetName)

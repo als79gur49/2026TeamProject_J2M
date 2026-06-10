@@ -68,7 +68,6 @@ namespace Game.Feature.Gameplay.Entities
         private readonly EnemyMovementSkillCapabilityRuntime _movementSkillCapability;
         private readonly EnemyPassiveContactCapabilityRuntime _passiveContactCapability;
         private readonly EnemyUtilityCapabilityRuntime _utilityCapability;
-        private readonly EnemyFrontFaceSupportCapabilityRuntime _frontFaceSupportCapability;
         private readonly IEnemyAiStateResolver _stateResolver;
         private readonly bool _usesChargeStateResolver;
         private readonly List<EntityState> _sharedCellUnits = new();
@@ -116,7 +115,6 @@ namespace Game.Feature.Gameplay.Entities
             aiDefinition.Capabilities.TryGetMovementSkill(out _movementSkillCapability);
             aiDefinition.Capabilities.TryGetPassiveContact(out _passiveContactCapability);
             aiDefinition.Capabilities.TryGetUtility(out _utilityCapability);
-            aiDefinition.Capabilities.TryGetFrontFaceSupport(out _frontFaceSupportCapability);
         }
 
         public int ControlledEntityId => _entityId;
@@ -257,11 +255,6 @@ namespace Game.Feature.Gameplay.Entities
                 }
 
                 return;
-            }
-
-            if (_frontFaceSupportCapability != null)
-            {
-                CommitEnemyFrontFaceSupportState(snapshot, in input, source, writeContext, updates);
             }
 
             if (!EnemyParticipationPolicy.CanParticipateOnCurrentTopology(snapshot, source))
@@ -1828,114 +1821,6 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
-        private void CommitEnemyFrontFaceSupportState(
-            WorldSnapshot snapshot,
-            in TickInput input,
-            in EntityState source,
-            IPreMovementStateCommitContext writeContext,
-            List<string> updates)
-        {
-            var isEligibleSource = EnemyFrontFaceSupportPolicy.IsActiveFrontFaceSupportSource(snapshot, source);
-            var hasCurrentState = snapshot.TryGetEnemyFrontFaceSupportState(_entityId, out var currentState);
-            var initializedState = false;
-            if ((!hasCurrentState || !currentState.HasEffectCount(_frontFaceSupportCapability.Effects.Count)) &&
-                isEligibleSource)
-            {
-                currentState = EnemyFrontFaceSupportStateQueries.CreateInitialState(_frontFaceSupportCapability);
-                hasCurrentState = true;
-                initializedState = true;
-                updates.Add(
-                    $"EnemyFrontFaceSupportInitialized|E={_entityId}|EffectCount={currentState.EffectStates.Count}");
-            }
-
-            if (!hasCurrentState)
-            {
-                return;
-            }
-
-            var nextEffectStates = new EnemyFrontFaceSupportEffectState[currentState.EffectStates.Count];
-            var hasAnyChange = false;
-
-            for (var effectIndex = 0; effectIndex < currentState.EffectStates.Count; effectIndex++)
-            {
-                var previousEffectState = currentState.EffectStates[effectIndex];
-                var effectRuntime = _frontFaceSupportCapability.Effects[effectIndex];
-                var nextEffectState = previousEffectState;
-
-                if (!isEligibleSource)
-                {
-                    var canceledWindup = previousEffectState.phase == EnemyFrontFaceSupportEffectPhase.Windup;
-                    var cooldownTicksRemaining = canceledWindup && effectRuntime.Kind == EnemyFrontFaceSupportEffectKind.BoxSlideShield
-                        ? effectRuntime.BoxSlideShield.CooldownTicks
-                        : Mathf.Max(0, previousEffectState.cooldownTicksRemaining - 1);
-
-                    nextEffectState = EnemyFrontFaceSupportStateQueries.CreateInactiveEffectState(
-                        effectRuntime,
-                        previousEffectState.activationSequence);
-                    nextEffectState.cooldownTicksRemaining = cooldownTicksRemaining;
-                    if (!AreEqual(previousEffectState, nextEffectState))
-                    {
-                        updates.Add(
-                            $"EnemyFrontFaceSupportCleared|E={_entityId}|Effect={effectIndex}|PreviousPhase={previousEffectState.phase}|Cooldown={nextEffectState.cooldownTicksRemaining}");
-                    }
-                }
-                else if (effectRuntime.Kind == EnemyFrontFaceSupportEffectKind.BoxSlideShield)
-                {
-                    var shield = effectRuntime.BoxSlideShield;
-                    nextEffectState.radius = shield.Radius;
-                    nextEffectState.includeSourceCell = shield.IncludeSourceCell;
-                    nextEffectState.targetPattern = shield.TargetPattern;
-
-                    if (nextEffectState.phase == EnemyFrontFaceSupportEffectPhase.None)
-                    {
-                        if (nextEffectState.cooldownTicksRemaining > 0)
-                        {
-                            nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
-                        }
-
-                        if (nextEffectState.cooldownTicksRemaining == 0)
-                        {
-                            nextEffectState.phase = EnemyFrontFaceSupportEffectPhase.Windup;
-                            nextEffectState.windupStartTick = input.TickIndex;
-                            nextEffectState.windupEndTick = input.TickIndex + shield.WindupTicks;
-                            nextEffectState.activationSequence = Math.Max(0, nextEffectState.activationSequence) + 1;
-                            updates.Add(
-                                $"EnemyFrontFaceSupportWindupStarted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Start={nextEffectState.windupStartTick}|End={nextEffectState.windupEndTick}");
-                        }
-                    }
-                    else if (nextEffectState.phase == EnemyFrontFaceSupportEffectPhase.Windup &&
-                             input.TickIndex >= nextEffectState.windupEndTick)
-                    {
-                        nextEffectState.phase = EnemyFrontFaceSupportEffectPhase.Active;
-                        nextEffectState.cooldownTicksRemaining = shield.CooldownTicks;
-                        updates.Add(
-                            $"EnemyFrontFaceSupportActivated|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Tick={input.TickIndex}|Cooldown={nextEffectState.cooldownTicksRemaining}");
-                    }
-                    else if (nextEffectState.phase == EnemyFrontFaceSupportEffectPhase.Active &&
-                             nextEffectState.cooldownTicksRemaining > 0)
-                    {
-                        nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
-                    }
-                }
-
-                nextEffectStates[effectIndex] = nextEffectState;
-                if (!AreEqual(previousEffectState, nextEffectState))
-                {
-                    hasAnyChange = true;
-                }
-            }
-
-            if (!initializedState &&
-                !hasAnyChange)
-            {
-                return;
-            }
-
-            writeContext.SetEnemyFrontFaceSupportState(
-                _entityId,
-                new EnemyFrontFaceSupportRuntimeState(nextEffectStates));
-        }
-
         private static bool AreEqual(EnemyUtilityEffectState left, EnemyUtilityEffectState right)
         {
             return left.effectKind == right.effectKind &&
@@ -2089,18 +1974,6 @@ namespace Game.Feature.Gameplay.Entities
                     effectRuntime.Kind,
                     "Unhandled enemy utility effect kind."),
             };
-        }
-
-        private static bool AreEqual(EnemyFrontFaceSupportEffectState left, EnemyFrontFaceSupportEffectState right)
-        {
-            return left.phase == right.phase &&
-                   left.windupStartTick == right.windupStartTick &&
-                   left.windupEndTick == right.windupEndTick &&
-                   left.activationSequence == right.activationSequence &&
-                   left.cooldownTicksRemaining == right.cooldownTicksRemaining &&
-                   left.radius == right.radius &&
-                   left.includeSourceCell == right.includeSourceCell &&
-                   left.targetPattern == right.targetPattern;
         }
 
         private static RawMovementIntent ApplyMovementTiming(

@@ -144,7 +144,6 @@ namespace Game.Feature.Gameplay.Entities
             var preMovementStateLogics = new List<IPreMovementStateLogic>(entityLogics.Count);
             var aiStateLogics = new List<IEnemyAiStateLogic>(entityLogics.Count);
             var enemyActionStateLogics = new List<IEnemyActionStateLogic>(entityLogics.Count);
-            var frontFaceSupportLogics = new List<IFrontFaceSupportLogic>(entityLogics.Count);
             var movementLogics = new List<IMovementEntityLogic>(entityLogics.Count);
             var attackLogics = new List<IAttackEntityLogic>(entityLogics.Count);
             var playerControlLogicSourceIds = new HashSet<int>();
@@ -164,11 +163,6 @@ namespace Game.Feature.Gameplay.Entities
                 if (entityLogics[i] is IEnemyActionStateLogic enemyActionStateLogic)
                 {
                     enemyActionStateLogics.Add(enemyActionStateLogic);
-                }
-
-                if (entityLogics[i] is IFrontFaceSupportLogic frontFaceSupportLogic)
-                {
-                    frontFaceSupportLogics.Add(frontFaceSupportLogic);
                 }
 
                 if (entityLogics[i] is IMovementEntityLogic movementLogic)
@@ -199,7 +193,6 @@ namespace Game.Feature.Gameplay.Entities
                 preMovementStateLogics.AsReadOnly(),
                 aiStateLogics.AsReadOnly(),
                 enemyActionStateLogics.AsReadOnly(),
-                frontFaceSupportLogics.AsReadOnly(),
                 movementLogics.AsReadOnly(),
                 attackLogics.AsReadOnly());
         }
@@ -260,11 +253,6 @@ namespace Game.Feature.Gameplay.Entities
                 phaseMask |= EntityLogicPhaseMask.EnemyActionState;
             }
 
-            if (logic is IFrontFaceSupportLogic)
-            {
-                phaseMask |= EntityLogicPhaseMask.FrontFaceSupport;
-            }
-
             if (logic is IAttackEntityLogic)
             {
                 phaseMask |= EntityLogicPhaseMask.Attack;
@@ -286,7 +274,6 @@ namespace Game.Feature.Gameplay.Entities
                 || HasPhaseOwnershipConflictSlow<IPreMovementStateLogic>(candidate, candidateBinding, existingEntityLogics)
                 || HasPhaseOwnershipConflictSlow<IEnemyAiStateLogic>(candidate, candidateBinding, existingEntityLogics)
                 || HasPhaseOwnershipConflictSlow<IEnemyActionStateLogic>(candidate, candidateBinding, existingEntityLogics)
-                || HasPhaseOwnershipConflictSlow<IFrontFaceSupportLogic>(candidate, candidateBinding, existingEntityLogics)
                 || HasPhaseOwnershipConflictSlow<IAttackEntityLogic>(candidate, candidateBinding, existingEntityLogics);
         }
 
@@ -322,8 +309,7 @@ namespace Game.Feature.Gameplay.Entities
             PreMovementState = 1 << 1,
             EnemyAiState = 1 << 2,
             EnemyActionState = 1 << 3,
-            FrontFaceSupport = 1 << 4,
-            Attack = 1 << 5,
+            Attack = 1 << 4,
         }
 
         private readonly struct EntityLogicOwnership
@@ -395,7 +381,6 @@ namespace Game.Feature.Gameplay.Entities
                        HasConflict(ownership, EntityLogicPhaseMask.PreMovementState) ||
                        HasConflict(ownership, EntityLogicPhaseMask.EnemyAiState) ||
                        HasConflict(ownership, EntityLogicPhaseMask.EnemyActionState) ||
-                       HasConflict(ownership, EntityLogicPhaseMask.FrontFaceSupport) ||
                        HasConflict(ownership, EntityLogicPhaseMask.Attack);
             }
 
@@ -411,7 +396,6 @@ namespace Game.Feature.Gameplay.Entities
                 Register(ownership, EntityLogicPhaseMask.PreMovementState);
                 Register(ownership, EntityLogicPhaseMask.EnemyAiState);
                 Register(ownership, EntityLogicPhaseMask.EnemyActionState);
-                Register(ownership, EntityLogicPhaseMask.FrontFaceSupport);
                 Register(ownership, EntityLogicPhaseMask.Attack);
             }
 

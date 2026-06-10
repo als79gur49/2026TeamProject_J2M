@@ -782,15 +782,6 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var playerTraversalSourceIds = CollectPlayerTraversalSourceIds(entityLogicsForTick.MovementLogics);
-            var frontFaceSupportContributors = CollectFrontFaceSupportContributors(
-                entityLogicsForTick.FrontFaceSupportLogics,
-                planSnapshot,
-                in input);
-            var frontFaceShieldSourceExports = BuildFrontFaceShieldSourcePresentationExports(
-                frontFaceSupportContributors,
-                planSnapshot.Topology,
-                input.TickIndex);
-            var frontFaceShieldBlockExports = new List<FrontFaceShieldBlockPresentationExport>();
             var barricadeBlockFacts = new List<BarricadeBlockFact>();
             var boxSlideStops = new List<BoxSlideStopResult>();
             var expandedCandidates = new List<ActionGroup>();
@@ -807,10 +798,8 @@ namespace Game.Feature.Gameplay.Loop
                 input.TickIndex,
                 legacyExpansionIntents,
                 playerTraversalSourceIds,
-                frontFaceSupportContributors,
                 expandedCandidates,
                 rejectedReasons,
-                frontFaceShieldBlockExports,
                 barricadeBlockFacts,
                 forbiddenLegacyUnitOrdinaryIntentIds,
                 _tileFeatureDefinitions,
@@ -859,8 +848,6 @@ namespace Game.Feature.Gameplay.Loop
                 phaseRelocationPlans,
                 phaseRelocationActionPlanPayloads,
                 orderedPhaseRelocationActionPlanIds,
-                frontFaceShieldSourceExports,
-                frontFaceShieldBlockExports,
                 barricadeBlockFacts,
                 boxSlideStops,
                 playerTopologyTransitionBlockedSignals,
@@ -1449,7 +1436,6 @@ namespace Game.Feature.Gameplay.Loop
             AddRange(movementResolvedOperations, phaseRelocationResolveBatch.Operations);
             AddRange(movementResolvedOperations, tileEffectResult.EntityOperations.Operations);
             AppendBoxInteractionLockBlockedEvents(movementRejectedReasons, movementCommitEvents, tickIndex);
-            AppendFrontFaceShieldBlockedEvents(movementRejectedReasons, movementCommitEvents, tickIndex);
             var movementPhaseResult = new MovementPhaseResult(
                 planPhaseResult.RawIntents,
                 planPhaseResult.SortedIntents,
@@ -1458,8 +1444,6 @@ namespace Game.Feature.Gameplay.Loop
                 movementResolvedOperations,
                 movementCommitEvents,
                 movementRejectedReasons,
-                planPhaseResult.FrontFaceShieldSourceExports,
-                planPhaseResult.FrontFaceShieldBlockExports,
                 planPhaseResult.BarricadeBlockFacts,
                 FilterSelectedBoxSlideStops(
                     planPhaseResult.BoxSlideStops,
@@ -1534,66 +1518,6 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return playerTraversalSourceIds;
-        }
-
-        private static List<FrontFaceSupportContributor> CollectFrontFaceSupportContributors(
-            IReadOnlyList<IFrontFaceSupportLogic> entityLogics,
-            WorldSnapshot snapshot,
-            in TickInput input)
-        {
-            var contributors = new List<FrontFaceSupportContributor>(entityLogics?.Count ?? 0);
-            if (entityLogics == null)
-            {
-                return contributors;
-            }
-
-            for (var i = 0; i < entityLogics.Count; i++)
-            {
-                entityLogics[i].CollectFrontFaceSupportContributors(snapshot, input, contributors);
-            }
-
-            contributors.Sort(FrontFaceSupportContributorComparer.Instance);
-            return contributors;
-        }
-
-        private static List<FrontFaceShieldSourcePresentationExport> BuildFrontFaceShieldSourcePresentationExports(
-            IReadOnlyList<FrontFaceSupportContributor> contributors,
-            CubeTopologyState topology,
-            int tickIndex)
-        {
-            var exports = new List<FrontFaceShieldSourcePresentationExport>(contributors?.Count ?? 0);
-            if (contributors == null)
-            {
-                return exports;
-            }
-
-            for (var i = 0; i < contributors.Count; i++)
-            {
-                var contributor = contributors[i];
-                if (contributor.EffectRuntime.Kind != EnemyFrontFaceSupportEffectKind.BoxSlideShield)
-                {
-                    continue;
-                }
-
-                var shield = contributor.EffectRuntime.BoxSlideShield;
-                exports.Add(
-                    new FrontFaceShieldSourcePresentationExport(
-                        contributor.SourceEntityId,
-                        contributor.SourceCell,
-                        topology,
-                        shield.Radius,
-                        shield.IncludeSourceCell,
-                        shield.TargetPattern,
-                        tickIndex,
-                        MovementExpander.BuildFrontFaceShieldPresentationSeed(
-                            tickIndex,
-                            contributor.SourceEntityId,
-                            0,
-                            contributor.SourceCell,
-                            contributor.EffectIndex)));
-            }
-
-            return exports;
         }
 
         private CleanupPhaseResult RunCleanupPhase(
@@ -11286,35 +11210,6 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static void AppendFrontFaceShieldBlockedEvents(
-            IReadOnlyList<string> movementRejectedReasons,
-            List<string> movementCommitEvents,
-            int tickIndex)
-        {
-            if (movementRejectedReasons == null || movementCommitEvents == null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < movementRejectedReasons.Count; i++)
-            {
-                if (!TryBuildFrontFaceShieldBlockedEvents(
-                        movementRejectedReasons[i],
-                        tickIndex,
-                        out var blockedEvent,
-                        out var playerBlockedEvent))
-                {
-                    continue;
-                }
-
-                movementCommitEvents.Add(blockedEvent);
-                if (!string.IsNullOrEmpty(playerBlockedEvent))
-                {
-                    movementCommitEvents.Add(playerBlockedEvent);
-                }
-            }
-        }
-
         private static bool TryBuildBoxInteractionLockBlockedEvent(
             string movementRejectedReason,
             int tickIndex,
@@ -11352,43 +11247,6 @@ namespace Game.Feature.Gameplay.Loop
                 $"PlayerActionBlockedByBoxInteractionLock|Action={actionKind}|Actor={sourceText}|Box={targetText}|Cell={cellText}|Tick={tickIndex}";
             return true;
         }
-
-        private static bool TryBuildFrontFaceShieldBlockedEvents(
-            string movementRejectedReason,
-            int tickIndex,
-            out string blockedEvent,
-            out string playerBlockedEvent)
-        {
-            blockedEvent = null;
-            playerBlockedEvent = null;
-            if (string.IsNullOrEmpty(movementRejectedReason) ||
-                !movementRejectedReason.StartsWith("MovementRejected|", StringComparison.Ordinal) ||
-                !movementRejectedReason.Contains("Reason=BoxSlideBlockedByFrontFaceShield", StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            if (!TryGetStructuredLogValue(movementRejectedReason, "MovementKind", out var movementKindText) ||
-                !TryGetStructuredLogValue(movementRejectedReason, "Box", out var boxText) ||
-                !TryGetStructuredLogValue(movementRejectedReason, "Cell", out var cellText) ||
-                !TryGetStructuredLogValue(movementRejectedReason, "ShieldSource", out var shieldSourceText))
-            {
-                return false;
-            }
-
-            blockedEvent =
-                $"BoxSlideBlockedByFrontFaceShield|MovementKind={movementKindText}|Box={boxText}|Cell={cellText}|ShieldSource={shieldSourceText}|Tick={tickIndex}";
-
-            if (string.Equals(movementKindText, nameof(BoxSlideMovementKind.PushStart), StringComparison.Ordinal) &&
-                TryGetStructuredLogValue(movementRejectedReason, "Source", out var sourceText))
-            {
-                playerBlockedEvent =
-                    $"PlayerActionBlockedByFrontFaceShield|Action={PlayerActionKind.Push}|Actor={sourceText}|Box={boxText}|Cell={cellText}|ShieldSource={shieldSourceText}|Tick={tickIndex}";
-            }
-
-            return true;
-        }
-
 
         private void AssignAttackGroupIds(List<ActionGroup> expandedCandidates)
         {

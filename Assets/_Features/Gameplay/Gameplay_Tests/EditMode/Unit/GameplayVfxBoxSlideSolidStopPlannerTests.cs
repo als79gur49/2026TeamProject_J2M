@@ -73,7 +73,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [TestCase(BoxSlideStopperKind.Terrain)]
         [TestCase(BoxSlideStopperKind.BoardEdge)]
-        [TestCase(BoxSlideStopperKind.Shield)]
+        [TestCase(BoxSlideStopperKind.RetiredShield)]
         [TestCase(BoxSlideStopperKind.None)]
         public void NonSolidStopper_DoesNotEmitBoxSlideSolidStopRequest(BoxSlideStopperKind stopperKind)
         {

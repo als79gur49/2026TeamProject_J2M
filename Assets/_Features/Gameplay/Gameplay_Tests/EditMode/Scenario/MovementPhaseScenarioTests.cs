@@ -91,7 +91,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tickIndex: 1,
                 sortedIntents: new[] { intent },
                 playerTraversalSourceIds: new HashSet<int> { 10 },
-                frontFaceSupportContributors: null,
                 buffer: expandedCandidates,
                 rejectedReasons: rejectedReasons,
                 tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
@@ -138,7 +137,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tickIndex: 1,
                 sortedIntents: new[] { intent },
                 playerTraversalSourceIds: new HashSet<int> { 10 },
-                frontFaceSupportContributors: null,
                 buffer: expandedCandidates,
                 rejectedReasons: rejectedReasons,
                 tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
@@ -183,7 +181,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tickIndex: 1,
                 sortedIntents: new[] { intent },
                 playerTraversalSourceIds: new HashSet<int> { 10 },
-                frontFaceSupportContributors: null,
                 buffer: expandedCandidates,
                 rejectedReasons: rejectedReasons,
                 tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.BottomFaceOnly) });
@@ -227,7 +224,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tickIndex: 1,
                 sortedIntents: new[] { intent },
                 playerTraversalSourceIds: new HashSet<int> { 10 },
-                frontFaceSupportContributors: null,
                 buffer: expandedCandidates,
                 rejectedReasons: rejectedReasons,
                 tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
@@ -265,7 +261,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tickIndex: 1,
                 sortedIntents: new[] { intent },
                 playerTraversalSourceIds: new HashSet<int> { 10 },
-                frontFaceSupportContributors: null,
                 buffer: expandedCandidates,
                 rejectedReasons: rejectedReasons,
                 tileFeatureDefinitions: new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
@@ -1297,10 +1292,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tickIndex: 1,
                 sortedIntents: new[] { intent },
                 playerTraversalSourceIds: null,
-                frontFaceSupportContributors: null,
                 buffer: expandedCandidates,
                 rejectedReasons: rejectedReasons,
-                frontFaceShieldBlockExports: null,
                 forbiddenLegacyUnitOrdinaryIntentIds: new HashSet<int> { intent.IntentId });
 
             Assert.That(expandedCandidates, Is.Empty);
@@ -1340,7 +1333,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tickIndex: 1,
                 sortedIntents: new[] { intent },
                 playerTraversalSourceIds: null,
-                frontFaceSupportContributors: null,
                 buffer: expandedCandidates,
                 rejectedReasons: rejectedReasons);
 
@@ -4369,530 +4361,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        [Category("Full")]
-        public void Movement_PushBox_FirstSlideStepIntoFrontShield_IsRejected()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
-                    CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Front, 0, 1)),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
-                GameplayTerrainData.Empty);
-            var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect(radius: 1));
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot
-                    .CreateDefaultBootstrapper(profile)
-                    .CreateTickPipeline(worldState, new IEntityLogic[] { CreateImmediatePushPlayerLogic(10) });
-
-                var warningResult = pipeline.RunTick(new TickInput(1));
-                Assert.That(warningResult.PresentationData.FrontFaceShieldWindupWarnings, Has.Count.EqualTo(1));
-                Assert.That(warningResult.PresentationData.FrontFaceShieldSources, Is.Empty);
-                Assert.That(warningResult.PresentationData.FrontFaceShieldBlocks, Is.Empty);
-                Assert.That(warningResult.MovementPhaseResult.RejectedReasons, Is.Empty);
-
-                var result = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
-                var snapshotAfter = CreateSnapshot(worldState);
-
-                Assert.That(
-                    result.MovementPhaseResult.RejectedReasons,
-                    Has.Some.Contains("Reason=BoxSlideBlockedByFrontFaceShield").And.Contains("MovementKind=PushStart"));
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        result.MovementPhaseResult.CommitEvents,
-                        "BoxSlideBlockedByFrontFaceShield",
-                        "MovementKind=PushStart",
-                        "Box=20",
-                        "ShieldSource=40"),
-                    Is.True);
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        result.MovementPhaseResult.CommitEvents,
-                        "PlayerActionBlockedByFrontFaceShield",
-                        "Actor=10",
-                        "Box=20",
-                        "ShieldSource=40"),
-                    Is.True);
-                Assert.That(result.PresentationData.FrontFaceShieldSources, Has.Count.EqualTo(1));
-                var sourceSignal = result.PresentationData.FrontFaceShieldSources[0];
-                Assert.That(sourceSignal.SourceEntityId, Is.EqualTo(40));
-                Assert.That(sourceSignal.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
-                Assert.That(sourceSignal.Radius, Is.EqualTo(1));
-                Assert.That(sourceSignal.IncludeSourceCell, Is.False);
-                Assert.That(sourceSignal.TargetPattern, Is.EqualTo(FrontFaceShieldTargetPattern.ManhattanRadius));
-                Assert.That(sourceSignal.TickIndex, Is.EqualTo(2));
-
-                Assert.That(result.PresentationData.FrontFaceShieldBlocks, Has.Count.EqualTo(1));
-                var blockSignal = result.PresentationData.FrontFaceShieldBlocks[0];
-                Assert.That(blockSignal.ShieldSourceEntityId, Is.EqualTo(40));
-                Assert.That(blockSignal.BoxEntityId, Is.EqualTo(20));
-                Assert.That(blockSignal.ActorEntityId, Is.EqualTo(10));
-                Assert.That(blockSignal.BlockedCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
-                Assert.That(blockSignal.ShieldSourceCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
-                Assert.That(blockSignal.MovementKind, Is.EqualTo(FrontFaceShieldBlockMovementKind.PushStart));
-                Assert.That(blockSignal.TickIndex, Is.EqualTo(2));
-                Assert.That(snapshotAfter.TryGetBoxInteractionLockState(20, out _), Is.False);
-                Assert.That(snapshotAfter.TryGetEntity(20, out var boxAfter), Is.True);
-                Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
-                Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
-                Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("MoveCommitted|", StringComparison.Ordinal)), Is.False);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        public void Movement_PushBox_FirstSlideStepIntoSquareFrontShield_CornerCellIsRejected()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Front, 0, 2)),
-                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 1, 2), capabilities: BoxCapabilities.Push),
-                    CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Front, 0, 0)),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                GameplayTerrainData.Empty);
-            var profile = CreateFrontFaceSupportProfile(
-                CreateBoxSlideShieldSupportEffect(
-                    radius: 2,
-                    targetPattern: FrontFaceShieldTargetPattern.SquareRadius));
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot
-                    .CreateDefaultBootstrapper(profile)
-                    .CreateTickPipeline(worldState, new IEntityLogic[] { CreateImmediatePushPlayerLogic(10) });
-
-                var warningResult = pipeline.RunTick(new TickInput(1));
-                Assert.That(warningResult.PresentationData.FrontFaceShieldWindupWarnings, Has.Count.EqualTo(1));
-                Assert.That(warningResult.PresentationData.FrontFaceShieldSources, Is.Empty);
-
-                var result = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Right)));
-                var snapshotAfter = CreateSnapshot(worldState);
-
-                Assert.That(
-                    result.MovementPhaseResult.RejectedReasons,
-                    Has.Some.Contains("Reason=BoxSlideBlockedByFrontFaceShield").And.Contains("MovementKind=PushStart"));
-                Assert.That(result.PresentationData.FrontFaceShieldSources, Has.Count.EqualTo(1));
-                Assert.That(
-                    result.PresentationData.FrontFaceShieldSources[0].TargetPattern,
-                    Is.EqualTo(FrontFaceShieldTargetPattern.SquareRadius));
-                Assert.That(result.PresentationData.FrontFaceShieldBlocks, Has.Count.EqualTo(1));
-                Assert.That(
-                    result.PresentationData.FrontFaceShieldBlocks[0].BlockedCell,
-                    Is.EqualTo(new SurfaceCell(FaceId.Front, 2, 2)));
-                Assert.That(snapshotAfter.TryGetEntity(20, out var boxAfter), Is.True);
-                Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 2)));
-                Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        public void Movement_PushBox_FirstSlideStepIntoManhattanFrontShield_CornerCellCommits()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Front, 0, 2)),
-                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 1, 2), capabilities: BoxCapabilities.Push),
-                    CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Front, 0, 0)),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                GameplayTerrainData.Empty);
-            var profile = CreateFrontFaceSupportProfile(
-                CreateBoxSlideShieldSupportEffect(
-                    radius: 2,
-                    targetPattern: FrontFaceShieldTargetPattern.ManhattanRadius));
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot
-                    .CreateDefaultBootstrapper(profile)
-                    .CreateTickPipeline(worldState, new IEntityLogic[] { CreateImmediatePushPlayerLogic(10) });
-
-                pipeline.RunTick(new TickInput(1));
-                var result = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Right)));
-
-                Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
-                Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("FrontFaceShield"));
-                Assert.That(result.PresentationData.FrontFaceShieldSources, Has.Count.EqualTo(1));
-                Assert.That(result.PresentationData.FrontFaceShieldBlocks, Is.Empty);
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        result.MovementPhaseResult.CommitEvents,
-                        "MoveCommitted",
-                        "E=20",
-                        "To=Front(2,2)"),
-                    Is.True);
-                Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 2, 2)));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        public void Movement_PushBox_FirstSlideStepIntoFrontShield_IgnoresBottomFaceSource()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
-                    CreateBottomFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Floor, 1, 1)),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
-            var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect(radius: 1));
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot
-                    .CreateDefaultBootstrapper(profile)
-                    .CreateTickPipeline(worldState, new IEntityLogic[] { CreateImmediatePushPlayerLogic(10) });
-
-                var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
-
-                Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        result.MovementPhaseResult.CommitEvents,
-                        "MoveCommitted",
-                        "E=20",
-                        "To=Front(0,0)"),
-                    Is.True);
-                Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("FrontFaceShield"));
-                Assert.That(result.PresentationData.FrontFaceShieldSources, Is.Empty);
-                Assert.That(result.PresentationData.FrontFaceShieldBlocks, Is.Empty);
-                Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        public void Movement_FrontFaceShieldPresentation_ActiveSourceSignalEmitsWithoutBlock()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Front, 0, 1)),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
-                GameplayTerrainData.Empty);
-            var profile = CreateFrontFaceSupportProfile(
-                CreateBoxSlideShieldSupportEffect(
-                    radius: 2,
-                    includeSourceCell: true,
-                    targetPattern: FrontFaceShieldTargetPattern.ManhattanRadius));
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
-
-                var warningResult = pipeline.RunTick(new TickInput(7));
-                Assert.That(warningResult.PresentationData.FrontFaceShieldWindupWarnings, Has.Count.EqualTo(1));
-                Assert.That(warningResult.PresentationData.FrontFaceShieldSources, Is.Empty);
-
-                var result = pipeline.RunTick(new TickInput(8));
-
-                Assert.That(result.PresentationData.FrontFaceShieldSources, Has.Count.EqualTo(1));
-                var sourceSignal = result.PresentationData.FrontFaceShieldSources[0];
-                Assert.That(sourceSignal.SourceEntityId, Is.EqualTo(40));
-                Assert.That(sourceSignal.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
-                Assert.That(sourceSignal.Radius, Is.EqualTo(2));
-                Assert.That(sourceSignal.IncludeSourceCell, Is.True);
-                Assert.That(sourceSignal.TargetPattern, Is.EqualTo(FrontFaceShieldTargetPattern.ManhattanRadius));
-                Assert.That(sourceSignal.TickIndex, Is.EqualTo(8));
-                Assert.That(result.PresentationData.FrontFaceShieldBlocks, Is.Empty);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void Movement_FrontFaceShield_IneligibleDuringWindup_ClearsAndRestartsFullWindup()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Front, 0, 1)),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
-                GameplayTerrainData.Empty);
-            var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect(radius: 1, cooldownTicks: 2));
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
-
-                var firstWarning = pipeline.RunTick(new TickInput(1));
-                Assert.That(firstWarning.PresentationData.FrontFaceShieldWindupWarnings, Has.Count.EqualTo(1));
-                Assert.That(firstWarning.PresentationData.FrontFaceShieldSources, Is.Empty);
-
-                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Floor, 0, 1));
-                var clearedTick = pipeline.RunTick(new TickInput(2));
-                var clearedSnapshot = CreateSnapshot(worldState);
-
-                Assert.That(clearedTick.PresentationData.FrontFaceShieldWindupWarnings, Is.Empty);
-                Assert.That(clearedTick.PresentationData.FrontFaceShieldSources, Is.Empty);
-                Assert.That(clearedSnapshot.TryGetEnemyFrontFaceSupportState(40, out var clearedState), Is.True);
-                Assert.That(clearedState.EffectStates[0].phase, Is.EqualTo(EnemyFrontFaceSupportEffectPhase.None));
-                Assert.That(clearedState.EffectStates[0].cooldownTicksRemaining, Is.EqualTo(2));
-
-                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 1));
-                var cooldownTick = pipeline.RunTick(new TickInput(3));
-                var cooldownSnapshot = CreateSnapshot(worldState);
-
-                Assert.That(cooldownTick.PresentationData.FrontFaceShieldWindupWarnings, Is.Empty);
-                Assert.That(cooldownTick.PresentationData.FrontFaceShieldSources, Is.Empty);
-                Assert.That(cooldownSnapshot.TryGetEnemyFrontFaceSupportState(40, out var cooldownState), Is.True);
-                Assert.That(cooldownState.EffectStates[0].phase, Is.EqualTo(EnemyFrontFaceSupportEffectPhase.None));
-                Assert.That(cooldownState.EffectStates[0].cooldownTicksRemaining, Is.EqualTo(1));
-
-                var restartedWarning = pipeline.RunTick(new TickInput(4));
-                Assert.That(restartedWarning.PresentationData.FrontFaceShieldWindupWarnings, Has.Count.EqualTo(1));
-                Assert.That(restartedWarning.PresentationData.FrontFaceShieldWindupWarnings[0].ActivationSequence, Is.EqualTo(2));
-                Assert.That(restartedWarning.PresentationData.FrontFaceShieldSources, Is.Empty);
-
-                var activeTick = pipeline.RunTick(new TickInput(5));
-
-                Assert.That(activeTick.PresentationData.FrontFaceShieldWindupWarnings, Is.Empty);
-                Assert.That(activeTick.PresentationData.FrontFaceShieldSources, Has.Count.EqualTo(1));
-                Assert.That(activeTick.PresentationData.FrontFaceShieldSources[0].SourceEntityId, Is.EqualTo(40));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [TestCase("OffFront")]
-        [TestCase("DeadHp")]
-        [TestCase("MarkedForDeath")]
-        [TestCase("Detached")]
-        [TestCase("DeadAiMode")]
-        [TestCase("NoCapability")]
-        [Category("Full")]
-        public void Movement_FrontFaceShieldPresentation_InactiveSourceCasesEmitNoSourceSignal(string inactiveCase)
-        {
-            var enemy = CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Front, 0, 0));
-            var profile = string.Equals(inactiveCase, "NoCapability", StringComparison.Ordinal)
-                ? CreateNoFrontFaceSupportProfile()
-                : CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect(radius: 1));
-
-            switch (inactiveCase)
-            {
-                case "OffFront":
-                    enemy.position = new SurfaceCell(FaceId.Floor, 0, 0);
-                    break;
-
-                case "DeadHp":
-                    enemy.hp = 0;
-                    break;
-
-                case "MarkedForDeath":
-                    enemy.markedForDeath = true;
-                    break;
-
-                case "Detached":
-                    enemy.boardPresence = EntityBoardPresence.Detached;
-                    break;
-
-                case "DeadAiMode":
-                    enemy.aiMode = EnemyAiMode.Dead;
-                    break;
-            }
-
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[] { enemy },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 0)),
-                GameplayTerrainData.Empty);
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
-
-                var result = pipeline.RunTick(new TickInput(3));
-
-                Assert.That(result.PresentationData.FrontFaceShieldSources, Is.Empty);
-                Assert.That(result.PresentationData.FrontFaceShieldBlocks, Is.Empty);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        public void Movement_PushBox_FirstSlideStepOutsideFrontShield_CommitsWithoutBlockSignal()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1), facing: Direction.Up),
-                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 2), capabilities: BoxCapabilities.Push),
-                    CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Front, 0, 2)),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 2)),
-                GameplayTerrainData.Empty);
-            var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect(radius: 1));
-            worldState.SetEnemyFrontFaceSupportState(
-                40,
-                CreateActiveFrontFaceSupportState(
-                    radius: 1,
-                    includeSourceCell: false,
-                    targetPattern: FrontFaceShieldTargetPattern.ManhattanRadius));
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot
-                    .CreateDefaultBootstrapper(profile)
-                    .CreateTickPipeline(worldState, new IEntityLogic[] { CreateImmediatePushPlayerLogic(10) });
-
-                var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
-
-                Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
-                Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("FrontFaceShield"));
-                Assert.That(result.PresentationData.FrontFaceShieldSources, Has.Count.EqualTo(1));
-                Assert.That(result.PresentationData.FrontFaceShieldBlocks, Is.Empty);
-                Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        public void Movement_SlidingPushBox_NextStepIntoFrontShield_StopsWithoutImpact()
-        {
-            var slidingBox = CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Push, facing: Direction.Up);
-            slidingBox.state = EntityPhaseState.Sliding;
-            slidingBox.stateTimer = 0;
-            slidingBox.kineticInstigatorEntityId = 10;
-            slidingBox.kineticInstigatorTeamId = 1;
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    slidingBox,
-                    CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Front, 0, 2)),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 2)),
-                GameplayTerrainData.Empty);
-            var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect(radius: 1));
-            worldState.SetEnemyFrontFaceSupportState(
-                40,
-                CreateActiveFrontFaceSupportState(
-                    radius: 1,
-                    includeSourceCell: false,
-                    targetPattern: FrontFaceShieldTargetPattern.ManhattanRadius));
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
-
-                var result = pipeline.RunTick(new TickInput(1));
-                var snapshotAfter = CreateSnapshot(worldState);
-
-                Assert.That(
-                    result.MovementPhaseResult.RejectedReasons,
-                    Has.Some.Contains("Reason=BoxSlideBlockedByFrontFaceShield").And.Contains("MovementKind=SlidingContinuation"));
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        result.MovementPhaseResult.CommitEvents,
-                        "BoxSlideBlockedByFrontFaceShield",
-                        "MovementKind=SlidingContinuation",
-                        "Box=20",
-                        "ShieldSource=40"),
-                    Is.True);
-                Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("PlayerActionBlockedByFrontFaceShield"));
-                Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("ImpactReservationCreated"));
-                Assert.That(result.PresentationData.FrontFaceShieldSources, Has.Count.EqualTo(1));
-                Assert.That(result.PresentationData.FrontFaceShieldSources[0].SourceEntityId, Is.EqualTo(40));
-                Assert.That(result.PresentationData.FrontFaceShieldSources[0].SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 2)));
-                Assert.That(result.PresentationData.FrontFaceShieldBlocks, Has.Count.EqualTo(1));
-                var blockSignal = result.PresentationData.FrontFaceShieldBlocks[0];
-                Assert.That(blockSignal.ShieldSourceEntityId, Is.EqualTo(40));
-                Assert.That(blockSignal.BoxEntityId, Is.EqualTo(20));
-                Assert.That(blockSignal.ActorEntityId, Is.EqualTo(10));
-                Assert.That(blockSignal.BlockedCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
-                Assert.That(blockSignal.ShieldSourceCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 2)));
-                Assert.That(blockSignal.MovementKind, Is.EqualTo(FrontFaceShieldBlockMovementKind.SlidingContinuation));
-                Assert.That(snapshotAfter.TryGetEntity(20, out var boxAfter), Is.True);
-                Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
-                Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        public void Movement_FlipBox_DoesNotUseFrontFaceShieldInV1()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Front, 1, 1)),
-                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 1, 2), capabilities: BoxCapabilities.Flip),
-                    CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Front, 2, 0)),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                GameplayTerrainData.Empty);
-            var profile = CreateFrontFaceSupportProfile(CreateBoxSlideShieldSupportEffect(radius: 1));
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot
-                    .CreateDefaultBootstrapper(profile)
-                    .CreateTickPipeline(worldState, new IEntityLogic[] { CreateImmediateFlipPlayerLogic(10) });
-
-                var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Up)));
-
-                Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
-                Assert.That(result.MovementPhaseResult.CommitEvents, Has.None.Contains("FrontFaceShield"));
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        result.MovementPhaseResult.CommitEvents,
-                        "MoveCommitted",
-                        "E=20",
-                        "To=Front(1,0)"),
-                    Is.True);
-                Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
         [Category("Extended")]
         public void Movement_PushDestroyBox_WhenSlideStopperIsAdjacent_DetachesAndRemovesBox()
         {
@@ -5780,68 +5248,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return new ImmediatePlayerInteractionLogic(entityId, MovementCommandKind.Flip);
         }
 
-        private static EnemyAiProfile CreateFrontFaceSupportProfile(EnemyFrontFaceSupportEffectAuthoring effect)
-        {
-            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
-            {
-                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                DetectionStrategyKind = DetectionStrategyKind.None,
-                PatrolStrategyKind = PatrolStrategyKind.Stationary,
-                FrontFaceSupportEffects = new[] { effect },
-            });
-        }
-
-        private static EnemyAiProfile CreateNoFrontFaceSupportProfile()
-        {
-            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
-            {
-                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                DetectionStrategyKind = DetectionStrategyKind.None,
-                PatrolStrategyKind = PatrolStrategyKind.Stationary,
-            });
-        }
-
-        private static EnemyFrontFaceSupportEffectAuthoring CreateBoxSlideShieldSupportEffect(
-            int radius = 1,
-            bool includeSourceCell = false,
-            FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius,
-            int windupTicks = 1,
-            int cooldownTicks = 1)
-        {
-            var boxSlideShield = new BoxSlideShieldAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "radius", radius);
-            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "includeSourceCell", includeSourceCell);
-            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "targetPattern", targetPattern);
-            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "windupSeconds", TicksToSeconds(windupTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(boxSlideShield, "cooldownSeconds", TicksToSeconds(cooldownTicks));
-
-            var effect = new EnemyFrontFaceSupportEffectAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyFrontFaceSupportEffectKind.BoxSlideShield);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "boxSlideShield", boxSlideShield);
-            return effect;
-        }
-
-        private static EnemyFrontFaceSupportRuntimeState CreateActiveFrontFaceSupportState(
-            int radius,
-            bool includeSourceCell,
-            FrontFaceShieldTargetPattern targetPattern)
-        {
-            return new EnemyFrontFaceSupportRuntimeState(
-                new[]
-                {
-                    new EnemyFrontFaceSupportEffectState
-                    {
-                        phase = EnemyFrontFaceSupportEffectPhase.Active,
-                        windupStartTick = 0,
-                        windupEndTick = 1,
-                        activationSequence = 1,
-                        radius = radius,
-                        includeSourceCell = includeSourceCell,
-                        targetPattern = targetPattern,
-                    },
-                });
-        }
-
         private static float TicksToSeconds(int ticks)
         {
             return ticks / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond;
@@ -6033,7 +5439,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static EntityState CreateAirborneEnemyJumper(int entityId, SurfaceCell position)
         {
             var enemy = CreateUnit(entityId, position, hp: 3, teamId: 2, facing: Direction.Right);
-            enemy.aiMode = EnemyAiMode.Chase;
+            enemy.aiMode = EnemyAiMode.None;
             enemy.unitRole = UnitRole.Enemy;
             enemy.boardPresence = EntityBoardPresence.Detached;
             return enemy;
