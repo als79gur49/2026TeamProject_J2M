@@ -172,101 +172,75 @@ namespace Game.Feature.Stages
     }
 
     [Serializable]
-    public sealed class PlayerStageProgress
+    public sealed class PlayerStageClearRecord
     {
-        public static PlayerStageProgress CreateEmpty(StageId stageId)
+        public static PlayerStageClearRecord CreateEmpty(StageId stageId)
         {
-            return new PlayerStageProgress
+            return new PlayerStageClearRecord
             {
                 StageId = stageId,
-                HasStarted = false,
+                HasAttempted = false,
                 HasCleared = false,
                 ClearCount = 0,
-                BestScore = 0,
-                BestStars = 0,
-                BestRankId = string.Empty,
-                CompletedChallengeIds = Array.Empty<string>(),
-                ConsumedRewardRuleIds = Array.Empty<string>(),
                 ProcessedStageRunIds = Array.Empty<string>(),
             };
         }
 
         public StageId StageId { get; set; }
 
-        public bool HasStarted { get; set; }
+        public bool HasAttempted { get; set; }
 
         public bool HasCleared { get; set; }
 
         public int ClearCount { get; set; }
 
-        public int BestScore { get; set; }
-
-        public int BestStars { get; set; }
-
-        public string BestRankId { get; set; } = string.Empty;
-
-        public string[] CompletedChallengeIds { get; set; } = Array.Empty<string>();
-
-        public string[] ConsumedRewardRuleIds { get; set; } = Array.Empty<string>();
-
         public string[] ProcessedStageRunIds { get; set; } = Array.Empty<string>();
 
-        public PlayerStageProgress Clone()
+        public PlayerStageClearRecord Clone()
         {
-            return new PlayerStageProgress
+            return new PlayerStageClearRecord
             {
                 StageId = StageId,
-                HasStarted = HasStarted,
+                HasAttempted = HasAttempted,
                 HasCleared = HasCleared,
                 ClearCount = ClearCount,
-                BestScore = BestScore,
-                BestStars = BestStars,
-                BestRankId = BestRankId ?? string.Empty,
-                CompletedChallengeIds = (string[])(CompletedChallengeIds ?? Array.Empty<string>()).Clone(),
-                ConsumedRewardRuleIds = (string[])(ConsumedRewardRuleIds ?? Array.Empty<string>()).Clone(),
                 ProcessedStageRunIds = (string[])(ProcessedStageRunIds ?? Array.Empty<string>()).Clone(),
             };
         }
     }
 
-    public sealed class StageCompletionProfileSnapshot
+    public sealed class StageClearProfileSnapshot
     {
         public int Version { get; set; }
 
-        public Dictionary<string, int> InventoryBalances { get; set; } = new(StringComparer.Ordinal);
-
-        public Dictionary<StageId, PlayerStageProgress> ProgressByStageId { get; set; } = new();
+        public Dictionary<StageId, PlayerStageClearRecord> ClearRecordsByStageId { get; set; } = new();
 
         public HashSet<string> ProcessedStageRunIds { get; set; } = new(StringComparer.Ordinal);
 
-        public HashSet<string> ProcessedCompletionAttemptIds { get; set; } = new(StringComparer.Ordinal);
+        public HashSet<string> ProcessedClearAttemptIds { get; set; } = new(StringComparer.Ordinal);
 
-        public HashSet<string> AppliedRewardGrantIds { get; set; } = new(StringComparer.Ordinal);
-
-        public StageCompletionProfileSnapshot Clone()
+        public StageClearProfileSnapshot Clone()
         {
-            var progressByStageId = new Dictionary<StageId, PlayerStageProgress>();
-            foreach (var pair in ProgressByStageId)
+            var clearRecordsByStageId = new Dictionary<StageId, PlayerStageClearRecord>();
+            foreach (var pair in ClearRecordsByStageId)
             {
-                progressByStageId[pair.Key] = pair.Value?.Clone();
+                clearRecordsByStageId[pair.Key] = pair.Value?.Clone();
             }
 
-            return new StageCompletionProfileSnapshot
+            return new StageClearProfileSnapshot
             {
                 Version = Version,
-                InventoryBalances = new Dictionary<string, int>(InventoryBalances, StringComparer.Ordinal),
-                ProgressByStageId = progressByStageId,
+                ClearRecordsByStageId = clearRecordsByStageId,
                 ProcessedStageRunIds = new HashSet<string>(ProcessedStageRunIds, StringComparer.Ordinal),
-                ProcessedCompletionAttemptIds = new HashSet<string>(ProcessedCompletionAttemptIds, StringComparer.Ordinal),
-                AppliedRewardGrantIds = new HashSet<string>(AppliedRewardGrantIds, StringComparer.Ordinal),
+                ProcessedClearAttemptIds = new HashSet<string>(ProcessedClearAttemptIds, StringComparer.Ordinal),
             };
         }
     }
 
-    public interface IStageCompletionProfileStore
+    public interface IStageClearProfileStore
     {
-        StageCompletionProfileSnapshot Load();
+        StageClearProfileSnapshot Load();
 
-        void Save(StageCompletionProfileSnapshot snapshot);
+        void Save(StageClearProfileSnapshot snapshot);
     }
 }

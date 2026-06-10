@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             _saveSlotKey = $"{nameof(DemoStageControlTests)}.Save.{Guid.NewGuid():N}";
             _activeSlotKey = $"{nameof(DemoStageControlTests)}.Active.{Guid.NewGuid():N}";
+            ClearDefaultSaveSlotPlayerPrefs();
             StageLaunchContextStore.Clear();
         }
 
@@ -28,6 +29,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void TearDown()
         {
             StageLaunchContextStore.Clear();
+            ClearDefaultSaveSlotPlayerPrefs();
             if (!string.IsNullOrWhiteSpace(_saveSlotKey))
             {
                 PlayerPrefs.DeleteKey(_saveSlotKey);
@@ -44,6 +46,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             _createdObjects.Clear();
+        }
+
+        private static void ClearDefaultSaveSlotPlayerPrefs()
+        {
+            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.SaveSlots);
+            PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlot);
+            PlayerPrefs.Save();
         }
 
         [Test]
@@ -83,15 +92,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var service = CreateService(new[] { first, selected }, out var saveStore, out _);
             saveStore.UpdateSlot(
                 1,
-                slot => slot.StageCompletionProfileSnapshot.ProgressByStageId[first.StageId] =
-                    PlayerStageProgress.CreateEmpty(first.StageId));
+                slot => slot.StageClearProfileSnapshot.ClearRecordsByStageId[first.StageId] =
+                    PlayerStageClearRecord.CreateEmpty(first.StageId));
 
             var result = service.StartStage(selected.StageId);
 
             Assert.That(result.Success, Is.True);
             Assert.That(saveStore.LoadSlot(1).CurrentStageId, Is.EqualTo(selected.StageId));
-            var previousProgress = saveStore.LoadSlot(1).StageCompletionProfileSnapshot.ProgressByStageId[first.StageId];
-            Assert.That(previousProgress.HasCleared, Is.False);
+            var previousRecord = saveStore.LoadSlot(1).StageClearProfileSnapshot.ClearRecordsByStageId[first.StageId];
+            Assert.That(previousRecord.HasCleared, Is.False);
         }
 
         [Test]
@@ -161,7 +170,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CurrentStageId = first.StageId,
                 CurrentLevelGroupId = "level-0",
                 RemainingChances = SaveSlotStore.DefaultRemainingChances,
-                StageCompletionProfileSnapshot = new StageCompletionProfileSnapshot(),
+                StageClearProfileSnapshot = new StageClearProfileSnapshot(),
             });
             var bridge = new DemoStageControlCampaignBridge(
                 saveStore,
@@ -191,8 +200,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void DemoStageControl_ForceClear_UsesMinimalCompletionPipeline()
         {
             var entry = CreateEntry("stage-0-1");
-            var store = new InMemoryStageCompletionProfileStore();
-            var runtime = new GameplayHostStageCompletionRuntime(entry, store);
+            var runtime = new GameplayHostStageCompletionRuntime(entry);
 
             var readModel = runtime.ForceClearCurrentStage();
 
@@ -201,8 +209,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(readModel.Result.AttemptId.IsValid, Is.True);
             Assert.That(readModel.ContinueRequest.IsValid, Is.True);
             Assert.That(readModel.RetryRequest.IsValid, Is.True);
-            Assert.That(store.Snapshot.ProgressByStageId, Is.Empty);
-            Assert.That(store.Snapshot.InventoryBalances, Is.Empty);
         }
 
         [Test]
@@ -267,7 +273,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(source, Does.Not.Contain("SaveSlotData"));
             Assert.That(source, Does.Not.Contain("SaveSlotStore"));
-            Assert.That(source, Does.Not.Contain("StageCompletionProfileSnapshot"));
+            Assert.That(source, Does.Not.Contain("Stage" + "Completion" + "Profile" + "Snapshot"));
         }
 
         [Test]
@@ -351,7 +357,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CurrentStageId = entries[0].StageId,
                 CurrentLevelGroupId = "level-0",
                 RemainingChances = SaveSlotStore.DefaultRemainingChances,
-                StageCompletionProfileSnapshot = new StageCompletionProfileSnapshot(),
+                StageClearProfileSnapshot = new StageClearProfileSnapshot(),
             });
             var campaignBridge = new DemoStageControlCampaignBridge(
                 saveStore,
@@ -438,19 +444,5 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private sealed class InMemoryStageCompletionProfileStore : IStageCompletionProfileStore
-        {
-            public StageCompletionProfileSnapshot Snapshot { get; private set; } = new();
-
-            public StageCompletionProfileSnapshot Load()
-            {
-                return Snapshot.Clone();
-            }
-
-            public void Save(StageCompletionProfileSnapshot snapshot)
-            {
-                Snapshot = snapshot?.Clone() ?? new StageCompletionProfileSnapshot();
-            }
-        }
     }
 }

@@ -159,9 +159,6 @@ namespace Game.Feature.Gameplay.Host
                 _saveSlotStore,
                 _activeSlotProvider,
                 _campaignChanceDisplayOverride);
-            configuration.StageCompletionProfileStore = new SaveSlotStageCompletionProfileStore(
-                _saveSlotStore,
-                _activeSlotProvider);
             CampaignChanceHudDiagnostics.Record(new CampaignChanceHudDiagnosticRecord(CampaignChanceHudDiagnosticKind.Installer)
             {
                 SceneName = gameObject.scene.name,

@@ -700,7 +700,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(configuration.DisablePlayerRespawn, Is.True);
                 Assert.That(configuration.CampaignChancesReadSource, Is.Not.Null);
-                Assert.That(configuration.StageCompletionProfileStore, Is.Not.Null);
             }
             finally
             {

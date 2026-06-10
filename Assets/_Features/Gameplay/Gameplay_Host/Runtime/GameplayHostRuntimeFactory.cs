@@ -240,7 +240,6 @@ namespace Game.Feature.Gameplay.Host
                 inputHost,
                 presenter,
                 configuration.StageContentEntry,
-                configuration.StageCompletionProfileStore,
                 generalTimingProfile,
                 presentationBarrierTracker);
             var uiAccess = new GameplayHostUiAccessContext(

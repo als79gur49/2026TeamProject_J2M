@@ -24,6 +24,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class CampaignStageFlowTests
     {
+        [SetUp]
+        public void SetUp()
+        {
+            StageSaveSlotTestReset.ClearDefaultPlayerPrefs();
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            StageSaveSlotTestReset.ClearDefaultPlayerPrefs();
+        }
+
         [Test]
         [Category("Extended")]
         public void SequenceResolver_UsesCanonicalOrderDisplayNamesAndLevelGroups()
@@ -98,41 +110,94 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SaveSlotProfileDto_RoundTripsCompletionSnapshot()
+        public void SaveSlotProfileDto_RoundTripsStageClearProfileSnapshot()
         {
             var stageId = StageId.CreateOrThrow("stage-3-1");
-            var snapshot = new StageCompletionProfileSnapshot
+            var snapshot = new StageClearProfileSnapshot
             {
                 Version = 7,
             };
-            snapshot.InventoryBalances["coin"] = 12;
-            snapshot.ProgressByStageId[stageId] = new PlayerStageProgress
+            snapshot.ClearRecordsByStageId[stageId] = new PlayerStageClearRecord
             {
                 StageId = stageId,
+                HasAttempted = true,
                 HasCleared = true,
                 ClearCount = 2,
-                BestScore = 900,
-                CompletedChallengeIds = new[] { "challenge-a" },
+                ProcessedStageRunIds = new[] { "run-a" },
             };
             snapshot.ProcessedStageRunIds.Add("run-a");
-            snapshot.ProcessedCompletionAttemptIds.Add("attempt-a");
-            snapshot.AppliedRewardGrantIds.Add("reward-a");
+            snapshot.ProcessedClearAttemptIds.Add("attempt-a");
 
             var roundTripped = SaveSlotDtoMapper.FromDto(SaveSlotDtoMapper.ToDto(snapshot));
 
             Assert.That(roundTripped.Version, Is.EqualTo(7));
-            Assert.That(roundTripped.InventoryBalances["coin"], Is.EqualTo(12));
-            Assert.That(roundTripped.ProgressByStageId[stageId].ClearCount, Is.EqualTo(2));
+            Assert.That(roundTripped.ClearRecordsByStageId[stageId].HasAttempted, Is.True);
+            Assert.That(roundTripped.ClearRecordsByStageId[stageId].HasCleared, Is.True);
+            Assert.That(roundTripped.ClearRecordsByStageId[stageId].ClearCount, Is.EqualTo(2));
+            Assert.That(roundTripped.ClearRecordsByStageId[stageId].ProcessedStageRunIds, Does.Contain("run-a"));
             Assert.That(roundTripped.ProcessedStageRunIds, Does.Contain("run-a"));
-            Assert.That(roundTripped.ProcessedCompletionAttemptIds, Does.Contain("attempt-a"));
-            Assert.That(roundTripped.AppliedRewardGrantIds, Does.Contain("reward-a"));
+            Assert.That(roundTripped.ProcessedClearAttemptIds, Does.Contain("attempt-a"));
         }
 
         [Test]
         [Category("Extended")]
-        public void ActiveSlotCompletionProfileStore_CommitsOnlyActiveSlot()
+        public void SaveSlotProfileDto_WritesOnlyClearProfileVocabulary()
         {
-            var saveKey = CreatePrefsKey(nameof(ActiveSlotCompletionProfileStore_CommitsOnlyActiveSlot));
+            var stageId = StageId.CreateOrThrow("stage-3-1");
+            var slot = SaveSlotData.CreateEmpty(1);
+            slot.StageClearProfileSnapshot.Version = 2;
+            slot.StageClearProfileSnapshot.ClearRecordsByStageId[stageId] = new PlayerStageClearRecord
+            {
+                StageId = stageId,
+                HasAttempted = true,
+                HasCleared = true,
+                ClearCount = 3,
+            };
+            slot.StageClearProfileSnapshot.ProcessedClearAttemptIds.Add("attempt-clear");
+
+            var json = JsonUtility.ToJson(SaveSlotDtoMapper.ToDto(new[] { slot }));
+
+            Assert.That(json, Does.Contain("StageClearProfileSnapshot"));
+            Assert.That(json, Does.Contain("ClearRecordsByStageId"));
+            Assert.That(json, Does.Contain("HasAttempted"));
+            Assert.That(json, Does.Contain("ProcessedClearAttemptIds"));
+            Assert.That(json, Does.Not.Contain("Stage" + "Completion" + "Profile" + "Snapshot"));
+            Assert.That(json, Does.Not.Contain("Progress" + "By" + "StageId"));
+            Assert.That(json, Does.Not.Contain("Has" + "Started"));
+            Assert.That(json, Does.Not.Contain("Processed" + "Completion" + "AttemptIds"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotProfileDto_DoesNotWriteLegacyCompletionProgressRewardFields()
+        {
+            var slot = SaveSlotData.CreateEmpty(1);
+            var json = JsonUtility.ToJson(SaveSlotDtoMapper.ToDto(new[] { slot }));
+            var legacyFields = new[]
+            {
+                "Stage" + "Completion" + "Profile" + "Snapshot",
+                "Progress" + "By" + "StageId",
+                "Processed" + "Completion" + "AttemptIds",
+                "Consumed" + "Reward" + "RuleIds",
+                "Applied" + "Reward" + "GrantIds",
+                "Inventory" + "Balances",
+                "Best" + "Score",
+                "Best" + "Stars",
+                "Best" + "RankId",
+                "Completed" + "ChallengeIds",
+            };
+
+            foreach (var legacyField in legacyFields)
+            {
+                Assert.That(json, Does.Not.Contain(legacyField));
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ActiveSlotStageClearProfileStore_UpdatesOnlyActiveSlot()
+        {
+            var saveKey = CreatePrefsKey(nameof(ActiveSlotStageClearProfileStore_UpdatesOnlyActiveSlot));
             var activeKey = saveKey + ".active";
             var saveStore = new SaveSlotStore(saveKey);
             var activeSlotProvider = new ActiveSlotProvider(activeKey);
@@ -142,22 +207,78 @@ namespace Game.Feature.Gameplay.Tests.Unit
             saveStore.SaveSlot(new SaveSlotData { SlotNumber = 2, CurrentStageId = StageId.CreateOrThrow("stage-2-1") });
             activeSlotProvider.SetActiveSlot(2);
 
-            var profileStore = new SaveSlotStageCompletionProfileStore(saveStore, activeSlotProvider);
-            var snapshot = new StageCompletionProfileSnapshot();
-            snapshot.ProgressByStageId[StageId.CreateOrThrow("stage-2-1")] =
-                new PlayerStageProgress
+            var profileStore = new SaveSlotStageClearProfileStore(saveStore, activeSlotProvider);
+            var snapshot = new StageClearProfileSnapshot();
+            snapshot.ClearRecordsByStageId[StageId.CreateOrThrow("stage-2-1")] =
+                new PlayerStageClearRecord
                 {
                     StageId = StageId.CreateOrThrow("stage-2-1"),
+                    HasAttempted = true,
                     HasCleared = true,
                     ClearCount = 1,
                 };
 
             profileStore.Save(snapshot);
 
-            Assert.That(saveStore.LoadSlot(1).StageCompletionProfileSnapshot.ProgressByStageId, Is.Empty);
-            Assert.That(
-                saveStore.LoadSlot(2).StageCompletionProfileSnapshot.ProgressByStageId.ContainsKey(StageId.CreateOrThrow("stage-2-1")),
-                Is.True);
+            Assert.That(saveStore.LoadSlot(1).StageClearProfileSnapshot.ClearRecordsByStageId, Is.Empty);
+            var activeRecord = saveStore.LoadSlot(2)
+                .StageClearProfileSnapshot
+                .ClearRecordsByStageId[StageId.CreateOrThrow("stage-2-1")];
+            Assert.That(activeRecord.HasCleared, Is.True);
+            Assert.That(activeRecord.ClearCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Architecture_SaveProfileProductionSymbolsUseClearVocabulary()
+        {
+            var source = ReadSaveProfileProductionSources();
+            var forbiddenSymbols = new[]
+            {
+                "Player" + "Stage" + "Progress",
+                "Stage" + "Completion" + "Profile" + "Snapshot",
+                "IStage" + "Completion" + "Profile" + "Store",
+                "SaveSlot" + "Stage" + "Completion" + "Profile" + "Store",
+            };
+
+            foreach (var forbiddenSymbol in forbiddenSymbols)
+            {
+                Assert.That(source, Does.Not.Contain(forbiddenSymbol));
+            }
+
+            Assert.That(source, Does.Contain("PlayerStageClearRecord"));
+            Assert.That(source, Does.Contain("StageClearProfileSnapshot"));
+            Assert.That(source, Does.Contain("IStageClearProfileStore"));
+            Assert.That(source, Does.Contain("SaveSlotStageClearProfileStore"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Architecture_SaveProfileProductionDtosUseClearFieldsOnly()
+        {
+            var source = ReadSaveProfileProductionSources();
+            var forbiddenFields = new[]
+            {
+                "Progress" + "By" + "StageId",
+                "Has" + "Started",
+                "Processed" + "Completion" + "AttemptIds",
+                "Consumed" + "Reward" + "RuleIds",
+                "Applied" + "Reward" + "GrantIds",
+                "Inventory" + "Balances",
+                "Best" + "Score",
+                "Best" + "Stars",
+                "Best" + "RankId",
+                "Completed" + "ChallengeIds",
+            };
+
+            foreach (var forbiddenField in forbiddenFields)
+            {
+                Assert.That(source, Does.Not.Contain(forbiddenField));
+            }
+
+            Assert.That(source, Does.Contain("ClearRecordsByStageId"));
+            Assert.That(source, Does.Contain("HasAttempted"));
+            Assert.That(source, Does.Contain("ProcessedClearAttemptIds"));
         }
 
         [Test]
@@ -1699,6 +1820,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static string CreatePrefsKey(string suffix)
         {
             return "Game.Feature.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
+        }
+
+        private static string ReadSaveProfileProductionSources()
+        {
+            var paths = new[]
+            {
+                "Assets/_Features/Stages/Runtime/ClearFlow/StageProgressAndCompletion.cs",
+                "Assets/_Features/Stages/Runtime/Campaign/SaveSlotModels.cs",
+                "Assets/_Features/DemoStageControl/Runtime/DemoStageControlBridges.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/UIAccess/GameplayHostStageCompletionRuntime.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/UIAccess/GameplayHostPresentationFeed.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs",
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs",
+            };
+
+            return string.Join(Environment.NewLine, paths.Select(File.ReadAllText));
+        }
+
+        private static class StageSaveSlotTestReset
+        {
+            public static void ClearDefaultPlayerPrefs()
+            {
+                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.SaveSlots);
+                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlot);
+                PlayerPrefs.Save();
+            }
         }
 
         private sealed class FakeBgmFlowCoordinator : IBgmFlowCoordinator

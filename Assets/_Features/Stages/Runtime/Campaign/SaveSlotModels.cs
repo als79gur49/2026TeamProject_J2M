@@ -165,7 +165,7 @@ namespace Game.Feature.Stages
 
         public string LastPlayedAt { get; set; } = string.Empty;
 
-        public StageCompletionProfileSnapshot StageCompletionProfileSnapshot { get; set; } = new();
+        public StageClearProfileSnapshot StageClearProfileSnapshot { get; set; } = new();
 
         public bool IsEmpty => !CurrentStageId.IsValid &&
                                !CampaignCompleted &&
@@ -173,7 +173,7 @@ namespace Game.Feature.Stages
                                !OutroPlayed &&
                                TotalDeaths == 0 &&
                                string.IsNullOrWhiteSpace(LastPlayedAt) &&
-                               IsCompletionProfileEmpty(StageCompletionProfileSnapshot);
+                               IsClearProfileEmpty(StageClearProfileSnapshot);
 
         public SaveSlotData Clone()
         {
@@ -188,7 +188,7 @@ namespace Game.Feature.Stages
                 OutroPlayed = OutroPlayed,
                 TotalDeaths = TotalDeaths,
                 LastPlayedAt = LastPlayedAt ?? string.Empty,
-                StageCompletionProfileSnapshot = StageCompletionProfileSnapshot?.Clone() ?? new StageCompletionProfileSnapshot(),
+                StageClearProfileSnapshot = StageClearProfileSnapshot?.Clone() ?? new StageClearProfileSnapshot(),
             };
         }
 
@@ -205,7 +205,7 @@ namespace Game.Feature.Stages
                 OutroPlayed = false,
                 TotalDeaths = 0,
                 LastPlayedAt = string.Empty,
-                StageCompletionProfileSnapshot = new StageCompletionProfileSnapshot(),
+                StageClearProfileSnapshot = new StageClearProfileSnapshot(),
             };
         }
 
@@ -231,25 +231,29 @@ namespace Game.Feature.Stages
                 OutroPlayed = false,
                 TotalDeaths = 0,
                 LastPlayedAt = lastPlayedAt ?? string.Empty,
-                StageCompletionProfileSnapshot = new StageCompletionProfileSnapshot(),
+                StageClearProfileSnapshot = new StageClearProfileSnapshot(),
             };
         }
 
-        private static bool IsCompletionProfileEmpty(StageCompletionProfileSnapshot snapshot)
+        private static bool IsClearProfileEmpty(StageClearProfileSnapshot snapshot)
         {
             return snapshot == null ||
                    (snapshot.Version == 0 &&
-                    snapshot.InventoryBalances.Count == 0 &&
-                    snapshot.ProgressByStageId.Count == 0 &&
+                    snapshot.ClearRecordsByStageId.Count == 0 &&
                     snapshot.ProcessedStageRunIds.Count == 0 &&
-                    snapshot.ProcessedCompletionAttemptIds.Count == 0 &&
-                    snapshot.AppliedRewardGrantIds.Count == 0);
+                    snapshot.ProcessedClearAttemptIds.Count == 0);
         }
+    }
+
+    public static class SaveSlotPrefsKeys
+    {
+        public const string SaveSlots = "Game.Feature.Stages.SaveSlots";
+        public const string ActiveSaveSlot = "Game.Feature.Stages.ActiveSaveSlot";
     }
 
     public sealed class ActiveSlotProvider
     {
-        private const string DefaultPlayerPrefsKey = "Game.Feature.Stages.ActiveSaveSlot";
+        private const string DefaultPlayerPrefsKey = SaveSlotPrefsKeys.ActiveSaveSlot;
         private readonly string _playerPrefsKey;
         private int _activeSlotNumber;
 
@@ -311,7 +315,7 @@ namespace Game.Feature.Stages
         public const int SaveVersion = 1;
         public const int SlotCount = 3;
         public const int DefaultRemainingChances = 3;
-        public const string DefaultPlayerPrefsKey = "Game.Feature.Stages.SaveSlots";
+        public const string DefaultPlayerPrefsKey = SaveSlotPrefsKeys.SaveSlots;
 
         private readonly string _playerPrefsKey;
 
@@ -436,12 +440,12 @@ namespace Game.Feature.Stages
         }
     }
 
-    public sealed class SaveSlotStageCompletionProfileStore : IStageCompletionProfileStore
+    public sealed class SaveSlotStageClearProfileStore : IStageClearProfileStore
     {
         private readonly SaveSlotStore _saveSlotStore;
         private readonly ActiveSlotProvider _activeSlotProvider;
 
-        public SaveSlotStageCompletionProfileStore(
+        public SaveSlotStageClearProfileStore(
             SaveSlotStore saveSlotStore,
             ActiveSlotProvider activeSlotProvider)
         {
@@ -449,17 +453,17 @@ namespace Game.Feature.Stages
             _activeSlotProvider = activeSlotProvider ?? throw new ArgumentNullException(nameof(activeSlotProvider));
         }
 
-        public StageCompletionProfileSnapshot Load()
+        public StageClearProfileSnapshot Load()
         {
             var slot = _saveSlotStore.LoadSlot(_activeSlotProvider.ActiveSlotNumber);
-            return slot.StageCompletionProfileSnapshot?.Clone() ?? new StageCompletionProfileSnapshot();
+            return slot.StageClearProfileSnapshot?.Clone() ?? new StageClearProfileSnapshot();
         }
 
-        public void Save(StageCompletionProfileSnapshot snapshot)
+        public void Save(StageClearProfileSnapshot snapshot)
         {
             _saveSlotStore.UpdateSlot(
                 _activeSlotProvider.ActiveSlotNumber,
-                slot => slot.StageCompletionProfileSnapshot = snapshot?.Clone() ?? new StageCompletionProfileSnapshot());
+                slot => slot.StageClearProfileSnapshot = snapshot?.Clone() ?? new StageClearProfileSnapshot());
         }
     }
 
@@ -482,39 +486,25 @@ namespace Game.Feature.Stages
         public bool OutroPlayed;
         public int TotalDeaths;
         public string LastPlayedAt;
-        public StageCompletionProfileSnapshotDto StageCompletionProfileSnapshot;
+        public StageClearProfileSnapshotDto StageClearProfileSnapshot;
     }
 
     [Serializable]
-    public sealed class StageCompletionProfileSnapshotDto
+    public sealed class StageClearProfileSnapshotDto
     {
         public int Version;
-        public StringIntPairDto[] InventoryBalances = Array.Empty<StringIntPairDto>();
-        public PlayerStageProgressDto[] ProgressByStageId = Array.Empty<PlayerStageProgressDto>();
+        public PlayerStageClearRecordDto[] ClearRecordsByStageId = Array.Empty<PlayerStageClearRecordDto>();
         public string[] ProcessedStageRunIds = Array.Empty<string>();
-        public string[] ProcessedCompletionAttemptIds = Array.Empty<string>();
-        public string[] AppliedRewardGrantIds = Array.Empty<string>();
+        public string[] ProcessedClearAttemptIds = Array.Empty<string>();
     }
 
     [Serializable]
-    public sealed class StringIntPairDto
-    {
-        public string Key;
-        public int Value;
-    }
-
-    [Serializable]
-    public sealed class PlayerStageProgressDto
+    public sealed class PlayerStageClearRecordDto
     {
         public string StageId;
-        public bool HasStarted;
+        public bool HasAttempted;
         public bool HasCleared;
         public int ClearCount;
-        public int BestScore;
-        public int BestStars;
-        public string BestRankId;
-        public string[] CompletedChallengeIds = Array.Empty<string>();
-        public string[] ConsumedRewardRuleIds = Array.Empty<string>();
         public string[] ProcessedStageRunIds = Array.Empty<string>();
     }
 
@@ -563,77 +553,55 @@ namespace Game.Feature.Stages
             return result;
         }
 
-        public static StageCompletionProfileSnapshotDto ToDto(StageCompletionProfileSnapshot snapshot)
+        public static StageClearProfileSnapshotDto ToDto(StageClearProfileSnapshot snapshot)
         {
-            snapshot ??= new StageCompletionProfileSnapshot();
+            snapshot ??= new StageClearProfileSnapshot();
 
-            var inventory = new List<StringIntPairDto>();
-            foreach (var pair in snapshot.InventoryBalances)
-            {
-                inventory.Add(new StringIntPairDto { Key = pair.Key, Value = pair.Value });
-            }
-
-            var progress = new List<PlayerStageProgressDto>();
-            foreach (var pair in snapshot.ProgressByStageId)
+            var records = new List<PlayerStageClearRecordDto>();
+            foreach (var pair in snapshot.ClearRecordsByStageId)
             {
                 if (!pair.Key.IsValid || pair.Value == null)
                 {
                     continue;
                 }
 
-                progress.Add(ToDto(pair.Value));
+                records.Add(ToDto(pair.Value));
             }
 
-            return new StageCompletionProfileSnapshotDto
+            return new StageClearProfileSnapshotDto
             {
                 Version = snapshot.Version,
-                InventoryBalances = inventory.ToArray(),
-                ProgressByStageId = progress.ToArray(),
+                ClearRecordsByStageId = records.ToArray(),
                 ProcessedStageRunIds = ToArray(snapshot.ProcessedStageRunIds),
-                ProcessedCompletionAttemptIds = ToArray(snapshot.ProcessedCompletionAttemptIds),
-                AppliedRewardGrantIds = ToArray(snapshot.AppliedRewardGrantIds),
+                ProcessedClearAttemptIds = ToArray(snapshot.ProcessedClearAttemptIds),
             };
         }
 
-        public static StageCompletionProfileSnapshot FromDto(StageCompletionProfileSnapshotDto dto)
+        public static StageClearProfileSnapshot FromDto(StageClearProfileSnapshotDto dto)
         {
-            var snapshot = new StageCompletionProfileSnapshot();
+            var snapshot = new StageClearProfileSnapshot();
             if (dto == null)
             {
                 return snapshot;
             }
 
             snapshot.Version = Math.Max(0, dto.Version);
-            var inventory = dto.InventoryBalances ?? Array.Empty<StringIntPairDto>();
-            for (var i = 0; i < inventory.Length; i++)
-            {
-                var pair = inventory[i];
-                if (pair == null || string.IsNullOrWhiteSpace(pair.Key))
-                {
-                    continue;
-                }
 
-                snapshot.InventoryBalances[pair.Key] = pair.Value;
-            }
-
-            var progress = dto.ProgressByStageId ?? Array.Empty<PlayerStageProgressDto>();
-            for (var i = 0; i < progress.Length; i++)
+            var records = dto.ClearRecordsByStageId ?? Array.Empty<PlayerStageClearRecordDto>();
+            for (var i = 0; i < records.Length; i++)
             {
-                var item = FromDto(progress[i]);
+                var item = FromDto(records[i]);
                 if (item.StageId.IsValid)
                 {
-                    snapshot.ProgressByStageId[item.StageId] = item;
+                    snapshot.ClearRecordsByStageId[item.StageId] = item;
                 }
             }
 
             snapshot.ProcessedStageRunIds = new HashSet<string>(
                 dto.ProcessedStageRunIds ?? Array.Empty<string>(),
                 StringComparer.Ordinal);
-            snapshot.ProcessedCompletionAttemptIds = new HashSet<string>(
-                dto.ProcessedCompletionAttemptIds ?? Array.Empty<string>(),
-                StringComparer.Ordinal);
-            snapshot.AppliedRewardGrantIds = new HashSet<string>(
-                dto.AppliedRewardGrantIds ?? Array.Empty<string>(),
+            snapshot.ProcessedClearAttemptIds = new HashSet<string>(
+                dto.ProcessedClearAttemptIds ?? Array.Empty<string>(),
                 StringComparer.Ordinal);
             return snapshot;
         }
@@ -652,7 +620,7 @@ namespace Game.Feature.Stages
                 OutroPlayed = slot.OutroPlayed,
                 TotalDeaths = slot.TotalDeaths,
                 LastPlayedAt = slot.LastPlayedAt ?? string.Empty,
-                StageCompletionProfileSnapshot = ToDto(slot.StageCompletionProfileSnapshot),
+                StageClearProfileSnapshot = ToDto(slot.StageClearProfileSnapshot),
             };
         }
 
@@ -672,45 +640,35 @@ namespace Game.Feature.Stages
                 OutroPlayed = dto.OutroPlayed,
                 TotalDeaths = Math.Max(0, dto.TotalDeaths),
                 LastPlayedAt = dto.LastPlayedAt ?? string.Empty,
-                StageCompletionProfileSnapshot = FromDto(dto.StageCompletionProfileSnapshot),
+                StageClearProfileSnapshot = FromDto(dto.StageClearProfileSnapshot),
             };
         }
 
-        private static PlayerStageProgressDto ToDto(PlayerStageProgress progress)
+        private static PlayerStageClearRecordDto ToDto(PlayerStageClearRecord record)
         {
-            return new PlayerStageProgressDto
+            return new PlayerStageClearRecordDto
             {
-                StageId = progress.StageId.IsValid ? progress.StageId.Value : string.Empty,
-                HasStarted = progress.HasStarted,
-                HasCleared = progress.HasCleared,
-                ClearCount = progress.ClearCount,
-                BestScore = progress.BestScore,
-                BestStars = progress.BestStars,
-                BestRankId = progress.BestRankId ?? string.Empty,
-                CompletedChallengeIds = CloneArray(progress.CompletedChallengeIds),
-                ConsumedRewardRuleIds = CloneArray(progress.ConsumedRewardRuleIds),
-                ProcessedStageRunIds = CloneArray(progress.ProcessedStageRunIds),
+                StageId = record.StageId.IsValid ? record.StageId.Value : string.Empty,
+                HasAttempted = record.HasAttempted,
+                HasCleared = record.HasCleared,
+                ClearCount = record.ClearCount,
+                ProcessedStageRunIds = CloneArray(record.ProcessedStageRunIds),
             };
         }
 
-        private static PlayerStageProgress FromDto(PlayerStageProgressDto dto)
+        private static PlayerStageClearRecord FromDto(PlayerStageClearRecordDto dto)
         {
             if (dto == null || !StageId.TryCreate(dto.StageId, out var stageId))
             {
-                return PlayerStageProgress.CreateEmpty(StageId.None);
+                return PlayerStageClearRecord.CreateEmpty(StageId.None);
             }
 
-            return new PlayerStageProgress
+            return new PlayerStageClearRecord
             {
                 StageId = stageId,
-                HasStarted = dto.HasStarted,
+                HasAttempted = dto.HasAttempted,
                 HasCleared = dto.HasCleared,
                 ClearCount = Math.Max(0, dto.ClearCount),
-                BestScore = Math.Max(0, dto.BestScore),
-                BestStars = Math.Max(0, dto.BestStars),
-                BestRankId = dto.BestRankId ?? string.Empty,
-                CompletedChallengeIds = CloneArray(dto.CompletedChallengeIds),
-                ConsumedRewardRuleIds = CloneArray(dto.ConsumedRewardRuleIds),
                 ProcessedStageRunIds = CloneArray(dto.ProcessedStageRunIds),
             };
         }

@@ -24,13 +24,12 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             GameplayInputHost inputHost,
             GameplayTickViewPresenter presenter,
             StageContentEntry stageContentEntry = null,
-            IStageCompletionProfileStore stageCompletionProfileStore = null,
             GameplayTimingProfile timingProfile = null,
             GameplayPresentationBarrierTracker barrierTracker = null)
         {
             _inputHost = inputHost ?? throw new ArgumentNullException(nameof(inputHost));
             _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
-            _stageCompletionRuntime = new GameplayHostStageCompletionRuntime(stageContentEntry, stageCompletionProfileStore);
+            _stageCompletionRuntime = new GameplayHostStageCompletionRuntime(stageContentEntry);
             _timingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             _barrierTracker = barrierTracker ?? new GameplayPresentationBarrierTracker();
             CurrentState = CreateCurrentState();

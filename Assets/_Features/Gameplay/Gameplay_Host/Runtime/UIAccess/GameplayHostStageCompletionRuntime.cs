@@ -10,9 +10,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         private readonly StageSessionTracker _sessionTracker = new();
         private bool _completionInProgress;
 
-        public GameplayHostStageCompletionRuntime(
-            StageContentEntry entry,
-            IStageCompletionProfileStore profileStore = null)
+        public GameplayHostStageCompletionRuntime(StageContentEntry entry)
         {
             _entry = entry;
             _sessionTracker.Start(ResolveStageId(entry));

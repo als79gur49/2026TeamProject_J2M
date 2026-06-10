@@ -62,11 +62,11 @@ namespace Game.Feature.DemoStageControl
                     slot.CurrentLevelGroupId = levelGroupId;
                     slot.CampaignCompleted = false;
                     slot.LastPlayedAt = DateTimeOffset.UtcNow.ToString("O");
-                    slot.StageCompletionProfileSnapshot ??= new StageCompletionProfileSnapshot();
-                    if (!slot.StageCompletionProfileSnapshot.ProgressByStageId.ContainsKey(stageId))
+                    slot.StageClearProfileSnapshot ??= new StageClearProfileSnapshot();
+                    if (!slot.StageClearProfileSnapshot.ClearRecordsByStageId.ContainsKey(stageId))
                     {
-                        slot.StageCompletionProfileSnapshot.ProgressByStageId[stageId] =
-                            PlayerStageProgress.CreateEmpty(stageId);
+                        slot.StageClearProfileSnapshot.ClearRecordsByStageId[stageId] =
+                            PlayerStageClearRecord.CreateEmpty(stageId);
                     }
                 });
 

@@ -130,7 +130,6 @@ namespace Game.Feature.Gameplay.Host
         public EnemyAiProfileOverride[] EnemyAiProfileOverrides = Array.Empty<EnemyAiProfileOverride>();
         public EnemyUnitArchetypeCatalog EnemyUnitArchetypeCatalog;
         public StageContentEntry StageContentEntry;
-        public IStageCompletionProfileStore StageCompletionProfileStore;
         public bool DisablePlayerRespawn;
         public EnemyPresentationArchetypeCatalog EnemyPresentationArchetypeCatalog;
         public EnemyPresentationCatalog EnemyPresentationCatalog;
