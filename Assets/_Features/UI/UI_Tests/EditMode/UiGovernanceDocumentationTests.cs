@@ -46,9 +46,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(guide, Does.Contain("targeted display architecture validated"));
             Assert.That(guide, Does.Contain("real-build manual display validation completed"));
             Assert.That(guide, Does.Contain("Editor-only execution is insufficient evidence for fullscreen/window correctness."));
-            Assert.That(guide, Does.Contain("green on 2026-06-06 KST"));
+            Assert.That(guide, Does.Contain("green on 2026-06-10 KST"));
             Assert.That(guide, Does.Contain("Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
-            Assert.That(guide, Does.Contain("Unity UI EditMode `646 total / 0 failed`"));
+            Assert.That(guide, Does.Contain("Unity UI EditMode `706 total / 0 failed`"));
             Assert.That(guide, Does.Contain("UI-Current-Structure-Source.md"));
             Assert.That(guide, Does.Contain("current UI structure or stale-token audit policy changes"));
             Assert.That(guide, Does.Contain("2차 UI canonical 보정 보고서에 기록된 UI red 사유"));
@@ -107,9 +107,11 @@ namespace Game.Feature.UI.Tests
         {
             var baseline = ReadRepoFile("Docs/Testing/UI-EditMode-Baseline-2026-04-15.md");
 
-            Assert.That(baseline, Does.Contain("Current Phase 1 drift-correction rerun: green on 2026-06-06 KST"));
+            Assert.That(baseline, Does.Contain("Prior Phase 1 drift-correction rerun: green on 2026-06-06 KST"));
+            Assert.That(baseline, Does.Contain("Current PR-1 stage-completion baseline rerun: green on 2026-06-10 KST"));
             Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
-            Assert.That(baseline, Does.Contain("Current Unity UI EditMode: `646 total / 0 failed`"));
+            Assert.That(baseline, Does.Contain("Current Unity UI EditMode: `706 total / 0 failed`"));
+            Assert.That(baseline, Does.Contain("Baseline test result: command `./run_tests.sh ui`, result `701 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`"));
             Assert.That(baseline, Does.Contain("external structure-source regeneration guard"));
             Assert.That(baseline, Does.Contain("root `UI-Current-Structure-Source.md` is the external current-structure source"));
             Assert.That(baseline, Does.Contain("canonical UI navigation resolver guards"));
@@ -138,6 +140,28 @@ namespace Game.Feature.UI.Tests
             AssertDemoStageControlStalePolicyPhrasesAreAbsent(baseline);
             Assert.That(baseline, Does.Not.Contain("HelpScreen remains"));
             Assert.That(baseline, Does.Not.Contain("InventoryScreen remains"));
+        }
+
+        [Test]
+        public void UiBaselineNote_RecordsPrOneStageCompletionProtection_AndDeferredPolicyExtraction()
+        {
+            var baseline = ReadRepoFile("Docs/Testing/UI-EditMode-Baseline-2026-04-15.md");
+
+            Assert.That(baseline, Does.Contain("PR-1 stage completion guards proving StageResult + Reward + Continue, rewardless clear, final-stage GameClear, retry payload, next-stage/no-next-stage mapping, terminal back consume, Reward popup back consume, and screen/popup/HUD separation before UI refactor scaffolding begins"));
+            Assert.That(baseline, Does.Contain("StageResult screen is a stage completion presentation endpoint"));
+            Assert.That(baseline, Does.Contain("emits intent-only `StageNavigationRequest` values for continue, retry, and next-stage paths"));
+            Assert.That(baseline, Does.Contain("Reward popup is a reward presentation endpoint, not the reward commit owner"));
+            Assert.That(baseline, Does.Contain("Reward/progression commit remains owned by the stage subsystem"));
+            Assert.That(baseline, Does.Contain("UI remains non-authoritative"));
+            Assert.That(baseline, Does.Contain("does not mutate `WorldState`"));
+            Assert.That(baseline, Does.Contain("does not receive raw `TickResult` or raw gameplay frames in views"));
+            Assert.That(baseline, Does.Contain("consumes snapshots/viewmodels/read models instead"));
+            Assert.That(baseline, Does.Contain("terminal result screens consume back"));
+            Assert.That(baseline, Does.Contain("Reward popup consumes back through popup policy until acknowledged"));
+            Assert.That(baseline, Does.Contain("screen/popup/HUD remain separate stacks/layers with input blocking derived from `UIBlockPolicy`"));
+            Assert.That(baseline, Does.Contain("Final-stage clear currently selects `GameClear` instead of the regular StageResult next-stage flow"));
+            Assert.That(baseline, Does.Contain("Policy extraction candidates for later PR: terminal screen selection, reward popup open condition, terminal back handling, pause return decision, audio transaction outcome mapping, and final-stage routing. Do not extract in PR-1."));
+            Assert.That(baseline, Does.Contain("Remaining PR-1 gaps: builder registry completeness belongs to PR-2; popup completion audio mapping, settings adapter lifecycle, HUD module completeness, and broader stage completion end-to-end/manual runtime evidence remain follow-up work."));
         }
 
         [Test]

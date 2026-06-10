@@ -44,16 +44,37 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void StageResult_EmitsOnlyStageNavigationRequest()
+        public void StageResultAndRewardPopup_ArePresentationEndpoints_NotGameplayAuthority()
         {
-            var payloadNavigationTypes = typeof(StageResultScreenPayload)
+            AssertStageResultSourcesDoNotContain(new[]
+            {
+                "WorldState",
+                "TickResult",
+                "GameplayPresentationFrame",
+                "GameplayPresentationState",
+            });
+        }
+
+        [Test]
+        public void StageResult_EmitsOnlyStageNavigationRequest_ForContinueRetryAndNextStage()
+        {
+            var payloadNavigationProperties = typeof(StageResultScreenPayload)
                 .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
                 .Where(property => property.Name.EndsWith("Request", StringComparison.Ordinal))
+                .OrderBy(property => property.Name, StringComparer.Ordinal)
+                .ToArray();
+            var payloadNavigationTypes = payloadNavigationProperties
                 .Select(property => property.PropertyType)
                 .Distinct()
                 .ToArray();
 
-            Assert.That(payloadNavigationTypes, Is.EqualTo(new[] { typeof(StageNavigationRequest) }));
+            Assert.That(
+                payloadNavigationTypes,
+                Is.EqualTo(new[] { typeof(StageNavigationRequest) }),
+                "StageResult screen actions stay intent-only; continue/retry/next-stage are StageNavigationRequest values, not direct stage reward/progression commits.");
+            Assert.That(
+                payloadNavigationProperties.Select(property => property.Name).ToArray(),
+                Is.EqualTo(new[] { "ContinueStageRequest", "NextStageRequest", "RetryStageRequest" }));
         }
 
         [Test]
@@ -81,7 +102,10 @@ namespace Game.Feature.UI.Tests
                 var source = File.ReadAllText(sourcePath);
                 foreach (var token in forbiddenTokens)
                 {
-                    Assert.That(source, Does.Not.Contain(token), sourcePath);
+                    Assert.That(
+                        source,
+                        Does.Not.Contain(token),
+                        $"{sourcePath}: StageResult/Reward popup are UI presentation/navigation endpoints; stage reward/progression commit lane remains stage-owned.");
                 }
             }
         }

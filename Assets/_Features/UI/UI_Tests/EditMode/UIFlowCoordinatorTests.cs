@@ -800,8 +800,19 @@ namespace Game.Feature.UI.Tests
             Assert.That(rewardPayload, Is.Not.Null);
             Assert.That(rewardPayload.Items.Count, Is.EqualTo(1));
             Assert.That(rewardPayload.SummaryText, Does.Contain("First-clear"));
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksHudInteraction, Is.True);
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.True);
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksUiGameplayInput, Is.True);
+            Assert.That(coordinator.CurrentBlockSnapshot.ShowsPopupDim, Is.True);
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+            Assert.That(popupController.PopupCount, Is.EqualTo(1), "Reward popup consumes back through popup policy; UI does not treat reward presentation as reward commit ownership.");
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
+
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Acknowledged);
+            Assert.That(popupController.PopupCount, Is.EqualTo(0));
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksUiGameplayInput, Is.True);
 
             coordinator.HandleScreenActionRequested(ScreenAction.LaunchStage(stagePayload.ContinueStageRequest));
             Assert.That(stageLaunchRouter.Requests, Has.Count.EqualTo(1));
@@ -811,6 +822,54 @@ namespace Game.Feature.UI.Tests
             presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(tickIndex: 9, includeReward: true));
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.StageResult), Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_StageClearedWithoutReward_OpensStageResultWithoutRewardPopup_AndKeepsNavigationIntentBoundary()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinatorWithStageLaunchRouter(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out var screenController,
+                out var popupController,
+                out var stageLaunchRouter);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.True);
+
+            presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(tickIndex: 10, includeReward: false));
+            presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 10));
+
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
+            Assert.That(screenController.BackStackCount, Is.EqualTo(0));
+            Assert.That(popupController.PopupCount, Is.EqualTo(0), "Rewardless clear must not open Reward popup; StageResult remains the presentation endpoint.");
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksHudInteraction, Is.True);
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.False);
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksUiGameplayInput, Is.True);
+            Assert.That(coordinator.CurrentBlockSnapshot.ShowsPopupDim, Is.False);
+
+            var stageResultRecord = screenRuntimeFactory.CreatedRuntimes.Find(record => record.Request.ScreenId == ScreenId.StageResult);
+            var stagePayload = stageResultRecord.Request.Payload as StageResultScreenPayload;
+            Assert.That(stagePayload, Is.Not.Null);
+            Assert.That(stagePayload.ContinueStageRequest.StageId, Is.EqualTo(StageId.CreateOrThrow("payload-stage")));
+            Assert.That(stagePayload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
+            Assert.That(stagePayload.RetryStageRequest.StageId, Is.EqualTo(StageId.CreateOrThrow("payload-stage")));
+            Assert.That(stagePayload.RetryStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
+            Assert.That(stagePayload.NextStageRequest.IsValid, Is.False);
+
+            coordinator.HandleScreenActionRequested(ScreenAction.LaunchStage(stagePayload.ContinueStageRequest));
+
+            Assert.That(stageLaunchRouter.Requests, Has.Count.EqualTo(1));
+            Assert.That(
+                stageLaunchRouter.Requests[0].NavigationKind,
+                Is.EqualTo(StageNavigationKind.Continue),
+                "Continue stays a StageNavigationRequest; UI does not directly mutate WorldState or progression.");
         }
 
         [Test]
@@ -851,10 +910,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(gameClearPayload.TitleText, Is.EqualTo("Game Clear"));
             Assert.That(gameClearPayload.MainLabel, Is.EqualTo("Main"));
             Assert.That(popupController.TopPopup.HasValue, Is.False);
+            Assert.That(popupController.PopupCount, Is.EqualTo(0), "Final-stage terminal screen selection bypasses Reward popup in current flow; do not extract or change this policy in PR-1.");
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.StageResult), Is.Empty);
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.GameClear), Has.Count.EqualTo(1));
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.GameClear));
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksUiGameplayInput, Is.True);
 
             var gameClearRecord = screenRuntimeFactory.CreatedRuntimes.Find(record => record.Request.ScreenId == ScreenId.GameClear);
             gameClearRecord.Runtime.Emit(ScreenAction.ReturnToMainMenu());

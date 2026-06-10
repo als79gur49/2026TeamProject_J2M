@@ -11,9 +11,11 @@
 ## Result
 - Pinned Stage 9 status: green
 - Pinned Unity UI EditMode: `155 total / 0 failed`
-- Current Phase 1 drift-correction rerun: green on 2026-06-06 KST
+- Prior Phase 1 drift-correction rerun: green on 2026-06-06 KST
+- Current PR-1 stage-completion baseline rerun: green on 2026-06-10 KST
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `646 total / 0 failed`
+- Current Unity UI EditMode: `706 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `701 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
@@ -40,10 +42,11 @@
   - transition overlay shell/content catalog guards proving scene transitions use the canonical shell asset and authored catalog, with missing setup reported as a defect
   - canonical UI navigation resolver guards proving `UiNavigationInputRouter` exposes only the `IUiNavigationTargetResolver` setup path and does not reassemble popup/menu concrete targets
   - external structure-source regeneration guard proving root `UI-Current-Structure-Source.md` mirrors the current 3-layer shell, identity lists, DemoStageControl classification, retired ActionBar status, removed diagnostics status, canonical transition path, and resolver-only navigation state
+  - PR-1 stage completion guards proving StageResult + Reward + Continue, rewardless clear, final-stage GameClear, retry payload, next-stage/no-next-stage mapping, terminal back consume, Reward popup back consume, and screen/popup/HUD separation before UI refactor scaffolding begins
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `646 total / 0 failed`
-  - delta: `+582` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical gameplay shell adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, canonical navigation resolver-only enforcement, and current-structure source regeneration
+  - current rerun: `706 total / 0 failed`
+  - delta: `+642` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical gameplay shell adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, canonical navigation resolver-only enforcement, current-structure source regeneration, and PR-1 stage completion protection
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
@@ -142,6 +145,11 @@
 - `SettingsScreen` now remains one runtime-managed shell with authored `SettingsAudioSection` and `SettingsDisplaySection` children; audio/display fallback rebuilding is removed while preview/session ownership remains in `SettingsRuntime`
 - Settings authored child-view canonicalization is closed here; future changes should update runtime contracts and focused behavior tests directly
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
+- StageResult screen is a stage completion presentation endpoint. It consumes `StageCompletionReadModel`-derived payloads and emits intent-only `StageNavigationRequest` values for continue, retry, and next-stage paths.
+- Reward popup is a reward presentation endpoint, not the reward commit owner. Reward/progression commit remains owned by the stage subsystem before UI consumes the read model.
+- UI remains non-authoritative: it does not mutate `WorldState`, does not receive raw `TickResult` or raw gameplay frames in views, and consumes snapshots/viewmodels/read models instead.
+- Stage completion back handling is fixed as current behavior: terminal result screens consume back, Reward popup consumes back through popup policy until acknowledged, and screen/popup/HUD remain separate stacks/layers with input blocking derived from `UIBlockPolicy`.
+- Final-stage clear currently selects `GameClear` instead of the regular StageResult next-stage flow. This is protected as current behavior, not extracted into a new policy in PR-1.
 - current canonical `PopupId` values are `None`, `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, `Reward`, and `DemoStageControl`
 - `DemoStageControl` is a catalog-less runtime assist popup created through the factory/runtime/hotkey path and not a gameplay popup catalog entry
 - `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing; it is not a deletion candidate or dev-only compile exclusion target
@@ -149,6 +157,8 @@
 - `Reward` and `Confirm` remain protected canonical popup paths
 - protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, `Reward` popup, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridges, and `StageNavigationRequest`
 - no Stage 4–8 contract is widened merely for test/debug convenience
+- Policy extraction candidates for later PR: terminal screen selection, reward popup open condition, terminal back handling, pause return decision, audio transaction outcome mapping, and final-stage routing. Do not extract in PR-1.
+- Remaining PR-1 gaps: builder registry completeness belongs to PR-2; popup completion audio mapping, settings adapter lifecycle, HUD module completeness, and broader stage completion end-to-end/manual runtime evidence remain follow-up work.
 
 ## Companion Smoke Check
 - Command: `./run_tests.sh core`
