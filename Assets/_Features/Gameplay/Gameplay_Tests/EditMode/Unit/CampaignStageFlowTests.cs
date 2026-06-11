@@ -105,7 +105,318 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(reloaded[2].IsEmpty, Is.True);
 
             var dto = JsonUtility.FromJson<SaveSlotStoreDto>(PlayerPrefs.GetString(key));
+            Assert.That(dto.SchemaId, Is.EqualTo(SaveSlotStore.SchemaId));
+            Assert.That(dto.SchemaVersion, Is.EqualTo(SaveSlotStore.SchemaVersion));
             Assert.That(dto.SaveVersion, Is.EqualTo(SaveSlotStore.SaveVersion));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageClearSavePayloadGuard_Empty_ReturnsEmpty()
+        {
+            var result = StageClearSavePayloadGuard.Inspect(" ");
+
+            Assert.That(result.Status, Is.EqualTo(StageClearSavePayloadStatus.Empty));
+            Assert.That(result.ShouldReset, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageClearSavePayloadGuard_CurrentSchema_ReturnsCurrent()
+        {
+            var result = StageClearSavePayloadGuard.Inspect(BuildCurrentSaveJson());
+
+            Assert.That(result.Status, Is.EqualTo(StageClearSavePayloadStatus.Current));
+            Assert.That(result.MatchedToken, Is.EqualTo(SaveSlotStore.SchemaId));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageClearSavePayloadGuard_LegacyToken_ReturnsLegacyRejected()
+        {
+            foreach (var legacyToken in StageClearSavePayloadGuard.LegacyTokens)
+            {
+                var result = StageClearSavePayloadGuard.Inspect("{\"" + legacyToken + "\":true}");
+
+                Assert.That(result.Status, Is.EqualTo(StageClearSavePayloadStatus.LegacyRejected), legacyToken);
+                Assert.That(result.MatchedToken, Is.EqualTo(legacyToken));
+                Assert.That(result.ShouldReset, Is.True);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageClearSavePayloadGuard_InvalidJson_ReturnsInvalidRejected()
+        {
+            var result = StageClearSavePayloadGuard.Inspect(
+                "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":2,");
+
+            Assert.That(result.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
+            Assert.That(result.ShouldReset, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageClearSavePayloadGuard_MissingSchemaMarker_ReturnsInvalidRejected()
+        {
+            var result = StageClearSavePayloadGuard.Inspect("{\"SaveVersion\":1,\"Slots\":[]}");
+
+            Assert.That(result.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
+            Assert.That(result.MatchedToken, Is.EqualTo("SchemaId"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageClearSavePayloadGuard_WrongSchemaVersion_ReturnsInvalidRejected()
+        {
+            var result = StageClearSavePayloadGuard.Inspect(
+                "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":1,\"SaveVersion\":1,\"Slots\":[]}");
+
+            Assert.That(result.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
+            Assert.That(result.MatchedToken, Is.EqualTo("SchemaVersion"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_CurrentKeyWithLegacyPayload_IsRejectedAndReset()
+        {
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildLegacyPayloadJson());
+            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 1);
+            PlayerPrefs.Save();
+            var store = new SaveSlotStore();
+
+            var slots = store.LoadAll();
+
+            Assert.That(slots.All(slot => slot.IsEmpty), Is.True);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.False);
+            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.LegacyRejected));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_CurrentKeyWithLegacyPayload_IsNotExposed()
+        {
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildLegacyPayloadJson());
+            PlayerPrefs.Save();
+            var store = new SaveSlotStore();
+
+            var slot = store.LoadSlot(1);
+
+            Assert.That(slot.CurrentStageId.IsValid, Is.False);
+            Assert.That(slot.StageClearProfileSnapshot.ClearRecordsByStageId, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_CurrentKeyWithLegacyPayload_DoesNotMigrateToClearRecords()
+        {
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildLegacyPayloadJson());
+            PlayerPrefs.Save();
+            var store = new SaveSlotStore();
+
+            var slot = store.LoadSlot(1);
+
+            Assert.That(slot.StageClearProfileSnapshot.ClearRecordsByStageId.ContainsKey(StageId.CreateOrThrow("stage-0-1")), Is.False);
+            Assert.That(slot.StageClearProfileSnapshot.ClearRecordsByStageId, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_CurrentKeyWithLegacyPayload_DeletesCurrentAndActivePrefs()
+        {
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildLegacyPayloadJson());
+            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 2);
+            PlayerPrefs.Save();
+
+            _ = new SaveSlotStore().LoadAll();
+
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_InvalidPayload_DoesNotCrashAndResets()
+        {
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":2,");
+            PlayerPrefs.Save();
+            var store = new SaveSlotStore();
+
+            Assert.DoesNotThrow(() => store.LoadAll());
+
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
+            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_InvalidPayload_IsNotExposed()
+        {
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, "{\"SchemaId\":\"StageClearSaveSlots\",\"SchemaVersion\":3,\"Slots\":[]}");
+            PlayerPrefs.Save();
+            var store = new SaveSlotStore();
+
+            var slots = store.LoadAll();
+
+            Assert.That(slots.All(slot => slot.IsEmpty), Is.True);
+            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_EmptyPayload_ReturnsEmptyDatabase()
+        {
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, string.Empty);
+            PlayerPrefs.Save();
+            var store = new SaveSlotStore();
+
+            var slots = store.LoadAll();
+
+            Assert.That(slots.All(slot => slot.IsEmpty), Is.True);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.True);
+            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.Empty));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_CurrentPayload_LoadsNormally()
+        {
+            var store = new SaveSlotStore();
+            store.SaveSlot(new SaveSlotData
+            {
+                SlotNumber = 1,
+                CurrentStageId = StageId.CreateOrThrow("stage-1-1"),
+                CurrentLevelGroupId = "level-1",
+            });
+            var reloaded = new SaveSlotStore();
+
+            var slot = reloaded.LoadSlot(1);
+
+            Assert.That(slot.CurrentStageId.Value, Is.EqualTo("stage-1-1"));
+            Assert.That(reloaded.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.Current));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_LoadReport_RecordsLegacyRejection()
+        {
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildLegacyPayloadJson());
+            PlayerPrefs.Save();
+            var store = new SaveSlotStore();
+
+            _ = store.LoadAll();
+
+            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.LegacyRejected));
+            Assert.That(store.LastLoadReport.MatchedToken, Is.EqualTo("ProgressByStageId"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_LoadReport_RecordsInvalidRejection()
+        {
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, "{\"SchemaId\":\"Wrong\",\"SchemaVersion\":2}");
+            PlayerPrefs.Save();
+            var store = new SaveSlotStore();
+
+            _ = store.LoadAll();
+
+            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
+            Assert.That(store.LastLoadReport.MatchedToken, Is.EqualTo("SchemaId"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_LoadReport_RecordsCurrentPayload()
+        {
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildCurrentSaveJson());
+            PlayerPrefs.Save();
+            var store = new SaveSlotStore();
+
+            _ = store.LoadAll();
+
+            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.Current));
+            Assert.That(store.LastLoadReport.MatchedToken, Is.EqualTo(SaveSlotStore.SchemaId));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_CustomKeyLegacyPayload_DoesNotResetProductionKeys()
+        {
+            var customKey = CreatePrefsKey(nameof(SaveSlotStore_CustomKeyLegacyPayload_DoesNotResetProductionKeys));
+            var customActiveKey = customKey + ".active";
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildCurrentSaveJson());
+            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 1);
+            PlayerPrefs.SetString(customKey, BuildLegacyPayloadJson());
+            PlayerPrefs.SetInt(customActiveKey, 2);
+            PlayerPrefs.Save();
+            var store = new SaveSlotStore(customKey, customActiveKey);
+
+            _ = store.LoadAll();
+
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.True);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
+            Assert.That(PlayerPrefs.HasKey(customKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(customActiveKey), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_DirectPlayTempKeyLegacyPayload_DoesNotResetProductionKeys()
+        {
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildCurrentSaveJson());
+            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 1);
+            PlayerPrefs.SetString(EditorDirectPlayContextStore.TempSaveSlotStoreKey, BuildLegacyPayloadJson());
+            PlayerPrefs.SetInt(EditorDirectPlayContextStore.TempActiveSlotProviderKey, 1);
+            PlayerPrefs.Save();
+            var store = new SaveSlotStore(EditorDirectPlayContextStore.TempSaveSlotStoreKey);
+
+            _ = store.LoadAll();
+
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.True);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
+            Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_DirectPlayTempKeyInvalidPayload_ResetsOnlyTempKeys()
+        {
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildCurrentSaveJson());
+            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 1);
+            PlayerPrefs.SetString(EditorDirectPlayContextStore.TempSaveSlotStoreKey, "{\"SchemaId\":\"StageClearSaveSlots\"}");
+            PlayerPrefs.SetInt(EditorDirectPlayContextStore.TempActiveSlotProviderKey, 1);
+            PlayerPrefs.Save();
+            var store = new SaveSlotStore(EditorDirectPlayContextStore.TempSaveSlotStoreKey);
+
+            _ = store.LoadAll();
+
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.True);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.True);
+            Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey), Is.False);
+            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.InvalidRejected));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SaveSlotStore_LegacyPayload_DoesNotMigrateToClearRecords()
+        {
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+            PlayerPrefs.SetString(SaveSlotPrefsKeys.SaveSlotsKey, BuildLegacyPayloadJson());
+            PlayerPrefs.SetInt(SaveSlotPrefsKeys.ActiveSaveSlotKey, 1);
+            PlayerPrefs.Save();
+            var store = new SaveSlotStore();
+
+            var slot = store.LoadSlot(1);
+
+            Assert.That(slot.IsEmpty, Is.True);
+            Assert.That(slot.StageClearProfileSnapshot.ClearRecordsByStageId.ContainsKey(stageId), Is.False);
+            Assert.That(slot.StageClearProfileSnapshot.ClearRecordsByStageId, Is.Empty);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.False);
+            Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.ActiveSaveSlotKey), Is.False);
+            Assert.That(store.LastLoadReport.Status, Is.EqualTo(StageClearSavePayloadStatus.LegacyRejected));
         }
 
         [Test]
@@ -1822,6 +2133,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return "Game.Feature.Tests." + suffix + "." + Guid.NewGuid().ToString("N");
         }
 
+        private static string BuildCurrentSaveJson()
+        {
+            return JsonUtility.ToJson(SaveSlotDtoMapper.CreateEmptyDto());
+        }
+
+        private static string BuildLegacyPayloadJson()
+        {
+            return
+                "{" +
+                "\"SaveVersion\":1," +
+                "\"Slots\":[{" +
+                "\"SlotNumber\":1," +
+                "\"CurrentStageId\":\"stage-0-1\"," +
+                "\"ProgressByStageId\":[{" +
+                "\"StageId\":\"stage-0-1\"," +
+                "\"HasStarted\":true," +
+                "\"HasCleared\":true," +
+                "\"ClearCount\":99" +
+                "}]" +
+                "}]" +
+                "}";
+        }
+
         private static string ReadSaveProfileProductionSources()
         {
             var paths = new[]
@@ -1836,7 +2170,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs",
             };
 
-            return string.Join(Environment.NewLine, paths.Select(File.ReadAllText));
+            return StripStageClearSavePayloadGuardSource(string.Join(Environment.NewLine, paths.Select(File.ReadAllText)));
+        }
+
+        private static string StripStageClearSavePayloadGuardSource(string source)
+        {
+            const string startToken = "internal static class StageClearSavePayloadGuard";
+            const string endToken = "internal readonly struct StageClearSavePrefsScope";
+            var start = source.IndexOf(startToken, StringComparison.Ordinal);
+            var end = source.IndexOf(endToken, StringComparison.Ordinal);
+            if (start < 0 || end <= start)
+            {
+                return source;
+            }
+
+            return source.Remove(start, end - start);
         }
 
         private static class StageSaveSlotTestReset
@@ -1847,6 +2195,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey);
                 PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.SaveSlotsKey);
                 PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.ActiveSaveSlotKey);
+                PlayerPrefs.DeleteKey(EditorDirectPlayContextStore.TempSaveSlotStoreKey);
+                PlayerPrefs.DeleteKey(EditorDirectPlayContextStore.TempActiveSlotProviderKey);
                 PlayerPrefs.Save();
             }
         }

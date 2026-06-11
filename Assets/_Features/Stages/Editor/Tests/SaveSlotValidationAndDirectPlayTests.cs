@@ -69,6 +69,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.SaveSlotsKey), Is.True);
             Assert.That(PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey), Is.False);
             var dto = JsonUtility.FromJson<SaveSlotStoreDto>(PlayerPrefs.GetString(SaveSlotPrefsKeys.SaveSlotsKey));
+            Assert.That(dto.SchemaId, Is.EqualTo(SaveSlotStore.SchemaId));
+            Assert.That(dto.SchemaVersion, Is.EqualTo(SaveSlotStore.SchemaVersion));
             Assert.That(dto.Slots[0].CurrentStageId, Is.EqualTo("stage-1-1"));
         }
 
