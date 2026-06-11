@@ -2919,7 +2919,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         {
                             new TickEnemyUtilityPresentationSignal(
                                 40,
-                                EnemyUtilityPresentationKind.LockNearbyBoxes,
+                                EnemyUtilityPresentationKind.GravityFieldAura,
                                 EnemyUtilityPresentationPhase.RecoverStarted,
                                 startTick: 1,
                                 executeTick: 9,
@@ -2942,7 +2942,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         {
                             new TickEnemyUtilityPhasePresentationState(
                                 40,
-                                EnemyUtilityPresentationKind.LockNearbyBoxes,
+                                EnemyUtilityPresentationKind.GravityFieldAura,
                                 EnemyUtilityEffectPhase.Recover,
                                 phaseElapsedTicks: 1,
                                 phaseDurationTicks: 8,
@@ -3002,7 +3002,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         {
                             new TickEnemyUtilityPresentationSignal(
                                 40,
-                                EnemyUtilityPresentationKind.LockNearbyBoxes,
+                                EnemyUtilityPresentationKind.GravityFieldAura,
                                 EnemyUtilityPresentationPhase.WindupStarted,
                                 startTick: 1,
                                 executeTick: 3,

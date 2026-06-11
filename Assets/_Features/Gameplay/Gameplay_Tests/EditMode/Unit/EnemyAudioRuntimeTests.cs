@@ -81,14 +81,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         new TickEnemyUtilityPresentationSignal(
                             21,
-                            EnemyUtilityPresentationKind.LockNearbyBoxes,
+                            EnemyUtilityPresentationKind.GravityFieldAura,
                             EnemyUtilityPresentationPhase.WindupStarted,
                             startTick: 1,
                             executeTick: 2,
                             durationTicks: 3),
                         new TickEnemyUtilityPresentationSignal(
                             21,
-                            EnemyUtilityPresentationKind.LockNearbyBoxes,
+                            EnemyUtilityPresentationKind.GravityFieldAura,
                             EnemyUtilityPresentationPhase.RecoverStarted,
                             startTick: 1,
                             executeTick: 2,

@@ -1995,54 +1995,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[1].EventLogDump, Does.Not.Contain("DefinitionMode="));
         }
 
-        [Test]
-        [Category("Core")]
-        public void Replay_EnemyUtilityLockScenario_ProducesStablePerTickHashTraceAndBlockedPush()
-        {
-            var firstReplay = RunUtilityLockReplaySequence();
-            var secondReplay = RunUtilityLockReplaySequence();
-
-            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
-            Assert.That(firstReplay[0].Trace, Does.Contain("PreMovement.UtilityTriggers"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=1"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Final.BoxInteractionLocks"));
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
-                    "PlayerActionBlockedByBoxInteractionLock",
-                    "Action=Push",
-                    "Actor=10",
-                    "Box=20",
-                    "Cell=(1,0)",
-                    "Tick=1"),
-                Is.True);
-            Assert.That(firstReplay[1].Trace, Does.Contain("Final.BoxInteractionLocks"));
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[2].EventLogDump,
-                    "BoxInteractionLockExpired",
-                    "Box=20",
-                    "Expires=3",
-                    "Tick=3"),
-                Is.True);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Replay_EnemyUtilityDelayedLockScenario_TriggersOnlyOnExecuteTick()
-        {
-            var firstReplay = RunUtilityDelayedLockReplaySequence();
-            var secondReplay = RunUtilityDelayedLockReplaySequence();
-
-            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
-            Assert.That(firstReplay[0].Trace, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=1"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("E=40|Effect=0|Cooldown=0|Phase=Windup|WindupStart=1|WindupEnd=2"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Final.BoxInteractionLocks"));
-            Assert.That(firstReplay[0].Trace, Does.Not.Contain("Box=20|Source=40|Effect=0"));
-            Assert.That(firstReplay[1].Trace, Does.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=2"));
-            Assert.That(firstReplay[1].Trace, Does.Contain("Box=20|Source=40|Effect=0|Reason=EnemyUtility|Expires=4|BlocksPush=1|BlocksFlip=0"));
-        }
-
 
 
         [Test]
@@ -2411,88 +2363,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 EnemyAiProfileTestFactory.Destroy(archetypeProfile);
                 EnemyAiProfileTestFactory.Destroy(defaultProfile);
                 EnemyAiProfileTestFactory.Destroy(utilityProfile);
-            }
-        }
-
-        private static IReadOnlyList<TickReplayFrame> RunUtilityLockReplaySequence()
-        {
-            var profile = CreateUtilityLockNearbyBoxesProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 3,
-                radius: 1,
-                durationTicks: 2,
-                blocksPush: true,
-                blocksFlip: false);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3, facing: Direction.Right),
-                    CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 1), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 2)),
-                GameplayTerrainData.Empty);
-
-            try
-            {
-                var bootstrapper = GameplayCompositionRoot.CreateDefaultBootstrapper(profile);
-
-                return new TickReplayHarness().Run(
-                    bootstrapper,
-                    worldState,
-                    new IEntityLogic[]
-                    {
-                        CreateImmediatePushPlayerLogic(10),
-                    },
-                    new[]
-                    {
-                        new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
-                        new TickInput(2),
-                        new TickInput(3),
-                    });
-            }
-            finally
-            {
-                EnemyAiProfileTestFactory.Destroy(profile);
-            }
-        }
-
-        private static IReadOnlyList<TickReplayFrame> RunUtilityDelayedLockReplaySequence()
-        {
-            var profile = CreateUtilityLockNearbyBoxesProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 3,
-                radius: 1,
-                durationTicks: 2,
-                blocksPush: true,
-                blocksFlip: false,
-                activationDelayTicks: 1);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
-                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 1)),
-                GameplayTerrainData.Empty);
-
-            try
-            {
-                var bootstrapper = GameplayCompositionRoot.CreateDefaultBootstrapper(profile);
-
-                return new TickReplayHarness().Run(
-                    bootstrapper,
-                    worldState,
-                    Array.Empty<IEntityLogic>(),
-                    new[]
-                    {
-                        new TickInput(1),
-                        new TickInput(2),
-                    });
-            }
-            finally
-            {
-                EnemyAiProfileTestFactory.Destroy(profile);
             }
         }
 
@@ -3311,30 +3181,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     hpOverride));
         }
 
-        private static EnemyAiProfile CreateUtilityLockNearbyBoxesProfile(
-            int initialDelayTicks,
-            int cooldownTicks,
-            int radius,
-            int durationTicks,
-            bool blocksPush = true,
-            bool blocksFlip = true,
-            bool includeSourceCell = false,
-            BoxLockTargetPattern targetPattern = BoxLockTargetPattern.ManhattanRadius,
-            int activationDelayTicks = 0)
-        {
-            return CreateUtilityProfile(
-                CreateLockNearbyBoxesUtilityEffect(
-                    initialDelayTicks,
-                    cooldownTicks,
-                    radius,
-                    durationTicks,
-                    blocksPush,
-                    blocksFlip,
-                    includeSourceCell,
-                    targetPattern,
-                    activationDelayTicks));
-        }
-
         private static EnemyAiProfile CreateUtilityProfile(params EnemyUtilityEffectAuthoring[] effects)
         {
             return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -3382,34 +3228,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             defaultProfile = CreateSharedSummonedProfile();
             archetypeCatalog = CreateEnemyUnitArchetypeCatalog(GetSharedSummonedArchetype());
             return CreateArchetypeBootstrapper(defaultProfile, summonerProfile, archetypeCatalog);
-        }
-
-        private static EnemyUtilityEffectAuthoring CreateLockNearbyBoxesUtilityEffect(
-            int initialDelayTicks,
-            int cooldownTicks,
-            int radius,
-            int durationTicks,
-            bool blocksPush,
-            bool blocksFlip,
-            bool includeSourceCell,
-            BoxLockTargetPattern targetPattern,
-            int activationDelayTicks = 0)
-        {
-            var lockNearbyBoxes = new LockNearbyBoxesAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "radius", radius);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "durationSeconds", TicksToSeconds(durationTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "activationDelaySeconds", TicksToSeconds(activationDelayTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "blocksPush", blocksPush);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "blocksFlip", blocksFlip);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "includeSourceCell", includeSourceCell);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "targetPattern", targetPattern);
-
-            var effect = new EnemyUtilityEffectAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.LockNearbyBoxes);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", TicksToSeconds(initialDelayTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", TicksToSeconds(cooldownTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "lockNearbyBoxes", lockNearbyBoxes);
-            return effect;
         }
 
         private static GameplayBootstrapper CreateArchetypeBootstrapper(
