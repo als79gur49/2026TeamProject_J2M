@@ -35,12 +35,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TickPresentationData_EmptyAndLegacyConstructorsExposeEmptyFrontFaceShieldSignals()
+        public void TickPresentationData_EmptyAndLegacyConstructorsExposeCurrentSignalCollections()
         {
-            Assert.That(TickPresentationData.Empty.FrontFaceShieldSources, Is.Empty);
-            Assert.That(TickPresentationData.Empty.FrontFaceShieldBlocks, Is.Empty);
             Assert.That(TickPresentationData.Empty.SummonWindupWarnings, Is.Empty);
-            Assert.That(TickPresentationData.Empty.FrontFaceShieldWindupWarnings, Is.Empty);
             Assert.That(TickPresentationData.Empty.EnemyUtilitySignals, Is.Empty);
             Assert.That(TickPresentationData.Empty.TileEvents, Is.Empty);
             Assert.That(TickPresentationData.Empty.EntitySpawnSignals, Is.Empty);
@@ -52,10 +49,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var presentationData = new TickPresentationData(Array.Empty<TickEntityMotion>());
             var initialPresentationData = new InitialPresentationData(null);
 
-            Assert.That(presentationData.FrontFaceShieldSources, Is.Empty);
-            Assert.That(presentationData.FrontFaceShieldBlocks, Is.Empty);
             Assert.That(presentationData.SummonWindupWarnings, Is.Empty);
-            Assert.That(presentationData.FrontFaceShieldWindupWarnings, Is.Empty);
             Assert.That(presentationData.EnemyUtilitySignals, Is.Empty);
             Assert.That(presentationData.TileEvents, Is.Empty);
             Assert.That(presentationData.EntitySpawnSignals, Is.Empty);
@@ -4797,7 +4791,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new Dictionary<int, EnemyJumpRuntimeState>(),
                 new Dictionary<int, EnemyGlideRuntimeState>(),
                 new Dictionary<int, EnemyUtilityRuntimeState>(),
-                new Dictionary<int, EnemyFrontFaceSupportRuntimeState>(),
                 new Dictionary<int, BoxInteractionLockState>(),
                 new Dictionary<int, EnemyGravityFieldAuraFieldState>(),
                 new Dictionary<int, PhasedRuntimeState>(),

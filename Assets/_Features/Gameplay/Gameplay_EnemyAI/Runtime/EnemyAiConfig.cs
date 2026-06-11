@@ -43,7 +43,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         None = 0,
         JumpToLockedTarget = 1,
-        PhaseThroughLockedTarget = 2,
+        RetiredPhaseThroughLockedTarget = 2,
         GlideOverSolid = 3,
     }
 
@@ -1141,8 +1141,7 @@ namespace Game.Feature.Gameplay.Entities
             : global::Game.Feature.Gameplay.Entities.MovementSkillStrategyKind.None;
 
         public EnemyJumpTimingSettings JumpTimingSettings => Capabilities.TryGetMovementSkill(out var movementSkill)
-            && (movementSkill.Kind == MovementSkillStrategyKind.JumpToLockedTarget ||
-                movementSkill.Kind == MovementSkillStrategyKind.PhaseThroughLockedTarget)
+            && movementSkill.Kind == MovementSkillStrategyKind.JumpToLockedTarget
             ? movementSkill.JumpTimingSettings
             : global::Game.Feature.Gameplay.Entities.EnemyJumpTimingSettings.CreateDefault();
 
@@ -1210,7 +1209,7 @@ namespace Game.Feature.Gameplay.Entities
                     jumpTimingSettings);
             }
 
-            return new EnemyCapabilityRuntimeSet(combat, movementSkill, passiveContact: null, utility: null, frontFaceSupport: null);
+            return new EnemyCapabilityRuntimeSet(combat, movementSkill, passiveContact: null, utility: null);
         }
 
         private static PatrolStrategyKind ResolvePatrolStrategyKind(IPatrolStrategy patrolStrategy)

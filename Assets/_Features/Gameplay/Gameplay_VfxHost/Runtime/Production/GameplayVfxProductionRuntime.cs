@@ -1609,9 +1609,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    cueId == GameplayVfxCueId.From(EnemyVfxCue.DeathMotion) ||
                    cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup) ||
                    cueId == GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn) ||
-                   cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldActive) ||
-                   cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldBlock) ||
-                   cueId == GameplayVfxCueId.From(EnemyVfxCue.FrontFaceShieldWindup) ||
                    cueId == GameplayVfxCueId.From(EnemyVfxCue.GravityFieldAuraWindupArea) ||
                    cueId == GameplayVfxCueId.From(EnemyVfxCue.GravityFieldAuraActiveArea) ||
                    cueId == GameplayVfxCueId.From(EnemyVfxCue.GravityFieldAuraActiveStarted) ||

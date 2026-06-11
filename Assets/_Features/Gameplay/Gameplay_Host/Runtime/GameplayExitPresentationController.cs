@@ -288,6 +288,13 @@ namespace Game.Feature.Gameplay.Host
             _trackState.DeferredExitRetainedEntityIds.Remove(entityId);
         }
 
+        public void ReleasePlannedLiveExitOwnership(int entityId)
+        {
+            _exitOwnedEntityIds.Remove(entityId);
+            _exitTimingsByEntityId.Remove(entityId);
+            _exitContactTimesByEntityId.Remove(entityId);
+        }
+
         private void ApplyDeferredAfterEntityMotionExitStart(int entityId)
         {
             if (!_entitiesWithDestroySelfFlipImpact.Contains(entityId))

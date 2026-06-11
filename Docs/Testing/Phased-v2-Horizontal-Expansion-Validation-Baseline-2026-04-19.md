@@ -30,8 +30,8 @@ python3 Tools/check_gameplay_test_stratification.py --root /mnt/c/users/user/202
 - `Game.Feature.Gameplay.Tests.Unit.ModifierCapabilityGeneralizationTests.WorldSnapshot_SystemValidationPhasedCarrier_SuppressesFreshTargetSelection_WithoutEnemyLockRetention`
 - `Game.Feature.Gameplay.Tests.Unit.SpatialStateResolverTruthTableTests.SystemPreMovementValidationSource_RemainsReservationReadFree`
 - `Game.Feature.Gameplay.Tests.Unit.SpatialStateResolverTruthTableTests.PhasedSourceMetadataCatalog_ActiveOwners_HaveCoverage_And_StageDefaults`
-- `Game.Feature.Gameplay.Tests.Unit.SpatialStateResolverTruthTableTests.EnemyPhaseRelocationReservationReadPath_RemainsCellOnly`
-- `Game.Feature.Gameplay.Tests.Unit.SpatialStateResolverTruthTableTests.EnemyPhaseRelocationPlanner_And_Finalizer_RemainClosedMinimalValidatorSeams`
+- Retired in PR E: `EnemyPhaseRelocationReservationReadPath_RemainsCellOnly`
+- Retired in PR E: `EnemyPhaseRelocationPlanner_And_Finalizer_RemainClosedMinimalValidatorSeams`
 - `Game.Feature.Gameplay.Tests.Unit.ModifierCapabilityGeneralizationTests.EnemyActionStateTargeting_CurrentEnemyLockPath_RetainsLockedTarget_WhileFreshSelectionStaysSuppressed`
 - `Game.Feature.Gameplay.Tests.Unit.ModifierCapabilityGeneralizationTests.EnemyActionStateTargeting_TryResolveStartAction_PrefersUnphasedFreshSelection_And_DoesNotReuseCurrentEnemyLockRetention`
 - `Game.Feature.Gameplay.Tests.Unit.TraverseSettleDocumentationGovernanceTests.PhasedDocs_DescribeStageDefaults_And_DeferredLockTaxonomy_AsClosedContracts`
@@ -51,9 +51,9 @@ python3 Tools/check_gameplay_test_stratification.py --root /mnt/c/users/user/202
 - strict stratification governance remains red because of pre-existing unit execution-placement debt and existing override/category mismatches.
 - new horizontal-expansion execution proof was moved to simulation assembly so it does not add a new unit execution-placement governance error.
 
-## Validator Handoff
+## Retired Validator Handoff
 
-- `Role=BaselineValidatorOnly`
+- `Role=RetiredBaselineValidatorOnly`
 - `LockDependency=CurrentEnemyLockPathOnly`
 - `ChooserLocality=SameFace|StraightLine|Behind+1|SingleTerminal`
 - `Reservation=TerminalCellOnlyPreSettle`

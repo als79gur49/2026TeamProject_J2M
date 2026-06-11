@@ -252,7 +252,6 @@ namespace Game.Feature.Gameplay.Tests.Core
                     landingTick = 18,
                 });
             writeContext.SetEnemyUtilityState(20, new EnemyUtilityRuntimeState(Array.Empty<EnemyUtilityEffectState>()));
-            writeContext.SetEnemyFrontFaceSupportState(20, new EnemyFrontFaceSupportRuntimeState(Array.Empty<EnemyFrontFaceSupportEffectState>()));
             writeContext.SetBoxInteractionLockState(
                 40,
                 new BoxInteractionLockState(sourceEntityId: 20, sourceEffectIndex: 1, expiresTickExclusive: 40, blocksPush: true, blocksFlip: false));
@@ -312,7 +311,6 @@ namespace Game.Feature.Gameplay.Tests.Core
             CollectionAssert.AreEqual(Collect<EnemyJumpSnapshotEntry>(expected.EnumerateEnemyJumpStatesOrdered), Collect<EnemyJumpSnapshotEntry>(actual.EnumerateEnemyJumpStatesOrdered));
             CollectionAssert.AreEqual(Collect<EnemyGlideSnapshotEntry>(expected.EnumerateEnemyGlideStatesOrdered), Collect<EnemyGlideSnapshotEntry>(actual.EnumerateEnemyGlideStatesOrdered));
             CollectionAssert.AreEqual(Collect<EnemyUtilitySnapshotEntry>(expected.EnumerateEnemyUtilityStatesOrdered), Collect<EnemyUtilitySnapshotEntry>(actual.EnumerateEnemyUtilityStatesOrdered));
-            CollectionAssert.AreEqual(Collect<EnemyFrontFaceSupportSnapshotEntry>(expected.EnumerateEnemyFrontFaceSupportStatesOrdered), Collect<EnemyFrontFaceSupportSnapshotEntry>(actual.EnumerateEnemyFrontFaceSupportStatesOrdered));
             CollectionAssert.AreEqual(Collect<BoxInteractionLockSnapshotEntry>(expected.EnumerateBoxInteractionLockStatesOrdered), Collect<BoxInteractionLockSnapshotEntry>(actual.EnumerateBoxInteractionLockStatesOrdered));
             CollectionAssert.AreEqual(Collect<EnemyGravityFieldAuraFieldSnapshotEntry>(expected.EnumerateEnemyGravityFieldAuraFieldStatesOrdered), Collect<EnemyGravityFieldAuraFieldSnapshotEntry>(actual.EnumerateEnemyGravityFieldAuraFieldStatesOrdered));
             CollectionAssert.AreEqual(Collect<SummonedEntitySnapshotEntry>(expected.EnumerateSummonedEntityStatesOrdered), Collect<SummonedEntitySnapshotEntry>(actual.EnumerateSummonedEntityStatesOrdered));

@@ -138,7 +138,6 @@ namespace Game.Feature.Stages.Editor
                 element.FindPropertyRelative("EnemyAiMode").intValue = (int)spawn.EnemyAiMode;
                 element.FindPropertyRelative("EnemyAiStateTimer").intValue = spawn.EnemyAiStateTimer;
                 element.FindPropertyRelative("EnemyAiProfile").objectReferenceValue = spawn.EnemyAiProfile;
-                element.FindPropertyRelative("PresentationId").stringValue = string.Empty;
                 element.FindPropertyRelative("UnitStackGroup").stringValue = Normalize(spawn.UnitStackGroup);
             }
         }

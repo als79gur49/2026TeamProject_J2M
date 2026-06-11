@@ -531,20 +531,26 @@ namespace Game.Feature.Gameplay.Host
                     enemySemanticState.ShouldPauseAnimatorPlayback,
                     _stateStore.ViewsByEntityId);
 
+                var hasPlayerAnimationPlayback = false;
+                var playerAnimationPlayback = default(PlayerAnimationPlaybackResolution);
+                var playerAnimationMotionDurationSeconds = 0f;
                 if (!isEnemy)
                 {
-                    var playerAnimationPlayback = _animationSync.ResolvePlayerAnimationPlayback(
+                    playerAnimationPlayback = _animationSync.ResolvePlayerAnimationPlayback(
                         entityId,
                         ShouldPlayPlayerWalkLoop(entityId),
                         HasActivePlayerWalkMotion(entityId));
+                    playerAnimationMotionDurationSeconds =
+                        _motionTimingResolver.ResolvePlayerAnimationStateMotionDurationSeconds(
+                            entityId,
+                            playerAnimationPlayback.State,
+                            timingProfile);
+                    hasPlayerAnimationPlayback = true;
                     _animationSync.SyncPlayerRuntimeState(
                         entityId,
                         isVisible,
                         playerAnimationPlayback,
-                        _motionTimingResolver.ResolvePlayerAnimationStateMotionDurationSeconds(
-                            entityId,
-                            playerAnimationPlayback.State,
-                            timingProfile),
+                        playerAnimationMotionDurationSeconds,
                         _stateStore.ViewsByEntityId);
                 }
 
@@ -569,6 +575,15 @@ namespace Game.Feature.Gameplay.Host
                 if (!wasViewActiveInHierarchy && view.gameObject.activeInHierarchy)
                 {
                     _animationSync.ResyncEnemyAnimatorState(entityId, _stateStore.ViewsByEntityId);
+                    if (hasPlayerAnimationPlayback)
+                    {
+                        _animationSync.SyncPlayerRuntimeState(
+                            entityId,
+                            isVisible: true,
+                            playerAnimationPlayback,
+                            playerAnimationMotionDurationSeconds,
+                            _stateStore.ViewsByEntityId);
+                    }
                 }
 
                 view.ApplyLocalPose(localPose.Position, localPose.Rotation);

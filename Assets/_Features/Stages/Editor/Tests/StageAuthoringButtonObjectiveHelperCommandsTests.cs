@@ -112,7 +112,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 fixture.Button,
                 fixture.Entry.StageId.Value);
 
-            Assert.That(result.Succeeded, Is.False);
+            Assert.That(result.Succeeded, Is.True, result.Message);
             Assert.That(fixture.Authoring.Objective.ConditionEntries, Has.Length.EqualTo(1));
         }
 

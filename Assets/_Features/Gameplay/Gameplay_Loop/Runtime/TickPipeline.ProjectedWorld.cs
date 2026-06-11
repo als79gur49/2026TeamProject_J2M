@@ -360,11 +360,6 @@ namespace Game.Feature.Gameplay.Loop
                     writeContext.SetEnemyUtilityState(entityId, enemyUtilityState);
                 }
 
-                if (snapshot.TryGetEnemyFrontFaceSupportState(entityId, out var enemyFrontFaceSupportState))
-                {
-                    writeContext.SetEnemyFrontFaceSupportState(entityId, enemyFrontFaceSupportState);
-                }
-
                 if (snapshot.TryGetBoxInteractionLockState(entityId, out var boxInteractionLockState))
                 {
                     writeContext.SetBoxInteractionLockState(entityId, boxInteractionLockState);

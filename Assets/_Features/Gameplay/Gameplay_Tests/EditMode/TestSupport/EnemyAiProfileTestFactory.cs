@@ -31,7 +31,6 @@ namespace Game.Feature.Gameplay.Tests
         public EnemyJumpTimingAuthoringSettings JumpTimingSettings = EnemyJumpTimingAuthoringSettings.CreateDefault();
         public EnemyGlideTimingAuthoringSettings GlideTimingSettings = EnemyGlideTimingAuthoringSettings.CreateDefault();
         public EnemyUtilityEffectAuthoring[] UtilityEffects;
-        public EnemyFrontFaceSupportEffectAuthoring[] FrontFaceSupportEffects;
     }
 
     internal static class EnemyAiProfileTestFactory
@@ -457,14 +456,6 @@ namespace Game.Feature.Gameplay.Tests
                     break;
                 }
 
-                case MovementSkillStrategyKind.PhaseThroughLockedTarget:
-                {
-                    var phase = CreateHiddenAsset<TestPhaseThroughLockedTargetCapabilityAsset>("Test_PhaseThroughLockedTargetCapability");
-                    SetSerializedField(phase, "jumpTimingSettings", spec.JumpTimingSettings);
-                    yield return phase;
-                    break;
-                }
-
                 case MovementSkillStrategyKind.GlideOverSolid:
                 {
                     var glide = CreateHiddenAsset<GlideOverSolidCapabilityAsset>("Test_GlideOverSolidCapability");
@@ -487,12 +478,6 @@ namespace Game.Feature.Gameplay.Tests
                 yield return utility;
             }
 
-            if (spec.FrontFaceSupportEffects != null)
-            {
-                var frontFaceSupport = CreateHiddenAsset<EnemyFrontFaceSupportCapabilityAsset>("Test_EnemyFrontFaceSupportCapability");
-                SetSerializedField(frontFaceSupport, "effects", spec.FrontFaceSupportEffects);
-                yield return frontFaceSupport;
-            }
         }
 
         private static T CreateHiddenAsset<T>(string assetName)
@@ -562,13 +547,5 @@ namespace Game.Feature.Gameplay.Tests
             }
         }
 
-        private sealed class TestPhaseThroughLockedTargetCapabilityAsset : EnemyMovementSkillCapabilityAsset
-        {
-            [SerializeField] private EnemyJumpTimingAuthoringSettings jumpTimingSettings = new(0f, 0f, 0f);
-
-            public override MovementSkillStrategyKind Kind => MovementSkillStrategyKind.PhaseThroughLockedTarget;
-
-            public override EnemyJumpTimingAuthoringSettings JumpTimingSettings => jumpTimingSettings;
-        }
     }
 }

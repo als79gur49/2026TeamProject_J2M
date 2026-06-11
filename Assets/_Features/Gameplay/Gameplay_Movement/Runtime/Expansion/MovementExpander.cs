@@ -34,7 +34,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            Expand(snapshot, tickIndex: 0, sortedIntents, null, null, buffer, rejectedReasons);
+            Expand(snapshot, tickIndex: 0, sortedIntents, null, buffer, rejectedReasons);
         }
 
         public void Expand(
@@ -44,7 +44,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            Expand(snapshot, tickIndex, sortedIntents, null, null, buffer, rejectedReasons);
+            Expand(snapshot, tickIndex, sortedIntents, null, buffer, rejectedReasons);
         }
 
         public void Expand(
@@ -54,7 +54,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            Expand(snapshot, tickIndex: 0, sortedIntents, playerTraversalSourceIds, null, buffer, rejectedReasons);
+            Expand(snapshot, tickIndex: 0, sortedIntents, playerTraversalSourceIds, buffer, rejectedReasons);
         }
 
         public void Expand(
@@ -65,7 +65,18 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            Expand(snapshot, tickIndex, sortedIntents, playerTraversalSourceIds, null, buffer, rejectedReasons);
+            Expand(
+                snapshot,
+                tickIndex,
+                sortedIntents,
+                playerTraversalSourceIds,
+                buffer,
+                rejectedReasons,
+                barricadeBlockFacts: null,
+                forbiddenLegacyUnitOrdinaryIntentIds: null,
+                tileFeatureDefinitions: null,
+                boxSlideStops: null,
+                playerTopologyTransitionBlockedSignals: null);
         }
 
         public void Expand(
@@ -73,10 +84,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             int tickIndex,
             IReadOnlyList<MoveIntent> sortedIntents,
             ISet<int> playerTraversalSourceIds,
-            IReadOnlyList<FrontFaceSupportContributor> frontFaceSupportContributors,
             List<ActionGroup> buffer,
             List<string> rejectedReasons,
-            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports = null,
             List<BarricadeBlockFact> barricadeBlockFacts = null,
             ISet<int> forbiddenLegacyUnitOrdinaryIntentIds = null,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
@@ -153,11 +162,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                             intent,
                             tickIndex,
                             playerTraversalSourceIds,
-                            frontFaceSupportContributors,
                             tileFeatureDefinitions,
                             buffer,
                             rejectedReasons,
-                            frontFaceShieldBlockExports,
                             barricadeBlockFacts,
                             boxSlideStops,
                             playerTopologyTransitionBlockedSignals);
@@ -189,11 +196,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             MoveIntent intent,
             int tickIndex,
             ISet<int> playerTraversalSourceIds,
-            IReadOnlyList<FrontFaceSupportContributor> frontFaceSupportContributors,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             List<ActionGroup> buffer,
             List<string> rejectedReasons,
-            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
             List<BarricadeBlockFact> barricadeBlockFacts,
             List<BoxSlideStopResult> boxSlideStops,
             List<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals)
@@ -205,11 +210,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     source,
                     intent,
                     tickIndex,
-                    frontFaceSupportContributors,
                     tileFeatureDefinitions,
                     buffer,
                     rejectedReasons,
-                    frontFaceShieldBlockExports,
                     barricadeBlockFacts,
                     boxSlideStops);
                 return;
@@ -351,11 +354,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         tickIndex,
                         delta,
                         stepFacing,
-                        frontFaceSupportContributors,
                         tileFeatureDefinitions,
                         buffer,
                         rejectedReasons,
-                        frontFaceShieldBlockExports,
                         barricadeBlockFacts,
                         boxSlideStops);
                     return;
@@ -520,7 +521,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             return false;
         }
 
-        private static TickTraversalBlockerKind ToTickTraversalBlockerKind(LegalityBlockerKind blockerKind)
+        internal static TickTraversalBlockerKind ToTickTraversalBlockerKind(LegalityBlockerKind blockerKind)
         {
             return blockerKind switch
             {
@@ -763,11 +764,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             int tickIndex,
             Vector2Int delta,
             Direction stepFacing,
-            IReadOnlyList<FrontFaceSupportContributor> frontFaceSupportContributors,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             List<ActionGroup> buffer,
             List<string> rejectedReasons,
-            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
             List<BarricadeBlockFact> barricadeBlockFacts,
             List<BoxSlideStopResult> boxSlideStops)
         {
@@ -805,7 +804,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         BuildBarricadeRejectedReason(
                             intent.SourceId,
                             intent.IntentId,
-                            BoxSlideMovementKind.PushStart,
+                            TileFeatureMovementKind.PushStart,
                             target.entityId,
                             target.position,
                             stopper.Cell));
@@ -870,41 +869,10 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     BuildBarricadeRejectedReason(
                         intent.SourceId,
                         intent.IntentId,
-                        BoxSlideMovementKind.PushStart,
+                        TileFeatureMovementKind.PushStart,
                         target.entityId,
                         target.position,
                         destination));
-                return;
-            }
-
-            if (BoxSlideBlockerQuery.TryResolveBlocker(
-                    snapshot,
-                    frontFaceSupportContributors,
-                    tickIndex,
-                    target,
-                    target.position,
-                    destination,
-                    BoxSlideMovementKind.PushStart,
-                    out var blocker))
-            {
-                rejectedReasons.Add(
-                    BuildFrontFaceShieldRejectedReason(
-                        intent.SourceId,
-                        intent.IntentId,
-                        BoxSlideMovementKind.PushStart,
-                        target.entityId,
-                        target.position,
-                        destination,
-                        blocker));
-                AddFrontFaceShieldBlockPresentationExport(
-                    frontFaceShieldBlockExports,
-                    snapshot.Topology,
-                    tickIndex,
-                    FrontFaceShieldBlockMovementKind.PushStart,
-                    actorEntityId: intent.SourceId,
-                    boxEntityId: target.entityId,
-                    blockedCell: destination,
-                    blocker);
                 return;
             }
 
@@ -933,11 +901,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             EntityState source,
             MoveIntent intent,
             int tickIndex,
-            IReadOnlyList<FrontFaceSupportContributor> frontFaceSupportContributors,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             List<ActionGroup> buffer,
             List<string> rejectedReasons,
-            List<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports,
             List<BarricadeBlockFact> barricadeBlockFacts,
             List<BoxSlideStopResult> boxSlideStops)
         {
@@ -973,7 +939,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         BuildBarricadeRejectedReason(
                             intent.SourceId,
                             intent.IntentId,
-                            BoxSlideMovementKind.SlidingContinuation,
+                            TileFeatureMovementKind.SlidingContinuation,
                             source.entityId,
                             source.position,
                             stopper.Cell));
@@ -1059,53 +1025,10 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     BuildBarricadeRejectedReason(
                         intent.SourceId,
                         intent.IntentId,
-                        BoxSlideMovementKind.SlidingContinuation,
+                        TileFeatureMovementKind.SlidingContinuation,
                         source.entityId,
                         source.position,
                         destination));
-
-                var stopGroup = new ActionGroup(
-                    intent.IntentId,
-                    intent.SourceId,
-                    intent.Priority,
-                    ActionGroupKind.Stop);
-                stopGroup.StateChanges.Add(
-                    new StateChangeAction(
-                        source.entityId,
-                        EntityPhaseState.Idle,
-                        stateTimer: 0));
-                buffer.Add(stopGroup);
-                return;
-            }
-
-            if (BoxSlideBlockerQuery.TryResolveBlocker(
-                    snapshot,
-                    frontFaceSupportContributors,
-                    tickIndex,
-                    source,
-                    source.position,
-                    destination,
-                    BoxSlideMovementKind.SlidingContinuation,
-                    out var blocker))
-            {
-                rejectedReasons.Add(
-                    BuildFrontFaceShieldRejectedReason(
-                        intent.SourceId,
-                        intent.IntentId,
-                        BoxSlideMovementKind.SlidingContinuation,
-                        source.entityId,
-                        source.position,
-                        destination,
-                        blocker));
-                AddFrontFaceShieldBlockPresentationExport(
-                    frontFaceShieldBlockExports,
-                    snapshot.Topology,
-                    tickIndex,
-                    FrontFaceShieldBlockMovementKind.SlidingContinuation,
-                    actorEntityId: source.kineticInstigatorEntityId > 0 ? source.kineticInstigatorEntityId : 0,
-                    boxEntityId: source.entityId,
-                    blockedCell: destination,
-                    blocker);
 
                 var stopGroup = new ActionGroup(
                     intent.IntentId,
@@ -1376,62 +1299,16 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             return false;
         }
 
-        private static string BuildFrontFaceShieldRejectedReason(
-            int sourceId,
-            int intentId,
-            BoxSlideMovementKind movementKind,
-            int boxEntityId,
-            SurfaceCell sourceCell,
-            SurfaceCell destinationCell,
-            in BoxSlideBlockerResult blocker)
-        {
-            return
-                $"MovementRejected|Stage=Expand|Source={sourceId}|I={intentId}|Reason=BoxSlideBlockedByFrontFaceShield|MovementKind={movementKind}|Box={boxEntityId}|From={FormatCell(sourceCell)}|Cell={FormatCell(destinationCell)}|ShieldSource={blocker.BlockerEntityId}|ShieldCell={FormatCell(blocker.BlockerSourceCell)}";
-        }
-
         private static string BuildBarricadeRejectedReason(
             int sourceId,
             int intentId,
-            BoxSlideMovementKind movementKind,
+            TileFeatureMovementKind movementKind,
             int boxEntityId,
             SurfaceCell sourceCell,
             SurfaceCell destinationCell)
         {
             return
                 $"MovementRejected|Stage=Expand|Source={sourceId}|I={intentId}|Reason=BoxSlideBlockedByBarricade|MovementKind={movementKind}|Box={boxEntityId}|From={FormatCell(sourceCell)}|Cell={FormatCell(destinationCell)}";
-        }
-
-        private static void AddFrontFaceShieldBlockPresentationExport(
-            List<FrontFaceShieldBlockPresentationExport> exports,
-            CubeTopologyState topology,
-            int tickIndex,
-            FrontFaceShieldBlockMovementKind movementKind,
-            int actorEntityId,
-            int boxEntityId,
-            SurfaceCell blockedCell,
-            in BoxSlideBlockerResult blocker)
-        {
-            if (exports == null)
-            {
-                return;
-            }
-
-            exports.Add(
-                new FrontFaceShieldBlockPresentationExport(
-                    blocker.BlockerEntityId,
-                    boxEntityId,
-                    actorEntityId,
-                    blockedCell,
-                    blocker.BlockerSourceCell,
-                    movementKind,
-                    topology,
-                    tickIndex,
-                    BuildFrontFaceShieldPresentationSeed(
-                        tickIndex,
-                        blocker.BlockerEntityId,
-                        boxEntityId,
-                        blockedCell,
-                        (int)movementKind)));
         }
 
         private static void AddBarricadeBlockFact(
@@ -1505,27 +1382,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     semantic.Kind,
                     snapshot.Topology,
                     BoxSlideStopCause.SlidingContinuationBlocked));
-        }
-
-        internal static int BuildFrontFaceShieldPresentationSeed(
-            int tickIndex,
-            int sourceEntityId,
-            int targetEntityId,
-            SurfaceCell cell,
-            int discriminator)
-        {
-            unchecked
-            {
-                var seed = 17;
-                seed = (seed * 31) + tickIndex;
-                seed = (seed * 31) + sourceEntityId;
-                seed = (seed * 31) + targetEntityId;
-                seed = (seed * 31) + (int)cell.face;
-                seed = (seed * 31) + cell.x;
-                seed = (seed * 31) + cell.y;
-                seed = (seed * 31) + discriminator;
-                return seed;
-            }
         }
 
         private static string FormatStopper(SlideStopper stopper)

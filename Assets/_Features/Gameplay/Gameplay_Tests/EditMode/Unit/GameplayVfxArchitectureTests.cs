@@ -50,11 +50,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/FlipDestroySelfMotionVfxCommandBuilder.cs";
         private const string EnemyDeathExitEffectPlanBuilderPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyDeathExitEffectPlanBuilder.cs";
-        private const string FrontFaceShieldPresenterPath = "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayFrontFaceShieldVfxPresenter.cs";
         private const string UtilityWindupAuthoringPath =
             "Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EnemyUtilityWindupPresentationAuthoring.cs";
-        private const string FrontFaceShieldAuthoringPath =
-            "Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EnemyFrontFaceShieldPresentationAuthoring.cs";
         private const string FlipImpactStayTrailBindingPath =
             "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/FlipImpactStayTrail_Binding.asset";
         private const string GlideWindTrailBindingPath =
@@ -332,9 +329,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var coordinator = ReadRepoFile(CoordinatorPath);
             var exitController = ReadRepoFile(ExitControllerPath);
             var deathPlanBuilder = ReadRepoFile(EnemyDeathExitEffectPlanBuilderPath);
-            var frontFaceShieldPresenter = ReadRepoFile(FrontFaceShieldPresenterPath);
             var utilityWindupAuthoring = ReadRepoFile(UtilityWindupAuthoringPath);
-            var frontFaceShieldAuthoring = ReadRepoFile(FrontFaceShieldAuthoringPath);
 
             Assert.That(coordinator, Does.Not.Contain("TraceStep(\"PlayPlayerHitEffects\")"));
             Assert.That(coordinator, Does.Not.Contain("TraceStep(\"PlayFrontFaceShieldBlockBursts\")"));
@@ -354,15 +349,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(deathPlanBuilder, Does.Not.Contain("ImpactBreakEffectTrack"));
             Assert.That(deathPlanBuilder, Does.Not.Contain("EntityExitEffectTrack"));
 
-            Assert.That(frontFaceShieldPresenter, Does.Contain("RefreshWindupWarnings"));
-            Assert.That(frontFaceShieldPresenter, Does.Contain("RefreshActiveSources"));
-            Assert.That(frontFaceShieldPresenter, Does.Not.Contain("PlayBlockBursts("));
-            Assert.That(frontFaceShieldPresenter, Does.Not.Contain("Active" + "LoopPrefab"));
-            Assert.That(frontFaceShieldPresenter, Does.Not.Contain("Block" + "BurstPrefab"));
+            Assert.That(File.Exists(GetAbsolutePath("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayFrontFaceShieldVfxPresenter.cs")), Is.False);
+            Assert.That(File.Exists(GetAbsolutePath("Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EnemyFrontFaceShieldPresentationAuthoring.cs")), Is.False);
             Assert.That(utilityWindupAuthoring, Does.Not.Contain("summon" + "WindupWarningPrefab"));
-            Assert.That(frontFaceShieldAuthoring, Does.Not.Contain("active" + "LoopPrefab"));
-            Assert.That(frontFaceShieldAuthoring, Does.Not.Contain("block" + "BurstPrefab"));
-            Assert.That(frontFaceShieldAuthoring, Does.Contain("telegraphPrefab"));
         }
 
         [Test]

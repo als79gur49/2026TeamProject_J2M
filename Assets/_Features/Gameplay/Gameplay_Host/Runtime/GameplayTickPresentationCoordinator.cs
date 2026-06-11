@@ -63,7 +63,6 @@ namespace Game.Feature.Gameplay.Host
         private readonly TilePresentationRequestPlanner _tilePresentationRequestPlanner = new();
         private readonly GameplayTopologyTransitionController _topologyTransitionController;
         private readonly GameplayPresentationPauseRegistry _presentationPauseRegistry = new();
-        private readonly GameplayFrontFaceShieldVfxPresenter _frontFaceShieldVfxPresenter = new();
         private readonly GameplayUtilityWindupVfxPresenter _utilityWindupVfxPresenter = new();
         private readonly TileFeatureVisualPresentationController _tileFeatureVisualPresentationController = new();
         private readonly MoonBlockEmergencePresentationController _moonBlockEmergencePresentationController = new();
@@ -358,7 +357,6 @@ namespace Game.Feature.Gameplay.Host
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
             _trackState.ResetSession();
-            _frontFaceShieldVfxPresenter.Initialize(viewBinder.SearchRoot, cellSize);
             _utilityWindupVfxPresenter.Initialize(viewBinder.SearchRoot);
             _animationSync.Reset();
             _stateStore.ResetSession(initialTopology);
@@ -506,15 +504,6 @@ namespace Game.Feature.Gameplay.Host
                 _stateStore,
                 _projector);
 
-            _frontFaceShieldVfxPresenter.RefreshWindupWarnings(
-                Array.Empty<TickFrontFaceShieldWindupWarningSignal>(),
-                _stateStore,
-                _projector);
-            TraceStep("RefreshFrontFaceShieldSources");
-            _frontFaceShieldVfxPresenter.RefreshActiveSources(
-                Array.Empty<TickFrontFaceShieldSourceSignal>(),
-                _stateStore,
-                _projector);
             _exitPresentationController.RefreshEntityExitPlan(result.PresentationData);
             _planner.RefreshPlayerLocomotionSignals(result.PresentationData);
             _playerLocomotionAudioPresentationController.RefreshSignals(
@@ -535,6 +524,7 @@ namespace Game.Feature.Gameplay.Host
                 previousCommittedTopology,
                 _projector,
                 _timingProfile);
+            RetainTopologyMoonBlockGeneratedPoses(result.PresentationData);
             _lastPresentedTickIndex = result.TickIndex;
             RefreshPresentationMotionVfx(result.TickIndex);
             _animationSync.ApplyTickPresentation(
@@ -575,6 +565,52 @@ namespace Game.Feature.Gameplay.Host
             _moonBlockEmergencePresentationController.StartReadyRequests(result.TickIndex);
         }
 
+        private void RetainTopologyMoonBlockGeneratedPoses(TickPresentationData presentationData)
+        {
+            if (!IsTopologyTransitionPresentation(presentationData?.TopologyMotion) ||
+                _currentTilePresentationRequests.Count == 0)
+            {
+                return;
+            }
+
+            var topologyMotion = presentationData.TopologyMotion.Value;
+            for (var i = 0; i < _currentTilePresentationRequests.Count; i++)
+            {
+                var request = _currentTilePresentationRequests[i];
+                if (request.RequestKind != TilePresentationRequestKind.MoonBlockGenerated ||
+                    request.TargetEntityId <= 0 ||
+                    !_projector.TryProjectTransitionEntityCell(
+                        request.Cell,
+                        topologyMotion.SourceTopology,
+                        topologyMotion.DestinationTopology,
+                        EntityType.Box,
+                        out var projectedPose))
+                {
+                    continue;
+                }
+
+                var retainedPose = new GameplayEntityPose(projectedPose.LocalPosition, projectedPose.LocalRotation);
+                var projectedSlot = _projector.TryGetProjectedTransitionEntitySlot(
+                    request.Cell,
+                    topologyMotion.SourceTopology,
+                    topologyMotion.DestinationTopology,
+                    out var resolvedProjectedSlot)
+                    ? (GameplayProjectedFaceSlot?)resolvedProjectedSlot
+                    : null;
+
+                _trackState.LocalMotionTracks.Remove(request.TargetEntityId);
+                _trackState.MotionVisualScaleEntityIds.Remove(request.TargetEntityId);
+                _exitPresentationController.ReleasePlannedLiveExitOwnership(request.TargetEntityId);
+                _stateStore.RetainedLocalTargetPoses[request.TargetEntityId] = retainedPose;
+                _stateStore.TransitionVisibilityStates[request.TargetEntityId] =
+                    new TransitionVisibilityState(
+                        TickTransitionVisibilityMode.ShowAtTransitionStart,
+                        retainedPose,
+                        projectedSlot,
+                        request.Cell.face);
+            }
+        }
+
         public void PresentInitial(
             IReadOnlyList<EntityState> entities,
             CubeTopologyState topology,
@@ -603,7 +639,6 @@ namespace Game.Feature.Gameplay.Host
             _trackState.ResetSession();
             _exitPresentationController.Reset();
             _moonBlockDestructionPresentationController.ResetSession();
-            _frontFaceShieldVfxPresenter.Clear();
             _utilityWindupVfxPresenter.Clear();
             _tileFeatureVisualPresentationController.ResetSession();
             _moonBlockEmergencePresentationController.ResetSession();
@@ -668,7 +703,6 @@ namespace Game.Feature.Gameplay.Host
             _blockAudioPresentationController.Update(deltaTime);
             _playerLocomotionAudioPresentationController.Update(deltaTime);
             _tileFeatureAudioPresentationController.Update(deltaTime);
-            _frontFaceShieldVfxPresenter.Update(deltaTime);
             _tileFeatureVisualPresentationController.Update(deltaTime);
             _moonBlockEmergencePresentationController.UpdatePresentation(deltaTime);
             _gravityFieldVisualPresentationController.UpdatePresentation(deltaTime);
@@ -1159,6 +1193,11 @@ namespace Game.Feature.Gameplay.Host
 
         private void UpdateExtensions(float deltaTime)
         {
+            if (deltaTime <= 0f)
+            {
+                return;
+            }
+
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.UpdatePresentation(deltaTime);

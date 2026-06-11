@@ -61,7 +61,7 @@ namespace Game.Feature.Gameplay.Loop
         SetBoxInteractionLockState = 22,
         RemoveBoxInteractionLockState = 23,
         SetEnemyGlideState = 24,
-        SetEnemyFrontFaceSupportState = 25,
+        RetiredEnemyFrontFaceSupportState = 25,
         SetUnitKinematicState = 26,
         SetUnitContinuousLocomotionState = 27,
         SetGravityFieldState = 28,
@@ -233,7 +233,6 @@ namespace Game.Feature.Gameplay.Loop
             EnemyGlideRuntimeState enemyGlideState = default,
             EnemyChargeRuntimeState enemyChargeState = default,
             EnemyUtilityRuntimeState enemyUtilityState = null,
-            EnemyFrontFaceSupportRuntimeState enemyFrontFaceSupportState = null,
             BoxInteractionLockState boxInteractionLockState = default,
             EnemyGravityFieldAuraFieldState enemyGravityFieldAuraFieldState = default,
             PendingEnemyBlockedReaction pendingEnemyBlockedReaction = default,
@@ -277,7 +276,6 @@ namespace Game.Feature.Gameplay.Loop
             EnemyGlideState = enemyGlideState;
             EnemyChargeState = enemyChargeState;
             EnemyUtilityState = enemyUtilityState;
-            EnemyFrontFaceSupportState = enemyFrontFaceSupportState;
             BoxInteractionLockState = boxInteractionLockState;
             EnemyGravityFieldAuraFieldState = enemyGravityFieldAuraFieldState;
             PendingEnemyBlockedReaction = pendingEnemyBlockedReaction;
@@ -351,8 +349,6 @@ namespace Game.Feature.Gameplay.Loop
 
         public EnemyUtilityRuntimeState EnemyUtilityState { get; }
 
-        public EnemyFrontFaceSupportRuntimeState EnemyFrontFaceSupportState { get; }
-
         public BoxInteractionLockState BoxInteractionLockState { get; }
 
         public EnemyGravityFieldAuraFieldState EnemyGravityFieldAuraFieldState { get; }
@@ -411,7 +407,6 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyGlideState,
                 EnemyChargeState,
                 EnemyUtilityState,
-                EnemyFrontFaceSupportState,
                 BoxInteractionLockState,
                 EnemyGravityFieldAuraFieldState,
                 PendingEnemyBlockedReaction,
@@ -642,21 +637,6 @@ namespace Game.Feature.Gameplay.Loop
                 metadata,
                 entityId: entityId,
                 enemyUtilityState: enemyUtilityState);
-        }
-
-        public static FinalizationOperation SetEnemyFrontFaceSupportState(
-            long sequence,
-            int entityId,
-            EnemyFrontFaceSupportRuntimeState enemyFrontFaceSupportState,
-            FinalizationOperationMetadata metadata = default)
-        {
-            return new FinalizationOperation(
-                sequence,
-                FinalizationOperationBucket.NonHpState,
-                FinalizationOperationKind.SetEnemyFrontFaceSupportState,
-                metadata,
-                entityId: entityId,
-                enemyFrontFaceSupportState: enemyFrontFaceSupportState);
         }
 
         public static FinalizationOperation SetBoxInteractionLockState(long sequence, int entityId, BoxInteractionLockState boxInteractionLockState, FinalizationOperationMetadata metadata = default)
@@ -960,11 +940,6 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.SetEnemyUtilityState(_nextSequence++, entityId, state, metadata));
         }
 
-        public void SetEnemyFrontFaceSupportState(int entityId, EnemyFrontFaceSupportRuntimeState state, FinalizationOperationMetadata metadata = default)
-        {
-            _operations.Add(FinalizationOperation.SetEnemyFrontFaceSupportState(_nextSequence++, entityId, state, metadata));
-        }
-
         public void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetBoxInteractionLockState(_nextSequence++, entityId, state, metadata));
@@ -1234,10 +1209,6 @@ namespace Game.Feature.Gameplay.Loop
                         ((IPreMovementStateCommitContext)writeContext).SetEnemyUtilityState(operation.EntityId, operation.EnemyUtilityState);
                         break;
 
-                    case FinalizationOperationKind.SetEnemyFrontFaceSupportState:
-                        ((IPreMovementStateCommitContext)writeContext).SetEnemyFrontFaceSupportState(operation.EntityId, operation.EnemyFrontFaceSupportState);
-                        break;
-
                     case FinalizationOperationKind.SetBoxInteractionLockState:
                         writeContext.SetBoxInteractionLockState(operation.EntityId, operation.BoxInteractionLockState);
                         break;
@@ -1407,11 +1378,6 @@ namespace Game.Feature.Gameplay.Loop
         public void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state)
         {
             _batch.SetEnemyUtilityState(entityId, state);
-        }
-
-        public void SetEnemyFrontFaceSupportState(int entityId, EnemyFrontFaceSupportRuntimeState state)
-        {
-            _batch.SetEnemyFrontFaceSupportState(entityId, state);
         }
 
         public void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)

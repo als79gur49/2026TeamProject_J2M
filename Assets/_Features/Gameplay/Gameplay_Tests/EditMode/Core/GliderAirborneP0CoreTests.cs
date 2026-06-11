@@ -556,7 +556,6 @@ namespace Game.Feature.Gameplay.Tests.Core
                         EnemyJumpTimingSettings.CreateDefault(),
                         timing),
                     null,
-                    null,
                     null));
         }
 

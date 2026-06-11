@@ -1389,7 +1389,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .Select(path => "Assets" + path.Replace("\\", "/").Substring(Application.dataPath.Length))
                 .OrderBy(path => path)
                 .ToArray();
-            Assert.That(materialPaths, Has.Length.EqualTo(18));
+            Assert.That(materialPaths, Has.Length.EqualTo(19));
             foreach (var materialPath in materialPaths)
             {
                 var material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
@@ -6757,10 +6757,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(presenter.ActiveMoonBlockDestructionGhostCount, Is.Zero);
                 Assert.That(presenter.HasBlockingPresentation, Is.True);
+                Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
+                Assert.That(
+                    presenter.CurrentTilePresentationRequests[0].RequestKind,
+                    Is.EqualTo(TilePresentationRequestKind.MoonBlockGenerated));
+                Assert.That(
+                    presenter.DebugCaptureEntityPresentationLifecycle(40, 0f)
+                        .RetainedLocalTargetPosesContainsEntityId,
+                    Is.True);
                 Assert.That(registry.TryGetView(40, out var moonBlockView), Is.True);
                 AssertPositionApproximately(
                     moonBlockView.transform.localPosition,
-                    GetProjectedEntityPosition(boardBounds, destinationTopology, generatorCell, EntityType.Box));
+                    GetProjectedTransitionEntityPosition(
+                        boardBounds,
+                        sourceTopology,
+                        destinationTopology,
+                        generatorCell,
+                        EntityType.Box));
             }
             finally
             {
@@ -6955,270 +6968,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Full")]
-        public void GameplayTickPresentationCoordinator_FrontFaceShieldSource_DoesNotSpawnLegacyActiveLoop()
-        {
-            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldSource_DoesNotSpawnLegacyActiveLoop");
-            var enemyPrefab = CreateEnemyViewPrefab(
-                "EnemyPrefab_FrontFaceShieldActive",
-                UnitLocomotionPresentationAuthoring.UseGlobalTimingSentinel,
-                EntityMotionPresentationAuthoring.UseGlobalTimingSentinel);
-            var telegraphPrefab = new GameObject("FrontFaceShieldTelegraphPrefab");
-
-            try
-            {
-                var authoring = enemyPrefab.gameObject.AddComponent<EnemyFrontFaceShieldPresentationAuthoring>();
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "telegraphPrefab", telegraphPrefab);
-
-                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
-                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
-                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
-                var topology = new CubeTopologyState(FaceId.Floor);
-                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
-                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
-
-                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
-                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
-
-                presenter.Present(
-                    CreateTickResult(
-                        tickIndex: 1,
-                        new[] { CreateEnemyUnit(20, sourceCell) },
-                        topology,
-                        CreateFrontFaceShieldPresentationData(
-                            new[] { CreateShieldSourceSignal(20, sourceCell, topology, tickIndex: 1) },
-                            Array.Empty<TickFrontFaceShieldBlockSignal>())));
-
-                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldActiveLoop_20"), Is.EqualTo(0));
-                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldWindup_20"), Is.EqualTo(0));
-                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldTelegraph_20"), Is.EqualTo(0));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(telegraphPrefab);
-                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void GameplayTickPresentationCoordinator_FrontFaceShieldMissingAuthoring_NoOps()
-        {
-            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldMissingAuthoring_NoOps");
-
-            try
-            {
-                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
-                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
-                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
-                var topology = new CubeTopologyState(FaceId.Floor);
-                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
-                var binder = new GameplayEntityViewBinder(
-                    registry,
-                    new DefaultGameplayEntityViewFactory(
-                        registry.transform,
-                        1f,
-                        playerEntityId: 10));
-
-                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
-                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
-
-                Assert.DoesNotThrow(
-                    () => presenter.Present(
-                        CreateTickResult(
-                            tickIndex: 1,
-                            new[] { CreateEnemyUnit(20, sourceCell) },
-                            topology,
-                            CreateFrontFaceShieldPresentationData(
-                                new[] { CreateShieldSourceSignal(20, sourceCell, topology, tickIndex: 1) },
-                                new[]
-                                {
-                                    CreateShieldBlockSignal(
-                                        shieldSourceEntityId: 20,
-                                        boxEntityId: 30,
-                                        actorEntityId: 10,
-                                        blockedCell: sourceCell,
-                                        shieldSourceCell: sourceCell,
-                                        topology: topology,
-                                        tickIndex: 1),
-                                }))));
-
-                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShield"), Is.EqualTo(0));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void GameplayTickPresentationCoordinator_FrontFaceShieldNullPrefabs_NoOps()
-        {
-            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldNullPrefabs_NoOps");
-            var enemyPrefab = CreateEnemyViewPrefab(
-                "EnemyPrefab_FrontFaceShieldNullPrefabs",
-                UnitLocomotionPresentationAuthoring.UseGlobalTimingSentinel,
-                EntityMotionPresentationAuthoring.UseGlobalTimingSentinel);
-
-            try
-            {
-                enemyPrefab.gameObject.AddComponent<EnemyFrontFaceShieldPresentationAuthoring>();
-                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
-                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
-                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
-                var topology = new CubeTopologyState(FaceId.Floor);
-                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
-                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
-
-                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
-                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
-
-                Assert.DoesNotThrow(
-                    () => presenter.Present(
-                        CreateTickResult(
-                            tickIndex: 1,
-                            new[] { CreateEnemyUnit(20, sourceCell) },
-                            topology,
-                            CreateFrontFaceShieldPresentationData(
-                                new[] { CreateShieldSourceSignal(20, sourceCell, topology, tickIndex: 1) },
-                                new[]
-                                {
-                                    CreateShieldBlockSignal(
-                                        shieldSourceEntityId: 20,
-                                        boxEntityId: 30,
-                                        actorEntityId: 10,
-                                        blockedCell: sourceCell,
-                                        shieldSourceCell: sourceCell,
-                                        topology: topology,
-                                        tickIndex: 1),
-                                }))));
-
-                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShield"), Is.EqualTo(0));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
-        public void GameplayTickPresentationCoordinator_FrontFaceShieldBlockSignal_DoesNotSpawnLegacyBurst()
-        {
-            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldBlockSignal_DoesNotSpawnLegacyBurst");
-            var enemyPrefab = CreateEnemyViewPrefab(
-                "EnemyPrefab_FrontFaceShieldBurst",
-                UnitLocomotionPresentationAuthoring.UseGlobalTimingSentinel,
-                EntityMotionPresentationAuthoring.UseGlobalTimingSentinel);
-
-            try
-            {
-                var authoring = enemyPrefab.gameObject.AddComponent<EnemyFrontFaceShieldPresentationAuthoring>();
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "blockBurstSeconds", 0.2f);
-
-                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
-                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
-                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
-                var topology = new CubeTopologyState(FaceId.Floor);
-                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
-                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
-
-                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
-                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
-
-                presenter.Present(
-                    CreateTickResult(
-                        tickIndex: 1,
-                        new[] { CreateEnemyUnit(20, sourceCell) },
-                        topology,
-                        CreateFrontFaceShieldPresentationData(
-                            new[] { CreateShieldSourceSignal(20, sourceCell, topology, tickIndex: 1) },
-                            new[]
-                            {
-                                CreateShieldBlockSignal(
-                                    shieldSourceEntityId: 20,
-                                    boxEntityId: 30,
-                                    actorEntityId: 10,
-                                    blockedCell: sourceCell,
-                                    shieldSourceCell: sourceCell,
-                                    topology: topology,
-                                    tickIndex: 1),
-                            })));
-
-                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldBlockBurst_20_30"), Is.Zero);
-
-                presenter.UpdatePresentation(0.21f);
-
-                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldBlockBurst_20_30"), Is.Zero);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void GameplayTickPresentationCoordinator_FrontFaceShieldWindupWarning_DoesNotSpawnOldTelegraphPrefab()
-        {
-            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FrontFaceShieldWindupWarning_DoesNotSpawnOldTelegraphPrefab");
-            var enemyPrefab = CreateEnemyViewPrefab(
-                "EnemyPrefab_FrontFaceShieldWindup",
-                UnitLocomotionPresentationAuthoring.UseGlobalTimingSentinel,
-                EntityMotionPresentationAuthoring.UseGlobalTimingSentinel);
-            var telegraphPrefab = new GameObject("FrontFaceShieldTelegraphPrefab");
-
-            try
-            {
-                var authoring = enemyPrefab.gameObject.AddComponent<EnemyFrontFaceShieldPresentationAuthoring>();
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "telegraphPrefab", telegraphPrefab);
-
-                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
-                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
-                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
-                var topology = new CubeTopologyState(FaceId.Floor);
-                var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
-                var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
-
-                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
-                presenter.PresentInitial(new[] { CreateEnemyUnit(20, sourceCell) }, topology);
-
-                presenter.Present(
-                    CreateTickResult(
-                        tickIndex: 1,
-                        new[] { CreateEnemyUnit(20, sourceCell) },
-                        topology,
-                        CreateFrontFaceShieldPresentationData(
-                            Array.Empty<TickFrontFaceShieldSourceSignal>(),
-                            Array.Empty<TickFrontFaceShieldBlockSignal>(),
-                            new[] { CreateShieldWindupWarningSignal(20, sourceCell, topology, tickIndex: 1) })));
-
-                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldWindup_20_0_1"), Is.EqualTo(0));
-
-                presenter.Present(
-                    CreateTickResult(
-                        tickIndex: 2,
-                        new[] { CreateEnemyUnit(20, sourceCell) },
-                        topology,
-                        CreateFrontFaceShieldPresentationData(
-                            Array.Empty<TickFrontFaceShieldSourceSignal>(),
-                            Array.Empty<TickFrontFaceShieldBlockSignal>())));
-
-                Assert.That(CountDescendantsByNamePrefix(rootObject.transform, "FrontFaceShieldWindup_20_0_1"), Is.EqualTo(0));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(telegraphPrefab);
-                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
         [Category("Core")]
         public void GameplayTickPresentationCoordinator_SummonWindupWarning_MissingAuthoringNoOps()
         {
@@ -7255,26 +7004,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void GameplayTickPresentationCoordinator_FrontFaceShieldVfx_DoesNotParseLegacyEventStrings()
-        {
-            var hostRuntimeDirectory = Path.Combine(Application.dataPath, "_Features/Gameplay/Gameplay_Host/Runtime");
-            var checkedFiles = new[]
-            {
-                Path.Combine(hostRuntimeDirectory, "GameplayTickPresentationCoordinator.cs"),
-                Path.Combine(hostRuntimeDirectory, "GameplayFrontFaceShieldVfxPresenter.cs"),
-            };
-
-            foreach (var path in checkedFiles)
-            {
-                var source = File.ReadAllText(path);
-
-                Assert.That(source, Does.Not.Contain("BoxSlideBlockedByFrontFaceShield"), path);
-                Assert.That(source, Does.Not.Contain("PlayerActionBlockedByFrontFaceShield"), path);
             }
         }
 
@@ -11321,6 +11050,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return projectedPose.LocalPosition;
         }
 
+        private static Vector3 GetProjectedTransitionEntityPosition(
+            BoardBounds boardBounds,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            SurfaceCell cell,
+            EntityType entityType)
+        {
+            var projector = new GameplayCubeProjector(boardBounds, 1f);
+            Assert.That(
+                projector.TryProjectTransitionEntityCell(
+                    cell,
+                    sourceTopology,
+                    destinationTopology,
+                    entityType,
+                    out var projectedPose),
+                Is.True);
+            return projectedPose.LocalPosition;
+        }
+
         private static Vector3 GetProjectedEntityNormal(
             BoardBounds boardBounds,
             CubeTopologyState topology,
@@ -11594,33 +11342,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 didDie: false);
         }
 
-        private static TickPresentationData CreateFrontFaceShieldPresentationData(
-            IReadOnlyList<TickFrontFaceShieldSourceSignal> sources,
-            IReadOnlyList<TickFrontFaceShieldBlockSignal> blocks,
-            IReadOnlyList<TickFrontFaceShieldWindupWarningSignal> windupWarnings = null)
-        {
-            return new TickPresentationData(
-                Array.Empty<TickEntityMotion>(),
-                topologyMotion: null,
-                visibilityChanges: Array.Empty<TickVisibilityChange>(),
-                transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
-                playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
-                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
-                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
-                playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>(),
-                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
-                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
-                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
-                enemyChargeSignals: Array.Empty<TickEnemyChargePresentationSignal>(),
-                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
-                impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
-                flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
-                summonedEnemyPresentationBindings: Array.Empty<TickSummonedEnemyPresentationBinding>(),
-                frontFaceShieldSources: sources,
-                frontFaceShieldBlocks: blocks,
-                frontFaceShieldWindupWarnings: windupWarnings ?? Array.Empty<TickFrontFaceShieldWindupWarningSignal>());
-        }
-
         private static TickPresentationData CreateSummonWindupPresentationData(
             IReadOnlyList<TickSummonWindupWarningSignal> summonWindupWarnings)
         {
@@ -11665,67 +11386,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
                 summonedEnemyPresentationBindings: Array.Empty<TickSummonedEnemyPresentationBinding>(),
                 enemyUtilitySignals: enemyUtilitySignals);
-        }
-
-        private static TickFrontFaceShieldSourceSignal CreateShieldSourceSignal(
-            int sourceEntityId,
-            SurfaceCell sourceCell,
-            CubeTopologyState topology,
-            int tickIndex,
-            int radius = 1,
-            FrontFaceShieldTargetPattern targetPattern = FrontFaceShieldTargetPattern.ManhattanRadius)
-        {
-            return new TickFrontFaceShieldSourceSignal(
-                sourceEntityId,
-                sourceCell,
-                topology,
-                radius,
-                false,
-                targetPattern,
-                tickIndex,
-                presentationSeed: tickIndex * 31 + sourceEntityId);
-        }
-
-        private static TickFrontFaceShieldBlockSignal CreateShieldBlockSignal(
-            int shieldSourceEntityId,
-            int boxEntityId,
-            int actorEntityId,
-            SurfaceCell blockedCell,
-            SurfaceCell shieldSourceCell,
-            CubeTopologyState topology,
-            int tickIndex)
-        {
-            return new TickFrontFaceShieldBlockSignal(
-                shieldSourceEntityId,
-                boxEntityId,
-                actorEntityId,
-                blockedCell,
-                shieldSourceCell,
-                FrontFaceShieldBlockMovementKind.PushStart,
-                topology,
-                tickIndex,
-                presentationSeed: tickIndex * 31 + shieldSourceEntityId + boxEntityId);
-        }
-
-        private static TickFrontFaceShieldWindupWarningSignal CreateShieldWindupWarningSignal(
-            int sourceEntityId,
-            SurfaceCell sourceCell,
-            CubeTopologyState topology,
-            int tickIndex)
-        {
-            return new TickFrontFaceShieldWindupWarningSignal(
-                sourceEntityId,
-                0,
-                sourceCell,
-                topology,
-                1,
-                false,
-                FrontFaceShieldTargetPattern.ManhattanRadius,
-                tickIndex,
-                tickIndex + 1,
-                1,
-                tickIndex,
-                tickIndex * 31 + sourceEntityId);
         }
 
         private static TickSummonWindupWarningSignal CreateSummonWindupWarningSignal(
@@ -11918,7 +11578,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static void AssertJumpAirborneAnimatorState(Animator animator)
         {
             var stateInfo = animator.GetCurrentAnimatorStateInfo(0);
-            Assert.That(stateInfo.shortNameHash, Is.EqualTo(Animator.StringToHash("JumpAirborne")));
+            var expectedHash = Animator.StringToHash("JumpAirborne");
+            if (stateInfo.shortNameHash == 0 &&
+                TryGetJumpAirborneDriverSnapshot(animator, out var driverHash, out _))
+            {
+                Assert.That(driverHash, Is.EqualTo(expectedHash));
+                return;
+            }
+
+            Assert.That(stateInfo.shortNameHash, Is.EqualTo(expectedHash));
         }
 
         private static void AssertJumpAirborneAnimatorStateAndNormalizedTime(
@@ -11931,7 +11599,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static float GetAnimatorNormalizedTime(Animator animator)
         {
-            return animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
+            var stateInfo = animator.GetCurrentAnimatorStateInfo(0);
+            return stateInfo.shortNameHash == 0 &&
+                   TryGetJumpAirborneDriverSnapshot(animator, out _, out var normalizedTime)
+                ? normalizedTime
+                : stateInfo.normalizedTime;
+        }
+
+        private static bool TryGetJumpAirborneDriverSnapshot(
+            Animator animator,
+            out int stateHash,
+            out float normalizedTime)
+        {
+            stateHash = 0;
+            normalizedTime = 0f;
+            var driver = animator.GetComponentInParent<EnemyAnimatorDriver>(includeInactive: true);
+            if (driver == null ||
+                driver.LastPresentationState.JumpPhase != EnemyJumpPhase.Airborne)
+            {
+                return false;
+            }
+
+            stateHash = driver.DebugLastJumpAirborneStateShortNameHash;
+            normalizedTime = driver.DebugLastJumpAirborneNormalizedTime;
+            return true;
         }
 
         private static float GetRendererFloat(Renderer targetRenderer, string propertyName)

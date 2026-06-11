@@ -681,7 +681,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<IPreMovementStateLogic>(),
                     Array.Empty<IEnemyAiStateLogic>(),
                     Array.Empty<IEnemyActionStateLogic>(),
-                    Array.Empty<IFrontFaceSupportLogic>(),
                     Array.Empty<IMovementEntityLogic>(),
                     Array.Empty<IAttackEntityLogic>());
             }
