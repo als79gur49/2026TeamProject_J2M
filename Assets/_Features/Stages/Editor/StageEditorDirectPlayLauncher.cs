@@ -272,7 +272,9 @@ namespace Game.Feature.Stages.Editor
         {
             remainingChances = Mathf.Clamp(remainingChances, 1, SaveSlotStore.DefaultRemainingChances);
             EditorDirectPlayContextStore.ClearTempDirectPlaySave();
-            var saveStore = new SaveSlotStore(EditorDirectPlayContextStore.TempSaveSlotStoreKey);
+            var saveStore = new SaveSlotStore(
+                EditorDirectPlayContextStore.TempSaveSlotStoreKey,
+                EditorDirectPlayContextStore.TempActiveSlotProviderKey);
             var activeSlotProvider = new ActiveSlotProvider(EditorDirectPlayContextStore.TempActiveSlotProviderKey);
             saveStore.ClearAll();
             activeSlotProvider.ClearActiveSlot();

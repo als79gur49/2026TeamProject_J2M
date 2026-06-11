@@ -253,23 +253,673 @@ namespace Game.Feature.Stages
         public const string ActiveSaveSlotKey = "Game.Feature.Stages.ActiveStageClearSaveSlot";
     }
 
-    internal static class StageClearSavePrefsCleanup
+    public enum StageClearSavePayloadStatus
     {
+        Empty = 0,
+        Current = 1,
+        LegacyRejected = 2,
+        InvalidRejected = 3,
+    }
+
+    public readonly struct StageClearSaveLoadReport
+    {
+        public StageClearSaveLoadReport(
+            StageClearSavePayloadStatus status,
+            string reason,
+            string matchedToken)
+        {
+            Status = status;
+            Reason = reason ?? string.Empty;
+            MatchedToken = matchedToken ?? string.Empty;
+        }
+
+        public StageClearSavePayloadStatus Status { get; }
+
+        public string Reason { get; }
+
+        public string MatchedToken { get; }
+
+        public static StageClearSaveLoadReport Empty(string reason = "No payload.")
+        {
+            return new StageClearSaveLoadReport(StageClearSavePayloadStatus.Empty, reason, string.Empty);
+        }
+    }
+
+    internal readonly struct StageClearSavePayloadInspectionResult
+    {
+        public StageClearSavePayloadInspectionResult(
+            StageClearSavePayloadStatus status,
+            string reason,
+            string matchedToken)
+        {
+            Status = status;
+            Reason = reason ?? string.Empty;
+            MatchedToken = matchedToken ?? string.Empty;
+        }
+
+        public StageClearSavePayloadStatus Status { get; }
+
+        public string Reason { get; }
+
+        public string MatchedToken { get; }
+
+        public bool ShouldReset =>
+            Status == StageClearSavePayloadStatus.LegacyRejected ||
+            Status == StageClearSavePayloadStatus.InvalidRejected;
+
+        public StageClearSaveLoadReport ToLoadReport()
+        {
+            return new StageClearSaveLoadReport(Status, Reason, MatchedToken);
+        }
+    }
+
+    internal static class StageClearSavePayloadGuard
+    {
+        internal static readonly string[] LegacyTokens =
+        {
+            "StageCompletionProfileSnapshot",
+            "ProgressByStageId",
+            "PlayerStageProgress",
+            "HasStarted",
+            "ProcessedCompletionAttemptIds",
+            "InventoryBalances",
+            "AppliedRewardGrantIds",
+            "ConsumedRewardRuleIds",
+            "BestScore",
+            "BestStars",
+            "BestRankId",
+            "CompletedChallengeIds",
+        };
+
+        public static StageClearSavePayloadInspectionResult Inspect(string rawJson)
+        {
+            if (string.IsNullOrWhiteSpace(rawJson))
+            {
+                return new StageClearSavePayloadInspectionResult(
+                    StageClearSavePayloadStatus.Empty,
+                    "Payload is empty.",
+                    string.Empty);
+            }
+
+            foreach (var token in LegacyTokens)
+            {
+                if (rawJson.IndexOf(token, StringComparison.Ordinal) >= 0)
+                {
+                    return new StageClearSavePayloadInspectionResult(
+                        StageClearSavePayloadStatus.LegacyRejected,
+                        "Payload contains legacy stage save vocabulary.",
+                        token);
+                }
+            }
+
+            if (!TryReadRootSchema(rawJson, out var schemaId, out var schemaVersion, out var parseReason))
+            {
+                return new StageClearSavePayloadInspectionResult(
+                    StageClearSavePayloadStatus.InvalidRejected,
+                    parseReason,
+                    string.Empty);
+            }
+
+            if (!string.Equals(schemaId, SaveSlotStore.SchemaId, StringComparison.Ordinal))
+            {
+                return new StageClearSavePayloadInspectionResult(
+                    StageClearSavePayloadStatus.InvalidRejected,
+                    string.IsNullOrEmpty(schemaId)
+                        ? "Payload is missing SchemaId."
+                        : "Payload SchemaId does not match the current stage-clear save schema.",
+                    "SchemaId");
+            }
+
+            if (schemaVersion != SaveSlotStore.SchemaVersion)
+            {
+                return new StageClearSavePayloadInspectionResult(
+                    StageClearSavePayloadStatus.InvalidRejected,
+                    schemaVersion.HasValue
+                        ? "Payload SchemaVersion does not match the current stage-clear save schema."
+                        : "Payload is missing SchemaVersion.",
+                    "SchemaVersion");
+            }
+
+            return new StageClearSavePayloadInspectionResult(
+                StageClearSavePayloadStatus.Current,
+                "Payload matches the current stage-clear save schema.",
+                SaveSlotStore.SchemaId);
+        }
+
+        private static bool TryReadRootSchema(
+            string json,
+            out string schemaId,
+            out int? schemaVersion,
+            out string reason)
+        {
+            schemaId = string.Empty;
+            schemaVersion = null;
+            reason = string.Empty;
+
+            var index = 0;
+            if (!SkipWhitespace(json, ref index) || !TryConsume(json, ref index, '{'))
+            {
+                reason = "Payload is not a JSON object.";
+                return false;
+            }
+
+            SkipWhitespace(json, ref index);
+            if (TryConsume(json, ref index, '}'))
+            {
+                SkipWhitespace(json, ref index);
+                if (index == json.Length)
+                {
+                    return true;
+                }
+
+                reason = "Payload has trailing content after the root object.";
+                return false;
+            }
+
+            while (index < json.Length)
+            {
+                if (!TryReadString(json, ref index, out var propertyName))
+                {
+                    reason = "Payload has an invalid root property name.";
+                    return false;
+                }
+
+                SkipWhitespace(json, ref index);
+                if (!TryConsume(json, ref index, ':'))
+                {
+                    reason = "Payload has an invalid root property separator.";
+                    return false;
+                }
+
+                SkipWhitespace(json, ref index);
+                if (string.Equals(propertyName, nameof(SaveSlotStoreDto.SchemaId), StringComparison.Ordinal))
+                {
+                    if (!TryReadString(json, ref index, out schemaId))
+                    {
+                        reason = "Payload SchemaId is not a string.";
+                        return false;
+                    }
+                }
+                else if (string.Equals(propertyName, nameof(SaveSlotStoreDto.SchemaVersion), StringComparison.Ordinal))
+                {
+                    if (!TryReadInt(json, ref index, out var parsedVersion))
+                    {
+                        reason = "Payload SchemaVersion is not an integer.";
+                        return false;
+                    }
+
+                    schemaVersion = parsedVersion;
+                }
+                else if (!TrySkipValue(json, ref index))
+                {
+                    reason = "Payload contains malformed JSON.";
+                    return false;
+                }
+
+                SkipWhitespace(json, ref index);
+                if (TryConsume(json, ref index, '}'))
+                {
+                    SkipWhitespace(json, ref index);
+                    if (index == json.Length)
+                    {
+                        return true;
+                    }
+
+                    reason = "Payload has trailing content after the root object.";
+                    return false;
+                }
+
+                if (!TryConsume(json, ref index, ','))
+                {
+                    reason = "Payload has an invalid root property delimiter.";
+                    return false;
+                }
+
+                SkipWhitespace(json, ref index);
+            }
+
+            reason = "Payload root object is not closed.";
+            return false;
+        }
+
+        private static bool TrySkipValue(string json, ref int index)
+        {
+            SkipWhitespace(json, ref index);
+            if (index >= json.Length)
+            {
+                return false;
+            }
+
+            var current = json[index];
+            if (current == '"')
+            {
+                return TryReadString(json, ref index, out _);
+            }
+
+            if (current == '{')
+            {
+                return TrySkipObject(json, ref index);
+            }
+
+            if (current == '[')
+            {
+                return TrySkipArray(json, ref index);
+            }
+
+            return TrySkipPrimitive(json, ref index);
+        }
+
+        private static bool TrySkipObject(string json, ref int index)
+        {
+            if (!TryConsume(json, ref index, '{'))
+            {
+                return false;
+            }
+
+            SkipWhitespace(json, ref index);
+            if (TryConsume(json, ref index, '}'))
+            {
+                return true;
+            }
+
+            while (index < json.Length)
+            {
+                if (!TryReadString(json, ref index, out _))
+                {
+                    return false;
+                }
+
+                SkipWhitespace(json, ref index);
+                if (!TryConsume(json, ref index, ':') || !TrySkipValue(json, ref index))
+                {
+                    return false;
+                }
+
+                SkipWhitespace(json, ref index);
+                if (TryConsume(json, ref index, '}'))
+                {
+                    return true;
+                }
+
+                if (!TryConsume(json, ref index, ','))
+                {
+                    return false;
+                }
+
+                SkipWhitespace(json, ref index);
+            }
+
+            return false;
+        }
+
+        private static bool TrySkipArray(string json, ref int index)
+        {
+            if (!TryConsume(json, ref index, '['))
+            {
+                return false;
+            }
+
+            SkipWhitespace(json, ref index);
+            if (TryConsume(json, ref index, ']'))
+            {
+                return true;
+            }
+
+            while (index < json.Length)
+            {
+                if (!TrySkipValue(json, ref index))
+                {
+                    return false;
+                }
+
+                SkipWhitespace(json, ref index);
+                if (TryConsume(json, ref index, ']'))
+                {
+                    return true;
+                }
+
+                if (!TryConsume(json, ref index, ','))
+                {
+                    return false;
+                }
+
+                SkipWhitespace(json, ref index);
+            }
+
+            return false;
+        }
+
+        private static bool TrySkipPrimitive(string json, ref int index)
+        {
+            var start = index;
+            while (index < json.Length)
+            {
+                var current = json[index];
+                if (current == ',' || current == '}' || current == ']' || char.IsWhiteSpace(current))
+                {
+                    break;
+                }
+
+                index++;
+            }
+
+            if (index == start)
+            {
+                return false;
+            }
+
+            var value = json.Substring(start, index - start);
+            if (string.Equals(value, "true", StringComparison.Ordinal) ||
+                string.Equals(value, "false", StringComparison.Ordinal) ||
+                string.Equals(value, "null", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            return IsJsonNumber(value);
+        }
+
+        private static bool IsJsonNumber(string value)
+        {
+            var index = 0;
+            if (index < value.Length && value[index] == '-')
+            {
+                index++;
+            }
+
+            if (index >= value.Length)
+            {
+                return false;
+            }
+
+            if (value[index] == '0')
+            {
+                index++;
+            }
+            else if (value[index] >= '1' && value[index] <= '9')
+            {
+                do
+                {
+                    index++;
+                }
+                while (index < value.Length && char.IsDigit(value[index]));
+            }
+            else
+            {
+                return false;
+            }
+
+            if (index < value.Length && value[index] == '.')
+            {
+                index++;
+                var fractionStart = index;
+                while (index < value.Length && char.IsDigit(value[index]))
+                {
+                    index++;
+                }
+
+                if (index == fractionStart)
+                {
+                    return false;
+                }
+            }
+
+            if (index < value.Length && (value[index] == 'e' || value[index] == 'E'))
+            {
+                index++;
+                if (index < value.Length && (value[index] == '+' || value[index] == '-'))
+                {
+                    index++;
+                }
+
+                var exponentStart = index;
+                while (index < value.Length && char.IsDigit(value[index]))
+                {
+                    index++;
+                }
+
+                if (index == exponentStart)
+                {
+                    return false;
+                }
+            }
+
+            return index == value.Length;
+        }
+
+        private static bool TryReadString(string json, ref int index, out string value)
+        {
+            value = string.Empty;
+            if (!TryConsume(json, ref index, '"'))
+            {
+                return false;
+            }
+
+            var start = index;
+            var builder = default(System.Text.StringBuilder);
+            while (index < json.Length)
+            {
+                var current = json[index];
+                if (current == '"')
+                {
+                    if (builder == null)
+                    {
+                        value = json.Substring(start, index - start);
+                    }
+                    else
+                    {
+                        builder.Append(json, start, index - start);
+                        value = builder.ToString();
+                    }
+
+                    index++;
+                    return true;
+                }
+
+                if (current == '\\')
+                {
+                    builder ??= new System.Text.StringBuilder();
+                    builder.Append(json, start, index - start);
+                    index++;
+                    if (index >= json.Length)
+                    {
+                        return false;
+                    }
+
+                    var escaped = json[index];
+                    if (escaped == 'u')
+                    {
+                        if (index + 4 >= json.Length)
+                        {
+                            return false;
+                        }
+
+                        for (var i = 1; i <= 4; i++)
+                        {
+                            if (!Uri.IsHexDigit(json[index + i]))
+                            {
+                                return false;
+                            }
+                        }
+
+                        builder.Append('\\');
+                        builder.Append('u');
+                        builder.Append(json, index + 1, 4);
+                        index += 5;
+                    }
+                    else if (escaped == '"' ||
+                             escaped == '\\' ||
+                             escaped == '/' ||
+                             escaped == 'b' ||
+                             escaped == 'f' ||
+                             escaped == 'n' ||
+                             escaped == 'r' ||
+                             escaped == 't')
+                    {
+                        builder.Append('\\');
+                        builder.Append(escaped);
+                        index++;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+
+                    start = index;
+                    continue;
+                }
+
+                if (char.IsControl(current))
+                {
+                    return false;
+                }
+
+                index++;
+            }
+
+            return false;
+        }
+
+        private static bool TryReadInt(string json, ref int index, out int value)
+        {
+            value = 0;
+            var start = index;
+            if (index < json.Length && json[index] == '-')
+            {
+                index++;
+            }
+
+            while (index < json.Length && char.IsDigit(json[index]))
+            {
+                index++;
+            }
+
+            if (index == start || (index == start + 1 && json[start] == '-'))
+            {
+                return false;
+            }
+
+            return int.TryParse(
+                json.Substring(start, index - start),
+                System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out value);
+        }
+
+        private static bool TryConsume(string value, ref int index, char expected)
+        {
+            if (index >= value.Length || value[index] != expected)
+            {
+                return false;
+            }
+
+            index++;
+            return true;
+        }
+
+        private static bool SkipWhitespace(string value, ref int index)
+        {
+            while (index < value.Length && char.IsWhiteSpace(value[index]))
+            {
+                index++;
+            }
+
+            return index < value.Length;
+        }
+    }
+
+    internal readonly struct StageClearSavePrefsScope
+    {
+        public StageClearSavePrefsScope(
+            string saveSlotsKey,
+            string activeSlotKey,
+            bool isProductionDefaultScope)
+        {
+            SaveSlotsKey = saveSlotsKey ?? string.Empty;
+            ActiveSlotKey = activeSlotKey ?? string.Empty;
+            IsProductionDefaultScope = isProductionDefaultScope;
+        }
+
+        public string SaveSlotsKey { get; }
+
+        public string ActiveSlotKey { get; }
+
+        public bool IsProductionDefaultScope { get; }
+
+        public static StageClearSavePrefsScope Create(string saveSlotsKey, string activeSlotKey)
+        {
+            if (string.Equals(saveSlotsKey, SaveSlotPrefsKeys.SaveSlotsKey, StringComparison.Ordinal))
+            {
+                return new StageClearSavePrefsScope(
+                    SaveSlotPrefsKeys.SaveSlotsKey,
+                    SaveSlotPrefsKeys.ActiveSaveSlotKey,
+                    isProductionDefaultScope: true);
+            }
+
+            if (string.Equals(saveSlotsKey, EditorDirectPlayContextStore.TempSaveSlotStoreKey, StringComparison.Ordinal))
+            {
+                return new StageClearSavePrefsScope(
+                    EditorDirectPlayContextStore.TempSaveSlotStoreKey,
+                    EditorDirectPlayContextStore.TempActiveSlotProviderKey,
+                    isProductionDefaultScope: false);
+            }
+
+            return new StageClearSavePrefsScope(
+                saveSlotsKey,
+                activeSlotKey,
+                isProductionDefaultScope: false);
+        }
+    }
+
+    internal static class StageClearSavePrefsResetPolicy
+    {
+        public static void ResetProductionStageClearPrefs()
+        {
+            var deleted = DeleteKeyIfPresent(SaveSlotPrefsKeys.SaveSlotsKey);
+            deleted |= DeleteKeyIfPresent(SaveSlotPrefsKeys.ActiveSaveSlotKey);
+            deleted |= DeleteKeyIfPresent(SaveSlotPrefsKeys.LegacySaveSlotsKey);
+            deleted |= DeleteKeyIfPresent(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey);
+            SaveIfDeleted(deleted);
+        }
+
+        public static void ResetCurrentPrefs(string saveSlotsKey, string activeSlotKey)
+        {
+            var deleted = DeleteKeyIfPresent(saveSlotsKey);
+            deleted |= DeleteKeyIfPresent(activeSlotKey);
+            SaveIfDeleted(deleted);
+        }
+
         public static void DeleteLegacyStageSavePrefs()
         {
-            var deleted = false;
-            if (PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacySaveSlotsKey))
+            var deleted = DeleteKeyIfPresent(SaveSlotPrefsKeys.LegacySaveSlotsKey);
+            deleted |= DeleteKeyIfPresent(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey);
+            SaveIfDeleted(deleted);
+        }
+
+        public static void Reset(StageClearSavePrefsScope scope)
+        {
+            if (scope.IsProductionDefaultScope)
             {
-                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacySaveSlotsKey);
-                deleted = true;
+                ResetProductionStageClearPrefs();
+                return;
             }
 
-            if (PlayerPrefs.HasKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey))
+            ResetCurrentPrefs(scope.SaveSlotsKey, scope.ActiveSlotKey);
+        }
+
+        private static bool DeleteKeyIfPresent(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key) || !PlayerPrefs.HasKey(key))
             {
-                PlayerPrefs.DeleteKey(SaveSlotPrefsKeys.LegacyActiveSaveSlotKey);
-                deleted = true;
+                return false;
             }
 
+            PlayerPrefs.DeleteKey(key);
+            return true;
+        }
+
+        private static void SaveIfDeleted(bool deleted)
+        {
             if (deleted)
             {
                 PlayerPrefs.Save();
@@ -340,29 +990,36 @@ namespace Game.Feature.Stages
         {
             if (string.Equals(playerPrefsKey, DefaultPlayerPrefsKey, StringComparison.Ordinal))
             {
-                StageClearSavePrefsCleanup.DeleteLegacyStageSavePrefs();
+                StageClearSavePrefsResetPolicy.DeleteLegacyStageSavePrefs();
             }
         }
     }
 
     public sealed class SaveSlotStore
     {
+        public const string SchemaId = "StageClearSaveSlots";
+        public const int SchemaVersion = 2;
         public const int SaveVersion = 1;
         public const int SlotCount = 3;
         public const int DefaultRemainingChances = 3;
         public const string DefaultPlayerPrefsKey = SaveSlotPrefsKeys.SaveSlotsKey;
 
         private readonly string _playerPrefsKey;
+        private readonly StageClearSavePrefsScope _prefsScope;
 
-        public SaveSlotStore(string playerPrefsKey = DefaultPlayerPrefsKey)
+        public SaveSlotStore(string playerPrefsKey = DefaultPlayerPrefsKey, string activeSlotPrefsKey = null)
         {
             _playerPrefsKey = string.IsNullOrWhiteSpace(playerPrefsKey)
                 ? DefaultPlayerPrefsKey
                 : playerPrefsKey;
-            DeleteLegacyPrefsIfUsingDefaultKey(_playerPrefsKey);
+            _prefsScope = StageClearSavePrefsScope.Create(_playerPrefsKey, activeSlotPrefsKey);
+            DeleteLegacyPrefsIfUsingDefaultScope(_prefsScope);
+            LastLoadReport = StageClearSaveLoadReport.Empty("Load has not run.");
         }
 
         public string PlayerPrefsKey => _playerPrefsKey;
+
+        public StageClearSaveLoadReport LastLoadReport { get; private set; }
 
         public static bool IsValidSlotNumber(int slotNumber)
         {
@@ -449,37 +1106,131 @@ namespace Game.Feature.Stages
         {
             if (!PlayerPrefs.HasKey(_playerPrefsKey))
             {
+                LastLoadReport = StageClearSaveLoadReport.Empty("PlayerPrefs key is missing.");
                 return SaveSlotDtoMapper.CreateEmptyDto();
             }
 
             var rawJson = PlayerPrefs.GetString(_playerPrefsKey, string.Empty);
-            if (string.IsNullOrWhiteSpace(rawJson))
+            var inspection = StageClearSavePayloadGuard.Inspect(rawJson);
+            LastLoadReport = inspection.ToLoadReport();
+
+            if (inspection.Status == StageClearSavePayloadStatus.Empty)
             {
+                return SaveSlotDtoMapper.CreateEmptyDto();
+            }
+
+            if (inspection.ShouldReset)
+            {
+                StageClearSavePrefsResetPolicy.Reset(_prefsScope);
                 return SaveSlotDtoMapper.CreateEmptyDto();
             }
 
             try
             {
                 var dto = JsonUtility.FromJson<SaveSlotStoreDto>(rawJson);
-                if (dto == null || dto.SaveVersion != SaveVersion)
+                if (!IsCurrentDtoValid(dto, out var invalidReason))
                 {
+                    StageClearSavePrefsResetPolicy.Reset(_prefsScope);
+                    LastLoadReport = new StageClearSaveLoadReport(
+                        StageClearSavePayloadStatus.InvalidRejected,
+                        invalidReason,
+                        string.Empty);
                     return SaveSlotDtoMapper.CreateEmptyDto();
                 }
 
+                LastLoadReport = new StageClearSaveLoadReport(
+                    StageClearSavePayloadStatus.Current,
+                    "Payload loaded successfully.",
+                    SchemaId);
                 return dto;
             }
             catch (Exception exception)
             {
-                Debug.LogWarning($"Save slot data could not be parsed and will be ignored. {exception.Message}");
+                StageClearSavePrefsResetPolicy.Reset(_prefsScope);
+                LastLoadReport = new StageClearSaveLoadReport(
+                    StageClearSavePayloadStatus.InvalidRejected,
+                    $"Save slot data could not be parsed and will be ignored. {exception.Message}",
+                    string.Empty);
+                Debug.LogWarning(LastLoadReport.Reason);
                 return SaveSlotDtoMapper.CreateEmptyDto();
             }
         }
 
-        private static void DeleteLegacyPrefsIfUsingDefaultKey(string playerPrefsKey)
+        private static bool IsCurrentDtoValid(SaveSlotStoreDto dto, out string reason)
         {
-            if (string.Equals(playerPrefsKey, DefaultPlayerPrefsKey, StringComparison.Ordinal))
+            if (dto == null)
             {
-                StageClearSavePrefsCleanup.DeleteLegacyStageSavePrefs();
+                reason = "Current payload parsed to a null DTO.";
+                return false;
+            }
+
+            if (!string.Equals(dto.SchemaId, SchemaId, StringComparison.Ordinal))
+            {
+                reason = "Current payload DTO SchemaId does not match.";
+                return false;
+            }
+
+            if (dto.SchemaVersion != SchemaVersion)
+            {
+                reason = "Current payload DTO SchemaVersion does not match.";
+                return false;
+            }
+
+            if (dto.SaveVersion != SaveVersion)
+            {
+                reason = "Current payload SaveVersion is unsupported.";
+                return false;
+            }
+
+            if (dto.Slots == null)
+            {
+                reason = "Current payload Slots collection is null.";
+                return false;
+            }
+
+            for (var i = 0; i < dto.Slots.Length; i++)
+            {
+                var slot = dto.Slots[i];
+                if (slot == null)
+                {
+                    reason = "Current payload contains a null slot.";
+                    return false;
+                }
+
+                if (slot.StageClearProfileSnapshot == null)
+                {
+                    reason = "Current payload contains a null StageClearProfileSnapshot.";
+                    return false;
+                }
+
+                if (slot.StageClearProfileSnapshot.ClearRecordsByStageId == null)
+                {
+                    reason = "Current payload contains a null ClearRecordsByStageId collection.";
+                    return false;
+                }
+
+                if (slot.StageClearProfileSnapshot.ProcessedStageRunIds == null)
+                {
+                    reason = "Current payload contains a null ProcessedStageRunIds collection.";
+                    return false;
+                }
+
+                if (slot.StageClearProfileSnapshot.ProcessedClearAttemptIds == null)
+                {
+                    reason = "Current payload contains a null ProcessedClearAttemptIds collection.";
+                    return false;
+                }
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
+        private static void DeleteLegacyPrefsIfUsingDefaultScope(StageClearSavePrefsScope scope)
+        {
+            if (scope.IsProductionDefaultScope)
+            {
+                StageClearSavePrefsResetPolicy.DeleteLegacyStageSavePrefs();
             }
         }
     }
@@ -514,6 +1265,8 @@ namespace Game.Feature.Stages
     [Serializable]
     public sealed class SaveSlotStoreDto
     {
+        public string SchemaId = SaveSlotStore.SchemaId;
+        public int SchemaVersion = SaveSlotStore.SchemaVersion;
         public int SaveVersion = SaveSlotStore.SaveVersion;
         public SaveSlotDto[] Slots = Array.Empty<SaveSlotDto>();
     }
@@ -570,6 +1323,8 @@ namespace Game.Feature.Stages
 
             return new SaveSlotStoreDto
             {
+                SchemaId = SaveSlotStore.SchemaId,
+                SchemaVersion = SaveSlotStore.SchemaVersion,
                 SaveVersion = SaveSlotStore.SaveVersion,
                 Slots = dtoSlots,
             };

@@ -316,7 +316,9 @@ namespace Game.Feature.Gameplay.Host
             var directPlayContext = EditorDirectPlayContextStore.GetCurrentOrNone();
             if (directPlayContext.HasCustomSaveNamespace)
             {
-                _saveSlotStore ??= new SaveSlotStore(directPlayContext.SaveSlotStoreKey);
+                _saveSlotStore ??= new SaveSlotStore(
+                    directPlayContext.SaveSlotStoreKey,
+                    directPlayContext.ActiveSlotProviderKey);
                 _activeSlotProvider ??= new ActiveSlotProvider(directPlayContext.ActiveSlotProviderKey);
                 return;
             }
