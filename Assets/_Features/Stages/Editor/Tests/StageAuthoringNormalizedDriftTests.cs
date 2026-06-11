@@ -314,14 +314,21 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void NormalizedDrift_IgnoresLegacySpawnPresentationId()
+        public void NormalizedDrift_SpawnPresentationId_IsOwnedByPresentationBindings()
         {
             var fixture = StageAuthoringTestFixture.CreateSynced();
             try
             {
-                SetSpawnString(fixture.Gameplay, "enemySpawns", 0, "PresentationId", "legacy-id");
-                var report = fixture.Validate();
-                Assert.That(report.Issues.Any(issue => issue.Code.StartsWith("GameplayDrift.", StringComparison.Ordinal)), Is.False, FormatIssues(report));
+                var serializedObject = new SerializedObject(fixture.Gameplay);
+                var legacyProperty = serializedObject
+                    .FindProperty("enemySpawns")
+                    .GetArrayElementAtIndex(0)
+                    .FindPropertyRelative("PresentationId");
+
+                Assert.That(
+                    legacyProperty,
+                    Is.Null,
+                    "Enemy presentation ids are owned by StagePresentationDefinition bindings, not StageSpawnDefinition.");
             }
             finally
             {
@@ -644,13 +651,6 @@ namespace Game.Feature.Stages.Editor.Tests
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void SetSpawnString(StageDefinition stage, string groupName, int index, string fieldName, string value)
-        {
-            var serializedObject = new SerializedObject(stage);
-            serializedObject.FindProperty(groupName).GetArrayElementAtIndex(index).FindPropertyRelative(fieldName).stringValue = value;
-            serializedObject.ApplyModifiedPropertiesWithoutUndo();
-        }
-
         private static void SetAuthoringPlacementMobility(
             StageAuthoringDefinition authoring,
             StageAuthoringEntityKind kind,
@@ -739,6 +739,7 @@ namespace Game.Feature.Stages.Editor.Tests
     internal sealed class StageAuthoringTestFixture
     {
         private readonly UnityEngine.Object[] ownedObjects;
+        private readonly EnemyAiProfile enemyProfile;
 
         private StageAuthoringTestFixture(
             StageContentEntry entry,
@@ -748,12 +749,14 @@ namespace Game.Feature.Stages.Editor.Tests
             EnemyPresentationCatalog enemyCatalog,
             StaticEntityPresentationCatalog staticCatalog,
             GameplayEntityView enemyViewPrefab,
-            GameplayEntityView staticViewPrefab)
+            GameplayEntityView staticViewPrefab,
+            EnemyAiProfile enemyProfile)
         {
             Entry = entry;
             Authoring = authoring;
             Gameplay = gameplay;
             Presentation = presentation;
+            this.enemyProfile = enemyProfile;
             ownedObjects = new UnityEngine.Object[]
             {
                 entry,
@@ -793,6 +796,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var staticViewPrefab = CreateViewPrefab("authoring-test_StaticViewPrefab");
             var enemyCatalog = CreateEnemyCatalog("enemy-view", enemyViewPrefab);
             var staticCatalog = CreateStaticCatalog("box-view", staticViewPrefab);
+            var enemyProfile = ScriptableObject.CreateInstance<EnemyAiProfile>();
 
             entry.name = "authoring-test_Entry";
             authoring.name = "authoring-test_Authoring";
@@ -815,8 +819,8 @@ namespace Game.Feature.Stages.Editor.Tests
             authoring.SetPlacements(new[]
             {
                 Placement("player", StageAuthoringEntityKind.Player, 0, 0),
-                Placement("enemy-a", StageAuthoringEntityKind.Enemy, 1, 0, "enemy-view"),
-                Placement("enemy-b", StageAuthoringEntityKind.Enemy, 2, 0, "enemy-view"),
+                Placement("enemy-a", StageAuthoringEntityKind.Enemy, 1, 0, "enemy-view", enemyProfile),
+                Placement("enemy-b", StageAuthoringEntityKind.Enemy, 2, 0, "enemy-view", enemyProfile),
                 Placement("box", StageAuthoringEntityKind.Box, 3, 0, "box-view"),
             });
             authoring.SetObjective(StageObjectiveAuthoring.CreateDefault());
@@ -829,7 +833,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 enemyCatalog,
                 staticCatalog,
                 enemyViewPrefab,
-                staticViewPrefab);
+                staticViewPrefab,
+                enemyProfile);
         }
 
         public StageValidationReport Validate()
@@ -846,6 +851,8 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 UnityEngine.Object.DestroyImmediate(ownedObjects[i]);
             }
+
+            UnityEngine.Object.DestroyImmediate(enemyProfile);
         }
 
         private static StagePlacedEntityAuthoring Placement(
@@ -853,7 +860,8 @@ namespace Game.Feature.Stages.Editor.Tests
             StageAuthoringEntityKind kind,
             int x,
             int y,
-            string presentationId = "")
+            string presentationId = "",
+            EnemyAiProfile enemyProfileOverride = null)
         {
             return new StagePlacedEntityAuthoring
             {
@@ -866,6 +874,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 UnitStackGroup = string.Empty,
                 BoxCapabilities = BoxCapabilities.Push,
                 EnemyAiMode = kind == StageAuthoringEntityKind.Enemy ? EnemyAiMode.Patrol : EnemyAiMode.None,
+                EnemyAiProfileOverride = enemyProfileOverride,
                 PresentationId = presentationId,
             };
         }

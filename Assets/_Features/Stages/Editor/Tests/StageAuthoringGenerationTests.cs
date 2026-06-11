@@ -617,13 +617,14 @@ namespace Game.Feature.Stages.Editor.Tests
                 MaxInclusive = new Vector2Int(4, 4),
                 InitialBottomFace = FaceId.Floor,
             });
+            var enemyProfile = AssignDefaultEnemyProfile(placements);
             authoring.SetPlacements(placements);
             authoring.SetObjective(StageObjectiveAuthoring.CreateDefault());
 
             var enemyCatalog = CreateEnemyCatalog(enemyPresentationIds);
             var staticCatalog = CreateStaticCatalog(staticPresentationIds);
             SetPresentationCatalogs(presentation, enemyCatalog, staticCatalog);
-            return new StageAuthoringFixture(authoring, gameplay, presentation, enemyCatalog, staticCatalog);
+            return new StageAuthoringFixture(authoring, gameplay, presentation, enemyCatalog, staticCatalog, enemyProfile);
         }
 
         private static StagePlacedEntityAuthoring Placement(
@@ -649,6 +650,27 @@ namespace Game.Feature.Stages.Editor.Tests
                 EnemyAiMode = kind == StageAuthoringEntityKind.Enemy ? EnemyAiMode.Patrol : EnemyAiMode.None,
                 PresentationId = presentationId,
             };
+        }
+
+        private static EnemyAiProfile AssignDefaultEnemyProfile(IReadOnlyList<StagePlacedEntityAuthoring> placements)
+        {
+            EnemyAiProfile profile = null;
+            for (var i = 0; i < placements.Count; i++)
+            {
+                var placement = placements[i];
+                if (placement == null ||
+                    placement.Kind != StageAuthoringEntityKind.Enemy ||
+                    placement.EnemyAiMode == EnemyAiMode.None ||
+                    placement.EnemyAiProfileOverride != null)
+                {
+                    continue;
+                }
+
+                profile ??= ScriptableObject.CreateInstance<EnemyAiProfile>();
+                placement.EnemyAiProfileOverride = profile;
+            }
+
+            return profile;
         }
 
         private static EnemyPresentationCatalog CreateEnemyCatalog(IReadOnlyList<string> ids)
@@ -734,18 +756,28 @@ namespace Game.Feature.Stages.Editor.Tests
         private sealed class StageAuthoringFixture
         {
             private readonly UnityEngine.Object[] ownedObjects;
+            private readonly EnemyAiProfile enemyProfile;
 
             public StageAuthoringFixture(
                 StageAuthoringDefinition authoring,
                 StageDefinition gameplay,
                 StagePresentationDefinition presentation,
                 EnemyPresentationCatalog enemyCatalog,
-                StaticEntityPresentationCatalog staticCatalog)
+                StaticEntityPresentationCatalog staticCatalog,
+                EnemyAiProfile enemyProfile)
             {
                 Authoring = authoring;
                 Gameplay = gameplay;
                 Presentation = presentation;
-                ownedObjects = new UnityEngine.Object[] { authoring, gameplay, presentation, enemyCatalog, staticCatalog };
+                this.enemyProfile = enemyProfile;
+                ownedObjects = new UnityEngine.Object[]
+                {
+                    authoring,
+                    gameplay,
+                    presentation,
+                    enemyCatalog,
+                    staticCatalog,
+                };
             }
 
             public StageAuthoringDefinition Authoring { get; }
@@ -760,6 +792,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 {
                     UnityEngine.Object.DestroyImmediate(ownedObjects[i]);
                 }
+
+                UnityEngine.Object.DestroyImmediate(enemyProfile);
             }
         }
     }

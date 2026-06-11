@@ -205,7 +205,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 Hp = 1,
                 UnitMobilityKind = unitMobilityKind,
                 BoxCapabilities = BoxCapabilities.Push,
-                EnemyAiMode = kind == StageSpawnKind.Enemy ? EnemyAiMode.Patrol : EnemyAiMode.None,
+                EnemyAiMode = EnemyAiMode.None,
             };
         }
 
@@ -242,7 +242,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 element.FindPropertyRelative("EnemyAiMode").intValue = (int)spawns[i].EnemyAiMode;
                 element.FindPropertyRelative("EnemyAiStateTimer").intValue = spawns[i].EnemyAiStateTimer;
                 element.FindPropertyRelative("EnemyAiProfile").objectReferenceValue = spawns[i].EnemyAiProfile;
-                element.FindPropertyRelative("PresentationId").stringValue = string.Empty;
                 element.FindPropertyRelative("UnitStackGroup").stringValue = string.Empty;
             }
         }
