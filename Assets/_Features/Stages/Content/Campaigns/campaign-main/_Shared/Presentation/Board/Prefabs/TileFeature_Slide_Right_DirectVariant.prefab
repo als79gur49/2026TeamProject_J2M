@@ -51,102 +51,11 @@ MonoBehaviour:
     x: 0
     y: 0
   presentationRoot: {fileID: 0}
-  animator: {fileID: 0}
-  buttonActivatedTriggerName: ButtonActivated
-  destroyTileTriggeredTriggerName: DestroyTileTriggered
-  destroyTileActivatedTriggerName: DestroyTileActivated
-  destroyTileDeactivatedTriggerName: DestroyTileDeactivated
-  destroyTileActiveBoolName: DestroyTileActive
-  destroyTileActiveStateName: DestroyTileActiveIdle
-  destroyTileInactiveStateName: DestroyTileInactiveIdle
-  slideTileRedirectedTriggerName: SlideTileRedirected
-  barricadeBlockedTriggerName: BarricadeBlocked
-  barricadeCrushedTriggerName: BarricadeCrushed
-  barricadeActivatedTriggerName: BarricadeActivated
-  barricadeDeactivatedTriggerName: BarricadeDeactivated
-  barricadeActiveBoolName: BarricadeActive
-  barricadeRaisedStateName: RaisedIdle
-  barricadeLoweredStateName: LoweredIdle
-  exitOpenedTriggerName: ExitOpened
-  exitEnteredTriggerName: ExitEntered
-  exitOpenBoolName: ExitOpen
-  exitOpenedStateName: ExitOpenedIdle
-  exitClosedStateName: ExitClosedIdle
-  moonBlockGeneratedTriggerName: MoonBlockGenerated
-  moonBlockGeneratorBlockedTriggerName: MoonBlockGeneratorBlocked
-  moonBlockGeneratorBlockedUnitTriggerName: 
-  moonBlockGeneratorBlockedWallLikeSolidTriggerName: 
-  moonBlockGeneratorBlockedPlacementTriggerName: 
-  destroyTileInactiveMaterialTargets: []
-  slideTileInactiveMaterialTargets:
-  - Renderer: {fileID: 6919220867324244704}
-    MaterialIndex: 0
-    InactiveColor: {r: 0.4745098, g: 0.48235294, b: 0.5019608, a: 1}
-    InactiveMetallic: 1
-  - Renderer: {fileID: 7604368002371067124}
-    MaterialIndex: 1
-    InactiveColor: {r: 0.7411765, g: 0.75294125, b: 0.7725491, a: 1}
-    InactiveMetallic: 1
-  buttonActivatedParticles: {fileID: 0}
-  destroyTileTriggeredParticles: {fileID: 0}
-  slideTileRedirectedParticles: {fileID: 0}
-  barricadeBlockedParticles: {fileID: 0}
-  barricadeCrushedParticles: {fileID: 0}
-  exitOpenedParticles: {fileID: 0}
-  exitEnteredParticles: {fileID: 0}
-  moonBlockGeneratedParticles: {fileID: 0}
-  moonBlockGeneratorBlockedParticles: {fileID: 0}
-  moonBlockGeneratorBlockedUnitParticles: {fileID: 0}
-  moonBlockGeneratorBlockedWallLikeSolidParticles: {fileID: 0}
-  moonBlockGeneratorBlockedPlacementParticles: {fileID: 0}
-  buttonActivatedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  destroyTileTriggeredPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  destroyTileActivatedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  destroyTileDeactivatedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  slideTileRedirectedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  barricadeBlockedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  barricadeCrushedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  barricadeActivatedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  barricadeDeactivatedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  exitOpenedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  exitEnteredPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  moonBlockGeneratedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  moonBlockGeneratorBlockedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  moonBlockGeneratorBlockedUnitPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  moonBlockGeneratorBlockedWallLikeSolidPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  moonBlockGeneratorBlockedPlacementPlayed:
-    m_PersistentCalls:
-      m_Calls: []
+  visualRoot: {fileID: 0}
+  primaryRenderer: {fileID: 0}
+  iconRoot: {fileID: 0}
+  labelRoot: {fileID: 0}
+  authoredBindings: []
 --- !u!1 &7411397152524856903
 GameObject:
   m_ObjectHideFlags: 0
