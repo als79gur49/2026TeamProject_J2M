@@ -136,10 +136,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("it is not a deletion candidate or dev-only compile exclusion target"));
             Assert.That(baseline, Does.Contain("future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision"));
             Assert.That(baseline, Does.Contain("not a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate"));
-            Assert.That(baseline, Does.Contain("`Confirm` remains a protected canonical popup path; `Reward` remains protected legacy/residue UI and is not the canonical stage-clear result path"));
+            Assert.That(baseline, Does.Contain("`Pause`, `Confirm`, and `Tooltip` remain protected canonical popup paths; Reward popup is absent from current popup vocabulary and is not the canonical stage-clear result path"));
             Assert.That(baseline, Does.Contain("canonical HUD composition is `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`"));
             Assert.That(baseline, Does.Contain("UI diagnostics overlay was removed as an unused runtime feature; it is not hidden, dev-only retained, or a protected runtime path"));
-            Assert.That(baseline, Does.Contain("protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, `Reward` residue, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridges, and `StageNavigationRequest`"));
+            Assert.That(baseline, Does.Contain("protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, Pause/Confirm/Tooltip popup paths, `UI_Composition` adapters, UI audio/display/settings bridges, and `StageNavigationRequest`"));
             Assert.That(baseline, Does.Not.Contain("diagnostics overlay pending a separate production/dev-only policy decision"));
             AssertDemoStageControlStalePolicyPhrasesAreAbsent(baseline);
             Assert.That(baseline, Does.Not.Contain("HelpScreen remains"));
@@ -151,10 +151,10 @@ namespace Game.Feature.UI.Tests
         {
             var baseline = ReadRepoFile("Docs/Testing/UI-EditMode-Baseline-2026-04-15.md");
 
-            Assert.That(baseline, Does.Contain("PR-1 stage completion guards proving StageResult + Continue, final-stage GameClear, retry payload, next-stage/no-next-stage mapping, terminal back consume, Reward residue absence, and screen/popup/HUD separation before UI refactor scaffolding begins"));
+            Assert.That(baseline, Does.Contain("PR-1 stage completion guards proving StageResult + Continue, final-stage GameClear, retry payload, next-stage/no-next-stage mapping, terminal back consume, Reward popup absence, and screen/popup/HUD separation before UI refactor scaffolding begins"));
             Assert.That(baseline, Does.Contain("StageResult screen is a stage completion presentation endpoint"));
             Assert.That(baseline, Does.Contain("emits intent-only `StageNavigationRequest` values for continue, retry, and next-stage paths"));
-            Assert.That(baseline, Does.Contain("Reward residue is not a stage-clear presentation endpoint or reward commit owner"));
+            Assert.That(baseline, Does.Contain("Reward popup is not a stage-clear presentation endpoint or reward commit owner"));
             Assert.That(baseline, Does.Contain("Reward/progression commit remains owned by the stage subsystem"));
             Assert.That(baseline, Does.Contain("UI remains non-authoritative"));
             Assert.That(baseline, Does.Contain("does not mutate `WorldState`"));
@@ -164,7 +164,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Not.Contain("Reward popup consumes back through popup policy until acknowledged"));
             Assert.That(baseline, Does.Contain("screen/popup/HUD remain separate stacks/layers with input blocking derived from `UIBlockPolicy`"));
             Assert.That(baseline, Does.Contain("Final-stage clear currently selects `GameClear` instead of the regular StageResult next-stage flow"));
-            Assert.That(baseline, Does.Contain("Policy extraction candidates for later PR: terminal screen selection, reward residue presentation condition, terminal back handling, pause return decision, audio transaction outcome mapping, and final-stage routing. Do not extract in PR-1."));
+            Assert.That(baseline, Does.Contain("Policy extraction candidates for later PR: terminal screen selection, terminal back handling, pause return decision, audio transaction outcome mapping, and final-stage routing. Do not extract in PR-1."));
             Assert.That(baseline, Does.Contain("Remaining PR-1 gaps: builder registry completeness belongs to PR-2; popup completion audio mapping, settings adapter lifecycle, HUD module completeness, and broader stage completion end-to-end/manual runtime evidence remain follow-up work."));
         }
 
@@ -227,7 +227,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Not.Contain("`ObjectiveInfo`"));
             Assert.That(source, Does.Contain("`Confirm`"));
             Assert.That(source, Does.Contain("`Tooltip`"));
-            Assert.That(source, Does.Contain("`Reward`"));
+            Assert.That(source, Does.Contain("Reward popup is not current popup vocabulary."));
+            Assert.That(source, Does.Contain("Stage reward/progression vocabulary remains stage-owned content/system vocabulary"));
             Assert.That(source, Does.Contain("`DemoStageControl` is not a gameplay popup catalog entry."));
             Assert.That(source, Does.Contain("catalog-less runtime assist popup"));
             Assert.That(source, Does.Contain("build-included tester/demo/showcase assist feature"));
@@ -245,7 +246,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Contain("`AccessibilitySettingsStore` is not a current runtime composition dependency."));
             Assert.That(source, Does.Contain("Do not modify runtime code for this source regeneration."));
             Assert.That(source, Does.Contain("Do not modify prefabs or catalogs for this source regeneration."));
-            Assert.That(source, Does.Contain("Do not simplify or reroute StageResult, Reward residue, Confirm, settings, audio, display, or UI bridge paths."));
+            Assert.That(source, Does.Contain("Do not simplify or reroute StageResult, Pause/Confirm/Tooltip popup, settings, audio, display, or UI bridge paths."));
             Assert.That(source, Does.Contain("Do not restore Settings tooltip on/off or large text on/off toggles without a separate product decision."));
             AssertDemoStageControlStalePolicyPhrasesAreAbsent(source);
             Assert.That(source, Does.Not.Contain("HelpScreen remains"));
@@ -307,6 +308,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(audioGuidelines, Does.Contain("classification prefers user intent over raw delta count or event ordering"));
             Assert.That(audioGuidelines, Does.Contain("canonical local-vs-flow ownership truth-source table"));
             Assert.That(audioGuidelines, Does.Contain("PausePopup.SettingsRequested"));
+            Assert.That(audioGuidelines, Does.Not.Contain("reward acknowledge"));
             Assert.That(audioGuidelines, Does.Not.Contain("PausePopup.ObjectiveRequested"));
             Assert.That(audioGuidelines, Does.Contain("Display Apply"));
             Assert.That(audioGuidelines, Does.Contain("Display Revert"));

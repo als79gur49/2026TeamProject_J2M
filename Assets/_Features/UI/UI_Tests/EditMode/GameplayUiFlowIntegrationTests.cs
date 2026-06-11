@@ -105,9 +105,9 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiFlowInstaller_ComposesTooltipAndRewardPolicies()
+        public void GameplayUiFlowInstaller_ComposesTooltipPolicyWithScreenTransitions()
         {
-            var hostObject = new GameObject("GameplayUiFlowInstaller_ComposesTooltipAndRewardPolicies");
+            var hostObject = new GameObject("GameplayUiFlowInstaller_ComposesTooltipPolicyWithScreenTransitions");
 
             try
             {

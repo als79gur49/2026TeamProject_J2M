@@ -46,8 +46,8 @@ This file is the external current-structure source for the completed UI cleanup 
 - `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing.
 - `DemoStageControl` is not a deletion candidate and is not a dev-only compile exclusion target.
 - Future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision.
-- `Reward` remains protected legacy/residue UI. Stage clear routes through
-  `MinimalStageCompletionReadModel -> StageResult`, not Reward popup.
+- Reward popup is not current popup vocabulary. Stage reward/progression vocabulary remains stage-owned content/system vocabulary, not a UI popup route.
+- Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`.
 
 - `ActionBar` is removed retired HUD proof residue. It is not a current HUD member.
 - `ActionBarView` and `ActionBarPresenter` are not current display components.
@@ -77,7 +77,7 @@ This file is the external current-structure source for the completed UI cleanup 
 - Do not modify runtime code for this source regeneration.
 - Do not modify prefabs or catalogs for this source regeneration.
 - Do not change `DemoStageControl` runtime behavior.
-- Do not simplify or reroute StageResult, Reward residue, Confirm, settings, audio, display, or UI bridge paths.
+- Do not simplify or reroute StageResult, Pause/Confirm/Tooltip popup, settings, audio, display, or UI bridge paths.
 - Do not restore Settings tooltip on/off or large text on/off toggles without a separate product decision.
 - Do not revive `ActionBar`, diagnostics runtime UI, or `SceneTransitionOverlayView`.
 - Do not restore `Help` or `Inventory` as current gameplay screens.

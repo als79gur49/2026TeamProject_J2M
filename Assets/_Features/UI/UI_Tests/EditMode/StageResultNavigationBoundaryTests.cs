@@ -44,7 +44,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void StageResultAndRewardPopup_ArePresentationEndpoints_NotGameplayAuthority()
+        public void StageResult_IsPresentationEndpoint_NotGameplayAuthority()
         {
             AssertStageResultSourcesDoNotContain(new[]
             {
@@ -105,7 +105,7 @@ namespace Game.Feature.UI.Tests
                     Assert.That(
                         source,
                         Does.Not.Contain(token),
-                        $"{sourcePath}: StageResult/Reward popup are UI presentation/navigation endpoints; stage reward/progression commit lane remains stage-owned.");
+                        $"{sourcePath}: StageResult is a UI presentation/navigation endpoint; stage reward/progression commit lane remains stage-owned.");
                 }
             }
         }
