@@ -113,7 +113,10 @@ phase 5 close provenance를 보존하는 아래 문서들은 active supporting t
 - Production save slot PlayerPrefs read/write key는 `Game.Feature.Stages.StageClearSaveSlots` / `Game.Feature.Stages.ActiveStageClearSaveSlot`이다.
 - Old PlayerPrefs key `Game.Feature.Stages.SaveSlots` / `Game.Feature.Stages.ActiveSaveSlot`은 delete-only cleanup 대상이며 production read/write path에 사용하지 않는다.
 - Direct-play temp key `Game.Feature.Stages.DirectPlay.TempSaveSlots` / `Game.Feature.Stages.DirectPlay.TempActiveSaveSlot`은 production key split 대상이 아닌 별도 임시 namespace다.
-- B단계에서 new key contamination 또는 invalid payload rejection/reset guard를 `SaveSlotStore.LoadDto()` raw JSON read 직후 추가한다.
+- Stage clear save root DTO는 `SchemaId = StageClearSaveSlots`, `SchemaVersion = 2` marker를 쓴다. `StageClearProfileSnapshot.Version`은 profile snapshot version이며 root schema marker와 다른 개념이다.
+- Current key contamination 또는 invalid payload는 `SaveSlotStore.LoadDto()` raw JSON read 직후 검사한다. old save compatibility는 제공하지 않고, legacy/corrupt payload는 rejected/reset되며 store/API에 노출되지 않는다.
+- Legacy/corrupt payload reset은 non-crash path이고 empty current database로 닫힌다. `StageClearSaveLoadReport`는 logic-level report로만 남기며 Diagnostics overlay 연결은 이번 PR 범위가 아니다.
+- UI notification, HUD banner, popup, screen 표시도 이번 PR 범위가 아니다.
 - Progression unlock graph와 player clear record는 다른 개념이다. Stage objective clear와 `MinimalStageCompletionReadModel` 기반 StageResult continue/retry flow는 runtime/UI canonical path로 유지한다.
 - Retired reward/evaluation/progression residue fields must not re-enter save/profile production DTOs.
 
