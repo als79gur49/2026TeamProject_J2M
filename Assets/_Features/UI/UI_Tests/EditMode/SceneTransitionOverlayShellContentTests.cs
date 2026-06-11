@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using Game.Feature.Stages;
 using Game.Feature.UI.Composition;
 using NUnit.Framework;
@@ -141,6 +143,33 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SceneTransitionOverlayContentView_RequiresOnlyRootGroupAndProgressTextBaseBindings()
+        {
+            using var content = ContentHandle.Create<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
+
+            var issues = content.View.CollectValidationIssues();
+
+            Assert.That(issues, Is.Empty);
+        }
+
+        [Test]
+        public void SceneTransitionOverlayContentView_DoesNotExposeRetiredBaseTextProgressAnimatorBindings()
+        {
+            var fieldNames = typeof(SceneTransitionOverlayContentView)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(field => field.Name)
+                .ToArray();
+
+            Assert.That(fieldNames, Does.Contain("_rootGroup"));
+            Assert.That(fieldNames, Does.Contain("_progressText"));
+            Assert.That(fieldNames, Does.Not.Contain("_titleText"));
+            Assert.That(fieldNames, Does.Not.Contain("_messageText"));
+            Assert.That(fieldNames, Does.Not.Contain("_progressRoot"));
+            Assert.That(fieldNames, Does.Not.Contain("_progressFill"));
+            Assert.That(fieldNames, Does.Not.Contain("_animator"));
+        }
+
+        [Test]
         public void ChanceLostOverlayContent_Show_AnimatesLostChanceSlot()
         {
             using var content = ContentHandle.Create<ChanceLostOverlayContentView>("ChanceLost");
@@ -251,7 +280,9 @@ namespace Game.Feature.UI.Tests
             content.View.Bind(Model(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart));
 
             Assert.That(content.Root.GetComponentsInChildren<ChanceLostOverlayContentView>(true), Is.Empty);
-            Assert.That(content.Root.GetComponentsInChildren<TMP_Text>(true).Length, Is.EqualTo(3));
+            Assert.That(
+                content.Root.GetComponentsInChildren<TMP_Text>(true).Select(text => text.name),
+                Does.Not.Contain("PreviousChanceText_TMP"));
         }
 
         [Test]
@@ -514,13 +545,7 @@ namespace Game.Feature.UI.Tests
             {
                 var root = new GameObject(name, typeof(RectTransform), typeof(CanvasGroup));
                 var view = root.AddComponent<T>();
-                var title = CreateText(root.transform, "TitleText_TMP");
-                var message = CreateText(root.transform, "MessageText_TMP");
-                var progressRoot = new GameObject("ProgressRoot", typeof(RectTransform));
-                progressRoot.transform.SetParent(root.transform, false);
-                var progressFill = new GameObject("ProgressFill", typeof(RectTransform));
-                progressFill.transform.SetParent(progressRoot.transform, false);
-                var progressText = CreateText(progressRoot.transform, "ProgressText_TMP");
+                var progressText = CreateText(root.transform, "ProgressText_TMP");
 
                 TMP_Text previous = null;
                 TMP_Text current = null;
@@ -530,10 +555,6 @@ namespace Game.Feature.UI.Tests
 
                 var serialized = new SerializedObject(view);
                 serialized.FindProperty("_rootGroup").objectReferenceValue = root.GetComponent<CanvasGroup>();
-                serialized.FindProperty("_titleText").objectReferenceValue = title;
-                serialized.FindProperty("_messageText").objectReferenceValue = message;
-                serialized.FindProperty("_progressRoot").objectReferenceValue = progressRoot;
-                serialized.FindProperty("_progressFill").objectReferenceValue = progressFill.GetComponent<RectTransform>();
                 serialized.FindProperty("_progressText").objectReferenceValue = progressText;
 
                 if (view is ChanceLostOverlayContentView)

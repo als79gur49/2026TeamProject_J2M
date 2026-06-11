@@ -23,6 +23,12 @@ namespace Game.Feature.UI.Tests
         private const string CatalogPath =
             "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/SceneTransitionOverlayContentCatalog.asset";
 
+        private const string GenericLoadingContentPrefabPath =
+            "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/Contents/GenericLoadingOverlayContent.prefab";
+
+        private const string ChanceLostContentPrefabPath =
+            "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/Contents/ChanceLostOverlayContent.prefab";
+
         [TearDown]
         public void TearDown()
         {
@@ -91,6 +97,22 @@ namespace Game.Feature.UI.Tests
                 var assetPath = AssetDatabase.GUIDToAssetPath(guid);
                 Assert.That(string.IsNullOrEmpty(assetPath) || !File.Exists(assetPath), Is.True, guid);
                 Assert.That(catalogYaml, Does.Not.Contain(guid), guid);
+            }
+        }
+
+        [Test]
+        public void SceneTransitionOverlayContentPrefabs_HaveCurrentBaseBindingsOnly()
+        {
+            foreach (var path in TransitionContentPrefabPaths)
+            {
+                var yaml = File.ReadAllText(path);
+
+                Assert.That(yaml, Does.Contain("_rootGroup:"), path);
+                Assert.That(yaml, Does.Contain("_progressText:"), path);
+                foreach (var retiredField in RetiredBaseContentFields)
+                {
+                    Assert.That(yaml, Does.Not.Contain(retiredField + ":"), path);
+                }
             }
         }
 
@@ -309,6 +331,21 @@ namespace Game.Feature.UI.Tests
             "e53afcd5" + "78e311b4f91209518d25e637",
             "a287560d" + "78e3fd7448af54f2859fb663",
             "d1e542b8" + "9be2719489c78a72f68f4d3d",
+        };
+
+        private static readonly string[] TransitionContentPrefabPaths =
+        {
+            GenericLoadingContentPrefabPath,
+            ChanceLostContentPrefabPath,
+        };
+
+        private static readonly string[] RetiredBaseContentFields =
+        {
+            "_titleText",
+            "_messageText",
+            "_progressRoot",
+            "_progressFill",
+            "_animator",
         };
 
         private static SceneTransitionOverlayContentView ResolveCatalogContent(

@@ -1290,12 +1290,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.ChanceLostOverlayContentView
   _rootGroup: {fileID: 385952753538008467}
-  _titleText: {fileID: 0}
-  _messageText: {fileID: 0}
-  _progressRoot: {fileID: 0}
-  _progressFill: {fileID: 0}
   _progressText: {fileID: 8278884233307019214}
-  _animator: {fileID: 0}
   _previousChanceText: {fileID: 0}
   _currentChanceText: {fileID: 0}
   _totalChanceText: {fileID: 0}

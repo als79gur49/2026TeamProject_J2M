@@ -13,9 +13,10 @@
 - Pinned Unity UI EditMode: `155 total / 0 failed`
 - Prior Phase 1 drift-correction rerun: green on 2026-06-06 KST
 - Current PR-A Objective UI removal baseline rerun: green on 2026-06-11 KST
+- Current PR-T3 transition content base contract rerun: green on 2026-06-12 KST
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `688 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `688 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `691 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `691 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
@@ -41,14 +42,15 @@
   - stronger screen-view ownership guards proving screen views do not surface navigation, popup, back-stack, controller, or gameplay-access shortcuts
   - transition overlay shell/content catalog guards proving scene transitions use the canonical shell asset and authored catalog, with missing setup reported as a defect
   - PR-T2 transition content guards proving common semantic ids share `GenericLoadingOverlayContent`, `ChanceLostOverlayContent` remains dedicated, stale LevelFailed-only transition message/text residue is removed, and deleted duplicate content prefab GUID references are absent
+  - PR-T3 transition content base contract guards proving base content requires only root group and progress text bindings, while retired title/message/progress bar/animator base bindings stay absent from source and prefabs
   - canonical UI navigation resolver guards proving `UiNavigationInputRouter` exposes only the `IUiNavigationTargetResolver` setup path and does not reassemble popup/menu concrete targets
   - external structure-source regeneration guard proving root `UI-Current-Structure-Source.md` mirrors the current 3-layer shell, identity lists, DemoStageControl classification, retired ActionBar status, removed diagnostics status, canonical transition path, and resolver-only navigation state
   - PR-1 stage completion guards proving StageResult + Continue, final-stage GameClear, retry payload, next-stage/no-next-stage mapping, terminal back consume, Reward popup absence, and screen/popup/HUD separation before UI refactor scaffolding begins
   - PR-A Objective UI removal guards proving `ObjectiveStatus` screen, `ObjectiveInfo` popup, pause objective action semantics, deleted prefab files, and deleted prefab GUID references are absent from production UI vocabulary
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `688 total / 0 failed`
-  - delta: `+625` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical gameplay shell adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, canonical navigation resolver-only enforcement, current-structure source regeneration, PR-1 stage completion protection, and PR-A Objective UI removal protection
+  - current rerun: `691 total / 0 failed`
+  - delta: `+627` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical gameplay shell adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, canonical navigation resolver-only enforcement, current-structure source regeneration, PR-1 stage completion protection, PR-A Objective UI removal protection, and PR-T3 transition content base contract cleanup
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
@@ -133,6 +135,7 @@
 - root `UI-Current-Structure-Source.md` is the external current-structure source for docs regeneration and stale-token audits; it mirrors the 3-layer root shell, current `ScreenId` / `PopupId` lists, HUD membership, display-only HUD responsibility, removed UI Push/Flip command-route vocabulary, DemoStageControl preservation, diagnostics removal, scene transition shell/catalog path, and resolver-only navigation state
 - scene transition overlay runtime uses the canonical shell asset and authored content catalog only; missing shell/catalog setup is surfaced as a defect instead of rebuilding UI at runtime
 - scene transition semantic ids are preserved while physical content is shared: `GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` use `GenericLoadingOverlayContent`; `ChanceLost` remains dedicated as `ChanceLostOverlayContent`
+- scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract
 - `LevelFailedRestart` has no current dedicated transition content message/text contract; the old LevelFailed-only message field was removed as stale residue
 - HUD legacy runtime builder path was removed in the same phase, leaving one canonical prefab-authored HUD creation path beneath `HudLayer`
 - HUD prefab authoring remains a bounded HUD proof and must not be treated as precedent for screen changes without fresh review

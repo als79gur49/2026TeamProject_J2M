@@ -385,6 +385,7 @@ Scene transition content notes:
 - Scene transition semantic ids remain distinct, but semantic ids and physical content prefab files are not one-to-one.
 - `GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` share `GenericLoadingOverlayContent`.
 - `ChanceLost` remains a dedicated `ChanceLostOverlayContent` path because chance-loss animation and fields are structurally different.
+- Scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract.
 - `LevelFailedRestart` does not own a current dedicated transition message/text content contract.
 
 Deletion protection notes:
