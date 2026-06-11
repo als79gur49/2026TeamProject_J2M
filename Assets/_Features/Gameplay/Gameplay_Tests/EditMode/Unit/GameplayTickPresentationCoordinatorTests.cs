@@ -469,16 +469,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var target = rootObject.AddComponent<TileFeatureVisualTargetView>();
-                var particles = rootObject.AddComponent<ParticleSystem>();
-                SetPrivateField(target, "buttonActivatedParticles", particles);
+#pragma warning disable CS0618
+                var adapter = rootObject.AddComponent<LegacyTileFeatureVisualCueAdapter>();
+#pragma warning restore CS0618
+                adapter.ConfigureTarget(target);
                 var registry = new GameplayPresentationPauseRegistry();
                 registry.RegisterRoot(rootObject);
                 registry.SetPresentationPaused(true);
 
-                target.PlayButtonActivated();
+                adapter.PlayButtonActivated();
 
-                Assert.That(particles.isPaused, Is.True);
-                Assert.That(particles.particleCount, Is.Zero);
+                Assert.That(adapter.IsGameplayPresentationPaused, Is.True);
+                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
             }
             finally
             {

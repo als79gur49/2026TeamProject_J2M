@@ -320,11 +320,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, new SurfaceCell(FaceId.Front, 1, 1));
+                var adapter = EnsureLegacyAdapter(target);
 
-                target.SetBarricadeActiveImmediate(true);
-                target.SetBarricadeActiveImmediate(true);
-                target.SetBarricadeActiveImmediate(false);
-                target.SetBarricadeActiveImmediate(false);
+                adapter.SetBarricadeActiveImmediate(true);
+                adapter.SetBarricadeActiveImmediate(true);
+                adapter.SetBarricadeActiveImmediate(false);
+                adapter.SetBarricadeActiveImmediate(false);
 
                 Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.EqualTo(2));
             }
@@ -359,8 +360,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     sourceEntityId: 0,
                     ownerEntityId: 0,
                     teamId: 0);
+                var adapter = EnsureLegacyAdapter(target);
 
-                target.SetBarricadeActiveImmediate(true);
+                adapter.SetBarricadeActiveImmediate(true);
                 controller.PlayRequests(new[] { CreateBarricadeBlockedRequest(100, cell, Direction.Right, targetEntityId: 20) });
                 controller.RefreshContinuousStates(new[] { activeState });
 
@@ -1926,11 +1928,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             TileFeatureKind kind,
             params (Renderer Renderer, int MaterialIndex, Color InactiveColor, float InactiveMetallic)[] targets)
         {
-            var serialized = new SerializedObject(target);
-            var targetFieldName = kind == TileFeatureKind.Slide
-                ? "slideTileInactiveMaterialTargets"
-                : "destroyTileInactiveMaterialTargets";
-            var targetProperties = serialized.FindProperty(targetFieldName);
+            var profile = ScriptableObject.CreateInstance<TileFeatureVisualProfile>();
+            var serializedProfile = new SerializedObject(profile);
+            serializedProfile.FindProperty("featureKind").enumValueIndex = (int)kind;
+            var targetProperties = serializedProfile.FindProperty("inactiveMaterialTargets");
             Assert.That(targetProperties, Is.Not.Null);
             targetProperties.arraySize = targets.Length;
             for (var i = 0; i < targets.Length; i++)
@@ -1942,8 +1943,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 targetProperty.FindPropertyRelative("InactiveMetallic").floatValue = targets[i].InactiveMetallic;
             }
 
-            serialized.ApplyModifiedPropertiesWithoutUndo();
+            serializedProfile.ApplyModifiedPropertiesWithoutUndo();
+
+            var adapter = EnsureLegacyAdapter(target);
+            var serializedAdapter = new SerializedObject(adapter);
+            var profilesProperty = serializedAdapter.FindProperty("profiles");
+            Assert.That(profilesProperty, Is.Not.Null);
+            profilesProperty.arraySize = 1;
+            profilesProperty.GetArrayElementAtIndex(0).objectReferenceValue = profile;
+            serializedAdapter.ApplyModifiedPropertiesWithoutUndo();
         }
+
+#pragma warning disable CS0618
+        private static LegacyTileFeatureVisualCueAdapter EnsureLegacyAdapter(TileFeatureVisualTargetView target)
+        {
+            var adapter = target.GetComponent<LegacyTileFeatureVisualCueAdapter>();
+            if (adapter == null)
+            {
+                adapter = target.gameObject.AddComponent<LegacyTileFeatureVisualCueAdapter>();
+            }
+
+            adapter.ConfigureTarget(target);
+            return adapter;
+        }
+#pragma warning restore CS0618
 
         private static TilePresentationRequest CreateRequest(int tileId, SurfaceCell cell)
         {
