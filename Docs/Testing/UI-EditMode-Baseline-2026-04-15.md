@@ -40,6 +40,7 @@
   - screen checkpoint guards proving the simple-shell, terminal-screen, and complex-screen checkpoints stay mechanically inspectable instead of hiding risk inside one broad migration phase
   - stronger screen-view ownership guards proving screen views do not surface navigation, popup, back-stack, controller, or gameplay-access shortcuts
   - transition overlay shell/content catalog guards proving scene transitions use the canonical shell asset and authored catalog, with missing setup reported as a defect
+  - PR-T2 transition content guards proving common semantic ids share `GenericLoadingOverlayContent`, `ChanceLostOverlayContent` remains dedicated, stale LevelFailed-only transition message/text residue is removed, and deleted duplicate content prefab GUID references are absent
   - canonical UI navigation resolver guards proving `UiNavigationInputRouter` exposes only the `IUiNavigationTargetResolver` setup path and does not reassemble popup/menu concrete targets
   - external structure-source regeneration guard proving root `UI-Current-Structure-Source.md` mirrors the current 3-layer shell, identity lists, DemoStageControl classification, retired ActionBar status, removed diagnostics status, canonical transition path, and resolver-only navigation state
   - PR-1 stage completion guards proving StageResult + Continue, final-stage GameClear, retry payload, next-stage/no-next-stage mapping, terminal back consume, Reward popup absence, and screen/popup/HUD separation before UI refactor scaffolding begins
@@ -53,9 +54,11 @@
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
   - Diagnostics overlay behavior tests were removed with the unused runtime feature.
   - Obsolete transition overlay component, old prefab, and recovery-route behavior tests were removed after the canonical shell/content catalog route became the only supported path.
+  - Duplicate common transition content prefab files and stale common-only content view types were removed after PR-T2 collapsed the shared physical content mapping.
   - ObjectiveStatus screen controller tests were removed with the retired ObjectiveStatus production screen.
 - Renamed / merged / split tests:
   - renamed the installer HUD migration guard from the allowlisted legacy-bridge wording to canonical HUD prefab wording so the test name matches the surviving runtime path
+  - renamed the transition content catalog guard to cover shared semantic mapping instead of one physical prefab per semantic
 - Replaced weak guards:
   - Stage 5-only freeze language is replaced with Stage 4–8 seam-preservation language
   - ad hoc “UI test count” bookkeeping is replaced with structural delta, guard evolution, and warning interpretation
@@ -129,6 +132,8 @@
 - canonical UI bootstrap now instantiates one prefab-authored root shell named `GameplayUiCanvasRoot`, and that shell remains infrastructure-only at the top level with `HudLayer`, `ScreenLayer`, and `PopupLayer`
 - root `UI-Current-Structure-Source.md` is the external current-structure source for docs regeneration and stale-token audits; it mirrors the 3-layer root shell, current `ScreenId` / `PopupId` lists, HUD membership, display-only HUD responsibility, removed UI Push/Flip command-route vocabulary, DemoStageControl preservation, diagnostics removal, scene transition shell/catalog path, and resolver-only navigation state
 - scene transition overlay runtime uses the canonical shell asset and authored content catalog only; missing shell/catalog setup is surfaced as a defect instead of rebuilding UI at runtime
+- scene transition semantic ids are preserved while physical content is shared: `GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` use `GenericLoadingOverlayContent`; `ChanceLost` remains dedicated as `ChanceLostOverlayContent`
+- `LevelFailedRestart` has no current dedicated transition content message/text contract; the old LevelFailed-only message field was removed as stale residue
 - HUD legacy runtime builder path was removed in the same phase, leaving one canonical prefab-authored HUD creation path beneath `HudLayer`
 - HUD prefab authoring remains a bounded HUD proof and must not be treated as precedent for screen changes without fresh review
 - canonical HUD composition is `Pause`, `StageInfo`, `ObjectiveHud`, `ChancePanel`, `SurfaceBeltIndicator`, and `PlayerStatus`

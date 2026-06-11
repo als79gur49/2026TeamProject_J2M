@@ -68,6 +68,10 @@ This file is the external current-structure source for the completed UI cleanup 
 - Settings/rebind setup fails fast when required action paths or Push/Flip keyboard bindings are missing; Flip remains keyboard-only and no gamepad binding is added.
 - Settings tooltip on/off and large text on/off accessibility toggles are removed residue. `AccessibilitySettingsStore` is not a current runtime composition dependency.
 - Scene transition UI uses only `SceneTransitionOverlayShell` plus `SceneTransitionOverlayContentCatalog`.
+- Scene transition semantic ids are preserved, but semantic ids and physical content prefab files are not one-to-one.
+- `GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` share the physical `GenericLoadingOverlayContent` prefab.
+- `ChanceLost` keeps the dedicated `ChanceLostOverlayContent` prefab because it owns chance-loss structure and fields.
+- `LevelFailedRestart` has no current dedicated message/text content contract; the old LevelFailed-only transition message field was removed as stale residue.
 - `SceneTransitionOverlayView`, `UI/SceneTransitionOverlayView`, generated fallback, and legacy overlay fallback are not current paths.
 - `UiNavigationInputRouter` is a resolver-only input router initialized through `IUiNavigationTargetResolver`.
 - `UiNavigationInputRouter` must not regain `PopupController`, `PopupLayerView`, or `MainMenuScreenView` direct legacy overloads.

@@ -31,25 +31,9 @@ namespace Game.Feature.UI.Composition
                 "ChanceLostOverlayContent",
                 "Chance Lost",
                 "Retrying from your current stage.");
-            var stageClear = CreateContentPrefab<StageClearOverlayContentView>(
-                "StageClearOverlayContent",
-                "Loading Next Stage",
-                "Preparing the next stage.");
-            var manualRestart = CreateContentPrefab<ManualRestartOverlayContentView>(
-                "ManualRestartOverlayContent",
-                "Retrying Stage",
-                "Restarting the current stage.");
-            var levelFailedRestart = CreateContentPrefab<LevelFailedRestartOverlayContentView>(
-                "LevelFailedRestartOverlayContent",
-                "Restarting Level",
-                "Returning to the first stage in this level.");
-            var mainMenuReturn = CreateContentPrefab<MainMenuReturnOverlayContentView>(
-                "MainMenuReturnOverlayContent",
-                "Returning to Main",
-                "Preparing the main menu.");
 
             CreateShellPrefab();
-            CreateCatalog(generic, chanceLost, stageClear, manualRestart, levelFailedRestart, mainMenuReturn);
+            CreateCatalog(generic, chanceLost);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -196,13 +180,6 @@ namespace Game.Feature.UI.Composition
                         AssetDatabase.LoadAssetAtPath<Material>(AllIn1UiStencilMaterialPath);
                 }
 
-                if (view is LevelFailedRestartOverlayContentView)
-                {
-                    var levelMessage = UiCanvasElementFactory.CreateLabel("LevelRestartMessageText_TMP", panel, new Vector2(40f, -152f), new Vector2(620f, 34f), TextAnchor.MiddleCenter, 16);
-                    levelMessage.text = "Returning to the first stage in this level.";
-                    serialized.FindProperty("_levelRestartMessageText").objectReferenceValue = levelMessage;
-                }
-
                 serialized.ApplyModifiedPropertiesWithoutUndo();
 
                 var prefab = PrefabUtility.SaveAsPrefabAsset(root, $"{ContentsRoot}/{name}.prefab");
@@ -264,11 +241,7 @@ namespace Game.Feature.UI.Composition
 
         private static void CreateCatalog(
             SceneTransitionOverlayContentView generic,
-            SceneTransitionOverlayContentView chanceLost,
-            SceneTransitionOverlayContentView stageClear,
-            SceneTransitionOverlayContentView manualRestart,
-            SceneTransitionOverlayContentView levelFailedRestart,
-            SceneTransitionOverlayContentView mainMenuReturn)
+            SceneTransitionOverlayContentView chanceLost)
         {
             var catalog = AssetDatabase.LoadAssetAtPath<SceneTransitionOverlayContentCatalog>(CatalogPath);
             if (catalog == null)
@@ -282,11 +255,11 @@ namespace Game.Feature.UI.Composition
             var entries = serialized.FindProperty("_entries");
             entries.arraySize = 7;
             SetEntry(entries.GetArrayElementAtIndex(0), StageTransitionKind.MainToGameplay, TransitionOverlayKind.GenericLoading, generic);
-            SetEntry(entries.GetArrayElementAtIndex(1), StageTransitionKind.GameplayToMain, TransitionOverlayKind.MainMenuReturn, mainMenuReturn);
-            SetEntry(entries.GetArrayElementAtIndex(2), StageTransitionKind.StageClearNext, TransitionOverlayKind.StageClear, stageClear);
-            SetEntry(entries.GetArrayElementAtIndex(3), StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart, manualRestart);
+            SetEntry(entries.GetArrayElementAtIndex(1), StageTransitionKind.GameplayToMain, TransitionOverlayKind.MainMenuReturn, generic);
+            SetEntry(entries.GetArrayElementAtIndex(2), StageTransitionKind.StageClearNext, TransitionOverlayKind.StageClear, generic);
+            SetEntry(entries.GetArrayElementAtIndex(3), StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart, generic);
             SetEntry(entries.GetArrayElementAtIndex(4), StageTransitionKind.DeathRetryChanceLost, TransitionOverlayKind.ChanceLost, chanceLost);
-            SetEntry(entries.GetArrayElementAtIndex(5), StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart, levelFailedRestart);
+            SetEntry(entries.GetArrayElementAtIndex(5), StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart, generic);
             SetEntry(entries.GetArrayElementAtIndex(6), StageTransitionKind.Unknown, TransitionOverlayKind.GenericLoading, generic);
             serialized.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(catalog);

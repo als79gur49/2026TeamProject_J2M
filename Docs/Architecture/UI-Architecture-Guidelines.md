@@ -380,6 +380,13 @@ HUD classification notes:
 - This deletion decision does not change Push/Flip readiness mapping or gameplay command ownership.
 - The current HUD-side mapping is display semantics only.
 
+Scene transition content notes:
+
+- Scene transition semantic ids remain distinct, but semantic ids and physical content prefab files are not one-to-one.
+- `GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` share `GenericLoadingOverlayContent`.
+- `ChanceLost` remains a dedicated `ChanceLostOverlayContent` path because chance-loss animation and fields are structurally different.
+- `LevelFailedRestart` does not own a current dedicated transition message/text content contract.
+
 Deletion protection notes:
 
 - Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path as part of drift correction.
