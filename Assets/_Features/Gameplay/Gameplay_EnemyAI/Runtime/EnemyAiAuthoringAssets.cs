@@ -278,106 +278,6 @@ namespace Game.Feature.Gameplay.Entities
     }
 
     [Serializable]
-    public sealed class LockNearbyBoxesAuthoring
-    {
-        [SerializeField] private int radius = 1;
-        [SerializeField] private float durationSeconds = 2f;
-        [SerializeField, Min(0f)] private float activationDelaySeconds = 0f;
-        [SerializeField] private bool blocksPush = true;
-        [SerializeField] private bool blocksFlip = true;
-        [SerializeField] private bool includeSourceCell;
-        [SerializeField] private BoxLockTargetPattern targetPattern = BoxLockTargetPattern.ManhattanRadius;
-        [SerializeField] private bool suppressMovementDuringWindup = false;
-        [SerializeField, Min(0f)] private float recoverySeconds = 0f;
-        [SerializeField] private bool suppressMovementDuringRecover = false;
-
-        public int Radius => radius;
-
-        public float DurationSeconds => durationSeconds;
-
-        public float ActivationDelaySeconds => activationDelaySeconds;
-
-        public bool BlocksPush => blocksPush;
-
-        public bool BlocksFlip => blocksFlip;
-
-        public bool IncludeSourceCell => includeSourceCell;
-
-        public BoxLockTargetPattern TargetPattern => targetPattern;
-
-        public bool SuppressMovementDuringWindup => suppressMovementDuringWindup;
-
-        public float RecoverySeconds => recoverySeconds;
-
-        public bool SuppressMovementDuringRecover => suppressMovementDuringRecover;
-
-        internal LockNearbyBoxesRuntime Compile(int simulationTicksPerSecond)
-        {
-            if (radius <= 0)
-            {
-                throw new ArgumentException("Lock nearby boxes authoring requires a positive radius.", nameof(radius));
-            }
-
-            if (durationSeconds <= 0f)
-            {
-                throw new ArgumentException("Lock nearby boxes authoring requires a positive duration.", nameof(durationSeconds));
-            }
-
-            if (activationDelaySeconds < 0f)
-            {
-                throw new ArgumentException("Lock nearby boxes authoring requires a non-negative activation delay.", nameof(activationDelaySeconds));
-            }
-
-            if (recoverySeconds < 0f)
-            {
-                throw new ArgumentException("Lock nearby boxes authoring requires a non-negative recovery duration.", nameof(recoverySeconds));
-            }
-
-            if (!blocksPush && !blocksFlip)
-            {
-                throw new ArgumentException("Lock nearby boxes authoring must block push or flip.", nameof(blocksPush));
-            }
-
-            switch (targetPattern)
-            {
-                case BoxLockTargetPattern.OrthogonalAdjacent4:
-                case BoxLockTargetPattern.ManhattanRadius:
-                    break;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(targetPattern), targetPattern, "Unsupported box lock target pattern.");
-            }
-
-            var durationTicks = GameplayTimingProfile.SecondsToTicks(durationSeconds, simulationTicksPerSecond);
-            if (durationTicks <= 0)
-            {
-                throw new ArgumentException("Lock nearby boxes authoring must compile to a positive duration.", nameof(durationSeconds));
-            }
-
-            var activationDelayTicks = GameplayTimingProfile.SecondsToTicks(
-                activationDelaySeconds,
-                simulationTicksPerSecond,
-                allowZero: true);
-            var recoveryTicks = GameplayTimingProfile.SecondsToTicks(
-                recoverySeconds,
-                simulationTicksPerSecond,
-                allowZero: true);
-
-            return new LockNearbyBoxesRuntime(
-                radius,
-                durationTicks,
-                activationDelayTicks,
-                blocksPush,
-                blocksFlip,
-                includeSourceCell,
-                targetPattern,
-                suppressMovementDuringWindup,
-                recoveryTicks,
-                suppressMovementDuringRecover);
-        }
-    }
-
-    [Serializable]
     public sealed class EnemyGravityFieldAuraAuthoring
     {
         [SerializeField] private int radius = 1;
@@ -476,7 +376,6 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private float initialDelaySeconds = 0f;
         [SerializeField] private float cooldownSeconds = 1f;
         [SerializeField] private SummonMinionAuthoring summon = new();
-        [SerializeField] private LockNearbyBoxesAuthoring lockNearbyBoxes = new();
         [SerializeField] private EnemyGravityFieldAuraAuthoring gravityFieldAura = new();
 
         public EnemyUtilityEffectKind Kind => kind;
@@ -486,8 +385,6 @@ namespace Game.Feature.Gameplay.Entities
         public float CooldownSeconds => cooldownSeconds;
 
         public SummonMinionAuthoring Summon => summon;
-
-        public LockNearbyBoxesAuthoring LockNearbyBoxes => lockNearbyBoxes;
 
         public EnemyGravityFieldAuraAuthoring GravityFieldAura => gravityFieldAura;
 
@@ -510,16 +407,14 @@ namespace Game.Feature.Gameplay.Entities
                     GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),
                     GameplayTimingProfile.SecondsToTicks(cooldownSeconds, simulationTicksPerSecond),
                     summon: (summon ?? throw new ArgumentException("Summon utility effect requires summon authoring data.", nameof(summon))).Compile(simulationTicksPerSecond)),
-                EnemyUtilityEffectKind.LockNearbyBoxes => new EnemyUtilityEffectRuntime(
-                    kind,
-                    GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),
-                    GameplayTimingProfile.SecondsToTicks(cooldownSeconds, simulationTicksPerSecond),
-                    lockNearbyBoxes: (lockNearbyBoxes ?? throw new ArgumentException("Lock nearby boxes utility effect requires authoring data.", nameof(lockNearbyBoxes))).Compile(simulationTicksPerSecond)),
                 EnemyUtilityEffectKind.GravityFieldAura => new EnemyUtilityEffectRuntime(
                     kind,
                     GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),
                     GameplayTimingProfile.SecondsToTicks(cooldownSeconds, simulationTicksPerSecond),
                     gravityFieldAura: (gravityFieldAura ?? throw new ArgumentException("Enemy gravity field aura utility effect requires authoring data.", nameof(gravityFieldAura))).Compile(simulationTicksPerSecond)),
+                EnemyUtilityEffectKind.RetiredLockNearbyBoxes => throw new ArgumentException(
+                    "Enemy utility effect kind 1 (LockNearbyBoxes) is retired and cannot compile to active runtime.",
+                    nameof(kind)),
                 _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported enemy utility effect kind."),
             };
         }
