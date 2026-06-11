@@ -50,7 +50,6 @@ namespace Game.Feature.Gameplay.Entities
             EnemyMovementSkillCapabilityRuntime movementSkill = null;
             EnemyPassiveContactCapabilityRuntime passiveContact = null;
             EnemyUtilityCapabilityRuntime utility = null;
-            EnemyFrontFaceSupportCapabilityRuntime frontFaceSupport = null;
             var capabilityCount = capabilityAssets?.Count ?? 0;
 
             for (var i = 0; i < capabilityCount; i++)
@@ -122,26 +121,17 @@ namespace Game.Feature.Gameplay.Entities
                                 nameof(capabilityAssets));
                         break;
 
-                    case EnemyCapabilityFamily.FrontFaceSupport:
-                        if (frontFaceSupport != null)
-                        {
-                            throw new ArgumentException(
-                                $"Enemy AI profile '{profileName}' declares multiple front-face support capabilities ('{capabilityAsset.name}' and '{frontFaceSupport.GetType().Name}').",
-                                nameof(capabilityAssets));
-                        }
-
-                        frontFaceSupport = runtime as EnemyFrontFaceSupportCapabilityRuntime
-                            ?? throw new ArgumentException(
-                                $"Enemy AI profile '{profileName}' compiled an invalid front-face support capability runtime from '{capabilityAsset.name}'.",
-                                nameof(capabilityAssets));
-                        break;
+                    case EnemyCapabilityFamily.RetiredFrontFaceSupport:
+                        throw new ArgumentException(
+                            $"Enemy AI profile '{profileName}' contains retired front-face support capability '{capabilityAsset.name}'.",
+                            nameof(capabilityAssets));
 
                     default:
                         throw new ArgumentOutOfRangeException(nameof(runtime), runtime.Family, "Unknown enemy capability family.");
                 }
             }
 
-            return new EnemyCapabilityRuntimeSet(combat, movementSkill, passiveContact, utility, frontFaceSupport);
+            return new EnemyCapabilityRuntimeSet(combat, movementSkill, passiveContact, utility);
         }
     }
 }

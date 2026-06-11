@@ -19,7 +19,7 @@
   - all targets die + landing denied면 `Stay`다.
   - `Destroy` capability는 Push first-step blocked fallback이다.
   - `Destroy` fallback은 sliding continuation blocked path에 재적용하지 않는다.
-  - `BoxSlideShield`와 active Barricade는 PlayerControl이 동일한 contributor/tile-definition context를 받기 전까지 execute-time policy다.
+  - active Barricade는 PlayerControl이 동일한 tile-definition context를 받기 전까지 execute-time policy다.
 
 ## Flip
 - 관련 코드:
@@ -77,7 +77,7 @@
 - current live runtime producer가 emit하는 state는 `Anchored`, `Airborne`, `Phased`다.
 - `Airborne`는 jump owner가 만든 explicit non-anchored state일 때만 인정한다.
 - `Phased`는 `WorldState` authoritative carrier를 가지며 internal pre-movement owner가 live runtime에서 emit할 수 있다.
-- current production gameplay concrete live source는 `PlayerControlStateLogic`의 player flip windup window와 `EnemyLogic`의 locked-target cross-through validator다.
+- current production gameplay concrete live source는 `PlayerControlStateLogic`의 player flip windup window다.
 - horizontal expansion validation을 위한 additional owner는 internal `SystemPreMovementValidationLogic` 하나만 허용한다. 이것은 internal validation owner, not public scripted framework다.
 - `Attached`는 아직 reserved future state이며 legality/query consumer도 열지 않는다.
 - `Anchored`는 기본 spatial mode다. `Detached`라고 해서 자동으로 `Airborne`가 되지 않는다.
@@ -89,13 +89,9 @@
   - current enemy current-lock path만 `existing lock retention`을 narrow hook로 사용한다.
   - `Phased`는 `Terrain`, `BoardEdge`, `Reservation` bypass를 뜻하지 않는다.
   - current live profile은 `ClaimsAuthoritativeOccupancy=true`와 active-face visibility, anchored-like terminal settle을 `StageDefault`로 사용한다. 이것은 current implementation default이지 future invariant가 아니다.
-  - current live enter/sustain/exit owner는 `MovementPreMovement`, `EnemyPreMovement`, `SystemPreMovementValidation`, `DebugForced`로 metadata table에 고정한다.
-  - first minimal consumer는 `EnemyPreMovement`에서 실행되는 `locked-target cross-through` validator이며 fresh target search, fallback, multi-edge pathfinding, same-tick damage coupling을 열지 않는다.
-  - current wall-pass enemy는 baseline validator consumer다. seam proof용 최소 runtime slice이며 locomotion feature가 아니다.
-  - locked-target dependency is current validator-local dependency, not generic phase dependency.
-  - same-face / straight-line / target-behind +1 / single-terminal chooser are local geometry rules, not reusable phase template.
-  - 이 consumer는 validator, not a movement framework다. current lock이나 geometry가 닫히면 reject/close하고 같은 tick에 ordinary movement, fallback reroute, combat attack으로 우회하지 않는다.
-  - 다음 단계 implementer는 이 consumer를 ordinary movement replacement, generalized phase action schema, default future owner precedent로 가정하면 안 된다.
+  - current live enter/sustain/exit owner는 `MovementPreMovement`, `SystemPreMovementValidation`, `DebugForced`로 metadata table에 고정한다.
+  - `RetiredEnemyPreMovement`는 retired `PhaseThroughLockedTarget` compatibility slot이며 current runtime producer가 아니다.
+  - retired locked-target cross-through validator와 phase relocation path는 current movement, targeting, trace, replay contract로 취급하지 않는다.
 - 이번 단계에서 고정하지 않는 것:
   - future non-claim / overlap model
   - future visibility variants
@@ -110,17 +106,12 @@
   - later clear/cancel은 이후 snapshot부터만 보이고 earlier snapshot을 retroactive하게 바꾸지 않는다.
   - current live source가 다른 owner와 충돌하면 explicit clear/replace ordering 없이는 공존하지 않는다.
   - `SystemPreMovementValidation` source path는 reservation을 읽지 않는다.
-  - `EnemyPreMovement` validator consumer의 direct reservation read는 terminal settle 직전 `cell` 한 번뿐이다. planner 단계, terminal candidate 확정 전, traversal legality 완료 전 direct reservation read는 허용하지 않는다.
   - `cell-only`는 terminal cell이 하나로 고정된 뒤 `GetCellStatus(...)` 한 번만 읽고, 그 결과를 바로 `SettlementContext.ReservationStatus`로 넘기는 contract를 뜻한다. direct `edge/entity/topology-exclusive` reservation read와 multi-cell speculative read는 out-of-scope다.
 
-### Baseline Validator Handoff Note
-- `Role=BaselineValidatorOnly`
-- `LockDependency=CurrentEnemyLockPathOnly`
-- `ChooserLocality=SameFace|StraightLine|Behind+1|SingleTerminal`
-- `Reservation=TerminalCellOnlyPreSettle`
-- `ForbiddenGeneralization=NoRetarget|NoAlternate|NoFallback|NoSameTickCombat`
-- `NotEvidenceFor=GeneralizedPhaseMovement|Pathfinding|NonClaimOccupancy|TerminalPhaseSettle`
-- stable trace contract는 `PhaseEnter/Exit`, `Owner`, `Timing`, `ReservationRead`, `Settle`, `ExistingEnemyLock`, `EnemyPhaseRelocation`의 `Label/Target/Direction/Destination/Result`까지만 본다.
+### Retired PhaseThrough Note
+- `PhaseThroughLockedTarget`, locked-target cross-through validator, and `EnemyPhaseRelocation` are retired synthetic/runtime residue.
+- The numeric enum/owner/diagnostic slots remain reserved for compatibility, but they do not define current gameplay behavior.
+- Current trace/replay contracts should not require `EnemyPhaseRelocation` or `PhaseEnter/Exit` from the retired enemy owner.
 - string ordering, incidental formatting, internal ids, helper names, inline token count는 implementation detail이다.
 
 ## Targetability

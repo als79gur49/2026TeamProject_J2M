@@ -669,8 +669,6 @@ namespace Game.Feature.Gameplay.Loop
             var jumpLandingPlans = new List<JumpLandingPlan>();
             var jumpLandingSpaceContests = new List<Contest>();
             var jumpLandingEvents = new List<string>();
-            var phaseRelocationPlans = new List<PhaseRelocationPlan>();
-            var phaseRelocationSpaceContests = new List<Contest>();
             var planSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanPostPreMovement);
             ResolvePlanJumpLandings(
                 planSnapshot,
@@ -681,12 +679,6 @@ namespace Game.Feature.Gameplay.Loop
                 jumpLandingPlans,
                 jumpLandingSpaceContests,
                 jumpLandingEvents,
-                ref nextContestId);
-            ResolvePlanEnemyPhaseRelocations(
-                planSnapshot,
-                input.TickIndex,
-                phaseRelocationPlans,
-                phaseRelocationSpaceContests,
                 ref nextContestId);
 
             var rejectedReasons = new List<string>();
@@ -782,15 +774,6 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var playerTraversalSourceIds = CollectPlayerTraversalSourceIds(entityLogicsForTick.MovementLogics);
-            var frontFaceSupportContributors = CollectFrontFaceSupportContributors(
-                entityLogicsForTick.FrontFaceSupportLogics,
-                planSnapshot,
-                in input);
-            var frontFaceShieldSourceExports = BuildFrontFaceShieldSourcePresentationExports(
-                frontFaceSupportContributors,
-                planSnapshot.Topology,
-                input.TickIndex);
-            var frontFaceShieldBlockExports = new List<FrontFaceShieldBlockPresentationExport>();
             var barricadeBlockFacts = new List<BarricadeBlockFact>();
             var boxSlideStops = new List<BoxSlideStopResult>();
             var expandedCandidates = new List<ActionGroup>();
@@ -807,10 +790,8 @@ namespace Game.Feature.Gameplay.Loop
                 input.TickIndex,
                 legacyExpansionIntents,
                 playerTraversalSourceIds,
-                frontFaceSupportContributors,
                 expandedCandidates,
                 rejectedReasons,
-                frontFaceShieldBlockExports,
                 barricadeBlockFacts,
                 forbiddenLegacyUnitOrdinaryIntentIds,
                 _tileFeatureDefinitions,
@@ -833,8 +814,6 @@ namespace Game.Feature.Gameplay.Loop
             var orderedMovementActionPlanIds = BuildOrderedMovementActionPlanIds(planSnapshot, movementActionPlanPayloads);
             var jumpLandingActionPlanPayloads = BuildJumpLandingActionPlanPayloads(jumpLandingPlans);
             var orderedJumpLandingActionPlanIds = BuildOrderedJumpLandingActionPlanIds(jumpLandingPlans);
-            var phaseRelocationActionPlanPayloads = BuildPhaseRelocationActionPlanPayloads(phaseRelocationPlans);
-            var orderedPhaseRelocationActionPlanIds = BuildOrderedPhaseRelocationActionPlanIds(phaseRelocationPlans);
             var spaceContests = BuildSpaceContests(
                 movementActionPlanPayloads,
                 orderedMovementActionPlanIds,
@@ -855,12 +834,6 @@ namespace Game.Feature.Gameplay.Loop
                 jumpLandingActionPlanPayloads,
                 orderedJumpLandingActionPlanIds,
                 jumpLandingEvents,
-                phaseRelocationSpaceContests,
-                phaseRelocationPlans,
-                phaseRelocationActionPlanPayloads,
-                orderedPhaseRelocationActionPlanIds,
-                frontFaceShieldSourceExports,
-                frontFaceShieldBlockExports,
                 barricadeBlockFacts,
                 boxSlideStops,
                 playerTopologyTransitionBlockedSignals,
@@ -910,7 +883,6 @@ namespace Game.Feature.Gameplay.Loop
             var contests = new List<Contest>(planPhaseResult.SpaceContests.Count);
             AddRange(contests, planPhaseResult.SpaceContests);
             AddRange(contests, planPhaseResult.JumpLandingSpaceContests);
-            AddRange(contests, planPhaseResult.PhaseRelocationSpaceContests);
             var resolutionRecords = new List<ResolutionRecord>();
             var nextContestId = planPhaseResult.NextContestId;
             var movementResolutionRecords = new List<ResolutionRecord>();
@@ -1162,21 +1134,6 @@ namespace Game.Feature.Gameplay.Loop
                 projectedWorld.ApplyBatch(enemyActionBeforeAttackBatch);
             }
 
-            var phaseRelocationResolveBatch = ResolveEnemyPhaseRelocationSpaceContestsCanonical(
-                postMovementSnapshot,
-                planPhaseResult.OrderedPhaseRelocationActionPlanIds,
-                planPhaseResult.PhaseRelocationActionPlanPayloads,
-                planPhaseResult.PhaseRelocationSpaceContests,
-                movementReservationBook,
-                movementResolutionRecords,
-                movementCommitEvents);
-            if (phaseRelocationResolveBatch.Operations.Count > 0)
-            {
-                finalizationBatch.MergeFrom(phaseRelocationResolveBatch);
-                projectedWorld.ApplyBatch(phaseRelocationResolveBatch);
-                postMovementSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostMovement);
-            }
-
             var finalImpactReservations = MergeImpactReservations(
                 movementImpactReservations,
                 ResolveDeferredMovementImpactReservationsAgainstSnapshot(
@@ -1191,8 +1148,7 @@ namespace Game.Feature.Gameplay.Loop
                 planSnapshot,
                 postMovementSnapshot,
                 movementStageBatch,
-                jumpLandingResolveBatch,
-                phaseRelocationResolveBatch);
+                jumpLandingResolveBatch);
             var tileEffectBoxStops = BuildTileEffectBoxStops(
                 planSnapshot,
                 attackReadSnapshot,
@@ -1204,8 +1160,7 @@ namespace Game.Feature.Gameplay.Loop
                 TileEffectTriggerSourceKind.FeatureActivatedUnderOccupant,
                 planPhaseResult.PlanFinalizationBatch,
                 movementStageBatch,
-                jumpLandingResolveBatch,
-                phaseRelocationResolveBatch);
+                jumpLandingResolveBatch);
             IReadOnlyList<TilePresentationEvent> tilePresentationEvents = Array.Empty<TilePresentationEvent>();
             var tileEffectResult = _tileEffectResolver.Resolve(
                 new TileEffectResolutionContext(
@@ -1225,7 +1180,6 @@ namespace Game.Feature.Gameplay.Loop
                     finalizationBatch.MergeFrom(planPhaseResult.PlanFinalizationBatch);
                     finalizationBatch.MergeFrom(movementStageBatch);
                     finalizationBatch.MergeFrom(jumpLandingResolveBatch);
-                    finalizationBatch.MergeFrom(phaseRelocationResolveBatch);
                     if (!tileEffectResult.Operations.IsEmpty)
                     {
                         finalizationBatch.ApplyTileFeatureOperations(tileEffectResult.Operations);
@@ -1240,7 +1194,6 @@ namespace Game.Feature.Gameplay.Loop
                     projectedWorld.ApplyBatch(planPhaseResult.PlanFinalizationBatch);
                     projectedWorld.ApplyBatch(movementStageBatch);
                     projectedWorld.ApplyBatch(jumpLandingResolveBatch);
-                    projectedWorld.ApplyBatch(phaseRelocationResolveBatch);
                     if (!tileEffectResult.Operations.IsEmpty)
                     {
                         projectedWorld.ApplyTileFeatureOperations(tileEffectResult.Operations);
@@ -1446,10 +1399,8 @@ namespace Game.Feature.Gameplay.Loop
             }
             AddRange(movementResolvedOperations, movementStageBatch.Operations);
             AddRange(movementResolvedOperations, jumpLandingResolveBatch.Operations);
-            AddRange(movementResolvedOperations, phaseRelocationResolveBatch.Operations);
             AddRange(movementResolvedOperations, tileEffectResult.EntityOperations.Operations);
             AppendBoxInteractionLockBlockedEvents(movementRejectedReasons, movementCommitEvents, tickIndex);
-            AppendFrontFaceShieldBlockedEvents(movementRejectedReasons, movementCommitEvents, tickIndex);
             var movementPhaseResult = new MovementPhaseResult(
                 planPhaseResult.RawIntents,
                 planPhaseResult.SortedIntents,
@@ -1458,8 +1409,6 @@ namespace Game.Feature.Gameplay.Loop
                 movementResolvedOperations,
                 movementCommitEvents,
                 movementRejectedReasons,
-                planPhaseResult.FrontFaceShieldSourceExports,
-                planPhaseResult.FrontFaceShieldBlockExports,
                 planPhaseResult.BarricadeBlockFacts,
                 FilterSelectedBoxSlideStops(
                     planPhaseResult.BoxSlideStops,
@@ -1534,66 +1483,6 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return playerTraversalSourceIds;
-        }
-
-        private static List<FrontFaceSupportContributor> CollectFrontFaceSupportContributors(
-            IReadOnlyList<IFrontFaceSupportLogic> entityLogics,
-            WorldSnapshot snapshot,
-            in TickInput input)
-        {
-            var contributors = new List<FrontFaceSupportContributor>(entityLogics?.Count ?? 0);
-            if (entityLogics == null)
-            {
-                return contributors;
-            }
-
-            for (var i = 0; i < entityLogics.Count; i++)
-            {
-                entityLogics[i].CollectFrontFaceSupportContributors(snapshot, input, contributors);
-            }
-
-            contributors.Sort(FrontFaceSupportContributorComparer.Instance);
-            return contributors;
-        }
-
-        private static List<FrontFaceShieldSourcePresentationExport> BuildFrontFaceShieldSourcePresentationExports(
-            IReadOnlyList<FrontFaceSupportContributor> contributors,
-            CubeTopologyState topology,
-            int tickIndex)
-        {
-            var exports = new List<FrontFaceShieldSourcePresentationExport>(contributors?.Count ?? 0);
-            if (contributors == null)
-            {
-                return exports;
-            }
-
-            for (var i = 0; i < contributors.Count; i++)
-            {
-                var contributor = contributors[i];
-                if (contributor.EffectRuntime.Kind != EnemyFrontFaceSupportEffectKind.BoxSlideShield)
-                {
-                    continue;
-                }
-
-                var shield = contributor.EffectRuntime.BoxSlideShield;
-                exports.Add(
-                    new FrontFaceShieldSourcePresentationExport(
-                        contributor.SourceEntityId,
-                        contributor.SourceCell,
-                        topology,
-                        shield.Radius,
-                        shield.IncludeSourceCell,
-                        shield.TargetPattern,
-                        tickIndex,
-                        MovementExpander.BuildFrontFaceShieldPresentationSeed(
-                            tickIndex,
-                            contributor.SourceEntityId,
-                            0,
-                            contributor.SourceCell,
-                            contributor.EffectIndex)));
-            }
-
-            return exports;
         }
 
         private CleanupPhaseResult RunCleanupPhase(
@@ -2618,27 +2507,13 @@ namespace Game.Feature.Gameplay.Loop
                         continue;
                     }
 
-                    primaryBlockerKind = ToTickTraversalBlockerKind(blockerKind);
+                    primaryBlockerKind = MovementExpander.ToTickTraversalBlockerKind(blockerKind);
                     return primaryBlockerKind != TickTraversalBlockerKind.None;
                 }
             }
 
             primaryBlockerKind = TickTraversalBlockerKind.None;
             return false;
-        }
-
-        private static TickTraversalBlockerKind ToTickTraversalBlockerKind(LegalityBlockerKind blockerKind)
-        {
-            return blockerKind switch
-            {
-                LegalityBlockerKind.BoardEdge => TickTraversalBlockerKind.BoardEdge,
-                LegalityBlockerKind.Terrain => TickTraversalBlockerKind.Terrain,
-                LegalityBlockerKind.Solid => TickTraversalBlockerKind.Solid,
-                LegalityBlockerKind.Unit => TickTraversalBlockerKind.Unit,
-                LegalityBlockerKind.Reservation => TickTraversalBlockerKind.Reservation,
-                LegalityBlockerKind.TileFeature => TickTraversalBlockerKind.TileFeature,
-                _ => TickTraversalBlockerKind.None,
-            };
         }
 
         private static bool ShouldRecordPlayerFree2DNativeTopologyReject(Free2DTopologyTransitionRejectReason reason)
@@ -6511,27 +6386,6 @@ namespace Game.Feature.Gameplay.Loop
             return payloads;
         }
 
-        private static Dictionary<int, PhaseRelocationActionPlanPayload> BuildPhaseRelocationActionPlanPayloads(
-            IReadOnlyList<PhaseRelocationPlan> phaseRelocationPlans)
-        {
-            var payloads = new Dictionary<int, PhaseRelocationActionPlanPayload>(phaseRelocationPlans.Count);
-
-            for (var i = 0; i < phaseRelocationPlans.Count; i++)
-            {
-                var plan = phaseRelocationPlans[i];
-                payloads[plan.ActionPlanId] = new PhaseRelocationActionPlanPayload(
-                    plan.ActionPlanId,
-                    plan.SourceId,
-                    plan.Priority,
-                    plan.LockedTargetEntityId,
-                    plan.Direction,
-                    plan.DestinationCell,
-                    plan.RuleLabel);
-            }
-
-            return payloads;
-        }
-
         private static List<DestroyWritePayload> BuildDestroyWritePayloads(
             IReadOnlyList<DestroyAction> destroys,
             WorldSnapshot snapshot,
@@ -6559,17 +6413,6 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < jumpLandingPlans.Count; i++)
             {
                 orderedIds.Add(jumpLandingPlans[i].ActionPlanId);
-            }
-
-            return orderedIds;
-        }
-
-        private static List<int> BuildOrderedPhaseRelocationActionPlanIds(IReadOnlyList<PhaseRelocationPlan> phaseRelocationPlans)
-        {
-            var orderedIds = new List<int>(phaseRelocationPlans.Count);
-            for (var i = 0; i < phaseRelocationPlans.Count; i++)
-            {
-                orderedIds.Add(phaseRelocationPlans[i].ActionPlanId);
             }
 
             return orderedIds;
@@ -7197,60 +7040,6 @@ namespace Game.Feature.Gameplay.Loop
             return group.HasResolvedImpact ? 1 : 0;
         }
 
-        private void ResolvePlanEnemyPhaseRelocations(
-            WorldSnapshot snapshot,
-            int tickIndex,
-            List<PhaseRelocationPlan> phaseRelocationPlans,
-            List<Contest> phaseRelocationSpaceContests,
-            ref int nextContestId)
-        {
-            var phasedEntries = new List<PhasedSnapshotEntry>();
-            snapshot.EnumeratePhasedStatesOrdered(phasedEntries);
-
-            for (var i = 0; i < phasedEntries.Count; i++)
-            {
-                var phasedEntry = phasedEntries[i];
-                if (phasedEntry.State.ownerKind != PhasedRuntimeStateOwnerKind.EnemyPreMovement ||
-                    !snapshot.TryGetEntity(phasedEntry.EntityId, out var source) ||
-                    !snapshot.TryGetEnemyActionState(phasedEntry.EntityId, out var actionState) ||
-                    !actionState.IsActive ||
-                    !EnemyActionQueries.CanExecute(actionState, tickIndex) ||
-                    !snapshot.TryGetEntity(actionState.lockedTargetEntityId, out var lockedTarget) ||
-                    !EnemyPhaseThroughLockedTargetQueries.TryResolveCurrentTerminalCell(
-                        source,
-                        lockedTarget,
-                        actionState.direction,
-                        out var destinationCell))
-                {
-                    continue;
-                }
-
-                var actionPlanId = _idAllocator.AllocateGroupId();
-                var contestId = nextContestId++;
-                phaseRelocationPlans.Add(
-                    new PhaseRelocationPlan(
-                        actionPlanId,
-                        contestId,
-                        phasedEntry.EntityId,
-                        priority: 0,
-                        actionState.lockedTargetEntityId,
-                        actionState.direction,
-                        destinationCell,
-                        EnemyPhaseThroughLockedTargetQueries.RuleLabel));
-                phaseRelocationSpaceContests.Add(
-                    new Contest(
-                        contestId,
-                        ContestKind.Space,
-                        actionPlanId,
-                        phasedEntry.EntityId,
-                        priority: 0,
-                        affectedEntityId: 0,
-                        affectedCell: destinationCell,
-                        hasAffectedCell: true,
-                        localActionIndex: 0));
-            }
-        }
-
         private void ResolvePlanJumpLandings(
             WorldSnapshot snapshot,
             int tickIndex,
@@ -7620,145 +7409,6 @@ namespace Game.Feature.Gameplay.Loop
                    landingKind == JumpLandingKind.Contested;
         }
 
-        private FinalizationBatch ResolveEnemyPhaseRelocationSpaceContestsCanonical(
-            WorldSnapshot movementSnapshot,
-            IReadOnlyList<int> orderedActionPlanIds,
-            IReadOnlyDictionary<int, PhaseRelocationActionPlanPayload> phaseRelocationActionPlanPayloads,
-            IReadOnlyList<Contest> phaseRelocationSpaceContests,
-            MovementReservationBook reservationBook,
-            List<ResolutionRecord> movementResolutionRecords,
-            List<string> movementCommitEvents)
-        {
-            var batch = new FinalizationBatch();
-            var contestsByActionPlanId = BuildContestLookup(phaseRelocationSpaceContests);
-
-            for (var i = 0; i < orderedActionPlanIds.Count; i++)
-            {
-                var actionPlanId = orderedActionPlanIds[i];
-                if (!phaseRelocationActionPlanPayloads.TryGetValue(actionPlanId, out var payload) ||
-                    !contestsByActionPlanId.TryGetValue(actionPlanId, out var contest))
-                {
-                    continue;
-                }
-
-                var accepted = false;
-                var rejectionReason = "ResolveRejected";
-                var reservationStatus = ReservationStatus.None;
-
-                if (!movementSnapshot.TryGetPhasedState(payload.SourceActorEntityId, out var phasedState) ||
-                    !phasedState.IsActive ||
-                    phasedState.ownerKind != PhasedRuntimeStateOwnerKind.EnemyPreMovement)
-                {
-                    rejectionReason = "OwnerInactive";
-                }
-                else if (!movementSnapshot.TryGetEntity(payload.SourceActorEntityId, out var source) ||
-                         !movementSnapshot.TryGetEntity(payload.LockedTargetEntityId, out var lockedTarget))
-                {
-                    rejectionReason = "SourceOrTargetMissing";
-                }
-                else if (!EnemyPhaseThroughLockedTargetQueries.TryResolveCurrentTerminalCell(
-                             source,
-                             lockedTarget,
-                             payload.Direction,
-                             out var currentDestination) ||
-                         currentDestination != payload.DestinationCell)
-                {
-                    rejectionReason = "GeometryChanged";
-                }
-                else
-                {
-                    var actor = BuildLegalityActorRef(movementSnapshot, payload.SourceActorEntityId, EntityType.Unit);
-                    var traverseToLockedTarget = RuntimeTraversalLegalityPolicy.EvaluateDestination(
-                        new TraverseContext(
-                            movementSnapshot,
-                            actor,
-                            source.position,
-                            lockedTarget.position,
-                            movementSnapshot.Topology,
-                            TransitionRequirement.None,
-                            tileFeatureDefinitions: _tileFeatureDefinitions));
-                    if (traverseToLockedTarget.Verdict != LegalityVerdict.Allowed)
-                    {
-                        rejectionReason = "TraverseLockedTargetBlocked";
-                    }
-                    else
-                    {
-                        var traverseToDestination = RuntimeTraversalLegalityPolicy.EvaluateDestination(
-                            new TraverseContext(
-                                movementSnapshot,
-                                actor,
-                                lockedTarget.position,
-                                payload.DestinationCell,
-                                movementSnapshot.Topology,
-                                TransitionRequirement.None,
-                                tileFeatureDefinitions: _tileFeatureDefinitions));
-                        if (traverseToDestination.Verdict != LegalityVerdict.Allowed)
-                        {
-                            rejectionReason = "TraverseTerminalBlocked";
-                        }
-                        else
-                        {
-                            reservationStatus = ReadPhaseRelocationTerminalReservationStatus(
-                                reservationBook,
-                                payload.DestinationCell);
-                            var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
-                                new SettlementContext(
-                                    movementSnapshot,
-                                    actor,
-                                    payload.DestinationCell,
-                                    movementSnapshot.Topology,
-                                    SpatialState.Phased,
-                                    reservationStatus));
-                            accepted = landingLegality.Verdict == LegalityVerdict.Allowed;
-                            if (!accepted)
-                            {
-                                rejectionReason = "SettleBlocked";
-                            }
-                        }
-                    }
-                }
-
-                var resolutionRecord = CreateResolutionRecord(contest, accepted);
-                movementResolutionRecords.Add(resolutionRecord);
-                if (!accepted)
-                {
-                    movementCommitEvents.Add(
-                        BuildPhaseRelocationUpdate(
-                            payload.SourceActorEntityId,
-                            "Rejected",
-                            payload,
-                            reservationStatus,
-                            rejectionReason));
-                    continue;
-                }
-
-                var metadata = CreatePhaseRelocationMetadata(payload, resolutionRecord);
-                reservationBook.ReservePhaseRelocation(payload.SourceActorEntityId, payload.DestinationCell);
-                batch.MoveEntity(payload.SourceActorEntityId, payload.DestinationCell, metadata);
-                movementCommitEvents.Add(
-                    BuildPhaseRelocationUpdate(
-                        payload.SourceActorEntityId,
-                        "Committed",
-                        payload,
-                        reservationStatus,
-                        "Allowed"));
-            }
-
-            return batch;
-        }
-
-        private static ReservationStatus ReadPhaseRelocationTerminalReservationStatus(
-            MovementReservationBook reservationBook,
-            SurfaceCell terminalCell)
-        {
-            // Semantic contract: read exactly one fixed terminal cell and do not inspect
-            // edge/entity/topology reservation detail from this validator consumer.
-            var reservationInfo = reservationBook.GetCellReservationInfo(terminalCell);
-            return reservationInfo.IsUnitSharedSettlementCompatible
-                ? ReservationStatus.None
-                : reservationInfo.Status;
-        }
-
         private static Contest TryFindJumpLandingContest(
             IReadOnlyList<Contest> jumpLandingSpaceContests,
             int contestId)
@@ -7952,26 +7602,6 @@ namespace Game.Feature.Gameplay.Loop
                 presentationTargetCell: payload.DestinationCell,
                 movementExecutionBoundaryKind: MovementExecutionBoundaryKind.UnitSpecialLocomotion,
                 boundaryReason: "EnemyJumpLanding");
-        }
-
-        private static FinalizationOperationMetadata CreatePhaseRelocationMetadata(
-            PhaseRelocationActionPlanPayload payload,
-            ResolutionRecord resolutionRecord)
-        {
-            return new FinalizationOperationMetadata(
-                TickPhase.Resolve,
-                ResolvedActionSemanticKind.Move,
-                payload.SourceActorEntityId,
-                payload.ActionPlanId,
-                payload.IntentId,
-                resolutionRecord.ContestId,
-                resolutionRecord.LocalActionIndex,
-                payload.Priority,
-                movementSemanticKind: MovementSemanticKind.Move,
-                damageSourceType: DamageSourceType.None,
-                presentationTargetCell: payload.DestinationCell,
-                movementExecutionBoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation,
-                boundaryReason: "PhaseRelocation");
         }
 
         private static void AddOperationsBySemanticKind(
@@ -10461,16 +10091,6 @@ namespace Game.Feature.Gameplay.Loop
             return builder.ToString();
         }
 
-        private static string BuildPhaseRelocationUpdate(
-            int entityId,
-            string label,
-            PhaseRelocationActionPlanPayload payload,
-            ReservationStatus reservationStatus,
-            string result)
-        {
-            return $"EnemyPhaseRelocation|E={entityId}|Label={label}|Target={payload.LockedTargetEntityId}|Direction={payload.Direction}|Destination={FormatCell(payload.DestinationCell)}|Rule={payload.RuleLabel}|Reservation={reservationStatus}|Result={result}";
-        }
-
         private static DamageResolutionRecord FindDamageResolution(
             IReadOnlyList<DamageResolutionRecord> damageResolutions,
             int actionPlanId,
@@ -11286,35 +10906,6 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static void AppendFrontFaceShieldBlockedEvents(
-            IReadOnlyList<string> movementRejectedReasons,
-            List<string> movementCommitEvents,
-            int tickIndex)
-        {
-            if (movementRejectedReasons == null || movementCommitEvents == null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < movementRejectedReasons.Count; i++)
-            {
-                if (!TryBuildFrontFaceShieldBlockedEvents(
-                        movementRejectedReasons[i],
-                        tickIndex,
-                        out var blockedEvent,
-                        out var playerBlockedEvent))
-                {
-                    continue;
-                }
-
-                movementCommitEvents.Add(blockedEvent);
-                if (!string.IsNullOrEmpty(playerBlockedEvent))
-                {
-                    movementCommitEvents.Add(playerBlockedEvent);
-                }
-            }
-        }
-
         private static bool TryBuildBoxInteractionLockBlockedEvent(
             string movementRejectedReason,
             int tickIndex,
@@ -11352,43 +10943,6 @@ namespace Game.Feature.Gameplay.Loop
                 $"PlayerActionBlockedByBoxInteractionLock|Action={actionKind}|Actor={sourceText}|Box={targetText}|Cell={cellText}|Tick={tickIndex}";
             return true;
         }
-
-        private static bool TryBuildFrontFaceShieldBlockedEvents(
-            string movementRejectedReason,
-            int tickIndex,
-            out string blockedEvent,
-            out string playerBlockedEvent)
-        {
-            blockedEvent = null;
-            playerBlockedEvent = null;
-            if (string.IsNullOrEmpty(movementRejectedReason) ||
-                !movementRejectedReason.StartsWith("MovementRejected|", StringComparison.Ordinal) ||
-                !movementRejectedReason.Contains("Reason=BoxSlideBlockedByFrontFaceShield", StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            if (!TryGetStructuredLogValue(movementRejectedReason, "MovementKind", out var movementKindText) ||
-                !TryGetStructuredLogValue(movementRejectedReason, "Box", out var boxText) ||
-                !TryGetStructuredLogValue(movementRejectedReason, "Cell", out var cellText) ||
-                !TryGetStructuredLogValue(movementRejectedReason, "ShieldSource", out var shieldSourceText))
-            {
-                return false;
-            }
-
-            blockedEvent =
-                $"BoxSlideBlockedByFrontFaceShield|MovementKind={movementKindText}|Box={boxText}|Cell={cellText}|ShieldSource={shieldSourceText}|Tick={tickIndex}";
-
-            if (string.Equals(movementKindText, nameof(BoxSlideMovementKind.PushStart), StringComparison.Ordinal) &&
-                TryGetStructuredLogValue(movementRejectedReason, "Source", out var sourceText))
-            {
-                playerBlockedEvent =
-                    $"PlayerActionBlockedByFrontFaceShield|Action={PlayerActionKind.Push}|Actor={sourceText}|Box={boxText}|Cell={cellText}|ShieldSource={shieldSourceText}|Tick={tickIndex}";
-            }
-
-            return true;
-        }
-
 
         private void AssignAttackGroupIds(List<ActionGroup> expandedCandidates)
         {

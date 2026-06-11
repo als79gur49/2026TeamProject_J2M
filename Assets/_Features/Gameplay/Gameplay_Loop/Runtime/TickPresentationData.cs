@@ -1355,150 +1355,6 @@ namespace Game.Feature.Gameplay.Loop
         public int PresentationSeed { get; }
     }
 
-    public enum FrontFaceShieldBlockMovementKind
-    {
-        Unknown = 0,
-        PushStart = 1,
-        SlidingContinuation = 2,
-    }
-
-    public readonly struct TickFrontFaceShieldSourceSignal
-    {
-        public TickFrontFaceShieldSourceSignal(
-            int sourceEntityId,
-            SurfaceCell sourceCell,
-            CubeTopologyState topology,
-            int radius,
-            bool includeSourceCell,
-            FrontFaceShieldTargetPattern targetPattern,
-            int tickIndex,
-            int presentationSeed)
-        {
-            SourceEntityId = sourceEntityId;
-            SourceCell = sourceCell;
-            Topology = topology;
-            Radius = radius;
-            IncludeSourceCell = includeSourceCell;
-            TargetPattern = targetPattern;
-            TickIndex = tickIndex;
-            PresentationSeed = presentationSeed;
-        }
-
-        public int SourceEntityId { get; }
-
-        public SurfaceCell SourceCell { get; }
-
-        public CubeTopologyState Topology { get; }
-
-        public int Radius { get; }
-
-        public bool IncludeSourceCell { get; }
-
-        public FrontFaceShieldTargetPattern TargetPattern { get; }
-
-        public int TickIndex { get; }
-
-        public int PresentationSeed { get; }
-    }
-
-    public readonly struct TickFrontFaceShieldWindupWarningSignal
-    {
-        public TickFrontFaceShieldWindupWarningSignal(
-            int sourceEntityId,
-            int effectIndex,
-            SurfaceCell sourceCell,
-            CubeTopologyState topology,
-            int radius,
-            bool includeSourceCell,
-            FrontFaceShieldTargetPattern targetPattern,
-            int windupStartTick,
-            int windupEndTick,
-            int activationSequence,
-            int tickIndex,
-            int presentationSeed)
-        {
-            SourceEntityId = sourceEntityId;
-            EffectIndex = effectIndex;
-            SourceCell = sourceCell;
-            Topology = topology;
-            Radius = radius;
-            IncludeSourceCell = includeSourceCell;
-            TargetPattern = targetPattern;
-            WindupStartTick = windupStartTick;
-            WindupEndTick = windupEndTick;
-            ActivationSequence = activationSequence;
-            TickIndex = tickIndex;
-            PresentationSeed = presentationSeed;
-        }
-
-        public int SourceEntityId { get; }
-
-        public int EffectIndex { get; }
-
-        public SurfaceCell SourceCell { get; }
-
-        public CubeTopologyState Topology { get; }
-
-        public int Radius { get; }
-
-        public bool IncludeSourceCell { get; }
-
-        public FrontFaceShieldTargetPattern TargetPattern { get; }
-
-        public int WindupStartTick { get; }
-
-        public int WindupEndTick { get; }
-
-        public int ActivationSequence { get; }
-
-        public int TickIndex { get; }
-
-        public int PresentationSeed { get; }
-    }
-
-    public readonly struct TickFrontFaceShieldBlockSignal
-    {
-        public TickFrontFaceShieldBlockSignal(
-            int shieldSourceEntityId,
-            int boxEntityId,
-            int actorEntityId,
-            SurfaceCell blockedCell,
-            SurfaceCell shieldSourceCell,
-            FrontFaceShieldBlockMovementKind movementKind,
-            CubeTopologyState topology,
-            int tickIndex,
-            int presentationSeed)
-        {
-            ShieldSourceEntityId = shieldSourceEntityId;
-            BoxEntityId = boxEntityId;
-            ActorEntityId = actorEntityId;
-            BlockedCell = blockedCell;
-            ShieldSourceCell = shieldSourceCell;
-            MovementKind = movementKind;
-            Topology = topology;
-            TickIndex = tickIndex;
-            PresentationSeed = presentationSeed;
-        }
-
-        public int ShieldSourceEntityId { get; }
-
-        public int BoxEntityId { get; }
-
-        public int ActorEntityId { get; }
-
-        public SurfaceCell BlockedCell { get; }
-
-        public SurfaceCell ShieldSourceCell { get; }
-
-        public FrontFaceShieldBlockMovementKind MovementKind { get; }
-
-        public CubeTopologyState Topology { get; }
-
-        public int TickIndex { get; }
-
-        public int PresentationSeed { get; }
-    }
-
     public readonly struct TickPlayerActionPresentationSignal
     {
         public TickPlayerActionPresentationSignal(
@@ -2956,9 +2812,6 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<GravityFieldPresentationEvent> _gravityFieldEvents;
         private readonly ReadOnlyCollection<GravityFieldVisualState> _gravityFieldVisualStates;
         private readonly ReadOnlyCollection<TileFeatureActiveVisualState> _tileFeatureActiveVisualStates;
-        private ReadOnlyCollection<TickFrontFaceShieldBlockSignal> _frontFaceShieldBlocks;
-        private ReadOnlyCollection<TickFrontFaceShieldSourceSignal> _frontFaceShieldSources;
-        private ReadOnlyCollection<TickFrontFaceShieldWindupWarningSignal> _frontFaceShieldWindupWarnings;
         private readonly ReadOnlyCollection<TickPlayerActionPresentationSignal> _playerActionSignals;
         private readonly ReadOnlyCollection<TickPlayerActionAttemptPresentationSignal> _playerActionAttemptSignals;
         private readonly ReadOnlyCollection<TickPlayerFlipResultTurnSignal> _playerFlipResultTurnSignals;
@@ -3299,10 +3152,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyChargePresentationSignal> enemyChargeSignals,
             IEnumerable<TickEntityExitPresentationSignal> entityExitSignals,
             IEnumerable<FlipImpactPresentationSignal> flipImpactSignals,
-            IEnumerable<TickFrontFaceShieldSourceSignal> frontFaceShieldSources = null,
-            IEnumerable<TickFrontFaceShieldBlockSignal> frontFaceShieldBlocks = null,
             IEnumerable<TickSummonWindupWarningSignal> summonWindupWarnings = null,
-            IEnumerable<TickFrontFaceShieldWindupWarningSignal> frontFaceShieldWindupWarnings = null,
             IEnumerable<TickKinematicMotionTrack> kinematicMotionTracks = null,
             IEnumerable<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null,
             IEnumerable<TickContinuousLocomotionTrack> continuousLocomotionTracks = null,
@@ -3516,18 +3366,9 @@ namespace Game.Feature.Gameplay.Loop
                 new List<TickImpactTransientPresentationSignal>());
             _summonedEnemyPresentationBindings = new ReadOnlyCollection<TickSummonedEnemyPresentationBinding>(
                 new List<TickSummonedEnemyPresentationBinding>());
-            _frontFaceShieldSources = new ReadOnlyCollection<TickFrontFaceShieldSourceSignal>(
-                new List<TickFrontFaceShieldSourceSignal>(
-                    frontFaceShieldSources ?? Array.Empty<TickFrontFaceShieldSourceSignal>()));
-            _frontFaceShieldBlocks = new ReadOnlyCollection<TickFrontFaceShieldBlockSignal>(
-                new List<TickFrontFaceShieldBlockSignal>(
-                    frontFaceShieldBlocks ?? Array.Empty<TickFrontFaceShieldBlockSignal>()));
             _summonWindupWarnings = new ReadOnlyCollection<TickSummonWindupWarningSignal>(
                 new List<TickSummonWindupWarningSignal>(
                     summonWindupWarnings ?? Array.Empty<TickSummonWindupWarningSignal>()));
-            _frontFaceShieldWindupWarnings = new ReadOnlyCollection<TickFrontFaceShieldWindupWarningSignal>(
-                new List<TickFrontFaceShieldWindupWarningSignal>(
-                    frontFaceShieldWindupWarnings ?? Array.Empty<TickFrontFaceShieldWindupWarningSignal>()));
         }
 
         public TickPresentationData(
@@ -3754,10 +3595,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickImpactTransientPresentationSignal> impactTransientSignals,
             IEnumerable<FlipImpactPresentationSignal> flipImpactSignals,
             IEnumerable<TickSummonedEnemyPresentationBinding> summonedEnemyPresentationBindings,
-            IEnumerable<TickFrontFaceShieldSourceSignal> frontFaceShieldSources = null,
-            IEnumerable<TickFrontFaceShieldBlockSignal> frontFaceShieldBlocks = null,
             IEnumerable<TickSummonWindupWarningSignal> summonWindupWarnings = null,
-            IEnumerable<TickFrontFaceShieldWindupWarningSignal> frontFaceShieldWindupWarnings = null,
             IEnumerable<TickKinematicMotionTrack> kinematicMotionTracks = null,
             IEnumerable<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null,
             IEnumerable<TickContinuousLocomotionTrack> continuousLocomotionTracks = null,
@@ -3836,18 +3674,9 @@ namespace Game.Feature.Gameplay.Loop
 
             _summonedEnemyPresentationBindings = new ReadOnlyCollection<TickSummonedEnemyPresentationBinding>(
                 new List<TickSummonedEnemyPresentationBinding>(summonedEnemyPresentationBindings));
-            _frontFaceShieldSources = new ReadOnlyCollection<TickFrontFaceShieldSourceSignal>(
-                new List<TickFrontFaceShieldSourceSignal>(
-                    frontFaceShieldSources ?? Array.Empty<TickFrontFaceShieldSourceSignal>()));
-            _frontFaceShieldBlocks = new ReadOnlyCollection<TickFrontFaceShieldBlockSignal>(
-                new List<TickFrontFaceShieldBlockSignal>(
-                    frontFaceShieldBlocks ?? Array.Empty<TickFrontFaceShieldBlockSignal>()));
             _summonWindupWarnings = new ReadOnlyCollection<TickSummonWindupWarningSignal>(
                 new List<TickSummonWindupWarningSignal>(
                     summonWindupWarnings ?? Array.Empty<TickSummonWindupWarningSignal>()));
-            _frontFaceShieldWindupWarnings = new ReadOnlyCollection<TickFrontFaceShieldWindupWarningSignal>(
-                new List<TickFrontFaceShieldWindupWarningSignal>(
-                    frontFaceShieldWindupWarnings ?? Array.Empty<TickFrontFaceShieldWindupWarningSignal>()));
         }
 
         public IReadOnlyList<TickEntityMotion> EntityMotions => _entityMotions;
@@ -3949,13 +3778,6 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickSummonedEnemyPresentationBinding> SummonedEnemyPresentationBindings =>
             _summonedEnemyPresentationBindings;
 
-        public IReadOnlyList<TickFrontFaceShieldSourceSignal> FrontFaceShieldSources => _frontFaceShieldSources;
-
-        public IReadOnlyList<TickFrontFaceShieldBlockSignal> FrontFaceShieldBlocks => _frontFaceShieldBlocks;
-
         public IReadOnlyList<TickSummonWindupWarningSignal> SummonWindupWarnings => _summonWindupWarnings;
-
-        public IReadOnlyList<TickFrontFaceShieldWindupWarningSignal> FrontFaceShieldWindupWarnings =>
-            _frontFaceShieldWindupWarnings;
     }
 }

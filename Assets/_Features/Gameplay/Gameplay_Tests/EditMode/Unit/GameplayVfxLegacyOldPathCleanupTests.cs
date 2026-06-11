@@ -250,23 +250,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void DeferredSerializedReferenceFields_AreRemovedFromSourceAndYaml()
         {
             var utilityAuthoring = ReadRepoFile(UtilityWindupAuthoringPath);
-            var shieldAuthoring = ReadRepoFile(FrontFaceShieldAuthoringPath);
-            var shieldPresenter = ReadRepoFile(FrontFaceShieldPresenterPath);
-            var shieldPrefab = ReadRepoFile(FrontFaceShieldPrefabPath);
-
             Assert.That(utilityAuthoring, Does.Not.Contain(UtilityRemovedField()));
             Assert.That(utilityAuthoring, Does.Not.Contain("Summon" + "WindupWarningPrefab"));
-            Assert.That(shieldAuthoring, Does.Not.Contain(ShieldActiveRemovedField()));
-            Assert.That(shieldAuthoring, Does.Not.Contain(ShieldBlockRemovedField()));
-            Assert.That(shieldAuthoring, Does.Not.Contain("Active" + "LoopPrefab"));
-            Assert.That(shieldAuthoring, Does.Not.Contain("Block" + "BurstPrefab"));
-            Assert.That(shieldPresenter, Does.Not.Contain("Active" + "LoopPrefab"));
-            Assert.That(shieldPresenter, Does.Not.Contain("Block" + "BurstPrefab"));
-
-            Assert.That(shieldPrefab, Does.Not.Contain(ShieldActiveRemovedField()));
-            Assert.That(shieldPrefab, Does.Not.Contain(ShieldBlockRemovedField()));
-            Assert.That(shieldPrefab, Does.Contain("telegraphPrefab"));
-            Assert.That(shieldPrefab, Does.Contain("6cd12717bd9bde896dd0a4a174eb8512"));
+            AssertFileDoesNotExist(FrontFaceShieldAuthoringPath);
+            AssertFileDoesNotExist(FrontFaceShieldAuthoringPath + ".meta");
+            AssertFileDoesNotExist(FrontFaceShieldPresenterPath);
+            AssertFileDoesNotExist(FrontFaceShieldPresenterPath + ".meta");
+            AssertFileDoesNotExist(FrontFaceShieldPrefabPath);
+            AssertFileDoesNotExist(FrontFaceShieldPrefabPath + ".meta");
         }
 
         [Test]
@@ -279,8 +270,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertFileDoesNotExist(CurrentFrontFaceShieldBlockBindingPath);
             AssertFileExists(HostDefaultCueMapPath);
             Assert.That(File.Exists("Assets/_Features/Gameplay/Gameplay_Vfx/Prefabs/EnemyUtilityWindupTelegraphVfx.prefab"), Is.False);
-            AssertFileExists(LegacyFrontFaceShieldTelegraphPrefabPath);
-            AssertFileExists(LegacyFrontFaceShieldTelegraphMaterialPath);
+            AssertFileDoesNotExist(LegacyFrontFaceShieldTelegraphPrefabPath);
+            AssertFileDoesNotExist(LegacyFrontFaceShieldTelegraphPrefabPath + ".meta");
+            AssertFileDoesNotExist(LegacyFrontFaceShieldTelegraphMaterialPath);
+            AssertFileDoesNotExist(LegacyFrontFaceShieldTelegraphMaterialPath + ".meta");
         }
 
         [Test]

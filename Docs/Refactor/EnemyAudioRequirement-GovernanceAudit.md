@@ -82,7 +82,6 @@ Current policy:
 
 Enemy prefabs under the same production presentation folder without an `EnemyAudioAuthoring` profile reference in the audit scan:
 
-- `EnemyView_FrontFaceShield`
 - `EnemyView_Jumping`
 - `EnemyView_Kali`
 - `EnemyView_LockNearbyBoxes`

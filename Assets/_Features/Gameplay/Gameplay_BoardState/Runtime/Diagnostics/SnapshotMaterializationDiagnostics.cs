@@ -709,7 +709,7 @@ namespace Game.Feature.Gameplay.BoardState
         ResolveBeforeAttackAi = 102,
         ResolveEnemyActionBeforeAttack = 103,
         ResolveJumpLanding = 104,
-        ResolvePhaseRelocation = 105,
+        RetiredResolvePhaseRelocation = 105,
         ResolveTileEffectEntityOperations = 106,
         ResolveAttackStage = 107,
         ResolveEnemyActionAfterAttack = 108,

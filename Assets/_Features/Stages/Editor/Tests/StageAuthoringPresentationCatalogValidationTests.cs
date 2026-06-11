@@ -319,19 +319,16 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void LegacyStageSpawnPresentationId_IsNotCanonicalPresentationBindingSource()
+        public void SpawnPresentationId_IsNotCanonicalPresentationBindingSource()
         {
             using var fixture = PresentationCatalogFixture.CreateBindingOnly(
                 enemyCatalogIds: new[] { "enemy-view" },
                 staticCatalogIds: new[] { "box-view" });
-            fixture.SetEnemySpawnPresentationId("missing-legacy-enemy-view");
-
-            var report = fixture.Validate();
 
             Assert.That(
-                report.Issues.Any(IsMissingPresentationIdIssue),
+                fixture.HasEnemySpawnPresentationIdProperty(),
                 Is.False,
-                FormatIssues(report));
+                "Presentation ids are validated through StagePresentationDefinition bindings, not StageSpawnDefinition.");
         }
 
         [Test]
@@ -714,15 +711,13 @@ namespace Game.Feature.Stages.Editor.Tests
                 serializedObject.ApplyModifiedPropertiesWithoutUndo();
             }
 
-            public void SetEnemySpawnPresentationId(string presentationId)
+            public bool HasEnemySpawnPresentationIdProperty()
             {
                 var serializedObject = new SerializedObject(Gameplay);
-                serializedObject
+                return serializedObject
                     .FindProperty("enemySpawns")
                     .GetArrayElementAtIndex(0)
-                    .FindPropertyRelative("PresentationId")
-                    .stringValue = presentationId ?? string.Empty;
-                serializedObject.ApplyModifiedPropertiesWithoutUndo();
+                    .FindPropertyRelative("PresentationId") != null;
             }
 
             public void SetEnemyVfxProfile(string presentationId, VfxProfileAsset profile)

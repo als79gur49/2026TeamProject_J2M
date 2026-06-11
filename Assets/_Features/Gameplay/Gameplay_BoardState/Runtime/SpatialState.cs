@@ -26,7 +26,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
         None = 0,
         MovementPreMovement = 1,
-        EnemyPreMovement = 2,
+        RetiredEnemyPreMovement = 2,
         DebugForced = 3,
         SystemPreMovementValidation = 4,
     }
@@ -63,18 +63,6 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return CreateActive(
                 PhasedRuntimeStateOwnerKind.MovementPreMovement,
-                previousState,
-                tickIndex,
-                exitTickExclusive);
-        }
-
-        public static PhasedRuntimeState BeginEnemyPreMovement(
-            in PhasedRuntimeState previousState,
-            int tickIndex,
-            int exitTickExclusive = 0)
-        {
-            return CreateActive(
-                PhasedRuntimeStateOwnerKind.EnemyPreMovement,
                 previousState,
                 tickIndex,
                 exitTickExclusive);
@@ -243,17 +231,17 @@ namespace Game.Feature.Gameplay.BoardState
                         lifecycleRule: "EnterDuringFlipWindup|SustainAcrossWindup|ExitOnExecuteOrCancel");
                     return true;
 
-                case PhasedRuntimeStateOwnerKind.EnemyPreMovement:
+                case PhasedRuntimeStateOwnerKind.RetiredEnemyPreMovement:
                     metadata = new PhasedSourceMetadata(
                         ownerKind,
                         PhasedSourceEmittingStage.PreMovementState,
-                        "EnemyLockedTargetCrossThroughValidator",
+                        "RetiredEnemyLockedTargetCrossThroughValidator",
                         PhasedTargetabilityMode.FreshSelectionSuppressedWithCurrentEnemyLockRetention,
                         PhasedRequestedTerminalSettleMode.AnchoredLikeDefault,
                         PhasedReservationReadClass.CellOnlyPreSettle,
                         PhasedEarliestObservableSnapshot.PlanSnapshot,
-                        cancelReplaceRule: "ExplicitClearRequiredForForeignOwnerReplace",
-                        lifecycleRule: "EnterOnExecuteWindow|ResolveOneFixedCrossThroughAttempt|ExitWhenWindowCloses");
+                        cancelReplaceRule: "RetiredCompatibilitySlot",
+                        lifecycleRule: "RetiredPhaseThroughLockedTargetCompatibilityOnly");
                     return true;
 
                 case PhasedRuntimeStateOwnerKind.DebugForced:

@@ -112,6 +112,13 @@ namespace Game.Feature.Gameplay.Host
 
         public bool HasJumpAirborneTopologySuspendSnapshot => _jumpAirborneTopologySuspendSnapshot.HasValue;
 
+        public int DebugLastJumpAirborneStateShortNameHash => Animator.StringToHash(jumpAirborneStateName);
+
+        public float DebugLastJumpAirborneNormalizedTime =>
+            HasJumpAirborneTopologySuspendSnapshot
+                ? _jumpAirborneTopologySuspendSnapshot.NormalizedTime
+                : _lastJumpAirborneNormalizedTime;
+
         public void SetPresentationPaused(bool paused)
         {
             IsPresentationPaused = paused;
@@ -973,8 +980,7 @@ namespace Game.Feature.Gameplay.Host
             if (!IsJumpAirborneAnimatorState(stateInfo))
             {
                 var ensuredStateHash = ResolveAnimatorStateHash(targetAnimator, jumpAirborneStateName);
-                targetAnimator.Play(ensuredStateHash, 0, Mathf.Max(0f, _lastJumpAirborneNormalizedTime));
-                targetAnimator.Update(0f);
+                PlayAnimatorState(targetAnimator, ensuredStateHash, Mathf.Max(0f, _lastJumpAirborneNormalizedTime));
                 ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.JumpAirborne);
                 LastCrossFadedStateName = jumpAirborneStateName;
                 stateInfo = targetAnimator.GetCurrentAnimatorStateInfo(0);
@@ -1026,8 +1032,7 @@ namespace Game.Feature.Gameplay.Host
 
             var snapshot = _jumpAirborneTopologySuspendSnapshot;
             _jumpAirborneTopologySuspendSnapshot = default;
-            targetAnimator.Play(snapshot.StateHash, 0, snapshot.NormalizedTime);
-            targetAnimator.Update(0f);
+            PlayAnimatorState(targetAnimator, snapshot.StateHash, snapshot.NormalizedTime);
             ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.JumpAirborne);
             _lastJumpAirborneNormalizedTime = snapshot.NormalizedTime;
             LastCrossFadedStateName = jumpAirborneStateName;
@@ -1067,8 +1072,7 @@ namespace Game.Feature.Gameplay.Host
 
             var fallbackNormalizedTime = Mathf.Max(0f, _lastJumpAirborneNormalizedTime);
             var stateHash = ResolveAnimatorStateHash(targetAnimator, jumpAirborneStateName);
-            targetAnimator.Play(stateHash, 0, fallbackNormalizedTime);
-            targetAnimator.Update(0f);
+            PlayAnimatorState(targetAnimator, stateHash, fallbackNormalizedTime);
             ApplyAnimatorTiming(targetAnimator, EnemyPresentationPhase.JumpAirborne);
             LastCrossFadedStateName = jumpAirborneStateName;
             return true;
@@ -1080,6 +1084,34 @@ namespace Game.Feature.Gameplay.Host
                    stateInfo.IsName($"Base Layer.{jumpAirborneStateName}") ||
                    stateInfo.IsName($"Base Layer.Locomotion.{jumpAirborneStateName}") ||
                    stateInfo.shortNameHash == Animator.StringToHash(jumpAirborneStateName);
+        }
+
+        private void PlayAnimatorState(Animator targetAnimator, int stateHash, float normalizedTime)
+        {
+            targetAnimator.Play(stateHash, 0, normalizedTime);
+            targetAnimator.Update(0f);
+            if (targetAnimator.GetCurrentAnimatorStateInfo(0).shortNameHash != 0)
+            {
+                return;
+            }
+
+            targetAnimator.Rebind();
+            targetAnimator.Play(stateHash, 0, normalizedTime);
+            targetAnimator.Update(0f);
+            if (targetAnimator.GetCurrentAnimatorStateInfo(0).shortNameHash != 0)
+            {
+                return;
+            }
+
+            targetAnimator.Play($"Base Layer.{jumpAirborneStateName}", 0, normalizedTime);
+            targetAnimator.Update(0f);
+            if (targetAnimator.GetCurrentAnimatorStateInfo(0).shortNameHash != 0)
+            {
+                return;
+            }
+
+            targetAnimator.Play(jumpAirborneStateName, 0, normalizedTime);
+            targetAnimator.Update(0f);
         }
 
         private static float NormalizeAnimatorTime(float normalizedTime)

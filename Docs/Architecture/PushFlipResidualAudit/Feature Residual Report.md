@@ -73,13 +73,13 @@ These tests/docs keep capability generalization intact even when content count i
 - Production capability assets set both `blocksPush: 1` and `blocksFlip: 1`.
 - Runtime applies and merges lock states through finalization/batch paths.
 
-`BoxSlideShield` is no longer backed by a Stage-reachable repository profile asset in current campaign content:
+`BoxSlideShield` was retired after the profile asset cleanup:
 
 - `EnemyCapability_FrontFaceShield_BoxSlideShield.asset` was removed with the unused `EnemyAi_FrontFaceShield` profile.
-- Runtime `BoxSlideBlockerQuery` handles `EnemyFrontFaceSupportEffectKind.BoxSlideShield`.
-- Compiler/scenario/replay tests cover it.
+- The runtime FrontFaceSupport / BoxSlideShield state, movement blocker query, replay/hash/trace fields, presentation signals, VFX cues, authoring script, prefab, and material assets were removed in PR D.
+- Push/flip lock behavior remains owned by `BoxInteractionLockState`, `BlocksPush`, `BlocksFlip`, `LockNearbyBoxes`, and GravityField lock usage.
 
-Verdict: keep runtime lock/shield mechanics for a separate feature contraction decision. Profile asset removal is complete; runtime, presentation, replay, and governance residue require their own follow-up.
+Verdict: keep runtime lock mechanics; the retired shield-specific blocker is no longer a current residual.
 
 ## Presentation Consumer Usage
 

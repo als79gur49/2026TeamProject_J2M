@@ -735,10 +735,7 @@ namespace Game.Feature.Gameplay.Loop
             var forwardCellImpactSignals = new List<TickForwardCellImpactPresentationSignal>();
             var forwardCellProjectileArrivalSignals =
                 new List<TickForwardCellProjectileArrivalPresentationSignal>();
-            var frontFaceShieldSourceSignals = new List<TickFrontFaceShieldSourceSignal>();
-            var frontFaceShieldBlockSignals = new List<TickFrontFaceShieldBlockSignal>();
             var summonWindupWarnings = new List<TickSummonWindupWarningSignal>();
-            var frontFaceShieldWindupWarnings = new List<TickFrontFaceShieldWindupWarningSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
             var playerActionAttemptSignals = new List<TickPlayerActionAttemptPresentationSignal>();
             var playerFlipResultTurnSignals = new List<TickPlayerFlipResultTurnSignal>();
@@ -807,11 +804,9 @@ namespace Game.Feature.Gameplay.Loop
             BuildEnemyJumpPresentation(context, enemyJumpSignals);
             BuildEnemyChargePresentation(context, enemyChargeSignals);
             BuildEnemyGlidePresentation(context, enemyGlideSignals);
-            BuildFrontFaceShieldPresentation(context, frontFaceShieldSourceSignals, frontFaceShieldBlockSignals);
             BuildEnemyUtilityWindupPresentation(
                 context,
                 summonWindupWarnings,
-                frontFaceShieldWindupWarnings,
                 enemyUtilitySignals,
                 enemyUtilityPhaseStates,
                 enemyUtilityCooldownSignals,
@@ -836,10 +831,7 @@ namespace Game.Feature.Gameplay.Loop
                           forwardCellProjectileClearSignals.Count == 0 &&
                           forwardCellImpactSignals.Count == 0 &&
                           forwardCellProjectileArrivalSignals.Count == 0 &&
-                          frontFaceShieldSourceSignals.Count == 0 &&
-                          frontFaceShieldBlockSignals.Count == 0 &&
                           summonWindupWarnings.Count == 0 &&
-                          frontFaceShieldWindupWarnings.Count == 0 &&
                           entityExitSignals.Count == 0 &&
                           impactTransientSignals.Count == 0 &&
                           flipImpactSignals.Count == 0 &&
@@ -887,10 +879,7 @@ namespace Game.Feature.Gameplay.Loop
                     impactTransientSignals,
                     flipImpactSignals,
                     summonedEnemyPresentationBindings,
-                    frontFaceShieldSourceSignals,
-                    frontFaceShieldBlockSignals,
                     summonWindupWarnings,
-                    frontFaceShieldWindupWarnings,
                     kinematicMotionTracks,
                     playerDeathHoldSignals,
                     continuousLocomotionTracks,
@@ -2264,7 +2253,6 @@ namespace Game.Feature.Gameplay.Loop
         private static void BuildEnemyUtilityWindupPresentation(
             in TickPresentationBuildContext context,
             List<TickSummonWindupWarningSignal> summonWindupWarnings,
-            List<TickFrontFaceShieldWindupWarningSignal> frontFaceShieldWindupWarnings,
             List<TickEnemyUtilityPresentationSignal> enemyUtilitySignals,
             List<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates,
             List<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals,
@@ -2425,47 +2413,6 @@ namespace Game.Feature.Gameplay.Loop
                                 effectIndex,
                                 effectState.activationSequence));
                     }
-                }
-            }
-
-            var frontFaceSupportEntries = new List<EnemyFrontFaceSupportSnapshotEntry>();
-            context.FinalAuthoritativeSnapshot.EnumerateEnemyFrontFaceSupportStatesOrdered(frontFaceSupportEntries);
-            for (var i = 0; i < frontFaceSupportEntries.Count; i++)
-            {
-                var entry = frontFaceSupportEntries[i];
-                if (!context.FinalAuthoritativeSnapshot.TryGetEntity(entry.EntityId, out var source) ||
-                    !EntityRolePolicy.IsEnemyUnit(source))
-                {
-                    continue;
-                }
-
-                for (var effectIndex = 0; effectIndex < entry.State.EffectStates.Count; effectIndex++)
-                {
-                    var effectState = entry.State.EffectStates[effectIndex];
-                    if (effectState.phase != EnemyFrontFaceSupportEffectPhase.Windup)
-                    {
-                        continue;
-                    }
-
-                    frontFaceShieldWindupWarnings.Add(
-                        new TickFrontFaceShieldWindupWarningSignal(
-                            entry.EntityId,
-                            effectIndex,
-                            source.position,
-                            context.FinalAuthoritativeSnapshot.Topology,
-                            effectState.radius,
-                            effectState.includeSourceCell,
-                            effectState.targetPattern,
-                            effectState.windupStartTick,
-                            effectState.windupEndTick,
-                            effectState.activationSequence,
-                            context.CurrentTickIndex,
-                            BuildUtilityWarningPresentationSeed(
-                                context.CurrentTickIndex,
-                                entry.EntityId,
-                                effectIndex,
-                                source.position,
-                                effectState.activationSequence)));
                 }
             }
 
@@ -2739,45 +2686,6 @@ namespace Game.Feature.Gameplay.Loop
                 seed = (seed * 31) + sourceCell.y;
                 seed = (seed * 31) + activationSequence;
                 return seed;
-            }
-        }
-
-        private static void BuildFrontFaceShieldPresentation(
-            in TickPresentationBuildContext context,
-            List<TickFrontFaceShieldSourceSignal> sourceSignals,
-            List<TickFrontFaceShieldBlockSignal> blockSignals)
-        {
-            var sourceExports = context.MovementPhaseResult.FrontFaceShieldSourceExports;
-            for (var i = 0; i < sourceExports.Count; i++)
-            {
-                var export = sourceExports[i];
-                sourceSignals.Add(
-                    new TickFrontFaceShieldSourceSignal(
-                        export.SourceEntityId,
-                        export.SourceCell,
-                        export.Topology,
-                        export.Radius,
-                        export.IncludeSourceCell,
-                        export.TargetPattern,
-                        export.TickIndex,
-                        export.PresentationSeed));
-            }
-
-            var blockExports = context.MovementPhaseResult.FrontFaceShieldBlockExports;
-            for (var i = 0; i < blockExports.Count; i++)
-            {
-                var export = blockExports[i];
-                blockSignals.Add(
-                    new TickFrontFaceShieldBlockSignal(
-                        export.ShieldSourceEntityId,
-                        export.BoxEntityId,
-                        export.ActorEntityId,
-                        export.BlockedCell,
-                        export.ShieldSourceCell,
-                        export.MovementKind,
-                        export.Topology,
-                        export.TickIndex,
-                        export.PresentationSeed));
             }
         }
 

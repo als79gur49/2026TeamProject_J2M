@@ -285,6 +285,7 @@ namespace Game.Feature.Gameplay.Host
                     !_viewRegistry.TryGetView(entry.Key, out var view) ||
                     view == null)
                 {
+                    _expiredPendingEntityIds.Add(entry.Key);
                     continue;
                 }
 

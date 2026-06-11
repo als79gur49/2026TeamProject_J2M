@@ -2781,7 +2781,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(tileEvent.TileFeatureKind, Is.EqualTo(TileFeatureKind.Barricade));
             Assert.That(tileEvent.TargetEntityId, Is.EqualTo(20));
             Assert.That(tileEvent.Direction, Is.EqualTo(Direction.Right));
-            Assert.That(result.PresentationData.FrontFaceShieldBlocks, Is.Empty);
             Assert.That(snapshotAfter.TryGetEntity(20, out var boxAfter), Is.True);
             Assert.That(boxAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
             Assert.That(boxAfter.state, Is.EqualTo(EntityPhaseState.Idle));
@@ -5651,7 +5650,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new Dictionary<int, EnemyJumpRuntimeState>(),
                 new Dictionary<int, EnemyGlideRuntimeState>(),
                 new Dictionary<int, EnemyUtilityRuntimeState>(),
-                new Dictionary<int, EnemyFrontFaceSupportRuntimeState>(),
                 new Dictionary<int, BoxInteractionLockState>(),
                 new Dictionary<int, EnemyGravityFieldAuraFieldState>(),
                 new Dictionary<int, PhasedRuntimeState>(),

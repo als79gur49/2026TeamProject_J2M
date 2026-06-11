@@ -72,45 +72,6 @@ namespace Game.Feature.Gameplay.Loop
         public JumpLandingKind LandingKind { get; }
     }
 
-    internal sealed class PhaseRelocationPlan
-    {
-        public PhaseRelocationPlan(
-            int actionPlanId,
-            int contestId,
-            int sourceId,
-            int priority,
-            int lockedTargetEntityId,
-            Direction direction,
-            SurfaceCell destinationCell,
-            string ruleLabel)
-        {
-            ActionPlanId = actionPlanId;
-            ContestId = contestId;
-            SourceId = sourceId;
-            Priority = priority;
-            LockedTargetEntityId = lockedTargetEntityId;
-            Direction = direction;
-            DestinationCell = destinationCell;
-            RuleLabel = ruleLabel ?? string.Empty;
-        }
-
-        public int ActionPlanId { get; }
-
-        public int ContestId { get; }
-
-        public int SourceId { get; }
-
-        public int Priority { get; }
-
-        public int LockedTargetEntityId { get; }
-
-        public Direction Direction { get; }
-
-        public SurfaceCell DestinationCell { get; }
-
-        public string RuleLabel { get; }
-    }
-
     internal enum SpawnSourceKind
     {
         Attack = 0,

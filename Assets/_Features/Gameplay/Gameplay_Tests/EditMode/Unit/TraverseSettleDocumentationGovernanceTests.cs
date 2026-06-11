@@ -66,12 +66,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(spec, Does.Contain("current enemy lock retention is `EnemyActionStateTargeting` current lock path 전용 narrow hook"));
             Assert.That(spec, Does.Contain("current implementation default"));
             Assert.That(spec, Does.Contain("internal validation owner, not public scripted framework"));
-            Assert.That(spec, Does.Contain("baseline validator consumer"));
-            Assert.That(spec, Does.Contain("locked-target dependency is current validator-local dependency, not generic phase dependency"));
-            Assert.That(spec, Does.Contain("same-face / straight-line / target-behind +1 / single-terminal chooser are local geometry rules, not reusable phase template"));
-            Assert.That(appendix, Does.Contain("validator, not a movement framework"));
-            Assert.That(appendix, Does.Contain("baseline validator consumer"));
-            Assert.That(appendix, Does.Contain("not reusable phase template"));
+            Assert.That(spec, Does.Contain("retired enemy locked-target cross-through / phase relocation slots remain compatibility-only"));
+            Assert.That(appendix, Does.Contain("Retired PhaseThrough Note"));
+            Assert.That(appendix, Does.Contain("PhaseThroughLockedTarget"));
+            Assert.That(appendix, Does.Contain("retired synthetic/runtime residue"));
             Assert.That(appendix, Does.Contain("Deferred lock taxonomy"));
             Assert.That(appendix, Does.Contain("generic lock framework의 seed"));
             Assert.That(appendix, Does.Contain("primary truth는 semantic contract"));
@@ -82,21 +80,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PhasedDocs_RecordBaselineValidatorHandoff_And_TraceContract()
+        public void PhasedDocs_RecordRetiredPhaseThroughCompatibility_And_NoCurrentTraceContract()
         {
             var appendix = ReadRepoFile("Docs/Architecture/Gameplay-Rules-Appendix.md");
             var baseline = ReadRepoFile("Docs/Testing/Phased-v2-Horizontal-Expansion-Validation-Baseline-2026-04-19.md");
 
-            Assert.That(appendix, Does.Contain("Role=BaselineValidatorOnly"));
-            Assert.That(appendix, Does.Contain("LockDependency=CurrentEnemyLockPathOnly"));
-            Assert.That(appendix, Does.Contain("ChooserLocality=SameFace|StraightLine|Behind+1|SingleTerminal"));
-            Assert.That(appendix, Does.Contain("Reservation=TerminalCellOnlyPreSettle"));
-            Assert.That(appendix, Does.Contain("ForbiddenGeneralization=NoRetarget|NoAlternate|NoFallback|NoSameTickCombat"));
-            Assert.That(appendix, Does.Contain("NotEvidenceFor=GeneralizedPhaseMovement|Pathfinding|NonClaimOccupancy|TerminalPhaseSettle"));
-            Assert.That(appendix, Does.Contain("stable trace contract는 `PhaseEnter/Exit`, `Owner`, `Timing`, `ReservationRead`, `Settle`, `ExistingEnemyLock`, `EnemyPhaseRelocation`의 `Label/Target/Direction/Destination/Result`까지만 본다."));
+            Assert.That(appendix, Does.Contain("Retired PhaseThrough Note"));
+            Assert.That(appendix, Does.Contain("numeric enum/owner/diagnostic slots remain reserved for compatibility"));
+            Assert.That(appendix, Does.Contain("Current trace/replay contracts should not require `EnemyPhaseRelocation`"));
             Assert.That(appendix, Does.Contain("implementation detail"));
 
-            Assert.That(baseline, Does.Contain("Role=BaselineValidatorOnly"));
+            Assert.That(baseline, Does.Contain("Role=RetiredBaselineValidatorOnly"));
             Assert.That(baseline, Does.Contain("NotEvidenceFor=GeneralizedPhaseMovement|Pathfinding|NonClaimOccupancy|TerminalPhaseSettle"));
         }
 

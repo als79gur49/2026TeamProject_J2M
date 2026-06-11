@@ -29,6 +29,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private const string GlideChaserProfileAssetPath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_GlideChaser/EnemyAi_GlideChaser.asset";
 
+        private static EnemyAiProfile defaultEnemyProfile;
+        private static EnemyAiProfile chargeEnemyProfile;
+
+        [OneTimeSetUp]
+        public static void OneTimeSetUp()
+        {
+            defaultEnemyProfile = EnemyAiProfileTestFactory.CreateNonAttacking();
+            chargeEnemyProfile = EnemyAiProfileTestFactory.CreateCharging();
+        }
+
+        [OneTimeTearDown]
+        public static void OneTimeTearDown()
+        {
+            EnemyAiProfileTestFactory.Destroy(defaultEnemyProfile);
+            EnemyAiProfileTestFactory.Destroy(chargeEnemyProfile);
+            defaultEnemyProfile = null;
+            chargeEnemyProfile = null;
+        }
+
         [Test]
         [Category("Core")]
         public void BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement()
@@ -1847,7 +1866,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             CompatibilityLayer_RetainedGridTransactions_StillProtected();
             Phase8E_GridTransactionsRemainAllowed();
-            BoundaryInventory_PhaseRelocation_IsScriptedRelocation();
         }
 
         [Test]
@@ -2010,7 +2028,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             BoundaryInventory_GridTransactionsRemainAllowed_UnderDefaultGameplayLocomotion();
             BoundaryInventory_SpawnRespawnCleanup_NotOrdinaryMovement();
-            BoundaryInventory_PhaseRelocation_IsScriptedRelocation();
         }
 
         [Test]
@@ -2080,24 +2097,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 EnemyAiProfileTestFactory.Destroy(jumpProfile);
             }
-
-            var phaseWorld = CreateWorldState(new[]
-            {
-                CreatePlayer(10, new SurfaceCell(FaceId.Floor, 1, 0)),
-                CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
-            });
-            var phasePipeline = new GameplayBootstrapper(
-                    GameplayEntityLogicProviderFactory.CreateDefault(CreatePhaseThroughLockedTargetDefinition()))
-                .CreateTickPipeline(
-                    phaseWorld,
-                    Array.Empty<IEntityLogic>(),
-                    GameplayTimingProfile.CreateDefault(),
-                    CreatePlayerTiming(),
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
-            phasePipeline.RunTick(new TickInput(1));
-            var phaseTick = phasePipeline.RunTick(new TickInput(2));
-            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(phaseTick, 40, MovementExecutionBoundaryKind.ScriptedRelocation);
-            LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(phaseTick);
 
             var glideProfile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 1, durationTicks: 1, recoveryTicks: 1, cooldownTicks: 1));
@@ -2172,31 +2171,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 EnemyAiProfileTestFactory.Destroy(jumpProfile);
             }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void BoundaryInventory_PhaseRelocation_IsScriptedRelocation()
-        {
-            var phaseWorld = CreateWorldState(new[]
-            {
-                CreatePlayer(10, new SurfaceCell(FaceId.Floor, 1, 0)),
-                CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
-            });
-            var phasePipeline = new GameplayBootstrapper(
-                    GameplayEntityLogicProviderFactory.CreateDefault(CreatePhaseThroughLockedTargetDefinition()))
-                .CreateTickPipeline(
-                    phaseWorld,
-                    Array.Empty<IEntityLogic>(),
-                    GameplayTimingProfile.CreateDefault(),
-                    CreatePlayerTiming(),
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
-
-            phasePipeline.RunTick(new TickInput(1));
-            var phaseTick = phasePipeline.RunTick(new TickInput(2));
-
-            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(phaseTick, 40, MovementExecutionBoundaryKind.ScriptedRelocation);
-            LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(phaseTick);
         }
 
         [Test]
@@ -2600,22 +2574,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .RunTick(new TickInput(1));
             LegacyMovementBoundaryAssert.NoUnexpectedUnknownMovementBoundaryAllowingStateOnly(pushTick);
 
-            var phaseWorld = CreateWorldState(new[]
-            {
-                CreatePlayer(10, new SurfaceCell(FaceId.Floor, 1, 0)),
-                CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
-            });
-            var phasePipeline = new GameplayBootstrapper(
-                    GameplayEntityLogicProviderFactory.CreateDefault(CreatePhaseThroughLockedTargetDefinition()))
-                .CreateTickPipeline(
-                    phaseWorld,
-                    Array.Empty<IEntityLogic>(),
-                    GameplayTimingProfile.CreateDefault(),
-                    CreatePlayerTiming(),
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
-            phasePipeline.RunTick(new TickInput(1));
-            var phaseTick = phasePipeline.RunTick(new TickInput(2));
-            LegacyMovementBoundaryAssert.NoUnexpectedUnknownMovementBoundaryAllowingStateOnly(phaseTick);
         }
 
         [Test]
@@ -2846,13 +2804,47 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             GameplayRuntimeFeatureFlags runtimeFeatureFlags,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
-            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+            return GameplayCompositionRoot.CreateDefaultBootstrapper(ResolveDefaultEnemyProfile(worldState)).CreateTickPipeline(
                 worldState,
                 entityLogics,
                 GameplayTimingProfile.CreateDefault(),
                 CreatePlayerTiming(),
                 runtimeFeatureFlags: runtimeFeatureFlags,
                 tileFeatureDefinitions: tileFeatureDefinitions);
+        }
+
+        private static EnemyAiProfile ResolveDefaultEnemyProfile(WorldState worldState)
+        {
+            if (worldState == null)
+            {
+                return RequireDefaultEnemyProfile();
+            }
+
+            var snapshot = worldState.CreateSnapshot();
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+            for (var i = 0; i < entities.Count; i++)
+            {
+                if (entities[i].type == EntityType.Unit &&
+                    entities[i].aiMode == EnemyAiMode.Charge)
+                {
+                    return RequireChargeEnemyProfile();
+                }
+            }
+
+            return RequireDefaultEnemyProfile();
+        }
+
+        private static EnemyAiProfile RequireDefaultEnemyProfile()
+        {
+            Assert.That(defaultEnemyProfile, Is.Not.Null, "BoundaryInventory test default enemy profile was not initialized.");
+            return defaultEnemyProfile;
+        }
+
+        private static EnemyAiProfile RequireChargeEnemyProfile()
+        {
+            Assert.That(chargeEnemyProfile, Is.Not.Null, "BoundaryInventory test charge enemy profile was not initialized.");
+            return chargeEnemyProfile;
         }
 
         private static TickPipeline CreatePipelineWithoutGeneratedEntityLogics(
@@ -3143,28 +3135,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 TileFeatureBoxSelector.None,
                 boundEntityId: 0,
                 presentationKey: string.Empty);
-        }
-
-        private static EnemyAiRuntimeDefinition CreatePhaseThroughLockedTargetDefinition()
-        {
-            return new EnemyAiRuntimeDefinition(
-                new EnemyAiCommonSettings(
-                    movementPriority: 50,
-                    attackPriority: 50,
-                    recoverTicks: 1),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateStandardEnemyDetection(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateAdjacentRange(),
-                new EnemyAttackTimingSettings(windupTicks: 1),
-                EnemyLocomotionTimingSettings.CreateImmediate(),
-                MovementSkillStrategyKind.PhaseThroughLockedTarget,
-                EnemyJumpTimingSettings.CreateDefault(),
-                ForwardPatrolStrategy.Instance,
-                NearestOpponentDetectionStrategy.Instance,
-                AxisPriorityChaseStrategy.Instance,
-                WindupForwardCellProjectileAttackDecisionStrategy.Instance,
-                DefaultEnemyAiStateResolver.Instance);
         }
 
         private sealed class ScriptedMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding

@@ -51,7 +51,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var body = ExtractMethodBody(source, "private void ResolveImpactSpaceContestsCanonical(");
 
             AssertContainsNoForbiddenTokens(body, ImpactForbiddenTokens);
-            Assert.That(body, Does.Contain("RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough("));
+            Assert.That(body, Does.Contain("RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThroughDetailed("));
             Assert.That(body, Does.Contain("new SettlementContext("));
             Assert.That(body, Does.Contain("new ImpactFollowThroughEvidence("));
         }

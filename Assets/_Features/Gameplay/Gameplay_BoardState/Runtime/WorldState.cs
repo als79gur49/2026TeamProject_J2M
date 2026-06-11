@@ -23,7 +23,6 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId = new();
         private readonly Dictionary<int, EnemyGlideRuntimeState> _enemyGlideStatesByEntityId = new();
         private readonly Dictionary<int, EnemyUtilityRuntimeState> _enemyUtilityStatesByEntityId = new();
-        private readonly Dictionary<int, EnemyFrontFaceSupportRuntimeState> _enemyFrontFaceSupportStatesByEntityId = new();
         private readonly Dictionary<int, BoxInteractionLockState> _boxInteractionLockStatesByEntityId = new();
         private readonly Dictionary<int, EnemyGravityFieldAuraFieldState> _enemyGravityFieldAuraFieldsById = new();
         private readonly Dictionary<int, PhasedRuntimeState> _phasedStatesByEntityId = new();
@@ -179,7 +178,6 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, EnemyJumpRuntimeState>(_enemyJumpStatesByEntityId),
                 new Dictionary<int, EnemyGlideRuntimeState>(_enemyGlideStatesByEntityId),
                 new Dictionary<int, EnemyUtilityRuntimeState>(_enemyUtilityStatesByEntityId),
-                new Dictionary<int, EnemyFrontFaceSupportRuntimeState>(_enemyFrontFaceSupportStatesByEntityId),
                 new Dictionary<int, BoxInteractionLockState>(_boxInteractionLockStatesByEntityId),
                 new Dictionary<int, EnemyGravityFieldAuraFieldState>(_enemyGravityFieldAuraFieldsById),
                 new Dictionary<int, PhasedRuntimeState>(_phasedStatesByEntityId),
@@ -213,7 +211,6 @@ namespace Game.Feature.Gameplay.BoardState
             snapshot.CopyEnemyJumpStatesByEntityIdTo(_enemyJumpStatesByEntityId);
             snapshot.CopyEnemyGlideStatesByEntityIdTo(_enemyGlideStatesByEntityId);
             snapshot.CopyEnemyUtilityStatesByEntityIdTo(_enemyUtilityStatesByEntityId);
-            snapshot.CopyEnemyFrontFaceSupportStatesByEntityIdTo(_enemyFrontFaceSupportStatesByEntityId);
             snapshot.CopyBoxInteractionLockStatesByEntityIdTo(_boxInteractionLockStatesByEntityId);
             snapshot.CopyEnemyGravityFieldAuraFieldsByIdTo(_enemyGravityFieldAuraFieldsById);
             snapshot.CopyPhasedStatesByEntityIdTo(_phasedStatesByEntityId);
@@ -291,7 +288,6 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyJumpStatesByEntityId.Remove(entityId);
             _enemyGlideStatesByEntityId.Remove(entityId);
             _enemyUtilityStatesByEntityId.Remove(entityId);
-            _enemyFrontFaceSupportStatesByEntityId.Remove(entityId);
             _boxInteractionLockStatesByEntityId.Remove(entityId);
             _phasedStatesByEntityId.Remove(entityId);
             _playerDamageStatesByEntityId.Remove(entityId);
@@ -316,7 +312,6 @@ namespace Game.Feature.Gameplay.BoardState
                 ClearChargeState(entityId);
                 _phasedStatesByEntityId.Remove(entityId);
                 _enemyGlideStatesByEntityId.Remove(entityId);
-                _enemyFrontFaceSupportStatesByEntityId.Remove(entityId);
             }
         }
 
@@ -381,7 +376,6 @@ namespace Game.Feature.Gameplay.BoardState
             ClearChargeState(entityId);
             _phasedStatesByEntityId.Remove(entityId);
             _enemyGlideStatesByEntityId.Remove(entityId);
-            _enemyFrontFaceSupportStatesByEntityId.Remove(entityId);
         }
 
         private void SetFacing(int entityId, Direction facing)
@@ -597,17 +591,6 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _enemyUtilityStatesByEntityId[entityId] = state;
-        }
-
-        internal void SetEnemyFrontFaceSupportState(int entityId, EnemyFrontFaceSupportRuntimeState state)
-        {
-            if (!_entitiesById.ContainsKey(entityId) ||
-                state == null)
-            {
-                return;
-            }
-
-            _enemyFrontFaceSupportStatesByEntityId[entityId] = state;
         }
 
         internal void SetSummonedEntityState(int entityId, SummonedEntityState state)
@@ -1028,31 +1011,6 @@ namespace Game.Feature.Gameplay.BoardState
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
         }
 
-        internal bool TryGetEnemyFrontFaceSupportState(int entityId, out EnemyFrontFaceSupportRuntimeState state)
-        {
-            return _enemyFrontFaceSupportStatesByEntityId.TryGetValue(entityId, out state);
-        }
-
-        internal void RemoveEnemyFrontFaceSupportState(int entityId)
-        {
-            _enemyFrontFaceSupportStatesByEntityId.Remove(entityId);
-        }
-
-        internal void EnumerateEnemyFrontFaceSupportStatesOrdered(List<EnemyFrontFaceSupportSnapshotEntry> buffer)
-        {
-            if (buffer == null)
-            {
-                throw new ArgumentNullException(nameof(buffer));
-            }
-
-            buffer.Clear();
-            foreach (var pair in _enemyFrontFaceSupportStatesByEntityId)
-            {
-                buffer.Add(new EnemyFrontFaceSupportSnapshotEntry(pair.Key, pair.Value));
-            }
-
-            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
-        }
 
         internal bool TryGetBoxInteractionLockState(int entityId, out BoxInteractionLockState state)
         {
@@ -1427,11 +1385,6 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state)
         {
             SetEnemyUtilityState(entityId, state);
-        }
-
-        void IWorldStateMutationPort.SetEnemyFrontFaceSupportState(int entityId, EnemyFrontFaceSupportRuntimeState state)
-        {
-            SetEnemyFrontFaceSupportState(entityId, state);
         }
 
         void IWorldStateMutationPort.SetSummonedEntityState(int entityId, SummonedEntityState state)

@@ -80,7 +80,7 @@ namespace Game.Feature.Gameplay.Entities
         MovementSkill = 1,
         PassiveContact = 2,
         Utility = 3,
-        FrontFaceSupport = 4,
+        RetiredFrontFaceSupport = 4,
     }
 
     public enum EnemyUtilityEffectKind
@@ -96,18 +96,6 @@ namespace Game.Feature.Gameplay.Entities
     }
 
     public enum BoxLockTargetPattern
-    {
-        OrthogonalAdjacent4 = 0,
-        ManhattanRadius = 1,
-        SquareRadius = 2,
-    }
-
-    public enum EnemyFrontFaceSupportEffectKind
-    {
-        BoxSlideShield = 0,
-    }
-
-    public enum FrontFaceShieldTargetPattern
     {
         OrthogonalAdjacent4 = 0,
         ManhattanRadius = 1,
@@ -521,6 +509,13 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Movement skill runtime requires a concrete movement skill kind.", nameof(kind));
             }
 
+            if (kind == MovementSkillStrategyKind.RetiredPhaseThroughLockedTarget)
+            {
+                throw new ArgumentException(
+                    "Movement skill 'RetiredPhaseThroughLockedTarget' is retired and cannot compile into active runtime behavior.",
+                    nameof(kind));
+            }
+
             Kind = kind;
             _jumpTimingSettings = jumpTimingSettings;
             _glideTimingSettings = glideTimingSettings;
@@ -540,8 +535,7 @@ namespace Game.Feature.Gameplay.Entities
         {
             get
             {
-                if (Kind != MovementSkillStrategyKind.JumpToLockedTarget &&
-                    Kind != MovementSkillStrategyKind.PhaseThroughLockedTarget)
+                if (Kind != MovementSkillStrategyKind.JumpToLockedTarget)
                 {
                     throw new InvalidOperationException(
                         $"Movement skill '{Kind}' does not expose jump timing settings.");
@@ -584,7 +578,6 @@ namespace Game.Feature.Gameplay.Entities
             switch (Kind)
             {
                 case MovementSkillStrategyKind.JumpToLockedTarget:
-                case MovementSkillStrategyKind.PhaseThroughLockedTarget:
                     _jumpTimingSettings.Validate(paramName);
                     break;
 
@@ -592,6 +585,11 @@ namespace Game.Feature.Gameplay.Entities
                     _glideTimingSettings.Validate(paramName);
                     _glidePresentationSettings.Validate(paramName);
                     break;
+
+                case MovementSkillStrategyKind.RetiredPhaseThroughLockedTarget:
+                    throw new ArgumentException(
+                        "Movement skill 'RetiredPhaseThroughLockedTarget' is retired and cannot compile into active runtime behavior.",
+                        paramName);
 
                 case MovementSkillStrategyKind.None:
                 default:
@@ -1076,228 +1074,18 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    public readonly struct BoxSlideShieldRuntime
-    {
-        public BoxSlideShieldRuntime(
-            int radius,
-            bool includeSourceCell,
-            FrontFaceShieldTargetPattern targetPattern,
-            int windupTicks = 1,
-            int cooldownTicks = 1)
-            : this(
-                radius: radius,
-                includeSourceCell: includeSourceCell,
-                targetPattern: targetPattern,
-                initialDelayTicks: 0,
-                windupTicks: windupTicks,
-                cooldownTicks: cooldownTicks)
-        {
-        }
-
-        public BoxSlideShieldRuntime(
-            int radius,
-            bool includeSourceCell,
-            FrontFaceShieldTargetPattern targetPattern,
-            int initialDelayTicks,
-            int windupTicks,
-            int cooldownTicks)
-        {
-            Radius = radius;
-            IncludeSourceCell = includeSourceCell;
-            TargetPattern = targetPattern;
-            InitialDelayTicks = initialDelayTicks;
-            WindupTicks = windupTicks;
-            CooldownTicks = cooldownTicks;
-            Validate(nameof(BoxSlideShieldRuntime));
-        }
-
-        public int Radius { get; }
-
-        public bool IncludeSourceCell { get; }
-
-        public FrontFaceShieldTargetPattern TargetPattern { get; }
-
-        public int InitialDelayTicks { get; }
-
-        public int WindupTicks { get; }
-
-        public int CooldownTicks { get; }
-
-        public void Validate(string paramName)
-        {
-            if (Radius <= 0)
-            {
-                throw new ArgumentException("Box slide shield runtime requires a positive radius.", paramName);
-            }
-
-            if (InitialDelayTicks < 0)
-            {
-                throw new ArgumentException("Box slide shield runtime requires a non-negative initial delay.", paramName);
-            }
-
-            if (WindupTicks <= 0)
-            {
-                throw new ArgumentException("Box slide shield runtime requires a positive windup duration.", paramName);
-            }
-
-            if (CooldownTicks <= 0)
-            {
-                throw new ArgumentException("Box slide shield runtime requires a positive cooldown.", paramName);
-            }
-
-            switch (TargetPattern)
-            {
-                case FrontFaceShieldTargetPattern.OrthogonalAdjacent4:
-                case FrontFaceShieldTargetPattern.ManhattanRadius:
-                case FrontFaceShieldTargetPattern.SquareRadius:
-                    return;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(TargetPattern), TargetPattern, "Unsupported front-face shield target pattern.");
-            }
-        }
-    }
-
-    public sealed class EnemyFrontFaceSupportEffectRuntime
-    {
-        public EnemyFrontFaceSupportEffectRuntime(
-            EnemyFrontFaceSupportEffectKind kind,
-            BoxSlideShieldRuntime boxSlideShield = default)
-        {
-            Kind = kind;
-            BoxSlideShield = boxSlideShield;
-            Validate(nameof(EnemyFrontFaceSupportEffectRuntime));
-        }
-
-        public EnemyFrontFaceSupportEffectKind Kind { get; }
-
-        public BoxSlideShieldRuntime BoxSlideShield { get; }
-
-        public void Validate(string paramName)
-        {
-            switch (Kind)
-            {
-                case EnemyFrontFaceSupportEffectKind.BoxSlideShield:
-                    BoxSlideShield.Validate(paramName);
-                    break;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Unknown front-face support effect kind.");
-            }
-        }
-    }
-
-    public sealed class EnemyFrontFaceSupportCapabilityRuntime : EnemyCapabilityRuntime
-    {
-        private readonly ReadOnlyCollection<EnemyFrontFaceSupportEffectRuntime> _effects;
-
-        public EnemyFrontFaceSupportCapabilityRuntime(
-            IEnumerable<EnemyFrontFaceSupportEffectRuntime> effects)
-        {
-            if (effects == null)
-            {
-                throw new ArgumentNullException(nameof(effects));
-            }
-
-            var compiledEffects = new List<EnemyFrontFaceSupportEffectRuntime>();
-            foreach (var effect in effects)
-            {
-                if (effect == null)
-                {
-                    throw new ArgumentException("Front-face support capability runtime cannot contain null effects.", nameof(effects));
-                }
-
-                compiledEffects.Add(effect);
-            }
-
-            _effects = new ReadOnlyCollection<EnemyFrontFaceSupportEffectRuntime>(compiledEffects);
-            Validate(nameof(EnemyFrontFaceSupportCapabilityRuntime));
-        }
-
-        public override EnemyCapabilityFamily Family => EnemyCapabilityFamily.FrontFaceSupport;
-
-        public IReadOnlyList<EnemyFrontFaceSupportEffectRuntime> Effects => _effects;
-
-        public override void Validate(string paramName)
-        {
-            for (var i = 0; i < _effects.Count; i++)
-            {
-                _effects[i].Validate(paramName);
-            }
-        }
-    }
-
-    public readonly struct FrontFaceSupportContributor
-    {
-        public FrontFaceSupportContributor(
-            int sourceEntityId,
-            SurfaceCell sourceCell,
-            int effectIndex,
-            EnemyFrontFaceSupportEffectRuntime effectRuntime)
-        {
-            SourceEntityId = sourceEntityId;
-            SourceCell = sourceCell;
-            EffectIndex = effectIndex;
-            EffectRuntime = effectRuntime ?? throw new ArgumentNullException(nameof(effectRuntime));
-        }
-
-        public int SourceEntityId { get; }
-
-        public SurfaceCell SourceCell { get; }
-
-        public int EffectIndex { get; }
-
-        public EnemyFrontFaceSupportEffectRuntime EffectRuntime { get; }
-    }
-
-    internal sealed class FrontFaceSupportContributorComparer : IComparer<FrontFaceSupportContributor>
-    {
-        internal static readonly FrontFaceSupportContributorComparer Instance = new();
-
-        public int Compare(FrontFaceSupportContributor left, FrontFaceSupportContributor right)
-        {
-            var sourceComparison = left.SourceEntityId.CompareTo(right.SourceEntityId);
-            if (sourceComparison != 0)
-            {
-                return sourceComparison;
-            }
-
-            var effectComparison = left.EffectIndex.CompareTo(right.EffectIndex);
-            if (effectComparison != 0)
-            {
-                return effectComparison;
-            }
-
-            var faceComparison = left.SourceCell.face.CompareTo(right.SourceCell.face);
-            if (faceComparison != 0)
-            {
-                return faceComparison;
-            }
-
-            var xComparison = left.SourceCell.x.CompareTo(right.SourceCell.x);
-            if (xComparison != 0)
-            {
-                return xComparison;
-            }
-
-            return left.SourceCell.y.CompareTo(right.SourceCell.y);
-        }
-    }
-
     public readonly struct EnemyCapabilityRuntimeSet
     {
         public EnemyCapabilityRuntimeSet(
             EnemyCombatCapabilityRuntime combat,
             EnemyMovementSkillCapabilityRuntime movementSkill,
             EnemyPassiveContactCapabilityRuntime passiveContact,
-            EnemyUtilityCapabilityRuntime utility,
-            EnemyFrontFaceSupportCapabilityRuntime frontFaceSupport)
+            EnemyUtilityCapabilityRuntime utility)
         {
             Combat = combat;
             MovementSkill = movementSkill;
             PassiveContact = passiveContact;
             Utility = utility;
-            FrontFaceSupport = frontFaceSupport;
             Validate(nameof(EnemyCapabilityRuntimeSet));
         }
 
@@ -1308,8 +1096,6 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyPassiveContactCapabilityRuntime PassiveContact { get; }
 
         public EnemyUtilityCapabilityRuntime Utility { get; }
-
-        public EnemyFrontFaceSupportCapabilityRuntime FrontFaceSupport { get; }
 
         public bool TryGetCombat(out EnemyCombatCapabilityRuntime combat)
         {
@@ -1335,19 +1121,12 @@ namespace Game.Feature.Gameplay.Entities
             return utility != null;
         }
 
-        public bool TryGetFrontFaceSupport(out EnemyFrontFaceSupportCapabilityRuntime frontFaceSupport)
-        {
-            frontFaceSupport = FrontFaceSupport;
-            return frontFaceSupport != null;
-        }
-
         public void Validate(string paramName)
         {
             Combat?.Validate(paramName);
             MovementSkill?.Validate(paramName);
             PassiveContact?.Validate(paramName);
             Utility?.Validate(paramName);
-            FrontFaceSupport?.Validate(paramName);
         }
     }
 
@@ -1528,151 +1307,6 @@ namespace Game.Feature.Gameplay.Entities
                     left.EffectStates[i].recoverEndTickExclusive != right.EffectStates[i].recoverEndTickExclusive ||
                     left.EffectStates[i].activationSequence != right.EffectStates[i].activationSequence ||
                     left.EffectStates[i].movementSuppressionUntilTickInclusive != right.EffectStates[i].movementSuppressionUntilTickInclusive)
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-    }
-
-    public enum EnemyFrontFaceSupportEffectPhase
-    {
-        None = 0,
-        Windup = 1,
-        Active = 2,
-    }
-
-    public struct EnemyFrontFaceSupportEffectState
-    {
-        public EnemyFrontFaceSupportEffectPhase phase;
-        public int windupStartTick;
-        public int windupEndTick;
-        public int activationSequence;
-        public int cooldownTicksRemaining;
-        public int radius;
-        public bool includeSourceCell;
-        public FrontFaceShieldTargetPattern targetPattern;
-    }
-
-    public sealed class EnemyFrontFaceSupportRuntimeState
-    {
-        private readonly ReadOnlyCollection<EnemyFrontFaceSupportEffectState> _effectStates;
-
-        public EnemyFrontFaceSupportRuntimeState(IEnumerable<EnemyFrontFaceSupportEffectState> effectStates)
-        {
-            if (effectStates == null)
-            {
-                throw new ArgumentNullException(nameof(effectStates));
-            }
-
-            var copiedStates = new List<EnemyFrontFaceSupportEffectState>();
-            foreach (var effectState in effectStates)
-            {
-                copiedStates.Add(effectState);
-            }
-
-            _effectStates = new ReadOnlyCollection<EnemyFrontFaceSupportEffectState>(copiedStates);
-        }
-
-        public IReadOnlyList<EnemyFrontFaceSupportEffectState> EffectStates => _effectStates;
-
-        public bool HasEffectCount(int expectedCount)
-        {
-            return _effectStates.Count == Math.Max(0, expectedCount);
-        }
-    }
-
-    public readonly struct EnemyFrontFaceSupportSnapshotEntry
-    {
-        public EnemyFrontFaceSupportSnapshotEntry(int entityId, EnemyFrontFaceSupportRuntimeState state)
-        {
-            EntityId = entityId;
-            State = state ?? throw new ArgumentNullException(nameof(state));
-        }
-
-        public int EntityId { get; }
-
-        public EnemyFrontFaceSupportRuntimeState State { get; }
-    }
-
-    internal static class EnemyFrontFaceSupportStateQueries
-    {
-        public static EnemyFrontFaceSupportRuntimeState CreateInitialState(EnemyFrontFaceSupportCapabilityRuntime capability)
-        {
-            if (capability == null)
-            {
-                throw new ArgumentNullException(nameof(capability));
-            }
-
-            var effectStates = new EnemyFrontFaceSupportEffectState[capability.Effects.Count];
-            for (var i = 0; i < capability.Effects.Count; i++)
-            {
-                effectStates[i] = CreateInactiveEffectState(capability.Effects[i], previousActivationSequence: 0);
-                if (capability.Effects[i].Kind == EnemyFrontFaceSupportEffectKind.BoxSlideShield)
-                {
-                    effectStates[i].cooldownTicksRemaining = capability.Effects[i].BoxSlideShield.InitialDelayTicks;
-                }
-            }
-
-            return new EnemyFrontFaceSupportRuntimeState(effectStates);
-        }
-
-        public static EnemyFrontFaceSupportEffectState CreateInactiveEffectState(
-            EnemyFrontFaceSupportEffectRuntime effectRuntime,
-            int previousActivationSequence)
-        {
-            if (effectRuntime == null)
-            {
-                throw new ArgumentNullException(nameof(effectRuntime));
-            }
-
-            var state = new EnemyFrontFaceSupportEffectState
-            {
-                phase = EnemyFrontFaceSupportEffectPhase.None,
-                activationSequence = Math.Max(0, previousActivationSequence),
-            };
-
-            if (effectRuntime.Kind == EnemyFrontFaceSupportEffectKind.BoxSlideShield)
-            {
-                state.radius = effectRuntime.BoxSlideShield.Radius;
-                state.includeSourceCell = effectRuntime.BoxSlideShield.IncludeSourceCell;
-                state.targetPattern = effectRuntime.BoxSlideShield.TargetPattern;
-            }
-
-            return state;
-        }
-
-        public static bool AreEqual(EnemyFrontFaceSupportRuntimeState left, EnemyFrontFaceSupportRuntimeState right)
-        {
-            if (ReferenceEquals(left, right))
-            {
-                return true;
-            }
-
-            if (left == null || right == null)
-            {
-                return false;
-            }
-
-            if (left.EffectStates.Count != right.EffectStates.Count)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < left.EffectStates.Count; i++)
-            {
-                var leftState = left.EffectStates[i];
-                var rightState = right.EffectStates[i];
-                if (leftState.phase != rightState.phase ||
-                    leftState.windupStartTick != rightState.windupStartTick ||
-                    leftState.windupEndTick != rightState.windupEndTick ||
-                    leftState.activationSequence != rightState.activationSequence ||
-                    leftState.cooldownTicksRemaining != rightState.cooldownTicksRemaining ||
-                    leftState.radius != rightState.radius ||
-                    leftState.includeSourceCell != rightState.includeSourceCell ||
-                    leftState.targetPattern != rightState.targetPattern)
                 {
                     return false;
                 }

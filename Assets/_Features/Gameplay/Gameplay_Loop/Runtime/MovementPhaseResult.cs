@@ -8,88 +8,6 @@ using Game.Feature.Gameplay.Movement.Intents;
 
 namespace Game.Feature.Gameplay.Loop
 {
-    internal readonly struct FrontFaceShieldSourcePresentationExport
-    {
-        public FrontFaceShieldSourcePresentationExport(
-            int sourceEntityId,
-            SurfaceCell sourceCell,
-            CubeTopologyState topology,
-            int radius,
-            bool includeSourceCell,
-            FrontFaceShieldTargetPattern targetPattern,
-            int tickIndex,
-            int presentationSeed)
-        {
-            SourceEntityId = sourceEntityId;
-            SourceCell = sourceCell;
-            Topology = topology;
-            Radius = radius;
-            IncludeSourceCell = includeSourceCell;
-            TargetPattern = targetPattern;
-            TickIndex = tickIndex;
-            PresentationSeed = presentationSeed;
-        }
-
-        public int SourceEntityId { get; }
-
-        public SurfaceCell SourceCell { get; }
-
-        public CubeTopologyState Topology { get; }
-
-        public int Radius { get; }
-
-        public bool IncludeSourceCell { get; }
-
-        public FrontFaceShieldTargetPattern TargetPattern { get; }
-
-        public int TickIndex { get; }
-
-        public int PresentationSeed { get; }
-    }
-
-    internal readonly struct FrontFaceShieldBlockPresentationExport
-    {
-        public FrontFaceShieldBlockPresentationExport(
-            int shieldSourceEntityId,
-            int boxEntityId,
-            int actorEntityId,
-            SurfaceCell blockedCell,
-            SurfaceCell shieldSourceCell,
-            FrontFaceShieldBlockMovementKind movementKind,
-            CubeTopologyState topology,
-            int tickIndex,
-            int presentationSeed)
-        {
-            ShieldSourceEntityId = shieldSourceEntityId;
-            BoxEntityId = boxEntityId;
-            ActorEntityId = actorEntityId;
-            BlockedCell = blockedCell;
-            ShieldSourceCell = shieldSourceCell;
-            MovementKind = movementKind;
-            Topology = topology;
-            TickIndex = tickIndex;
-            PresentationSeed = presentationSeed;
-        }
-
-        public int ShieldSourceEntityId { get; }
-
-        public int BoxEntityId { get; }
-
-        public int ActorEntityId { get; }
-
-        public SurfaceCell BlockedCell { get; }
-
-        public SurfaceCell ShieldSourceCell { get; }
-
-        public FrontFaceShieldBlockMovementKind MovementKind { get; }
-
-        public CubeTopologyState Topology { get; }
-
-        public int TickIndex { get; }
-
-        public int PresentationSeed { get; }
-    }
-
     internal readonly struct BarricadeBlockFact
     {
         public BarricadeBlockFact(
@@ -119,7 +37,7 @@ namespace Game.Feature.Gameplay.Loop
         SolidEntity = 1,
         Terrain = 2,
         BoardEdge = 3,
-        Shield = 4,
+        RetiredShield = 4,
         Barricade = 5,
     }
 
@@ -190,8 +108,6 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<FinalizationOperation>(),
             Array.Empty<string>(),
             Array.Empty<string>(),
-            Array.Empty<FrontFaceShieldSourcePresentationExport>(),
-            Array.Empty<FrontFaceShieldBlockPresentationExport>(),
             Array.Empty<BarricadeBlockFact>(),
             Array.Empty<BoxSlideStopResult>(),
             Array.Empty<TickPlayerTopologyTransitionBlockedSignal>(),
@@ -201,8 +117,6 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<BoxSlideStopResult> _boxSlideStops;
         private readonly ReadOnlyCollection<string> _commitEvents;
         private readonly ReadOnlyCollection<string> _debugEvents;
-        private readonly ReadOnlyCollection<FrontFaceShieldBlockPresentationExport> _frontFaceShieldBlockExports;
-        private readonly ReadOnlyCollection<FrontFaceShieldSourcePresentationExport> _frontFaceShieldSourceExports;
         private readonly ReadOnlyCollection<ImpactDispositionResolutionRecord> _impactDispositionRecords;
         private readonly ReadOnlyCollection<TickPlayerTopologyTransitionBlockedSignal> _playerTopologyTransitionBlockedSignals;
         private readonly ReadOnlyCollection<RawMovementIntent> _rawIntents;
@@ -219,8 +133,6 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<FinalizationOperation> resolvedOperations,
             IEnumerable<string> commitEvents,
             IEnumerable<string> rejectedReasons,
-            IEnumerable<FrontFaceShieldSourcePresentationExport> frontFaceShieldSourceExports = null,
-            IEnumerable<FrontFaceShieldBlockPresentationExport> frontFaceShieldBlockExports = null,
             IEnumerable<BarricadeBlockFact> barricadeBlockFacts = null,
             IEnumerable<BoxSlideStopResult> boxSlideStops = null,
             IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null,
@@ -271,12 +183,6 @@ namespace Game.Feature.Gameplay.Loop
             _rejectedReasons = new ReadOnlyCollection<string>(new List<string>(rejectedReasons));
             _debugEvents = new ReadOnlyCollection<string>(
                 new List<string>(debugEvents ?? Array.Empty<string>()));
-            _frontFaceShieldSourceExports = new ReadOnlyCollection<FrontFaceShieldSourcePresentationExport>(
-                new List<FrontFaceShieldSourcePresentationExport>(
-                    frontFaceShieldSourceExports ?? Array.Empty<FrontFaceShieldSourcePresentationExport>()));
-            _frontFaceShieldBlockExports = new ReadOnlyCollection<FrontFaceShieldBlockPresentationExport>(
-                new List<FrontFaceShieldBlockPresentationExport>(
-                    frontFaceShieldBlockExports ?? Array.Empty<FrontFaceShieldBlockPresentationExport>()));
             _barricadeBlockFacts = new ReadOnlyCollection<BarricadeBlockFact>(
                 new List<BarricadeBlockFact>(
                     barricadeBlockFacts ?? Array.Empty<BarricadeBlockFact>()));
@@ -307,12 +213,6 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<string> RejectedReasons => _rejectedReasons;
 
         public IReadOnlyList<string> DebugEvents => _debugEvents;
-
-        internal IReadOnlyList<FrontFaceShieldSourcePresentationExport> FrontFaceShieldSourceExports =>
-            _frontFaceShieldSourceExports;
-
-        internal IReadOnlyList<FrontFaceShieldBlockPresentationExport> FrontFaceShieldBlockExports =>
-            _frontFaceShieldBlockExports;
 
         internal IReadOnlyList<BarricadeBlockFact> BarricadeBlockFacts => _barricadeBlockFacts;
 

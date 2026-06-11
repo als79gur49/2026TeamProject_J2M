@@ -786,7 +786,9 @@ namespace Game.Feature.Stages.Editor.Tests
                 TileId = tileId,
                 Kind = kind,
                 Cell = cell,
-                ActivationRule = TileFeatureActivationRule.BottomFaceOnly,
+                ActivationRule = kind == TileFeatureKind.Exit
+                    ? TileFeatureActivationRule.ActiveFaceOnly
+                    : TileFeatureActivationRule.BottomFaceOnly,
                 Direction = Direction2D.None,
                 BoxSelector = kind == TileFeatureKind.Button
                     ? TileFeatureBoxSelector.AnyPushableBox

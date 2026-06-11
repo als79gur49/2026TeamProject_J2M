@@ -176,31 +176,4 @@ namespace Game.Feature.Gameplay.Loop
         public EnemyJumpRuntimeState RetryJumpState { get; }
     }
 
-    internal sealed class PhaseRelocationActionPlanPayload : ActionPlanPayload
-    {
-        public PhaseRelocationActionPlanPayload(
-            int actionPlanId,
-            int sourceActorEntityId,
-            int priority,
-            int lockedTargetEntityId,
-            Direction direction,
-            SurfaceCell destinationCell,
-            string ruleLabel)
-            : base(actionPlanId, intentId: 0, sourceActorEntityId, priority, ResolvedActionSemanticKind.Move)
-        {
-            LockedTargetEntityId = lockedTargetEntityId;
-            Direction = direction;
-            DestinationCell = destinationCell;
-            RuleLabel = ruleLabel ?? string.Empty;
-        }
-
-        public int LockedTargetEntityId { get; }
-
-        public Direction Direction { get; }
-
-        public SurfaceCell DestinationCell { get; }
-
-        public string RuleLabel { get; }
-    }
-
 }

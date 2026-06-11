@@ -22,7 +22,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs",
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyDeathExitEffectPlanBuilder.cs",
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayExitPresentationController.cs",
-            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayFrontFaceShieldVfxPresenter.cs",
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayUtilityWindupVfxPresenter.cs",
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxFlipInteractionDriver.cs",
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PresentationMotionTrack.cs",
