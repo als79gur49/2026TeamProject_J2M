@@ -29,6 +29,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private const string GlideChaserProfileAssetPath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_GlideChaser/EnemyAi_GlideChaser.asset";
 
+        private static EnemyAiProfile defaultEnemyProfile;
+        private static EnemyAiProfile chargeEnemyProfile;
+
+        [OneTimeSetUp]
+        public static void OneTimeSetUp()
+        {
+            defaultEnemyProfile = EnemyAiProfileTestFactory.CreateNonAttacking();
+            chargeEnemyProfile = EnemyAiProfileTestFactory.CreateCharging();
+        }
+
+        [OneTimeTearDown]
+        public static void OneTimeTearDown()
+        {
+            EnemyAiProfileTestFactory.Destroy(defaultEnemyProfile);
+            EnemyAiProfileTestFactory.Destroy(chargeEnemyProfile);
+            defaultEnemyProfile = null;
+            chargeEnemyProfile = null;
+        }
+
         [Test]
         [Category("Core")]
         public void BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement()
@@ -2785,13 +2804,47 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             GameplayRuntimeFeatureFlags runtimeFeatureFlags,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
-            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+            return GameplayCompositionRoot.CreateDefaultBootstrapper(ResolveDefaultEnemyProfile(worldState)).CreateTickPipeline(
                 worldState,
                 entityLogics,
                 GameplayTimingProfile.CreateDefault(),
                 CreatePlayerTiming(),
                 runtimeFeatureFlags: runtimeFeatureFlags,
                 tileFeatureDefinitions: tileFeatureDefinitions);
+        }
+
+        private static EnemyAiProfile ResolveDefaultEnemyProfile(WorldState worldState)
+        {
+            if (worldState == null)
+            {
+                return RequireDefaultEnemyProfile();
+            }
+
+            var snapshot = worldState.CreateSnapshot();
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+            for (var i = 0; i < entities.Count; i++)
+            {
+                if (entities[i].type == EntityType.Unit &&
+                    entities[i].aiMode == EnemyAiMode.Charge)
+                {
+                    return RequireChargeEnemyProfile();
+                }
+            }
+
+            return RequireDefaultEnemyProfile();
+        }
+
+        private static EnemyAiProfile RequireDefaultEnemyProfile()
+        {
+            Assert.That(defaultEnemyProfile, Is.Not.Null, "BoundaryInventory test default enemy profile was not initialized.");
+            return defaultEnemyProfile;
+        }
+
+        private static EnemyAiProfile RequireChargeEnemyProfile()
+        {
+            Assert.That(chargeEnemyProfile, Is.Not.Null, "BoundaryInventory test charge enemy profile was not initialized.");
+            return chargeEnemyProfile;
         }
 
         private static TickPipeline CreatePipelineWithoutGeneratedEntityLogics(
