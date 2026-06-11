@@ -1047,6 +1047,13 @@ namespace Game.Feature.Stages.Editor
             return count;
         }
 
+        public static bool ResolvesTileFeatureVisual(
+            StagePresentationDefinition presentation,
+            StageTileFeatureDefinition feature)
+        {
+            return ResolvesReplaceBaseTileWithVisual(presentation, feature, out _);
+        }
+
         public static bool TrySetTileFeatureVisualBinding(
             StagePresentationDefinition presentation,
             StageAuthoringDefinition authoring,
@@ -1268,20 +1275,22 @@ namespace Game.Feature.Stages.Editor
             var directBinding = FindDirectTileFeatureBinding(presentation, feature.TileId);
             if (directBinding != null)
             {
-                return directBinding.VisualPrefab != null &&
-                       TryResolveCatalogKeyPresentationModes(
-                           presentation,
-                           feature.PresentationKey,
-                           out var directPlacementMode,
-                           out footprintMode) &&
-                       directPlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile;
+                if (directBinding.VisualPrefab == null)
+                {
+                    return false;
+                }
+
+                TryResolveCatalogKeyFootprintMode(
+                    presentation,
+                    feature.PresentationKey,
+                    out footprintMode);
+                return true;
             }
 
             return TryResolveCatalogEntryForFeature(
                        presentation,
                        feature,
                        out var entry) &&
-                   entry.PlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile &&
                    entry.VisualPrefab != null &&
                    TrySetFootprintMode(entry, out footprintMode);
         }
@@ -1351,13 +1360,11 @@ namespace Game.Feature.Stages.Editor
             }
         }
 
-        private static bool TryResolveCatalogKeyPresentationModes(
+        private static bool TryResolveCatalogKeyFootprintMode(
             StagePresentationDefinition presentation,
             string presentationKey,
-            out TileFeatureVisualPlacementMode placementMode,
             out TileFeatureVisualFootprintMode footprintMode)
         {
-            placementMode = TileFeatureVisualPlacementMode.Overlay;
             footprintMode = TileFeatureVisualFootprintMode.SingleCell;
             var normalizedKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
             var catalog = presentation != null ? presentation.TileFeaturePresentationCatalog : null;
@@ -1368,7 +1375,6 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            placementMode = entry.PlacementMode;
             footprintMode = entry.FootprintMode;
             return true;
         }

@@ -6,12 +6,6 @@ using UnityEngine;
 
 namespace Game.Feature.Stages
 {
-    public enum TileFeatureVisualPlacementMode
-    {
-        Overlay = 0,
-        ReplaceBaseTile = 1,
-    }
-
     public enum TileFeatureVisualFootprintMode
     {
         SingleCell = 0,
@@ -25,7 +19,6 @@ namespace Game.Feature.Stages
         [SerializeField] private string displayName = string.Empty;
         [SerializeField] private TileFeatureKind kind = TileFeatureKind.Unknown;
         [SerializeField] private GameObject visualPrefab;
-        [SerializeField] private TileFeatureVisualPlacementMode placementMode;
         [SerializeField] private TileFeatureVisualFootprintMode footprintMode;
         [SerializeField] private Sprite icon;
         [SerializeField] private bool isDefaultForKind;
@@ -39,8 +32,6 @@ namespace Game.Feature.Stages
         public TileFeatureKind Kind => kind;
 
         public GameObject VisualPrefab => visualPrefab;
-
-        public TileFeatureVisualPlacementMode PlacementMode => placementMode;
 
         public TileFeatureVisualFootprintMode FootprintMode => footprintMode;
 

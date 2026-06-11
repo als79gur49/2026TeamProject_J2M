@@ -14,7 +14,6 @@ namespace Game.Feature.Stages
             : this(
                 tileId,
                 visualPrefab,
-                TileFeatureVisualPlacementMode.Overlay,
                 TileFeatureVisualFootprintMode.SingleCell,
                 VfxStyleKey.Default)
         {
@@ -23,30 +22,19 @@ namespace Game.Feature.Stages
         public TileFeaturePresentationResolvedBinding(
             int tileId,
             GameObject visualPrefab,
-            TileFeatureVisualPlacementMode placementMode)
-            : this(tileId, visualPrefab, placementMode, TileFeatureVisualFootprintMode.SingleCell, VfxStyleKey.Default)
-        {
-        }
-
-        public TileFeaturePresentationResolvedBinding(
-            int tileId,
-            GameObject visualPrefab,
-            TileFeatureVisualPlacementMode placementMode,
             TileFeatureVisualFootprintMode footprintMode)
-            : this(tileId, visualPrefab, placementMode, footprintMode, VfxStyleKey.Default)
+            : this(tileId, visualPrefab, footprintMode, VfxStyleKey.Default)
         {
         }
 
         public TileFeaturePresentationResolvedBinding(
             int tileId,
             GameObject visualPrefab,
-            TileFeatureVisualPlacementMode placementMode,
             TileFeatureVisualFootprintMode footprintMode,
             VfxStyleKey vfxStyleKey)
         {
             TileId = tileId;
             VisualPrefab = visualPrefab;
-            PlacementMode = placementMode;
             FootprintMode = footprintMode;
             VfxStyleKey = vfxStyleKey;
         }
@@ -54,8 +42,6 @@ namespace Game.Feature.Stages
         public int TileId { get; }
 
         public GameObject VisualPrefab { get; }
-
-        public TileFeatureVisualPlacementMode PlacementMode { get; }
 
         public TileFeatureVisualFootprintMode FootprintMode { get; }
 
@@ -609,15 +595,13 @@ namespace Game.Feature.Stages
 
                     if (directByTileId.TryGetValue(tileFeature.TileId, out var directBinding))
                     {
-                        ResolveCatalogKeyPresentationModes(
+                        ResolveCatalogKeyFootprintMode(
                             catalog,
                             tileFeature,
-                            out var directPlacementMode,
                             out var directFootprintMode);
                         resolved.Add(new TileFeaturePresentationResolvedBinding(
                             directBinding.TileId,
                             directBinding.VisualPrefab,
-                            directPlacementMode,
                             directFootprintMode,
                             ResolveCatalogKeyVfxStyle(catalog, tileFeature)));
                         continue;
@@ -631,7 +615,6 @@ namespace Game.Feature.Stages
                         resolved.Add(new TileFeaturePresentationResolvedBinding(
                             tileFeature.TileId,
                             catalogEntry.VisualPrefab,
-                            catalogEntry.PlacementMode,
                             catalogEntry.FootprintMode,
                             ResolveTileFeatureVfxStyleKey(tileFeature, catalogEntry.VfxStyleKey)));
                     }
@@ -709,13 +692,11 @@ namespace Game.Feature.Stages
             return false;
         }
 
-        private static void ResolveCatalogKeyPresentationModes(
+        private static void ResolveCatalogKeyFootprintMode(
             TileFeaturePresentationCatalog catalog,
             StageTileFeatureDefinition tileFeature,
-            out TileFeatureVisualPlacementMode placementMode,
             out TileFeatureVisualFootprintMode footprintMode)
         {
-            placementMode = TileFeatureVisualPlacementMode.Overlay;
             footprintMode = TileFeatureVisualFootprintMode.SingleCell;
             if (catalog == null)
             {
@@ -733,7 +714,6 @@ namespace Game.Feature.Stages
                 return;
             }
 
-            placementMode = entry.PlacementMode;
             footprintMode = entry.FootprintMode;
         }
 
@@ -792,8 +772,7 @@ namespace Game.Feature.Stages
             {
                 var binding = bindings[i];
                 if (binding.TileId > 0 &&
-                    binding.VisualPrefab != null &&
-                    binding.PlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile)
+                    binding.VisualPrefab != null)
                 {
                     replaceBindingsByTileId[binding.TileId] = binding;
                 }

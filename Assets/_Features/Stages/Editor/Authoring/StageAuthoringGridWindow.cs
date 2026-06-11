@@ -1859,9 +1859,9 @@ namespace Game.Feature.Stages.Editor
                 feature,
                 directOverrideActive);
             DrawTileFeatureCatalogStatus(catalogStatus);
-            EditorGUILayout.LabelField("Placement Mode", catalogStatus.PlacementMode.ToString());
-            EditorGUILayout.LabelField("Placement Source", FormatPlacementModeSource(catalogStatus.PlacementModeSource));
-            if (catalogStatus.PlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile)
+            if (StageAuthoringPresentationBindingCommands.ResolvesTileFeatureVisual(
+                    presentation,
+                    feature))
             {
                 EditorGUILayout.HelpBox("Base board tile will be hidden at this SurfaceCell.", MessageType.Info);
                 var replaceCount = StageAuthoringPresentationBindingCommands.CountReplaceBaseTileSuppressorsForCell(
@@ -1941,16 +1941,6 @@ namespace Game.Feature.Stages.Editor
                 _ => MessageType.Info,
             };
             EditorGUILayout.HelpBox(status.Message, messageType);
-        }
-
-        private static string FormatPlacementModeSource(TileFeaturePresentationPlacementModeSource source)
-        {
-            return source switch
-            {
-                TileFeaturePresentationPlacementModeSource.CatalogKey => "Catalog key",
-                TileFeaturePresentationPlacementModeSource.CatalogDefault => "Catalog default",
-                _ => "Overlay fallback",
-            };
         }
 
         private static bool IsDirectOverrideActive(TileFeatureVisualBindingStatus status)

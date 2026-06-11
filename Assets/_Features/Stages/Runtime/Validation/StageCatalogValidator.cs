@@ -1815,17 +1815,6 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
 
-                if (!Enum.IsDefined(typeof(TileFeatureVisualPlacementMode), catalogEntry.PlacementMode))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.tile-feature.catalog.placement-mode-invalid",
-                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} has invalid TileFeatureVisualPlacementMode value {(int)catalogEntry.PlacementMode}.",
-                        catalog,
-                        catalogPath,
-                        options.Timing);
-                }
-
                 if (!Enum.IsDefined(typeof(TileFeatureVisualFootprintMode), catalogEntry.FootprintMode))
                 {
                     report.Add(
@@ -2018,8 +2007,7 @@ namespace Game.Feature.Stages
             StageValidationReport report)
         {
             if (entry.GameplayDefinition == null ||
-                entry.PresentationDefinition == null ||
-                entry.PresentationDefinition.TileFeaturePresentationCatalog == null)
+                entry.PresentationDefinition == null)
             {
                 return;
             }
@@ -2042,14 +2030,8 @@ namespace Game.Feature.Stages
                         presentation.TileFeaturePresentationCatalog,
                         directBindings,
                         tileFeature,
-                        out var placementMode,
                         out var footprintMode,
                         out var visualPrefab))
-                {
-                    continue;
-                }
-
-                if (placementMode != TileFeatureVisualPlacementMode.ReplaceBaseTile)
                 {
                     continue;
                 }
@@ -2198,11 +2180,9 @@ namespace Game.Feature.Stages
             TileFeaturePresentationCatalog catalog,
             IReadOnlyDictionary<int, TileFeaturePresentationBinding> directBindings,
             StageTileFeatureDefinition tileFeature,
-            out TileFeatureVisualPlacementMode placementMode,
             out TileFeatureVisualFootprintMode footprintMode,
             out GameObject visualPrefab)
         {
-            placementMode = TileFeatureVisualPlacementMode.Overlay;
             footprintMode = TileFeatureVisualFootprintMode.SingleCell;
             visualPrefab = null;
             if (directBindings != null &&
@@ -2214,7 +2194,6 @@ namespace Game.Feature.Stages
                     !string.IsNullOrEmpty(presentationKey) &&
                     catalog.TryGetEntry(presentationKey, out var keyedEntry))
                 {
-                    placementMode = keyedEntry.PlacementMode;
                     footprintMode = keyedEntry.FootprintMode;
                 }
 
@@ -2230,7 +2209,6 @@ namespace Game.Feature.Stages
             if (!string.IsNullOrEmpty(key) &&
                 catalog.TryGetEntry(key, out var keyedCatalogEntry))
             {
-                placementMode = keyedCatalogEntry.PlacementMode;
                 footprintMode = keyedCatalogEntry.FootprintMode;
                 visualPrefab = keyedCatalogEntry.VisualPrefab;
                 return true;
@@ -2238,7 +2216,6 @@ namespace Game.Feature.Stages
 
             if (catalog.TryGetDefaultEntry(tileFeature.Kind, out var defaultEntry))
             {
-                placementMode = defaultEntry.PlacementMode;
                 footprintMode = defaultEntry.FootprintMode;
                 visualPrefab = defaultEntry.VisualPrefab;
                 return true;

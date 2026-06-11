@@ -18,30 +18,18 @@ namespace Game.Feature.Stages.Editor
         DirectOverrideActive,
     }
 
-    internal enum TileFeaturePresentationPlacementModeSource
-    {
-        OverlayFallback,
-        CatalogKey,
-        CatalogDefault,
-    }
-
     internal readonly struct TileFeaturePresentationCatalogStatus
     {
         public TileFeaturePresentationCatalogStatus(
             TileFeaturePresentationCatalogStatusKind kind,
             string presentationKey,
             string message,
-            TileFeaturePresentationCatalogEntry entry = null,
-            TileFeatureVisualPlacementMode placementMode = TileFeatureVisualPlacementMode.Overlay,
-            TileFeaturePresentationPlacementModeSource placementModeSource =
-                TileFeaturePresentationPlacementModeSource.OverlayFallback)
+            TileFeaturePresentationCatalogEntry entry = null)
         {
             Kind = kind;
             PresentationKey = presentationKey ?? string.Empty;
             Message = message ?? string.Empty;
             Entry = entry;
-            PlacementMode = placementMode;
-            PlacementModeSource = placementModeSource;
         }
 
         public TileFeaturePresentationCatalogStatusKind Kind { get; }
@@ -51,10 +39,6 @@ namespace Game.Feature.Stages.Editor
         public string Message { get; }
 
         public TileFeaturePresentationCatalogEntry Entry { get; }
-
-        public TileFeatureVisualPlacementMode PlacementMode { get; }
-
-        public TileFeaturePresentationPlacementModeSource PlacementModeSource { get; }
     }
 
     internal readonly struct TileFeaturePresentationCatalogOption
@@ -130,26 +114,21 @@ namespace Game.Feature.Stages.Editor
             var presentationKey = TileFeaturePresentationCatalog.NormalizePresentationKey(feature.PresentationKey);
             if (directOverrideActive)
             {
-                if (TryResolveCatalogKeyEntry(presentation, presentationKey, out var directModeEntry))
+                if (TryResolveCatalogKeyEntry(presentation, presentationKey, out var directEntry))
                 {
                     return new TileFeaturePresentationCatalogStatus(
                         TileFeaturePresentationCatalogStatusKind.DirectOverrideActive,
                         presentationKey,
-                        $"Direct TileId visual override is active; visual prefab uses the direct override and placement mode uses catalog key '{presentationKey}' ({directModeEntry.PlacementMode}).",
-                        directModeEntry,
-                        directModeEntry.PlacementMode,
-                        TileFeaturePresentationPlacementModeSource.CatalogKey);
+                        $"Direct TileId visual override is active; visual prefab uses the direct override and footprint uses catalog key '{presentationKey}'.",
+                        directEntry);
                 }
 
                 return new TileFeaturePresentationCatalogStatus(
                     TileFeaturePresentationCatalogStatusKind.DirectOverrideActive,
                     presentationKey,
                     string.IsNullOrEmpty(presentationKey)
-                        ? "Direct TileId visual override is active; visual prefab uses the direct override and placement mode falls back to Overlay."
-                        : $"Direct TileId visual override is active; visual prefab uses the direct override and unresolved catalog key '{presentationKey}' makes placement mode fall back to Overlay.",
-                    null,
-                    TileFeatureVisualPlacementMode.Overlay,
-                    TileFeaturePresentationPlacementModeSource.OverlayFallback);
+                        ? "Direct TileId visual override is active; visual prefab uses the direct override and SingleCell footprint."
+                        : $"Direct TileId visual override is active; visual prefab uses the direct override and unresolved catalog key '{presentationKey}' uses SingleCell footprint.");
             }
 
             if (presentation == null)
@@ -185,9 +164,7 @@ namespace Game.Feature.Stages.Editor
                         TileFeaturePresentationCatalogStatusKind.KindMismatch,
                         presentationKey,
                         $"PresentationKey '{presentationKey}' is cataloged for {keyedEntry.Kind}, not {feature.Kind}.",
-                        keyedEntry,
-                        keyedEntry.PlacementMode,
-                        TileFeaturePresentationPlacementModeSource.CatalogKey);
+                        keyedEntry);
                 }
 
                 if (HasDirectionHintMismatch(feature, keyedEntry))
@@ -196,18 +173,14 @@ namespace Game.Feature.Stages.Editor
                         TileFeaturePresentationCatalogStatusKind.DirectionHintMismatch,
                         presentationKey,
                         $"PresentationKey '{presentationKey}' direction hint {keyedEntry.DirectionHint} does not match {feature.Direction}.",
-                        keyedEntry,
-                        keyedEntry.PlacementMode,
-                        TileFeaturePresentationPlacementModeSource.CatalogKey);
+                        keyedEntry);
                 }
 
                 return new TileFeaturePresentationCatalogStatus(
                     TileFeaturePresentationCatalogStatusKind.KeyResolved,
                     presentationKey,
-                    $"Resolved catalog visual: {ResolveDisplayName(keyedEntry)}. Placement mode: {keyedEntry.PlacementMode} (Catalog key).",
-                    keyedEntry,
-                    keyedEntry.PlacementMode,
-                    TileFeaturePresentationPlacementModeSource.CatalogKey);
+                    $"Resolved catalog visual: {ResolveDisplayName(keyedEntry)}.",
+                    keyedEntry);
             }
 
             if (catalog.TryGetDefaultEntry(feature.Kind, out var defaultEntry))
@@ -215,10 +188,8 @@ namespace Game.Feature.Stages.Editor
                 return new TileFeaturePresentationCatalogStatus(
                     TileFeaturePresentationCatalogStatusKind.EmptyKeyResolvedByDefault,
                     string.Empty,
-                    $"No PresentationKey set; default {feature.Kind} visual will be used. Placement mode: {defaultEntry.PlacementMode} (Catalog default).",
-                    defaultEntry,
-                    defaultEntry.PlacementMode,
-                    TileFeaturePresentationPlacementModeSource.CatalogDefault);
+                    $"No PresentationKey set; default {feature.Kind} visual will be used.",
+                    defaultEntry);
             }
 
             return new TileFeaturePresentationCatalogStatus(
@@ -252,8 +223,6 @@ namespace Game.Feature.Stages.Editor
             {
                 label += " [Default]";
             }
-
-            label += $" [{entry.PlacementMode}]";
 
             if (missingPrefab)
             {
