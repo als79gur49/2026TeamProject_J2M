@@ -118,37 +118,7 @@ MonoBehaviour:
       x: 10
       y: 1
     styleKey: board.paint.warning-base
-  boardTileOverlayOverrides:
-  - cell:
-      face: 0
-      x: 1
-      y: 4
-    overlayKey: board.overlay.guide.blue
-  - cell:
-      face: 0
-      x: 1
-      y: 4
-    overlayKey: board.overlay.selection.white
-  - cell:
-      face: 0
-      x: 2
-      y: 2
-    overlayKey: board.overlay.hover.white
-  - cell:
-      face: 0
-      x: 5
-      y: 2
-    overlayKey: board.overlay.objective.green
-  - cell:
-      face: 0
-      x: 5
-      y: 5
-    overlayKey: board.overlay.danger.red
-  - cell:
-      face: 1
-      x: 10
-      y: 1
-    overlayKey: board.overlay.danger.red
+  boardTileOverlayOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings:
   - TileId: 905
