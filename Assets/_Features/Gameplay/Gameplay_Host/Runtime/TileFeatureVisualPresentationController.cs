@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 
@@ -51,7 +52,7 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < requests.Count; i++)
             {
                 var request = requests[i];
-                if (!IsSupportedVisualRequest(request.RequestKind))
+                if (!TileFeatureVisualRequestPlanner.TryCreate(request, out _))
                 {
                     continue;
                 }
@@ -133,47 +134,22 @@ namespace Game.Feature.Gameplay.Host
 
         private void RefreshContinuousState(TileFeatureVisualState visualState, ITileFeatureVisualTarget target)
         {
+            var sink = ResolveCueSink(target);
+            if (sink == null)
+            {
+                _diagnosticSink?.Invoke(
+                    $"{nameof(TileFeatureVisualPresentationController)} missing visual cue sink for tile {visualState.TileId}.");
+                return;
+            }
+
             switch (visualState.TileFeatureKind)
             {
                 case TileFeatureKind.Destroy:
                 case TileFeatureKind.Slide:
-                    if (target is ITileFeatureActiveStateVisualTarget activeStateTarget)
-                    {
-                        activeStateTarget.SetTileFeatureActiveImmediate(
-                            visualState.TileFeatureKind,
-                            visualState.IsActive);
-                        return;
-                    }
-
-                    if (visualState.TileFeatureKind == TileFeatureKind.Slide)
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported Slide visual state target for tile {visualState.TileId}.");
-                        return;
-                    }
-
-                    if (target is IDestroyTileActiveStateVisualTarget destroyTileTarget)
-                    {
-                        destroyTileTarget.SetDestroyTileActiveImmediate(visualState.IsActive);
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported DestroyTile visual state target for tile {visualState.TileId}.");
-                    }
-
+                    TryHandleVisualState(sink, visualState);
                     return;
                 case TileFeatureKind.Barricade:
-                    if (target is IBarricadeActiveStateVisualTarget barricadeTarget)
-                    {
-                        barricadeTarget.SetBarricadeActiveImmediate(visualState.IsActive);
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported Barricade visual state target for tile {visualState.TileId}.");
-                    }
-
+                    TryHandleVisualState(sink, visualState);
                     return;
                 case TileFeatureKind.Exit:
                     if (!visualState.IsActive)
@@ -181,200 +157,309 @@ namespace Game.Feature.Gameplay.Host
                         _exitOpenImmediateSyncDeferredTileIds.Remove(visualState.TileId);
                     }
 
-                    if (target is IExitOpenStateVisualTarget exitTarget)
+                    if (visualState.IsActive &&
+                        (visualState.VisibilityGate.HasGate ||
+                         _exitOpenImmediateSyncDeferredTileIds.Contains(visualState.TileId)))
                     {
-                        if (visualState.IsActive &&
-                            (visualState.VisibilityGate.HasGate ||
-                             _exitOpenImmediateSyncDeferredTileIds.Contains(visualState.TileId)))
+                        if (visualState.VisibilityGate.HasGate)
                         {
-                            if (visualState.VisibilityGate.HasGate)
-                            {
-                                _exitOpenImmediateSyncDeferredTileIds.Add(visualState.TileId);
-                            }
-
-                            return;
+                            _exitOpenImmediateSyncDeferredTileIds.Add(visualState.TileId);
                         }
 
-                        _exitOpenImmediateSyncDeferredTileIds.Remove(visualState.TileId);
-                        exitTarget.SetExitOpenImmediate(visualState.IsActive);
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported Exit visual state target for tile {visualState.TileId}.");
+                        return;
                     }
 
+                    _exitOpenImmediateSyncDeferredTileIds.Remove(visualState.TileId);
+                    TryHandleVisualState(sink, visualState);
                     return;
             }
         }
 
         private bool PlayRequest(TilePresentationRequest request, ITileFeatureVisualTarget target)
         {
-            switch (request.RequestKind)
+            var sink = ResolveCueSink(target);
+            if (sink == null)
             {
-                case TilePresentationRequestKind.ButtonActivated:
-                    target.PlayButtonActivated();
-                    return true;
-                case TilePresentationRequestKind.DestroyTileTriggered:
-                    if (target is IDestroyTileVisualTarget destroyTileTarget)
-                    {
-                        destroyTileTarget.PlayDestroyTileTriggered();
-                        return true;
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported DestroyTileTriggered visual target for tile {request.TileId}.");
-                    }
-
-                    return false;
-                case TilePresentationRequestKind.DestroyTileActivated:
-                    if (target is IDestroyTileActivatedVisualTarget destroyTileActivatedTarget)
-                    {
-                        destroyTileActivatedTarget.PlayDestroyTileActivated();
-                        return true;
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported DestroyTileActivated visual target for tile {request.TileId}.");
-                    }
-
-                    return false;
-                case TilePresentationRequestKind.DestroyTileDeactivated:
-                    if (target is IDestroyTileDeactivatedVisualTarget destroyTileDeactivatedTarget)
-                    {
-                        destroyTileDeactivatedTarget.PlayDestroyTileDeactivated();
-                        return true;
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported DestroyTileDeactivated visual target for tile {request.TileId}.");
-                    }
-
-                    return false;
-                case TilePresentationRequestKind.SlideTileRedirected:
-                    if (target is ISlideTileVisualTarget slideTileTarget)
-                    {
-                        slideTileTarget.PlaySlideTileRedirected(request.Direction, request.TargetEntityId);
-                        return true;
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported SlideTileRedirected visual target for tile {request.TileId}.");
-                    }
-
-                    return false;
-                case TilePresentationRequestKind.BarricadeBlocked:
-                    if (target is IBarricadeBlockedVisualTarget barricadeBlockedTarget)
-                    {
-                        barricadeBlockedTarget.PlayBarricadeBlocked(request.Direction, request.TargetEntityId);
-                        return true;
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported BarricadeBlocked visual target for tile {request.TileId}.");
-                    }
-
-                    return false;
-                case TilePresentationRequestKind.BarricadeCrushed:
-                    if (target is IBarricadeCrushedVisualTarget barricadeCrushedTarget)
-                    {
-                        barricadeCrushedTarget.PlayBarricadeCrushed(request.TargetEntityId);
-                        return true;
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported BarricadeCrushed visual target for tile {request.TileId}.");
-                    }
-
-                    return false;
-                case TilePresentationRequestKind.BarricadeActivated:
-                    if (target is IBarricadeActivatedVisualTarget barricadeActivatedTarget)
-                    {
-                        barricadeActivatedTarget.PlayBarricadeActivated();
-                        return true;
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported BarricadeActivated visual target for tile {request.TileId}.");
-                    }
-
-                    return false;
-                case TilePresentationRequestKind.BarricadeDeactivated:
-                    if (target is IBarricadeDeactivatedVisualTarget barricadeDeactivatedTarget)
-                    {
-                        barricadeDeactivatedTarget.PlayBarricadeDeactivated();
-                        return true;
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported BarricadeDeactivated visual target for tile {request.TileId}.");
-                    }
-
-                    return false;
-                case TilePresentationRequestKind.ExitOpened:
-                    if (target is IExitOpenedVisualTarget exitOpenedTarget)
-                    {
-                        exitOpenedTarget.PlayExitOpened();
-                        return true;
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported ExitOpened visual target for tile {request.TileId}.");
-                    }
-
-                    return false;
-                case TilePresentationRequestKind.ExitEntered:
-                    if (target is IExitEnteredVisualTarget exitEnteredTarget)
-                    {
-                        exitEnteredTarget.PlayExitEntered(request.TargetEntityId);
-                        return true;
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported ExitEntered visual target for tile {request.TileId}.");
-                    }
-
-                    return false;
-                case TilePresentationRequestKind.MoonBlockGenerated:
-                    if (target is IMoonBlockGeneratedVisualTarget moonBlockGeneratedTarget)
-                    {
-                        moonBlockGeneratedTarget.PlayMoonBlockGenerated(request.TargetEntityId);
-                        return true;
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported MoonBlockGenerated visual target for tile {request.TileId}.");
-                    }
-
-                    return false;
-                case TilePresentationRequestKind.MoonBlockGeneratorBlocked:
-                    if (target is IMoonBlockGeneratorBlockedVisualTarget moonBlockGeneratorBlockedTarget)
-                    {
-                        moonBlockGeneratorBlockedTarget.PlayMoonBlockGeneratorBlocked(
-                            request.MoonBlockGeneratorBlockedPayload);
-                        return true;
-                    }
-                    else
-                    {
-                        _diagnosticSink?.Invoke(
-                            $"{nameof(TileFeatureVisualPresentationController)} unsupported MoonBlockGeneratorBlocked visual target for tile {request.TileId}.");
-                    }
-
-                    return false;
+                _diagnosticSink?.Invoke(
+                    $"{nameof(TileFeatureVisualPresentationController)} missing visual cue sink for tile {request.TileId}.");
+                return false;
             }
 
+            if (!TileFeatureVisualRequestPlanner.TryCreate(request, out var visualRequest))
+            {
+                return false;
+            }
+
+            if (sink.TryHandle(visualRequest))
+            {
+                return true;
+            }
+
+            _diagnosticSink?.Invoke(
+                $"{nameof(TileFeatureVisualPresentationController)} unsupported {request.RequestKind} visual target for tile {request.TileId}.");
             return false;
+        }
+
+        private void TryHandleVisualState(
+            ITileFeatureVisualCueSink sink,
+            in TileFeatureVisualState visualState)
+        {
+            if (!TileFeatureVisualRequestPlanner.TryCreate(visualState, out var visualRequest))
+            {
+                return;
+            }
+
+            if (sink.TryHandle(visualRequest))
+            {
+                return;
+            }
+
+            _diagnosticSink?.Invoke(
+                $"{nameof(TileFeatureVisualPresentationController)} unsupported {visualState.TileFeatureKind} visual state target for tile {visualState.TileId}.");
+        }
+
+        private static ITileFeatureVisualCueSink ResolveCueSink(ITileFeatureVisualTarget target)
+        {
+            if (target is ITileFeatureVisualCueSink sink)
+            {
+                return sink;
+            }
+
+            if (target is UnityEngine.Component component)
+            {
+                var componentSink = component.GetComponent<ITileFeatureVisualCueSink>();
+                if (componentSink != null)
+                {
+                    return componentSink;
+                }
+
+                if (target is TileFeatureVisualTargetView targetView)
+                {
+#pragma warning disable CS0618
+                    var adapter = component.gameObject.AddComponent<LegacyTileFeatureVisualCueAdapter>();
+#pragma warning restore CS0618
+                    adapter.ConfigureTarget(targetView);
+                    return adapter;
+                }
+            }
+
+            return LegacyInterfaceCueSink.CanWrap(target)
+                ? new LegacyInterfaceCueSink(target)
+                : null;
+        }
+
+        private sealed class LegacyInterfaceCueSink : ITileFeatureVisualCueSink
+        {
+            private readonly ITileFeatureVisualTarget target;
+
+            public LegacyInterfaceCueSink(ITileFeatureVisualTarget target)
+            {
+                this.target = target;
+            }
+
+            public static bool CanWrap(ITileFeatureVisualTarget target)
+            {
+                return HasLegacyButtonMethod(target) ||
+                       target is IDestroyTileVisualTarget ||
+                       target is IDestroyTileActivatedVisualTarget ||
+                       target is IDestroyTileDeactivatedVisualTarget ||
+                       target is ITileFeatureActiveStateVisualTarget ||
+                       target is ISlideTileVisualTarget ||
+                       target is IBarricadeBlockedVisualTarget ||
+                       target is IBarricadeCrushedVisualTarget ||
+                       target is IBarricadeActivatedVisualTarget ||
+                       target is IBarricadeDeactivatedVisualTarget ||
+                       target is IBarricadeActiveStateVisualTarget ||
+                       target is IExitOpenedVisualTarget ||
+                       target is IExitEnteredVisualTarget ||
+                       target is IExitOpenStateVisualTarget ||
+                       target is IMoonBlockGeneratedVisualTarget ||
+                       target is IMoonBlockGeneratorBlockedVisualTarget;
+            }
+
+            public bool TryHandle(in TileFeatureVisualRequest request)
+            {
+                switch (request.CueId)
+                {
+                    case TileFeatureVisualCueId.ButtonActivated:
+                        if (TryInvokeLegacyButton())
+                        {
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.DestroyTileTriggered:
+                        if (target is IDestroyTileVisualTarget destroyTarget)
+                        {
+                            destroyTarget.PlayDestroyTileTriggered();
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.DestroyTileActivated:
+                        if (target is IDestroyTileActivatedVisualTarget destroyActivatedTarget)
+                        {
+                            destroyActivatedTarget.PlayDestroyTileActivated();
+                            return true;
+                        }
+
+                        if (target is ITileFeatureActiveStateVisualTarget activeStateTarget)
+                        {
+                            activeStateTarget.SetTileFeatureActiveImmediate(TileFeatureKind.Destroy, true);
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.DestroyTileDeactivated:
+                        if (target is IDestroyTileDeactivatedVisualTarget destroyDeactivatedTarget)
+                        {
+                            destroyDeactivatedTarget.PlayDestroyTileDeactivated();
+                            return true;
+                        }
+
+                        if (target is ITileFeatureActiveStateVisualTarget inactiveStateTarget)
+                        {
+                            inactiveStateTarget.SetTileFeatureActiveImmediate(TileFeatureKind.Destroy, false);
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.DestroyTileActiveState:
+                    case TileFeatureVisualCueId.SlideTileActiveState:
+                        if (target is ITileFeatureActiveStateVisualTarget tileFeatureActiveTarget)
+                        {
+                            tileFeatureActiveTarget.SetTileFeatureActiveImmediate(request.FeatureKind, request.Active);
+                            return true;
+                        }
+
+                        if (request.CueId == TileFeatureVisualCueId.DestroyTileActiveState &&
+                            target is IDestroyTileActiveStateVisualTarget destroyActiveTarget)
+                        {
+                            destroyActiveTarget.SetDestroyTileActiveImmediate(request.Active);
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.SlideTileRedirected:
+                        if (target is ISlideTileVisualTarget slideTarget)
+                        {
+                            slideTarget.PlaySlideTileRedirected(request.Direction, request.TargetEntityId);
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.BarricadeBlocked:
+                        if (target is IBarricadeBlockedVisualTarget barricadeBlockedTarget)
+                        {
+                            barricadeBlockedTarget.PlayBarricadeBlocked(request.Direction, request.TargetEntityId);
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.BarricadeCrushed:
+                        if (target is IBarricadeCrushedVisualTarget barricadeCrushedTarget)
+                        {
+                            barricadeCrushedTarget.PlayBarricadeCrushed(request.TargetEntityId);
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.BarricadeActivated:
+                        if (target is IBarricadeActivatedVisualTarget barricadeActivatedTarget)
+                        {
+                            barricadeActivatedTarget.PlayBarricadeActivated();
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.BarricadeDeactivated:
+                        if (target is IBarricadeDeactivatedVisualTarget barricadeDeactivatedTarget)
+                        {
+                            barricadeDeactivatedTarget.PlayBarricadeDeactivated();
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.BarricadeActiveState:
+                        if (target is IBarricadeActiveStateVisualTarget barricadeActiveTarget)
+                        {
+                            barricadeActiveTarget.SetBarricadeActiveImmediate(request.Active);
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.ExitOpened:
+                        if (target is IExitOpenedVisualTarget exitOpenedTarget)
+                        {
+                            exitOpenedTarget.PlayExitOpened();
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.ExitEntered:
+                        if (target is IExitEnteredVisualTarget exitEnteredTarget)
+                        {
+                            exitEnteredTarget.PlayExitEntered(request.TargetEntityId);
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.ExitOpenState:
+                        if (target is IExitOpenStateVisualTarget exitOpenTarget)
+                        {
+                            exitOpenTarget.SetExitOpenImmediate(request.Active);
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.MoonBlockGenerated:
+                        if (target is IMoonBlockGeneratedVisualTarget moonBlockGeneratedTarget)
+                        {
+                            moonBlockGeneratedTarget.PlayMoonBlockGenerated(request.TargetEntityId);
+                            return true;
+                        }
+
+                        return false;
+                    case TileFeatureVisualCueId.MoonBlockGeneratorBlocked:
+                        if (target is IMoonBlockGeneratorBlockedVisualTarget moonBlockGeneratorBlockedTarget)
+                        {
+                            moonBlockGeneratorBlockedTarget.PlayMoonBlockGeneratorBlocked(
+                                request.MoonBlockGeneratorBlockedPayload);
+                            return true;
+                        }
+
+                        return false;
+                    default:
+                        return false;
+                }
+            }
+
+            private static bool HasLegacyButtonMethod(ITileFeatureVisualTarget target)
+            {
+                return target?.GetType().GetMethod(
+                    "PlayButtonActivated",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    binder: null,
+                    Type.EmptyTypes,
+                    modifiers: null) != null;
+            }
+
+            private bool TryInvokeLegacyButton()
+            {
+                var method = target.GetType().GetMethod(
+                    "PlayButtonActivated",
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    binder: null,
+                    Type.EmptyTypes,
+                    modifiers: null);
+                if (method == null)
+                {
+                    return false;
+                }
+
+                method.Invoke(target, Array.Empty<object>());
+                return true;
+            }
         }
 
         private void PlayRequestAndTrackImmediateSync(TilePresentationRequest request, ITileFeatureVisualTarget target)
@@ -404,23 +489,6 @@ namespace Game.Feature.Gameplay.Host
             PlayRequestAndTrackImmediateSync(request, target);
         }
 
-        private static bool IsSupportedVisualRequest(TilePresentationRequestKind requestKind)
-        {
-            return requestKind == TilePresentationRequestKind.ButtonActivated ||
-                   requestKind == TilePresentationRequestKind.DestroyTileTriggered ||
-                   requestKind == TilePresentationRequestKind.DestroyTileActivated ||
-                   requestKind == TilePresentationRequestKind.DestroyTileDeactivated ||
-                   requestKind == TilePresentationRequestKind.SlideTileRedirected ||
-                   requestKind == TilePresentationRequestKind.BarricadeBlocked ||
-                   requestKind == TilePresentationRequestKind.BarricadeCrushed ||
-                   requestKind == TilePresentationRequestKind.BarricadeActivated ||
-                   requestKind == TilePresentationRequestKind.BarricadeDeactivated ||
-                   requestKind == TilePresentationRequestKind.ExitOpened ||
-                   requestKind == TilePresentationRequestKind.ExitEntered ||
-                   requestKind == TilePresentationRequestKind.MoonBlockGenerated ||
-                   requestKind == TilePresentationRequestKind.MoonBlockGeneratorBlocked;
-        }
-
         private readonly struct PendingTileFeatureVisualRequest
         {
             public PendingTileFeatureVisualRequest(TilePresentationRequest request, float remainingSeconds)
@@ -433,7 +501,7 @@ namespace Game.Feature.Gameplay.Host
 
             public float RemainingSeconds { get; }
 
-            public bool IsReady => RemainingSeconds <= 0f;
+            public bool IsReady => RemainingSeconds <= 0.00001f;
 
             public PendingTileFeatureVisualRequest Advance(float deltaTime)
             {

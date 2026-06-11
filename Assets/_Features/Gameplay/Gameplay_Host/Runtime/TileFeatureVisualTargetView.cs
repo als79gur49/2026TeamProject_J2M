@@ -2,139 +2,49 @@ using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
-using UnityEngine.Events;
 
 namespace Game.Feature.Gameplay.Host
 {
-    [Serializable]
-    public struct TileFeatureInactiveMaterialTarget
+    public enum TileFeatureVisualSlotId
     {
+        Root = 0,
+        Renderer = 1,
+        IconRoot = 2,
+        LabelRoot = 3,
+        CellCenter = 4,
+        CellFloor = 5,
+        FeatureAnchor0 = 100,
+        FeatureAnchor1 = 101,
+        FeatureAnchor2 = 102,
+        FeatureAnchor3 = 103,
+        FeatureAnchor4 = 104,
+        FeatureAnchor5 = 105,
+        FeatureAnchor6 = 106,
+        FeatureAnchor7 = 107,
+    }
+
+    [Serializable]
+    public struct TileFeatureVisualTargetBinding
+    {
+        public TileFeatureVisualSlotId SlotId;
+        public Transform Transform;
         public Renderer Renderer;
-        [Min(0)] public int MaterialIndex;
-        public Color InactiveColor;
-        public float InactiveMetallic;
     }
 
     [DisallowMultipleComponent]
     public sealed class TileFeatureVisualTargetView :
         MonoBehaviour,
         ITileFeatureVisualTarget,
-        IDestroyTileVisualTarget,
-        IDestroyTileActivatedVisualTarget,
-        IDestroyTileDeactivatedVisualTarget,
-        IDestroyTileActiveStateVisualTarget,
-        ITileFeatureActiveStateVisualTarget,
-        ISlideTileVisualTarget,
-        IBarricadeBlockedVisualTarget,
-        IBarricadeCrushedVisualTarget,
-        IBarricadeActivatedVisualTarget,
-        IBarricadeDeactivatedVisualTarget,
-        IBarricadeActiveStateVisualTarget,
-        IExitOpenedVisualTarget,
-        IExitEnteredVisualTarget,
-        IExitOpenStateVisualTarget,
-        IMoonBlockGeneratedVisualTarget,
-        IMoonBlockGeneratorBlockedVisualTarget,
-        ITileFeatureVisualTargetConfigurator,
-        IGameplayPresentationPausable
+        ITileFeatureVisualTargetConfigurator
     {
-        private static readonly int BaseColorPropertyId = Shader.PropertyToID("_BaseColor");
-        private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
-        private static readonly int EmissionColorPropertyId = Shader.PropertyToID("_EmissionColor");
-        private static readonly int MetallicPropertyId = Shader.PropertyToID("_Metallic");
-
         [SerializeField] private int tileId;
         [SerializeField] private SurfaceCell cell;
         [SerializeField] private Transform presentationRoot;
-        [SerializeField] private Animator animator;
-        [SerializeField] private string buttonActivatedTriggerName = "ButtonActivated";
-        [SerializeField] private string destroyTileTriggeredTriggerName = "DestroyTileTriggered";
-        [SerializeField] private string destroyTileActivatedTriggerName = "DestroyTileActivated";
-        [SerializeField] private string destroyTileDeactivatedTriggerName = "DestroyTileDeactivated";
-        [SerializeField] private string destroyTileActiveBoolName = "DestroyTileActive";
-        [SerializeField] private string destroyTileActiveStateName = "DestroyTileActiveIdle";
-        [SerializeField] private string destroyTileInactiveStateName = "DestroyTileInactiveIdle";
-        [SerializeField] private string slideTileRedirectedTriggerName = "SlideTileRedirected";
-        [SerializeField] private string barricadeBlockedTriggerName = "BarricadeBlocked";
-        [SerializeField] private string barricadeCrushedTriggerName = "BarricadeCrushed";
-        [SerializeField] private string barricadeActivatedTriggerName = "BarricadeActivated";
-        [SerializeField] private string barricadeDeactivatedTriggerName = "BarricadeDeactivated";
-        [SerializeField] private string barricadeActiveBoolName = "BarricadeActive";
-        [SerializeField] private string barricadeRaisedStateName = "RaisedIdle";
-        [SerializeField] private string barricadeLoweredStateName = "LoweredIdle";
-        [SerializeField] private string exitOpenedTriggerName = "ExitOpened";
-        [SerializeField] private string exitEnteredTriggerName = "ExitEntered";
-        [SerializeField] private string exitOpenBoolName = "ExitOpen";
-        [SerializeField] private string exitOpenedStateName = "ExitOpenedIdle";
-        [SerializeField] private string exitClosedStateName = "ExitClosedIdle";
-        [SerializeField] private string moonBlockGeneratedTriggerName = "MoonBlockGenerated";
-        [SerializeField] private string moonBlockGeneratorBlockedTriggerName = "MoonBlockGeneratorBlocked";
-        [SerializeField] private string moonBlockGeneratorBlockedUnitTriggerName;
-        [SerializeField] private string moonBlockGeneratorBlockedWallLikeSolidTriggerName;
-        [SerializeField] private string moonBlockGeneratorBlockedPlacementTriggerName;
-        [SerializeField] private TileFeatureInactiveMaterialTarget[] destroyTileInactiveMaterialTargets;
-        [SerializeField] private TileFeatureInactiveMaterialTarget[] slideTileInactiveMaterialTargets;
-        [SerializeField] private ParticleSystem buttonActivatedParticles;
-        [SerializeField] private ParticleSystem destroyTileTriggeredParticles;
-        [SerializeField] private ParticleSystem slideTileRedirectedParticles;
-        [SerializeField] private ParticleSystem barricadeBlockedParticles;
-        [SerializeField] private ParticleSystem barricadeCrushedParticles;
-        [SerializeField] private ParticleSystem exitOpenedParticles;
-        [SerializeField] private ParticleSystem exitEnteredParticles;
-        [SerializeField] private ParticleSystem moonBlockGeneratedParticles;
-        [SerializeField] private ParticleSystem moonBlockGeneratorBlockedParticles;
-        [SerializeField] private ParticleSystem moonBlockGeneratorBlockedUnitParticles;
-        [SerializeField] private ParticleSystem moonBlockGeneratorBlockedWallLikeSolidParticles;
-        [SerializeField] private ParticleSystem moonBlockGeneratorBlockedPlacementParticles;
-        [SerializeField] private UnityEvent buttonActivatedPlayed;
-        [SerializeField] private UnityEvent destroyTileTriggeredPlayed;
-        [SerializeField] private UnityEvent destroyTileActivatedPlayed;
-        [SerializeField] private UnityEvent destroyTileDeactivatedPlayed;
-        [SerializeField] private UnityEvent slideTileRedirectedPlayed;
-        [SerializeField] private UnityEvent barricadeBlockedPlayed;
-        [SerializeField] private UnityEvent barricadeCrushedPlayed;
-        [SerializeField] private UnityEvent barricadeActivatedPlayed;
-        [SerializeField] private UnityEvent barricadeDeactivatedPlayed;
-        [SerializeField] private UnityEvent exitOpenedPlayed;
-        [SerializeField] private UnityEvent exitEnteredPlayed;
-        [SerializeField] private UnityEvent moonBlockGeneratedPlayed;
-        [SerializeField] private UnityEvent moonBlockGeneratorBlockedPlayed;
-        [SerializeField] private UnityEvent moonBlockGeneratorBlockedUnitPlayed;
-        [SerializeField] private UnityEvent moonBlockGeneratorBlockedWallLikeSolidPlayed;
-        [SerializeField] private UnityEvent moonBlockGeneratorBlockedPlacementPlayed;
-
-        private int _debugPlayButtonActivatedCount;
-        private int _debugPlayDestroyTileTriggeredCount;
-        private int _debugPlayDestroyTileActivatedCount;
-        private int _debugPlayDestroyTileDeactivatedCount;
-        private bool _debugDestroyTileActive;
-        private bool _debugSlideTileActive;
-        private int _debugPlaySlideTileRedirectedCount;
-        private int _debugPlayBarricadeBlockedCount;
-        private int _debugPlayBarricadeCrushedCount;
-        private int _debugPlayBarricadeActivatedCount;
-        private int _debugPlayBarricadeDeactivatedCount;
-        private int _debugBarricadeActiveImmediateStatePlayCount;
-        private int _debugPlayExitOpenedCount;
-        private int _debugPlayExitEnteredCount;
-        private bool _debugExitOpen;
-        private int _debugPlayMoonBlockGeneratedCount;
-        private int _debugPlayMoonBlockGeneratorBlockedCount;
-        private int _debugMoonBlockGeneratorBlockedUnitCount;
-        private int _debugMoonBlockGeneratorBlockedWallLikeSolidCount;
-        private int _debugMoonBlockGeneratorBlockedPlacementCount;
-        private Direction _debugLastSlideTileDirection = Direction.None;
-        private Direction _debugLastBarricadeBlockedDirection = Direction.None;
-        private int _debugLastSlideTileTargetEntityId;
-        private int _debugLastBarricadeBlockedTargetEntityId;
-        private int _debugLastBarricadeCrushedTargetEntityId;
-        private int _debugLastExitEnteredPlayerEntityId;
-        private int _debugLastMoonBlockGeneratedEntityId;
-        private MoonBlockGeneratorBlockedPayload _debugLastMoonBlockGeneratorBlockedPayload;
-        private MaterialPropertyBlock _destroyTileMaterialPropertyBlock;
-        private bool _hasBarricadeActiveImmediateState;
-        private bool _isGameplayPresentationPaused;
-        private bool _lastBarricadeActiveImmediateState;
+        [SerializeField] private Transform visualRoot;
+        [SerializeField] private Renderer primaryRenderer;
+        [SerializeField] private Transform iconRoot;
+        [SerializeField] private Transform labelRoot;
+        [SerializeField] private TileFeatureVisualTargetBinding[] authoredBindings;
 
         public int TileId => tileId;
 
@@ -142,70 +52,85 @@ namespace Game.Feature.Gameplay.Host
 
         public Transform PresentationRoot => presentationRoot != null ? presentationRoot : transform;
 
-        public int DebugPlayButtonActivatedCount => _debugPlayButtonActivatedCount;
+        public Transform VisualRoot => visualRoot != null ? visualRoot : PresentationRoot;
 
-        public int DebugPlayDestroyTileTriggeredCount => _debugPlayDestroyTileTriggeredCount;
+        public Renderer PrimaryRenderer => primaryRenderer;
 
-        public int DebugPlayDestroyTileActivatedCount => _debugPlayDestroyTileActivatedCount;
+        public int DebugPlayButtonActivatedCount => ResolveDebugAdapter()?.DebugPlayButtonActivatedCount ?? 0;
 
-        public int DebugPlayDestroyTileDeactivatedCount => _debugPlayDestroyTileDeactivatedCount;
+        public int DebugPlayDestroyTileTriggeredCount => ResolveDebugAdapter()?.DebugPlayDestroyTileTriggeredCount ?? 0;
 
-        public bool DebugDestroyTileActive => _debugDestroyTileActive;
+        public int DebugPlayDestroyTileActivatedCount => ResolveDebugAdapter()?.DebugPlayDestroyTileActivatedCount ?? 0;
 
-        public bool DebugSlideTileActive => _debugSlideTileActive;
+        public int DebugPlayDestroyTileDeactivatedCount => ResolveDebugAdapter()?.DebugPlayDestroyTileDeactivatedCount ?? 0;
 
-        public int DebugPlaySlideTileRedirectedCount => _debugPlaySlideTileRedirectedCount;
+        public bool DebugDestroyTileActive => ResolveDebugAdapter()?.DebugDestroyTileActive ?? false;
 
-        public int DebugPlayBarricadeBlockedCount => _debugPlayBarricadeBlockedCount;
+        public bool DebugSlideTileActive => ResolveDebugAdapter()?.DebugSlideTileActive ?? false;
 
-        public int DebugPlayBarricadeCrushedCount => _debugPlayBarricadeCrushedCount;
+        public int DebugPlaySlideTileRedirectedCount => ResolveDebugAdapter()?.DebugPlaySlideTileRedirectedCount ?? 0;
 
-        public int DebugPlayBarricadeActivatedCount => _debugPlayBarricadeActivatedCount;
+        public int DebugPlayBarricadeBlockedCount => ResolveDebugAdapter()?.DebugPlayBarricadeBlockedCount ?? 0;
 
-        public int DebugPlayBarricadeDeactivatedCount => _debugPlayBarricadeDeactivatedCount;
+        public int DebugPlayBarricadeCrushedCount => ResolveDebugAdapter()?.DebugPlayBarricadeCrushedCount ?? 0;
 
-        internal int DebugBarricadeActiveImmediateStatePlayCount => _debugBarricadeActiveImmediateStatePlayCount;
+        public int DebugPlayBarricadeActivatedCount => ResolveDebugAdapter()?.DebugPlayBarricadeActivatedCount ?? 0;
 
-        public int DebugPlayExitOpenedCount => _debugPlayExitOpenedCount;
+        public int DebugPlayBarricadeDeactivatedCount => ResolveDebugAdapter()?.DebugPlayBarricadeDeactivatedCount ?? 0;
 
-        public Animator DebugAnimator => animator;
+        internal int DebugBarricadeActiveImmediateStatePlayCount =>
+            ResolveDebugAdapter()?.DebugBarricadeActiveImmediateStatePlayCount ?? 0;
 
-        public int DebugPlayExitEnteredCount => _debugPlayExitEnteredCount;
+        public int DebugPlayExitOpenedCount => ResolveDebugAdapter()?.DebugPlayExitOpenedCount ?? 0;
 
-        public bool DebugExitOpen => _debugExitOpen;
+        public Animator DebugAnimator => ResolveDebugAdapter()?.Animator;
 
-        public int DebugPlayMoonBlockGeneratedCount => _debugPlayMoonBlockGeneratedCount;
+        public int DebugPlayExitEnteredCount => ResolveDebugAdapter()?.DebugPlayExitEnteredCount ?? 0;
 
-        public int DebugPlayMoonBlockGeneratorBlockedCount => _debugPlayMoonBlockGeneratorBlockedCount;
+        public bool DebugExitOpen => ResolveDebugAdapter()?.DebugExitOpen ?? false;
 
-        public int DebugMoonBlockGeneratorBlockedUnitCount => _debugMoonBlockGeneratorBlockedUnitCount;
+        public int DebugPlayMoonBlockGeneratedCount => ResolveDebugAdapter()?.DebugPlayMoonBlockGeneratedCount ?? 0;
 
-        public int DebugMoonBlockGeneratorBlockedWallLikeSolidCount => _debugMoonBlockGeneratorBlockedWallLikeSolidCount;
+        public int DebugPlayMoonBlockGeneratorBlockedCount =>
+            ResolveDebugAdapter()?.DebugPlayMoonBlockGeneratorBlockedCount ?? 0;
 
-        public int DebugMoonBlockGeneratorBlockedPlacementCount => _debugMoonBlockGeneratorBlockedPlacementCount;
+        public int DebugMoonBlockGeneratorBlockedUnitCount =>
+            ResolveDebugAdapter()?.DebugMoonBlockGeneratorBlockedUnitCount ?? 0;
 
-        public Direction DebugLastSlideTileDirection => _debugLastSlideTileDirection;
+        public int DebugMoonBlockGeneratorBlockedWallLikeSolidCount =>
+            ResolveDebugAdapter()?.DebugMoonBlockGeneratorBlockedWallLikeSolidCount ?? 0;
 
-        public Direction DebugLastBarricadeBlockedDirection => _debugLastBarricadeBlockedDirection;
+        public int DebugMoonBlockGeneratorBlockedPlacementCount =>
+            ResolveDebugAdapter()?.DebugMoonBlockGeneratorBlockedPlacementCount ?? 0;
 
-        public int DebugLastSlideTileTargetEntityId => _debugLastSlideTileTargetEntityId;
+        public Direction DebugLastSlideTileDirection =>
+            ResolveDebugAdapter()?.DebugLastSlideTileDirection ?? Direction.None;
 
-        public int DebugLastBarricadeBlockedTargetEntityId => _debugLastBarricadeBlockedTargetEntityId;
+        public Direction DebugLastBarricadeBlockedDirection =>
+            ResolveDebugAdapter()?.DebugLastBarricadeBlockedDirection ?? Direction.None;
 
-        public int DebugLastBarricadeCrushedTargetEntityId => _debugLastBarricadeCrushedTargetEntityId;
+        public int DebugLastSlideTileTargetEntityId => ResolveDebugAdapter()?.DebugLastSlideTileTargetEntityId ?? 0;
 
-        public int DebugLastExitEnteredPlayerEntityId => _debugLastExitEnteredPlayerEntityId;
+        public int DebugLastBarricadeBlockedTargetEntityId =>
+            ResolveDebugAdapter()?.DebugLastBarricadeBlockedTargetEntityId ?? 0;
 
-        public int DebugLastMoonBlockGeneratedEntityId => _debugLastMoonBlockGeneratedEntityId;
+        public int DebugLastBarricadeCrushedTargetEntityId =>
+            ResolveDebugAdapter()?.DebugLastBarricadeCrushedTargetEntityId ?? 0;
+
+        public int DebugLastExitEnteredPlayerEntityId =>
+            ResolveDebugAdapter()?.DebugLastExitEnteredPlayerEntityId ?? 0;
+
+        public int DebugLastMoonBlockGeneratedEntityId =>
+            ResolveDebugAdapter()?.DebugLastMoonBlockGeneratedEntityId ?? 0;
 
         public MoonBlockGeneratorBlockedPayload DebugLastMoonBlockGeneratorBlockedPayload =>
-            _debugLastMoonBlockGeneratorBlockedPayload;
+            ResolveDebugAdapter()?.DebugLastMoonBlockGeneratorBlockedPayload ?? default;
 
         public MoonBlockGeneratorBlockedReason DebugLastMoonBlockGeneratorBlockedReason =>
-            _debugLastMoonBlockGeneratorBlockedPayload.Reason;
+            DebugLastMoonBlockGeneratorBlockedPayload.Reason;
 
         public int DebugLastMoonBlockGeneratorBlockedEntityId =>
-            _debugLastMoonBlockGeneratorBlockedPayload.BlockingEntityId;
+            DebugLastMoonBlockGeneratorBlockedPayload.BlockingEntityId;
 
         public void Configure(int newTileId, SurfaceCell newCell)
         {
@@ -216,7 +141,7 @@ namespace Game.Feature.Gameplay.Host
         {
             tileId = newTileId;
             cell = newCell;
-            ResetBarricadeActiveImmediateState();
+            ResolveDebugAdapter()?.ResetBarricadeActiveImmediateState();
         }
 
         internal void ConfigurePresentationRoot(Transform newPresentationRoot)
@@ -224,451 +149,81 @@ namespace Game.Feature.Gameplay.Host
             presentationRoot = newPresentationRoot != null ? newPresentationRoot : transform;
         }
 
-        public void PlayButtonActivated()
+        public bool TryGetSlot(TileFeatureVisualSlotId slotId, out Transform slotTransform)
         {
-            _debugPlayButtonActivatedCount++;
-
-            if (animator != null &&
-                animator.runtimeAnimatorController != null &&
-                !string.IsNullOrWhiteSpace(buttonActivatedTriggerName))
+            if (TryGetAuthoredBinding(slotId, out var binding) &&
+                binding.Transform != null)
             {
-                animator.SetTrigger(Animator.StringToHash(buttonActivatedTriggerName));
+                slotTransform = binding.Transform;
+                return true;
             }
 
-            if (buttonActivatedParticles != null)
+            slotTransform = ResolveDefaultSlot(slotId);
+            return slotTransform != null;
+        }
+
+        public bool TryGetRenderer(TileFeatureVisualSlotId slotId, out Renderer renderer)
+        {
+            if (TryGetAuthoredBinding(slotId, out var binding) &&
+                binding.Renderer != null)
             {
-                PlayParticles(buttonActivatedParticles);
+                renderer = binding.Renderer;
+                return true;
             }
 
-            buttonActivatedPlayed?.Invoke();
+            renderer = slotId == TileFeatureVisualSlotId.Renderer ||
+                       slotId == TileFeatureVisualSlotId.Root
+                ? primaryRenderer
+                : null;
+            return renderer != null;
         }
 
-        public void PlayDestroyTileTriggered()
+        public TileFeatureVisualBindingDiagnostics ValidateBindings()
         {
-            _debugPlayDestroyTileTriggeredCount++;
+            return TileFeatureVisualBindingDiagnostics.ForTarget(this);
+        }
 
-            if (animator != null &&
-                animator.runtimeAnimatorController != null &&
-                !string.IsNullOrWhiteSpace(destroyTileTriggeredTriggerName))
+        private Transform ResolveDefaultSlot(TileFeatureVisualSlotId slotId)
+        {
+            switch (slotId)
             {
-                animator.SetTrigger(Animator.StringToHash(destroyTileTriggeredTriggerName));
-            }
-
-            if (destroyTileTriggeredParticles != null)
-            {
-                PlayParticles(destroyTileTriggeredParticles);
-            }
-
-            destroyTileTriggeredPlayed?.Invoke();
-        }
-
-        public void PlayDestroyTileActivated()
-        {
-            _debugPlayDestroyTileActivatedCount++;
-            SetDestroyTileActiveImmediate(true);
-            SetAnimatorTrigger(destroyTileActivatedTriggerName);
-            destroyTileActivatedPlayed?.Invoke();
-        }
-
-        public void PlayDestroyTileDeactivated()
-        {
-            _debugPlayDestroyTileDeactivatedCount++;
-            SetDestroyTileActiveImmediate(false);
-            SetAnimatorTrigger(destroyTileDeactivatedTriggerName);
-            destroyTileDeactivatedPlayed?.Invoke();
-        }
-
-        public void SetDestroyTileActiveImmediate(bool active)
-        {
-            SetTileFeatureActiveImmediate(TileFeatureKind.Destroy, active);
-        }
-
-        public void SetSlideTileActiveImmediate(bool active)
-        {
-            SetTileFeatureActiveImmediate(TileFeatureKind.Slide, active);
-        }
-
-        public void SetTileFeatureActiveImmediate(TileFeatureKind kind, bool active)
-        {
-            switch (kind)
-            {
-                case TileFeatureKind.Destroy:
-                    _debugDestroyTileActive = active;
-                    SetAnimatorBool(destroyTileActiveBoolName, active);
-                    PlayAnimatorStateIfPresent(active ? destroyTileActiveStateName : destroyTileInactiveStateName);
-                    ApplyDestroyTileMaterialState(active);
-                    return;
-                case TileFeatureKind.Slide:
-                    _debugSlideTileActive = active;
-                    ApplyTileFeatureInactiveMaterialState(slideTileInactiveMaterialTargets, active);
-                    return;
+                case TileFeatureVisualSlotId.Root:
+                    return transform;
+                case TileFeatureVisualSlotId.Renderer:
+                    return primaryRenderer != null ? primaryRenderer.transform : VisualRoot;
+                case TileFeatureVisualSlotId.IconRoot:
+                    return iconRoot;
+                case TileFeatureVisualSlotId.LabelRoot:
+                    return labelRoot;
+                case TileFeatureVisualSlotId.CellCenter:
+                case TileFeatureVisualSlotId.CellFloor:
+                    return PresentationRoot;
                 default:
-                    return;
+                    return null;
             }
         }
 
-        public void PlaySlideTileRedirected(Direction direction, int targetEntityId)
+        private bool TryGetAuthoredBinding(TileFeatureVisualSlotId slotId, out TileFeatureVisualTargetBinding binding)
         {
-            _debugPlaySlideTileRedirectedCount++;
-            _debugLastSlideTileDirection = direction;
-            _debugLastSlideTileTargetEntityId = targetEntityId;
-
-            if (animator != null &&
-                animator.runtimeAnimatorController != null &&
-                !string.IsNullOrWhiteSpace(slideTileRedirectedTriggerName))
+            if (authoredBindings != null)
             {
-                animator.SetTrigger(Animator.StringToHash(slideTileRedirectedTriggerName));
-            }
-
-            if (slideTileRedirectedParticles != null)
-            {
-                PlayParticles(slideTileRedirectedParticles);
-            }
-
-            slideTileRedirectedPlayed?.Invoke();
-        }
-
-        public void PlayBarricadeBlocked(Direction direction, int targetEntityId)
-        {
-            _debugPlayBarricadeBlockedCount++;
-            _debugLastBarricadeBlockedDirection = direction;
-            _debugLastBarricadeBlockedTargetEntityId = targetEntityId;
-            MarkBarricadeActiveImmediateState(active: true);
-
-            if (animator != null &&
-                animator.runtimeAnimatorController != null &&
-                !string.IsNullOrWhiteSpace(barricadeBlockedTriggerName))
-            {
-                animator.SetTrigger(Animator.StringToHash(barricadeBlockedTriggerName));
-            }
-
-            if (barricadeBlockedParticles != null)
-            {
-                PlayParticles(barricadeBlockedParticles);
-            }
-
-            barricadeBlockedPlayed?.Invoke();
-        }
-
-        public void PlayBarricadeCrushed(int targetEntityId)
-        {
-            _debugPlayBarricadeCrushedCount++;
-            _debugLastBarricadeCrushedTargetEntityId = targetEntityId;
-
-            if (animator != null &&
-                animator.runtimeAnimatorController != null &&
-                !string.IsNullOrWhiteSpace(barricadeCrushedTriggerName))
-            {
-                animator.SetTrigger(Animator.StringToHash(barricadeCrushedTriggerName));
-            }
-
-            if (barricadeCrushedParticles != null)
-            {
-                PlayParticles(barricadeCrushedParticles);
-            }
-
-            barricadeCrushedPlayed?.Invoke();
-        }
-
-        public void PlayBarricadeActivated()
-        {
-            _debugPlayBarricadeActivatedCount++;
-            SetAnimatorBool(barricadeActiveBoolName, true);
-            MarkBarricadeActiveImmediateState(active: true);
-            SetAnimatorTrigger(barricadeActivatedTriggerName);
-            barricadeActivatedPlayed?.Invoke();
-        }
-
-        public void PlayBarricadeDeactivated()
-        {
-            _debugPlayBarricadeDeactivatedCount++;
-            SetAnimatorBool(barricadeActiveBoolName, false);
-            MarkBarricadeActiveImmediateState(active: false);
-            SetAnimatorTrigger(barricadeDeactivatedTriggerName);
-            barricadeDeactivatedPlayed?.Invoke();
-        }
-
-        public void SetBarricadeActiveImmediate(bool active)
-        {
-            SetAnimatorBool(barricadeActiveBoolName, active);
-            if (_hasBarricadeActiveImmediateState &&
-                _lastBarricadeActiveImmediateState == active)
-            {
-                return;
-            }
-
-            MarkBarricadeActiveImmediateState(active);
-            _debugBarricadeActiveImmediateStatePlayCount++;
-            PlayAnimatorStateIfPresent(active ? barricadeRaisedStateName : barricadeLoweredStateName);
-        }
-
-        public void PlayExitOpened()
-        {
-            _debugPlayExitOpenedCount++;
-            SetExitOpenFlag(true);
-            SetAnimatorTrigger(exitOpenedTriggerName);
-
-            if (exitOpenedParticles != null)
-            {
-                PlayParticles(exitOpenedParticles);
-            }
-
-            exitOpenedPlayed?.Invoke();
-        }
-
-        public void SetExitOpenImmediate(bool open)
-        {
-            SetExitOpenFlag(open);
-            PlayAnimatorStateIfPresent(open ? exitOpenedStateName : exitClosedStateName);
-        }
-
-        public void PlayExitEntered(int playerEntityId)
-        {
-            _debugPlayExitEnteredCount++;
-            _debugLastExitEnteredPlayerEntityId = playerEntityId;
-
-            if (animator != null &&
-                animator.runtimeAnimatorController != null &&
-                !string.IsNullOrWhiteSpace(exitEnteredTriggerName))
-            {
-                animator.SetTrigger(Animator.StringToHash(exitEnteredTriggerName));
-            }
-
-            if (exitEnteredParticles != null)
-            {
-                PlayParticles(exitEnteredParticles);
-            }
-
-            exitEnteredPlayed?.Invoke();
-        }
-
-        public void PlayMoonBlockGenerated(int moonBlockEntityId)
-        {
-            _debugPlayMoonBlockGeneratedCount++;
-            _debugLastMoonBlockGeneratedEntityId = moonBlockEntityId;
-
-            if (animator != null &&
-                animator.runtimeAnimatorController != null &&
-                !string.IsNullOrWhiteSpace(moonBlockGeneratedTriggerName))
-            {
-                animator.SetTrigger(Animator.StringToHash(moonBlockGeneratedTriggerName));
-            }
-
-            if (moonBlockGeneratedParticles != null)
-            {
-                PlayParticles(moonBlockGeneratedParticles);
-            }
-
-            moonBlockGeneratedPlayed?.Invoke();
-        }
-
-        public void PlayMoonBlockGeneratorBlocked(MoonBlockGeneratorBlockedPayload payload)
-        {
-            _debugPlayMoonBlockGeneratorBlockedCount++;
-            _debugLastMoonBlockGeneratorBlockedPayload = payload;
-
-            if (animator != null &&
-                animator.runtimeAnimatorController != null &&
-                !string.IsNullOrWhiteSpace(moonBlockGeneratorBlockedTriggerName))
-            {
-                animator.SetTrigger(Animator.StringToHash(moonBlockGeneratorBlockedTriggerName));
-            }
-
-            if (moonBlockGeneratorBlockedParticles != null)
-            {
-                PlayParticles(moonBlockGeneratorBlockedParticles);
-            }
-
-            moonBlockGeneratorBlockedPlayed?.Invoke();
-            PlayReasonSpecificMoonBlockGeneratorBlocked(payload.Reason);
-        }
-
-        private void PlayReasonSpecificMoonBlockGeneratorBlocked(MoonBlockGeneratorBlockedReason reason)
-        {
-            switch (reason)
-            {
-                case MoonBlockGeneratorBlockedReason.UnitOccupant:
-                    _debugMoonBlockGeneratorBlockedUnitCount++;
-                    PlayOptionalFeedback(
-                        moonBlockGeneratorBlockedUnitTriggerName,
-                        moonBlockGeneratorBlockedUnitParticles,
-                        moonBlockGeneratorBlockedUnitPlayed);
-                    return;
-                case MoonBlockGeneratorBlockedReason.WallLikeSolid:
-                    _debugMoonBlockGeneratorBlockedWallLikeSolidCount++;
-                    PlayOptionalFeedback(
-                        moonBlockGeneratorBlockedWallLikeSolidTriggerName,
-                        moonBlockGeneratorBlockedWallLikeSolidParticles,
-                        moonBlockGeneratorBlockedWallLikeSolidPlayed);
-                    return;
-                case MoonBlockGeneratorBlockedReason.PlacementBlocked:
-                    _debugMoonBlockGeneratorBlockedPlacementCount++;
-                    PlayOptionalFeedback(
-                        moonBlockGeneratorBlockedPlacementTriggerName,
-                        moonBlockGeneratorBlockedPlacementParticles,
-                        moonBlockGeneratorBlockedPlacementPlayed);
-                    return;
-            }
-        }
-
-        private void PlayOptionalFeedback(
-            string triggerName,
-            ParticleSystem particles,
-            UnityEvent played)
-        {
-            if (animator != null &&
-                animator.runtimeAnimatorController != null &&
-                !string.IsNullOrWhiteSpace(triggerName))
-            {
-                animator.SetTrigger(Animator.StringToHash(triggerName));
-            }
-
-            if (particles != null)
-            {
-                PlayParticles(particles);
-            }
-
-            played?.Invoke();
-        }
-
-        public void SetPresentationPaused(bool paused)
-        {
-            _isGameplayPresentationPaused = paused;
-        }
-
-        private void ApplyDestroyTileMaterialState(bool active)
-        {
-            ApplyTileFeatureInactiveMaterialState(destroyTileInactiveMaterialTargets, active);
-        }
-
-        private void ApplyTileFeatureInactiveMaterialState(
-            TileFeatureInactiveMaterialTarget[] targets,
-            bool active)
-        {
-            if (targets == null ||
-                targets.Length == 0)
-            {
-                return;
-            }
-
-            for (var i = 0; i < targets.Length; i++)
-            {
-                var target = targets[i];
-                var targetRenderer = target.Renderer;
-                if (targetRenderer == null)
+                for (var i = 0; i < authoredBindings.Length; i++)
                 {
-                    continue;
-                }
-
-                var materialIndex = Mathf.Max(0, target.MaterialIndex);
-                if (active)
-                {
-                    targetRenderer.SetPropertyBlock(null, materialIndex);
-                    continue;
-                }
-
-                _destroyTileMaterialPropertyBlock ??= new MaterialPropertyBlock();
-                targetRenderer.GetPropertyBlock(_destroyTileMaterialPropertyBlock, materialIndex);
-                _destroyTileMaterialPropertyBlock.SetColor(BaseColorPropertyId, target.InactiveColor);
-                _destroyTileMaterialPropertyBlock.SetColor(ColorPropertyId, target.InactiveColor);
-                _destroyTileMaterialPropertyBlock.SetColor(EmissionColorPropertyId, target.InactiveColor);
-                _destroyTileMaterialPropertyBlock.SetFloat(MetallicPropertyId, target.InactiveMetallic);
-                targetRenderer.SetPropertyBlock(_destroyTileMaterialPropertyBlock, materialIndex);
-                _destroyTileMaterialPropertyBlock.Clear();
-            }
-        }
-
-        private void SetAnimatorTrigger(string triggerName)
-        {
-            if (HasAnimatorParameter(triggerName, AnimatorControllerParameterType.Trigger, out var hash))
-            {
-                animator.SetTrigger(hash);
-            }
-        }
-
-        private void PlayParticles(ParticleSystem particles)
-        {
-            if (particles == null)
-            {
-                return;
-            }
-
-            particles.Play(withChildren: true);
-            if (_isGameplayPresentationPaused)
-            {
-                particles.Pause(withChildren: true);
-            }
-        }
-
-        private void SetAnimatorBool(string boolName, bool value)
-        {
-            if (HasAnimatorParameter(boolName, AnimatorControllerParameterType.Bool, out var hash))
-            {
-                animator.SetBool(hash, value);
-            }
-        }
-
-        private void SetExitOpenFlag(bool open)
-        {
-            _debugExitOpen = open;
-            SetAnimatorBool(exitOpenBoolName, open);
-        }
-
-        private void ResetBarricadeActiveImmediateState()
-        {
-            _hasBarricadeActiveImmediateState = false;
-            _lastBarricadeActiveImmediateState = false;
-            _debugBarricadeActiveImmediateStatePlayCount = 0;
-        }
-
-        private void MarkBarricadeActiveImmediateState(bool active)
-        {
-            _hasBarricadeActiveImmediateState = true;
-            _lastBarricadeActiveImmediateState = active;
-        }
-
-        private void PlayAnimatorStateIfPresent(string stateName)
-        {
-            if (animator == null ||
-                animator.runtimeAnimatorController == null ||
-                string.IsNullOrWhiteSpace(stateName))
-            {
-                return;
-            }
-
-            var hash = Animator.StringToHash(stateName);
-            if (animator.HasState(0, hash))
-            {
-                animator.Play(hash, 0, 1f);
-                animator.Update(0f);
-            }
-        }
-
-        private bool HasAnimatorParameter(
-            string parameterName,
-            AnimatorControllerParameterType parameterType,
-            out int hash)
-        {
-            hash = 0;
-            if (animator == null ||
-                animator.runtimeAnimatorController == null ||
-                string.IsNullOrWhiteSpace(parameterName))
-            {
-                return false;
-            }
-
-            hash = Animator.StringToHash(parameterName);
-            var parameters = animator.parameters;
-            for (var i = 0; i < parameters.Length; i++)
-            {
-                if (parameters[i].nameHash == hash &&
-                    parameters[i].type == parameterType)
-                {
-                    return true;
+                    if (authoredBindings[i].SlotId == slotId)
+                    {
+                        binding = authoredBindings[i];
+                        return true;
+                    }
                 }
             }
 
+            binding = default;
             return false;
+        }
+
+        private LegacyTileFeatureVisualCueAdapter ResolveDebugAdapter()
+        {
+            return GetComponent<LegacyTileFeatureVisualCueAdapter>();
         }
     }
 }

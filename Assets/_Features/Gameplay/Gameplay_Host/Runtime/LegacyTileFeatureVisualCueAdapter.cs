@@ -1,0 +1,559 @@
+using System;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
+using UnityEngine;
+
+namespace Game.Feature.Gameplay.Host
+{
+    [DisallowMultipleComponent]
+    [Obsolete("Partial split bridge only. New TileFeature visuals should bind handlers/profiles and route through ITileFeatureVisualCueSink.")]
+    public sealed class LegacyTileFeatureVisualCueAdapter :
+        MonoBehaviour,
+        ITileFeatureVisualCueSink,
+        IDestroyTileVisualTarget,
+        IDestroyTileActivatedVisualTarget,
+        IDestroyTileDeactivatedVisualTarget,
+        IDestroyTileActiveStateVisualTarget,
+        ITileFeatureActiveStateVisualTarget,
+        ISlideTileVisualTarget,
+        IBarricadeBlockedVisualTarget,
+        IBarricadeCrushedVisualTarget,
+        IBarricadeActivatedVisualTarget,
+        IBarricadeDeactivatedVisualTarget,
+        IBarricadeActiveStateVisualTarget,
+        IExitOpenedVisualTarget,
+        IExitEnteredVisualTarget,
+        IExitOpenStateVisualTarget,
+        IMoonBlockGeneratedVisualTarget,
+        IMoonBlockGeneratorBlockedVisualTarget,
+        IGameplayPresentationPausable
+    {
+        private static readonly int ButtonActivatedTrigger = Animator.StringToHash("ButtonActivated");
+        private static readonly int DestroyTileTriggeredTrigger = Animator.StringToHash("DestroyTileTriggered");
+        private static readonly int DestroyTileActivatedTrigger = Animator.StringToHash("DestroyTileActivated");
+        private static readonly int DestroyTileDeactivatedTrigger = Animator.StringToHash("DestroyTileDeactivated");
+        private static readonly int DestroyTileActiveBool = Animator.StringToHash("DestroyTileActive");
+        private static readonly int DestroyTileActiveState = Animator.StringToHash("DestroyTileActiveIdle");
+        private static readonly int DestroyTileInactiveState = Animator.StringToHash("DestroyTileInactiveIdle");
+        private static readonly int SlideTileRedirectedTrigger = Animator.StringToHash("SlideTileRedirected");
+        private static readonly int BarricadeBlockedTrigger = Animator.StringToHash("BarricadeBlocked");
+        private static readonly int BarricadeCrushedTrigger = Animator.StringToHash("BarricadeCrushed");
+        private static readonly int BarricadeActivatedTrigger = Animator.StringToHash("BarricadeActivated");
+        private static readonly int BarricadeDeactivatedTrigger = Animator.StringToHash("BarricadeDeactivated");
+        private static readonly int BarricadeActiveBool = Animator.StringToHash("BarricadeActive");
+        private static readonly int BarricadeRaisedState = Animator.StringToHash("RaisedIdle");
+        private static readonly int BarricadeLoweredState = Animator.StringToHash("LoweredIdle");
+        private static readonly int ExitOpenedTrigger = Animator.StringToHash("ExitOpened");
+        private static readonly int ExitEnteredTrigger = Animator.StringToHash("ExitEntered");
+        private static readonly int ExitOpenBool = Animator.StringToHash("ExitOpen");
+        private static readonly int ExitOpenedState = Animator.StringToHash("ExitOpenedIdle");
+        private static readonly int ExitClosedState = Animator.StringToHash("ExitClosedIdle");
+        private static readonly int MoonBlockGeneratedTrigger = Animator.StringToHash("MoonBlockGenerated");
+        private static readonly int MoonBlockGeneratorBlockedTrigger = Animator.StringToHash("MoonBlockGeneratorBlocked");
+
+        [SerializeField] private TileFeatureVisualTargetView targetView;
+        [SerializeField] private Animator animator;
+        [SerializeField] private TileFeatureVisualProfile[] profiles;
+
+        private readonly ButtonTileFeatureVisualHandler buttonHandler = new();
+        private readonly DestroyTileFeatureVisualHandler destroyHandler = new();
+        private readonly SlideTileFeatureVisualHandler slideHandler = new();
+        private readonly BarricadeTileFeatureVisualHandler barricadeHandler = new();
+        private readonly ExitTileFeatureVisualHandler exitHandler = new();
+        private readonly MoonBlockGeneratorTileFeatureVisualHandler moonGeneratorHandler = new();
+        private readonly GenericTileFeatureVfxHandler genericHandler = new();
+
+        private bool hasBarricadeActiveImmediateState;
+        private bool lastBarricadeActiveImmediateState;
+        private IGameplayVfxPlaybackPort gameplayVfxPlaybackPort;
+
+        public int DebugPlayButtonActivatedCount { get; private set; }
+        public int DebugPlayDestroyTileTriggeredCount { get; private set; }
+        public int DebugPlayDestroyTileActivatedCount { get; private set; }
+        public int DebugPlayDestroyTileDeactivatedCount { get; private set; }
+        public bool DebugDestroyTileActive { get; private set; }
+        public bool DebugSlideTileActive { get; private set; }
+        public int DebugPlaySlideTileRedirectedCount { get; private set; }
+        public int DebugPlayBarricadeBlockedCount { get; private set; }
+        public int DebugPlayBarricadeCrushedCount { get; private set; }
+        public int DebugPlayBarricadeActivatedCount { get; private set; }
+        public int DebugPlayBarricadeDeactivatedCount { get; private set; }
+        public int DebugBarricadeActiveImmediateStatePlayCount { get; private set; }
+        public int DebugPlayExitOpenedCount { get; private set; }
+        public int DebugPlayExitEnteredCount { get; private set; }
+        public bool DebugExitOpen { get; private set; }
+        public int DebugPlayMoonBlockGeneratedCount { get; private set; }
+        public int DebugPlayMoonBlockGeneratorBlockedCount { get; private set; }
+        public int DebugMoonBlockGeneratorBlockedUnitCount { get; private set; }
+        public int DebugMoonBlockGeneratorBlockedWallLikeSolidCount { get; private set; }
+        public int DebugMoonBlockGeneratorBlockedPlacementCount { get; private set; }
+        public Direction DebugLastSlideTileDirection { get; private set; } = Direction.None;
+        public Direction DebugLastBarricadeBlockedDirection { get; private set; } = Direction.None;
+        public int DebugLastSlideTileTargetEntityId { get; private set; }
+        public int DebugLastBarricadeBlockedTargetEntityId { get; private set; }
+        public int DebugLastBarricadeCrushedTargetEntityId { get; private set; }
+        public int DebugLastExitEnteredPlayerEntityId { get; private set; }
+        public int DebugLastMoonBlockGeneratedEntityId { get; private set; }
+        public MoonBlockGeneratorBlockedPayload DebugLastMoonBlockGeneratorBlockedPayload { get; private set; }
+        public bool IsGameplayPresentationPaused { get; private set; }
+
+        public Animator Animator
+        {
+            get
+            {
+                if (animator == null)
+                {
+                    animator = GetComponentInChildren<Animator>(includeInactive: true);
+                }
+
+                return animator;
+            }
+        }
+
+        public void ConfigureTarget(TileFeatureVisualTargetView target)
+        {
+            targetView = target;
+        }
+
+        public void AttachGameplayVfxPlaybackPort(IGameplayVfxPlaybackPort playbackPort)
+        {
+            gameplayVfxPlaybackPort = playbackPort;
+        }
+
+        public bool TryHandle(in TileFeatureVisualRequest request)
+        {
+            TrackDebug(request);
+            var target = ResolveTarget();
+            var profile = ResolveProfile(request.FeatureKind);
+            var handler = ResolveHandler(request);
+            var handled = handler.TryHandle(request, target, profile, Animator, gameplayVfxPlaybackPort);
+            if (profile == null)
+            {
+                ApplyLegacyAnimatorFallback(request);
+            }
+
+            return handled;
+        }
+
+        public void PlayButtonActivated()
+        {
+            TryHandle(CreateRequest(TileFeatureVisualCueId.ButtonActivated, TileFeatureKind.Button));
+        }
+
+        public void PlayDestroyTileTriggered()
+        {
+            TryHandle(CreateRequest(TileFeatureVisualCueId.DestroyTileTriggered, TileFeatureKind.Destroy));
+        }
+
+        public void PlayDestroyTileActivated()
+        {
+            TryHandle(CreateRequest(TileFeatureVisualCueId.DestroyTileActivated, TileFeatureKind.Destroy, active: true));
+        }
+
+        public void PlayDestroyTileDeactivated()
+        {
+            TryHandle(CreateRequest(TileFeatureVisualCueId.DestroyTileDeactivated, TileFeatureKind.Destroy));
+        }
+
+        public void SetDestroyTileActiveImmediate(bool active)
+        {
+            TryHandle(CreateRequest(TileFeatureVisualCueId.DestroyTileActiveState, TileFeatureKind.Destroy, active: active));
+        }
+
+        public void SetTileFeatureActiveImmediate(TileFeatureKind kind, bool active)
+        {
+            switch (kind)
+            {
+                case TileFeatureKind.Destroy:
+                    SetDestroyTileActiveImmediate(active);
+                    return;
+                case TileFeatureKind.Slide:
+                    TryHandle(CreateRequest(TileFeatureVisualCueId.SlideTileActiveState, TileFeatureKind.Slide, active: active));
+                    return;
+            }
+        }
+
+        public void PlaySlideTileRedirected(Direction direction, int targetEntityId)
+        {
+            TryHandle(CreateRequest(
+                TileFeatureVisualCueId.SlideTileRedirected,
+                TileFeatureKind.Slide,
+                direction,
+                targetEntityId));
+        }
+
+        public void PlayBarricadeBlocked(Direction direction, int targetEntityId)
+        {
+            TryHandle(CreateRequest(
+                TileFeatureVisualCueId.BarricadeBlocked,
+                TileFeatureKind.Barricade,
+                direction,
+                targetEntityId,
+                active: true));
+        }
+
+        public void PlayBarricadeCrushed(int targetEntityId)
+        {
+            TryHandle(CreateRequest(
+                TileFeatureVisualCueId.BarricadeCrushed,
+                TileFeatureKind.Barricade,
+                targetEntityId: targetEntityId));
+        }
+
+        public void PlayBarricadeActivated()
+        {
+            TryHandle(CreateRequest(TileFeatureVisualCueId.BarricadeActivated, TileFeatureKind.Barricade, active: true));
+        }
+
+        public void PlayBarricadeDeactivated()
+        {
+            TryHandle(CreateRequest(TileFeatureVisualCueId.BarricadeDeactivated, TileFeatureKind.Barricade));
+        }
+
+        public void SetBarricadeActiveImmediate(bool active)
+        {
+            TryHandle(CreateRequest(TileFeatureVisualCueId.BarricadeActiveState, TileFeatureKind.Barricade, active: active));
+        }
+
+        public void PlayExitOpened()
+        {
+            TryHandle(CreateRequest(TileFeatureVisualCueId.ExitOpened, TileFeatureKind.Exit, active: true));
+        }
+
+        public void PlayExitEntered(int playerEntityId)
+        {
+            TryHandle(CreateRequest(
+                TileFeatureVisualCueId.ExitEntered,
+                TileFeatureKind.Exit,
+                targetEntityId: playerEntityId));
+        }
+
+        public void SetExitOpenImmediate(bool open)
+        {
+            TryHandle(CreateRequest(TileFeatureVisualCueId.ExitOpenState, TileFeatureKind.Exit, active: open));
+        }
+
+        public void PlayMoonBlockGenerated(int moonBlockEntityId)
+        {
+            TryHandle(CreateRequest(
+                TileFeatureVisualCueId.MoonBlockGenerated,
+                TileFeatureKind.MoonBlockGenerator,
+                targetEntityId: moonBlockEntityId));
+        }
+
+        public void PlayMoonBlockGeneratorBlocked(MoonBlockGeneratorBlockedPayload payload)
+        {
+            var request = new TileFeatureVisualRequest(
+                TileFeatureVisualCueId.MoonBlockGeneratorBlocked,
+                ResolveTarget().TileId,
+                ResolveTarget().Cell,
+                TileFeatureKind.MoonBlockGenerator,
+                moonBlockGeneratorBlockedPayload: payload);
+            TryHandle(request);
+        }
+
+        public void SetPresentationPaused(bool paused)
+        {
+            IsGameplayPresentationPaused = paused;
+        }
+
+        internal void ResetBarricadeActiveImmediateState()
+        {
+            hasBarricadeActiveImmediateState = false;
+            lastBarricadeActiveImmediateState = false;
+            DebugBarricadeActiveImmediateStatePlayCount = 0;
+        }
+
+        private ITileFeatureVisualHandler ResolveHandler(in TileFeatureVisualRequest request)
+        {
+            switch (request.FeatureKind)
+            {
+                case TileFeatureKind.Button:
+                    return buttonHandler;
+                case TileFeatureKind.Destroy:
+                    return destroyHandler;
+                case TileFeatureKind.Slide:
+                    return slideHandler;
+                case TileFeatureKind.Barricade:
+                    return barricadeHandler;
+                case TileFeatureKind.Exit:
+                case TileFeatureKind.Entrance:
+                    return exitHandler;
+                case TileFeatureKind.MoonBlockGenerator:
+                    return moonGeneratorHandler;
+                default:
+                    return genericHandler;
+            }
+        }
+
+        private TileFeatureVisualProfile ResolveProfile(TileFeatureKind featureKind)
+        {
+            if (profiles != null)
+            {
+                for (var i = 0; i < profiles.Length; i++)
+                {
+                    if (profiles[i] != null &&
+                        profiles[i].FeatureKind == featureKind)
+                    {
+                        return profiles[i];
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private TileFeatureVisualTargetView ResolveTarget()
+        {
+            if (targetView == null)
+            {
+                targetView = GetComponent<TileFeatureVisualTargetView>();
+            }
+
+            if (targetView == null)
+            {
+                throw new InvalidOperationException($"{nameof(LegacyTileFeatureVisualCueAdapter)} requires a {nameof(TileFeatureVisualTargetView)}.");
+            }
+
+            return targetView;
+        }
+
+        private TileFeatureVisualRequest CreateRequest(
+            TileFeatureVisualCueId cueId,
+            TileFeatureKind featureKind,
+            Direction direction = Direction.None,
+            int targetEntityId = 0,
+            bool active = false)
+        {
+            var target = ResolveTarget();
+            return new TileFeatureVisualRequest(
+                cueId,
+                target.TileId,
+                target.Cell,
+                featureKind,
+                direction,
+                targetEntityId,
+                active: active);
+        }
+
+        private void TrackDebug(in TileFeatureVisualRequest request)
+        {
+            switch (request.CueId)
+            {
+                case TileFeatureVisualCueId.ButtonActivated:
+                    DebugPlayButtonActivatedCount++;
+                    return;
+                case TileFeatureVisualCueId.DestroyTileTriggered:
+                    DebugPlayDestroyTileTriggeredCount++;
+                    return;
+                case TileFeatureVisualCueId.DestroyTileActivated:
+                    DebugPlayDestroyTileActivatedCount++;
+                    DebugDestroyTileActive = true;
+                    return;
+                case TileFeatureVisualCueId.DestroyTileDeactivated:
+                    DebugPlayDestroyTileDeactivatedCount++;
+                    DebugDestroyTileActive = false;
+                    return;
+                case TileFeatureVisualCueId.DestroyTileActiveState:
+                    DebugDestroyTileActive = request.Active;
+                    return;
+                case TileFeatureVisualCueId.SlideTileRedirected:
+                    DebugPlaySlideTileRedirectedCount++;
+                    DebugLastSlideTileDirection = request.Direction;
+                    DebugLastSlideTileTargetEntityId = request.TargetEntityId;
+                    return;
+                case TileFeatureVisualCueId.SlideTileActiveState:
+                    DebugSlideTileActive = request.Active;
+                    return;
+                case TileFeatureVisualCueId.BarricadeBlocked:
+                    DebugPlayBarricadeBlockedCount++;
+                    DebugLastBarricadeBlockedDirection = request.Direction;
+                    DebugLastBarricadeBlockedTargetEntityId = request.TargetEntityId;
+                    MarkBarricadeActiveImmediateState(true);
+                    return;
+                case TileFeatureVisualCueId.BarricadeCrushed:
+                    DebugPlayBarricadeCrushedCount++;
+                    DebugLastBarricadeCrushedTargetEntityId = request.TargetEntityId;
+                    return;
+                case TileFeatureVisualCueId.BarricadeActivated:
+                    DebugPlayBarricadeActivatedCount++;
+                    MarkBarricadeActiveImmediateState(true);
+                    return;
+                case TileFeatureVisualCueId.BarricadeDeactivated:
+                    DebugPlayBarricadeDeactivatedCount++;
+                    MarkBarricadeActiveImmediateState(false);
+                    return;
+                case TileFeatureVisualCueId.BarricadeActiveState:
+                    if (!hasBarricadeActiveImmediateState ||
+                        lastBarricadeActiveImmediateState != request.Active)
+                    {
+                        DebugBarricadeActiveImmediateStatePlayCount++;
+                    }
+
+                    MarkBarricadeActiveImmediateState(request.Active);
+                    return;
+                case TileFeatureVisualCueId.ExitOpened:
+                    DebugPlayExitOpenedCount++;
+                    DebugExitOpen = true;
+                    return;
+                case TileFeatureVisualCueId.ExitEntered:
+                    DebugPlayExitEnteredCount++;
+                    DebugLastExitEnteredPlayerEntityId = request.TargetEntityId;
+                    return;
+                case TileFeatureVisualCueId.ExitOpenState:
+                    DebugExitOpen = request.Active;
+                    return;
+                case TileFeatureVisualCueId.MoonBlockGenerated:
+                    DebugPlayMoonBlockGeneratedCount++;
+                    DebugLastMoonBlockGeneratedEntityId = request.TargetEntityId;
+                    return;
+                case TileFeatureVisualCueId.MoonBlockGeneratorBlocked:
+                    DebugPlayMoonBlockGeneratorBlockedCount++;
+                    DebugLastMoonBlockGeneratorBlockedPayload = request.MoonBlockGeneratorBlockedPayload;
+                    TrackMoonBlockGeneratorBlockedReason(request.MoonBlockGeneratorBlockedPayload.Reason);
+                    return;
+            }
+        }
+
+        private void TrackMoonBlockGeneratorBlockedReason(MoonBlockGeneratorBlockedReason reason)
+        {
+            switch (reason)
+            {
+                case MoonBlockGeneratorBlockedReason.UnitOccupant:
+                    DebugMoonBlockGeneratorBlockedUnitCount++;
+                    return;
+                case MoonBlockGeneratorBlockedReason.WallLikeSolid:
+                    DebugMoonBlockGeneratorBlockedWallLikeSolidCount++;
+                    return;
+                case MoonBlockGeneratorBlockedReason.PlacementBlocked:
+                    DebugMoonBlockGeneratorBlockedPlacementCount++;
+                    return;
+            }
+        }
+
+        private void MarkBarricadeActiveImmediateState(bool active)
+        {
+            hasBarricadeActiveImmediateState = true;
+            lastBarricadeActiveImmediateState = active;
+        }
+
+        private void ApplyLegacyAnimatorFallback(in TileFeatureVisualRequest request)
+        {
+            var resolvedAnimator = Animator;
+            if (resolvedAnimator == null ||
+                resolvedAnimator.runtimeAnimatorController == null)
+            {
+                return;
+            }
+
+            switch (request.CueId)
+            {
+                case TileFeatureVisualCueId.ButtonActivated:
+                    SetTriggerIfPresent(resolvedAnimator, ButtonActivatedTrigger);
+                    return;
+                case TileFeatureVisualCueId.DestroyTileTriggered:
+                    SetTriggerIfPresent(resolvedAnimator, DestroyTileTriggeredTrigger);
+                    return;
+                case TileFeatureVisualCueId.DestroyTileActivated:
+                    SetTriggerIfPresent(resolvedAnimator, DestroyTileActivatedTrigger);
+                    SetBoolIfPresent(resolvedAnimator, DestroyTileActiveBool, true);
+                    PlayStateIfPresent(resolvedAnimator, DestroyTileActiveState);
+                    return;
+                case TileFeatureVisualCueId.DestroyTileDeactivated:
+                    SetTriggerIfPresent(resolvedAnimator, DestroyTileDeactivatedTrigger);
+                    SetBoolIfPresent(resolvedAnimator, DestroyTileActiveBool, false);
+                    PlayStateIfPresent(resolvedAnimator, DestroyTileInactiveState);
+                    return;
+                case TileFeatureVisualCueId.DestroyTileActiveState:
+                    SetBoolIfPresent(resolvedAnimator, DestroyTileActiveBool, request.Active);
+                    PlayStateIfPresent(resolvedAnimator, request.Active ? DestroyTileActiveState : DestroyTileInactiveState);
+                    return;
+                case TileFeatureVisualCueId.SlideTileRedirected:
+                    SetTriggerIfPresent(resolvedAnimator, SlideTileRedirectedTrigger);
+                    return;
+                case TileFeatureVisualCueId.BarricadeBlocked:
+                    SetTriggerIfPresent(resolvedAnimator, BarricadeBlockedTrigger);
+                    SetBoolIfPresent(resolvedAnimator, BarricadeActiveBool, true);
+                    return;
+                case TileFeatureVisualCueId.BarricadeCrushed:
+                    SetTriggerIfPresent(resolvedAnimator, BarricadeCrushedTrigger);
+                    return;
+                case TileFeatureVisualCueId.BarricadeActivated:
+                    SetTriggerIfPresent(resolvedAnimator, BarricadeActivatedTrigger);
+                    SetBoolIfPresent(resolvedAnimator, BarricadeActiveBool, true);
+                    PlayStateIfPresent(resolvedAnimator, BarricadeRaisedState);
+                    return;
+                case TileFeatureVisualCueId.BarricadeDeactivated:
+                    SetTriggerIfPresent(resolvedAnimator, BarricadeDeactivatedTrigger);
+                    SetBoolIfPresent(resolvedAnimator, BarricadeActiveBool, false);
+                    PlayStateIfPresent(resolvedAnimator, BarricadeLoweredState);
+                    return;
+                case TileFeatureVisualCueId.BarricadeActiveState:
+                    SetBoolIfPresent(resolvedAnimator, BarricadeActiveBool, request.Active);
+                    PlayStateIfPresent(resolvedAnimator, request.Active ? BarricadeRaisedState : BarricadeLoweredState);
+                    return;
+                case TileFeatureVisualCueId.ExitOpened:
+                    SetTriggerIfPresent(resolvedAnimator, ExitOpenedTrigger);
+                    SetBoolIfPresent(resolvedAnimator, ExitOpenBool, true);
+                    PlayStateIfPresent(resolvedAnimator, ExitOpenedState);
+                    return;
+                case TileFeatureVisualCueId.ExitEntered:
+                    SetTriggerIfPresent(resolvedAnimator, ExitEnteredTrigger);
+                    return;
+                case TileFeatureVisualCueId.ExitOpenState:
+                    SetBoolIfPresent(resolvedAnimator, ExitOpenBool, request.Active);
+                    PlayStateIfPresent(resolvedAnimator, request.Active ? ExitOpenedState : ExitClosedState);
+                    return;
+                case TileFeatureVisualCueId.MoonBlockGenerated:
+                    SetTriggerIfPresent(resolvedAnimator, MoonBlockGeneratedTrigger);
+                    return;
+                case TileFeatureVisualCueId.MoonBlockGeneratorBlocked:
+                    SetTriggerIfPresent(resolvedAnimator, MoonBlockGeneratorBlockedTrigger);
+                    return;
+            }
+        }
+
+        private static void SetTriggerIfPresent(Animator targetAnimator, int hash)
+        {
+            if (HasAnimatorParameter(targetAnimator, hash, AnimatorControllerParameterType.Trigger))
+            {
+                targetAnimator.SetTrigger(hash);
+            }
+        }
+
+        private static void SetBoolIfPresent(Animator targetAnimator, int hash, bool value)
+        {
+            if (HasAnimatorParameter(targetAnimator, hash, AnimatorControllerParameterType.Bool))
+            {
+                targetAnimator.SetBool(hash, value);
+            }
+        }
+
+        private static void PlayStateIfPresent(Animator targetAnimator, int hash)
+        {
+            if (targetAnimator.HasState(0, hash))
+            {
+                targetAnimator.Play(hash, 0, 1f);
+                targetAnimator.Update(0f);
+            }
+        }
+
+        private static bool HasAnimatorParameter(
+            Animator targetAnimator,
+            int hash,
+            AnimatorControllerParameterType parameterType)
+        {
+            var parameters = targetAnimator.parameters;
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (parameters[i].nameHash == hash &&
+                    parameters[i].type == parameterType)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+}

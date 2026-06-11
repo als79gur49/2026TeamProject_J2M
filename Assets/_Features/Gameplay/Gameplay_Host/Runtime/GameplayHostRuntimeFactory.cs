@@ -457,15 +457,18 @@ namespace Game.Feature.Gameplay.Host
                     targetView.ConfigurePresentationRoot(instance.transform);
                 }
 
-                if (target is IBarricadeActiveStateVisualTarget barricadeActiveStateTarget &&
-                    TryResolveInitialBarricadeActive(
+                if (TryResolveInitialBarricadeActive(
                         tileFeature,
                         tileFeatureDefinitions,
                         initialTopology,
                         initialSnapshot,
                         out var barricadeActive))
                 {
-                    barricadeActiveStateTarget.SetBarricadeActiveImmediate(barricadeActive);
+                    if (!TryApplyInitialBarricadeActiveState(target, binding.TileId, cell, barricadeActive))
+                    {
+                        UnityEngine.Debug.LogWarning(
+                            $"Skipping initial barricade visual state sync for TileId {binding.TileId}; target has no cue sink.");
+                    }
                 }
 
                 registry.Register(target);
@@ -572,6 +575,63 @@ namespace Game.Feature.Gameplay.Host
 
             target = null;
             configurator = null;
+            return false;
+        }
+
+        private static ITileFeatureVisualCueSink ResolveTileFeatureCueSink(ITileFeatureVisualTarget target)
+        {
+            if (target is ITileFeatureVisualCueSink sink)
+            {
+                return sink;
+            }
+
+            if (target is Component component)
+            {
+                var componentSink = component.GetComponent<ITileFeatureVisualCueSink>();
+                if (componentSink != null)
+                {
+                    return componentSink;
+                }
+
+                if (target is TileFeatureVisualTargetView targetView)
+                {
+#pragma warning disable CS0618
+                    var adapter = component.gameObject.AddComponent<LegacyTileFeatureVisualCueAdapter>();
+#pragma warning restore CS0618
+                    adapter.ConfigureTarget(targetView);
+                    return adapter;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool TryApplyInitialBarricadeActiveState(
+            ITileFeatureVisualTarget target,
+            int tileId,
+            SurfaceCell cell,
+            bool active)
+        {
+            var sink = ResolveTileFeatureCueSink(target);
+            if (sink != null)
+            {
+                return sink.TryHandle(
+                    new TileFeatureVisualRequest(
+                        TileFeatureVisualCueId.BarricadeActiveState,
+                        tileId,
+                        cell,
+                        TileFeatureKind.Barricade,
+                        active: active));
+            }
+
+#pragma warning disable CS0618
+            if (target is IBarricadeActiveStateVisualTarget legacyTarget)
+            {
+                legacyTarget.SetBarricadeActiveImmediate(active);
+                return true;
+            }
+#pragma warning restore CS0618
+
             return false;
         }
 
