@@ -13,18 +13,6 @@ MonoBehaviour:
   m_Name: BoardTileStyleCatalog_CampaignMainBoard
   m_EditorClassIdentifier: Game.Feature.Stages::Game.Feature.Stages.BoardTileStyleCatalog
   entries:
-  - styleKey: board.paint.neutral
-    displayName: Neutral Base
-    tint: {r: 0.92, g: 0.93, b: 0.94, a: 1}
-  - styleKey: board.paint.path-base
-    displayName: Path Base
-    tint: {r: 0.28, g: 0.56, b: 1, a: 1}
-  - styleKey: board.paint.objective-base
-    displayName: Objective Base
-    tint: {r: 0.32, g: 0.82, b: 0.45, a: 1}
-  - styleKey: board.paint.warning-base
-    displayName: Warning Base
-    tint: {r: 1, g: 0.45, b: 0.22, a: 1}
   - styleKey: board.paint.level1
     displayName: Level1 Guide
     tint: {r: 0.9622642, g: 0.39990386, b: 0.34042364, a: 1}

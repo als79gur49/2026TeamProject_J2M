@@ -319,6 +319,89 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void CampaignMainBoardTilePresentationCatalog_UsesSingleGenericDefaultPrefab()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<BoardTilePresentationCatalog>(
+                StageContentPaths.SharedBoardPresentationRoot + "/Catalogs/BoardTilePresentationCatalog_CampaignMainBoard.asset");
+            Assert.That(catalog, Is.Not.Null);
+
+            Assert.That(catalog.Entries.Count, Is.EqualTo(1));
+            var entry = catalog.Entries[0];
+            Assert.That(entry.PresentationKey, Is.EqualTo("board.generic.default"));
+            Assert.That(entry.Role, Is.EqualTo(BoardTileVisualRole.GenericDefault));
+            Assert.That(entry.IsDefaultForRole, Is.True);
+            Assert.That(entry.TilePrefab, Is.Not.Null);
+            Assert.That(
+                AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(entry.TilePrefab)),
+                Is.EqualTo("80ad8bd596477764398e7080760f2985"));
+        }
+
+        [Test]
+        public void CampaignMainBoardTileStyleCatalog_OnlyKeepsLevelPaintStyles()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<BoardTileStyleCatalog>(
+                StageContentPaths.SharedBoardPresentationRoot + "/Catalogs/BoardTileStyleCatalog_CampaignMainBoard.asset");
+            Assert.That(catalog, Is.Not.Null);
+
+            Assert.That(
+                catalog.Entries.Select(entry => entry.StyleKey).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    "board.paint.level1",
+                    "board.paint.level2",
+                    "board.paint.level3",
+                }));
+        }
+
+        [Test]
+        public void CampaignMainBoardTileOverrides_DoNotReferenceRetiredPresentationOrStyleKeys()
+        {
+            var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(
+                StageContentPaths.StageCatalogProviderAssetPath);
+            Assert.That(
+                provider,
+                Is.Not.Null,
+                $"Missing stage catalog provider at '{StageContentPaths.StageCatalogProviderAssetPath}'.");
+
+            var retiredPresentationKeys = new[]
+            {
+                "board.active.bottom",
+                "board.active.front",
+                "board.decorative.top",
+                "board.decorative.back",
+            };
+            var retiredStyleKeys = new[]
+            {
+                "board.paint.neutral",
+                "board.paint.path-base",
+                "board.paint.objective-base",
+                "board.paint.warning-base",
+                "board.paint.level4",
+            };
+
+            var entries = provider.LoadEntries();
+            var retiredPresentationReferences = entries
+                .Where(entry => entry != null && entry.PresentationDefinition != null)
+                .SelectMany(entry => entry.PresentationDefinition.BoardTilePresentationOverrides)
+                .Where(boardOverride =>
+                    boardOverride != null &&
+                    retiredPresentationKeys.Contains(boardOverride.PresentationKey, StringComparer.Ordinal))
+                .Select(boardOverride => $"{boardOverride.Cell}: {boardOverride.PresentationKey}")
+                .ToArray();
+            var retiredStyleReferences = entries
+                .Where(entry => entry != null && entry.PresentationDefinition != null)
+                .SelectMany(entry => entry.PresentationDefinition.BoardTilePaintOverrides)
+                .Where(paintOverride =>
+                    paintOverride != null &&
+                    retiredStyleKeys.Contains(paintOverride.StyleKey, StringComparer.Ordinal))
+                .Select(paintOverride => $"{paintOverride.Cell}: {paintOverride.StyleKey}")
+                .ToArray();
+
+            Assert.That(retiredPresentationReferences, Is.Empty);
+            Assert.That(retiredStyleReferences, Is.Empty);
+        }
+
+        [Test]
         public void SpawnPresentationId_IsNotCanonicalPresentationBindingSource()
         {
             using var fixture = PresentationCatalogFixture.CreateBindingOnly(

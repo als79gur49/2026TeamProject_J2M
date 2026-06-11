@@ -71,6 +71,74 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StageCatalogValidator_AllowsSingleGenericDefaultWithoutRoleDefaults()
+        {
+            var prefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            prefab.name = "GenericDefaultTilePrefab";
+            var catalog = CreateCatalog(
+                Entry("board.generic.default", BoardTileVisualRole.GenericDefault, prefab, null, isDefault: true));
+            var stageEntry = CreateStageEntry(CreatePresentation(catalog));
+
+            try
+            {
+                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
+
+                AssertNoBoardTileCatalogIssues(report);
+            }
+            finally
+            {
+                DestroyObjects(stageEntry.PresentationDefinition, stageEntry, catalog, prefab);
+            }
+        }
+
+        [Test]
+        public void StageCatalogValidator_RejectsMissingGenericDefault()
+        {
+            var prefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            prefab.name = "RoleDefaultOnlyTilePrefab";
+            var catalog = CreateCatalog(
+                Entry("bottom", BoardTileVisualRole.ActiveBottom, prefab, null, isDefault: true));
+            var stageEntry = CreateStageEntry(CreatePresentation(catalog));
+
+            try
+            {
+                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
+
+                AssertHasCode(report, "presentation.board-tile.catalog.default-generic-missing");
+                Assert.That(
+                    report.Issues.Any(issue =>
+                        issue.Code == "presentation.board-tile.catalog.default-active-bottom-missing" ||
+                        issue.Code == "presentation.board-tile.catalog.default-active-front-missing"),
+                    Is.False,
+                    FormatIssues(report));
+            }
+            finally
+            {
+                DestroyObjects(stageEntry.PresentationDefinition, stageEntry, catalog, prefab);
+            }
+        }
+
+        [Test]
+        public void StageCatalogValidator_RejectsGenericDefaultWithoutPrefab()
+        {
+            var material = CreateMaterial("GenericDefaultMaterialOnly");
+            var catalog = CreateCatalog(
+                Entry("board.generic.default", BoardTileVisualRole.GenericDefault, null, material, isDefault: true));
+            var stageEntry = CreateStageEntry(CreatePresentation(catalog));
+
+            try
+            {
+                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
+
+                AssertHasCode(report, "presentation.board-tile.catalog.default-generic-prefab-missing");
+            }
+            finally
+            {
+                DestroyObjects(stageEntry.PresentationDefinition, stageEntry, catalog, material);
+            }
+        }
+
+        [Test]
         public void BoardTilePresentationCatalog_TryGetDefaultEntry_UsesRole()
         {
             var material = CreateMaterial("RoleDefaultMaterial");
@@ -833,7 +901,17 @@ namespace Game.Feature.Stages.Editor.Tests
 
         private static void AssertHasCode(StageValidationReport report, string code)
         {
-            Assert.That(report.Issues.Any(issue => issue.Code == code), Is.True, $"Expected issue code '{code}'.");
+            Assert.That(report.Issues.Any(issue => issue.Code == code), Is.True, $"Expected issue code '{code}'.{Environment.NewLine}{FormatIssues(report)}");
+        }
+
+        private static void AssertNoBoardTileCatalogIssues(StageValidationReport report)
+        {
+            var boardTileCatalogIssues = report.Issues
+                .Where(issue => issue.Code.StartsWith("presentation.board-tile.catalog.", StringComparison.Ordinal))
+                .Select(issue => $"{issue.Code}: {issue.Message}")
+                .ToArray();
+
+            Assert.That(boardTileCatalogIssues, Is.Empty);
         }
 
         private static void AssertNoBoardTileOverrideErrors(StageValidationReport report)
@@ -858,6 +936,13 @@ namespace Game.Feature.Stages.Editor.Tests
                 .ToArray();
 
             Assert.That(boardTileOverlayErrors, Is.Empty);
+        }
+
+        private static string FormatIssues(StageValidationReport report)
+        {
+            return string.Join(
+                Environment.NewLine,
+                report.Issues.Select(issue => $"[{issue.Severity}] {issue.Code}: {issue.Message}"));
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

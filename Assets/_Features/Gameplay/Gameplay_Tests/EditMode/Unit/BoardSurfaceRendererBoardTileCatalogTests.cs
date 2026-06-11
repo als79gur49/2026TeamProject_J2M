@@ -263,6 +263,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var prefab = CreatePrefab("GenericBoardTilePrefab");
             var catalog = CreateCatalog(
                 Entry("generic", BoardTileVisualRole.GenericDefault, prefab, null, isDefault: true));
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
 
             try
             {
@@ -271,7 +273,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 renderer.Initialize(
                     new BoardBounds(Vector2Int.zero, Vector2Int.zero),
                     1f,
-                    new CubeTopologyState(FaceId.Floor),
+                    sourceTopology,
                     boardTilePresentationCatalog: catalog);
 
                 var bottomTile = FindTile(renderer.VisibleTilePoolRoot, "ActiveBottom_Floor_0_0");
@@ -279,6 +281,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(bottomTile.GetComponent<BoardTileCatalogTestMarker>(), Is.Not.Null);
                 Assert.That(frontTile.GetComponent<BoardTileCatalogTestMarker>(), Is.Not.Null);
+
+                renderer.BeginTopologyTransition(sourceTopology, destinationTopology);
+
+                var transitionBottomTile = FindTile(renderer.TransitionTilePoolRoot, "ActiveBottom_Front_0_0");
+                var transitionFrontTile = FindTile(renderer.TransitionTilePoolRoot, "ActiveFront_Ceiling_0_0");
+
+                Assert.That(transitionBottomTile.GetComponent<BoardTileCatalogTestMarker>(), Is.Not.Null);
+                Assert.That(transitionFrontTile.GetComponent<BoardTileCatalogTestMarker>(), Is.Not.Null);
             }
             finally
             {

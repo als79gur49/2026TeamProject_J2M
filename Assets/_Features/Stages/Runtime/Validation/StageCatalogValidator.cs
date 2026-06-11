@@ -1252,23 +1252,22 @@ namespace Game.Feature.Stages
                 }
             }
 
-            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.ActiveBottom, out _))
+            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.GenericDefault, out var genericDefaultEntry))
             {
                 report.Add(
-                    StageValidationSeverity.Warning,
-                    "presentation.board-tile.catalog.default-active-bottom-missing",
-                    $"BoardTilePresentationCatalog '{catalog.name}' has no default entry for {BoardTileVisualRole.ActiveBottom}.",
+                    StageValidationSeverity.Error,
+                    "presentation.board-tile.catalog.default-generic-missing",
+                    $"BoardTilePresentationCatalog '{catalog.name}' has no default entry for {BoardTileVisualRole.GenericDefault}.",
                     catalog,
                     catalogPath,
                     options.Timing);
             }
-
-            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.ActiveFront, out _))
+            else if (genericDefaultEntry.TilePrefab == null)
             {
                 report.Add(
-                    StageValidationSeverity.Warning,
-                    "presentation.board-tile.catalog.default-active-front-missing",
-                    $"BoardTilePresentationCatalog '{catalog.name}' has no default entry for {BoardTileVisualRole.ActiveFront}.",
+                    StageValidationSeverity.Error,
+                    "presentation.board-tile.catalog.default-generic-prefab-missing",
+                    $"BoardTilePresentationCatalog '{catalog.name}' generic default entry must assign a tile prefab.",
                     catalog,
                     catalogPath,
                     options.Timing);

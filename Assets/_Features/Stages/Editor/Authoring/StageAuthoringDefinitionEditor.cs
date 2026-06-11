@@ -185,7 +185,7 @@ namespace Game.Feature.Stages.Editor
             var catalog = presentation != null ? presentation.BoardTilePresentationCatalog : null;
             var entryCount = catalog != null ? catalog.Entries.Count : 0;
             var invalidEntryCount = CountInvalidBoardTileCatalogEntries(catalog);
-            var missingRoleDefaultCount = CountMissingBoardTileRoleDefaults(catalog);
+            var genericDefaultIssueCount = CountGenericBoardTileDefaultIssues(catalog);
             var overrides = presentation != null
                 ? presentation.BoardTilePresentationOverrides
                 : System.Array.Empty<BoardTilePresentationOverride>();
@@ -201,7 +201,7 @@ namespace Game.Feature.Stages.Editor
                 catalog != null ? catalog.name : "Missing");
             EditorGUILayout.LabelField(
                 "BoardTile Catalog Summary",
-                $"entries={entryCount}, invalid entries={invalidEntryCount}, missing role defaults={missingRoleDefaultCount}");
+                $"entries={entryCount}, invalid entries={invalidEntryCount}, generic default issues={genericDefaultIssueCount}");
             EditorGUILayout.LabelField(
                 "BoardTile Override Summary",
                 $"overrides={overrideCount}, duplicate cells={duplicateOverrideCellCount}, unresolved keys={unresolvedOverrideKeyCount}");
@@ -249,25 +249,20 @@ namespace Game.Feature.Stages.Editor
             return invalidCount;
         }
 
-        private static int CountMissingBoardTileRoleDefaults(BoardTilePresentationCatalog catalog)
+        private static int CountGenericBoardTileDefaultIssues(BoardTilePresentationCatalog catalog)
         {
             if (catalog == null)
             {
                 return 0;
             }
 
-            var missingCount = 0;
-            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.ActiveBottom, out _))
+            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.GenericDefault, out var genericDefaultEntry) ||
+                genericDefaultEntry.TilePrefab == null)
             {
-                missingCount++;
+                return 1;
             }
 
-            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.ActiveFront, out _))
-            {
-                missingCount++;
-            }
-
-            return missingCount;
+            return 0;
         }
 
         private static int CountUnresolvedBoardTileOverrideKeys(
