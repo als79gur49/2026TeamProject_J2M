@@ -164,17 +164,26 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CampaignMainBoardCatalog_HasNoPlacementModeSerializedField()
+        public void TileFeaturePresentationCatalogEntry_DoesNotExposeIcon()
+        {
+            var entryType = typeof(TileFeaturePresentationCatalogEntry);
+
+            Assert.That(entryType.GetProperty("Icon"), Is.Null);
+            Assert.That(entryType.GetField("icon", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null);
+        }
+
+        [Test]
+        public void CampaignMainBoardCatalog_HasNoRemovedSerializedFields()
         {
             const string assetPath =
                 "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Catalogs/TileFeaturePresentationCatalog_CampaignMainBoard.asset";
             var yaml = File.ReadAllText(assetPath);
 
             Assert.That(yaml, Does.Not.Contain("placementMode:"));
+            Assert.That(yaml, Does.Not.Contain("icon:"));
             Assert.That(yaml, Does.Contain("presentationKey: exit.1x1"));
             Assert.That(yaml, Does.Contain("footprintMode: 1"));
             Assert.That(yaml, Does.Contain("footprintMode: 0"));
-            Assert.That(yaml, Does.Contain("icon:"));
         }
 
         [Test]
