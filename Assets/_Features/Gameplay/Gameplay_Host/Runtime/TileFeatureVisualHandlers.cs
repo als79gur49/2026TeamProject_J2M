@@ -77,24 +77,51 @@ namespace Game.Feature.Gameplay.Host
             return false;
         }
 
-        protected void ApplyInactiveMaterialState(TileFeatureVisualProfile profile, bool active)
+        protected void ApplyInactiveMaterialState(
+            TileFeatureVisualProfile profile,
+            ITileFeatureVisualTarget visualTarget,
+            bool active)
         {
             if (profile == null)
             {
+                UnityEngine.Debug.LogWarning($"{FeatureKind} tile visual profile is missing; inactive material state cannot be applied.");
                 return;
             }
 
             var targets = profile.InactiveMaterialTargets;
+            if (targets.Count == 0)
+            {
+                UnityEngine.Debug.LogWarning($"{FeatureKind} tile visual profile has no inactive material targets.");
+                return;
+            }
+
             for (var i = 0; i < targets.Count; i++)
             {
                 var target = targets[i];
-                var renderer = target.Renderer;
-                if (renderer == null)
+                if (!TryResolveInactiveMaterialRenderer(target, visualTarget, out var renderer))
                 {
+                    UnityEngine.Debug.LogWarning($"{FeatureKind} tile visual profile has a missing inactive material renderer at index {i}.");
                     continue;
                 }
 
-                var materialIndex = Mathf.Max(0, target.MaterialIndex);
+                var materialIndex = target.MaterialIndex;
+                var sharedMaterials = renderer.sharedMaterials;
+                if (materialIndex < 0 ||
+                    materialIndex >= sharedMaterials.Length)
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"{FeatureKind} tile visual profile has invalid material index {materialIndex} at inactive material target {i}.");
+                    continue;
+                }
+
+                var material = sharedMaterials[materialIndex];
+                if (material == null)
+                {
+                    UnityEngine.Debug.LogWarning(
+                        $"{FeatureKind} tile visual profile has a missing material at inactive material target {i}.");
+                    continue;
+                }
+
                 if (active)
                 {
                     renderer.SetPropertyBlock(null, materialIndex);
@@ -102,14 +129,51 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 materialPropertyBlock ??= new MaterialPropertyBlock();
-                renderer.GetPropertyBlock(materialPropertyBlock, materialIndex);
-                materialPropertyBlock.SetColor(BaseColorPropertyId, target.InactiveColor);
-                materialPropertyBlock.SetColor(ColorPropertyId, target.InactiveColor);
-                materialPropertyBlock.SetColor(EmissionColorPropertyId, target.InactiveColor);
-                materialPropertyBlock.SetFloat(MetallicPropertyId, target.InactiveMetallic);
-                renderer.SetPropertyBlock(materialPropertyBlock, materialIndex);
                 materialPropertyBlock.Clear();
+                renderer.GetPropertyBlock(materialPropertyBlock, materialIndex);
+                if (material.HasProperty(BaseColorPropertyId))
+                {
+                    materialPropertyBlock.SetColor(BaseColorPropertyId, target.InactiveColor);
+                }
+
+                if (material.HasProperty(ColorPropertyId))
+                {
+                    materialPropertyBlock.SetColor(ColorPropertyId, target.InactiveColor);
+                }
+
+                if (material.HasProperty(EmissionColorPropertyId))
+                {
+                    materialPropertyBlock.SetColor(EmissionColorPropertyId, target.InactiveColor);
+                }
+
+                if (material.HasProperty(MetallicPropertyId))
+                {
+                    materialPropertyBlock.SetFloat(MetallicPropertyId, target.InactiveMetallic);
+                }
+
+                renderer.SetPropertyBlock(materialPropertyBlock, materialIndex);
             }
+        }
+
+        private static bool TryResolveInactiveMaterialRenderer(
+            in TileFeatureInactiveMaterialTarget target,
+            ITileFeatureVisualTarget visualTarget,
+            out Renderer renderer)
+        {
+            if (target.Renderer != null)
+            {
+                renderer = target.Renderer;
+                return true;
+            }
+
+            if (visualTarget is TileFeatureVisualTargetView targetView &&
+                targetView.TryGetRenderer(target.SlotId, out renderer))
+            {
+                return true;
+            }
+
+            renderer = null;
+            return false;
         }
 
         private static GameplayVfxRequest CreateGameplayVfxRequest(
@@ -242,7 +306,7 @@ namespace Game.Feature.Gameplay.Host
                 request.CueId == TileFeatureVisualCueId.DestroyTileDeactivated ||
                 request.CueId == TileFeatureVisualCueId.DestroyTileActiveState)
             {
-                ApplyInactiveMaterialState(profile, request.Active);
+                ApplyInactiveMaterialState(profile, target, request.Active);
             }
 
             return true;
@@ -275,7 +339,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (request.CueId == TileFeatureVisualCueId.SlideTileActiveState)
             {
-                ApplyInactiveMaterialState(profile, request.Active);
+                ApplyInactiveMaterialState(profile, target, request.Active);
             }
 
             return true;

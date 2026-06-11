@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3396938846320822003}
   - component: {fileID: 4652735484987549902}
+  - component: {fileID: 9101000000000000004}
   m_Layer: 0
   m_Name: TileFeature_Slide_Right
   m_TagString: Untagged
@@ -43,7 +44,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0d4188397f39405b8cef1259ab54d190, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.TileFeatureVisualTargetView
   tileId: 0
   cell:
@@ -55,7 +56,29 @@ MonoBehaviour:
   primaryRenderer: {fileID: 0}
   iconRoot: {fileID: 0}
   labelRoot: {fileID: 0}
-  authoredBindings: []
+  authoredBindings:
+  - SlotId: 100
+    Transform: {fileID: 0}
+    Renderer: {fileID: 6919220867324244674}
+  - SlotId: 101
+    Transform: {fileID: 0}
+    Renderer: {fileID: 7604368002371067094}
+--- !u!114 &9101000000000000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3372218950872268447}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 698f950f2ec6479ca0c7f14bdf115c0d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  targetView: {fileID: 4652735484987549902}
+  animator: {fileID: 0}
+  profiles:
+  - {fileID: 11400000, guid: 9d492210fab04e1e8b77ac960c9470c7, type: 2}
 --- !u!1 &7817099644187213653
 GameObject:
   m_ObjectHideFlags: 0

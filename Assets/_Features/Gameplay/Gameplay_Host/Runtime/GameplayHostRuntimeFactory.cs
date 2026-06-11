@@ -470,6 +470,18 @@ namespace Game.Feature.Gameplay.Host
                             $"Skipping initial barricade visual state sync for TileId {binding.TileId}; target has no cue sink.");
                     }
                 }
+                else if (TryResolveInitialTileFeatureActive(
+                             tileFeature,
+                             tileFeatureDefinitions,
+                             initialTopology,
+                             out var tileFeatureActive))
+                {
+                    if (!TryApplyInitialTileFeatureActiveState(target, binding.TileId, cell, tileFeature.Kind, tileFeatureActive))
+                    {
+                        UnityEngine.Debug.LogWarning(
+                            $"Skipping initial {tileFeature.Kind} visual state sync for TileId {binding.TileId}; target has no cue sink.");
+                    }
+                }
 
                 registry.Register(target);
                 poseSynchronizer ??= poseResolver != null
@@ -524,6 +536,24 @@ namespace Game.Feature.Gameplay.Host
                     tileFeature,
                     definition).EffectiveActive
                 : TileFeatureActivationQueries.IsActive(tileFeature, definition, initialTopology);
+            return true;
+        }
+
+        private static bool TryResolveInitialTileFeatureActive(
+            TileFeatureState tileFeature,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            CubeTopologyState initialTopology,
+            out bool active)
+        {
+            if ((tileFeature.Kind != TileFeatureKind.Destroy &&
+                 tileFeature.Kind != TileFeatureKind.Slide) ||
+                !TryGetTileFeatureDefinition(tileFeatureDefinitions, tileFeature.TileId, out var definition))
+            {
+                active = false;
+                return false;
+            }
+
+            active = TileFeatureActivationQueries.IsActive(tileFeature, definition, initialTopology);
             return true;
         }
 
@@ -628,6 +658,55 @@ namespace Game.Feature.Gameplay.Host
             if (target is IBarricadeActiveStateVisualTarget legacyTarget)
             {
                 legacyTarget.SetBarricadeActiveImmediate(active);
+                return true;
+            }
+#pragma warning restore CS0618
+
+            return false;
+        }
+
+        private static bool TryApplyInitialTileFeatureActiveState(
+            ITileFeatureVisualTarget target,
+            int tileId,
+            SurfaceCell cell,
+            TileFeatureKind featureKind,
+            bool active)
+        {
+            var cueId = featureKind switch
+            {
+                TileFeatureKind.Destroy => TileFeatureVisualCueId.DestroyTileActiveState,
+                TileFeatureKind.Slide => TileFeatureVisualCueId.SlideTileActiveState,
+                _ => TileFeatureVisualCueId.None,
+            };
+
+            if (cueId == TileFeatureVisualCueId.None)
+            {
+                return false;
+            }
+
+            var sink = ResolveTileFeatureCueSink(target);
+            if (sink != null)
+            {
+                return sink.TryHandle(
+                    new TileFeatureVisualRequest(
+                        cueId,
+                        tileId,
+                        cell,
+                        featureKind,
+                        active: active));
+            }
+
+#pragma warning disable CS0618
+            if (target is ITileFeatureActiveStateVisualTarget activeStateTarget)
+            {
+                activeStateTarget.SetTileFeatureActiveImmediate(featureKind, active);
+                return true;
+            }
+
+            if (featureKind == TileFeatureKind.Destroy &&
+                target is IDestroyTileActiveStateVisualTarget destroyActiveTarget)
+            {
+                destroyActiveTarget.SetDestroyTileActiveImmediate(active);
                 return true;
             }
 #pragma warning restore CS0618

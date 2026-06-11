@@ -140,6 +140,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var rendererObject = new GameObject("DestroyTileRenderer");
             rendererObject.transform.SetParent(targetObject.transform, worldPositionStays: false);
             var targetRenderer = rendererObject.AddComponent<MeshRenderer>();
+            var sharedMaterial = CreateSharedColorMaterial(Color.black);
+            targetRenderer.sharedMaterials = new[] { sharedMaterial };
 
             try
             {
@@ -179,6 +181,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 Object.DestroyImmediate(rootObject);
+                Object.DestroyImmediate(sharedMaterial);
             }
         }
 
@@ -657,6 +660,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var rendererObject = new GameObject("DestroyTileRenderer");
             rendererObject.transform.SetParent(targetObject.transform, worldPositionStays: false);
             var targetRenderer = rendererObject.AddComponent<MeshRenderer>();
+            var sharedMaterial = CreateSharedColorMaterial(Color.black);
+            targetRenderer.sharedMaterials = new[] { sharedMaterial };
 
             try
             {
@@ -722,6 +727,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 Object.DestroyImmediate(rootObject);
+                Object.DestroyImmediate(sharedMaterial);
             }
         }
 
@@ -1582,6 +1588,105 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void StageTileFeatureVisualBinding_DestroyAndSlideInitialState_SyncsImmediateActiveState()
+        {
+            var rootObject = new GameObject(nameof(StageTileFeatureVisualBinding_DestroyAndSlideInitialState_SyncsImmediateActiveState));
+            var destroyPrefab = new GameObject("DestroyTileVisualPrefab");
+            var slidePrefab = new GameObject("SlideTileVisualPrefab");
+
+            try
+            {
+                destroyPrefab.AddComponent<RecordingComponentActiveStateTarget>();
+                slidePrefab.AddComponent<RecordingComponentActiveStateTarget>();
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var destroyCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+                var slideCell = new SurfaceCell(FaceId.Front, 2, 1);
+
+                InvokeStageTileFeatureVisualInstantiation(
+                    new[]
+                    {
+                        new TileFeaturePresentationResolvedBinding(100, destroyPrefab),
+                        new TileFeaturePresentationResolvedBinding(101, slidePrefab),
+                    },
+                    new[]
+                    {
+                        CreateTileFeatureState(100, destroyCell, TileFeatureKind.Destroy),
+                        CreateTileFeatureState(101, slideCell, TileFeatureKind.Slide),
+                    },
+                    rootObject.transform,
+                    registry,
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                        CreateTileFeatureDefinition(101, TileFeatureActivationRule.FrontFaceOnly),
+                    },
+                    initialTopology: new CubeTopologyState(FaceId.Floor));
+
+                Assert.That(registry.TryGetTileVisual(100, out var destroyTarget), Is.True);
+                Assert.That(registry.TryGetTileVisual(101, out var slideTarget), Is.True);
+                var destroyRecording = (RecordingComponentActiveStateTarget)destroyTarget;
+                var slideRecording = (RecordingComponentActiveStateTarget)slideTarget;
+                Assert.That(destroyRecording.ActiveStateCalls, Is.EqualTo(1));
+                Assert.That(destroyRecording.LastActiveStateKind, Is.EqualTo(TileFeatureKind.Destroy));
+                Assert.That(destroyRecording.LastActiveState, Is.False);
+                Assert.That(slideRecording.ActiveStateCalls, Is.EqualTo(1));
+                Assert.That(slideRecording.LastActiveStateKind, Is.EqualTo(TileFeatureKind.Slide));
+                Assert.That(slideRecording.LastActiveState, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+                Object.DestroyImmediate(destroyPrefab);
+                Object.DestroyImmediate(slidePrefab);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void StageTileFeatureVisualBinding_ProductionDestroyPrefabInitialInactiveState_AppliesToInstancedRenderer()
+        {
+            const string PrefabPath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Destroy_Bottom.prefab";
+            var rootObject = new GameObject(nameof(StageTileFeatureVisualBinding_ProductionDestroyPrefabInitialInactiveState_AppliesToInstancedRenderer));
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            Assert.That(prefab, Is.Not.Null, PrefabPath);
+
+            try
+            {
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var cell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+                var expectedColor = new Color(0.7411765f, 0.75294125f, 0.7725491f, 1f);
+
+                InvokeStageTileFeatureVisualInstantiation(
+                    new[]
+                    {
+                        new TileFeaturePresentationResolvedBinding(100, prefab),
+                    },
+                    new[]
+                    {
+                        CreateTileFeatureState(100, cell, TileFeatureKind.Destroy),
+                    },
+                    rootObject.transform,
+                    registry,
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly),
+                    },
+                    initialTopology: new CubeTopologyState(FaceId.Floor));
+
+                Assert.That(registry.TryGetTileVisual(100, out _), Is.True);
+                AssertAnyRendererMaterialState(rootObject, expectedColor, 1f);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void StageTileFeatureVisualBinding_BarricadeInitialState_SuppressedByUnitStartsLowered()
         {
             var rootObject = new GameObject(nameof(StageTileFeatureVisualBinding_BarricadeInitialState_SuppressedByUnitStartsLowered));
@@ -1888,6 +1993,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(propertyBlock.GetFloat(MetallicPropertyId), Is.EqualTo(expectedMetallic));
         }
 
+        private static void AssertAnyRendererMaterialState(
+            GameObject rootObject,
+            Color expectedColor,
+            float expectedMetallic)
+        {
+            var renderers = rootObject.GetComponentsInChildren<Renderer>(includeInactive: true);
+            var propertyBlock = new MaterialPropertyBlock();
+            for (var i = 0; i < renderers.Length; i++)
+            {
+                var renderer = renderers[i];
+                for (var materialIndex = 0; materialIndex < renderer.sharedMaterials.Length; materialIndex++)
+                {
+                    propertyBlock.Clear();
+                    renderer.GetPropertyBlock(propertyBlock, materialIndex);
+                    if (propertyBlock.GetColor(BaseColorPropertyId) == expectedColor &&
+                        propertyBlock.GetFloat(MetallicPropertyId) == expectedMetallic)
+                    {
+                        return;
+                    }
+                }
+            }
+
+            Assert.Fail($"No instantiated renderer had inactive material state {expectedColor} / {expectedMetallic}.");
+        }
+
         private static void AssertTileFeatureMaterialCleared(
             Renderer targetRenderer,
             Color inactiveColor,
@@ -1905,7 +2035,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static Material CreateSharedColorMaterial(Color color)
         {
-            var material = new Material(Shader.Find("Unlit/Color") ?? Shader.Find("Universal Render Pipeline/Unlit"));
+            var material = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
             material.color = color;
             return material;
         }
@@ -2526,6 +2656,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 ImmediateSyncCount++;
                 LastImmediateActive = active;
+            }
+        }
+
+        private sealed class RecordingComponentActiveStateTarget :
+            MonoBehaviour,
+            ITileFeatureVisualTarget,
+            ITileFeatureVisualTargetConfigurator,
+            ITileFeatureActiveStateVisualTarget
+        {
+            public int TileId { get; private set; }
+
+            public SurfaceCell Cell { get; private set; }
+
+            public int ActiveStateCalls { get; private set; }
+
+            public TileFeatureKind LastActiveStateKind { get; private set; }
+
+            public bool LastActiveState { get; private set; }
+
+            public void ConfigureTileFeature(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public void SetTileFeatureActiveImmediate(TileFeatureKind kind, bool active)
+            {
+                ActiveStateCalls++;
+                LastActiveStateKind = kind;
+                LastActiveState = active;
             }
         }
 

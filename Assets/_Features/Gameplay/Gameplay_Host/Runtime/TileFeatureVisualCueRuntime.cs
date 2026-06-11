@@ -68,44 +68,12 @@ namespace Game.Feature.Gameplay.Host
     [Serializable]
     public struct TileFeatureInactiveMaterialTarget
     {
+        // Direct renderer references remain supported for legacy tests; production prefabs should prefer SlotId bindings.
+        public TileFeatureVisualSlotId SlotId;
         public Renderer Renderer;
         [Min(0)] public int MaterialIndex;
         public Color InactiveColor;
         public float InactiveMetallic;
-    }
-
-    [CreateAssetMenu(
-        fileName = "TileFeatureVisualProfile",
-        menuName = "Gameplay/Tile Feature Visual Profile")]
-    public sealed class TileFeatureVisualProfile : ScriptableObject
-    {
-        [SerializeField] private TileFeatureKind featureKind;
-        [SerializeField] private TileFeatureVisualCueBinding[] cueBindings;
-        [SerializeField] private TileFeatureInactiveMaterialTarget[] inactiveMaterialTargets;
-
-        public TileFeatureKind FeatureKind => featureKind;
-
-        public IReadOnlyList<TileFeatureVisualCueBinding> CueBindings =>
-            cueBindings ?? Array.Empty<TileFeatureVisualCueBinding>();
-
-        public IReadOnlyList<TileFeatureInactiveMaterialTarget> InactiveMaterialTargets =>
-            inactiveMaterialTargets ?? Array.Empty<TileFeatureInactiveMaterialTarget>();
-
-        public bool TryGetCueBinding(TileFeatureVisualCueId cueId, out TileFeatureVisualCueBinding binding)
-        {
-            var bindings = CueBindings;
-            for (var i = 0; i < bindings.Count; i++)
-            {
-                if (bindings[i].CueId == cueId)
-                {
-                    binding = bindings[i];
-                    return true;
-                }
-            }
-
-            binding = default;
-            return false;
-        }
     }
 
     public sealed class TileFeatureVisualBindingDiagnostics
@@ -200,15 +168,58 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var materialTargets = profile.InactiveMaterialTargets;
+            if ((profile.FeatureKind == TileFeatureKind.Destroy ||
+                 profile.FeatureKind == TileFeatureKind.Slide) &&
+                materialTargets.Count == 0)
+            {
+                diagnostics.Add($"{profile.FeatureKind} profile must define inactive material targets.");
+            }
+
             for (var i = 0; i < materialTargets.Count; i++)
             {
-                if (materialTargets[i].Renderer == null)
+                var materialTarget = materialTargets[i];
+                if (!TryResolveMaterialTargetRenderer(materialTarget, target, out var renderer))
                 {
                     diagnostics.Add($"Invalid material target at index {i}: renderer is missing.");
+                    continue;
+                }
+
+                var sharedMaterials = renderer.sharedMaterials;
+                if (materialTarget.MaterialIndex < 0 ||
+                    materialTarget.MaterialIndex >= sharedMaterials.Length)
+                {
+                    diagnostics.Add($"Invalid material target at index {i}: material index {materialTarget.MaterialIndex} is out of range.");
+                    continue;
+                }
+
+                if (sharedMaterials[materialTarget.MaterialIndex] == null)
+                {
+                    diagnostics.Add($"Invalid material target at index {i}: material is missing.");
                 }
             }
 
             return diagnostics;
+        }
+
+        private static bool TryResolveMaterialTargetRenderer(
+            TileFeatureInactiveMaterialTarget materialTarget,
+            TileFeatureVisualTargetView target,
+            out Renderer renderer)
+        {
+            if (materialTarget.Renderer != null)
+            {
+                renderer = materialTarget.Renderer;
+                return true;
+            }
+
+            if (target != null &&
+                target.TryGetRenderer(materialTarget.SlotId, out renderer))
+            {
+                return true;
+            }
+
+            renderer = null;
+            return false;
         }
     }
 

@@ -14,13 +14,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void ProfileValidation_ReportsDuplicateCueMissingSlotInvalidAnimatorAndMaterialBindings()
         {
             var root = new GameObject(nameof(ProfileValidation_ReportsDuplicateCueMissingSlotInvalidAnimatorAndMaterialBindings));
+            var rendererObject = new GameObject("MaterialTarget");
+            rendererObject.transform.SetParent(root.transform, worldPositionStays: false);
+            var nullMaterialRendererObject = new GameObject("NullMaterialTarget");
+            nullMaterialRendererObject.transform.SetParent(root.transform, worldPositionStays: false);
+            var material = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
 
             try
             {
                 var target = root.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, new SurfaceCell(FaceId.Front, 1, 2));
+                var renderer = rendererObject.AddComponent<MeshRenderer>();
+                renderer.sharedMaterials = new[] { material };
+                var nullMaterialRenderer = nullMaterialRendererObject.AddComponent<MeshRenderer>();
+                nullMaterialRenderer.sharedMaterials = new Material[] { null };
                 var profile = ScriptableObject.CreateInstance<TileFeatureVisualProfile>();
-                SetPrivateField(profile, "featureKind", TileFeatureKind.Button);
+                SetPrivateField(profile, "featureKind", TileFeatureKind.Slide);
                 SetPrivateField(
                     profile,
                     "cueBindings",
@@ -55,6 +64,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             InactiveColor = Color.gray,
                             InactiveMetallic = 0.5f,
                         },
+                        new TileFeatureInactiveMaterialTarget
+                        {
+                            Renderer = renderer,
+                            MaterialIndex = 4,
+                            InactiveColor = Color.gray,
+                            InactiveMetallic = 0.5f,
+                        },
+                        new TileFeatureInactiveMaterialTarget
+                        {
+                            Renderer = nullMaterialRenderer,
+                            MaterialIndex = 0,
+                            InactiveColor = Color.gray,
+                            InactiveMetallic = 0.5f,
+                        },
                     });
 
                 var diagnostics = TileFeatureVisualBindingDiagnostics.ForProfile(profile, target);
@@ -63,10 +86,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(diagnostics.Messages, Has.Some.Contains("Duplicate cue binding"));
                 Assert.That(diagnostics.Messages, Has.Some.Contains("Missing target slot"));
                 Assert.That(diagnostics.Messages, Has.Some.Contains("Invalid animator binding"));
-                Assert.That(diagnostics.Messages, Has.Some.Contains("Invalid material target"));
+                Assert.That(diagnostics.Messages, Has.Some.Contains("renderer is missing"));
+                Assert.That(diagnostics.Messages, Has.Some.Contains("material index 4 is out of range"));
+                Assert.That(diagnostics.Messages, Has.Some.Contains("material is missing"));
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(material);
                 UnityEngine.Object.DestroyImmediate(root);
             }
         }
