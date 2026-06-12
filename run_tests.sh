@@ -188,6 +188,243 @@ print_shell_command() {
     printf '\n'
 }
 
+find_current_project_unity_processes() {
+    ps -eo pid,ppid,stat,etime,args |
+        grep -F "$PROJECT_PATH_WIN" |
+        grep -Ei 'Unity(\.exe|Editor)|/Unity\.exe' |
+        grep -v '[g]rep' || true
+
+    find_current_project_windows_unity_processes
+}
+
+find_current_project_windows_unity_processes() {
+    if ! command -v powershell.exe >/dev/null 2>&1; then
+        return 0
+    fi
+
+    powershell.exe -NoProfile -Command '
+        & {
+        param([string]$project)
+        if ([string]::IsNullOrWhiteSpace($project)) { exit 0 }
+        $project = $project.TrimEnd("\").ToLowerInvariant()
+        $processes = Get-CimInstance Win32_Process
+        $roots = $processes | Where-Object {
+            $_.Name -eq "Unity.exe" -and
+            $_.CommandLine -and
+            $_.CommandLine.ToLowerInvariant().Contains($project)
+        }
+        $ids = @($roots | ForEach-Object { [int]$_.ProcessId })
+        do {
+            $added = $false
+            foreach ($process in $processes) {
+                if (($ids -contains [int]$process.ParentProcessId) -and -not ($ids -contains [int]$process.ProcessId)) {
+                    $ids += [int]$process.ProcessId
+                    $added = $true
+                }
+            }
+        } while ($added)
+        foreach ($process in $processes) {
+            if ($ids -contains [int]$process.ProcessId) {
+                "{0} {1} {2} {3}" -f $process.ProcessId, $process.ParentProcessId, $process.Name, $process.CommandLine
+            }
+        }
+        }
+    ' "$PROJECT_PATH_WIN" 2>/dev/null | tr -d '\r' || true
+}
+
+current_project_unity_pids() {
+    ps -eo pid,ppid,stat,etime,args |
+        grep -F "$PROJECT_PATH_WIN" |
+        grep -Ei 'Unity(\.exe|Editor)|/Unity\.exe' |
+        grep -v '[g]rep' |
+        awk '{print $1}' || true
+}
+
+current_project_windows_unity_pids() {
+    if ! command -v powershell.exe >/dev/null 2>&1; then
+        return 0
+    fi
+
+    powershell.exe -NoProfile -Command '
+        & {
+        param([string]$project)
+        if ([string]::IsNullOrWhiteSpace($project)) { exit 0 }
+        $project = $project.TrimEnd("\").ToLowerInvariant()
+        $processes = Get-CimInstance Win32_Process
+        $roots = $processes | Where-Object {
+            $_.Name -eq "Unity.exe" -and
+            $_.CommandLine -and
+            $_.CommandLine.ToLowerInvariant().Contains($project)
+        }
+        $ids = @($roots | ForEach-Object { [int]$_.ProcessId })
+        do {
+            $added = $false
+            foreach ($process in $processes) {
+                if (($ids -contains [int]$process.ParentProcessId) -and -not ($ids -contains [int]$process.ProcessId)) {
+                    $ids += [int]$process.ProcessId
+                    $added = $true
+                }
+            }
+        } while ($added)
+        $ids | Sort-Object -Descending
+        }
+    ' "$PROJECT_PATH_WIN" 2>/dev/null | tr -d '\r' || true
+}
+
+current_project_lock_holders() {
+    local lock_path
+
+    if ! command -v lsof >/dev/null 2>&1; then
+        return 0
+    fi
+
+    for lock_path in \
+        "$PROJECT_PATH_WSL/Temp/UnityLockfile" \
+        "$PROJECT_PATH_WSL/Library/UnityLockfile" \
+        "$PROJECT_PATH_WSL/Library/ArtifactDB-lock" \
+        "$PROJECT_PATH_WSL/Library/SourceAssetDB-lock"
+    do
+        if [ -e "$lock_path" ]; then
+            lsof "$lock_path" 2>/dev/null | awk 'NR > 1 { print }' || true
+        fi
+    done
+}
+
+write_project_lock_status() {
+    local output_path="$1"
+    local lock_path
+
+    {
+        for lock_path in \
+            "$PROJECT_PATH_WSL/Temp/UnityLockfile" \
+            "$PROJECT_PATH_WSL/Library/UnityLockfile" \
+            "$PROJECT_PATH_WSL/Library/ArtifactDB-lock" \
+            "$PROJECT_PATH_WSL/Library/SourceAssetDB-lock"
+        do
+            if [ -e "$lock_path" ]; then
+                echo "$lock_path: exists"
+                if command -v lsof >/dev/null 2>&1; then
+                    lsof "$lock_path" || true
+                else
+                    echo "lsof unavailable"
+                fi
+            else
+                echo "$lock_path: missing"
+            fi
+        done
+    } > "$output_path"
+}
+
+ensure_no_current_project_unity_process() {
+    local process_snapshot
+
+    process_snapshot="$(find_current_project_unity_processes)"
+    if [ -n "$process_snapshot" ]; then
+        echo "ERROR: Current-project Unity process is already running. Refusing to start another Unity stage."
+        echo "$process_snapshot"
+        return 1
+    fi
+}
+
+ensure_no_current_project_unity_lock() {
+    local lock_holders
+
+    lock_holders="$(current_project_lock_holders)"
+    if [ -n "$lock_holders" ]; then
+        echo "ERROR: Current-project Unity lock is held. Refusing to start another Unity stage."
+        echo "$lock_holders"
+        return 1
+    fi
+}
+
+terminate_current_project_unity_processes() {
+    local pids
+    local windows_pids
+
+    pids="$(current_project_unity_pids | sort -rn | tr '\n' ' ')"
+    if [ -n "$pids" ]; then
+        # shellcheck disable=SC2086
+        kill -TERM $pids 2>/dev/null || true
+        sleep 2
+        pids="$(current_project_unity_pids | sort -rn | tr '\n' ' ')"
+        if [ -n "$pids" ]; then
+            # shellcheck disable=SC2086
+            kill -KILL $pids 2>/dev/null || true
+        fi
+    fi
+
+    windows_pids="$(current_project_windows_unity_pids | tr '\n' ' ')"
+    if [ -n "$windows_pids" ] && command -v powershell.exe >/dev/null 2>&1; then
+        powershell.exe -NoProfile -Command '
+            & {
+            param([string]$pidList)
+            $pids = $pidList -split "\s+" |
+                Where-Object { $_ } |
+                ForEach-Object { [int]$_ }
+            foreach ($pidValue in $pids) {
+                Stop-Process -Id $pidValue -Force -ErrorAction SilentlyContinue
+            }
+            }
+        ' "$windows_pids" >/dev/null 2>&1 || true
+        sleep 2
+    fi
+}
+
+remove_stale_current_project_unity_lockfiles() {
+    local lock_holders
+
+    if [ -n "$(find_current_project_unity_processes)" ]; then
+        return 0
+    fi
+
+    lock_holders="$(current_project_lock_holders)"
+    if [ -n "$lock_holders" ]; then
+        return 0
+    fi
+
+    rm -f \
+        "$PROJECT_PATH_WSL/Temp/UnityLockfile" \
+        "$PROJECT_PATH_WSL/Library/UnityLockfile" || true
+}
+
+capture_unity_timeout_artifacts() {
+    local stage_key="$1"
+    local log_path="$2"
+    local xml_path="$3"
+    local exit_code="$4"
+    local before_processes="$5"
+    local artifact_dir
+
+    artifact_dir="$RESULT_DIR/timeout-artifacts/${stage_key}-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$artifact_dir"
+    printf '%s\n' "$before_processes" > "$artifact_dir/process-before.txt"
+    find_current_project_unity_processes > "$artifact_dir/process-timeout-before-cleanup.txt"
+    write_project_lock_status "$artifact_dir/lock-before-cleanup.txt"
+    {
+        echo "stage_key=$stage_key"
+        echo "test_filter=$TEST_FILTER"
+        echo "exit_code=$exit_code"
+        echo "log_path=$log_path"
+        echo "xml_path=$xml_path"
+        if [ -f "$xml_path" ]; then
+            echo "xml_present=yes"
+        else
+            echo "xml_present=no"
+        fi
+    } > "$artifact_dir/summary.txt"
+    if [ -f "$log_path" ]; then
+        tail -n 300 "$log_path" > "$artifact_dir/unity-log-tail.txt"
+    else
+        echo "Unity log missing: $log_path" > "$artifact_dir/unity-log-tail.txt"
+    fi
+
+    terminate_current_project_unity_processes
+    remove_stale_current_project_unity_lockfiles
+    find_current_project_unity_processes > "$artifact_dir/process-after-cleanup.txt"
+    write_project_lock_status "$artifact_dir/lock-after-cleanup.txt"
+    echo "Unity timeout artifacts: $artifact_dir"
+}
+
 format_plan_value() {
     local value="$1"
     if [ -z "$value" ]; then
@@ -456,6 +693,7 @@ run_unity_stage() {
     local exit_code
     local allow_empty=0
     local total_tests
+    local process_before
     local -a unity_command
 
     log_path_win="$(wslpath -w "$log_path")"
@@ -487,6 +725,9 @@ run_unity_stage() {
         return 0
     fi
 
+    ensure_no_current_project_unity_process
+    ensure_no_current_project_unity_lock
+    process_before="$(find_current_project_unity_processes)"
     rm -f "$xml_path"
     echo "Running Unity $stage_label..."
 
@@ -499,6 +740,7 @@ run_unity_stage() {
 
     if [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 137 ]; then
         echo "Unity execution timed out (possible hang)"
+        capture_unity_timeout_artifacts "$stage_key" "$log_path" "$xml_path" "$exit_code" "$process_before"
         return "$exit_code"
     fi
 
