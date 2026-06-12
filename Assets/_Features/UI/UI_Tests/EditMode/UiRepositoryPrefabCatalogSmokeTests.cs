@@ -44,6 +44,14 @@ namespace Game.Feature.UI.Tests
                         settings.DisplayView.ValidateAuthoredControlsOrThrow();
                         settings.InputView.ValidateAuthoredControlsOrThrow();
                     }
+                    else if (prefab is StageResultScreenView stageResult)
+                    {
+                        Assert.That(FindChildByName(stageResult.transform, "ContinueButton (1)"), Is.Null);
+
+                        var continueButton = FindChildByName(stageResult.transform, "ContinueButton");
+                        Assert.That(continueButton, Is.Not.Null);
+                        Assert.That(FindChildByName(continueButton, "SelectionFrame"), Is.Not.Null);
+                    }
                 }
                 catch (Exception exception)
                 {
@@ -71,6 +79,13 @@ namespace Game.Feature.UI.Tests
                     var prefab = ResolvePopupPrefab(catalog, popupId);
                     Assert.That(prefab, Is.Not.Null, popupId.ToString());
                     Assert.That(prefab.GetComponent<IPopupView>(), Is.Not.Null, popupId.ToString());
+                    if (prefab is PausePopupView pausePopup)
+                    {
+                        AssertPausePopupButtonHasSingleHoverScaleEffect(pausePopup, "ResumeButton");
+                        AssertPausePopupButtonHasSingleHoverScaleEffect(pausePopup, "SettingsButton");
+                        AssertPausePopupButtonHasSingleHoverScaleEffect(pausePopup, "RetryButton");
+                        AssertPausePopupButtonHasSingleHoverScaleEffect(pausePopup, "MainMenuButton");
+                    }
                 }
                 catch (Exception exception)
                 {
@@ -162,6 +177,9 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(FindChildByName(instance.transform, "PauseButton"), Is.Not.Null);
                 Assert.That(FindChildByName(instance.transform, "Label_StageName"), Is.Not.Null);
+                Assert.That(FindChildByName(instance.transform, "CenterArrow"), Is.Not.Null);
+                Assert.That(FindChildByName(instance.transform, "LegacyTopologyDebugText"), Is.Null);
+                Assert.That(FindChildByName(instance.transform, "LegacyCenterArrow"), Is.Null);
                 Assert.That(FindChildByName(instance.transform, "Action" + "Bar"), Is.Null);
                 Assert.That(CountMissingScripts(instance.gameObject), Is.EqualTo(0));
             }
@@ -213,6 +231,13 @@ namespace Game.Feature.UI.Tests
                 instance.AudioView.ValidateAuthoredControlsOrThrow();
                 instance.DisplayView.ValidateAuthoredControlsOrThrow();
                 instance.InputView.ValidateAuthoredControlsOrThrow();
+
+                Assert.That(FindChildByName(instance.transform, "ResetInput_Legacy"), Is.Null);
+                Assert.That(FindChildByName(instance.transform, "DisplayApplyButton"), Is.Null);
+                Assert.That(FindChildByName(instance.transform, "DisplayRevertButton"), Is.Null);
+                Assert.That(FindChildByName(instance.transform, "ResetInput_New"), Is.Not.Null);
+                Assert.That(FindChildByName(instance.transform, "DisplayApplyButton_New"), Is.Not.Null);
+                Assert.That(FindChildByName(instance.transform, "DisplayReveryButton_New"), Is.Not.Null);
             }
             finally
             {
@@ -301,6 +326,14 @@ namespace Game.Feature.UI.Tests
         {
             return root.GetComponentsInChildren<Transform>(true)
                 .FirstOrDefault(child => string.Equals(child.name, childName, StringComparison.Ordinal));
+        }
+
+        private static void AssertPausePopupButtonHasSingleHoverScaleEffect(PausePopupView pausePopup, string buttonName)
+        {
+            var button = FindChildByName(pausePopup.transform, buttonName);
+            Assert.That(button, Is.Not.Null, buttonName);
+            Assert.That(button.GetComponents<UiHoverScaleEffect>().Length, Is.EqualTo(1), buttonName);
+            Assert.That(FindChildByName(button, "SelectionFrame"), Is.Not.Null, buttonName);
         }
 
         private static int CountMissingScripts(GameObject root)
