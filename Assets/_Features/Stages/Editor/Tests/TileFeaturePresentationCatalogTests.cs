@@ -1538,6 +1538,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     null,
                     null,
                     null,
+                    null,
                 });
         }
 

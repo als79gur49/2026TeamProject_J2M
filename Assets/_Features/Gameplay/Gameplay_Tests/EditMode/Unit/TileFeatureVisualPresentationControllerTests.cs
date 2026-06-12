@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
@@ -511,8 +512,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateExitEnteredRequest(100, cell, playerEntityId: 10),
                 });
 
-                Assert.That(target.DebugPlayExitOpenedCount, Is.EqualTo(1));
-                Assert.That(target.DebugPlayExitEnteredCount, Is.EqualTo(1));
+                Assert.That(target.DebugExitOpenedCount, Is.EqualTo(1));
+                Assert.That(target.DebugExitEnteredCount, Is.EqualTo(1));
                 Assert.That(target.DebugLastExitEnteredPlayerEntityId, Is.EqualTo(10));
                 Assert.That(target.DebugExitOpen, Is.True);
                 Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
@@ -567,8 +568,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
 
                 Assert.That(target.DebugExitOpen, Is.True);
-                Assert.That(target.DebugPlayExitOpenedCount, Is.Zero);
-                Assert.That(target.DebugPlayExitEnteredCount, Is.Zero);
+                Assert.That(target.DebugExitOpenedCount, Is.Zero);
+                Assert.That(target.DebugExitEnteredCount, Is.Zero);
             }
             finally
             {
@@ -1715,6 +1716,66 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
+        public void ExitInitialOpenState_ProductionPrefab_AppliesBeforeFirstTick()
+        {
+            const string PrefabPath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Exit_3x3.prefab";
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabPath);
+            Assert.That(prefab, Is.Not.Null, PrefabPath);
+
+            AssertProductionExitInitialState(prefab, expectedOpen: true);
+            AssertProductionExitInitialState(prefab, expectedOpen: false);
+        }
+
+        private static void AssertProductionExitInitialState(GameObject prefab, bool expectedOpen)
+        {
+            var rootObject = new GameObject($"{nameof(ExitInitialOpenState_ProductionPrefab_AppliesBeforeFirstTick)}_{expectedOpen}");
+
+            try
+            {
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var cell = new SurfaceCell(FaceId.Ceiling, 2, 3);
+
+                InvokeStageTileFeatureVisualInstantiation(
+                    new[]
+                    {
+                        new TileFeaturePresentationResolvedBinding(100, prefab),
+                    },
+                    new[]
+                    {
+                        CreateTileFeatureState(100, cell, TileFeatureKind.Exit),
+                    },
+                    rootObject.transform,
+                    registry,
+                    tileFeatureDefinitions: new[]
+                    {
+                        CreateTileFeatureDefinition(100, TileFeatureActivationRule.Always),
+                    },
+                    initialTopology: new CubeTopologyState(FaceId.Floor),
+                    initialObjectiveResult: CreateInitialExitObjectiveResult(expectedOpen));
+
+                Assert.That(registry.TryGetTileVisual(100, out var target), Is.True);
+                Assert.That(target.TileId, Is.EqualTo(100));
+                Assert.That(target.Cell, Is.EqualTo(cell));
+                var targetView = (TileFeatureVisualTargetView)target;
+                var adapter = targetView.GetComponent<LegacyTileFeatureVisualCueAdapter>();
+                Assert.That(adapter, Is.Not.Null);
+                Assert.That(targetView.DebugExitOpen, Is.EqualTo(expectedOpen));
+                Assert.That(targetView.DebugExitOpenedCount, Is.Zero);
+                Assert.That(targetView.DebugExitEnteredCount, Is.Zero);
+                Assert.That(adapter.DebugExitProfileOpenStatePlayCount, Is.EqualTo(1));
+                Assert.That(adapter.DebugExitLegacyAnimatorFallbackCount, Is.Zero);
+                Assert.That(adapter.DebugLegacyAnimatorFallbackCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
         public void StageTileFeatureVisualBinding_ProductionDestroyPrefabInitialInactiveState_AppliesToInstancedRenderer()
         {
             const string PrefabPath =
@@ -2477,6 +2538,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationKey: string.Empty);
         }
 
+        private static StageObjectiveTickResult CreateInitialExitObjectiveResult(bool requiredNonPrimarySatisfied)
+        {
+            return new StageObjectiveTickResult(
+                hasObjective: true,
+                goalReached: false,
+                allConditionsSatisfied: false,
+                clearedThisTick: false,
+                isCleared: false,
+                hasRequiredNonPrimaryConditions: true,
+                requiredNonPrimaryConditionsSatisfied: requiredNonPrimarySatisfied,
+                requiredNonPrimaryConditionsSatisfiedThisTick: false,
+                conditionStatuses: System.Array.Empty<StageConditionStatus>());
+        }
+
         private static void InvokeStageTileFeatureVisualInstantiation(
             IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
             IReadOnlyList<TileFeatureState> initialTileFeatures,
@@ -2485,7 +2560,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             ISurfaceCellPresentationPoseResolver poseResolver = null,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
             CubeTopologyState? initialTopology = null,
-            WorldSnapshot initialSnapshot = null)
+            WorldSnapshot initialSnapshot = null,
+            StageObjectiveTickResult initialObjectiveResult = null)
         {
             var method = typeof(GameplayHostRuntimeFactory).GetMethod(
                 "InstantiateStageTileFeatureVisuals",
@@ -2504,6 +2580,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     poseResolver,
                     null,
                     initialSnapshot,
+                    initialObjectiveResult,
                 });
         }
 

@@ -81,11 +81,11 @@ namespace Game.Feature.Gameplay.Host
         internal int DebugBarricadeActiveImmediateStatePlayCount =>
             ResolveDebugAdapter()?.DebugBarricadeActiveImmediateStatePlayCount ?? 0;
 
-        public int DebugPlayExitOpenedCount => ResolveDebugAdapter()?.DebugPlayExitOpenedCount ?? 0;
+        public int DebugExitOpenedCount => ResolveDebugAdapter()?.DebugExitOpenedCount ?? 0;
 
         public Animator DebugAnimator => ResolveDebugAdapter()?.Animator;
 
-        public int DebugPlayExitEnteredCount => ResolveDebugAdapter()?.DebugPlayExitEnteredCount ?? 0;
+        public int DebugExitEnteredCount => ResolveDebugAdapter()?.DebugExitEnteredCount ?? 0;
 
         public bool DebugExitOpen => ResolveDebugAdapter()?.DebugExitOpen ?? false;
 

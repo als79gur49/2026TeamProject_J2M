@@ -69,6 +69,8 @@ namespace Game.Feature.Gameplay.Host
         private bool lastBarricadeActiveImmediateState;
         private bool hasBarricadeFallbackAnimatorActiveState;
         private bool lastBarricadeFallbackAnimatorActiveState;
+        private bool hasExitFallbackAnimatorOpenState;
+        private bool lastExitFallbackAnimatorOpenState;
         private IGameplayVfxPlaybackPort gameplayVfxPlaybackPort;
 
         public int DebugPlayButtonActivatedCount { get; private set; }
@@ -89,8 +91,16 @@ namespace Game.Feature.Gameplay.Host
         public int DebugBarricadeActiveImmediateStatePlayCount { get; private set; }
         public int DebugBarricadeActiveAnimatorStatePlayCount { get; private set; }
         public int DebugLastBarricadeActiveAnimatorStateHash { get; private set; }
+        public int DebugLegacyAnimatorFallbackCount { get; private set; }
+        public int DebugExitLegacyAnimatorFallbackCount { get; private set; }
+        public int DebugExitOpenAnimatorStatePlayCount { get; private set; }
+        public int DebugLastExitOpenAnimatorStateHash { get; private set; }
+        public int DebugExitProfileOpenStatePlayCount => exitHandler.DebugOpenStateAnimatorStatePlayCount;
+        public int DebugLastExitProfileOpenStateHash => exitHandler.DebugLastOpenStateAnimatorStateHash;
         public int DebugPlayExitOpenedCount { get; private set; }
+        public int DebugExitOpenedCount => DebugPlayExitOpenedCount;
         public int DebugPlayExitEnteredCount { get; private set; }
+        public int DebugExitEnteredCount => DebugPlayExitEnteredCount;
         public bool DebugExitOpen { get; private set; }
         public int DebugMoonBlockGeneratedCount { get; private set; }
         public int DebugMoonBlockGeneratorBlockedCount { get; private set; }
@@ -190,9 +200,13 @@ namespace Game.Feature.Gameplay.Host
             ITileFeatureVisualHandler handler)
         {
             if (profile != null ||
-                request.FeatureKind != TileFeatureKind.MoonBlockGenerator ||
                 handler == null ||
                 !handler.CanHandle(request.CueId))
+            {
+                return;
+            }
+
+            if (!ShouldWarnMissingProfile(request))
             {
                 return;
             }
@@ -204,8 +218,25 @@ namespace Game.Feature.Gameplay.Host
             }
 
             UnityEngine.Debug.LogWarning(
-                $"{nameof(LegacyTileFeatureVisualCueAdapter)} handled {request.FeatureKind} cue {request.CueId} without a {nameof(TileFeatureVisualProfile)}. Production MoonBlockGenerator visuals should resolve profile-local cue bindings.",
+                $"{nameof(LegacyTileFeatureVisualCueAdapter)} handled {request.FeatureKind} cue {request.CueId} without a {nameof(TileFeatureVisualProfile)}. Production Animator-backed TileFeature visuals should resolve profile-local cue bindings.",
                 this);
+        }
+
+        private bool ShouldWarnMissingProfile(in TileFeatureVisualRequest request)
+        {
+            if (request.FeatureKind == TileFeatureKind.MoonBlockGenerator)
+            {
+                return true;
+            }
+
+            if (request.FeatureKind != TileFeatureKind.Exit)
+            {
+                return false;
+            }
+
+            var resolvedAnimator = Animator;
+            return resolvedAnimator != null &&
+                   resolvedAnimator.runtimeAnimatorController != null;
         }
 
         public void PlaySlideTileRedirected(Direction direction, int targetEntityId)
@@ -298,10 +329,15 @@ namespace Game.Feature.Gameplay.Host
             lastBarricadeActiveImmediateState = false;
             hasBarricadeFallbackAnimatorActiveState = false;
             lastBarricadeFallbackAnimatorActiveState = false;
+            hasExitFallbackAnimatorOpenState = false;
+            lastExitFallbackAnimatorOpenState = false;
             DebugBarricadeActiveImmediateStatePlayCount = 0;
             DebugBarricadeActiveAnimatorStatePlayCount = 0;
             DebugLastBarricadeActiveAnimatorStateHash = 0;
+            DebugExitOpenAnimatorStatePlayCount = 0;
+            DebugLastExitOpenAnimatorStateHash = 0;
             barricadeHandler.ResetActiveStateCache();
+            exitHandler.ResetOpenStateCache();
         }
 
         private ITileFeatureVisualHandler ResolveHandler(in TileFeatureVisualRequest request)
@@ -489,69 +525,94 @@ namespace Game.Feature.Gameplay.Host
             switch (request.CueId)
             {
                 case TileFeatureVisualCueId.ButtonActivated:
+                    TrackLegacyAnimatorFallback(request);
                     SetTriggerIfPresent(resolvedAnimator, ButtonActivatedTrigger);
                     return;
                 case TileFeatureVisualCueId.DestroyTileTriggered:
+                    TrackLegacyAnimatorFallback(request);
                     SetTriggerIfPresent(resolvedAnimator, DestroyTileTriggeredTrigger);
                     return;
                 case TileFeatureVisualCueId.DestroyTileActivated:
+                    TrackLegacyAnimatorFallback(request);
                     SetTriggerIfPresent(resolvedAnimator, DestroyTileActivatedTrigger);
                     SetBoolIfPresent(resolvedAnimator, DestroyTileActiveBool, true);
                     PlayStateIfPresent(resolvedAnimator, DestroyTileActiveState);
                     return;
                 case TileFeatureVisualCueId.DestroyTileDeactivated:
+                    TrackLegacyAnimatorFallback(request);
                     SetTriggerIfPresent(resolvedAnimator, DestroyTileDeactivatedTrigger);
                     SetBoolIfPresent(resolvedAnimator, DestroyTileActiveBool, false);
                     PlayStateIfPresent(resolvedAnimator, DestroyTileInactiveState);
                     return;
                 case TileFeatureVisualCueId.DestroyTileActiveState:
+                    TrackLegacyAnimatorFallback(request);
                     SetBoolIfPresent(resolvedAnimator, DestroyTileActiveBool, request.Active);
                     PlayStateIfPresent(resolvedAnimator, request.Active ? DestroyTileActiveState : DestroyTileInactiveState);
                     return;
                 case TileFeatureVisualCueId.SlideTileRedirected:
+                    TrackLegacyAnimatorFallback(request);
                     SetTriggerIfPresent(resolvedAnimator, SlideTileRedirectedTrigger);
                     return;
                 case TileFeatureVisualCueId.BarricadeBlocked:
+                    TrackLegacyAnimatorFallback(request);
                     SetTriggerIfPresent(resolvedAnimator, BarricadeBlockedTrigger);
                     SetBoolIfPresent(resolvedAnimator, BarricadeActiveBool, true);
                     MarkBarricadeFallbackAnimatorActiveState(true);
                     return;
                 case TileFeatureVisualCueId.BarricadeCrushed:
+                    TrackLegacyAnimatorFallback(request);
                     SetTriggerIfPresent(resolvedAnimator, BarricadeCrushedTrigger);
                     return;
                 case TileFeatureVisualCueId.BarricadeActivated:
+                    TrackLegacyAnimatorFallback(request);
                     SetTriggerIfPresent(resolvedAnimator, BarricadeActivatedTrigger);
                     SetBoolIfPresent(resolvedAnimator, BarricadeActiveBool, true);
                     PlayBarricadeFallbackStateIfPresent(resolvedAnimator, BarricadeRaisedState);
                     MarkBarricadeFallbackAnimatorActiveState(true);
                     return;
                 case TileFeatureVisualCueId.BarricadeDeactivated:
+                    TrackLegacyAnimatorFallback(request);
                     SetTriggerIfPresent(resolvedAnimator, BarricadeDeactivatedTrigger);
                     SetBoolIfPresent(resolvedAnimator, BarricadeActiveBool, false);
                     PlayBarricadeFallbackStateIfPresent(resolvedAnimator, BarricadeLoweredState);
                     MarkBarricadeFallbackAnimatorActiveState(false);
                     return;
                 case TileFeatureVisualCueId.BarricadeActiveState:
+                    TrackLegacyAnimatorFallback(request);
                     ApplyBarricadeActiveStateFallback(resolvedAnimator, request.Active);
                     return;
                 case TileFeatureVisualCueId.ExitOpened:
+                    TrackLegacyAnimatorFallback(request);
                     SetTriggerIfPresent(resolvedAnimator, ExitOpenedTrigger);
                     SetBoolIfPresent(resolvedAnimator, ExitOpenBool, true);
-                    PlayStateIfPresent(resolvedAnimator, ExitOpenedState);
+                    MarkExitFallbackAnimatorOpenState(true);
                     return;
                 case TileFeatureVisualCueId.ExitEntered:
+                    TrackLegacyAnimatorFallback(request);
                     SetTriggerIfPresent(resolvedAnimator, ExitEnteredTrigger);
                     return;
                 case TileFeatureVisualCueId.ExitOpenState:
+                    TrackLegacyAnimatorFallback(request);
                     SetBoolIfPresent(resolvedAnimator, ExitOpenBool, request.Active);
-                    PlayStateIfPresent(resolvedAnimator, request.Active ? ExitOpenedState : ExitClosedState);
+                    ApplyExitOpenStateFallback(resolvedAnimator, request.Active);
                     return;
                 case TileFeatureVisualCueId.MoonBlockGenerated:
+                    TrackLegacyAnimatorFallback(request);
                     SetTriggerIfPresent(resolvedAnimator, MoonBlockGeneratedTrigger);
                     return;
                 case TileFeatureVisualCueId.MoonBlockGeneratorBlocked:
+                    TrackLegacyAnimatorFallback(request);
                     SetTriggerIfPresent(resolvedAnimator, MoonBlockGeneratorBlockedTrigger);
                     return;
+            }
+        }
+
+        private void TrackLegacyAnimatorFallback(in TileFeatureVisualRequest request)
+        {
+            DebugLegacyAnimatorFallbackCount++;
+            if (request.FeatureKind == TileFeatureKind.Exit)
+            {
+                DebugExitLegacyAnimatorFallbackCount++;
             }
         }
 
@@ -592,12 +653,41 @@ namespace Game.Feature.Gameplay.Host
             lastBarricadeFallbackAnimatorActiveState = active;
         }
 
+        private void ApplyExitOpenStateFallback(Animator targetAnimator, bool open)
+        {
+            if (hasExitFallbackAnimatorOpenState &&
+                lastExitFallbackAnimatorOpenState == open)
+            {
+                return;
+            }
+
+            MarkExitFallbackAnimatorOpenState(open);
+            PlayExitFallbackStateIfPresent(
+                targetAnimator,
+                open ? ExitOpenedState : ExitClosedState);
+        }
+
+        private void MarkExitFallbackAnimatorOpenState(bool open)
+        {
+            hasExitFallbackAnimatorOpenState = true;
+            lastExitFallbackAnimatorOpenState = open;
+        }
+
         private void PlayBarricadeFallbackStateIfPresent(Animator targetAnimator, int hash)
         {
             if (PlayStateIfPresent(targetAnimator, hash))
             {
                 DebugBarricadeActiveAnimatorStatePlayCount++;
                 DebugLastBarricadeActiveAnimatorStateHash = hash;
+            }
+        }
+
+        private void PlayExitFallbackStateIfPresent(Animator targetAnimator, int hash)
+        {
+            if (PlayStateIfPresent(targetAnimator, hash))
+            {
+                DebugExitOpenAnimatorStatePlayCount++;
+                DebugLastExitOpenAnimatorStateHash = hash;
             }
         }
 

@@ -203,7 +203,7 @@ namespace Game.Feature.Gameplay.Host
                 persistentKey: persistentKey);
         }
 
-        protected static void ApplyAnimatorBinding(
+        protected static bool ApplyAnimatorBinding(
             Animator animator,
             in TileFeatureAnimatorBinding binding,
             bool active)
@@ -212,7 +212,7 @@ namespace Game.Feature.Gameplay.Host
                 animator.runtimeAnimatorController == null ||
                 binding.Hash == 0)
             {
-                return;
+                return false;
             }
 
             switch (binding.Kind)
@@ -221,25 +221,30 @@ namespace Game.Feature.Gameplay.Host
                     if (HasAnimatorParameter(animator, binding.Hash, AnimatorControllerParameterType.Trigger))
                     {
                         animator.SetTrigger(binding.Hash);
+                        return true;
                     }
 
-                    return;
+                    return false;
                 case TileFeatureAnimatorBindingKind.Bool:
                     if (HasAnimatorParameter(animator, binding.Hash, AnimatorControllerParameterType.Bool))
                     {
                         animator.SetBool(binding.Hash, active);
+                        return true;
                     }
 
-                    return;
+                    return false;
                 case TileFeatureAnimatorBindingKind.State:
                     if (animator.HasState(0, binding.Hash))
                     {
                         animator.Play(binding.Hash, 0, 1f);
                         animator.Update(0f);
+                        return true;
                     }
 
-                    return;
+                    return false;
             }
+
+            return false;
         }
 
         private static bool HasAnimatorParameter(
@@ -464,7 +469,22 @@ namespace Game.Feature.Gameplay.Host
 
     public sealed class ExitTileFeatureVisualHandler : TileFeatureVisualHandlerBase
     {
+        private bool hasOpenState;
+        private bool lastOpenState;
+
         public ExitTileFeatureVisualHandler() : base(TileFeatureKind.Exit) { }
+
+        public int DebugOpenStateAnimatorStatePlayCount { get; private set; }
+
+        public int DebugLastOpenStateAnimatorStateHash { get; private set; }
+
+        public void ResetOpenStateCache()
+        {
+            hasOpenState = false;
+            lastOpenState = false;
+            DebugOpenStateAnimatorStatePlayCount = 0;
+            DebugLastOpenStateAnimatorStateHash = 0;
+        }
 
         public override bool CanHandle(TileFeatureVisualCueId cueId)
         {
@@ -475,6 +495,96 @@ namespace Game.Feature.Gameplay.Host
                 TileFeatureVisualCueId.ExitOpenState,
                 TileFeatureVisualCueId.ExitOpenLoop,
                 TileFeatureVisualCueId.EntranceSpawn);
+        }
+
+        public override bool TryHandle(
+            in TileFeatureVisualRequest request,
+            ITileFeatureVisualTarget target,
+            TileFeatureVisualProfile profile,
+            Animator animator,
+            IGameplayVfxPlaybackPort gameplayVfxPlaybackPort)
+        {
+            if (!CanHandle(request.CueId))
+            {
+                return false;
+            }
+
+            if (request.CueId == TileFeatureVisualCueId.ExitOpenState)
+            {
+                ApplyOpenState(request, profile, animator, gameplayVfxPlaybackPort);
+                return true;
+            }
+
+            if (!base.TryHandle(request, target, profile, animator, gameplayVfxPlaybackPort))
+            {
+                return false;
+            }
+
+            if (request.CueId == TileFeatureVisualCueId.ExitOpened)
+            {
+                ApplyOpenBoolBinding(profile, animator, open: true);
+                MarkOpenState(true);
+            }
+
+            return true;
+        }
+
+        private void ApplyOpenState(
+            in TileFeatureVisualRequest request,
+            TileFeatureVisualProfile profile,
+            Animator animator,
+            IGameplayVfxPlaybackPort gameplayVfxPlaybackPort)
+        {
+            if (profile != null &&
+                profile.TryGetCueBinding(request.CueId, out var binding))
+            {
+                ApplyAnimatorBinding(animator, binding.AnimatorBinding, request.Active);
+                if (binding.SendGameplayVfx &&
+                    gameplayVfxPlaybackPort != null)
+                {
+                    gameplayVfxPlaybackPort.Play(CreateGameplayVfxRequest(request, binding));
+                }
+
+                if (hasOpenState &&
+                    lastOpenState == request.Active)
+                {
+                    return;
+                }
+
+                MarkOpenState(request.Active);
+                if (ApplyAnimatorBinding(
+                    animator,
+                    request.Active ? binding.ActiveStateAnimatorBinding : binding.InactiveStateAnimatorBinding,
+                    request.Active))
+                {
+                    DebugOpenStateAnimatorStatePlayCount++;
+                    DebugLastOpenStateAnimatorStateHash = request.Active
+                        ? binding.ActiveStateAnimatorBinding.Hash
+                        : binding.InactiveStateAnimatorBinding.Hash;
+                }
+
+                return;
+            }
+
+            MarkOpenState(request.Active);
+        }
+
+        private static void ApplyOpenBoolBinding(
+            TileFeatureVisualProfile profile,
+            Animator animator,
+            bool open)
+        {
+            if (profile != null &&
+                profile.TryGetCueBinding(TileFeatureVisualCueId.ExitOpenState, out var openStateBinding))
+            {
+                ApplyAnimatorBinding(animator, openStateBinding.AnimatorBinding, open);
+            }
+        }
+
+        private void MarkOpenState(bool open)
+        {
+            hasOpenState = true;
+            lastOpenState = open;
         }
     }
 

@@ -97,6 +97,9 @@ namespace Game.Feature.Gameplay.Host
                 presentedInitialEntities,
                 configuration.InitialTopology,
                 initialTileFeatures);
+            var initialObjectiveResult = ResolveInitialObjectiveResult(
+                configuration.ObjectiveRuntimeDefinition,
+                initialSnapshot);
 
             var inputBuffer = new TickInputBuffer();
             var demoGameplayOverrideRuntime = new DemoGameplayOverrideRuntime(DemoStageControlSettings.EnabledByDefault());
@@ -159,7 +162,8 @@ namespace Game.Feature.Gameplay.Host
                 tileFeatureVisualRegistry,
                 tileFeaturePoseResolver,
                 tileFeatureVisualPoseSynchronizer,
-                initialSnapshot);
+                initialSnapshot,
+                initialObjectiveResult);
 
             presenter.Initialize(
                 viewBinder,
@@ -413,7 +417,8 @@ namespace Game.Feature.Gameplay.Host
             TileFeatureVisualRegistry registry,
             ISurfaceCellPresentationPoseResolver poseResolver = null,
             TileFeatureVisualPoseSynchronizer poseSynchronizer = null,
-            WorldSnapshot initialSnapshot = null)
+            WorldSnapshot initialSnapshot = null,
+            StageObjectiveTickResult initialObjectiveResult = null)
         {
             if (bindings == null || bindings.Count == 0)
             {
@@ -457,6 +462,12 @@ namespace Game.Feature.Gameplay.Host
                     targetView.ConfigurePresentationRoot(instance.transform);
                 }
 
+                registry.Register(target);
+                poseSynchronizer ??= poseResolver != null
+                    ? new TileFeatureVisualPoseSynchronizer(registry, poseResolver)
+                    : null;
+                poseSynchronizer?.Refresh(target);
+
                 if (TryResolveInitialBarricadeActive(
                         tileFeature,
                         tileFeatureDefinitions,
@@ -482,15 +493,35 @@ namespace Game.Feature.Gameplay.Host
                             $"Skipping initial {tileFeature.Kind} visual state sync for TileId {binding.TileId}; target has no cue sink.");
                     }
                 }
-
-                registry.Register(target);
-                poseSynchronizer ??= poseResolver != null
-                    ? new TileFeatureVisualPoseSynchronizer(registry, poseResolver)
-                    : null;
-                poseSynchronizer?.Refresh(target);
+                else if (TryResolveInitialExitOpen(
+                             tileFeature,
+                             tileFeatureDefinitions,
+                             initialTopology,
+                             initialObjectiveResult,
+                             out var exitOpen))
+                {
+                    if (!TryApplyInitialExitOpenState(target, binding.TileId, cell, exitOpen))
+                    {
+                        UnityEngine.Debug.LogWarning(
+                            $"Skipping initial exit visual state sync for TileId {binding.TileId}; target has no cue sink.");
+                    }
+                }
             }
 
             registry.Rebuild();
+        }
+
+        private static StageObjectiveTickResult ResolveInitialObjectiveResult(
+            StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
+            WorldSnapshot initialSnapshot)
+        {
+            if (initialSnapshot == null)
+            {
+                return StageObjectiveTickResult.NoObjective;
+            }
+
+            var tracker = (objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled).CreateTracker();
+            return tracker.Advance(initialSnapshot, StageObjectiveTickFacts.Empty);
         }
 
         private static bool TryGetTileFeatureState(
@@ -554,6 +585,27 @@ namespace Game.Feature.Gameplay.Host
             }
 
             active = TileFeatureActivationQueries.IsActive(tileFeature, definition, initialTopology);
+            return true;
+        }
+
+        private static bool TryResolveInitialExitOpen(
+            TileFeatureState tileFeature,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
+            CubeTopologyState initialTopology,
+            StageObjectiveTickResult initialObjectiveResult,
+            out bool open)
+        {
+            if (tileFeature.Kind != TileFeatureKind.Exit ||
+                !TryGetTileFeatureDefinition(tileFeatureDefinitions, tileFeature.TileId, out var definition))
+            {
+                open = false;
+                return false;
+            }
+
+            open = initialObjectiveResult != null &&
+                   initialObjectiveResult.HasObjective &&
+                   initialObjectiveResult.RequiredNonPrimaryConditionsSatisfied &&
+                   TileFeatureActivationQueries.IsActive(tileFeature, definition, initialTopology);
             return true;
         }
 
@@ -707,6 +759,35 @@ namespace Game.Feature.Gameplay.Host
                 target is IDestroyTileActiveStateVisualTarget destroyActiveTarget)
             {
                 destroyActiveTarget.SetDestroyTileActiveImmediate(active);
+                return true;
+            }
+#pragma warning restore CS0618
+
+            return false;
+        }
+
+        private static bool TryApplyInitialExitOpenState(
+            ITileFeatureVisualTarget target,
+            int tileId,
+            SurfaceCell cell,
+            bool open)
+        {
+            var sink = ResolveTileFeatureCueSink(target);
+            if (sink != null)
+            {
+                return sink.TryHandle(
+                    new TileFeatureVisualRequest(
+                        TileFeatureVisualCueId.ExitOpenState,
+                        tileId,
+                        cell,
+                        TileFeatureKind.Exit,
+                        active: open));
+            }
+
+#pragma warning disable CS0618
+            if (target is IExitOpenStateVisualTarget exitOpenTarget)
+            {
+                exitOpenTarget.SetExitOpenImmediate(open);
                 return true;
             }
 #pragma warning restore CS0618
