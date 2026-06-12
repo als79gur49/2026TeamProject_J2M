@@ -45,45 +45,166 @@ namespace Game.Feature.UI.Composition
             new(new Vector2(0f, -88f), new Vector2(12f, 8f), -6f, 3f, 1f, 0.5f, 0f, 0.88f),
         };
 
+        [Header("Slot Roots")]
+        [Tooltip("Explicitly bound ChanceLost slot roots. Order matters; ChanceSlotView name fallback is only a safety net.")]
         [SerializeField] private RectTransform[] _chanceSlotRoots;
+
+        [Header("Lost Slot Motion")]
+        [Tooltip("Seconds spent shaking the lost slot before it falls and fades. Runtime keeps a small minimum duration.")]
+        [Min(0f)]
         [SerializeField] private float _lostShakeDurationSeconds = 0.44f;
+
+        [Tooltip("UI units of horizontal shake applied to the lost slot. 0 removes shake distance.")]
+        [Min(0f)]
         [SerializeField] private float _lostShakeStrength = 20f;
+
+        [Tooltip("Number of shake steps for the lost slot. Higher values make the shake denser.")]
+        [Min(1)]
         [SerializeField] private int _lostShakeVibrato = 18;
+
+        [Tooltip("UI distance the lost slot falls after impact. Larger values make the slot drop farther.")]
+        [Min(0f)]
         [SerializeField] private float _lostFallDistance = 190f;
+
+        [Tooltip("Seconds for the lost slot fall motion. Runtime keeps a small minimum duration.")]
+        [Min(0f)]
         [SerializeField] private float _lostFallDurationSeconds = 0.66f;
+
+        [Tooltip("Seconds for the lost slot alpha fade during the fall. Runtime keeps a small minimum duration.")]
+        [Min(0f)]
         [SerializeField] private float _lostFadeDurationSeconds = 0.5f;
+
+        [Tooltip("Degrees of z rotation applied while the lost slot falls. Negative values rotate the opposite direction.")]
         [SerializeField] private float _lostRotationDegrees = -22f;
+
+        [Tooltip("Seconds between each lost slot animation when multiple slots are lost. 0 starts them together.")]
+        [Min(0f)]
         [SerializeField] private float _lostSlotStaggerSeconds = 0.05f;
+
+        [Tooltip("Alpha used for authored chance slots outside the active chance range. 0 hides empty slots; 1 leaves them opaque.")]
+        [Range(0f, 1f)]
         [SerializeField] private float _emptySlotAlpha = 0.34f;
+
+        [Header("Impact & Survivor Pulse")]
+        [Tooltip("Scale punch added to the lost slot impact. 0 disables the scale punch.")]
+        [Min(0f)]
         [SerializeField] private float _lostImpactScalePunch = 0.14f;
+
+        [Tooltip("Seconds for the lost slot impact punch and flash. Runtime keeps a small minimum duration.")]
+        [Min(0f)]
         [SerializeField] private float _lostImpactDurationSeconds = 0.24f;
+
+        [Tooltip("Target alpha for the lost slot impact flash. 0 uses only the authored alpha; 1 allows a full flash.")]
+        [Range(0f, 1f)]
         [SerializeField] private float _lostImpactFlashAlpha = 0.9f;
+
+        [Tooltip("Seconds before remaining survivor slots pulse. 0 pulses immediately with the lost impact.")]
+        [Min(0f)]
         [SerializeField] private float _survivorPulseDelaySeconds = 0.08f;
+
+        [Tooltip("Scale punch applied to remaining survivor slots. 0 disables survivor pulse.")]
+        [Min(0f)]
         [SerializeField] private float _survivorPulseScalePunch = 0.07f;
+
+        [Tooltip("Seconds for the remaining survivor slot pulse. Runtime keeps a small minimum duration.")]
+        [Min(0f)]
         [SerializeField] private float _survivorPulseDurationSeconds = 0.22f;
+
+        [Header("AllIn1 Material Hit Effect")]
+        [Tooltip("Enables the optional AllIn1 material hit effect. If disabled, material hit and filled-icon shader effects are skipped.")]
         [SerializeField] private bool _useAllIn1LostImpactEffect = true;
+
+        [Tooltip("Optional AllIn1 UI mask material template. If null, the view tries the authored image material or shader fallback.")]
         [SerializeField] private Material _allIn1EffectMaterialTemplate;
+
+        [Tooltip("Color multiplied by the AllIn1 hit-effect glow for the lost impact material flash.")]
         [SerializeField] private Color _allIn1HitEffectColor = new(1f, 0.18f, 0.24f, 1f);
+
+        [Tooltip("Glow multiplier for the AllIn1 hit-effect color. Runtime treats values below 1 as 1.")]
+        [Min(1f)]
         [SerializeField] private float _allIn1HitEffectGlow = 3f;
+
+        [Tooltip("AllIn1 distortion amount for the lost impact hit effect. 0 disables impact distortion.")]
+        [Min(0f)]
         [SerializeField] private float _allIn1DistortAmount = 0.16f;
+
+        [Tooltip("Seconds for the AllIn1 impact distortion pulse. Runtime uses half this duration for each yoyo leg.")]
+        [Min(0f)]
         [SerializeField] private float _allIn1DistortDurationSeconds = 0.34f;
+
+        [Tooltip("Texture scroll speed used by AllIn1 distortion. 0 keeps the distortion texture still.")]
+        [Min(0f)]
         [SerializeField] private float _allIn1DistortTexSpeed = 4f;
+
+        [Header("Lost Filled Icon Material")]
+        [Tooltip("Visible decay tint applied to the filled icon as a chance is lost. Alpha controls the target icon opacity.")]
+        [ColorUsage(true, false)]
         [SerializeField] private Color _lostFilledIconDecayColor = new(0.34f, 0.21f, 0.18f, 1f);
+
+        [Tooltip("Burn edge color used by the filled icon material fade. Alpha controls the burn color opacity.")]
+        [ColorUsage(true, false)]
         [SerializeField] private Color _lostFilledIconBurnColor = new(0.9f, 0.17f, 0.1f, 1f);
+
+        [Tooltip("AllIn1 fade amount for the filled icon lost-state material. -0.08 starts at the authored burn edge; 1 fully advances the fade.")]
+        [Range(-0.08f, 1f)]
         [SerializeField] private float _lostFilledIconFadeAmount = 0.64f;
+
+        [Tooltip("Greyscale blend for the filled icon lost-state material. 0 keeps source color; 1 reaches full greyscale tint.")]
+        [Range(0f, 1f)]
         [SerializeField] private float _lostFilledIconGreyscaleBlend = 0.85f;
+
+        [Tooltip("AllIn1 distortion amount for the filled icon lost-state material. 0 disables filled icon distortion.")]
+        [Min(0f)]
         [SerializeField] private float _lostFilledIconDistortAmount = 0.08f;
+
+        [Header("Crack Line")]
+        [Tooltip("Reveal color for crack lines. Alpha controls final crack line opacity.")]
+        [ColorUsage(true, false)]
         [SerializeField] private Color _crackLineColor = new(0.08f, 0.02f, 0.015f, 0.78f);
+
+        [Tooltip("Seconds before crack lines begin revealing after the filled icon break starts. 0 reveals immediately.")]
+        [Min(0f)]
         [SerializeField] private float _crackLineRevealDelaySeconds = 0.04f;
+
+        [Tooltip("Seconds for each crack line reveal. Runtime keeps a small minimum duration.")]
+        [Min(0f)]
         [SerializeField] private float _crackLineRevealDurationSeconds = 0.27f;
+
+        [Header("Crack Shards")]
+        [Tooltip("Starting color for early crack shards. Alpha controls shard visibility before fade.")]
+        [ColorUsage(true, false)]
         [SerializeField] private Color _crackShardFreshColor = new(1f, 0.96f, 0.84f, 0.95f);
+
+        [Tooltip("Decay color blended into later crack shards. Alpha controls shard visibility before fade.")]
+        [ColorUsage(true, false)]
         [SerializeField] private Color _crackShardDecayColor = new(0.34f, 0.21f, 0.18f, 0.92f);
+
+        [Tooltip("Base seconds before crack shards spawn. Individual shards add their own offsets.")]
+        [Min(0f)]
         [SerializeField] private float _crackShardDelaySeconds = 0.02f;
+
+        [Tooltip("Seconds for crack shard rise, fall, scale, and fade motion. Runtime keeps a small minimum duration.")]
+        [Min(0f)]
         [SerializeField] private float _crackShardDurationSeconds = 0.46f;
+
+        [Tooltip("UI distance crack shards fall after the initial rise. Larger values make shards drop farther.")]
+        [Min(0f)]
         [SerializeField] private float _crackShardFallDistance = 118f;
+
+        [Tooltip("Initial UI rise distance before crack shards fall. 0 skips the upward lift.")]
+        [Min(0f)]
         [SerializeField] private float _crackShardInitialRise = 0f;
+
+        [Tooltip("Seconds before crack shards begin fading during their motion. Runtime clamps this within shard duration.")]
+        [Min(0f)]
         [SerializeField] private float _crackShardFadeDelaySeconds = 0.2f;
+
+        [Tooltip("Degrees of shard rotation during the crack motion. 0 keeps authored shard rotation.")]
+        [Range(0f, 360f)]
         [SerializeField] private float _crackShardRotationDegrees = 120f;
+
+        [Header("Timing")]
+        [Tooltip("Uses unscaled DOTween update for ChanceLost animation so overlay timing can ignore gameplay time scale.")]
         [SerializeField] private bool _useUnscaledTime = true;
 
         private readonly List<SlotState> _slotStates = new();
