@@ -418,8 +418,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void PlayUtilityWindup(EnemyUtilityPresentationKind kind)
         {
-            if (kind != EnemyUtilityPresentationKind.LockNearbyBoxes &&
-                kind != EnemyUtilityPresentationKind.GravityFieldAura)
+            if (kind != EnemyUtilityPresentationKind.GravityFieldAura)
             {
                 return;
             }

@@ -1588,68 +1588,30 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_EnemyUtilityLockScenario_ProducesStablePerTickHashTraceAndBlockedPush",
-      "category": "Core",
-      "contracts": [
-        "interaction_push",
-        "semantic_metadata",
-        "tick_replay_determinism_contract"
-      ],
-      "reason": "Locked Core coverage for interaction_push in TickReplayDeterminismTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_CompilesLockNearbyBoxesEffectAndTicks",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyUtilityEffectKind_RetiredLockNearbyBoxes_PreservesCompatibilitySlot",
       "category": "Core",
       "contracts": [
         "enemy_logic_contract"
       ],
-      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "reason": "Locked Core coverage that retired utility kind 1 keeps its serialized compatibility slot.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_NullPayload_Throws",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyUtilityEffectRuntime_RetiredLockNearbyBoxes_Throws",
       "category": "Core",
       "contracts": [
         "enemy_logic_contract"
       ],
-      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "reason": "Locked Core coverage that retired utility kind 1 cannot become active runtime.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_NonPositiveRadius_Throws",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_RetiredLockNearbyBoxes_Throws",
       "category": "Core",
       "contracts": [
         "enemy_logic_contract"
       ],
-      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_NonPositiveDuration_Throws",
-      "category": "Core",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_MustBlockPushOrFlip",
-      "category": "Core",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_CompilesSummonAndLockNearbyBoxesTogether",
-      "category": "Core",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "reason": "Locked Core coverage that retired utility kind 1 is rejected during profile compilation.",
       "locked": true
     },
     {

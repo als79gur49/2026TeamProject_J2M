@@ -29,17 +29,6 @@ MonoBehaviour:
       suppressMovementDuringWindup: 0
       recoverySeconds: 0
       suppressMovementDuringRecover: 0
-    lockNearbyBoxes:
-      radius: 1
-      durationSeconds: 5
-      activationDelaySeconds: 0.5
-      blocksPush: 1
-      blocksFlip: 1
-      includeSourceCell: 0
-      targetPattern: 1
-      suppressMovementDuringWindup: 1
-      recoverySeconds: 0.2
-      suppressMovementDuringRecover: 1
     gravityFieldAura:
       radius: 1
       windupSeconds: 0.5

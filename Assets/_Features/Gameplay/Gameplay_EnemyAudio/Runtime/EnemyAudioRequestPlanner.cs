@@ -195,14 +195,12 @@ namespace Game.Feature.Gameplay.EnemyAudio
                     signal.EntityId,
                     EnemyAudioCue.Windup,
                     signal.Phase == EnemyUtilityPresentationPhase.WindupStarted &&
-                    (signal.Kind == EnemyUtilityPresentationKind.LockNearbyBoxes ||
-                     signal.Kind == EnemyUtilityPresentationKind.GravityFieldAura),
+                    signal.Kind == EnemyUtilityPresentationKind.GravityFieldAura,
                     requests);
                 AddRequestIf(
                     signal.EntityId,
                     EnemyAudioCue.Recover,
-                    (signal.Kind == EnemyUtilityPresentationKind.LockNearbyBoxes ||
-                     signal.Kind == EnemyUtilityPresentationKind.GravityFieldAura) &&
+                    signal.Kind == EnemyUtilityPresentationKind.GravityFieldAura &&
                     signal.Phase == EnemyUtilityPresentationPhase.RecoverStarted,
                     requests);
                 AddRequestIf(
