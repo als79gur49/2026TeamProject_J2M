@@ -4209,9 +4209,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var enemyPrefabView = enemyPrefabObject.AddComponent<GameplayEntityView>();
-                AttachEnemyRuntimeAnimator(enemyPrefabObject);
+                var enemyAnimator = AttachEnemyRuntimeAnimator(enemyPrefabObject);
                 var timingAuthoring = enemyPrefabObject.AddComponent<EnemyAnimationTimingAuthoring>();
-                enemyPrefabObject.AddComponent<EnemyAnimatorDriver>();
+                var enemyDriver = enemyPrefabObject.AddComponent<EnemyAnimatorDriver>();
+                PlayerViewPrefabTestUtility.SetSerializedField(enemyDriver, "animator", enemyAnimator);
                 ConfigureEnemyAnimationTimingAuthoring(
                     timingAuthoring,
                     attackWindupAnimatorDurationSeconds: 0.35f,
@@ -4260,7 +4261,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(host.ViewRegistry.TryGetView(40, out var boundEnemyView), Is.True);
                 Assert.That(boundEnemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
                 Assert.That(boundEnemyView.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Not.Null);
-                Assert.That(boundEnemyView.GetComponent<Animator>(), Is.Not.Null);
+                Assert.That(boundEnemyView.GetComponentInChildren<Animator>(includeInactive: true), Is.Not.Null);
 
                 var boundTiming = boundEnemyView.GetComponent<EnemyAnimationTimingAuthoring>().CreateSnapshot();
                 Assert.That(boundTiming.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
