@@ -2119,7 +2119,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 stageId,
                 "Campaign Test Stage",
                 result,
-                "Continue",
                 new StageNavigationRequest(stageId, StageNavigationKind.Continue, "campaign-test-continue"),
                 new StageNavigationRequest(stageId, StageNavigationKind.Retry, "campaign-test-retry"),
                 StageNavigationRequest.None);

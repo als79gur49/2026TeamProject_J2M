@@ -15,7 +15,6 @@ namespace Game.Feature.UI.Application
             }
 
             ViewModel.SetContent(
-                payload.ContinueLabel,
                 payload.IsContinueEnabled);
         }
     }

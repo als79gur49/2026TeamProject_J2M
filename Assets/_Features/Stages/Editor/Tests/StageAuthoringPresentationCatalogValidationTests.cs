@@ -492,7 +492,6 @@ namespace Game.Feature.Stages.Editor.Tests
             try
             {
                 SetString(fixture.Presentation, "displayName", "Edited Display");
-                SetString(fixture.Presentation, "resultContinueLabel", "Keep Going");
 
                 var report = fixture.Validate();
                 Assert.That(report.Issues.Any(IsPresentationIntegrityIssue), Is.False, FormatIssues(report));
@@ -521,15 +520,12 @@ namespace Game.Feature.Stages.Editor.Tests
                 .Where(asset =>
                     asset.Text.Contains("resultTitle:", StringComparison.Ordinal) ||
                     asset.Text.Contains("resultSummaryText:", StringComparison.Ordinal) ||
-                    asset.Text.Contains("resultDetailText:", StringComparison.Ordinal))
+                    asset.Text.Contains("resultDetailText:", StringComparison.Ordinal) ||
+                    asset.Text.Contains("resultContinueLabel:", StringComparison.Ordinal))
                 .Select(asset => asset.Path)
                 .ToArray();
 
             Assert.That(obsoleteResidue, Is.Empty);
-            Assert.That(
-                presentationAssets.Any(path =>
-                    File.ReadAllText(path).Contains("resultContinueLabel:", StringComparison.Ordinal)),
-                Is.True);
         }
 
         [Test]

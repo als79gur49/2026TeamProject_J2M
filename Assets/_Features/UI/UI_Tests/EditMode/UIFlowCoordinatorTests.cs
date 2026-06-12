@@ -639,7 +639,6 @@ namespace Game.Feature.UI.Tests
             var stageResultRecord = screenRuntimeFactory.CreatedRuntimes.Find(record => record.Request.ScreenId == ScreenId.StageResult);
             var stagePayload = stageResultRecord.Request.Payload as StageResultScreenPayload;
             Assert.That(stagePayload, Is.Not.Null);
-            Assert.That(stagePayload.ContinueLabel, Is.EqualTo("Collect"));
             Assert.That(stagePayload.ContinueStageRequest.StageId, Is.EqualTo(StageId.CreateOrThrow("payload-stage")));
             Assert.That(stagePayload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
             Assert.That(stagePayload.RetryStageRequest.StageId, Is.EqualTo(StageId.CreateOrThrow("payload-stage")));
@@ -1081,7 +1080,6 @@ namespace Game.Feature.UI.Tests
                 stageId,
                 "Payload Stage",
                 result,
-                "Collect",
                 continueRequest,
                 retryRequest,
                 nextStageRequest);

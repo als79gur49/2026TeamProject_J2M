@@ -432,4 +432,3 @@ MonoBehaviour:
   boardTilePresentationCatalog: {fileID: 0}
   tileFeaturePresentationCatalog: {fileID: 0}
   tileFeaturePresentationBindings: []
-  resultContinueLabel: Continue

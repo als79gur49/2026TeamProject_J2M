@@ -442,7 +442,6 @@ namespace Game.Feature.Stages.Editor.Tests
             try
             {
                 SetString(fixture.Presentation, "displayName", "Edited Display");
-                SetString(fixture.Presentation, "resultContinueLabel", "Keep Going");
                 var report = fixture.Validate();
                 Assert.That(report.Issues.Any(issue => issue.Code.StartsWith("PresentationDrift.", StringComparison.Ordinal)), Is.False, FormatIssues(report));
             }

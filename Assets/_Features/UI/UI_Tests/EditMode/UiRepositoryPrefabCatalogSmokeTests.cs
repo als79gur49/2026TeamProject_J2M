@@ -187,7 +187,6 @@ namespace Game.Feature.UI.Tests
 
             var payload = StageResultPayloadMapper.Map(readModel);
 
-            Assert.That(payload.ContinueLabel, Is.Not.Empty);
             Assert.That(payload.ContinueStageRequest.IsValid, Is.True);
             Assert.That(payload.RetryStageRequest.IsValid, Is.True);
             Assert.That(payload.NextStageRequest.IsValid, Is.True);

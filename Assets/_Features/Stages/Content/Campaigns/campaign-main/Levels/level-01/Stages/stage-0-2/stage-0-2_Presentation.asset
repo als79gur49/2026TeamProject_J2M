@@ -442,4 +442,3 @@ MonoBehaviour:
   tileFeaturePresentationBindings: []
   worldGuideCatalog: {fileID: 0}
   worldGuideInstructions: []
-  resultContinueLabel: Continue

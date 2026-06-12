@@ -259,7 +259,6 @@ namespace Game.Feature.UI.Tests
 
             presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
             SetPrivateField(presentationDefinition, "displayName", "UI Flow Clear");
-            SetPrivateField(presentationDefinition, "resultContinueLabel", "Continue");
 
             entry.AssignPresentationDefinition(presentationDefinition);
             return entry;

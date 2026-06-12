@@ -42,9 +42,6 @@ namespace Game.Feature.Stages
         [SerializeField] private StageWorldGuideInstruction[] worldGuideInstructions =
             Array.Empty<StageWorldGuideInstruction>();
 
-        [Header("Stage Result UI")]
-        [SerializeField] private string resultContinueLabel = "Continue";
-
         public string DisplayName => displayName ?? string.Empty;
 
         public GameObject BackgroundPrefab => backgroundPrefab;
@@ -80,8 +77,6 @@ namespace Game.Feature.Stages
         public IReadOnlyList<StageWorldGuideInstruction> WorldGuideInstructions =>
             worldGuideInstructions ?? Array.Empty<StageWorldGuideInstruction>();
 
-        public string ResultContinueLabel => resultContinueLabel ?? string.Empty;
-
         public void ApplyResolvedData(StagePresentationResolvedData value)
         {
             var resolvedData = value ?? StagePresentationAssembler.EmptyResolvedData;
@@ -105,7 +100,6 @@ namespace Game.Feature.Stages
             worldGuideInstructions =
                 StagePresentationAssembler.ToAuthoringWorldGuideInstructions(
                     resolvedData.WorldGuideInstructions);
-            resultContinueLabel = resolvedData.ResultContinueLabel;
         }
     }
 }

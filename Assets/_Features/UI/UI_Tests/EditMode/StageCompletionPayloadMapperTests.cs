@@ -11,7 +11,7 @@ namespace Game.Feature.UI.Tests
     public sealed class StageCompletionPayloadMapperTests
     {
         [Test]
-        public void StageResultPayloadMapper_UsesContinueLabel_WithoutScoreRankResultData()
+        public void StageResultPayloadMapper_MapsNavigationRequests_WithoutScoreRankResultData()
         {
             var readModel = new MinimalStageCompletionReadModel(
                 StageId.CreateOrThrow("payload-stage"),
@@ -25,19 +25,19 @@ namespace Game.Feature.UI.Tests
                     finalTickIndex: 24,
                     new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
                 StageClearSource.Objective),
-                "Continue",
                 CreateNavigationRequest("payload-stage", StageNavigationKind.Continue),
                 CreateNavigationRequest("payload-stage", StageNavigationKind.Retry),
                 StageNavigationRequest.None);
 
             var payload = StageResultPayloadMapper.Map(readModel);
 
-            Assert.That(payload.ContinueLabel, Is.EqualTo("Continue"));
             var payloadProperties = typeof(StageResultScreenPayload)
                 .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
                 .Select(property => property.Name);
             Assert.That(payloadProperties, Does.Not.Contain("TitleText"));
             Assert.That(payloadProperties, Does.Not.Contain("DetailText"));
+            Assert.That(payloadProperties, Does.Not.Contain("ContinueLabel"));
+            Assert.That(payload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
         }
 
         [Test]
@@ -51,6 +51,8 @@ namespace Game.Feature.UI.Tests
                 "resultTitle",
                 "resultSummaryText",
                 "resultDetailText",
+                "ResultContinueLabel",
+                "resultContinueLabel",
             };
             var definitionMembers = typeof(StagePresentationDefinition)
                 .GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
@@ -65,8 +67,8 @@ namespace Game.Feature.UI.Tests
                 Assert.That(resolvedMembers, Does.Not.Contain(removedName));
             }
 
-            Assert.That(typeof(StagePresentationDefinition).GetProperty("ResultContinueLabel"), Is.Not.Null);
-            Assert.That(typeof(StagePresentationResolvedData).GetProperty("ResultContinueLabel"), Is.Not.Null);
+            Assert.That(typeof(StagePresentationDefinition).GetProperty("ResultContinueLabel"), Is.Null);
+            Assert.That(typeof(StagePresentationResolvedData).GetProperty("ResultContinueLabel"), Is.Null);
         }
 
         [Test]

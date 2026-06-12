@@ -83,22 +83,27 @@ namespace Game.Feature.UI.Tests
             AssertNoDeclaredMembersNamed(
                 typeof(StageResultScreenPayload),
                 "TitleText",
-                "DetailText");
+                "DetailText",
+                "ContinueLabel");
             AssertNoDeclaredMembersNamed(
                 typeof(StageResultScreenViewModel),
                 "TitleText",
-                "DetailText");
+                "DetailText",
+                "ContinueLabel");
             AssertNoDeclaredMembersNamed(
                 typeof(StageResultScreenView),
                 "_titleLabel",
-                "_detailLabel");
+                "_detailLabel",
+                "_continueButtonLabel");
 
             var prefab = File.ReadAllText(UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
             Assert.That(prefab, Does.Not.Contain("_titleLabel"));
             Assert.That(prefab, Does.Not.Contain("_detailLabel"));
+            Assert.That(prefab, Does.Not.Contain("_continueButtonLabel"));
             Assert.That(prefab, Does.Not.Contain("m_Name: Title"));
             Assert.That(prefab, Does.Not.Contain("m_Name: Detail"));
-            Assert.That(prefab, Does.Contain("_continueButtonLabel"));
+            Assert.That(prefab, Does.Contain("_continueButton:"));
+            Assert.That(prefab, Does.Contain("m_text: Continue"));
         }
 
         [Test]
@@ -107,7 +112,6 @@ namespace Game.Feature.UI.Tests
             var stageId = StageId.CreateOrThrow("stage-result-boundary");
             var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "boundary-test");
             var payload = new StageResultScreenPayload(
-                "Continue",
                 request,
                 StageNavigationRequest.None,
                 StageNavigationRequest.None);
