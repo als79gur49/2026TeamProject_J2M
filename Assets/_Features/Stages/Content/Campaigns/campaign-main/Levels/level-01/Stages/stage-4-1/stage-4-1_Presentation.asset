@@ -309,7 +309,6 @@ MonoBehaviour:
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
   boardTilePresentationOverrides: []
   boardTilePaintOverrides: []
-  boardTileOverlayOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings: []
   worldGuideCatalog: {fileID: 0}

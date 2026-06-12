@@ -192,8 +192,6 @@ namespace Game.Feature.Gameplay.Host
                 configuration.BoardTilePresentationOverrides,
                 configuration.BoardTileStyleCatalog,
                 configuration.BoardTilePaintOverrides,
-                configuration.BoardTileOverlayCatalog,
-                configuration.BoardTileOverlayOverrides,
                 configuration.SuppressedBaseTileCells,
                 configuration.BoardPresentationProfile != null
                     ? configuration.BoardPresentationProfile.ActiveFaceCoverPrefab

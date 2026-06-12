@@ -421,7 +421,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePresentationOverride"));
             Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePresentationCatalog"));
             Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePaintOverride"));
-            Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTileOverlayOverride"));
+            Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("BoardTileOverlayOverride"));
             Assert.That(tileFeatureCatalogSource, Does.Not.Contain("BoardTilePresentationOverride"));
             Assert.That(tileFeatureCatalogSource, Does.Not.Contain("BoardTilePaintOverride"));
             Assert.That(tileFeatureCatalogSource, Does.Not.Contain("BoardTileOverlayOverride"));

@@ -14,7 +14,6 @@ namespace Game.Feature.Stages.Editor
         TileFeaturePlacement,
         BoardTilePrefabOverride,
         BoardTilePaint,
-        BoardTileOverlay,
         ZoneEditing,
     }
 
@@ -35,8 +34,6 @@ namespace Game.Feature.Stages.Editor
         private MessageType tileFeatureFeedbackType = MessageType.Info;
         private string boardTilePresentationKey = string.Empty;
         private string boardTileStyleKey = string.Empty;
-        private string boardTileOverlayKey = string.Empty;
-        private BoardTileOverlayLayer boardTileOverlayLayer = BoardTileOverlayLayer.Guide;
         private string boardTileFeedback = string.Empty;
         private MessageType boardTileFeedbackType = MessageType.Info;
         private int loadedTileFeatureId;
@@ -144,8 +141,6 @@ namespace Game.Feature.Stages.Editor
             tileFeatureFeedback = string.Empty;
             boardTilePresentationKey = string.Empty;
             boardTileStyleKey = string.Empty;
-            boardTileOverlayKey = string.Empty;
-            boardTileOverlayLayer = BoardTileOverlayLayer.Guide;
             boardTileFeedback = string.Empty;
             loadedTileFeatureId = 0;
             selectedTileFeatureVisualPrefab = null;
@@ -460,53 +455,6 @@ namespace Game.Feature.Stages.Editor
             return ClearBoardTilePaintOverride(out error);
         }
 
-        internal BoardTileOverlayCatalogOption[] GetBoardTileOverlayOptionsForTests()
-        {
-            return StageAuthoringPresentationBindingCommands.BuildBoardTileOverlayOptions(
-                authoring != null ? authoring.GeneratedPresentationDefinition : null);
-        }
-
-        internal BoardTileOverlayCellStatus GetBoardTileOverlayStatusForTests()
-        {
-            var cell = GetTargetSurfaceCell();
-            StageAuthoringPresentationBindingCommands.TryGetBoardTileOverlayCellStatus(
-                authoring != null ? authoring.GeneratedPresentationDefinition : null,
-                authoring,
-                cell,
-                out var status);
-            return status;
-        }
-
-        internal void SetBoardTileOverlayKeyForTests(string overlayKey)
-        {
-            boardTileOverlayKey = overlayKey ?? string.Empty;
-        }
-
-        internal void SetBoardTileOverlayLayerForTests(BoardTileOverlayLayer layer)
-        {
-            boardTileOverlayLayer = layer;
-        }
-
-        internal bool AddBoardTileOverlayOverrideForTests(out string error)
-        {
-            return AddBoardTileOverlayOverride(out error);
-        }
-
-        internal bool RemoveBoardTileOverlayOverrideForTests(out string error)
-        {
-            return RemoveBoardTileOverlayOverride(out error);
-        }
-
-        internal bool ClearBoardTileOverlayOverridesForTests(out string error)
-        {
-            return ClearBoardTileOverlayOverrides(out error);
-        }
-
-        internal bool ClearBoardTileOverlayOverridesByLayerForTests(out string error)
-        {
-            return ClearBoardTileOverlayOverridesByLayer(out error);
-        }
-
         internal bool SetBoardTileOverrideForTests(out string error)
         {
             return SetBoardTileOverride(out error);
@@ -669,10 +617,6 @@ namespace Game.Feature.Stages.Editor
             {
                 DrawBoardTilePaintTools();
             }
-            else if (editMode == StageAuthoringGridEditMode.BoardTileOverlay)
-            {
-                DrawBoardTileOverlayTools();
-            }
             else
             {
                 DrawZoneTools();
@@ -708,7 +652,7 @@ namespace Game.Feature.Stages.Editor
                 EditorGUILayout.LabelField("Mode", GUILayout.Width(48));
                 var nextMode = (StageAuthoringGridEditMode)GUILayout.Toolbar(
                     (int)editMode,
-                    new[] { "Entity", "TileFeature", "Board Tile Prefab Override", "Board Tile Paint", "Board Tile Overlay", "Zone" },
+                    new[] { "Entity", "TileFeature", "Board Tile Prefab Override", "Board Tile Paint", "Zone" },
                     GUILayout.MaxWidth(760));
                 if (nextMode != editMode)
                 {
@@ -1273,7 +1217,7 @@ namespace Game.Feature.Stages.Editor
             EditorGUILayout.LabelField("Target Cell", targetCell.ToString());
             EditorGUILayout.LabelField("Board Tile Prefab Override", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Prefab overrides are for special geometry/decor compatibility. Use Board Tile Paint for base tile style and Board Tile Overlay for guide/objective/danger markers.",
+                "Prefab overrides are for special geometry/decor compatibility. Use Board Tile Paint for base tile style.",
                 MessageType.Info);
 
             var presentation = authoring.GeneratedPresentationDefinition;
@@ -1445,115 +1389,6 @@ namespace Game.Feature.Stages.Editor
                 if (GUILayout.Button("Ping Style Catalog", GUILayout.Width(160)))
                 {
                     EditorGUIUtility.PingObject(presentation.BoardTileStyleCatalog);
-                }
-            }
-
-            DrawBoardTileFeedback();
-        }
-
-        private void DrawBoardTileOverlayTools()
-        {
-            var targetCell = GetTargetSurfaceCell();
-            EditorGUILayout.LabelField("Target Cell", targetCell.ToString());
-            EditorGUILayout.LabelField("Board Tile Overlay", EditorStyles.boldLabel);
-
-            var presentation = authoring.GeneratedPresentationDefinition;
-            StageAuthoringPresentationBindingCommands.TryGetBoardTileOverlayCellStatus(
-                presentation,
-                authoring,
-                targetCell,
-                out var status);
-            DrawBoardTileOverlayStatus(status);
-
-            var options = StageAuthoringPresentationBindingCommands.BuildBoardTileOverlayOptions(presentation);
-            var labels = options.Select(option => option.Label).ToArray();
-            var activeKey = !string.IsNullOrWhiteSpace(boardTileOverlayKey)
-                ? BoardTileOverlayCatalog.NormalizeOverlayKey(boardTileOverlayKey)
-                : status.Items.Count > 0 ? status.Items[0].OverlayKey : string.Empty;
-            var selectedIndex = 0;
-            for (var i = 0; i < options.Length; i++)
-            {
-                if (string.Equals(options[i].OverlayKey, activeKey, StringComparison.Ordinal))
-                {
-                    selectedIndex = i;
-                    break;
-                }
-            }
-
-            var editorDisabled = presentation == null ||
-                                 presentation.BoardTileOverlayCatalog == null ||
-                                 status.Kind == BoardTileOverlayCellStatusKind.InvalidCell ||
-                                 status.Kind == BoardTileOverlayCellStatusKind.OutsideBounds ||
-                                 options.Length == 0;
-            using (new EditorGUI.DisabledScope(editorDisabled))
-            {
-                var nextIndex = EditorGUILayout.Popup("Overlay Entry", selectedIndex, labels);
-                if (nextIndex >= 0 && nextIndex < options.Length)
-                {
-                    boardTileOverlayKey = options[nextIndex].OverlayKey;
-                    boardTileOverlayLayer = options[nextIndex].Entry != null
-                        ? options[nextIndex].Entry.Layer
-                        : boardTileOverlayLayer;
-                    selectedIndex = nextIndex;
-                }
-            }
-
-            if (editorDisabled)
-            {
-                DrawBoardTileOverlayEmptyState(presentation, options.Length);
-            }
-            else if (selectedIndex >= 0 && selectedIndex < options.Length)
-            {
-                DrawBoardTileOverlayEntryPreview(options[selectedIndex].Entry);
-            }
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                using (new EditorGUI.DisabledScope(editorDisabled || string.IsNullOrWhiteSpace(boardTileOverlayKey)))
-                {
-                    if (GUILayout.Button("Add Overlay", GUILayout.Width(128)))
-                    {
-                        AddBoardTileOverlayOverride(out _);
-                    }
-
-                    if (GUILayout.Button("Remove Overlay", GUILayout.Width(128)))
-                    {
-                        RemoveBoardTileOverlayOverride(out _);
-                    }
-                }
-
-                using (new EditorGUI.DisabledScope(
-                           presentation == null ||
-                           status.Kind == BoardTileOverlayCellStatusKind.MissingOverrides ||
-                           status.Kind == BoardTileOverlayCellStatusKind.NoPresentationDefinition))
-                {
-                    if (GUILayout.Button("Clear Cell", GUILayout.Width(128)))
-                    {
-                        ClearBoardTileOverlayOverrides(out _);
-                    }
-                }
-            }
-
-            using (new EditorGUILayout.HorizontalScope())
-            {
-                boardTileOverlayLayer = (BoardTileOverlayLayer)EditorGUILayout.EnumPopup(
-                    "Layer",
-                    boardTileOverlayLayer,
-                    GUILayout.MaxWidth(260));
-                using (new EditorGUI.DisabledScope(editorDisabled))
-                {
-                    if (GUILayout.Button("Clear Layer", GUILayout.Width(128)))
-                    {
-                        ClearBoardTileOverlayOverridesByLayer(out _);
-                    }
-                }
-            }
-
-            using (new EditorGUI.DisabledScope(presentation == null || presentation.BoardTileOverlayCatalog == null))
-            {
-                if (GUILayout.Button("Ping Overlay Catalog", GUILayout.Width(160)))
-                {
-                    EditorGUIUtility.PingObject(presentation.BoardTileOverlayCatalog);
                 }
             }
 
@@ -2002,39 +1837,6 @@ namespace Game.Feature.Stages.Editor
             }
         }
 
-        private static void DrawBoardTileOverlayStatus(BoardTileOverlayCellStatus status)
-        {
-            var messageType = status.Kind switch
-            {
-                BoardTileOverlayCellStatusKind.NoPresentationDefinition => MessageType.Warning,
-                BoardTileOverlayCellStatusKind.CatalogMissing => MessageType.Warning,
-                BoardTileOverlayCellStatusKind.MissingOverrides => MessageType.Info,
-                BoardTileOverlayCellStatusKind.Resolved => MessageType.Info,
-                BoardTileOverlayCellStatusKind.MissingKey => MessageType.Warning,
-                BoardTileOverlayCellStatusKind.DuplicateOverride => MessageType.Error,
-                BoardTileOverlayCellStatusKind.InvalidCell => MessageType.Error,
-                BoardTileOverlayCellStatusKind.OutsideBounds => MessageType.Warning,
-                _ => MessageType.Info,
-            };
-            EditorGUILayout.HelpBox(status.Message, messageType);
-            if (status.Items.Count == 0)
-            {
-                return;
-            }
-
-            EditorGUILayout.LabelField("Current Overlays", EditorStyles.boldLabel);
-            for (var i = 0; i < status.Items.Count; i++)
-            {
-                var item = status.Items[i];
-                var layer = item.CatalogEntry != null
-                    ? item.CatalogEntry.Layer.ToString()
-                    : "Missing";
-                EditorGUILayout.LabelField(
-                    item.OverlayKey,
-                    $"{layer} / count {item.OverrideCount}");
-            }
-        }
-
         private static void DrawBoardTileStyleEntryPreview(BoardTileStyleCatalogEntry entry)
         {
             if (entry == null)
@@ -2047,24 +1849,6 @@ namespace Game.Feature.Stages.Editor
                 EditorGUILayout.TextField("Style Key", entry.StyleKey);
                 EditorGUILayout.TextField("Display Name", entry.DisplayName);
                 EditorGUILayout.ColorField("Color Preview", entry.Tint);
-            }
-        }
-
-        private static void DrawBoardTileOverlayEntryPreview(BoardTileOverlayCatalogEntry entry)
-        {
-            if (entry == null)
-            {
-                return;
-            }
-
-            using (new EditorGUI.DisabledScope(true))
-            {
-                EditorGUILayout.TextField("Overlay Key", entry.OverlayKey);
-                EditorGUILayout.TextField("Display Name", entry.DisplayName);
-                EditorGUILayout.EnumPopup("Layer", entry.Layer);
-                EditorGUILayout.ColorField("Color Preview", entry.Tint);
-                EditorGUILayout.Slider("Alpha", entry.Alpha, 0f, 1f);
-                EditorGUILayout.IntField("Order", entry.Order);
             }
         }
 
@@ -2093,34 +1877,6 @@ namespace Game.Feature.Stages.Editor
             if (optionCount == 0)
             {
                 EditorGUILayout.HelpBox("BoardTileStyleCatalog has no style entries.", MessageType.Info);
-            }
-        }
-
-        private static void DrawBoardTileOverlayEmptyState(
-            StagePresentationDefinition presentation,
-            int optionCount)
-        {
-            if (presentation == null)
-            {
-                EditorGUILayout.HelpBox("No StagePresentationDefinition assigned.", MessageType.Warning);
-                return;
-            }
-
-            if (presentation.BoardPresentationProfile == null)
-            {
-                EditorGUILayout.HelpBox("No BoardPresentationProfile assigned.", MessageType.Warning);
-                return;
-            }
-
-            if (presentation.BoardTileOverlayCatalog == null)
-            {
-                EditorGUILayout.HelpBox("No BoardTileOverlayCatalog assigned on the BoardPresentationProfile.", MessageType.Warning);
-                return;
-            }
-
-            if (optionCount == 0)
-            {
-                EditorGUILayout.HelpBox("BoardTileOverlayCatalog has no overlay entries.", MessageType.Info);
             }
         }
 
@@ -2859,85 +2615,6 @@ namespace Game.Feature.Stages.Editor
 
             boardTileStyleKey = string.Empty;
             SetBoardTileFeedback($"Cleared board tile paint for {cell}.", MessageType.Info);
-            Repaint();
-            return true;
-        }
-
-        private bool AddBoardTileOverlayOverride(out string error)
-        {
-            var cell = GetTargetSurfaceCell();
-            var changed = StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                authoring.GeneratedPresentationDefinition,
-                authoring,
-                cell,
-                boardTileOverlayKey,
-                out error);
-            if (!changed)
-            {
-                SetBoardTileFeedback(error, MessageType.Error);
-                return false;
-            }
-
-            SetBoardTileFeedback($"Added board tile overlay for {cell}.", MessageType.Info);
-            Repaint();
-            return true;
-        }
-
-        private bool RemoveBoardTileOverlayOverride(out string error)
-        {
-            var cell = GetTargetSurfaceCell();
-            var changed = StageAuthoringPresentationBindingCommands.TryRemoveBoardTileOverlayOverride(
-                authoring.GeneratedPresentationDefinition,
-                authoring,
-                cell,
-                boardTileOverlayKey,
-                out error);
-            if (!changed)
-            {
-                SetBoardTileFeedback(error, MessageType.Error);
-                return false;
-            }
-
-            SetBoardTileFeedback($"Removed board tile overlay for {cell}.", MessageType.Info);
-            Repaint();
-            return true;
-        }
-
-        private bool ClearBoardTileOverlayOverrides(out string error)
-        {
-            var cell = GetTargetSurfaceCell();
-            var changed = StageAuthoringPresentationBindingCommands.TryClearBoardTileOverlayOverrides(
-                authoring.GeneratedPresentationDefinition,
-                authoring,
-                cell,
-                out error);
-            if (!changed)
-            {
-                SetBoardTileFeedback(error, MessageType.Error);
-                return false;
-            }
-
-            SetBoardTileFeedback($"Cleared board tile overlays for {cell}.", MessageType.Info);
-            Repaint();
-            return true;
-        }
-
-        private bool ClearBoardTileOverlayOverridesByLayer(out string error)
-        {
-            var cell = GetTargetSurfaceCell();
-            var changed = StageAuthoringPresentationBindingCommands.TryClearBoardTileOverlayOverridesByLayer(
-                authoring.GeneratedPresentationDefinition,
-                authoring,
-                cell,
-                boardTileOverlayLayer,
-                out error);
-            if (!changed)
-            {
-                SetBoardTileFeedback(error, MessageType.Error);
-                return false;
-            }
-
-            SetBoardTileFeedback($"Cleared board tile {boardTileOverlayLayer} overlays for {cell}.", MessageType.Info);
             Repaint();
             return true;
         }

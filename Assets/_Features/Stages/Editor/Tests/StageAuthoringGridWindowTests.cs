@@ -911,33 +911,6 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StageAuthoringGridWindow_BoardTileOverlay_NullProfileReportsCatalogMissingWithoutException()
-        {
-            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-            try
-            {
-                WithWindow(
-                    System.Array.Empty<StagePlacedEntityAuthoring>(),
-                    (window, authoring) =>
-                    {
-                        authoring.AssignGeneratedDefinitions(null, presentation);
-                        window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTileOverlay);
-                        window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
-
-                        var status = window.GetBoardTileOverlayStatusForTests();
-                        var options = window.GetBoardTileOverlayOptionsForTests();
-
-                        Assert.That(status.Kind, Is.EqualTo(BoardTileOverlayCellStatusKind.CatalogMissing));
-                        Assert.That(options, Is.Empty);
-                    });
-            }
-            finally
-            {
-                Object.DestroyImmediate(presentation);
-            }
-        }
-
-        [Test]
         public void StageAuthoringGridWindow_BoardTilePaint_WritesPresentationOverride()
         {
             WithBoardTileStyleWindow((window, authoring, presentation, styleCatalog, profile) =>
@@ -1030,7 +1003,7 @@ namespace Game.Feature.Stages.Editor.Tests
             }
 
             var styleCatalogMissingPresentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-            var profileWithoutStyleCatalog = CreateBoardPresentationProfile(null, overlayCatalog: null);
+            var profileWithoutStyleCatalog = CreateBoardPresentationProfile(null);
             try
             {
                 SetPrivateField(styleCatalogMissingPresentation, "boardPresentationProfile", profileWithoutStyleCatalog);
@@ -1135,24 +1108,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.False);
         }
 
-        [Test]
-        public void StageAuthoringGridWindow_BoardTileOverlay_AddAndClearWritesPresentationOverrides()
-        {
-            WithBoardTileOverlayWindow((window, authoring, presentation, overlayCatalog, profile) =>
-            {
-                window.SetEditModeForTests(StageAuthoringGridEditMode.BoardTileOverlay);
-                window.SetTargetCellForTests(FaceId.Floor, new Vector2Int(0, 0));
-                window.SetBoardTileOverlayKeyForTests("guide");
-
-                var added = window.AddBoardTileOverlayOverrideForTests(out var addError);
-                var cleared = window.ClearBoardTileOverlayOverridesForTests(out var clearError);
-
-                Assert.That(added, Is.True, addError);
-                Assert.That(cleared, Is.True, clearError);
-                Assert.That(presentation.BoardTileOverlayOverrides, Is.Empty);
-            });
-        }
-
         private static void WithWindow(
             StagePlacedEntityAuthoring[] placements,
             System.Action<StageAuthoringGridWindow, StageAuthoringDefinition> action)
@@ -1226,7 +1181,7 @@ namespace Game.Feature.Stages.Editor.Tests
             System.Action<StageAuthoringGridWindow, StageAuthoringDefinition, StagePresentationDefinition, BoardTileStyleCatalog, BoardPresentationProfile> action)
         {
             var styleCatalog = CreateStyleCatalog(StyleEntry("grass", "Grass", Color.green));
-            var profile = CreateBoardPresentationProfile(styleCatalog, overlayCatalog: null);
+            var profile = CreateBoardPresentationProfile(styleCatalog);
             var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
             SetPrivateField(presentation, "boardPresentationProfile", profile);
             try
@@ -1244,32 +1199,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 Object.DestroyImmediate(presentation);
                 Object.DestroyImmediate(profile);
                 Object.DestroyImmediate(styleCatalog);
-            }
-        }
-
-        private static void WithBoardTileOverlayWindow(
-            System.Action<StageAuthoringGridWindow, StageAuthoringDefinition, StagePresentationDefinition, BoardTileOverlayCatalog, BoardPresentationProfile> action)
-        {
-            var overlayCatalog = CreateOverlayCatalog(
-                OverlayEntry("guide", "Guide", BoardTileOverlayLayer.Guide, Color.yellow, 0.5f, 10));
-            var profile = CreateBoardPresentationProfile(null, overlayCatalog);
-            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-            SetPrivateField(presentation, "boardPresentationProfile", profile);
-            try
-            {
-                WithWindow(
-                    System.Array.Empty<StagePlacedEntityAuthoring>(),
-                    (window, authoring) =>
-                    {
-                        authoring.AssignGeneratedDefinitions(null, presentation);
-                        action(window, authoring, presentation, overlayCatalog, profile);
-                    });
-            }
-            finally
-            {
-                Object.DestroyImmediate(presentation);
-                Object.DestroyImmediate(profile);
-                Object.DestroyImmediate(overlayCatalog);
             }
         }
 
@@ -1413,40 +1342,11 @@ namespace Game.Feature.Stages.Editor.Tests
             return catalog;
         }
 
-        private static BoardTileOverlayCatalogEntry OverlayEntry(
-            string overlayKey,
-            string displayName,
-            BoardTileOverlayLayer layer,
-            Color tint,
-            float alpha,
-            int order)
-        {
-            var entry = new BoardTileOverlayCatalogEntry();
-            SetPrivateField(entry, "overlayKey", overlayKey);
-            SetPrivateField(entry, "displayName", displayName);
-            SetPrivateField(entry, "layer", layer);
-            SetPrivateField(entry, "tint", tint);
-            SetPrivateField(entry, "alpha", alpha);
-            SetPrivateField(entry, "order", order);
-            return entry;
-        }
-
-        private static BoardTileOverlayCatalog CreateOverlayCatalog(params BoardTileOverlayCatalogEntry[] entries)
-        {
-            var catalog = ScriptableObject.CreateInstance<BoardTileOverlayCatalog>();
-            catalog.name = "StageAuthoringGridWindowTests_OverlayCatalog";
-            SetPrivateField(catalog, "entries", entries ?? System.Array.Empty<BoardTileOverlayCatalogEntry>());
-            return catalog;
-        }
-
-        private static BoardPresentationProfile CreateBoardPresentationProfile(
-            BoardTileStyleCatalog styleCatalog,
-            BoardTileOverlayCatalog overlayCatalog)
+        private static BoardPresentationProfile CreateBoardPresentationProfile(BoardTileStyleCatalog styleCatalog)
         {
             var profile = ScriptableObject.CreateInstance<BoardPresentationProfile>();
             profile.name = "StageAuthoringGridWindowTests_BoardProfile";
             SetPrivateField(profile, "defaultBoardTileStyleCatalog", styleCatalog);
-            SetPrivateField(profile, "defaultBoardTileOverlayCatalog", overlayCatalog);
             return profile;
         }
 
