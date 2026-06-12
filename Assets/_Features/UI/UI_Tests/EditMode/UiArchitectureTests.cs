@@ -1298,6 +1298,24 @@ namespace Game.Feature.UI.Tests
                     "Assets/_Features/UI/UI_Popups/Runtime",
                 },
                 forbiddenTokens);
+
+            var screensAsmdef = ReadRepoFile("Assets/_Features/UI/UI_Screens/UI.Screens.asmdef");
+            Assert.That(screensAsmdef, Does.Not.Contain("Game.Feature.Stages"));
+
+            AssertRuntimeSourcesDoNotContain(
+                new[] { "Assets/_Features/UI/UI_Screens/Runtime" },
+                new[]
+                {
+                    "Game.Feature.Stages",
+                    "StageNavigationRequest",
+                    "SaveSlotData",
+                    "SaveSlotStore",
+                    "ActiveSlotProvider",
+                    "SaveSlotValidationService",
+                    "SaveSlotValidationResult",
+                    "SaveSlotValidationStatus",
+                    "CampaignStageSequenceResolver",
+                });
         }
 
         [Test]
