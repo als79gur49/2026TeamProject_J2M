@@ -685,6 +685,15 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(targetView, Is.Not.Null);
             Assert.That(animator, Is.Not.Null);
             Assert.That(targetView.DebugAnimator, Is.SameAs(animator));
+#pragma warning disable CS0618
+            var adapter = prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>();
+#pragma warning restore CS0618
+            Assert.That(adapter, Is.Not.Null, prefabPath);
+
+            var profile = ResolveTileFeatureProfile(adapter, TileFeatureKind.Barricade);
+            Assert.That(profile, Is.Not.Null, prefabPath);
+            var diagnostics = TileFeatureVisualBindingDiagnostics.ForProfile(profile, targetView);
+            Assert.That(diagnostics.IsValid, Is.True, string.Join("\n", diagnostics.Messages));
 
             var controller = animator.runtimeAnimatorController as AnimatorController;
             Assert.That(controller, Is.Not.Null);
@@ -700,6 +709,36 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(
                 stateNames,
                 Is.SupersetOf(new[] { "LoweredIdle", "Raise", "RaisedIdle", "Lower", "BlockedPulse", "CrushImpact" }));
+
+            AssertCueAnimatorBinding(
+                profile,
+                TileFeatureVisualCueId.BarricadeBlocked,
+                TileFeatureAnimatorBindingKind.Trigger,
+                "BarricadeBlocked",
+                controller,
+                AnimatorControllerParameterType.Trigger);
+            AssertCueAnimatorBinding(
+                profile,
+                TileFeatureVisualCueId.BarricadeCrushed,
+                TileFeatureAnimatorBindingKind.Trigger,
+                "BarricadeCrushed",
+                controller,
+                AnimatorControllerParameterType.Trigger);
+            AssertCueAnimatorBinding(
+                profile,
+                TileFeatureVisualCueId.BarricadeActiveState,
+                TileFeatureAnimatorBindingKind.Bool,
+                "BarricadeActive",
+                controller,
+                AnimatorControllerParameterType.Bool);
+            AssertBarricadeActiveStateBindings(profile, stateNames);
+
+            var serializedTargetView = new SerializedObject(targetView);
+            Assert.That(serializedTargetView.FindProperty("barricadeBlockedTriggerName"), Is.Null);
+            Assert.That(serializedTargetView.FindProperty("barricadeCrushedTriggerName"), Is.Null);
+            Assert.That(serializedTargetView.FindProperty("barricadeActiveBoolName"), Is.Null);
+            Assert.That(serializedTargetView.FindProperty("barricadeRaisedStateName"), Is.Null);
+            Assert.That(serializedTargetView.FindProperty("barricadeLoweredStateName"), Is.Null);
         }
 
         [Test]
@@ -1352,6 +1391,63 @@ namespace Game.Feature.Stages.Editor.Tests
                     parameter.type == parameterType),
                 Is.True,
                 $"Missing Animator parameter '{parameterName}' ({parameterType}).");
+        }
+
+#pragma warning disable CS0618
+        private static TileFeatureVisualProfile ResolveTileFeatureProfile(
+            LegacyTileFeatureVisualCueAdapter adapter,
+            TileFeatureKind expectedKind)
+        {
+            var serializedAdapter = new SerializedObject(adapter);
+            var profiles = serializedAdapter.FindProperty("profiles");
+            Assert.That(profiles, Is.Not.Null);
+            for (var i = 0; i < profiles.arraySize; i++)
+            {
+                if (profiles.GetArrayElementAtIndex(i).objectReferenceValue is TileFeatureVisualProfile profile &&
+                    profile.FeatureKind == expectedKind)
+                {
+                    return profile;
+                }
+            }
+
+            return null;
+        }
+#pragma warning restore CS0618
+
+        private static void AssertCueAnimatorBinding(
+            TileFeatureVisualProfile profile,
+            TileFeatureVisualCueId cueId,
+            TileFeatureAnimatorBindingKind expectedBindingKind,
+            string expectedParameterName,
+            AnimatorController controller,
+            AnimatorControllerParameterType expectedParameterType)
+        {
+            Assert.That(profile.TryGetCueBinding(cueId, out var binding), Is.True, $"{profile.name}:{cueId}");
+            Assert.That(binding.AnimatorBinding.CueId, Is.EqualTo(cueId));
+            Assert.That(binding.AnimatorBinding.Kind, Is.EqualTo(expectedBindingKind));
+            Assert.That(binding.AnimatorBinding.ParameterOrStateName, Is.EqualTo(expectedParameterName));
+            Assert.That(binding.AnimatorBinding.Hash, Is.Not.Zero);
+            AssertAnimatorParameter(controller, expectedParameterName, expectedParameterType);
+        }
+
+        private static void AssertBarricadeActiveStateBindings(
+            TileFeatureVisualProfile profile,
+            string[] stateNames)
+        {
+            Assert.That(
+                profile.TryGetCueBinding(TileFeatureVisualCueId.BarricadeActiveState, out var binding),
+                Is.True,
+                profile.name);
+            Assert.That(binding.ActiveStateAnimatorBinding.CueId, Is.EqualTo(TileFeatureVisualCueId.BarricadeActiveState));
+            Assert.That(binding.ActiveStateAnimatorBinding.Kind, Is.EqualTo(TileFeatureAnimatorBindingKind.State));
+            Assert.That(binding.ActiveStateAnimatorBinding.ParameterOrStateName, Is.EqualTo("RaisedIdle"));
+            Assert.That(binding.ActiveStateAnimatorBinding.Hash, Is.Not.Zero);
+            Assert.That(binding.InactiveStateAnimatorBinding.CueId, Is.EqualTo(TileFeatureVisualCueId.BarricadeActiveState));
+            Assert.That(binding.InactiveStateAnimatorBinding.Kind, Is.EqualTo(TileFeatureAnimatorBindingKind.State));
+            Assert.That(binding.InactiveStateAnimatorBinding.ParameterOrStateName, Is.EqualTo("LoweredIdle"));
+            Assert.That(binding.InactiveStateAnimatorBinding.Hash, Is.Not.Zero);
+            Assert.That(stateNames, Does.Contain("RaisedIdle"));
+            Assert.That(stateNames, Does.Contain("LoweredIdle"));
         }
 
         private static void AssertTileFeaturePrefabHasPersistentInactiveMaterialProfile(

@@ -1,0 +1,102 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 066ee7e5bb984d639a42a9b195a498ad, type: 3}
+  m_Name: TileFeatureVisualProfile_Barricade
+  m_EditorClassIdentifier:
+  featureKind: 3
+  cueBindings:
+  - CueId: 60
+    TargetSlot: 0
+    AnimatorBinding:
+      CueId: 60
+      Kind: 0
+      ParameterOrStateName: BarricadeBlocked
+    ActiveStateAnimatorBinding:
+      CueId: 0
+      Kind: 0
+      ParameterOrStateName:
+    InactiveStateAnimatorBinding:
+      CueId: 0
+      Kind: 0
+      ParameterOrStateName:
+    GameplayVfxCue: 0
+    SendGameplayVfx: 0
+    Persistent: 0
+  - CueId: 61
+    TargetSlot: 0
+    AnimatorBinding:
+      CueId: 61
+      Kind: 0
+      ParameterOrStateName: BarricadeCrushed
+    ActiveStateAnimatorBinding:
+      CueId: 0
+      Kind: 0
+      ParameterOrStateName:
+    InactiveStateAnimatorBinding:
+      CueId: 0
+      Kind: 0
+      ParameterOrStateName:
+    GameplayVfxCue: 0
+    SendGameplayVfx: 0
+    Persistent: 0
+  - CueId: 62
+    TargetSlot: 0
+    AnimatorBinding:
+      CueId: 62
+      Kind: 0
+      ParameterOrStateName: BarricadeActivated
+    ActiveStateAnimatorBinding:
+      CueId: 0
+      Kind: 0
+      ParameterOrStateName:
+    InactiveStateAnimatorBinding:
+      CueId: 0
+      Kind: 0
+      ParameterOrStateName:
+    GameplayVfxCue: 0
+    SendGameplayVfx: 0
+    Persistent: 0
+  - CueId: 63
+    TargetSlot: 0
+    AnimatorBinding:
+      CueId: 63
+      Kind: 0
+      ParameterOrStateName: BarricadeDeactivated
+    ActiveStateAnimatorBinding:
+      CueId: 0
+      Kind: 0
+      ParameterOrStateName:
+    InactiveStateAnimatorBinding:
+      CueId: 0
+      Kind: 0
+      ParameterOrStateName:
+    GameplayVfxCue: 0
+    SendGameplayVfx: 0
+    Persistent: 0
+  - CueId: 64
+    TargetSlot: 0
+    AnimatorBinding:
+      CueId: 64
+      Kind: 1
+      ParameterOrStateName: BarricadeActive
+    ActiveStateAnimatorBinding:
+      CueId: 64
+      Kind: 2
+      ParameterOrStateName: RaisedIdle
+    InactiveStateAnimatorBinding:
+      CueId: 64
+      Kind: 2
+      ParameterOrStateName: LoweredIdle
+    GameplayVfxCue: 0
+    SendGameplayVfx: 0
+    Persistent: 0
+  inactiveMaterialTargets: []

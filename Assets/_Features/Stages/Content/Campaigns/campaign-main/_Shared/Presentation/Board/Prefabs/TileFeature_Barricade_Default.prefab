@@ -225,6 +225,7 @@ GameObject:
   m_Component:
   - component: {fileID: 407744748862322004}
   - component: {fileID: 412217739951251229}
+  - component: {fileID: 7328215402345678901}
   - component: {fileID: 2191780658641707734}
   m_Layer: 0
   m_Name: TileFeature_Barricade_Default
@@ -272,6 +273,22 @@ MonoBehaviour:
   iconRoot: {fileID: 0}
   labelRoot: {fileID: 0}
   authoredBindings: []
+--- !u!114 &7328215402345678901
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2954340495404665059}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 698f950f2ec6479ca0c7f14bdf115c0d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  targetView: {fileID: 412217739951251229}
+  animator: {fileID: 2191780658641707734}
+  profiles:
+  - {fileID: 11400000, guid: 92067b600ad4462488711096fe377366, type: 2}
 --- !u!95 &2191780658641707734
 Animator:
   serializedVersion: 7
