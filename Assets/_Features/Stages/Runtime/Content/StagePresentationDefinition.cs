@@ -13,33 +13,10 @@ namespace Game.Feature.Stages
         public GameObject VisualPrefab;
     }
 
-    [Serializable]
-    public sealed class BoardTilePresentationOverride
-    {
-        [SerializeField] private SurfaceCell cell;
-        [SerializeField] private string presentationKey = string.Empty;
-
-        public BoardTilePresentationOverride()
-        {
-        }
-
-        public BoardTilePresentationOverride(SurfaceCell cell, string presentationKey)
-        {
-            this.cell = cell;
-            this.presentationKey = presentationKey ?? string.Empty;
-        }
-
-        public SurfaceCell Cell => cell;
-
-        public string PresentationKey => BoardTilePresentationCatalog.NormalizePresentationKey(presentationKey);
-    }
-
     [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Presentation Definition", fileName = "stage-presentation")]
     public sealed class StagePresentationDefinition : StageCompanionDefinitionBase
     {
         [SerializeField] private string displayName = string.Empty;
-        [SerializeField] private string summaryText = string.Empty;
-        [SerializeField] private Sprite previewSprite;
         [SerializeField] private GameObject backgroundPrefab;
         [SerializeField] private EnemyPresentationCatalog enemyPresentationCatalog;
         [SerializeField] private EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog;
@@ -48,8 +25,6 @@ namespace Game.Feature.Stages
         [SerializeField] private StaticEntityPresentationBinding[] staticEntityPresentationBindings = Array.Empty<StaticEntityPresentationBinding>();
         [SerializeField] private BoardPresentationProfile boardPresentationProfile;
         [SerializeField] private BoardTilePresentationCatalog boardTilePresentationCatalog;
-        [SerializeField] private BoardTilePresentationOverride[] boardTilePresentationOverrides =
-            Array.Empty<BoardTilePresentationOverride>();
         [SerializeField] private BoardTilePaintOverride[] boardTilePaintOverrides =
             Array.Empty<BoardTilePaintOverride>();
         [SerializeField] private TileFeaturePresentationCatalog tileFeaturePresentationCatalog;
@@ -63,10 +38,6 @@ namespace Game.Feature.Stages
         [SerializeField] private string resultContinueLabel = "Continue";
 
         public string DisplayName => displayName ?? string.Empty;
-
-        public string SummaryText => summaryText ?? string.Empty;
-
-        public Sprite PreviewSprite => previewSprite;
 
         public GameObject BackgroundPrefab => backgroundPrefab;
 
@@ -87,9 +58,6 @@ namespace Game.Feature.Stages
 
         public BoardTileStyleCatalog BoardTileStyleCatalog =>
             boardPresentationProfile != null ? boardPresentationProfile.DefaultBoardTileStyleCatalog : null;
-
-        public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides =>
-            boardTilePresentationOverrides ?? Array.Empty<BoardTilePresentationOverride>();
 
         public IReadOnlyList<BoardTilePaintOverride> BoardTilePaintOverrides =>
             boardTilePaintOverrides ?? Array.Empty<BoardTilePaintOverride>();
@@ -116,8 +84,6 @@ namespace Game.Feature.Stages
         {
             var resolvedData = value ?? StagePresentationAssembler.EmptyResolvedData;
             displayName = resolvedData.DisplayName;
-            summaryText = resolvedData.SummaryText;
-            previewSprite = resolvedData.PreviewSprite;
             backgroundPrefab = resolvedData.BackgroundPrefab;
             enemyPresentationCatalog = resolvedData.EnemyPresentationCatalog;
             enemyPresentationArchetypeCatalog = resolvedData.EnemyPresentationArchetypeCatalog;
@@ -127,9 +93,6 @@ namespace Game.Feature.Stages
                 resolvedData.StaticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
             boardPresentationProfile = resolvedData.BoardPresentationProfile;
             boardTilePresentationCatalog = resolvedData.BoardTilePresentationCatalog;
-            boardTilePresentationOverrides =
-                StagePresentationAssembler.ToAuthoringBoardTilePresentationOverrides(
-                    resolvedData.BoardTilePresentationOverrides);
             boardTilePaintOverrides =
                 StagePresentationAssembler.ToAuthoringBoardTilePaintOverrides(
                     resolvedData.BoardTilePaintOverrides);

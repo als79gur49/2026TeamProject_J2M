@@ -40,7 +40,6 @@ namespace Game.Feature.Gameplay.Host
                 IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeaturePresentationBindings,
                 StageWorldGuideCatalog worldGuideCatalog = null,
                 IReadOnlyList<StageWorldGuideInstructionResolved> worldGuideInstructions = null,
-                IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null,
                 IReadOnlyList<BoardTilePaintOverride> boardTilePaintOverrides = null,
                 IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
             {
@@ -64,8 +63,6 @@ namespace Game.Feature.Gameplay.Host
                 BoardPresentationProfile = boardPresentationProfile;
                 BoardTilePresentationCatalog = boardTilePresentationCatalog;
                 BoardTileStyleCatalog = boardTileStyleCatalog;
-                BoardTilePresentationOverrides =
-                    boardTilePresentationOverrides ?? Array.Empty<BoardTilePresentationOverride>();
                 BoardTilePaintOverrides =
                     boardTilePaintOverrides ?? Array.Empty<BoardTilePaintOverride>();
                 TileFeaturePresentationBindings =
@@ -114,8 +111,6 @@ namespace Game.Feature.Gameplay.Host
             public BoardTilePresentationCatalog BoardTilePresentationCatalog { get; }
 
             public BoardTileStyleCatalog BoardTileStyleCatalog { get; }
-
-            public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides { get; }
 
             public IReadOnlyList<BoardTilePaintOverride> BoardTilePaintOverrides { get; }
 
@@ -379,7 +374,6 @@ namespace Game.Feature.Gameplay.Host
                 BoardPresentationProfile = initialState.BoardPresentationProfile,
                 BoardTilePresentationCatalog = initialState.BoardTilePresentationCatalog,
                 BoardTileStyleCatalog = initialState.BoardTileStyleCatalog,
-                BoardTilePresentationOverrides = initialState.BoardTilePresentationOverrides,
                 BoardTilePaintOverrides = initialState.BoardTilePaintOverrides,
                 TileFeaturePresentationBindings = initialState.TileFeaturePresentationBindings,
                 WorldGuideCatalog = initialState.WorldGuideCatalog,

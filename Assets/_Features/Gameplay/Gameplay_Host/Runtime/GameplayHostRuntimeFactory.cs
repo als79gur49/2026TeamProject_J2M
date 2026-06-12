@@ -189,7 +189,6 @@ namespace Game.Feature.Gameplay.Host
                 faceSeamGap,
                 configuration.BoardSurfaceTexture,
                 configuration.BoardTilePresentationCatalog,
-                configuration.BoardTilePresentationOverrides,
                 configuration.BoardTileStyleCatalog,
                 configuration.BoardTilePaintOverrides,
                 configuration.SuppressedBaseTileCells,

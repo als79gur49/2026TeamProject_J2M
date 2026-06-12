@@ -40,8 +40,6 @@ namespace Game.Feature.Stages
     {
         public StagePresentationResolvedData(
             string displayName,
-            string summaryText,
-            Sprite previewSprite,
             GameObject backgroundPrefab,
             EnemyPresentationCatalog enemyPresentationCatalog,
             EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog,
@@ -51,7 +49,6 @@ namespace Game.Feature.Stages
             BoardPresentationProfile boardPresentationProfile,
             BoardTilePresentationCatalog boardTilePresentationCatalog,
             BoardTileStyleCatalog boardTileStyleCatalog,
-            IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides,
             IReadOnlyList<BoardTilePaintOverride> boardTilePaintOverrides,
             TileFeaturePresentationCatalog tileFeaturePresentationCatalog,
             IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeatureBindings,
@@ -64,8 +61,6 @@ namespace Game.Feature.Stages
             IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
         {
             DisplayName = displayName ?? string.Empty;
-            SummaryText = summaryText ?? string.Empty;
-            PreviewSprite = previewSprite;
             BackgroundPrefab = backgroundPrefab;
             EnemyPresentationCatalog = enemyPresentationCatalog;
             EnemyPresentationArchetypeCatalog = enemyPresentationArchetypeCatalog;
@@ -75,7 +70,6 @@ namespace Game.Feature.Stages
             BoardPresentationProfile = boardPresentationProfile;
             BoardTilePresentationCatalog = boardTilePresentationCatalog;
             BoardTileStyleCatalog = boardTileStyleCatalog;
-            BoardTilePresentationOverrides = CloneReadOnlyBoardTileOverrides(boardTilePresentationOverrides);
             BoardTilePaintOverrides = CloneReadOnlyBoardTilePaintOverrides(boardTilePaintOverrides);
             TileFeaturePresentationCatalog = tileFeaturePresentationCatalog;
             TileFeatureBindings = CloneReadOnlyBindings(tileFeatureBindings);
@@ -89,10 +83,6 @@ namespace Game.Feature.Stages
         }
 
         public string DisplayName { get; }
-
-        public string SummaryText { get; }
-
-        public Sprite PreviewSprite { get; }
 
         public GameObject BackgroundPrefab { get; }
 
@@ -111,8 +101,6 @@ namespace Game.Feature.Stages
         public BoardTilePresentationCatalog BoardTilePresentationCatalog { get; }
 
         public BoardTileStyleCatalog BoardTileStyleCatalog { get; }
-
-        public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides { get; }
 
         public IReadOnlyList<BoardTilePaintOverride> BoardTilePaintOverrides { get; }
 
@@ -166,26 +154,6 @@ namespace Game.Feature.Stages
             }
 
             return new ReadOnlyCollection<StageWorldGuideInstructionResolved>(instructions);
-        }
-
-        private static IReadOnlyList<BoardTilePresentationOverride> CloneReadOnlyBoardTileOverrides(
-            IReadOnlyList<BoardTilePresentationOverride> source)
-        {
-            if (source == null || source.Count == 0)
-            {
-                return Array.Empty<BoardTilePresentationOverride>();
-            }
-
-            var overrides = new BoardTilePresentationOverride[source.Count];
-            for (var i = 0; i < source.Count; i++)
-            {
-                var entry = source[i];
-                overrides[i] = entry == null
-                    ? null
-                    : new BoardTilePresentationOverride(entry.Cell, entry.PresentationKey);
-            }
-
-            return new ReadOnlyCollection<BoardTilePresentationOverride>(overrides);
         }
 
         private static IReadOnlyList<BoardTilePaintOverride> CloneReadOnlyBoardTilePaintOverrides(
@@ -254,8 +222,6 @@ namespace Game.Feature.Stages
     {
         public static readonly StagePresentationResolvedData EmptyResolvedData = new(
             string.Empty,
-            string.Empty,
-            null,
             null,
             null,
             null,
@@ -265,7 +231,6 @@ namespace Game.Feature.Stages
             null,
             null,
             null,
-            Array.Empty<BoardTilePresentationOverride>(),
             Array.Empty<BoardTilePaintOverride>(),
             null,
             Array.Empty<TileFeaturePresentationResolvedBinding>(),
@@ -285,8 +250,6 @@ namespace Game.Feature.Stages
 
             return new StagePresentationResolvedData(
                 definition.DisplayName,
-                definition.SummaryText,
-                definition.PreviewSprite,
                 definition.BackgroundPrefab,
                 definition.EnemyPresentationCatalog,
                 definition.EnemyPresentationArchetypeCatalog,
@@ -297,7 +260,6 @@ namespace Game.Feature.Stages
                 definition.BoardPresentationProfile,
                 definition.BoardTilePresentationCatalog,
                 definition.BoardTileStyleCatalog,
-                definition.BoardTilePresentationOverrides,
                 definition.BoardTilePaintOverrides,
                 definition.TileFeaturePresentationCatalog,
                 ResolveTileFeatureBindings(definition.TileFeaturePresentationBindings),
@@ -325,8 +287,6 @@ namespace Game.Feature.Stages
 
             return new StagePresentationResolvedData(
                 definition.DisplayName,
-                definition.SummaryText,
-                definition.PreviewSprite,
                 definition.BackgroundPrefab,
                 definition.EnemyPresentationCatalog,
                 definition.EnemyPresentationArchetypeCatalog,
@@ -337,7 +297,6 @@ namespace Game.Feature.Stages
                 definition.BoardPresentationProfile,
                 definition.BoardTilePresentationCatalog,
                 definition.BoardTileStyleCatalog,
-                definition.BoardTilePresentationOverrides,
                 definition.BoardTilePaintOverrides,
                 definition.TileFeaturePresentationCatalog,
                 tileFeatureBindings,
@@ -369,26 +328,6 @@ namespace Game.Feature.Stages
             }
 
             return bindings;
-        }
-
-        public static BoardTilePresentationOverride[] ToAuthoringBoardTilePresentationOverrides(
-            IReadOnlyList<BoardTilePresentationOverride> source)
-        {
-            if (source == null || source.Count == 0)
-            {
-                return Array.Empty<BoardTilePresentationOverride>();
-            }
-
-            var overrides = new BoardTilePresentationOverride[source.Count];
-            for (var i = 0; i < source.Count; i++)
-            {
-                var entry = source[i];
-                overrides[i] = entry == null
-                    ? null
-                    : new BoardTilePresentationOverride(entry.Cell, entry.PresentationKey);
-            }
-
-            return overrides;
         }
 
         public static BoardTilePaintOverride[] ToAuthoringBoardTilePaintOverrides(

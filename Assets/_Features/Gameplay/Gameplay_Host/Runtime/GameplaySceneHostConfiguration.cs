@@ -140,8 +140,6 @@ namespace Game.Feature.Gameplay.Host
         public BoardPresentationProfile BoardPresentationProfile;
         public BoardTilePresentationCatalog BoardTilePresentationCatalog;
         public BoardTileStyleCatalog BoardTileStyleCatalog;
-        public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides =
-            Array.Empty<BoardTilePresentationOverride>();
         public IReadOnlyList<BoardTilePaintOverride> BoardTilePaintOverrides =
             Array.Empty<BoardTilePaintOverride>();
         public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings =

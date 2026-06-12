@@ -66,13 +66,10 @@ namespace Game.Feature.Gameplay.Host
         private BoardBounds _boardBounds;
         private float _cellSize;
         private BoardTilePresentationCatalog _boardTilePresentationCatalog;
-        private BoardTilePresentationOverride[] _boardTilePresentationOverrides =
-            Array.Empty<BoardTilePresentationOverride>();
         private BoardTileStyleCatalog _boardTileStyleCatalog;
         private BoardTilePaintOverride[] _boardTilePaintOverrides =
             Array.Empty<BoardTilePaintOverride>();
         private GameObject _activeFaceCoverPrefab;
-        private Dictionary<SurfaceCell, string> _boardTilePresentationOverrideLookup = new();
         private Dictionary<SurfaceCell, string> _boardTilePaintOverrideLookup = new();
         private HashSet<SurfaceCell> _suppressedBaseTileCells = new();
         private MaterialPropertyBlock _stylePropertyBlock;
@@ -144,7 +141,6 @@ namespace Game.Feature.Gameplay.Host
             float faceSeamGap = -1f,
             Texture2D sharedTileTexture = null,
             BoardTilePresentationCatalog boardTilePresentationCatalog = null,
-            IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null,
             BoardTileStyleCatalog boardTileStyleCatalog = null,
             IReadOnlyList<BoardTilePaintOverride> boardTilePaintOverrides = null,
             IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null,
@@ -163,21 +159,12 @@ namespace Game.Feature.Gameplay.Host
             MarkSteadySurfaceDirty();
             _boardBounds = boardBounds;
             _cellSize = cellSize;
-            var overridesChanged = !BoardTileOverridesEqual(
-                _boardTilePresentationOverrides,
-                boardTilePresentationOverrides);
-            if (_boardTilePresentationCatalog != boardTilePresentationCatalog || overridesChanged)
+            if (_boardTilePresentationCatalog != boardTilePresentationCatalog)
             {
                 DestroyAllTilePools();
                 _boardTilePresentationCatalog = boardTilePresentationCatalog;
-                if (overridesChanged)
-                {
-                    _boardTilePresentationOverrides = CloneBoardTileOverrides(boardTilePresentationOverrides);
-                }
             }
 
-            _boardTilePresentationOverrideLookup =
-                BuildBoardTileOverrideLookup(_boardTilePresentationOverrides);
             _boardTileStyleCatalog = boardTileStyleCatalog;
             _boardTilePaintOverrides = CloneBoardTilePaintOverrides(boardTilePaintOverrides);
             _boardTilePaintOverrideLookup =
@@ -798,21 +785,6 @@ namespace Game.Feature.Gameplay.Host
             var visualRole = ToBoardTileVisualRole(tileRole);
             if (_boardTilePresentationCatalog != null)
             {
-                if (_boardTilePresentationOverrideLookup != null &&
-                    _boardTilePresentationOverrideLookup.TryGetValue(cell, out var overrideKey))
-                {
-                    if (_boardTilePresentationCatalog.TryGetEntry(overrideKey, out var overrideEntry))
-                    {
-                        return BoardTileVisualDescriptor.FromEntry(
-                            visualRole,
-                            overrideEntry,
-                            ResolveMaterial(tileRole));
-                    }
-
-                    UnityEngine.Debug.LogWarning(
-                        $"BoardTilePresentationOverride for cell '{cell}' could not resolve PresentationKey '{overrideKey}' in BoardTilePresentationCatalog '{_boardTilePresentationCatalog.name}'. Falling back to role defaults.");
-                }
-
                 if (_boardTilePresentationCatalog.TryGetDefaultEntry(visualRole, out var roleEntry))
                 {
                     return BoardTileVisualDescriptor.FromEntry(visualRole, roleEntry, ResolveMaterial(tileRole));
@@ -825,93 +797,8 @@ namespace Game.Feature.Gameplay.Host
                     return BoardTileVisualDescriptor.FromEntry(visualRole, genericEntry, ResolveMaterial(tileRole));
                 }
             }
-            else if (_boardTilePresentationOverrideLookup != null &&
-                     _boardTilePresentationOverrideLookup.TryGetValue(cell, out var overrideKey))
-            {
-                UnityEngine.Debug.LogWarning(
-                    $"BoardTilePresentationOverride for cell '{cell}' declares PresentationKey '{overrideKey}' but no BoardTilePresentationCatalog is assigned. Falling back to legacy board tile material.");
-            }
 
             return BoardTileVisualDescriptor.MaterialOnly(visualRole, ResolveMaterial(tileRole));
-        }
-
-        private static bool BoardTileOverridesEqual(
-            IReadOnlyList<BoardTilePresentationOverride> left,
-            IReadOnlyList<BoardTilePresentationOverride> right)
-        {
-            var leftCount = left?.Count ?? 0;
-            var rightCount = right?.Count ?? 0;
-            if (leftCount != rightCount)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < leftCount; i++)
-            {
-                var leftEntry = left[i];
-                var rightEntry = right[i];
-                if (leftEntry == null || rightEntry == null)
-                {
-                    if (leftEntry != rightEntry)
-                    {
-                        return false;
-                    }
-
-                    continue;
-                }
-
-                if (!leftEntry.Cell.Equals(rightEntry.Cell) ||
-                    !string.Equals(leftEntry.PresentationKey, rightEntry.PresentationKey, StringComparison.Ordinal))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private static BoardTilePresentationOverride[] CloneBoardTileOverrides(
-            IReadOnlyList<BoardTilePresentationOverride> source)
-        {
-            if (source == null || source.Count == 0)
-            {
-                return Array.Empty<BoardTilePresentationOverride>();
-            }
-
-            var overrides = new BoardTilePresentationOverride[source.Count];
-            for (var i = 0; i < source.Count; i++)
-            {
-                var entry = source[i];
-                overrides[i] = entry == null
-                    ? null
-                    : new BoardTilePresentationOverride(entry.Cell, entry.PresentationKey);
-            }
-
-            return overrides;
-        }
-
-        private static Dictionary<SurfaceCell, string> BuildBoardTileOverrideLookup(
-            IReadOnlyList<BoardTilePresentationOverride> source)
-        {
-            var lookup = new Dictionary<SurfaceCell, string>();
-            if (source == null)
-            {
-                return lookup;
-            }
-
-            for (var i = 0; i < source.Count; i++)
-            {
-                var entry = source[i];
-                if (entry == null ||
-                    lookup.ContainsKey(entry.Cell))
-                {
-                    continue;
-                }
-
-                lookup.Add(entry.Cell, entry.PresentationKey);
-            }
-
-            return lookup;
         }
 
         private static BoardTilePaintOverride[] CloneBoardTilePaintOverrides(

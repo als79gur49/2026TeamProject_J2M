@@ -15,8 +15,6 @@ MonoBehaviour:
   ownerEntry: {fileID: 11400000, guid: 6d3b6a4bfe3e41caa96088a8d011beef, type: 2}
   ownerEntryGuid: 6d3b6a4bfe3e41caa96088a8d011beef
   displayName: Mechanics Showcase
-  summaryText: 
-  previewSprite: {fileID: 0}
   backgroundPrefab: {fileID: 6146672969793721054, guid: 19c2a2b2ee2064644878dd76228bc933, type: 3}
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
@@ -71,7 +69,6 @@ MonoBehaviour:
     PresentationId: moon_box_showcase
   boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
-  boardTilePresentationOverrides: []
   boardTilePaintOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings:

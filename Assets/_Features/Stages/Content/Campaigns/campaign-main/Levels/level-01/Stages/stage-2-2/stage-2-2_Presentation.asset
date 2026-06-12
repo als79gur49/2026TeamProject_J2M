@@ -15,8 +15,6 @@ MonoBehaviour:
   ownerEntry: {fileID: 11400000, guid: b028b8601a593ad10305d137839be841, type: 2}
   ownerEntryGuid: b028b8601a593ad10305d137839be841
   displayName: Ward[A]-02
-  summaryText: 
-  previewSprite: {fileID: 0}
   backgroundPrefab: {fileID: 3930222102342455819, guid: 249351490955d3740a182f00f925ff7e, type: 3}
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
@@ -299,7 +297,6 @@ MonoBehaviour:
     PresentationId: box_tutorial
   boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
-  boardTilePresentationOverrides: []
   boardTilePaintOverrides:
   - cell:
       face: 0

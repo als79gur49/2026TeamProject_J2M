@@ -1161,7 +1161,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StageAuthoringGridWindow_BoardTileOverrideShowsSuppressedStatus()
+        public void StagePresentationAssembler_ReplaceBaseTileBinding_SuppressesBaseTileCell()
         {
             var prefab = CreateValidPrefab("BoardTileSuppressedStatusPrefab");
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
@@ -1170,27 +1170,17 @@ namespace Game.Feature.Stages.Editor.Tests
                 TileFeatureKind.Button,
                 prefab));
             var presentation = CreatePresentation(catalog);
-            var authoring = CreateAuthoring(
-                presentation,
-                CreateTileFeature(100, TileFeatureKind.Button, "button", cell));
-            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button", cell));
 
             try
             {
-                window.BindForTests(authoring);
-                window.SetTargetCellForTests(cell.face, cell.PlanarPosition);
+                var resolved = StagePresentationAssembler.Resolve(stage, presentation);
 
-                var status = window.GetBoardTileOverrideStatusForTests();
-
-                if (status.IsBaseTileSuppressed)
-                {
-                    Assert.That(status.SuppressingTileId, Is.EqualTo(100));
-                    Assert.That(status.Message, Does.Contain("will not be visible while suppressed"));
-                }
+                Assert.That(resolved.SuppressedBaseTileCells, Does.Contain(cell));
             }
             finally
             {
-                DestroyObjects(window, presentation, authoring, catalog, prefab);
+                DestroyObjects(stage, presentation, catalog, prefab);
             }
         }
 

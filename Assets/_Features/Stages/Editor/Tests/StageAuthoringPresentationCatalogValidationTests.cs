@@ -363,13 +363,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.Not.Null,
                 $"Missing stage catalog provider at '{StageContentPaths.StageCatalogProviderAssetPath}'.");
 
-            var retiredPresentationKeys = new[]
-            {
-                "board.active.bottom",
-                "board.active.front",
-                "board.decorative.top",
-                "board.decorative.back",
-            };
             var retiredStyleKeys = new[]
             {
                 "board.paint.neutral",
@@ -380,14 +373,6 @@ namespace Game.Feature.Stages.Editor.Tests
             };
 
             var entries = provider.LoadEntries();
-            var retiredPresentationReferences = entries
-                .Where(entry => entry != null && entry.PresentationDefinition != null)
-                .SelectMany(entry => entry.PresentationDefinition.BoardTilePresentationOverrides)
-                .Where(boardOverride =>
-                    boardOverride != null &&
-                    retiredPresentationKeys.Contains(boardOverride.PresentationKey, StringComparer.Ordinal))
-                .Select(boardOverride => $"{boardOverride.Cell}: {boardOverride.PresentationKey}")
-                .ToArray();
             var retiredTileFeaturePresentationReferences = entries
                 .Where(entry => entry != null && entry.GameplayDefinition != null)
                 .SelectMany(entry => entry.GameplayDefinition.TileFeatures)
@@ -404,7 +389,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 .Select(paintOverride => $"{paintOverride.Cell}: {paintOverride.StyleKey}")
                 .ToArray();
 
-            Assert.That(retiredPresentationReferences, Is.Empty);
             Assert.That(retiredTileFeaturePresentationReferences, Is.Empty);
             Assert.That(retiredStyleReferences, Is.Empty);
         }
