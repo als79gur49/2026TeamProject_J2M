@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 796b57ef0725c454396098ce96fc18a5, type: 3}
-  m_Name: EnemyCapability_LockNearbyBoxes
+  m_Name: EnemyCapability_GravityFieldAura
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Entities.EnemyUtilityCapabilityAsset
   effects:
   - kind: 2
