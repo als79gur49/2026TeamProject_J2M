@@ -27,6 +27,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private const string MoonGeneratorDoorOpenClipPath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Animations/MoonBlockGenerator_DoorOpen.anim";
+        private const string MoonGeneratorProfilePath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Profiles/TileFeatureVisualProfile_MoonGenerator.asset";
         private const string EnemyJumpAnimatorControllerPath =
             "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_Jump.controller";
         private const string GravityFieldLockableShaderName = "Game/Presentation/GravityFieldLockableBoxLit";
@@ -2223,7 +2225,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     topology,
                     CreateTilePresentationData(CreateMoonBlockGeneratedTileEvent(100, cell, moonBlockEntityId: 20, spawnTick: 1))));
 
-                Assert.That(target.DebugPlayMoonBlockGeneratedCount, Is.EqualTo(1));
+                Assert.That(target.DebugMoonBlockGeneratedCount, Is.EqualTo(1));
                 Assert.That(target.DebugLastMoonBlockGeneratedEntityId, Is.EqualTo(20));
                 Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
                 Assert.That(presenter.CurrentTilePresentationRequests[0].RequestKind, Is.EqualTo(TilePresentationRequestKind.MoonBlockGenerated));
@@ -2248,11 +2250,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(target.DebugAnimator, Is.Not.Null);
             Assert.That(target.DebugAnimator.runtimeAnimatorController, Is.Not.Null);
             Assert.That(target.DebugAnimator.runtimeAnimatorController.name, Is.EqualTo("TileFeature_MoonGenerator_Default"));
+            Assert.That(prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>(), Is.Not.Null);
 
             var monoBehaviours = prefab.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
             Assert.That(
                 monoBehaviours.Select(component => component != null ? component.GetType().Name : string.Empty),
                 Does.Not.Contain("MoonBlockGeneratorDoorPresentationDriver"));
+
+            var profile = AssetDatabase.LoadAssetAtPath<TileFeatureVisualProfile>(MoonGeneratorProfilePath);
+            Assert.That(profile, Is.Not.Null);
+            Assert.That(profile.FeatureKind, Is.EqualTo(TileFeatureKind.MoonBlockGenerator));
+            Assert.That(profile.TryGetCueBinding(TileFeatureVisualCueId.MoonBlockGenerated, out var generatedBinding), Is.True);
+            Assert.That(generatedBinding.AnimatorBinding.ParameterOrStateName, Is.EqualTo("MoonBlockGenerated"));
 
             var controller = target.DebugAnimator.runtimeAnimatorController as AnimatorController;
             Assert.That(controller, Is.Not.Null);

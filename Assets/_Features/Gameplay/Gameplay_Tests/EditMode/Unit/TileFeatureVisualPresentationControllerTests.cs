@@ -1054,7 +1054,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 controller.PlayRequests(new[] { CreateMoonBlockGeneratedRequest(100, cell, moonBlockEntityId: 20) });
 
-                Assert.That(target.DebugPlayMoonBlockGeneratedCount, Is.EqualTo(1));
+                Assert.That(target.DebugMoonBlockGeneratedCount, Is.EqualTo(1));
                 Assert.That(target.DebugLastMoonBlockGeneratedEntityId, Is.EqualTo(20));
                 Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
             }
@@ -1091,12 +1091,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         MoonBlockGeneratorBlockedReason.UnitOccupant),
                 });
 
-                Assert.That(target.DebugPlayMoonBlockGeneratorBlockedCount, Is.EqualTo(1));
+                Assert.That(target.DebugMoonBlockGeneratorBlockedCount, Is.EqualTo(1));
                 Assert.That(target.DebugLastMoonBlockGeneratorBlockedEntityId, Is.EqualTo(20));
                 Assert.That(target.DebugLastMoonBlockGeneratorBlockedReason, Is.EqualTo(MoonBlockGeneratorBlockedReason.UnitOccupant));
                 Assert.That(target.DebugLastMoonBlockGeneratorBlockedPayload.BlockedCell, Is.EqualTo(cell));
                 Assert.That(target.DebugMoonBlockGeneratorBlockedUnitCount, Is.EqualTo(1));
-                Assert.That(target.DebugPlayMoonBlockGeneratedCount, Is.Zero);
+                Assert.That(target.DebugMoonBlockGeneratedCount, Is.Zero);
                 Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
             }
             finally
@@ -1130,7 +1130,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateMoonBlockGeneratorBlockedRequest(100, cell, 0, MoonBlockGeneratorBlockedReason.PlacementBlocked),
                 });
 
-                Assert.That(target.DebugPlayMoonBlockGeneratorBlockedCount, Is.EqualTo(3));
+                Assert.That(target.DebugMoonBlockGeneratorBlockedCount, Is.EqualTo(3));
                 Assert.That(target.DebugMoonBlockGeneratorBlockedUnitCount, Is.EqualTo(1));
                 Assert.That(target.DebugMoonBlockGeneratorBlockedWallLikeSolidCount, Is.EqualTo(1));
                 Assert.That(target.DebugMoonBlockGeneratorBlockedPlacementCount, Is.EqualTo(1));

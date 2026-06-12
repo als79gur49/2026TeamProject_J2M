@@ -89,10 +89,10 @@ namespace Game.Feature.Gameplay.Host
 
         public bool DebugExitOpen => ResolveDebugAdapter()?.DebugExitOpen ?? false;
 
-        public int DebugPlayMoonBlockGeneratedCount => ResolveDebugAdapter()?.DebugPlayMoonBlockGeneratedCount ?? 0;
+        public int DebugMoonBlockGeneratedCount => ResolveDebugAdapter()?.DebugMoonBlockGeneratedCount ?? 0;
 
-        public int DebugPlayMoonBlockGeneratorBlockedCount =>
-            ResolveDebugAdapter()?.DebugPlayMoonBlockGeneratorBlockedCount ?? 0;
+        public int DebugMoonBlockGeneratorBlockedCount =>
+            ResolveDebugAdapter()?.DebugMoonBlockGeneratorBlockedCount ?? 0;
 
         public int DebugMoonBlockGeneratorBlockedUnitCount =>
             ResolveDebugAdapter()?.DebugMoonBlockGeneratorBlockedUnitCount ?? 0;

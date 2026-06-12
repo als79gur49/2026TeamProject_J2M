@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
@@ -62,6 +63,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly ExitTileFeatureVisualHandler exitHandler = new();
         private readonly MoonBlockGeneratorTileFeatureVisualHandler moonGeneratorHandler = new();
         private readonly GenericTileFeatureVfxHandler genericHandler = new();
+        private readonly HashSet<string> missingProfileWarningKeys = new();
 
         private bool hasBarricadeActiveImmediateState;
         private bool lastBarricadeActiveImmediateState;
@@ -90,8 +92,8 @@ namespace Game.Feature.Gameplay.Host
         public int DebugPlayExitOpenedCount { get; private set; }
         public int DebugPlayExitEnteredCount { get; private set; }
         public bool DebugExitOpen { get; private set; }
-        public int DebugPlayMoonBlockGeneratedCount { get; private set; }
-        public int DebugPlayMoonBlockGeneratorBlockedCount { get; private set; }
+        public int DebugMoonBlockGeneratedCount { get; private set; }
+        public int DebugMoonBlockGeneratorBlockedCount { get; private set; }
         public int DebugMoonBlockGeneratorBlockedUnitCount { get; private set; }
         public int DebugMoonBlockGeneratorBlockedWallLikeSolidCount { get; private set; }
         public int DebugMoonBlockGeneratorBlockedPlacementCount { get; private set; }
@@ -134,6 +136,7 @@ namespace Game.Feature.Gameplay.Host
             var target = ResolveTarget();
             var profile = ResolveProfile(request.FeatureKind);
             var handler = ResolveHandler(request);
+            WarnMissingProfileIfNeeded(request, profile, handler);
             var handled = handler.TryHandle(request, target, profile, Animator, gameplayVfxPlaybackPort);
             if (profile == null)
             {
@@ -179,6 +182,30 @@ namespace Game.Feature.Gameplay.Host
                     TryHandle(CreateRequest(TileFeatureVisualCueId.SlideTileActiveState, TileFeatureKind.Slide, active: active));
                     return;
             }
+        }
+
+        private void WarnMissingProfileIfNeeded(
+            in TileFeatureVisualRequest request,
+            TileFeatureVisualProfile profile,
+            ITileFeatureVisualHandler handler)
+        {
+            if (profile != null ||
+                request.FeatureKind != TileFeatureKind.MoonBlockGenerator ||
+                handler == null ||
+                !handler.CanHandle(request.CueId))
+            {
+                return;
+            }
+
+            var key = $"{request.FeatureKind}:{request.CueId}";
+            if (!missingProfileWarningKeys.Add(key))
+            {
+                return;
+            }
+
+            UnityEngine.Debug.LogWarning(
+                $"{nameof(LegacyTileFeatureVisualCueAdapter)} handled {request.FeatureKind} cue {request.CueId} without a {nameof(TileFeatureVisualProfile)}. Production MoonBlockGenerator visuals should resolve profile-local cue bindings.",
+                this);
         }
 
         public void PlaySlideTileRedirected(Direction direction, int targetEntityId)
@@ -417,11 +444,11 @@ namespace Game.Feature.Gameplay.Host
                     DebugExitOpen = request.Active;
                     return;
                 case TileFeatureVisualCueId.MoonBlockGenerated:
-                    DebugPlayMoonBlockGeneratedCount++;
+                    DebugMoonBlockGeneratedCount++;
                     DebugLastMoonBlockGeneratedEntityId = request.TargetEntityId;
                     return;
                 case TileFeatureVisualCueId.MoonBlockGeneratorBlocked:
-                    DebugPlayMoonBlockGeneratorBlockedCount++;
+                    DebugMoonBlockGeneratorBlockedCount++;
                     DebugLastMoonBlockGeneratorBlockedPayload = request.MoonBlockGeneratorBlockedPayload;
                     TrackMoonBlockGeneratorBlockedReason(request.MoonBlockGeneratorBlockedPayload.Reason);
                     return;
