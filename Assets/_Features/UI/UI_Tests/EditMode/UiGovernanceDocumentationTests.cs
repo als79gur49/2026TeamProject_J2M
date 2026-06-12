@@ -80,6 +80,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("Scene transition semantic ids remain distinct, but semantic ids and physical content prefab files are not one-to-one."));
             Assert.That(guidelines, Does.Contain("`GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` share `GenericLoadingOverlayContent`."));
             Assert.That(guidelines, Does.Contain("`ChanceLost` remains a dedicated `ChanceLostOverlayContent` path"));
+            Assert.That(guidelines, Does.Contain("chance-loss visuals are slot/effect-driven and do not expose dynamic previous/current/total/death chance text bindings"));
             Assert.That(guidelines, Does.Contain("Scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract."));
             Assert.That(guidelines, Does.Contain("`LevelFailedRestart` does not own a current dedicated transition message/text content contract."));
             Assert.That(guidelines, Does.Contain("`StageResult`, `LevelFailed`, and `GameClear` are canonical terminal result screens."));
@@ -129,7 +130,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("PR-T3 transition content base contract guards proving base content requires only root group and progress text bindings, while retired title/message/progress bar/animator base bindings stay absent from source and prefabs"));
             Assert.That(baseline, Does.Contain("Duplicate common transition content prefab files and stale common-only content view types were removed after PR-T2 collapsed the shared physical content mapping."));
             Assert.That(baseline, Does.Contain("renamed the transition content catalog guard to cover shared semantic mapping instead of one physical prefab per semantic"));
-            Assert.That(baseline, Does.Contain("scene transition semantic ids are preserved while physical content is shared: `GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` use `GenericLoadingOverlayContent`; `ChanceLost` remains dedicated as `ChanceLostOverlayContent`"));
+            Assert.That(baseline, Does.Contain("scene transition semantic ids are preserved while physical content is shared: `GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` use `GenericLoadingOverlayContent`; `ChanceLost` remains dedicated as slot/effect-driven `ChanceLostOverlayContent` with no dynamic previous/current/total/death chance text binding contract"));
             Assert.That(baseline, Does.Contain("`LevelFailedRestart` has no current dedicated transition content message/text contract; the old LevelFailed-only message field was removed as stale residue"));
             Assert.That(baseline, Does.Contain("legacy navigation router setup coverage is replaced with `IUiNavigationTargetResolver` fixture coverage plus public-surface absence guards"));
             Assert.That(baseline, Does.Contain("Prior 2차 UI canonical correction report red reason"));
@@ -254,6 +255,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Contain("Scene transition semantic ids are preserved, but semantic ids and physical content prefab files are not one-to-one."));
             Assert.That(source, Does.Contain("`GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` share the physical `GenericLoadingOverlayContent` prefab."));
             Assert.That(source, Does.Contain("`ChanceLost` keeps the dedicated `ChanceLostOverlayContent` prefab"));
+            Assert.That(source, Does.Contain("slot/effect-driven chance-loss visuals and does not expose dynamic previous/current/total/death chance text bindings"));
             Assert.That(source, Does.Contain("Scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract."));
             Assert.That(source, Does.Contain("`LevelFailedRestart` has no current dedicated message/text content contract"));
             Assert.That(source, Does.Contain("`SceneTransitionOverlayView`, `UI/SceneTransitionOverlayView`, generated fallback, and legacy overlay fallback are not current paths."));

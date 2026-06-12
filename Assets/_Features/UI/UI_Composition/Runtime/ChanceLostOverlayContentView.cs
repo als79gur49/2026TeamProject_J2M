@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using DG.Tweening;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -46,10 +45,6 @@ namespace Game.Feature.UI.Composition
             new(new Vector2(0f, -88f), new Vector2(12f, 8f), -6f, 3f, 1f, 0.5f, 0f, 0.88f),
         };
 
-        [SerializeField] private TMP_Text _previousChanceText;
-        [SerializeField] private TMP_Text _currentChanceText;
-        [SerializeField] private TMP_Text _totalChanceText;
-        [SerializeField] private TMP_Text _deathCountText;
         [SerializeField] private RectTransform[] _chanceSlotRoots;
         [SerializeField] private float _lostShakeDurationSeconds = 0.44f;
         [SerializeField] private float _lostShakeStrength = 20f;
@@ -66,10 +61,6 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private float _survivorPulseDelaySeconds = 0.08f;
         [SerializeField] private float _survivorPulseScalePunch = 0.07f;
         [SerializeField] private float _survivorPulseDurationSeconds = 0.22f;
-        [SerializeField] private float _currentTextPulseScalePunch = 0.12f;
-        [SerializeField] private float _currentTextPulseDurationSeconds = 0.24f;
-        [SerializeField] private float _previousTextDimAlpha = 0.45f;
-        [SerializeField] private float _previousTextDimDurationSeconds = 0.18f;
         [SerializeField] private bool _useAllIn1LostImpactEffect = true;
         [SerializeField] private Material _allIn1EffectMaterialTemplate;
         [SerializeField] private Color _allIn1HitEffectColor = new(1f, 0.18f, 0.24f, 1f);
@@ -99,8 +90,6 @@ namespace Game.Feature.UI.Composition
         private readonly List<RectTransform> _resolvedSlots = new();
         private Sequence _lostChanceSequence;
         private SceneTransitionOverlayModel _boundModel;
-        private TextVisualState _previousChanceTextState;
-        private TextVisualState _currentChanceTextState;
         private Shader _allIn1UiMaskShader;
         private bool _hasBoundModel;
         private bool _hasResolvedAllIn1UiMaskShader;
@@ -109,22 +98,16 @@ namespace Game.Feature.UI.Composition
         {
             KillLostChanceAnimation();
             RestoreChanceSlots();
-            RestoreChanceTextVisuals();
             base.Bind(model);
             _boundModel = model;
             _hasBoundModel = true;
 
             if (!model.HasChanceLost)
             {
-                ClearChanceTexts();
                 ApplyChanceSlotState(model);
                 return;
             }
 
-            SetText(_previousChanceText, model.PreviousRemainingChances.ToString());
-            SetText(_currentChanceText, model.CurrentRemainingChances.ToString());
-            SetText(_totalChanceText, $"/ {model.TotalChances}");
-            SetText(_deathCountText, $"Deaths {model.DeathCount}");
             ApplyChanceSlotState(model);
         }
 
@@ -138,7 +121,6 @@ namespace Game.Feature.UI.Composition
         {
             KillLostChanceAnimation();
             RestoreChanceSlots();
-            RestoreChanceTextVisuals();
             base.Hide();
         }
 
@@ -146,19 +128,13 @@ namespace Game.Feature.UI.Composition
         {
             KillLostChanceAnimation();
             RestoreChanceSlots();
-            RestoreChanceTextVisuals();
             _hasBoundModel = false;
             base.ResetView();
-            ClearChanceTexts();
         }
 
         internal override IReadOnlyList<string> CollectValidationIssues()
         {
             var issues = new List<string>(base.CollectValidationIssues());
-            AddMissing(issues, _previousChanceText, nameof(_previousChanceText));
-            AddMissing(issues, _currentChanceText, nameof(_currentChanceText));
-            AddMissing(issues, _totalChanceText, nameof(_totalChanceText));
-            AddMissing(issues, _deathCountText, nameof(_deathCountText));
             if (ResolveChanceSlots().Count == 0)
             {
                 issues.Add("ChanceLostOverlayContentView has no chance slot roots for lost chance animation.");
@@ -171,7 +147,6 @@ namespace Game.Feature.UI.Composition
         {
             KillLostChanceAnimation();
             RestoreChanceSlots();
-            RestoreChanceTextVisuals();
         }
 
         private void OnDestroy()
@@ -185,14 +160,6 @@ namespace Game.Feature.UI.Composition
         internal int ResolvedChanceSlotCountForTests => ResolveChanceSlots().Count;
 
         internal Color CrackShardVisibleColorForTests(float shardDelaySeconds) => EvaluateCrackShardVisibleColor(shardDelaySeconds);
-
-        private void ClearChanceTexts()
-        {
-            SetText(_previousChanceText, string.Empty);
-            SetText(_currentChanceText, string.Empty);
-            SetText(_totalChanceText, string.Empty);
-            SetText(_deathCountText, string.Empty);
-        }
 
         private void ApplyChanceSlotState(SceneTransitionOverlayModel model)
         {
@@ -240,13 +207,11 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            CaptureChanceTextVisuals();
             _lostChanceSequence = DOTween.Sequence()
                 .SetUpdate(_useUnscaledTime)
                 .SetLink(gameObject, LinkBehaviour.KillOnDestroy);
 
             InsertSurvivorPulseTweens(lostStart);
-            InsertChanceTextTweens();
 
             for (var i = lostStart; i < lostEndExclusive; i++)
             {
@@ -313,38 +278,6 @@ namespace Game.Feature.UI.Composition
                         .DOPunchScale(Vector3.one * scalePunch, duration, 8, 0.7f)
                         .SetEase(Ease.OutQuad));
             }
-        }
-
-        private void InsertChanceTextTweens()
-        {
-            if (_currentChanceText != null && _currentChanceText.rectTransform != null)
-            {
-                _lostChanceSequence.Insert(
-                    Mathf.Max(0f, _survivorPulseDelaySeconds),
-                    _currentChanceText.rectTransform
-                        .DOPunchScale(
-                            Vector3.one * Mathf.Max(0f, _currentTextPulseScalePunch),
-                            Mathf.Max(0.01f, _currentTextPulseDurationSeconds),
-                            8,
-                            0.7f)
-                        .SetEase(Ease.OutQuad));
-            }
-
-            if (_previousChanceText == null)
-            {
-                return;
-            }
-
-            var target = _previousChanceText.color;
-            target.a = Mathf.Clamp01(_previousTextDimAlpha);
-            _lostChanceSequence.Insert(
-                0f,
-                DOTween.To(
-                        () => _previousChanceText.color,
-                        value => _previousChanceText.color = value,
-                        target,
-                        Mathf.Max(0.01f, _previousTextDimDurationSeconds))
-                    .SetEase(Ease.OutQuad));
         }
 
         private Tween CreateLostImpactTween(SlotState state)
@@ -823,32 +756,6 @@ namespace Game.Feature.UI.Composition
             for (var i = 0; i < _slotStates.Count; i++)
             {
                 RestoreSlot(_slotStates[i]);
-            }
-        }
-
-        private void CaptureChanceTextVisuals()
-        {
-            _previousChanceTextState = TextVisualState.Capture(_previousChanceText);
-            _currentChanceTextState = TextVisualState.Capture(_currentChanceText);
-        }
-
-        private void RestoreChanceTextVisuals()
-        {
-            RestoreTextVisualState(_previousChanceTextState);
-            RestoreTextVisualState(_currentChanceTextState);
-        }
-
-        private static void RestoreTextVisualState(TextVisualState state)
-        {
-            if (state?.Text == null)
-            {
-                return;
-            }
-
-            state.Text.color = state.Color;
-            if (state.Text.rectTransform != null)
-            {
-                state.Text.rectTransform.localScale = state.LocalScale;
             }
         }
 
@@ -1440,25 +1347,5 @@ namespace Game.Feature.UI.Composition
             public float DelaySeconds { get; }
         }
 
-        private sealed class TextVisualState
-        {
-            private TextVisualState(TMP_Text text)
-            {
-                Text = text;
-                Color = text.color;
-                LocalScale = text.rectTransform != null ? text.rectTransform.localScale : Vector3.one;
-            }
-
-            public TMP_Text Text { get; }
-
-            public Color Color { get; }
-
-            public Vector3 LocalScale { get; }
-
-            public static TextVisualState Capture(TMP_Text text)
-            {
-                return text != null ? new TextVisualState(text) : null;
-            }
-        }
     }
 }

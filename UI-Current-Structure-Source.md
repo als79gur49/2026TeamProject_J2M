@@ -70,7 +70,7 @@ This file is the external current-structure source for the completed UI cleanup 
 - Scene transition UI uses only `SceneTransitionOverlayShell` plus `SceneTransitionOverlayContentCatalog`.
 - Scene transition semantic ids are preserved, but semantic ids and physical content prefab files are not one-to-one.
 - `GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` share the physical `GenericLoadingOverlayContent` prefab.
-- `ChanceLost` keeps the dedicated `ChanceLostOverlayContent` prefab because it owns chance-loss structure and fields.
+- `ChanceLost` keeps the dedicated `ChanceLostOverlayContent` prefab because it owns slot/effect-driven chance-loss visuals and does not expose dynamic previous/current/total/death chance text bindings.
 - Scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract.
 - `LevelFailedRestart` has no current dedicated message/text content contract; the old LevelFailed-only transition message field was removed as stale residue.
 - `SceneTransitionOverlayView`, `UI/SceneTransitionOverlayView`, generated fallback, and legacy overlay fallback are not current paths.

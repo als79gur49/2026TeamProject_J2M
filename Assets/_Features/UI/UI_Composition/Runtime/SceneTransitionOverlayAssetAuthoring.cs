@@ -1,7 +1,6 @@
 #if UNITY_EDITOR
 using System.IO;
 using Game.Feature.Stages;
-using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -116,15 +115,7 @@ namespace Game.Feature.UI.Composition
 
                 if (view is ChanceLostOverlayContentView)
                 {
-                    var previous = UiCanvasElementFactory.CreateLabel("PreviousChanceText_TMP", panel, new Vector2(140f, -152f), new Vector2(100f, 36f), TextAnchor.MiddleCenter, 24);
-                    var current = UiCanvasElementFactory.CreateLabel("CurrentChanceText_TMP", panel, new Vector2(300f, -152f), new Vector2(100f, 36f), TextAnchor.MiddleCenter, 24);
-                    var total = UiCanvasElementFactory.CreateLabel("TotalChanceText_TMP", panel, new Vector2(400f, -152f), new Vector2(100f, 36f), TextAnchor.MiddleCenter, 18);
-                    var deaths = UiCanvasElementFactory.CreateLabel("DeathCountText_TMP", panel, new Vector2(40f, -190f), new Vector2(620f, 28f), TextAnchor.MiddleCenter, 16);
                     var chanceSlots = CreateChanceSlotRoots(panel);
-                    serialized.FindProperty("_previousChanceText").objectReferenceValue = previous;
-                    serialized.FindProperty("_currentChanceText").objectReferenceValue = current;
-                    serialized.FindProperty("_totalChanceText").objectReferenceValue = total;
-                    serialized.FindProperty("_deathCountText").objectReferenceValue = deaths;
                     var chanceSlotRoots = serialized.FindProperty("_chanceSlotRoots");
                     chanceSlotRoots.arraySize = chanceSlots.Length;
                     for (var i = 0; i < chanceSlots.Length; i++)

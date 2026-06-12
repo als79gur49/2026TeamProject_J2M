@@ -117,29 +117,22 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ChanceLostOverlayContent_BindsTmpTexts()
+        public void ChanceLostOverlayContentView_DoesNotExposeRetiredChanceTextBindings()
         {
-            using var content = ContentHandle.Create<ChanceLostOverlayContentView>("ChanceLost");
-            var model = new SceneTransitionOverlayModel(
-                StageTransitionKind.DeathRetryChanceLost,
-                TransitionOverlayKind.ChanceLost,
-                "Chance Lost",
-                "Retrying.",
-                blockInput: true,
-                showProgress: true,
-                progress01: 0.25f,
-                hasChanceLost: true,
-                previousRemainingChances: 2,
-                currentRemainingChances: 1,
-                totalChances: 3,
-                deathCount: 4);
+            var fieldNames = typeof(ChanceLostOverlayContentView)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(field => field.Name)
+                .ToArray();
 
-            content.View.Bind(model);
-
-            Assert.That(content.PreviousChanceText.text, Is.EqualTo("2"));
-            Assert.That(content.CurrentChanceText.text, Is.EqualTo("1"));
-            Assert.That(content.TotalChanceText.text, Is.EqualTo("/ 3"));
-            Assert.That(content.DeathCountText.text, Is.EqualTo("Deaths 4"));
+            Assert.That(fieldNames, Does.Not.Contain("_previousChanceText"));
+            Assert.That(fieldNames, Does.Not.Contain("_currentChanceText"));
+            Assert.That(fieldNames, Does.Not.Contain("_totalChanceText"));
+            Assert.That(fieldNames, Does.Not.Contain("_deathCountText"));
+            Assert.That(fieldNames, Does.Not.Contain("_currentTextPulseScalePunch"));
+            Assert.That(fieldNames, Does.Not.Contain("_currentTextPulseDurationSeconds"));
+            Assert.That(fieldNames, Does.Not.Contain("_previousTextDimAlpha"));
+            Assert.That(fieldNames, Does.Not.Contain("_previousTextDimDurationSeconds"));
+            Assert.That(fieldNames, Does.Contain("_chanceSlotRoots"));
         }
 
         [Test]
@@ -223,7 +216,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(CountCrackLines(lostTweenRoot), Is.EqualTo(5));
             Assert.That(CountCrackShards(lostTweenRoot), Is.EqualTo(9));
             AssertCrackShardsRestored(lostTweenRoot);
-            Assert.That(content.CurrentChanceText.rectTransform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(lostSlot.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
         }
 
@@ -268,8 +260,6 @@ namespace Game.Feature.UI.Tests
             view.Show();
 
             Assert.That(view.ActiveLostChanceAnimationCountForTests, Is.Zero);
-            Assert.That(content.CurrentChanceText.text, Is.Empty);
-            Assert.That(content.CurrentChanceText.rectTransform.localScale, Is.EqualTo(Vector3.one));
         }
 
         [Test]
@@ -517,27 +507,15 @@ namespace Game.Feature.UI.Tests
             private ContentHandle(
                 GameObject root,
                 SceneTransitionOverlayContentView view,
-                TMP_Text previousChanceText,
-                TMP_Text currentChanceText,
-                TMP_Text totalChanceText,
-                TMP_Text deathCountText,
                 RectTransform[] chanceSlots)
             {
                 Root = root;
                 View = view;
-                PreviousChanceText = previousChanceText;
-                CurrentChanceText = currentChanceText;
-                TotalChanceText = totalChanceText;
-                DeathCountText = deathCountText;
                 ChanceSlots = chanceSlots;
             }
 
             public GameObject Root { get; }
             public SceneTransitionOverlayContentView View { get; }
-            public TMP_Text PreviousChanceText { get; }
-            public TMP_Text CurrentChanceText { get; }
-            public TMP_Text TotalChanceText { get; }
-            public TMP_Text DeathCountText { get; }
             public RectTransform[] ChanceSlots { get; }
 
             public static ContentHandle Create<T>(string name)
@@ -547,10 +525,6 @@ namespace Game.Feature.UI.Tests
                 var view = root.AddComponent<T>();
                 var progressText = CreateText(root.transform, "ProgressText_TMP");
 
-                TMP_Text previous = null;
-                TMP_Text current = null;
-                TMP_Text total = null;
-                TMP_Text deaths = null;
                 var chanceSlots = Array.Empty<RectTransform>();
 
                 var serialized = new SerializedObject(view);
@@ -559,19 +533,11 @@ namespace Game.Feature.UI.Tests
 
                 if (view is ChanceLostOverlayContentView)
                 {
-                    previous = CreateText(root.transform, "PreviousChanceText_TMP");
-                    current = CreateText(root.transform, "CurrentChanceText_TMP");
-                    total = CreateText(root.transform, "TotalChanceText_TMP");
-                    deaths = CreateText(root.transform, "DeathCountText_TMP");
-                    serialized.FindProperty("_previousChanceText").objectReferenceValue = previous;
-                    serialized.FindProperty("_currentChanceText").objectReferenceValue = current;
-                    serialized.FindProperty("_totalChanceText").objectReferenceValue = total;
-                    serialized.FindProperty("_deathCountText").objectReferenceValue = deaths;
                     chanceSlots = CreateChanceSlots(root.transform);
                 }
 
                 serialized.ApplyModifiedPropertiesWithoutUndo();
-                return new ContentHandle(root, view, previous, current, total, deaths, chanceSlots);
+                return new ContentHandle(root, view, chanceSlots);
             }
 
             public void Dispose()

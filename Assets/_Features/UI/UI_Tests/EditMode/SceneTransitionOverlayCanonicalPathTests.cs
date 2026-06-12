@@ -113,6 +113,22 @@ namespace Game.Feature.UI.Tests
                 {
                     Assert.That(yaml, Does.Not.Contain(retiredField + ":"), path);
                 }
+
+                if (path == ChanceLostContentPrefabPath)
+                {
+                    foreach (var retiredField in RetiredChanceTextFields)
+                    {
+                        Assert.That(yaml, Does.Not.Contain(retiredField + ":"), retiredField);
+                    }
+
+                    foreach (var retiredChildName in RetiredChanceTextChildNames)
+                    {
+                        Assert.That(yaml, Does.Not.Contain(retiredChildName), retiredChildName);
+                    }
+
+                    Assert.That(yaml, Does.Contain("_chanceSlotRoots:"), "PR-T4 must not remove the slot root inspector array.");
+                    Assert.That(yaml, Does.Contain("ChanceSlotView"), "PR-T4 must preserve the slot visual hierarchy.");
+                }
             }
         }
 
@@ -346,6 +362,26 @@ namespace Game.Feature.UI.Tests
             "_progressRoot",
             "_progressFill",
             "_animator",
+        };
+
+        private static readonly string[] RetiredChanceTextFields =
+        {
+            "_previousChanceText",
+            "_currentChanceText",
+            "_totalChanceText",
+            "_deathCountText",
+            "_currentTextPulseScalePunch",
+            "_currentTextPulseDurationSeconds",
+            "_previousTextDimAlpha",
+            "_previousTextDimDurationSeconds",
+        };
+
+        private static readonly string[] RetiredChanceTextChildNames =
+        {
+            "PreviousChanceText_TMP",
+            "CurrentChanceText_TMP",
+            "TotalChanceText_TMP",
+            "DeathCountText_TMP",
         };
 
         private static SceneTransitionOverlayContentView ResolveCatalogContent(
