@@ -501,7 +501,7 @@ GameObject:
   - component: {fileID: 4994410876415863292}
   - component: {fileID: 2407586926128549279}
   m_Layer: 0
-  m_Name: EnemyView_GravityFieldChaser
+  m_Name: EnemyView_PrototypeGravityFieldChaser
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
