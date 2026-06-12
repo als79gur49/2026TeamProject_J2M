@@ -8,11 +8,9 @@
   - `Tools/Stages/Direct Play/Launch Stage...`
   - `Tools/Stages/Direct Play/Replay Last Stage`
 - supported stage id quick-launch entries:
-  - `mechanics-showcase`
-  - `onboarding`
   - `stage-0-1`
   - `stage-1-1`
-- onboarding 문서, smoke checklist, bug reproduction note는 위 exact menu path와 exact stage ids를 그대로 사용한다.
+- direct-play 문서, smoke checklist, bug reproduction note는 위 exact menu path와 exact stage ids를 그대로 사용한다.
 
 ## Onboarding Checklist
 
@@ -31,7 +29,7 @@
 ## Smoke Cycle Standard
 
 - Lane B smoke evidence는 `cycle note` 단위로 남긴다.
-- 한 cycle note는 same revision, same checkpoint window, same executor session에서 수행한 supported stage `4`건을 함께 기록한다.
+- 한 cycle note는 same revision, same checkpoint window, same executor session에서 수행한 supported stage `2`건을 함께 기록한다.
 - cycle header는 아래 필드를 모두 포함한다.
   - `revision`
   - `cycle id`
@@ -51,8 +49,6 @@
   - `plain Play attempted`
   - `notes`
 - `stage id`는 exact stage id만 사용한다.
-  - `mechanics-showcase`
-  - `onboarding`
   - `stage-0-1`
   - `stage-1-1`
 - `exact menu path`는 아래 둘 중 하나만 허용한다.
@@ -90,7 +86,7 @@
   - checkpoint window 안의 direct-play 관련 smoke note
   - bug reproduction note
   - close note
-  - onboarding example
+  - supported stage example
   위 문서 중 plain Play 또는 launcher bypass를 `supported/success workflow`로 적은 사례 수
 - `fallback 요구 issue 0`의 계수 기준:
   - checkpoint window 시점의 open backlog 중
@@ -103,15 +99,15 @@
 ## Soft Adoption Evidence
 
 - direct-play catalog coverage `100%`
-- onboarding 문서와 menu entry 일치
+- direct-play 문서와 menu entry 일치
 - smoke checklist가 launcher-only workflow를 명시
 - plain Play unsupported 경고 문구가 고정
-- `Cycle 1` 4-stage smoke note
+- `Cycle 1` 2-stage smoke note
 - validator/test/doc alignment proof
 
 ## Hard Enforcement Evidence
 
-- `Cycle 2` 4-stage smoke note
+- `Cycle 2` 2-stage smoke note
 - 두 번 연속 smoke/report cycle에서 launcher bypass를 정상 workflow로 기록한 사례 `0`
 - direct-play 관련 open issue 중 fallback 요구 `0`
 - stage-backed manual smoke note가 모두 launcher path를 명시
@@ -122,12 +118,12 @@
 
 - soft adoption 종료 최소 evidence set:
   - `catalog coverage 100% proof`
-  - `doc/menu/onboarding/checklist parity proof`
+  - `doc/menu/supported-stage/checklist parity proof`
   - `validator/test/doc alignment proof`
-  - `Cycle 1` 4-stage smoke note
+  - `Cycle 1` 2-stage smoke note
 - hard adoption close 최소 evidence set:
   - soft adoption evidence set 전체
-  - `Cycle 2` 4-stage smoke note
+  - `Cycle 2` 2-stage smoke note
   - `bypass count 0`
   - `fallback-request count 0`
   - `stage-backed manual smoke notes launcher-path only summary`
@@ -149,7 +145,7 @@
 - 허용 완화책:
   - menu shortcut discoverability
   - `Replay Last Stage`
-  - onboarding examples
+  - supported stage examples
   - smoke checklist 개선
 - 금지:
   - `defaultStageId` 성격의 fallback 부활

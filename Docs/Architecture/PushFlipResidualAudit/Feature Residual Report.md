@@ -43,7 +43,7 @@ Authoring box placement counts:
 | Destroy included | 744 | `KEEP_CONTENT_USED` |
 | JumpCrushable included | 708 | `KEEP_CONTENT_USED` |
 
-Low-usage combos are concentrated in `combined-gameplay-showcase_Authoring.asset`. They are retained by current product decision and are not part of this cleanup PR.
+Low-usage combos are concentrated in `stage-4-2_Authoring.asset`. They are retained by current product decision and are not part of this cleanup PR.
 
 ## Low-Usage Capability Combos
 
@@ -58,7 +58,7 @@ These tests/docs keep capability generalization intact even when content count i
 
 ## Impact/Disposition Branch Usage
 
-`Push+Destroy` appears in 30 boxes: 28 in `tutorial-scene`, 2 in showcase. This is not dead. Static counting does not prove how many produce first-step blocked destroy fallback during normal play, so the next step is a layout/reachability simulation or content owner review.
+`Push+Destroy` appears in 30 boxes: 28 in `stage-0-1`, 2 in showcase. This is not dead. Static counting does not prove how many produce first-step blocked destroy fallback during normal play, so the next step is a layout/reachability simulation or content owner review.
 
 `Push+Flip+Destroy+JumpCrushable` appears 708 times across campaign stages. Do not simplify this branch without a content migration plan.
 

@@ -1,7 +1,7 @@
 # Gameplay Shell Manual Runtime Smoke Plan
 
 ## 1. Overall Evaluation
-- This smoke is now a canonical shell runtime validation in `UIAudioScene` with `onboarding` supplied through launch context.
+- This smoke is now a canonical shell runtime validation in `UIAudioScene` with `stage-0-1` supplied through launch context.
 - It protects the frozen Stage 1-9 UI architecture by validating canonical runtime composition, representative runtime ownership, and terminal stage-clear routing under actual scene conditions.
 - It complements automated tests rather than replacing them.
 - It must stay architecture-focused and time-bounded. It is not a general gameplay QA pass and it must not drift into exploratory playtesting.

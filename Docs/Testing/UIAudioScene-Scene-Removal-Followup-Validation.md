@@ -4,7 +4,7 @@ Date: 2026-06-06 KST
 
 ## Scope
 - Follow-up validation after removing the two legacy gameplay scene assets.
-- Stage ids and stage content remain intentionally retained: `mechanics-showcase`, `onboarding`, `stage-0-1`, and `stage-1-1`.
+- Stage ids and stage content remain intentionally retained: `stage-4-2`, `stage-0-1`, `stage-0-1`, and `stage-1-1`.
 - This note records the validation performed from WSL. GUI-only manual editor smoke was not executed in this non-interactive session.
 
 ## Static Validation
@@ -18,16 +18,16 @@ Date: 2026-06-06 KST
 - `ProjectSettings/ProjectSettings.asset` has `templateDefaultScene: Assets/Scenes/UIAudioScene.unity`.
 - `StageEditorDirectPlayCatalog.asset` uses `canonicalShellScenePath: Assets/Scenes/UIAudioScene.unity`.
 - `StageEditorDirectPlayCatalog.asset` supported stage ids include:
-  - `mechanics-showcase`
-  - `onboarding`
+  - `stage-4-2`
+  - `stage-0-1`
   - `stage-0-1`
   - `stage-1-1`
 
 ## Manual Smoke Status
 - Unity Editor missing script / missing scene reference console check: not run in this non-interactive WSL session.
 - Direct-play smoke:
-  - `mechanics-showcase`: not run manually; covered by UIAudioScene launch-context PlayMode tests.
-  - `onboarding`: not run manually; covered by UIAudioScene launch-context PlayMode and UI contract tests.
+  - `stage-4-2`: not run manually; covered by UIAudioScene launch-context PlayMode tests.
+  - `stage-0-1`: not run manually; covered by UIAudioScene launch-context PlayMode and UI contract tests.
   - `stage-0-1`: not run manually; direct-play catalog support verified statically.
   - `stage-1-1`: not run manually; direct-play catalog support verified statically.
 - Replay last stage id smoke: not run manually.

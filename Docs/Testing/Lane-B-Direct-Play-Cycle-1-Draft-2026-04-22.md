@@ -18,8 +18,8 @@
 
 | stage id | exact menu path | executor | execution date/time | launch result | observed warning/fail-fast | plain Play attempted | notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `mechanics-showcase` | `Tools/Stages/Direct Play/Launch Stage...` | `user` | `2026-04-22 KST (user-reported; exact timestamp not captured)` | `Pass` | `None reported` | `No` | `User reported launcher execution worked without issue on the supported stage id.` |
-| `onboarding` | `Tools/Stages/Direct Play/Launch Stage...` | `user` | `2026-04-22 KST (user-reported; exact timestamp not captured)` | `Pass` | `None reported` | `No` | `User reported launcher execution worked without issue on the supported stage id.` |
+| `stage-4-2` | `Tools/Stages/Direct Play/Launch Stage...` | `user` | `2026-04-22 KST (user-reported; exact timestamp not captured)` | `Pass` | `None reported` | `No` | `User reported launcher execution worked without issue on the supported stage id.` |
+| `stage-0-1` | `Tools/Stages/Direct Play/Launch Stage...` | `user` | `2026-04-22 KST (user-reported; exact timestamp not captured)` | `Pass` | `None reported` | `No` | `User reported launcher execution worked without issue on the supported stage id.` |
 | `stage-0-1` | `Tools/Stages/Direct Play/Launch Stage...` | `user` | `2026-04-22 KST (user-reported; exact timestamp not captured)` | `Pass` | `None reported` | `No` | `User reported launcher execution worked without issue on the supported stage id.` |
 
 ## Notes
