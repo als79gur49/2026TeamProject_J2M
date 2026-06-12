@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b8e8443191cf4d54b46f4588ab76f6fe, type: 3}
-  m_Name: EnemyAi_LockNearbyBoxes
+  m_Name: EnemyAi_GravityFieldChaser
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Entities.EnemyAiProfile
   coreAuthoring: {fileID: 11400000, guid: c1e3f8a2b5d94e4a9f0712c6d8b0a345, type: 2}
   brainAuthoring: {fileID: 11400000, guid: d4a17e8c9b2f4aa5a36c0d7e8192f4b0, type: 2}
