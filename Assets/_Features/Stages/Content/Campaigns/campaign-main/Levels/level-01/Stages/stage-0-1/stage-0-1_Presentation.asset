@@ -466,7 +466,4 @@ MonoBehaviour:
     heightOffset: 0.08
     facingMode: 0
     hideWhenFaceInactive: 1
-  resultTitle: Stage Cleared
-  resultSummaryText: 
-  resultDetailText: 
   resultContinueLabel: Continue

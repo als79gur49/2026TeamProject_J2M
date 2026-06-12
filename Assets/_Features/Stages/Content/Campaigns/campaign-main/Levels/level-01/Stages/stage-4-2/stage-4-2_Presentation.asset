@@ -324,7 +324,4 @@ MonoBehaviour:
   boardTilePaintOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings: []
-  resultTitle: Stage Cleared
-  resultSummaryText: 
-  resultDetailText: 
   resultContinueLabel: Continue

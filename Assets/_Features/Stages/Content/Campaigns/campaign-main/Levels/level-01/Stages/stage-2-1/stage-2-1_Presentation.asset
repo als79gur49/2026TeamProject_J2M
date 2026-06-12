@@ -629,7 +629,4 @@ MonoBehaviour:
   tileFeaturePresentationBindings: []
   worldGuideCatalog: {fileID: 0}
   worldGuideInstructions: []
-  resultTitle: Stage Cleared
-  resultSummaryText: 
-  resultDetailText: 
   resultContinueLabel: Continue

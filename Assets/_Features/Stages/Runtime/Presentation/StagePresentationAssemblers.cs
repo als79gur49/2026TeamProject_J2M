@@ -54,9 +54,6 @@ namespace Game.Feature.Stages
             IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeatureBindings,
             StageWorldGuideCatalog worldGuideCatalog,
             IReadOnlyList<StageWorldGuideInstructionResolved> worldGuideInstructions,
-            string resultTitle,
-            string resultSummaryText,
-            string resultDetailText,
             string resultContinueLabel,
             IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
         {
@@ -76,9 +73,6 @@ namespace Game.Feature.Stages
             WorldGuideCatalog = worldGuideCatalog;
             WorldGuideInstructions = CloneReadOnlyWorldGuideInstructions(worldGuideInstructions);
             SuppressedBaseTileCells = CloneReadOnlySurfaceCells(suppressedBaseTileCells);
-            ResultTitle = resultTitle ?? string.Empty;
-            ResultSummaryText = resultSummaryText ?? string.Empty;
-            ResultDetailText = resultDetailText ?? string.Empty;
             ResultContinueLabel = resultContinueLabel ?? string.Empty;
         }
 
@@ -113,12 +107,6 @@ namespace Game.Feature.Stages
         public IReadOnlyList<StageWorldGuideInstructionResolved> WorldGuideInstructions { get; }
 
         public IReadOnlyList<SurfaceCell> SuppressedBaseTileCells { get; }
-
-        public string ResultTitle { get; }
-
-        public string ResultSummaryText { get; }
-
-        public string ResultDetailText { get; }
 
         public string ResultContinueLabel { get; }
 
@@ -236,9 +224,6 @@ namespace Game.Feature.Stages
             Array.Empty<TileFeaturePresentationResolvedBinding>(),
             null,
             Array.Empty<StageWorldGuideInstructionResolved>(),
-            string.Empty,
-            string.Empty,
-            string.Empty,
             string.Empty);
 
         public static StagePresentationResolvedData Resolve(StagePresentationDefinition definition)
@@ -265,9 +250,6 @@ namespace Game.Feature.Stages
                 ResolveTileFeatureBindings(definition.TileFeaturePresentationBindings),
                 definition.WorldGuideCatalog,
                 ResolveWorldGuideInstructions(definition.WorldGuideInstructions, definition),
-                definition.ResultTitle,
-                definition.ResultSummaryText,
-                definition.ResultDetailText,
                 definition.ResultContinueLabel);
         }
 
@@ -302,9 +284,6 @@ namespace Game.Feature.Stages
                 tileFeatureBindings,
                 definition.WorldGuideCatalog,
                 ResolveWorldGuideInstructions(definition.WorldGuideInstructions, definition),
-                definition.ResultTitle,
-                definition.ResultSummaryText,
-                definition.ResultDetailText,
                 definition.ResultContinueLabel,
                 BuildSuppressedBaseTileCells(gameplayDefinition, tileFeatureBindings));
         }

@@ -16,25 +16,33 @@ namespace Game.Feature.Stages
     [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Presentation Definition", fileName = "stage-presentation")]
     public sealed class StagePresentationDefinition : StageCompanionDefinitionBase
     {
+        [Header("Stage Identity / Scene")]
         [SerializeField] private string displayName = string.Empty;
         [SerializeField] private GameObject backgroundPrefab;
+
+        [Header("Entity Presentation")]
         [SerializeField] private EnemyPresentationCatalog enemyPresentationCatalog;
         [SerializeField] private EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog;
         [SerializeField] private EnemyPresentationBinding[] enemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         [SerializeField] private StaticEntityPresentationCatalog staticEntityPresentationCatalog;
         [SerializeField] private StaticEntityPresentationBinding[] staticEntityPresentationBindings = Array.Empty<StaticEntityPresentationBinding>();
+
+        [Header("Board Presentation")]
         [SerializeField] private BoardPresentationProfile boardPresentationProfile;
         [SerializeField] private BoardTilePresentationCatalog boardTilePresentationCatalog;
         [SerializeField] private BoardTilePaintOverride[] boardTilePaintOverrides =
             Array.Empty<BoardTilePaintOverride>();
+
+        [Header("Tile Feature Presentation")]
         [SerializeField] private TileFeaturePresentationCatalog tileFeaturePresentationCatalog;
         [SerializeField] private TileFeaturePresentationBinding[] tileFeaturePresentationBindings = Array.Empty<TileFeaturePresentationBinding>();
+
+        [Header("World Guide")]
         [SerializeField] private StageWorldGuideCatalog worldGuideCatalog;
         [SerializeField] private StageWorldGuideInstruction[] worldGuideInstructions =
             Array.Empty<StageWorldGuideInstruction>();
-        [SerializeField] private string resultTitle = "Stage Cleared";
-        [SerializeField] private string resultSummaryText = string.Empty;
-        [SerializeField] private string resultDetailText = string.Empty;
+
+        [Header("Stage Result UI")]
         [SerializeField] private string resultContinueLabel = "Continue";
 
         public string DisplayName => displayName ?? string.Empty;
@@ -72,12 +80,6 @@ namespace Game.Feature.Stages
         public IReadOnlyList<StageWorldGuideInstruction> WorldGuideInstructions =>
             worldGuideInstructions ?? Array.Empty<StageWorldGuideInstruction>();
 
-        public string ResultTitle => resultTitle ?? string.Empty;
-
-        public string ResultSummaryText => resultSummaryText ?? string.Empty;
-
-        public string ResultDetailText => resultDetailText ?? string.Empty;
-
         public string ResultContinueLabel => resultContinueLabel ?? string.Empty;
 
         public void ApplyResolvedData(StagePresentationResolvedData value)
@@ -103,9 +105,6 @@ namespace Game.Feature.Stages
             worldGuideInstructions =
                 StagePresentationAssembler.ToAuthoringWorldGuideInstructions(
                     resolvedData.WorldGuideInstructions);
-            resultTitle = resolvedData.ResultTitle;
-            resultSummaryText = resolvedData.ResultSummaryText;
-            resultDetailText = resolvedData.ResultDetailText;
             resultContinueLabel = resolvedData.ResultContinueLabel;
         }
     }

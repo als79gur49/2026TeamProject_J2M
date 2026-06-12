@@ -13,9 +13,10 @@
 - Pinned Unity UI EditMode: `155 total / 0 failed`
 - Prior Phase 1 drift-correction rerun: green on 2026-06-06 KST
 - Current PR-A Objective UI removal baseline rerun: green on 2026-06-11 KST
+- Current StageResult result text schema cleanup rerun: green on 2026-06-12 KST
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `688 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `688 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `690 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `690 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
@@ -44,10 +45,11 @@
   - external structure-source regeneration guard proving root `UI-Current-Structure-Source.md` mirrors the current 3-layer shell, identity lists, DemoStageControl classification, retired ActionBar status, removed diagnostics status, canonical transition path, and resolver-only navigation state
   - PR-1 stage completion guards proving StageResult + Continue, final-stage GameClear, retry payload, next-stage/no-next-stage mapping, terminal back consume, Reward residue absence, and screen/popup/HUD separation before UI refactor scaffolding begins
   - PR-A Objective UI removal guards proving `ObjectiveStatus` screen, `ObjectiveInfo` popup, pause objective action semantics, deleted prefab files, and deleted prefab GUID references are absent from production UI vocabulary
+  - StageResult result text schema cleanup guards proving `ResultTitle`, `ResultSummaryText`, `ResultDetailText`, StageResult `TitleText` / `DetailText`, hidden title/detail prefab labels, and production YAML residue are absent while `ResultContinueLabel` remains
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `688 total / 0 failed`
-  - delta: `+625` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical gameplay shell adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, canonical navigation resolver-only enforcement, current-structure source regeneration, PR-1 stage completion protection, and PR-A Objective UI removal protection
+  - current rerun: `690 total / 0 failed`
+  - delta: `+626` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical gameplay shell adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, canonical navigation resolver-only enforcement, current-structure source regeneration, PR-1 stage completion protection, PR-A Objective UI removal protection, and StageResult result text schema cleanup protection
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
@@ -148,7 +150,7 @@
 - Settings authored child-view canonicalization is closed here; future changes should update runtime contracts and focused behavior tests directly
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path through `MinimalStageCompletionReadModel`; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
 - current canonical `PopupId` values are `None`, `Pause`, `Confirm`, `Tooltip`, and `DemoStageControl`
-- StageResult screen is a stage completion presentation endpoint. It consumes `MinimalStageCompletionReadModel`-derived payloads and emits intent-only `StageNavigationRequest` values for continue, retry, and next-stage paths.
+- StageResult screen is a stage completion presentation endpoint. It consumes `MinimalStageCompletionReadModel`-derived continue/navigation payloads and emits intent-only `StageNavigationRequest` values for continue, retry, and next-stage paths. `ResultTitle`, `ResultSummaryText`, `ResultDetailText`, and StageResult title/detail label paths are removed product-decision residue; `ResultContinueLabel` remains the authored StageResult text path.
 - Reward residue is not a stage-clear presentation endpoint or reward commit owner. Reward/progression commit remains owned by the stage subsystem before UI consumes the read model.
 - UI remains non-authoritative: it does not mutate `WorldState`, does not receive raw `TickResult` or raw gameplay frames in views, and consumes snapshots/viewmodels/read models instead.
 - Stage completion back handling is fixed as current behavior: terminal result screens consume back, and screen/popup/HUD remain separate stacks/layers with input blocking derived from `UIBlockPolicy`.
@@ -165,8 +167,8 @@
 ## Companion Smoke Check
 - Command: `./run_tests.sh core`
 - Status: green
-- Core EditMode: `13 total / 0 failed`
-- Core PlayMode: `2 total / 0 failed`
+- Core EditMode: `184 total / 0 failed`
+- Core PlayMode: `34 total / 0 failed`
 - Interpretation:
   - this remains a companion smoke lane, not a replacement for `./run_tests.sh ui`
   - Stage 9 evidence is incomplete if the UI lane passes on a worktree where the companion core lane is not rerun

@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -491,7 +492,7 @@ namespace Game.Feature.Stages.Editor.Tests
             try
             {
                 SetString(fixture.Presentation, "displayName", "Edited Display");
-                SetString(fixture.Presentation, "resultTitle", "Edited Result");
+                SetString(fixture.Presentation, "resultContinueLabel", "Keep Going");
 
                 var report = fixture.Validate();
                 Assert.That(report.Issues.Any(IsPresentationIntegrityIssue), Is.False, FormatIssues(report));
@@ -500,6 +501,35 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 fixture.Destroy();
             }
+        }
+
+        [Test]
+        public void ProductionPresentationAssets_DoNotContainRemovedStageResultTextSchema()
+        {
+            var presentationAssets = Directory.GetFiles(
+                "Assets/_Features/Stages/Content",
+                "*_Presentation.asset",
+                SearchOption.AllDirectories);
+            Assert.That(presentationAssets, Is.Not.Empty);
+
+            var obsoleteResidue = presentationAssets
+                .Select(path => new
+                {
+                    Path = path,
+                    Text = File.ReadAllText(path),
+                })
+                .Where(asset =>
+                    asset.Text.Contains("resultTitle:", StringComparison.Ordinal) ||
+                    asset.Text.Contains("resultSummaryText:", StringComparison.Ordinal) ||
+                    asset.Text.Contains("resultDetailText:", StringComparison.Ordinal))
+                .Select(asset => asset.Path)
+                .ToArray();
+
+            Assert.That(obsoleteResidue, Is.Empty);
+            Assert.That(
+                presentationAssets.Any(path =>
+                    File.ReadAllText(path).Contains("resultContinueLabel:", StringComparison.Ordinal)),
+                Is.True);
         }
 
         [Test]

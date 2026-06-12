@@ -432,7 +432,4 @@ MonoBehaviour:
   boardTilePresentationCatalog: {fileID: 0}
   tileFeaturePresentationCatalog: {fileID: 0}
   tileFeaturePresentationBindings: []
-  resultTitle: Stage Cleared
-  resultSummaryText: 
-  resultDetailText: 
   resultContinueLabel: Continue

@@ -78,13 +78,35 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void StageResult_DoesNotExposeInvisibleTitleOrDetailTextPath()
+        {
+            AssertNoDeclaredMembersNamed(
+                typeof(StageResultScreenPayload),
+                "TitleText",
+                "DetailText");
+            AssertNoDeclaredMembersNamed(
+                typeof(StageResultScreenViewModel),
+                "TitleText",
+                "DetailText");
+            AssertNoDeclaredMembersNamed(
+                typeof(StageResultScreenView),
+                "_titleLabel",
+                "_detailLabel");
+
+            var prefab = File.ReadAllText(UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
+            Assert.That(prefab, Does.Not.Contain("_titleLabel"));
+            Assert.That(prefab, Does.Not.Contain("_detailLabel"));
+            Assert.That(prefab, Does.Not.Contain("m_Name: Title"));
+            Assert.That(prefab, Does.Not.Contain("m_Name: Detail"));
+            Assert.That(prefab, Does.Contain("_continueButtonLabel"));
+        }
+
+        [Test]
         public void NavigationRequests_AreStageIdBased()
         {
             var stageId = StageId.CreateOrThrow("stage-result-boundary");
             var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "boundary-test");
             var payload = new StageResultScreenPayload(
-                "Title",
-                "Detail",
                 "Continue",
                 request,
                 StageNavigationRequest.None,
@@ -106,6 +128,18 @@ namespace Game.Feature.UI.Tests
                         Does.Not.Contain(token),
                         $"{sourcePath}: StageResult/Reward popup are UI presentation/navigation endpoints; stage reward/progression commit lane remains stage-owned.");
                 }
+            }
+        }
+
+        private static void AssertNoDeclaredMembersNamed(Type type, params string[] forbiddenNames)
+        {
+            var memberNames = type
+                .GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(member => member.Name)
+                .ToArray();
+            foreach (var forbiddenName in forbiddenNames)
+            {
+                Assert.That(memberNames, Does.Not.Contain(forbiddenName), type.FullName);
             }
         }
     }

@@ -148,8 +148,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(controller.Replace(new ScreenRequest(
                 ScreenId.StageResult,
                 new StageResultScreenPayload(
-                    "Title",
-                    "Detail",
                     "Continue",
                     StageNavigationRequest.None,
                     StageNavigationRequest.None,

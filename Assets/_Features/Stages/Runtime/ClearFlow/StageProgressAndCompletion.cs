@@ -48,8 +48,6 @@ namespace Game.Feature.Stages
             StageId stageId,
             string displayName,
             MinimalStageCompletionResult result,
-            string presentationTitle,
-            string presentationDetail,
             string continueLabel,
             StageNavigationRequest continueRequest,
             StageNavigationRequest retryRequest,
@@ -58,8 +56,6 @@ namespace Game.Feature.Stages
             StageId = stageId;
             DisplayName = displayName ?? string.Empty;
             Result = result ?? throw new ArgumentNullException(nameof(result));
-            PresentationTitle = presentationTitle ?? string.Empty;
-            PresentationDetail = presentationDetail ?? string.Empty;
             ContinueLabel = continueLabel ?? string.Empty;
             ContinueRequest = continueRequest;
             RetryRequest = retryRequest;
@@ -71,10 +67,6 @@ namespace Game.Feature.Stages
         public string DisplayName { get; }
 
         public MinimalStageCompletionResult Result { get; }
-
-        public string PresentationTitle { get; }
-
-        public string PresentationDetail { get; }
 
         public string ContinueLabel { get; }
 
@@ -132,8 +124,6 @@ namespace Game.Feature.Stages
                 stageId,
                 presentation.DisplayName,
                 result,
-                string.IsNullOrWhiteSpace(presentation.ResultTitle) ? "Stage Cleared" : presentation.ResultTitle,
-                presentation.ResultDetailText,
                 string.IsNullOrWhiteSpace(presentation.ResultContinueLabel) ? "Continue" : presentation.ResultContinueLabel,
                 continueRequest,
                 retryRequest,

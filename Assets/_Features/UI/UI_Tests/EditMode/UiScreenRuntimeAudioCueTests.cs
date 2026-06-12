@@ -92,8 +92,6 @@ namespace Game.Feature.UI.Tests
             using var harness = UiAudioHarness.Create();
             var request = CreateStageNavigationRequest(StageNavigationKind.NextStage);
             var payload = new StageResultScreenPayload(
-                "Clear",
-                "Detail",
                 "Continue",
                 request,
                 StageNavigationRequest.None,
