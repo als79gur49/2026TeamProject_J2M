@@ -4,8 +4,6 @@ using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
-using Game.Shared.Audio;
-using Game.Shared.Display;
 using Game.Shared.Input;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -179,10 +177,10 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException(MissingSettingsScreenPrefabMessage);
             }
 
-            var audioSettingsPort = CreateAudioSettingsPort();
-            var displaySettingsPort = CreateDisplaySettingsPort();
+            var audioSettingsPort = UiSettingsBridgeAssembly.CreateAudioSettingsPort(gameObject, MissingAudioInstallerMessage);
+            var displaySettingsPort = UiSettingsBridgeAssembly.CreateDisplaySettingsPort(gameObject, MissingDisplayInstallerMessage);
             _keyboardBindingSettingsPort = CreateKeyboardBindingSettingsPort();
-            EnsureAudioSettingsLifecycleRelay(audioSettingsPort);
+            _audioSettingsLifecycleRelay = UiSettingsBridgeAssembly.EnsureAudioSettingsLifecycleRelay(gameObject, audioSettingsPort);
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
 
@@ -501,55 +499,13 @@ namespace Game.Feature.UI.Composition
             _popupLayerView.Configure(layerRoot, backdropCanvasGroup, backdropImage, backdropButton, contentRect);
         }
 
-        private IAudioSettingsPort CreateAudioSettingsPort()
-        {
-            var audioRuntimeInstaller = GetRequiredAudioRuntimeInstaller();
-            audioRuntimeInstaller.Install();
-            if (audioRuntimeInstaller.AudioSettingsService == null)
-            {
-                throw new InvalidOperationException(MissingAudioInstallerMessage);
-            }
-
-            return new AudioSettingsPortAdapter(audioRuntimeInstaller.AudioSettingsService);
-        }
-
-        private IUiAudioPort CreateUiAudioPort()
-        {
-            if (_uiAudioCueMap == null)
-            {
-                throw new InvalidOperationException(MissingUiAudioCueMapMessage);
-            }
-
-            var audioRuntimeInstaller = GetRequiredAudioRuntimeInstaller();
-            audioRuntimeInstaller.Install();
-            if (audioRuntimeInstaller.AudioService == null)
-            {
-                throw new InvalidOperationException(MissingAudioInstallerMessage);
-            }
-
-            return new UiAudioPortAdapter(audioRuntimeInstaller.AudioService, _uiAudioCueMap);
-        }
-
         private IUiAudioPort EnsureUiAudioPort()
         {
-            return _uiAudioPort ??= CreateUiAudioPort();
-        }
-
-        private IDisplaySettingsPort CreateDisplaySettingsPort()
-        {
-            var displayRuntimeInstaller = GetComponent<DisplayRuntimeInstaller>();
-            if (displayRuntimeInstaller == null)
-            {
-                throw new InvalidOperationException(MissingDisplayInstallerMessage);
-            }
-
-            displayRuntimeInstaller.Install();
-            if (displayRuntimeInstaller.DisplaySettingsService == null)
-            {
-                throw new InvalidOperationException(MissingDisplayInstallerMessage);
-            }
-
-            return new DisplaySettingsPortAdapter(displayRuntimeInstaller.DisplaySettingsService);
+            return _uiAudioPort ??= UiSettingsBridgeAssembly.CreateUiAudioPort(
+                gameObject,
+                _uiAudioCueMap,
+                MissingAudioInstallerMessage,
+                MissingUiAudioCueMapMessage);
         }
 
         private IKeyboardBindingSettingsPort CreateKeyboardBindingSettingsPort()
@@ -590,28 +546,6 @@ namespace Game.Feature.UI.Composition
                 overlay,
                 audioFocus);
             return _cinematicFlowCoordinator;
-        }
-
-        private AudioRuntimeInstaller GetRequiredAudioRuntimeInstaller()
-        {
-            var audioRuntimeInstaller = GetComponent<AudioRuntimeInstaller>();
-            if (audioRuntimeInstaller == null)
-            {
-                throw new InvalidOperationException(MissingAudioInstallerMessage);
-            }
-
-            return audioRuntimeInstaller;
-        }
-
-        private void EnsureAudioSettingsLifecycleRelay(IAudioSettingsPort audioSettingsPort)
-        {
-            _audioSettingsLifecycleRelay = GetComponent<AudioSettingsLifecycleRelay>();
-            if (_audioSettingsLifecycleRelay == null)
-            {
-                _audioSettingsLifecycleRelay = gameObject.AddComponent<AudioSettingsLifecycleRelay>();
-            }
-
-            _audioSettingsLifecycleRelay.Initialize(audioSettingsPort);
         }
 
         private void EnsureDisplayPreviewTimeoutRelay()
