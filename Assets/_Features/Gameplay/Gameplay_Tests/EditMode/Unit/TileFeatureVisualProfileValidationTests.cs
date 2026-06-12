@@ -97,6 +97,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void ProfileValidation_ReportsInvalidActiveStateAnimatorBindings()
+        {
+            var profile = ScriptableObject.CreateInstance<TileFeatureVisualProfile>();
+
+            try
+            {
+                SetPrivateField(profile, "featureKind", TileFeatureKind.Barricade);
+                SetPrivateField(
+                    profile,
+                    "cueBindings",
+                    new[]
+                    {
+                        new TileFeatureVisualCueBinding
+                        {
+                            CueId = TileFeatureVisualCueId.BarricadeActiveState,
+                            TargetSlot = TileFeatureVisualSlotId.Root,
+                            AnimatorBinding = new TileFeatureAnimatorBinding
+                            {
+                                CueId = TileFeatureVisualCueId.BarricadeActiveState,
+                                Kind = TileFeatureAnimatorBindingKind.Bool,
+                                ParameterOrStateName = "BarricadeActive",
+                            },
+                            ActiveStateAnimatorBinding = new TileFeatureAnimatorBinding
+                            {
+                                CueId = TileFeatureVisualCueId.BarricadeBlocked,
+                                Kind = TileFeatureAnimatorBindingKind.State,
+                                ParameterOrStateName = string.Empty,
+                            },
+                            InactiveStateAnimatorBinding = new TileFeatureAnimatorBinding
+                            {
+                                CueId = TileFeatureVisualCueId.BarricadeActiveState,
+                                Kind = TileFeatureAnimatorBindingKind.State,
+                                ParameterOrStateName = string.Empty,
+                            },
+                        },
+                    });
+
+                var diagnostics = TileFeatureVisualBindingDiagnostics.ForProfile(profile);
+
+                Assert.That(diagnostics.IsValid, Is.False);
+                Assert.That(diagnostics.Messages, Has.Some.Contains("Invalid active state animator binding"));
+                Assert.That(diagnostics.Messages, Has.Some.Contains("Invalid inactive state animator binding"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
         private static void SetPrivateField<T>(TileFeatureVisualProfile profile, string fieldName, T value)
         {
             typeof(TileFeatureVisualProfile)

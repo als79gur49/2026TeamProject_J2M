@@ -176,7 +176,7 @@ namespace Game.Feature.Gameplay.Host
             return false;
         }
 
-        private static GameplayVfxRequest CreateGameplayVfxRequest(
+        protected static GameplayVfxRequest CreateGameplayVfxRequest(
             in TileFeatureVisualRequest request,
             in TileFeatureVisualCueBinding binding)
         {
@@ -203,7 +203,7 @@ namespace Game.Feature.Gameplay.Host
                 persistentKey: persistentKey);
         }
 
-        private static void ApplyAnimatorBinding(
+        protected static void ApplyAnimatorBinding(
             Animator animator,
             in TileFeatureAnimatorBinding binding,
             bool active)
@@ -348,6 +348,9 @@ namespace Game.Feature.Gameplay.Host
 
     public sealed class BarricadeTileFeatureVisualHandler : TileFeatureVisualHandlerBase
     {
+        private bool hasActiveState;
+        private bool lastActiveState;
+
         public BarricadeTileFeatureVisualHandler() : base(TileFeatureKind.Barricade) { }
 
         public override bool CanHandle(TileFeatureVisualCueId cueId)
@@ -360,6 +363,102 @@ namespace Game.Feature.Gameplay.Host
                 TileFeatureVisualCueId.BarricadeDeactivated,
                 TileFeatureVisualCueId.BarricadeActiveState,
                 TileFeatureVisualCueId.BarricadeActiveLoop);
+        }
+
+        public void ResetActiveStateCache()
+        {
+            hasActiveState = false;
+            lastActiveState = false;
+        }
+
+        public override bool TryHandle(
+            in TileFeatureVisualRequest request,
+            ITileFeatureVisualTarget target,
+            TileFeatureVisualProfile profile,
+            Animator animator,
+            IGameplayVfxPlaybackPort gameplayVfxPlaybackPort)
+        {
+            if (!CanHandle(request.CueId))
+            {
+                return false;
+            }
+
+            if (request.CueId == TileFeatureVisualCueId.BarricadeActiveState)
+            {
+                ApplyActiveState(request, profile, animator, gameplayVfxPlaybackPort);
+                return true;
+            }
+
+            if (!base.TryHandle(request, target, profile, animator, gameplayVfxPlaybackPort))
+            {
+                return false;
+            }
+
+            switch (request.CueId)
+            {
+                case TileFeatureVisualCueId.BarricadeBlocked:
+                case TileFeatureVisualCueId.BarricadeActivated:
+                    ApplyActiveBoolBinding(profile, animator, active: true);
+                    MarkActiveState(true);
+                    break;
+                case TileFeatureVisualCueId.BarricadeDeactivated:
+                    ApplyActiveBoolBinding(profile, animator, active: false);
+                    MarkActiveState(false);
+                    break;
+            }
+
+            return true;
+        }
+
+        private void ApplyActiveState(
+            in TileFeatureVisualRequest request,
+            TileFeatureVisualProfile profile,
+            Animator animator,
+            IGameplayVfxPlaybackPort gameplayVfxPlaybackPort)
+        {
+            if (profile != null &&
+                profile.TryGetCueBinding(request.CueId, out var binding))
+            {
+                ApplyAnimatorBinding(animator, binding.AnimatorBinding, request.Active);
+                if (binding.SendGameplayVfx &&
+                    gameplayVfxPlaybackPort != null)
+                {
+                    gameplayVfxPlaybackPort.Play(CreateGameplayVfxRequest(request, binding));
+                }
+
+                if (hasActiveState &&
+                    lastActiveState == request.Active)
+                {
+                    return;
+                }
+
+                MarkActiveState(request.Active);
+                ApplyAnimatorBinding(
+                    animator,
+                    request.Active ? binding.ActiveStateAnimatorBinding : binding.InactiveStateAnimatorBinding,
+                    request.Active);
+                return;
+            }
+
+            MarkActiveState(request.Active);
+        }
+
+        private static void ApplyActiveBoolBinding(
+            TileFeatureVisualProfile profile,
+            Animator animator,
+            bool active)
+        {
+            if (profile != null &&
+                profile.TryGetCueBinding(TileFeatureVisualCueId.BarricadeActiveState, out var activeStateBinding))
+            {
+                ApplyAnimatorBinding(animator, activeStateBinding.AnimatorBinding, active);
+            }
+        }
+
+        private void MarkActiveState(bool active)
+        {
+            hasActiveState = true;
+            lastActiveState = active;
         }
     }
 

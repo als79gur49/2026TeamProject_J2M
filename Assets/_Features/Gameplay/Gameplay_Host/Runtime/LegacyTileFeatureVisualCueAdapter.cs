@@ -65,6 +65,8 @@ namespace Game.Feature.Gameplay.Host
 
         private bool hasBarricadeActiveImmediateState;
         private bool lastBarricadeActiveImmediateState;
+        private bool hasBarricadeFallbackAnimatorActiveState;
+        private bool lastBarricadeFallbackAnimatorActiveState;
         private IGameplayVfxPlaybackPort gameplayVfxPlaybackPort;
 
         public int DebugPlayButtonActivatedCount { get; private set; }
@@ -78,7 +80,13 @@ namespace Game.Feature.Gameplay.Host
         public int DebugPlayBarricadeCrushedCount { get; private set; }
         public int DebugPlayBarricadeActivatedCount { get; private set; }
         public int DebugPlayBarricadeDeactivatedCount { get; private set; }
+        public int DebugBarricadeBlockedCount => DebugPlayBarricadeBlockedCount;
+        public int DebugBarricadeCrushedCount => DebugPlayBarricadeCrushedCount;
+        public int DebugBarricadeActivatedCount => DebugPlayBarricadeActivatedCount;
+        public int DebugBarricadeDeactivatedCount => DebugPlayBarricadeDeactivatedCount;
         public int DebugBarricadeActiveImmediateStatePlayCount { get; private set; }
+        public int DebugBarricadeActiveAnimatorStatePlayCount { get; private set; }
+        public int DebugLastBarricadeActiveAnimatorStateHash { get; private set; }
         public int DebugPlayExitOpenedCount { get; private set; }
         public int DebugPlayExitEnteredCount { get; private set; }
         public bool DebugExitOpen { get; private set; }
@@ -261,7 +269,12 @@ namespace Game.Feature.Gameplay.Host
         {
             hasBarricadeActiveImmediateState = false;
             lastBarricadeActiveImmediateState = false;
+            hasBarricadeFallbackAnimatorActiveState = false;
+            lastBarricadeFallbackAnimatorActiveState = false;
             DebugBarricadeActiveImmediateStatePlayCount = 0;
+            DebugBarricadeActiveAnimatorStatePlayCount = 0;
+            DebugLastBarricadeActiveAnimatorStateHash = 0;
+            barricadeHandler.ResetActiveStateCache();
         }
 
         private ITileFeatureVisualHandler ResolveHandler(in TileFeatureVisualRequest request)
@@ -474,6 +487,7 @@ namespace Game.Feature.Gameplay.Host
                 case TileFeatureVisualCueId.BarricadeBlocked:
                     SetTriggerIfPresent(resolvedAnimator, BarricadeBlockedTrigger);
                     SetBoolIfPresent(resolvedAnimator, BarricadeActiveBool, true);
+                    MarkBarricadeFallbackAnimatorActiveState(true);
                     return;
                 case TileFeatureVisualCueId.BarricadeCrushed:
                     SetTriggerIfPresent(resolvedAnimator, BarricadeCrushedTrigger);
@@ -481,16 +495,17 @@ namespace Game.Feature.Gameplay.Host
                 case TileFeatureVisualCueId.BarricadeActivated:
                     SetTriggerIfPresent(resolvedAnimator, BarricadeActivatedTrigger);
                     SetBoolIfPresent(resolvedAnimator, BarricadeActiveBool, true);
-                    PlayStateIfPresent(resolvedAnimator, BarricadeRaisedState);
+                    PlayBarricadeFallbackStateIfPresent(resolvedAnimator, BarricadeRaisedState);
+                    MarkBarricadeFallbackAnimatorActiveState(true);
                     return;
                 case TileFeatureVisualCueId.BarricadeDeactivated:
                     SetTriggerIfPresent(resolvedAnimator, BarricadeDeactivatedTrigger);
                     SetBoolIfPresent(resolvedAnimator, BarricadeActiveBool, false);
-                    PlayStateIfPresent(resolvedAnimator, BarricadeLoweredState);
+                    PlayBarricadeFallbackStateIfPresent(resolvedAnimator, BarricadeLoweredState);
+                    MarkBarricadeFallbackAnimatorActiveState(false);
                     return;
                 case TileFeatureVisualCueId.BarricadeActiveState:
-                    SetBoolIfPresent(resolvedAnimator, BarricadeActiveBool, request.Active);
-                    PlayStateIfPresent(resolvedAnimator, request.Active ? BarricadeRaisedState : BarricadeLoweredState);
+                    ApplyBarricadeActiveStateFallback(resolvedAnimator, request.Active);
                     return;
                 case TileFeatureVisualCueId.ExitOpened:
                     SetTriggerIfPresent(resolvedAnimator, ExitOpenedTrigger);
@@ -529,13 +544,46 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private static void PlayStateIfPresent(Animator targetAnimator, int hash)
+        private void ApplyBarricadeActiveStateFallback(Animator targetAnimator, bool active)
+        {
+            SetBoolIfPresent(targetAnimator, BarricadeActiveBool, active);
+            if (hasBarricadeFallbackAnimatorActiveState &&
+                lastBarricadeFallbackAnimatorActiveState == active)
+            {
+                return;
+            }
+
+            MarkBarricadeFallbackAnimatorActiveState(active);
+            PlayBarricadeFallbackStateIfPresent(
+                targetAnimator,
+                active ? BarricadeRaisedState : BarricadeLoweredState);
+        }
+
+        private void MarkBarricadeFallbackAnimatorActiveState(bool active)
+        {
+            hasBarricadeFallbackAnimatorActiveState = true;
+            lastBarricadeFallbackAnimatorActiveState = active;
+        }
+
+        private void PlayBarricadeFallbackStateIfPresent(Animator targetAnimator, int hash)
+        {
+            if (PlayStateIfPresent(targetAnimator, hash))
+            {
+                DebugBarricadeActiveAnimatorStatePlayCount++;
+                DebugLastBarricadeActiveAnimatorStateHash = hash;
+            }
+        }
+
+        private static bool PlayStateIfPresent(Animator targetAnimator, int hash)
         {
             if (targetAnimator.HasState(0, hash))
             {
                 targetAnimator.Play(hash, 0, 1f);
                 targetAnimator.Update(0f);
+                return true;
             }
+
+            return false;
         }
 
         private static bool HasAnimatorParameter(

@@ -70,13 +70,13 @@ namespace Game.Feature.Gameplay.Host
 
         public int DebugPlaySlideTileRedirectedCount => ResolveDebugAdapter()?.DebugPlaySlideTileRedirectedCount ?? 0;
 
-        public int DebugPlayBarricadeBlockedCount => ResolveDebugAdapter()?.DebugPlayBarricadeBlockedCount ?? 0;
+        public int DebugBarricadeBlockedCount => ResolveDebugAdapter()?.DebugBarricadeBlockedCount ?? 0;
 
-        public int DebugPlayBarricadeCrushedCount => ResolveDebugAdapter()?.DebugPlayBarricadeCrushedCount ?? 0;
+        public int DebugBarricadeCrushedCount => ResolveDebugAdapter()?.DebugBarricadeCrushedCount ?? 0;
 
-        public int DebugPlayBarricadeActivatedCount => ResolveDebugAdapter()?.DebugPlayBarricadeActivatedCount ?? 0;
+        public int DebugBarricadeActivatedCount => ResolveDebugAdapter()?.DebugBarricadeActivatedCount ?? 0;
 
-        public int DebugPlayBarricadeDeactivatedCount => ResolveDebugAdapter()?.DebugPlayBarricadeDeactivatedCount ?? 0;
+        public int DebugBarricadeDeactivatedCount => ResolveDebugAdapter()?.DebugBarricadeDeactivatedCount ?? 0;
 
         internal int DebugBarricadeActiveImmediateStatePlayCount =>
             ResolveDebugAdapter()?.DebugBarricadeActiveImmediateStatePlayCount ?? 0;

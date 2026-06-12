@@ -60,6 +60,8 @@ namespace Game.Feature.Gameplay.Host
         public TileFeatureVisualCueId CueId;
         public TileFeatureVisualSlotId TargetSlot;
         public TileFeatureAnimatorBinding AnimatorBinding;
+        public TileFeatureAnimatorBinding ActiveStateAnimatorBinding;
+        public TileFeatureAnimatorBinding InactiveStateAnimatorBinding;
         public TileFeatureVfxCue GameplayVfxCue;
         public bool SendGameplayVfx;
         public bool Persistent;
@@ -147,24 +149,17 @@ namespace Game.Feature.Gameplay.Host
                     diagnostics.Add($"Missing target slot: {binding.TargetSlot}.");
                 }
 
-                var animatorBinding = binding.AnimatorBinding;
-                if (animatorBinding.CueId != TileFeatureVisualCueId.None &&
-                    animatorBinding.CueId != binding.CueId)
-                {
-                    diagnostics.Add($"Invalid animator binding for cue {binding.CueId}: cue mismatch.");
-                }
-
-                if (animatorBinding.CueId != TileFeatureVisualCueId.None &&
-                    string.IsNullOrWhiteSpace(animatorBinding.ParameterOrStateName))
-                {
-                    diagnostics.Add($"Invalid animator binding for cue {binding.CueId}: parameter or state name is missing.");
-                }
-
-                if (!string.IsNullOrWhiteSpace(animatorBinding.ParameterOrStateName) &&
-                    animatorBinding.Hash == 0)
-                {
-                    diagnostics.Add($"Invalid animator binding for cue {binding.CueId}.");
-                }
+                ValidateAnimatorBinding(diagnostics, binding.CueId, binding.AnimatorBinding, "animator binding");
+                ValidateAnimatorBinding(
+                    diagnostics,
+                    binding.CueId,
+                    binding.ActiveStateAnimatorBinding,
+                    "active state animator binding");
+                ValidateAnimatorBinding(
+                    diagnostics,
+                    binding.CueId,
+                    binding.InactiveStateAnimatorBinding,
+                    "inactive state animator binding");
             }
 
             var materialTargets = profile.InactiveMaterialTargets;
@@ -199,6 +194,34 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return diagnostics;
+        }
+
+        private static void ValidateAnimatorBinding(
+            TileFeatureVisualBindingDiagnostics diagnostics,
+            TileFeatureVisualCueId cueId,
+            in TileFeatureAnimatorBinding animatorBinding,
+            string bindingLabel)
+        {
+            if (animatorBinding.CueId == TileFeatureVisualCueId.None)
+            {
+                return;
+            }
+
+            if (animatorBinding.CueId != cueId)
+            {
+                diagnostics.Add($"Invalid {bindingLabel} for cue {cueId}: cue mismatch.");
+            }
+
+            if (string.IsNullOrWhiteSpace(animatorBinding.ParameterOrStateName))
+            {
+                diagnostics.Add($"Invalid {bindingLabel} for cue {cueId}: parameter or state name is missing.");
+                return;
+            }
+
+            if (animatorBinding.Hash == 0)
+            {
+                diagnostics.Add($"Invalid {bindingLabel} for cue {cueId}.");
+            }
         }
 
         private static bool TryResolveMaterialTargetRenderer(

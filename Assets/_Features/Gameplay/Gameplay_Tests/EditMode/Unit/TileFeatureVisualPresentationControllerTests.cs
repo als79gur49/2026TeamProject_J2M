@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -237,7 +238,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 controller.PlayRequests(new[] { CreateBarricadeBlockedRequest(100, cell, Direction.Right, targetEntityId: 20) });
 
-                Assert.That(target.DebugPlayBarricadeBlockedCount, Is.EqualTo(1));
+                Assert.That(target.DebugBarricadeBlockedCount, Is.EqualTo(1));
                 Assert.That(target.DebugLastBarricadeBlockedDirection, Is.EqualTo(Direction.Right));
                 Assert.That(target.DebugLastBarricadeBlockedTargetEntityId, Is.EqualTo(20));
                 Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
@@ -268,7 +269,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 controller.PlayRequests(new[] { CreateBarricadeCrushedRequest(100, cell, targetEntityId: 20) });
 
-                Assert.That(target.DebugPlayBarricadeCrushedCount, Is.EqualTo(1));
+                Assert.That(target.DebugBarricadeCrushedCount, Is.EqualTo(1));
                 Assert.That(target.DebugLastBarricadeCrushedTargetEntityId, Is.EqualTo(20));
                 Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
             }
@@ -302,10 +303,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateBarricadeDeactivatedRequest(100, cell),
                 });
 
-                Assert.That(target.DebugPlayBarricadeActivatedCount, Is.EqualTo(1));
-                Assert.That(target.DebugPlayBarricadeDeactivatedCount, Is.EqualTo(1));
-                Assert.That(target.DebugPlayBarricadeBlockedCount, Is.Zero);
-                Assert.That(target.DebugPlayBarricadeCrushedCount, Is.Zero);
+                Assert.That(target.DebugBarricadeActivatedCount, Is.EqualTo(1));
+                Assert.That(target.DebugBarricadeDeactivatedCount, Is.EqualTo(1));
+                Assert.That(target.DebugBarricadeBlockedCount, Is.Zero);
+                Assert.That(target.DebugBarricadeCrushedCount, Is.Zero);
             }
             finally
             {
@@ -318,22 +319,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void BarricadeActiveImmediateState_WithSameState_DoesNotReplayIdleState()
         {
             var targetObject = new GameObject(nameof(BarricadeActiveImmediateState_WithSameState_DoesNotReplayIdleState));
+            var controller = CreateBarricadeAnimatorController(nameof(BarricadeActiveImmediateState_WithSameState_DoesNotReplayIdleState));
 
             try
             {
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, new SurfaceCell(FaceId.Front, 1, 1));
+                AttachAnimator(targetObject, controller);
                 var adapter = EnsureLegacyAdapter(target);
 
                 adapter.SetBarricadeActiveImmediate(true);
-                adapter.SetBarricadeActiveImmediate(true);
-                adapter.SetBarricadeActiveImmediate(false);
-                adapter.SetBarricadeActiveImmediate(false);
+                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(1));
+                Assert.That(adapter.DebugLastBarricadeActiveAnimatorStateHash, Is.EqualTo(Animator.StringToHash("RaisedIdle")));
 
-                Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.EqualTo(2));
+                adapter.SetBarricadeActiveImmediate(true);
+                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(1));
+
+                adapter.SetBarricadeActiveImmediate(false);
+                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(2));
+                Assert.That(adapter.DebugLastBarricadeActiveAnimatorStateHash, Is.EqualTo(Animator.StringToHash("LoweredIdle")));
+
+                adapter.SetBarricadeActiveImmediate(false);
+                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(2));
+
+                adapter.SetBarricadeActiveImmediate(true);
+                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(3));
+                Assert.That(adapter.DebugLastBarricadeActiveAnimatorStateHash, Is.EqualTo(Animator.StringToHash("RaisedIdle")));
+
+                Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.EqualTo(3));
             }
             finally
             {
+                Object.DestroyImmediate(controller);
                 Object.DestroyImmediate(targetObject);
             }
         }
@@ -345,6 +362,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var rootObject = new GameObject(nameof(BarricadeBlockedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle));
             var targetObject = new GameObject("BarricadeVisualTarget");
             targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var animatorController = CreateBarricadeAnimatorController(nameof(BarricadeBlockedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle));
 
             try
             {
@@ -352,6 +370,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                var animator = AttachAnimator(targetObject, animatorController);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -366,14 +385,66 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var adapter = EnsureLegacyAdapter(target);
 
                 adapter.SetBarricadeActiveImmediate(true);
+                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(1));
                 controller.PlayRequests(new[] { CreateBarricadeBlockedRequest(100, cell, Direction.Right, targetEntityId: 20) });
                 controller.RefreshContinuousStates(new[] { activeState });
 
-                Assert.That(target.DebugPlayBarricadeBlockedCount, Is.EqualTo(1));
+                Assert.That(target.DebugBarricadeBlockedCount, Is.EqualTo(1));
                 Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.EqualTo(1));
+                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(1));
+                Assert.That(animator.GetBool("BarricadeActive"), Is.True);
+                Assert.That(adapter.DebugLastBarricadeActiveAnimatorStateHash, Is.EqualTo(Animator.StringToHash("RaisedIdle")));
             }
             finally
             {
+                Object.DestroyImmediate(animatorController);
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BarricadeCrushedRequest_WithActiveStateRefresh_DoesNotReplayIdle()
+        {
+            var rootObject = new GameObject(nameof(BarricadeCrushedRequest_WithActiveStateRefresh_DoesNotReplayIdle));
+            var targetObject = new GameObject("BarricadeVisualTarget");
+            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var animatorController = CreateBarricadeAnimatorController(nameof(BarricadeCrushedRequest_WithActiveStateRefresh_DoesNotReplayIdle));
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Front, 1, 1);
+                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
+                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                var animator = AttachAnimator(targetObject, animatorController);
+                registry.ConfigureSearchRoot(rootObject.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+                var activeState = new TileFeatureVisualState(
+                    100,
+                    cell,
+                    TileFeatureKind.Barricade,
+                    isActive: false,
+                    sourceEntityId: 0,
+                    ownerEntityId: 0,
+                    teamId: 0);
+                var adapter = EnsureLegacyAdapter(target);
+
+                adapter.SetBarricadeActiveImmediate(false);
+                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(1));
+                controller.PlayRequests(new[] { CreateBarricadeCrushedRequest(100, cell, targetEntityId: 20) });
+                controller.RefreshContinuousStates(new[] { activeState });
+
+                Assert.That(target.DebugBarricadeCrushedCount, Is.EqualTo(1));
+                Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.EqualTo(1));
+                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(1));
+                Assert.That(animator.GetBool("BarricadeActive"), Is.False);
+                Assert.That(adapter.DebugLastBarricadeActiveAnimatorStateHash, Is.EqualTo(Animator.StringToHash("LoweredIdle")));
+            }
+            finally
+            {
+                Object.DestroyImmediate(animatorController);
                 Object.DestroyImmediate(rootObject);
             }
         }
@@ -407,7 +478,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 controller.PlayRequests(new[] { CreateBarricadeActivatedRequest(100, cell) });
                 controller.RefreshContinuousStates(new[] { activeState });
 
-                Assert.That(target.DebugPlayBarricadeActivatedCount, Is.EqualTo(1));
+                Assert.That(target.DebugBarricadeActivatedCount, Is.EqualTo(1));
                 Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.Zero);
             }
             finally
@@ -2082,6 +2153,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
             profilesProperty.arraySize = 1;
             profilesProperty.GetArrayElementAtIndex(0).objectReferenceValue = profile;
             serializedAdapter.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static Animator AttachAnimator(GameObject targetObject, RuntimeAnimatorController controller)
+        {
+            var animator = targetObject.AddComponent<Animator>();
+            animator.runtimeAnimatorController = controller;
+            return animator;
+        }
+
+        private static AnimatorController CreateBarricadeAnimatorController(string name)
+        {
+            var stateMachine = new AnimatorStateMachine
+            {
+                name = $"{name}_StateMachine",
+            };
+            var loweredState = stateMachine.AddState("LoweredIdle");
+            var raisedState = stateMachine.AddState("RaisedIdle");
+            stateMachine.defaultState = loweredState;
+
+            var controller = new AnimatorController
+            {
+                name = $"{name}_Controller",
+                layers = new[]
+                {
+                    new AnimatorControllerLayer
+                    {
+                        name = "Base Layer",
+                        defaultWeight = 1f,
+                        stateMachine = stateMachine,
+                    },
+                },
+            };
+            controller.AddParameter("BarricadeBlocked", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("BarricadeCrushed", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("BarricadeActivated", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("BarricadeDeactivated", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("BarricadeActive", AnimatorControllerParameterType.Bool);
+            Assert.That(raisedState, Is.Not.Null);
+            return controller;
         }
 
 #pragma warning disable CS0618
