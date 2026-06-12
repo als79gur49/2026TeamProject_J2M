@@ -180,6 +180,196 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void ExitOpened_WithOpenStateRefresh_DoesNotReplayClosedOrOpenIdleUnexpectedly()
+        {
+            var targetObject = new GameObject(nameof(ExitOpened_WithOpenStateRefresh_DoesNotReplayClosedOrOpenIdleUnexpectedly));
+            var animatorController = CreateExitAnimatorController(nameof(ExitOpened_WithOpenStateRefresh_DoesNotReplayClosedOrOpenIdleUnexpectedly));
+            var profile = CreateExitProfile();
+
+            try
+            {
+                var animator = targetObject.AddComponent<Animator>();
+                animator.runtimeAnimatorController = animatorController;
+                var handler = new ExitTileFeatureVisualHandler();
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var pulseHash = Animator.StringToHash("OpenPulse");
+
+                handler.TryHandle(
+                    new TileFeatureVisualRequest(TileFeatureVisualCueId.ExitOpened, 100, cell, TileFeatureKind.Exit, active: true),
+                    null,
+                    profile,
+                    animator,
+                    null);
+                animator.Play(pulseHash, 0, 0f);
+                animator.Update(0f);
+                handler.TryHandle(
+                    new TileFeatureVisualRequest(TileFeatureVisualCueId.ExitOpenState, 100, cell, TileFeatureKind.Exit, active: true),
+                    null,
+                    profile,
+                    animator,
+                    null);
+
+                Assert.That(handler.DebugOpenStateAnimatorStatePlayCount, Is.Zero);
+                Assert.That(animator.GetBool("ExitOpen"), Is.True);
+                Assert.That(animator.GetCurrentAnimatorStateInfo(0).shortNameHash, Is.EqualTo(pulseHash));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(animatorController);
+                UnityEngine.Object.DestroyImmediate(targetObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ExitEntered_WithOpenStateRefresh_DoesNotReplayIdleUnexpectedly()
+        {
+            var targetObject = new GameObject(nameof(ExitEntered_WithOpenStateRefresh_DoesNotReplayIdleUnexpectedly));
+            var animatorController = CreateExitAnimatorController(nameof(ExitEntered_WithOpenStateRefresh_DoesNotReplayIdleUnexpectedly));
+            var profile = CreateExitProfile();
+
+            try
+            {
+                var animator = targetObject.AddComponent<Animator>();
+                animator.runtimeAnimatorController = animatorController;
+                var handler = new ExitTileFeatureVisualHandler();
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var pulseHash = Animator.StringToHash("EnteredPulse");
+
+                handler.TryHandle(
+                    new TileFeatureVisualRequest(TileFeatureVisualCueId.ExitOpenState, 100, cell, TileFeatureKind.Exit, active: true),
+                    null,
+                    profile,
+                    animator,
+                    null);
+                animator.Play(pulseHash, 0, 0f);
+                animator.Update(0f);
+                handler.TryHandle(
+                    new TileFeatureVisualRequest(TileFeatureVisualCueId.ExitEntered, 100, cell, TileFeatureKind.Exit, targetEntityId: 20),
+                    null,
+                    profile,
+                    animator,
+                    null);
+                handler.TryHandle(
+                    new TileFeatureVisualRequest(TileFeatureVisualCueId.ExitOpenState, 100, cell, TileFeatureKind.Exit, active: true),
+                    null,
+                    profile,
+                    animator,
+                    null);
+
+                Assert.That(handler.DebugOpenStateAnimatorStatePlayCount, Is.EqualTo(1));
+                Assert.That(animator.GetBool("ExitOpen"), Is.True);
+                Assert.That(animator.GetCurrentAnimatorStateInfo(0).shortNameHash, Is.EqualTo(pulseHash));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(animatorController);
+                UnityEngine.Object.DestroyImmediate(targetObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ExitOpenState_ChangedState_PlaysBoundState()
+        {
+            var targetObject = new GameObject(nameof(ExitOpenState_ChangedState_PlaysBoundState));
+            var animatorController = CreateExitAnimatorController(nameof(ExitOpenState_ChangedState_PlaysBoundState));
+            var profile = CreateExitProfile();
+
+            try
+            {
+                var animator = targetObject.AddComponent<Animator>();
+                animator.runtimeAnimatorController = animatorController;
+                var handler = new ExitTileFeatureVisualHandler();
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+                handler.TryHandle(
+                    new TileFeatureVisualRequest(TileFeatureVisualCueId.ExitOpenState, 100, cell, TileFeatureKind.Exit, active: true),
+                    null,
+                    profile,
+                    animator,
+                    null);
+
+                Assert.That(handler.DebugOpenStateAnimatorStatePlayCount, Is.EqualTo(1));
+                Assert.That(animator.GetBool("ExitOpen"), Is.True);
+                Assert.That(
+                    animator.GetCurrentAnimatorStateInfo(0).shortNameHash,
+                    Is.EqualTo(Animator.StringToHash("ExitOpenedIdle")));
+
+                handler.TryHandle(
+                    new TileFeatureVisualRequest(TileFeatureVisualCueId.ExitOpenState, 100, cell, TileFeatureKind.Exit, active: false),
+                    null,
+                    profile,
+                    animator,
+                    null);
+
+                Assert.That(handler.DebugOpenStateAnimatorStatePlayCount, Is.EqualTo(2));
+                Assert.That(animator.GetBool("ExitOpen"), Is.False);
+                Assert.That(
+                    animator.GetCurrentAnimatorStateInfo(0).shortNameHash,
+                    Is.EqualTo(Animator.StringToHash("ExitClosedIdle")));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(animatorController);
+                UnityEngine.Object.DestroyImmediate(targetObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ExitOpenState_SameState_DoesNotClobberOneShotTrigger()
+        {
+            var targetObject = new GameObject(nameof(ExitOpenState_SameState_DoesNotClobberOneShotTrigger));
+            var animatorController = CreateExitAnimatorController(nameof(ExitOpenState_SameState_DoesNotClobberOneShotTrigger));
+            var profile = CreateExitProfile();
+
+            try
+            {
+                var animator = targetObject.AddComponent<Animator>();
+                animator.runtimeAnimatorController = animatorController;
+                var handler = new ExitTileFeatureVisualHandler();
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var pulseHash = Animator.StringToHash("OpenPulse");
+
+                handler.TryHandle(
+                    new TileFeatureVisualRequest(TileFeatureVisualCueId.ExitOpenState, 100, cell, TileFeatureKind.Exit, active: true),
+                    null,
+                    profile,
+                    animator,
+                    null);
+                animator.Play(pulseHash, 0, 0f);
+                animator.Update(0f);
+                handler.TryHandle(
+                    new TileFeatureVisualRequest(TileFeatureVisualCueId.ExitOpened, 100, cell, TileFeatureKind.Exit, active: true),
+                    null,
+                    profile,
+                    animator,
+                    null);
+                handler.TryHandle(
+                    new TileFeatureVisualRequest(TileFeatureVisualCueId.ExitOpenState, 100, cell, TileFeatureKind.Exit, active: true),
+                    null,
+                    profile,
+                    animator,
+                    null);
+
+                Assert.That(handler.DebugOpenStateAnimatorStatePlayCount, Is.EqualTo(1));
+                Assert.That(animator.GetBool("ExitOpen"), Is.True);
+                Assert.That(animator.GetCurrentAnimatorStateInfo(0).shortNameHash, Is.EqualTo(pulseHash));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(animatorController);
+                UnityEngine.Object.DestroyImmediate(targetObject);
+            }
+        }
+
         private static void AssertHandlerCues(
             ITileFeatureVisualHandler handler,
             params TileFeatureVisualCueId[] expectedCues)
@@ -215,6 +405,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         "BarricadeActive",
                         activeStateName: "RaisedIdle",
                         inactiveStateName: "LoweredIdle"),
+                });
+            return profile;
+        }
+
+        private static TileFeatureVisualProfile CreateExitProfile()
+        {
+            var profile = ScriptableObject.CreateInstance<TileFeatureVisualProfile>();
+            SetPrivateField(profile, "featureKind", TileFeatureKind.Exit);
+            SetPrivateField(
+                profile,
+                "cueBindings",
+                new[]
+                {
+                    CreateBinding(
+                        TileFeatureVisualCueId.ExitOpened,
+                        TileFeatureAnimatorBindingKind.Trigger,
+                        "ExitOpened"),
+                    CreateBinding(
+                        TileFeatureVisualCueId.ExitEntered,
+                        TileFeatureAnimatorBindingKind.Trigger,
+                        "ExitEntered"),
+                    CreateBinding(
+                        TileFeatureVisualCueId.ExitOpenState,
+                        TileFeatureAnimatorBindingKind.Bool,
+                        "ExitOpen",
+                        activeStateName: "ExitOpenedIdle",
+                        inactiveStateName: "ExitClosedIdle"),
                 });
             return profile;
         }
@@ -281,6 +498,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
             controller.AddParameter("BarricadeBlocked", AnimatorControllerParameterType.Trigger);
             controller.AddParameter("BarricadeActive", AnimatorControllerParameterType.Bool);
+            return controller;
+        }
+
+        private static AnimatorController CreateExitAnimatorController(string name)
+        {
+            var stateMachine = new AnimatorStateMachine
+            {
+                name = $"{name}_StateMachine",
+            };
+            var closedState = stateMachine.AddState("ExitClosedIdle");
+            stateMachine.AddState("ExitOpenedIdle");
+            stateMachine.AddState("OpenPulse");
+            stateMachine.AddState("EnteredPulse");
+            stateMachine.defaultState = closedState;
+
+            var controller = new AnimatorController
+            {
+                name = $"{name}_Controller",
+                layers = new[]
+                {
+                    new AnimatorControllerLayer
+                    {
+                        name = "Base Layer",
+                        defaultWeight = 1f,
+                        stateMachine = stateMachine,
+                    },
+                },
+            };
+            controller.AddParameter("ExitOpened", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("ExitEntered", AnimatorControllerParameterType.Trigger);
+            controller.AddParameter("ExitOpen", AnimatorControllerParameterType.Bool);
             return controller;
         }
 
