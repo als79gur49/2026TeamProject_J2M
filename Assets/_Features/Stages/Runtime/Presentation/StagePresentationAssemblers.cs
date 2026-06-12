@@ -11,31 +11,19 @@ namespace Game.Feature.Stages
     public readonly struct TileFeaturePresentationResolvedBinding
     {
         public TileFeaturePresentationResolvedBinding(int tileId, GameObject visualPrefab)
-            : this(
-                tileId,
-                visualPrefab,
-                TileFeatureVisualFootprintMode.SingleCell,
-                VfxStyleKey.Default)
+            : this(tileId, visualPrefab, TileFeatureKind.Unknown, VfxStyleKey.Default)
         {
         }
 
         public TileFeaturePresentationResolvedBinding(
             int tileId,
             GameObject visualPrefab,
-            TileFeatureVisualFootprintMode footprintMode)
-            : this(tileId, visualPrefab, footprintMode, VfxStyleKey.Default)
-        {
-        }
-
-        public TileFeaturePresentationResolvedBinding(
-            int tileId,
-            GameObject visualPrefab,
-            TileFeatureVisualFootprintMode footprintMode,
+            TileFeatureKind kind,
             VfxStyleKey vfxStyleKey)
         {
             TileId = tileId;
             VisualPrefab = visualPrefab;
-            FootprintMode = footprintMode;
+            Kind = kind;
             VfxStyleKey = vfxStyleKey;
         }
 
@@ -43,7 +31,7 @@ namespace Game.Feature.Stages
 
         public GameObject VisualPrefab { get; }
 
-        public TileFeatureVisualFootprintMode FootprintMode { get; }
+        public TileFeatureKind Kind { get; }
 
         public VfxStyleKey VfxStyleKey { get; }
     }
@@ -595,14 +583,14 @@ namespace Game.Feature.Stages
 
                     if (directByTileId.TryGetValue(tileFeature.TileId, out var directBinding))
                     {
-                        ResolveCatalogKeyFootprintMode(
+                        ResolveCatalogKeyKind(
                             catalog,
                             tileFeature,
-                            out var directFootprintMode);
+                            out var directKind);
                         resolved.Add(new TileFeaturePresentationResolvedBinding(
                             directBinding.TileId,
                             directBinding.VisualPrefab,
-                            directFootprintMode,
+                            directKind,
                             ResolveCatalogKeyVfxStyle(catalog, tileFeature)));
                         continue;
                     }
@@ -615,7 +603,7 @@ namespace Game.Feature.Stages
                         resolved.Add(new TileFeaturePresentationResolvedBinding(
                             tileFeature.TileId,
                             catalogEntry.VisualPrefab,
-                            catalogEntry.FootprintMode,
+                            catalogEntry.Kind,
                             ResolveTileFeatureVfxStyleKey(tileFeature, catalogEntry.VfxStyleKey)));
                     }
                 }
@@ -692,12 +680,12 @@ namespace Game.Feature.Stages
             return false;
         }
 
-        private static void ResolveCatalogKeyFootprintMode(
+        private static void ResolveCatalogKeyKind(
             TileFeaturePresentationCatalog catalog,
             StageTileFeatureDefinition tileFeature,
-            out TileFeatureVisualFootprintMode footprintMode)
+            out TileFeatureKind kind)
         {
-            footprintMode = TileFeatureVisualFootprintMode.SingleCell;
+            kind = TileFeatureKind.Unknown;
             if (catalog == null)
             {
                 return;
@@ -714,7 +702,7 @@ namespace Game.Feature.Stages
                 return;
             }
 
-            footprintMode = entry.FootprintMode;
+            kind = entry.Kind;
         }
 
         private static VfxStyleKey ResolveCatalogKeyVfxStyle(
@@ -802,7 +790,7 @@ namespace Game.Feature.Stages
                     continue;
                 }
 
-                AddSuppressedBaseTileCells(tileFeature.Cell, binding.FootprintMode, boardBounds, seenCells, cells);
+                AddSuppressedBaseTileCells(tileFeature.Cell, binding.Kind, boardBounds, seenCells, cells);
             }
 
             if (cells.Count == 0)
@@ -816,29 +804,31 @@ namespace Game.Feature.Stages
 
         private static void AddSuppressedBaseTileCells(
             SurfaceCell center,
-            TileFeatureVisualFootprintMode footprintMode,
+            TileFeatureKind kind,
             BoardBounds boardBounds,
             HashSet<SurfaceCell> seenCells,
             List<SurfaceCell> cells)
         {
-            switch (footprintMode)
+            if (RequiresThreeByThreeBaseTileSuppression(kind))
             {
-                case TileFeatureVisualFootprintMode.ThreeByThreeSameFace:
-                    for (var yOffset = -1; yOffset <= 1; yOffset++)
+                for (var yOffset = -1; yOffset <= 1; yOffset++)
+                {
+                    for (var xOffset = -1; xOffset <= 1; xOffset++)
                     {
-                        for (var xOffset = -1; xOffset <= 1; xOffset++)
-                        {
-                            var candidate = new SurfaceCell(center.face, center.x + xOffset, center.y + yOffset);
-                            AddSuppressedBaseTileCell(candidate, boardBounds, seenCells, cells);
-                        }
+                        var candidate = new SurfaceCell(center.face, center.x + xOffset, center.y + yOffset);
+                        AddSuppressedBaseTileCell(candidate, boardBounds, seenCells, cells);
                     }
+                }
 
-                    return;
-                case TileFeatureVisualFootprintMode.SingleCell:
-                default:
-                    AddSuppressedBaseTileCell(center, boardBounds, seenCells, cells);
-                    return;
+                return;
             }
+
+            AddSuppressedBaseTileCell(center, boardBounds, seenCells, cells);
+        }
+
+        private static bool RequiresThreeByThreeBaseTileSuppression(TileFeatureKind kind)
+        {
+            return kind == TileFeatureKind.Exit;
         }
 
         private static void AddSuppressedBaseTileCell(

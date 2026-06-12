@@ -1815,17 +1815,6 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
 
-                if (!Enum.IsDefined(typeof(TileFeatureVisualFootprintMode), catalogEntry.FootprintMode))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.tile-feature.catalog.footprint-mode-invalid",
-                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} has invalid TileFeatureVisualFootprintMode value {(int)catalogEntry.FootprintMode}.",
-                        catalog,
-                        catalogPath,
-                        options.Timing);
-                }
-
                 if (catalogEntry.IsDefaultForKind &&
                     !defaultKinds.Add(catalogEntry.Kind))
                 {
@@ -2030,7 +2019,7 @@ namespace Game.Feature.Stages
                         presentation.TileFeaturePresentationCatalog,
                         directBindings,
                         tileFeature,
-                        out var footprintMode,
+                        out var resolvedKind,
                         out var visualPrefab))
                 {
                     continue;
@@ -2052,7 +2041,7 @@ namespace Game.Feature.Stages
                 if (hasBoardBounds &&
                     !TryBuildReplaceBaseTileSuppressedCells(
                         tileFeature,
-                        footprintMode,
+                        resolvedKind,
                         boardBounds,
                         out suppressedCells,
                         out var invalidCell))
@@ -2060,7 +2049,7 @@ namespace Game.Feature.Stages
                     report.Add(
                         StageValidationSeverity.Error,
                         "presentation.tile-feature.replace-base-tile.footprint-out-of-bounds",
-                        $"TileFeature TileId {tileFeature.TileId} ReplaceBaseTile footprint {footprintMode} includes out-of-bounds cell {invalidCell}.",
+                        $"TileFeature TileId {tileFeature.TileId} ReplaceBaseTile policy for {resolvedKind} includes out-of-bounds cell {invalidCell}.",
                         presentation,
                         presentationPath,
                         options.Timing);
@@ -2104,50 +2093,53 @@ namespace Game.Feature.Stages
 
         private static bool TryBuildReplaceBaseTileSuppressedCells(
             StageTileFeatureDefinition tileFeature,
-            TileFeatureVisualFootprintMode footprintMode,
+            TileFeatureKind resolvedKind,
             BoardBounds boardBounds,
             out IReadOnlyList<SurfaceCell> cells,
             out SurfaceCell invalidCell)
         {
             var result = new List<SurfaceCell>();
             invalidCell = default;
-            switch (footprintMode)
+            if (RequiresThreeByThreeBaseTileSuppression(resolvedKind))
             {
-                case TileFeatureVisualFootprintMode.ThreeByThreeSameFace:
-                    for (var yOffset = -1; yOffset <= 1; yOffset++)
+                for (var yOffset = -1; yOffset <= 1; yOffset++)
+                {
+                    for (var xOffset = -1; xOffset <= 1; xOffset++)
                     {
-                        for (var xOffset = -1; xOffset <= 1; xOffset++)
+                        var candidate = new SurfaceCell(
+                            tileFeature.Cell.face,
+                            tileFeature.Cell.x + xOffset,
+                            tileFeature.Cell.y + yOffset);
+                        if (!boardBounds.Contains(candidate.PlanarPosition))
                         {
-                            var candidate = new SurfaceCell(
-                                tileFeature.Cell.face,
-                                tileFeature.Cell.x + xOffset,
-                                tileFeature.Cell.y + yOffset);
-                            if (!boardBounds.Contains(candidate.PlanarPosition))
-                            {
-                                cells = Array.Empty<SurfaceCell>();
-                                invalidCell = candidate;
-                                return false;
-                            }
-
-                            result.Add(candidate);
+                            cells = Array.Empty<SurfaceCell>();
+                            invalidCell = candidate;
+                            return false;
                         }
-                    }
 
-                    cells = result;
-                    return true;
-                case TileFeatureVisualFootprintMode.SingleCell:
-                default:
-                    if (!boardBounds.Contains(tileFeature.Cell.PlanarPosition))
-                    {
-                        cells = Array.Empty<SurfaceCell>();
-                        invalidCell = tileFeature.Cell;
-                        return false;
+                        result.Add(candidate);
                     }
+                }
 
-                    result.Add(tileFeature.Cell);
-                    cells = result;
-                    return true;
+                cells = result;
+                return true;
             }
+
+            if (!boardBounds.Contains(tileFeature.Cell.PlanarPosition))
+            {
+                cells = Array.Empty<SurfaceCell>();
+                invalidCell = tileFeature.Cell;
+                return false;
+            }
+
+            result.Add(tileFeature.Cell);
+            cells = result;
+            return true;
+        }
+
+        private static bool RequiresThreeByThreeBaseTileSuppression(TileFeatureKind kind)
+        {
+            return kind == TileFeatureKind.Exit;
         }
 
         private static Dictionary<int, TileFeaturePresentationBinding> BuildDirectTileFeatureBindingsById(
@@ -2180,10 +2172,10 @@ namespace Game.Feature.Stages
             TileFeaturePresentationCatalog catalog,
             IReadOnlyDictionary<int, TileFeaturePresentationBinding> directBindings,
             StageTileFeatureDefinition tileFeature,
-            out TileFeatureVisualFootprintMode footprintMode,
+            out TileFeatureKind resolvedKind,
             out GameObject visualPrefab)
         {
-            footprintMode = TileFeatureVisualFootprintMode.SingleCell;
+            resolvedKind = TileFeatureKind.Unknown;
             visualPrefab = null;
             if (directBindings != null &&
                 directBindings.TryGetValue(tileFeature.TileId, out var directBinding))
@@ -2194,7 +2186,7 @@ namespace Game.Feature.Stages
                     !string.IsNullOrEmpty(presentationKey) &&
                     catalog.TryGetEntry(presentationKey, out var keyedEntry))
                 {
-                    footprintMode = keyedEntry.FootprintMode;
+                    resolvedKind = keyedEntry.Kind;
                 }
 
                 return true;
@@ -2209,14 +2201,14 @@ namespace Game.Feature.Stages
             if (!string.IsNullOrEmpty(key) &&
                 catalog.TryGetEntry(key, out var keyedCatalogEntry))
             {
-                footprintMode = keyedCatalogEntry.FootprintMode;
+                resolvedKind = keyedCatalogEntry.Kind;
                 visualPrefab = keyedCatalogEntry.VisualPrefab;
                 return true;
             }
 
             if (catalog.TryGetDefaultEntry(tileFeature.Kind, out var defaultEntry))
             {
-                footprintMode = defaultEntry.FootprintMode;
+                resolvedKind = defaultEntry.Kind;
                 visualPrefab = defaultEntry.VisualPrefab;
                 return true;
             }

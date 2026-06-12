@@ -119,7 +119,7 @@ namespace Game.Feature.Stages.Editor
                     return new TileFeaturePresentationCatalogStatus(
                         TileFeaturePresentationCatalogStatusKind.DirectOverrideActive,
                         presentationKey,
-                        $"Direct TileId visual override is active; visual prefab uses the direct override and footprint uses catalog key '{presentationKey}'.",
+                        $"Direct TileId visual override is active; visual prefab uses the direct override and presentation policy uses catalog key '{presentationKey}'.",
                         directEntry);
                 }
 
@@ -127,8 +127,8 @@ namespace Game.Feature.Stages.Editor
                     TileFeaturePresentationCatalogStatusKind.DirectOverrideActive,
                     presentationKey,
                     string.IsNullOrEmpty(presentationKey)
-                        ? "Direct TileId visual override is active; visual prefab uses the direct override and SingleCell footprint."
-                        : $"Direct TileId visual override is active; visual prefab uses the direct override and unresolved catalog key '{presentationKey}' uses SingleCell footprint.");
+                        ? "Direct TileId visual override is active; visual prefab uses the direct override and default single-cell presentation policy."
+                        : $"Direct TileId visual override is active; visual prefab uses the direct override and unresolved catalog key '{presentationKey}' uses default single-cell presentation policy.");
             }
 
             if (presentation == null)

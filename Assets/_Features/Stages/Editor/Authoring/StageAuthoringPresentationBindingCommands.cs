@@ -1011,8 +1011,8 @@ namespace Game.Feature.Stages.Editor
             for (var i = 0; i < features.Count; i++)
             {
                 var feature = features[i];
-                if (ResolvesReplaceBaseTileWithVisual(presentation, feature, out var footprintMode) &&
-                    ContainsSuppressedBaseTileCell(feature, footprintMode, authoring.Board, cell))
+                if (ResolvesReplaceBaseTileWithVisual(presentation, feature, out var resolvedKind) &&
+                    ContainsSuppressedBaseTileCell(feature, resolvedKind, authoring.Board, cell))
                 {
                     tileId = feature.TileId;
                     return true;
@@ -1037,8 +1037,8 @@ namespace Game.Feature.Stages.Editor
             for (var i = 0; i < features.Count; i++)
             {
                 var feature = features[i];
-                if (ResolvesReplaceBaseTileWithVisual(presentation, feature, out var footprintMode) &&
-                    ContainsSuppressedBaseTileCell(feature, footprintMode, authoring.Board, cell))
+                if (ResolvesReplaceBaseTileWithVisual(presentation, feature, out var resolvedKind) &&
+                    ContainsSuppressedBaseTileCell(feature, resolvedKind, authoring.Board, cell))
                 {
                     count++;
                 }
@@ -1264,9 +1264,9 @@ namespace Game.Feature.Stages.Editor
         private static bool ResolvesReplaceBaseTileWithVisual(
             StagePresentationDefinition presentation,
             StageTileFeatureDefinition feature,
-            out TileFeatureVisualFootprintMode footprintMode)
+            out TileFeatureKind resolvedKind)
         {
-            footprintMode = TileFeatureVisualFootprintMode.SingleCell;
+            resolvedKind = TileFeatureKind.Unknown;
             if (feature.TileId <= 0)
             {
                 return false;
@@ -1280,10 +1280,10 @@ namespace Game.Feature.Stages.Editor
                     return false;
                 }
 
-                TryResolveCatalogKeyFootprintMode(
+                TryResolveCatalogKeyKind(
                     presentation,
                     feature.PresentationKey,
-                    out footprintMode);
+                    out resolvedKind);
                 return true;
             }
 
@@ -1292,7 +1292,7 @@ namespace Game.Feature.Stages.Editor
                        feature,
                        out var entry) &&
                    entry.VisualPrefab != null &&
-                   TrySetFootprintMode(entry, out footprintMode);
+                   TrySetResolvedKind(entry, out resolvedKind);
         }
 
         private static TileFeaturePresentationBinding FindDirectTileFeatureBinding(
@@ -1318,19 +1318,19 @@ namespace Game.Feature.Stages.Editor
             return null;
         }
 
-        private static bool TrySetFootprintMode(
+        private static bool TrySetResolvedKind(
             TileFeaturePresentationCatalogEntry entry,
-            out TileFeatureVisualFootprintMode footprintMode)
+            out TileFeatureKind resolvedKind)
         {
-            footprintMode = entry != null
-                ? entry.FootprintMode
-                : TileFeatureVisualFootprintMode.SingleCell;
+            resolvedKind = entry != null
+                ? entry.Kind
+                : TileFeatureKind.Unknown;
             return entry != null;
         }
 
         private static bool ContainsSuppressedBaseTileCell(
             StageTileFeatureDefinition feature,
-            TileFeatureVisualFootprintMode footprintMode,
+            TileFeatureKind resolvedKind,
             StageBoardDefinition board,
             SurfaceCell cell)
         {
@@ -1349,23 +1349,26 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            switch (footprintMode)
+            if (RequiresThreeByThreeBaseTileSuppression(resolvedKind))
             {
-                case TileFeatureVisualFootprintMode.ThreeByThreeSameFace:
-                    return Math.Abs(cell.x - feature.Cell.x) <= 1 &&
-                           Math.Abs(cell.y - feature.Cell.y) <= 1;
-                case TileFeatureVisualFootprintMode.SingleCell:
-                default:
-                    return feature.Cell.Equals(cell);
+                return Math.Abs(cell.x - feature.Cell.x) <= 1 &&
+                       Math.Abs(cell.y - feature.Cell.y) <= 1;
             }
+
+            return feature.Cell.Equals(cell);
         }
 
-        private static bool TryResolveCatalogKeyFootprintMode(
+        private static bool RequiresThreeByThreeBaseTileSuppression(TileFeatureKind kind)
+        {
+            return kind == TileFeatureKind.Exit;
+        }
+
+        private static bool TryResolveCatalogKeyKind(
             StagePresentationDefinition presentation,
             string presentationKey,
-            out TileFeatureVisualFootprintMode footprintMode)
+            out TileFeatureKind kind)
         {
-            footprintMode = TileFeatureVisualFootprintMode.SingleCell;
+            kind = TileFeatureKind.Unknown;
             var normalizedKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
             var catalog = presentation != null ? presentation.TileFeaturePresentationCatalog : null;
             if (catalog == null ||
@@ -1375,7 +1378,7 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            footprintMode = entry.FootprintMode;
+            kind = entry.Kind;
             return true;
         }
 

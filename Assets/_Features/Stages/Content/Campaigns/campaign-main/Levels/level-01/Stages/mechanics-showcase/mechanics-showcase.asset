@@ -474,8 +474,8 @@ MonoBehaviour:
   - ZoneId: 1
     FaceId: 3
     Regions:
-    - MinInclusive: {x: 0, y: 6}
-      MaxInclusive: {x: 0, y: 6}
+    - MinInclusive: {x: 1, y: 6}
+      MaxInclusive: {x: 1, y: 6}
   tileFeatures:
   - TileId: 901
     Cell:
@@ -546,14 +546,14 @@ MonoBehaviour:
   - TileId: 907
     Cell:
       face: 3
-      x: 0
+      x: 1
       y: 6
     Kind: 6
     ActivationRule: 3
     Direction: 0
     BoxSelector: 0
     BoundEntityId: 0
-    PresentationKey: exit.1x1
+    PresentationKey: exit.default
   - TileId: 908
     Cell:
       face: 0

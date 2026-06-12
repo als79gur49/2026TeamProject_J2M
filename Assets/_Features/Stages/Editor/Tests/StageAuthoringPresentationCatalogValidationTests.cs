@@ -354,7 +354,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void CampaignMainBoardTileOverrides_DoNotReferenceRetiredPresentationOrStyleKeys()
+        public void CampaignMainBoardPresentationContent_DoesNotReferenceRetiredKeys()
         {
             var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(
                 StageContentPaths.StageCatalogProviderAssetPath);
@@ -388,6 +388,13 @@ namespace Game.Feature.Stages.Editor.Tests
                     retiredPresentationKeys.Contains(boardOverride.PresentationKey, StringComparer.Ordinal))
                 .Select(boardOverride => $"{boardOverride.Cell}: {boardOverride.PresentationKey}")
                 .ToArray();
+            var retiredTileFeaturePresentationReferences = entries
+                .Where(entry => entry != null && entry.GameplayDefinition != null)
+                .SelectMany(entry => entry.GameplayDefinition.TileFeatures)
+                .Where(tileFeature =>
+                    string.Equals(tileFeature.PresentationKey, "exit.1x1", StringComparison.Ordinal))
+                .Select(tileFeature => $"TileId {tileFeature.TileId}: {tileFeature.PresentationKey}")
+                .ToArray();
             var retiredStyleReferences = entries
                 .Where(entry => entry != null && entry.PresentationDefinition != null)
                 .SelectMany(entry => entry.PresentationDefinition.BoardTilePaintOverrides)
@@ -398,6 +405,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 .ToArray();
 
             Assert.That(retiredPresentationReferences, Is.Empty);
+            Assert.That(retiredTileFeaturePresentationReferences, Is.Empty);
             Assert.That(retiredStyleReferences, Is.Empty);
         }
 

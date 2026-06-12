@@ -91,21 +91,12 @@ MonoBehaviour:
     displayName: Exit Default
     kind: 6
     visualPrefab: {fileID: 2666720464963727994, guid: 8020b60ef7299dd4f8f28b1575124d07, type: 3}
-    footprintMode: 1
     isDefaultForKind: 1
-    directionHint: 0
-  - presentationKey: exit.1x1
-    displayName: Exit 1x1
-    kind: 6
-    visualPrefab: {fileID: 752876420291739325, guid: d8ed1c37679c24942a3a63bdd0d7e10a, type: 3}
-    footprintMode: 0
-    isDefaultForKind: 0
     directionHint: 0
   - presentationKey: entrance.default
     displayName: Entrance Default
     kind: 7
     visualPrefab: {fileID: 752876420291739325, guid: 7fd78ca1815e4c0aa7c5d70373a3df45, type: 3}
-    footprintMode: 0
     isDefaultForKind: 1
     directionHint: 0
   - presentationKey: moon-generator.default
