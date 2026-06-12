@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6e0d464562c74d819f361d4e3e7e59d0, type: 3}
-  m_Name: EnemyBrain_WindupMelee
+  m_Name: EnemyBrain_WindupProjectile
   m_EditorClassIdentifier: 
   stateResolver: {fileID: 11400000, guid: 1c331aa8897d4100ac3f31c93cb2ceb2, type: 2}
   patrolStrategy: {fileID: 11400000, guid: 66b7b0478da444948bf558c19698c99c, type: 2}
