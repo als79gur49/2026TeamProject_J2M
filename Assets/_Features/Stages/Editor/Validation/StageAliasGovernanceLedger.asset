@@ -13,15 +13,6 @@ MonoBehaviour:
   m_Name: StageAliasGovernanceLedger
   m_EditorClassIdentifier:
   entries:
-  - DeprecatedStageId: combined-gameplay-showcase
-    CurrentStageId:
-      value: mechanics-showcase
-    SourceKind: stage-id-rename
-    SourceAssetGuid: 6d3b6a4bfe3e41caa96088a8d011beef
-    Owner: stage-naming-refactor
-    Reason: Stage id rename compatibility bridge for scene-derived mechanics showcase residue.
-    IntroducedBy: stage-naming-refactor
-    RemovalGate: stage-id-alias-prune
   - DeprecatedStageId: stage-5-1
     CurrentStageId:
       value: legacy-stage-5-1
@@ -29,14 +20,5 @@ MonoBehaviour:
     SourceAssetGuid: df156370538abbdf66d15215fb0d804e
     Owner: stage-naming-refactor
     Reason: Stage id rename compatibility bridge for legacy non-sequence content.
-    IntroducedBy: stage-naming-refactor
-    RemovalGate: stage-id-alias-prune
-  - DeprecatedStageId: tutorial-scene
-    CurrentStageId:
-      value: onboarding
-    SourceKind: stage-id-rename
-    SourceAssetGuid: d8a3fa0c6ff547208df399f499335d58
-    Owner: stage-naming-refactor
-    Reason: Stage id rename compatibility bridge for scene-derived onboarding residue.
     IntroducedBy: stage-naming-refactor
     RemovalGate: stage-id-alias-prune

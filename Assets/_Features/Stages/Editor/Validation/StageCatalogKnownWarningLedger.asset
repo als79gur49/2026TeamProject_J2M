@@ -13,22 +13,6 @@ MonoBehaviour:
   m_Name: StageCatalogKnownWarningLedger
   m_EditorClassIdentifier:
   entries:
-  - IssueCode: PresentationBinding.MissingStaticBinding
-    AssetGuid: 997f5288e66444a6b16cbb4f4cc4945c
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/mechanics-showcase/mechanics-showcase_Presentation.asset
-    ExpectedAssetName: mechanics-showcase_Presentation
-    ExpectedStageId: mechanics-showcase
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
-  - IssueCode: PresentationCatalog.StaticPresentationIdEmpty
-    AssetGuid: 8b9c369444a0a9d4ab7c09bfaa7dcb8e
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/mechanics-showcase/mechanics-showcase_Authoring.asset
-    ExpectedAssetName: mechanics-showcase_Authoring
-    ExpectedStageId: mechanics-showcase
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; static placements need authored PresentationId and generated bindings.
-    RemovalGate: Assign static presentation ids and regenerate presentation bindings for this stage.
   - IssueCode: presentation.tile-feature.catalog-kind-mismatch
     AssetGuid: 7dc498f65de18c8742a4ab86e2152ce9
     ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/legacy-stage-5-1/legacy-stage-5-1_Presentation.asset
@@ -37,11 +21,3 @@ MonoBehaviour:
     Owner: stage-authoring-pipeline
     Reason: Presentation catalog integrity migration warning; tile feature presentation key needs authored kind cleanup.
     RemovalGate: Align the tile feature presentation key with the authored gameplay tile kind.
-  - IssueCode: GameplayDrift.ObjectiveMismatch
-    AssetGuid: e3ec79d9fcf96274f849a61efc576a27
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/onboarding/onboarding_Authoring.asset
-    ExpectedAssetName: onboarding_Authoring
-    ExpectedStageId: onboarding
-    Owner: stage-authoring-pipeline
-    Reason: Authoring drift migration warning; objective display text is not synchronized with the clear evaluation companion.
-    RemovalGate: Synchronize onboarding objective display text with the clear evaluation definition.

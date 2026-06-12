@@ -599,8 +599,6 @@ namespace Game.Feature.Stages.Editor
 
             var entries = new[]
             {
-                CreateDirectPlayEntry("mechanics-showcase"),
-                CreateDirectPlayEntry("onboarding"),
                 CreateDirectPlayEntry("stage-0-1"),
                 CreateDirectPlayEntry("stage-1-1"),
             };

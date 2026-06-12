@@ -129,7 +129,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var first = CreateEntry("stage-0-1", displayName: "Presentation 0-1");
             var second = CreateEntry("stage-0-2", displayName: "Presentation 0-2");
-            var extra = CreateEntry("onboarding", displayName: "Onboarding");
+            var extra = CreateEntry("catalog-stage-b", displayName: "Catalog Stage B");
             var service = CreateService(new[] { second, extra, first }, out _, out _);
 
             var stages = service.GetStages();
@@ -146,7 +146,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void DemoStageControl_StartStage_RejectsCatalogStageOutsideCampaignSequence()
         {
             var first = CreateEntry("stage-0-1");
-            var extra = CreateEntry("onboarding");
+            var extra = CreateEntry("catalog-stage-b");
             var service = CreateService(new[] { first, extra }, out var saveStore, out var router);
 
             var result = service.StartStage(extra.StageId);
@@ -162,7 +162,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void DemoStageControlCampaignBridge_TrySetActiveStage_RejectsStageOutsideSequence()
         {
             var first = CreateEntry("stage-0-1");
-            var extra = CreateEntry("onboarding");
+            var extra = CreateEntry("catalog-stage-b");
             var saveStore = new SaveSlotStore(_saveSlotKey);
             var activeSlotProvider = new ActiveSlotProvider(_activeSlotKey);
             activeSlotProvider.SetActiveSlot(1);

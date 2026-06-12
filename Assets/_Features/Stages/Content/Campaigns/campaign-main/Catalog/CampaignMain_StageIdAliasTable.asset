@@ -13,12 +13,6 @@ MonoBehaviour:
   m_Name: CampaignMain_StageIdAliasTable
   m_EditorClassIdentifier: 
   entries:
-  - DeprecatedStageId: combined-gameplay-showcase
-    CurrentStageId:
-      value: mechanics-showcase
   - DeprecatedStageId: stage-5-1
     CurrentStageId:
       value: legacy-stage-5-1
-  - DeprecatedStageId: tutorial-scene
-    CurrentStageId:
-      value: onboarding

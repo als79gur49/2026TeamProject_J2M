@@ -361,8 +361,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void GameplayShell_HostStartup_EnablesPostProcessingOnOutputCamera()
         {
-            AssertSceneHostStartupEnablesOutputCameraPostProcessing(UiAudioScenePath, "mechanics-showcase");
-            AssertSceneHostStartupEnablesOutputCameraPostProcessing(UiAudioScenePath, "onboarding");
+            AssertSceneHostStartupEnablesOutputCameraPostProcessing(UiAudioScenePath, "stage-0-1");
+            AssertSceneHostStartupEnablesOutputCameraPostProcessing(UiAudioScenePath, "stage-1-1");
         }
 
         private static void AssertSceneHostStartupEnablesOutputCameraPostProcessing(string scenePath, string stageIdValue)

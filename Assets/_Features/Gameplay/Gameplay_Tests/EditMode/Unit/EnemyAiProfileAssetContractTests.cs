@@ -368,25 +368,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void CombinedGameplay_AstretonBinding_UsesJumpChaserMovementSkillProfile()
+        public void AdvancedCampaignStage_AstretonBindings_UseJumpChaserMovementSkillProfile()
         {
-            var binding = GetSingleStageBinding(MechanicsShowcaseStagePath, "astreton");
+            var bindings = FindStageEnemyPresentationProfileBindings(AdvancedCampaignStagePath, "astreton");
 
-            Assert.That(binding.EntityId, Is.EqualTo(61));
-            Assert.That(binding.ProfilePath, Is.EqualTo(JumpChaserProfilePath));
-            AssertJumpChaserProfile(binding.ProfilePath);
+            Assert.That(bindings, Is.Not.Empty);
+            Assert.That(
+                bindings.Select(binding => binding.ProfilePath).Distinct().ToArray(),
+                Is.EquivalentTo(new[] { JumpChaserProfilePath }));
+            AssertJumpChaserProfile(JumpChaserProfilePath);
             AssertCatalogEntryUsesPrefab("astreton", "EnemyView_Astreton.prefab");
         }
 
         [Test]
         [Category("Extended")]
-        public void CombinedGameplay_JPeterBinding_UsesArchetypeSummonerUtilityProfile()
+        public void AdvancedCampaignStage_JPeterBindings_UseArchetypeSummonerUtilityProfile()
         {
-            var binding = GetSingleStageBinding(MechanicsShowcaseStagePath, "j_peter");
+            var bindings = FindStageEnemyPresentationProfileBindings(AdvancedCampaignStagePath, "j_peter");
 
-            Assert.That(binding.EntityId, Is.EqualTo(59));
-            Assert.That(binding.ProfilePath, Is.EqualTo(ArchetypeSummonerProfilePath));
-            AssertArchetypeSummonerProfile(binding.ProfilePath);
+            Assert.That(bindings, Is.Not.Empty);
+            Assert.That(
+                bindings.Select(binding => binding.ProfilePath).Distinct().ToArray(),
+                Is.EquivalentTo(new[] { ArchetypeSummonerProfilePath }));
+            AssertArchetypeSummonerProfile(ArchetypeSummonerProfilePath);
             AssertCatalogEntryUsesPrefab("j_peter", "EnemyView_JPeter.prefab");
         }
 
@@ -401,7 +405,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 bindings.Select(binding => binding.ProfilePath).Distinct().ToArray(),
                 Is.EquivalentTo(new[] { JumpChaserProfilePath }),
                 "Astreton is a presentation id; every campaign spawn using it must bind the JumpChaser gameplay profile.");
-            Assert.That(bindings.Select(binding => binding.EntityId), Has.Member(61));
+            Assert.That(bindings.Select(binding => binding.EntityId), Is.Not.Empty);
             AssertJumpChaserProfile(JumpChaserProfilePath);
             AssertCatalogEntryUsesPrefab("astreton", "EnemyView_Astreton.prefab");
         }
@@ -482,8 +486,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string ArchetypeSummonerProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_UtilitySummoner/EnemyAi_ArchetypeSummoner.asset";
 
-        private const string MechanicsShowcaseStagePath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/mechanics-showcase/mechanics-showcase.asset";
+        private const string AdvancedCampaignStagePath =
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-2/stage-4-2.asset";
 
         private const string CampaignEnemyPresentationCatalogPath =
             StageContentPaths.CampaignRoot + "/_Shared/Presentation/Enemy/Catalogs/EnemyPresentationCatalog_CampaignMain.asset";

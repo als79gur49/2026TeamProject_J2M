@@ -9,8 +9,8 @@ namespace Game.Feature.Stages.Editor
 {
     public static class StageCampaignMainContentSmokeCheck
     {
-        private const string MechanicsShowcaseStageId = "mechanics-showcase";
-        private const string OnboardingStageId = "onboarding";
+        private const string Stage0_1StageId = "stage-0-1";
+        private const string Stage1_1StageId = "stage-1-1";
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
         private const string ReportDirectory = "Temp/StageCampaignMainSmoke";
 
@@ -49,8 +49,8 @@ namespace Game.Feature.Stages.Editor
             if (provider != null && catalog != null)
             {
                 ValidateCatalogGraph(provider, catalog, errors, facts);
-                ValidateLaunchContextResolver(provider, MechanicsShowcaseStageId, errors);
-                ValidateLaunchContextResolver(provider, OnboardingStageId, errors);
+                ValidateLaunchContextResolver(provider, Stage0_1StageId, errors);
+                ValidateLaunchContextResolver(provider, Stage1_1StageId, errors);
             }
 
             ValidateDirectPlayCatalog(errors);
@@ -123,8 +123,8 @@ namespace Game.Feature.Stages.Editor
             }
 
             var resolver = new StageCatalogResolver(provider);
-            RequireCatalogResolve(resolver, MechanicsShowcaseStageId, errors);
-            RequireCatalogResolve(resolver, OnboardingStageId, errors);
+            RequireCatalogResolve(resolver, Stage0_1StageId, errors);
+            RequireCatalogResolve(resolver, Stage1_1StageId, errors);
         }
 
         private static void ValidateEntryCompanions(StageContentEntry entry, string entryPath, List<string> errors)
@@ -314,16 +314,14 @@ namespace Game.Feature.Stages.Editor
                 errors.Add($"Direct-play catalog canonical shell must be '{UiAudioScenePath}'.");
             }
 
-            RequireSupportedStage(directPlayCatalog, MechanicsShowcaseStageId, errors);
-            RequireSupportedStage(directPlayCatalog, OnboardingStageId, errors);
+            RequireSupportedStage(directPlayCatalog, Stage0_1StageId, errors);
+            RequireSupportedStage(directPlayCatalog, Stage1_1StageId, errors);
         }
 
         private static void ValidateForbiddenFolders(List<string> errors, List<string> facts)
         {
             RequireNoAssets("Assets/_Features/Stages/Stage_CombinedGameplayShowcase", errors, facts);
             RequireNoAssets("Assets/_Features/Stages/Stage_TutorialScene", errors, facts);
-            RequireNoAssets("Assets/_Features/Stages/Content/mechanics-showcase", errors, facts);
-            RequireNoAssets("Assets/_Features/Stages/Content/onboarding", errors, facts);
             RequireNoDirectories(StageContentPaths.CampaignLevelsRoot, "_Shared", errors);
             RequireNoDirectories(StageContentPaths.CampaignLevel01StagesRoot, "_Shared", errors);
             RequireNoDirectories(StageContentPaths.CampaignLevel01StagesRoot, "_Overrides", errors);
