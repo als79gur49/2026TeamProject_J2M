@@ -29,6 +29,9 @@ namespace Game.Feature.UI.Tests
         private const string ChanceLostContentPrefabPath =
             "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/Contents/ChanceLostOverlayContent.prefab";
 
+        private const string SceneTransitionOverlayAssetAuthoringPath =
+            "Assets/_Features/UI/UI_Composition/Runtime/SceneTransitionOverlayAssetAuthoring.cs";
+
         [TearDown]
         public void TearDown()
         {
@@ -127,8 +130,69 @@ namespace Game.Feature.UI.Tests
                     }
 
                     Assert.That(yaml, Does.Contain("_chanceSlotRoots:"), "PR-T4 must not remove the slot root inspector array.");
+                    Assert.That(yaml, Does.Not.Contain("_chanceSlotRoots: []"), "PR-T5 requires explicit ChanceLost slot root inspector bindings.");
                     Assert.That(yaml, Does.Contain("ChanceSlotView"), "PR-T4 must preserve the slot visual hierarchy.");
                 }
+            }
+        }
+
+        [Test]
+        public void ChanceLostOverlayContentPrefab_HasExplicitChanceSlotRootBindings()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<ChanceLostOverlayContentView>(ChanceLostContentPrefabPath);
+            Assert.That(prefab, Is.Not.Null, ChanceLostContentPrefabPath);
+
+            var serialized = new SerializedObject(prefab);
+            var chanceSlotRoots = serialized.FindProperty("_chanceSlotRoots");
+            Assert.That(chanceSlotRoots, Is.Not.Null);
+            Assert.That(chanceSlotRoots.arraySize, Is.EqualTo(3));
+
+            var expectedNames = new[]
+            {
+                "ChanceSlotView 0",
+                "ChanceSlotView 1",
+                "ChanceSlotView 2",
+            };
+
+            for (var i = 0; i < expectedNames.Length; i++)
+            {
+                var slot = chanceSlotRoots.GetArrayElementAtIndex(i).objectReferenceValue as RectTransform;
+
+                Assert.That(slot, Is.Not.Null, $"_chanceSlotRoots[{i}]");
+                Assert.That(slot.name, Is.EqualTo(expectedNames[i]), $"_chanceSlotRoots[{i}]");
+            }
+
+            Assert.That(prefab.CollectValidationIssues(), Is.Empty);
+        }
+
+        [Test]
+        public void ChanceLostOverlayContentAuthoring_BindsChanceSlotRootsOnRebuild()
+        {
+            var source = File.ReadAllText(SceneTransitionOverlayAssetAuthoringPath);
+
+            Assert.That(source, Does.Contain("var chanceSlots = CreateChanceSlotRoots(panel);"));
+            Assert.That(source, Does.Contain("var chanceSlotRoots = serialized.FindProperty(\"_chanceSlotRoots\");"));
+            Assert.That(source, Does.Contain("chanceSlotRoots.arraySize = chanceSlots.Length;"));
+            Assert.That(source, Does.Contain("chanceSlotRoots.GetArrayElementAtIndex(i).objectReferenceValue = chanceSlots[i];"));
+            foreach (var retiredChildName in RetiredChanceTextChildNames)
+            {
+                Assert.That(source, Does.Not.Contain(retiredChildName), retiredChildName);
+            }
+        }
+
+        [Test]
+        public void ChanceLostOverlayContentPrefab_DoesNotRestoreRetiredChanceTextBindings()
+        {
+            var yaml = File.ReadAllText(ChanceLostContentPrefabPath);
+
+            foreach (var retiredField in RetiredChanceTextFields)
+            {
+                Assert.That(yaml, Does.Not.Contain(retiredField + ":"), retiredField);
+            }
+
+            foreach (var retiredChildName in RetiredChanceTextChildNames)
+            {
+                Assert.That(yaml, Does.Not.Contain(retiredChildName), retiredChildName);
             }
         }
 

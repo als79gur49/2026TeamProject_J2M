@@ -135,6 +135,30 @@ namespace Game.Feature.UI.Composition
         internal override IReadOnlyList<string> CollectValidationIssues()
         {
             var issues = new List<string>(base.CollectValidationIssues());
+            var hasExplicitSlotRoots = _chanceSlotRoots != null && _chanceSlotRoots.Length > 0;
+            var fallbackSlots = new List<RectTransform>();
+            CollectFallbackChanceSlots(fallbackSlots);
+
+            if (!hasExplicitSlotRoots)
+            {
+                issues.Add("ChanceLostOverlayContentView requires explicit _chanceSlotRoots inspector bindings; ChanceSlotView name fallback is safety-only.");
+            }
+            else
+            {
+                for (var i = 0; i < _chanceSlotRoots.Length; i++)
+                {
+                    if (_chanceSlotRoots[i] == null)
+                    {
+                        issues.Add($"ChanceLostOverlayContentView _chanceSlotRoots has null entry at index {i}.");
+                    }
+                }
+
+                if (fallbackSlots.Count > 0 && _chanceSlotRoots.Length != fallbackSlots.Count)
+                {
+                    issues.Add($"ChanceLostOverlayContentView _chanceSlotRoots count {_chanceSlotRoots.Length} does not match authored ChanceSlotView count {fallbackSlots.Count}.");
+                }
+            }
+
             if (ResolveChanceSlots().Count == 0)
             {
                 issues.Add("ChanceLostOverlayContentView has no chance slot roots for lost chance animation.");
@@ -158,6 +182,8 @@ namespace Game.Feature.UI.Composition
         internal int ActiveLostChanceAnimationCountForTests => _lostChanceSequence != null && _lostChanceSequence.IsActive() ? 1 : 0;
 
         internal int ResolvedChanceSlotCountForTests => ResolveChanceSlots().Count;
+
+        internal IReadOnlyList<RectTransform> ResolvedChanceSlotsForTests => ResolveChanceSlots();
 
         internal Color CrackShardVisibleColorForTests(float shardDelaySeconds) => EvaluateCrackShardVisibleColor(shardDelaySeconds);
 
@@ -662,7 +688,7 @@ namespace Game.Feature.UI.Composition
         private IReadOnlyList<RectTransform> ResolveChanceSlots()
         {
             _resolvedSlots.Clear();
-            if (_chanceSlotRoots != null)
+            if (_chanceSlotRoots != null && _chanceSlotRoots.Length > 0)
             {
                 for (var i = 0; i < _chanceSlotRoots.Length; i++)
                 {
@@ -671,13 +697,16 @@ namespace Game.Feature.UI.Composition
                         _resolvedSlots.Add(_chanceSlotRoots[i]);
                     }
                 }
-            }
 
-            if (_resolvedSlots.Count > 0)
-            {
                 return _resolvedSlots;
             }
 
+            CollectFallbackChanceSlots(_resolvedSlots);
+            return _resolvedSlots;
+        }
+
+        private void CollectFallbackChanceSlots(List<RectTransform> slots)
+        {
             var children = GetComponentsInChildren<RectTransform>(true);
             for (var i = 0; i < children.Length; i++)
             {
@@ -687,11 +716,10 @@ namespace Game.Feature.UI.Composition
                     continue;
                 }
 
-                _resolvedSlots.Add(child);
+                slots.Add(child);
             }
 
-            _resolvedSlots.Sort(CompareChanceSlotNames);
-            return _resolvedSlots;
+            slots.Sort(CompareChanceSlotNames);
         }
 
         private Tween CreateHorizontalShakeTween(SlotState state)

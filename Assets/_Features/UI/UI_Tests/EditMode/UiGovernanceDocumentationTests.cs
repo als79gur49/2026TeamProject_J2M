@@ -48,7 +48,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(guide, Does.Contain("Editor-only execution is insufficient evidence for fullscreen/window correctness."));
             Assert.That(guide, Does.Contain("green on 2026-06-12 KST"));
             Assert.That(guide, Does.Contain("Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
-            Assert.That(guide, Does.Contain("Unity UI EditMode `691 total / 0 failed`"));
+            Assert.That(guide, Does.Contain("Unity UI EditMode `697 total / 0 failed`"));
             Assert.That(guide, Does.Contain("UI-Current-Structure-Source.md"));
             Assert.That(guide, Does.Contain("current UI structure or stale-token audit policy changes"));
             Assert.That(guide, Does.Contain("2차 UI canonical 보정 보고서에 기록된 UI red 사유"));
@@ -81,6 +81,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("`GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` share `GenericLoadingOverlayContent`."));
             Assert.That(guidelines, Does.Contain("`ChanceLost` remains a dedicated `ChanceLostOverlayContent` path"));
             Assert.That(guidelines, Does.Contain("chance-loss visuals are slot/effect-driven and do not expose dynamic previous/current/total/death chance text bindings"));
+            Assert.That(guidelines, Does.Contain("current authored slots use explicit inspector-bound slot roots"));
+            Assert.That(guidelines, Does.Contain("`ChanceSlotView*` name fallback exists only as a safety net"));
             Assert.That(guidelines, Does.Contain("Scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract."));
             Assert.That(guidelines, Does.Contain("`LevelFailedRestart` does not own a current dedicated transition message/text content contract."));
             Assert.That(guidelines, Does.Contain("`StageResult`, `LevelFailed`, and `GameClear` are canonical terminal result screens."));
@@ -117,10 +119,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("Prior Phase 1 drift-correction rerun: green on 2026-06-06 KST"));
             Assert.That(baseline, Does.Contain("Current PR-A Objective UI removal baseline rerun: green on 2026-06-11 KST"));
             Assert.That(baseline, Does.Contain("Current PR-T3 transition content base contract rerun: green on 2026-06-12 KST"));
+            Assert.That(baseline, Does.Contain("Current PR-T5 ChanceLost slot root explicit binding rerun: green on 2026-06-12 KST"));
             Assert.That(baseline, Does.Contain("Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors"));
             var resultSection = ExtractMarkdownSection(baseline, "## Result");
-            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `691 total / 0 failed`"));
-            Assert.That(resultSection, Does.Contain("Baseline test result: command `./run_tests.sh ui`, result `691 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`"));
+            Assert.That(resultSection, Does.Contain("Current Unity UI EditMode: `697 total / 0 failed`"));
+            Assert.That(resultSection, Does.Contain("Baseline test result: command `./run_tests.sh ui`, result `697 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`"));
             Assert.That(resultSection, Does.Not.Contain("706 total / 0 failed"), "Current baseline Result section must not retain stale 706 total evidence.");
             Assert.That(baseline, Does.Contain("PR-A Objective UI removal guards proving `ObjectiveStatus` screen, `ObjectiveInfo` popup, pause objective action semantics, deleted prefab files, and deleted prefab GUID references are absent from production UI vocabulary"));
             Assert.That(baseline, Does.Contain("external structure-source regeneration guard"));
@@ -128,9 +131,12 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("canonical UI navigation resolver guards"));
             Assert.That(baseline, Does.Contain("PR-T2 transition content guards proving common semantic ids share `GenericLoadingOverlayContent`, `ChanceLostOverlayContent` remains dedicated, stale LevelFailed-only transition message/text residue is removed, and deleted duplicate content prefab GUID references are absent"));
             Assert.That(baseline, Does.Contain("PR-T3 transition content base contract guards proving base content requires only root group and progress text bindings, while retired title/message/progress bar/animator base bindings stay absent from source and prefabs"));
+            Assert.That(baseline, Does.Contain("PR-T5 ChanceLost slot root binding guards proving `_chanceSlotRoots` remains the explicit inspector binding contract"));
             Assert.That(baseline, Does.Contain("Duplicate common transition content prefab files and stale common-only content view types were removed after PR-T2 collapsed the shared physical content mapping."));
             Assert.That(baseline, Does.Contain("renamed the transition content catalog guard to cover shared semantic mapping instead of one physical prefab per semantic"));
             Assert.That(baseline, Does.Contain("scene transition semantic ids are preserved while physical content is shared: `GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` use `GenericLoadingOverlayContent`; `ChanceLost` remains dedicated as slot/effect-driven `ChanceLostOverlayContent` with no dynamic previous/current/total/death chance text binding contract"));
+            Assert.That(baseline, Does.Contain("explicit inspector-bound slot roots for current authored slots"));
+            Assert.That(baseline, Does.Contain("`ChanceSlotView*` name fallback only as a safety net"));
             Assert.That(baseline, Does.Contain("`LevelFailedRestart` has no current dedicated transition content message/text contract; the old LevelFailed-only message field was removed as stale residue"));
             Assert.That(baseline, Does.Contain("legacy navigation router setup coverage is replaced with `IUiNavigationTargetResolver` fixture coverage plus public-surface absence guards"));
             Assert.That(baseline, Does.Contain("Prior 2차 UI canonical correction report red reason"));
@@ -256,6 +262,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Contain("`GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` share the physical `GenericLoadingOverlayContent` prefab."));
             Assert.That(source, Does.Contain("`ChanceLost` keeps the dedicated `ChanceLostOverlayContent` prefab"));
             Assert.That(source, Does.Contain("slot/effect-driven chance-loss visuals and does not expose dynamic previous/current/total/death chance text bindings"));
+            Assert.That(source, Does.Contain("current authored slots use explicit inspector-bound slot roots"));
+            Assert.That(source, Does.Contain("`ChanceSlotView*` name fallback exists only as a safety net"));
             Assert.That(source, Does.Contain("Scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract."));
             Assert.That(source, Does.Contain("`LevelFailedRestart` has no current dedicated message/text content contract"));
             Assert.That(source, Does.Contain("`SceneTransitionOverlayView`, `UI/SceneTransitionOverlayView`, generated fallback, and legacy overlay fallback are not current paths."));

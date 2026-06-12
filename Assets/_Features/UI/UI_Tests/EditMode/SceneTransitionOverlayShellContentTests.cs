@@ -136,6 +136,36 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ChanceLostOverlayContentView_UsesInspectorSlotRootsAsPrimarySource()
+        {
+            using var content = ContentHandle.Create<ChanceLostOverlayContentView>("ChanceLost");
+            var view = (ChanceLostOverlayContentView)content.View;
+
+            Assert.That(view.CollectValidationIssues(), Is.Empty);
+
+            var extraFallbackSlot = new GameObject("ChanceSlotView 99", typeof(RectTransform), typeof(CanvasGroup));
+            extraFallbackSlot.transform.SetParent(content.Root.transform, false);
+
+            Assert.That(view.ResolvedChanceSlotCountForTests, Is.EqualTo(3));
+            Assert.That(view.ResolvedChanceSlotsForTests, Is.EqualTo(content.ChanceSlots));
+            Assert.That(view.CollectValidationIssues(), Has.Some.Contains("_chanceSlotRoots count 3"));
+        }
+
+        [Test]
+        public void ChanceLostOverlayContentView_FallbackIsSafetyNet_NotCurrentPrefabContract()
+        {
+            using var content = ContentHandle.Create<ChanceLostOverlayContentView>(
+                "ChanceLost",
+                bindChanceSlotRoots: false);
+            var view = (ChanceLostOverlayContentView)content.View;
+
+            Assert.That(view.ResolvedChanceSlotCountForTests, Is.EqualTo(3));
+            Assert.That(
+                view.CollectValidationIssues(),
+                Has.Some.Contains("requires explicit _chanceSlotRoots inspector bindings"));
+        }
+
+        [Test]
         public void SceneTransitionOverlayContentView_RequiresOnlyRootGroupAndProgressTextBaseBindings()
         {
             using var content = ContentHandle.Create<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
@@ -518,7 +548,7 @@ namespace Game.Feature.UI.Tests
             public SceneTransitionOverlayContentView View { get; }
             public RectTransform[] ChanceSlots { get; }
 
-            public static ContentHandle Create<T>(string name)
+            public static ContentHandle Create<T>(string name, bool bindChanceSlotRoots = true)
                 where T : SceneTransitionOverlayContentView
             {
                 var root = new GameObject(name, typeof(RectTransform), typeof(CanvasGroup));
@@ -534,6 +564,15 @@ namespace Game.Feature.UI.Tests
                 if (view is ChanceLostOverlayContentView)
                 {
                     chanceSlots = CreateChanceSlots(root.transform);
+                    if (bindChanceSlotRoots)
+                    {
+                        var chanceSlotRoots = serialized.FindProperty("_chanceSlotRoots");
+                        chanceSlotRoots.arraySize = chanceSlots.Length;
+                        for (var i = 0; i < chanceSlots.Length; i++)
+                        {
+                            chanceSlotRoots.GetArrayElementAtIndex(i).objectReferenceValue = chanceSlots[i];
+                        }
+                    }
                 }
 
                 serialized.ApplyModifiedPropertiesWithoutUndo();

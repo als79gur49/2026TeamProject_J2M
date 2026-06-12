@@ -17,6 +17,9 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class UiRepositoryPrefabCatalogSmokeTests
     {
+        private const string TransitionContentCatalogPath =
+            "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/SceneTransitionOverlayContentCatalog.asset";
+
         [Test]
         public void ScreenPrefabCatalog_RepositoryAsset_AllScreenIdsHaveValidPrefab()
         {
@@ -76,6 +79,43 @@ namespace Game.Feature.UI.Tests
             }
 
             Assert.That(failures, Is.Empty, "Popup prefab catalog repository smoke failures:\n" + string.Join("\n", failures));
+        }
+
+        [Test]
+        public void SceneTransitionContentCatalog_RepositoryAsset_ContentPrefabsValidate()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<SceneTransitionOverlayContentCatalog>(TransitionContentCatalogPath);
+            Assert.That(catalog, Is.Not.Null, TransitionContentCatalogPath);
+
+            var contentPrefabs = new HashSet<SceneTransitionOverlayContentView>();
+            if (catalog.GenericFallbackPrefab != null)
+            {
+                contentPrefabs.Add(catalog.GenericFallbackPrefab);
+            }
+
+            foreach (var entry in catalog.Entries)
+            {
+                if (entry?.ContentPrefab != null)
+                {
+                    contentPrefabs.Add(entry.ContentPrefab);
+                }
+            }
+
+            var failures = new List<string>();
+            foreach (var prefab in contentPrefabs.OrderBy(AssetDatabase.GetAssetPath, StringComparer.Ordinal))
+            {
+                try
+                {
+                    Assert.That(prefab.CollectValidationIssues(), Is.Empty, Describe(prefab));
+                    Assert.That(CountMissingScripts(prefab.gameObject), Is.EqualTo(0), Describe(prefab));
+                }
+                catch (Exception exception)
+                {
+                    failures.Add($"{Describe(prefab)}: {exception.GetType().Name}: {exception.Message}");
+                }
+            }
+
+            Assert.That(failures, Is.Empty, "Scene transition content catalog repository smoke failures:\n" + string.Join("\n", failures));
         }
 
         [Test]
