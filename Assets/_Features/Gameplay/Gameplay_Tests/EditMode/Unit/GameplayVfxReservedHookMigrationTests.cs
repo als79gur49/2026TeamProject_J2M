@@ -129,9 +129,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void ImpactTransientBreak_FlagOff_DisablesVfxWithoutFallback()
         {
             var owner = new GameObject("ImpactTransientFlagOff");
+            VfxCueMapAsset cueMap = null;
             try
             {
+                cueMap = CreateCueMap();
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
 
                 runtime.Present(CreateExtensionContext(
                     Array.Empty<TickEntityExitPresentationSignal>(),
@@ -143,7 +146,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(owner);
+                Destroy(cueMap, owner);
             }
         }
 
@@ -222,9 +225,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void OutOfBoundsExit_FlagOff_DisablesVfxWithoutFallback()
         {
             var owner = new GameObject("OutOfBoundsFlagOff");
+            VfxCueMapAsset cueMap = null;
             try
             {
+                cueMap = CreateCueMap();
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
 
                 runtime.Present(CreateExtensionContext(
                     new[] { CreateExitSignal(30, TickEntityExitCause.OutOfBounds) },
@@ -236,7 +242,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(owner);
+                Destroy(cueMap, owner);
             }
         }
 

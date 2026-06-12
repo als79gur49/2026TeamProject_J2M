@@ -204,9 +204,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void FlagOff_DropsFlipImpactBurstRequest()
         {
             var owner = new GameObject("FlipImpactBurstFlagOff");
+            VfxCueMapAsset cueMap = null;
             try
             {
+                cueMap = CreateCueMap();
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
 
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.Stay)));
 
@@ -215,7 +218,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(owner);
+                Destroy(cueMap, owner);
             }
         }
 

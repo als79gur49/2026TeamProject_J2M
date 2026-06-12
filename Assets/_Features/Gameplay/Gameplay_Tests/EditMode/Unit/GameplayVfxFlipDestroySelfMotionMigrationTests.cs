@@ -268,9 +268,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var source = ReadRepoFile(ExitControllerPath);
             var owner = new GameObject("FlipDestroySelfFlagOff");
+            VfxCueMapAsset cueMap = null;
             try
             {
+                cueMap = CreateCueMap();
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
                 runtime.Present(CreateExtensionContext(CreateSignal(FlipImpactPresentationDisposition.DestroySelf)));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
@@ -279,7 +282,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Destroy(owner);
+                Destroy(cueMap, owner);
             }
         }
 

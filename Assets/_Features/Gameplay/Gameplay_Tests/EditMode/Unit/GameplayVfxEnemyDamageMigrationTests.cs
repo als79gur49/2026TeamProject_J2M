@@ -312,7 +312,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
 
                 var enemyView = AddSourceView(owner);
-                runtime.Present(CreateExtensionContext(includePlayerDamage: true, enemyView: enemyView));
+                runtime.Present(CreateExtensionContext(
+                    includePlayerDamage: playerDamageEnabled,
+                    includeEnemyDamage: enemyDamageEnabled,
+                    enemyView: enemyView));
 
                 Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(expectedRequests));
             }
@@ -331,6 +334,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayTickPresentationExtensionContext CreateExtensionContext(
             bool includePlayerDamage = false,
+            bool includeEnemyDamage = true,
             GameplayEntityView enemyView = null)
         {
             var topology = new CubeTopologyState(FaceId.Floor);
@@ -357,7 +361,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         playerDamageSignals: includePlayerDamage
                             ? new[] { new TickPlayerDamagePresentationSignal(10, tookDamageThisTick: true, damageAmount: 1) }
                             : Array.Empty<TickPlayerDamagePresentationSignal>(),
-                        enemyDamageSignals: new[] { CreateEnemyDamageSignal() }),
+                        enemyDamageSignals: includeEnemyDamage
+                            ? new[] { CreateEnemyDamageSignal() }
+                            : Array.Empty<TickEnemyDamagePresentationSignal>()),
                     topology),
                 topology,
                 stateStore,

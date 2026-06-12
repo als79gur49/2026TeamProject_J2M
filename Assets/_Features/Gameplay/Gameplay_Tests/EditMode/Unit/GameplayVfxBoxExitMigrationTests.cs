@@ -711,9 +711,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void Coordinator_ItemConsumeFlagOff_DoesNotUseOldFallbackAndKeepsCleanup()
         {
             var scenario = CreatePresenterScenario("ItemConsumeFlagOff");
+            VfxCueMapAsset cueMap = null;
             try
             {
+                cueMap = CreateCueMap();
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
                     new[] { CreateBox(21, scenario.BoxCell) },
@@ -730,6 +733,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                Destroy(cueMap);
                 scenario.Destroy();
             }
         }
@@ -739,9 +743,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void Coordinator_EnemyDeathOldPath_NotRestoredByBoxItemFlags()
         {
             var scenario = CreatePresenterScenario("EnemyDeathNotSuppressed");
+            VfxCueMapAsset cueMap = null;
             try
             {
+                cueMap = CreateCueMap();
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(
                     new[] { CreateEnemyUnit(40, scenario.BoxCell) },
@@ -758,6 +765,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                Destroy(cueMap);
                 scenario.Destroy();
             }
         }
