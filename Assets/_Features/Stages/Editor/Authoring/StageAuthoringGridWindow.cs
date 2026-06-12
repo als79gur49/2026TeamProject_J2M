@@ -1936,7 +1936,6 @@ namespace Game.Feature.Stages.Editor
                 TileFeaturePresentationCatalogStatusKind.KeyResolved => MessageType.Info,
                 TileFeaturePresentationCatalogStatusKind.KeyMissing => MessageType.Warning,
                 TileFeaturePresentationCatalogStatusKind.KindMismatch => MessageType.Warning,
-                TileFeaturePresentationCatalogStatusKind.DirectionHintMismatch => MessageType.Warning,
                 TileFeaturePresentationCatalogStatusKind.DirectOverrideActive => MessageType.Info,
                 _ => MessageType.Info,
             };

@@ -1953,18 +1953,6 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
 
-                if (catalogEntry.DirectionHint != Direction2D.None &&
-                    tileFeature.Kind == TileFeatureKind.Slide &&
-                    catalogEntry.DirectionHint != tileFeature.Direction)
-                {
-                    report.Add(
-                        StageValidationSeverity.Warning,
-                        "presentation.tile-feature.catalog-direction-mismatch",
-                        $"TileFeature TileId {tileFeature.TileId} Slide direction {tileFeature.Direction} does not match catalog PresentationKey '{presentationKey}' hint {catalogEntry.DirectionHint}.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
             }
         }
 

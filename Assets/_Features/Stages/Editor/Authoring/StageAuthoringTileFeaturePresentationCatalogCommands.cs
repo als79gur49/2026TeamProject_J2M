@@ -14,7 +14,6 @@ namespace Game.Feature.Stages.Editor
         KeyResolved,
         KeyMissing,
         KindMismatch,
-        DirectionHintMismatch,
         DirectOverrideActive,
     }
 
@@ -167,15 +166,6 @@ namespace Game.Feature.Stages.Editor
                         keyedEntry);
                 }
 
-                if (HasDirectionHintMismatch(feature, keyedEntry))
-                {
-                    return new TileFeaturePresentationCatalogStatus(
-                        TileFeaturePresentationCatalogStatusKind.DirectionHintMismatch,
-                        presentationKey,
-                        $"PresentationKey '{presentationKey}' direction hint {keyedEntry.DirectionHint} does not match {feature.Direction}.",
-                        keyedEntry);
-                }
-
                 return new TileFeaturePresentationCatalogStatus(
                     TileFeaturePresentationCatalogStatusKind.KeyResolved,
                     presentationKey,
@@ -196,20 +186,6 @@ namespace Game.Feature.Stages.Editor
                 TileFeaturePresentationCatalogStatusKind.EmptyKeyUnresolved,
                 string.Empty,
                 "No PresentationKey set and no default visual exists for this TileFeature kind.");
-        }
-
-        public static bool HasDirectionHintMismatch(
-            StageTileFeatureDefinition feature,
-            TileFeaturePresentationCatalogEntry entry)
-        {
-            if (entry == null ||
-                entry.DirectionHint == Direction2D.None)
-            {
-                return false;
-            }
-
-            return feature.Kind == TileFeatureKind.Slide &&
-                   entry.DirectionHint != feature.Direction;
         }
 
         private static string BuildLabel(

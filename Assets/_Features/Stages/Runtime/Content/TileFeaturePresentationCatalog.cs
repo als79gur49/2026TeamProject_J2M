@@ -14,7 +14,6 @@ namespace Game.Feature.Stages
         [SerializeField] private TileFeatureKind kind = TileFeatureKind.Unknown;
         [SerializeField] private GameObject visualPrefab;
         [SerializeField] private bool isDefaultForKind;
-        [SerializeField] private Direction2D directionHint = Direction2D.None;
         [SerializeField] private VfxStyleKey vfxStyleKey;
 
         public string PresentationKey => TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
@@ -26,8 +25,6 @@ namespace Game.Feature.Stages
         public GameObject VisualPrefab => visualPrefab;
 
         public bool IsDefaultForKind => isDefaultForKind;
-
-        public Direction2D DirectionHint => directionHint;
 
         public VfxStyleKey VfxStyleKey => vfxStyleKey;
     }

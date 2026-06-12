@@ -132,24 +132,12 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void TileFeaturePresentationCatalog_AllowsDirectionHintNoneAsGeneric()
+        public void TileFeaturePresentationCatalogEntry_DoesNotExposeDirectionHint()
         {
-            var prefab = CreateValidPrefab("DirectionHintNonePrefab");
-            var catalog = CreateCatalog(Entry(
-                "slide-generic",
-                TileFeatureKind.Slide,
-                prefab,
-                directionHint: Direction2D.None));
+            var entryType = typeof(TileFeaturePresentationCatalogEntry);
 
-            try
-            {
-                Assert.That(catalog.TryGetEntry("slide-generic", out var entry), Is.True);
-                Assert.That(entry.DirectionHint, Is.EqualTo(Direction2D.None));
-            }
-            finally
-            {
-                DestroyObjects(catalog, prefab);
-            }
+            Assert.That(entryType.GetProperty("DirectionHint"), Is.Null);
+            Assert.That(entryType.GetField("directionHint", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null);
         }
 
         [Test]
@@ -193,8 +181,28 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(yaml, Does.Not.Contain("placementMode:"));
             Assert.That(yaml, Does.Not.Contain("icon:"));
             Assert.That(yaml, Does.Not.Contain("footprintMode:"));
+            Assert.That(yaml, Does.Not.Contain("directionHint:"));
             Assert.That(yaml, Does.Not.Contain("presentationKey: exit.1x1"));
             Assert.That(yaml, Does.Contain("presentationKey: exit.default"));
+            Assert.That(yaml, Does.Contain("presentationKey: slide.up"));
+            Assert.That(yaml, Does.Contain("presentationKey: slide.right"));
+            Assert.That(yaml, Does.Contain("presentationKey: slide.down"));
+            Assert.That(yaml, Does.Contain("presentationKey: slide.left"));
+        }
+
+        [Test]
+        public void TileFeaturePresentationCatalogAssets_HaveNoDirectionHintResidue()
+        {
+            var catalogGuids = AssetDatabase.FindAssets("t:TileFeaturePresentationCatalog");
+
+            Assert.That(catalogGuids, Is.Not.Empty);
+            foreach (var catalogGuid in catalogGuids)
+            {
+                var assetPath = AssetDatabase.GUIDToAssetPath(catalogGuid);
+                var yaml = File.ReadAllText(assetPath);
+
+                Assert.That(yaml, Does.Not.Contain("directionHint:"), assetPath);
+            }
         }
 
         [Test]
@@ -212,6 +220,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(resolved.TileFeatureBindings, Has.Count.EqualTo(1));
                 Assert.That(resolved.TileFeatureBindings[0].TileId, Is.EqualTo(100));
                 Assert.That(resolved.TileFeatureBindings[0].VisualPrefab, Is.SameAs(prefab));
+                Assert.That(resolved.TileFeatureBindings[0].Kind, Is.EqualTo(TileFeatureKind.Button));
+                Assert.That(resolved.TileFeatureBindings[0].VfxStyleKey, Is.EqualTo(VfxStyleKey.Default));
             }
             finally
             {
@@ -695,6 +705,32 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void CampaignMainBoardCatalog_KeepsSlideDirectionSpecificEntries()
+        {
+            const string catalogPath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Catalogs/TileFeaturePresentationCatalog_CampaignMainBoard.asset";
+            var catalog = AssetDatabase.LoadAssetAtPath<TileFeaturePresentationCatalog>(catalogPath);
+            Assert.That(catalog, Is.Not.Null);
+
+            AssertSlideCatalogEntry(
+                catalog,
+                "slide.up",
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Up.prefab");
+            AssertSlideCatalogEntry(
+                catalog,
+                "slide.right",
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Right.prefab");
+            AssertSlideCatalogEntry(
+                catalog,
+                "slide.down",
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Down.prefab");
+            AssertSlideCatalogEntry(
+                catalog,
+                "slide.left",
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Left.prefab");
+        }
+
+        [Test]
         public void StageCatalogValidator_ReportsDuplicateTileFeatureCatalogKey()
         {
             var prefab = CreateValidPrefab("ValidatorDuplicateKeyPrefab");
@@ -1163,10 +1199,9 @@ namespace Game.Feature.Stages.Editor.Tests
             TileFeatureKind kind,
             GameObject visualPrefab,
             bool isDefault = false,
-            Direction2D directionHint = Direction2D.None,
             VfxStyleKey vfxStyleKey = default)
         {
-            return CreateEntry(presentationKey, kind, visualPrefab, isDefault, directionHint, vfxStyleKey);
+            return CreateEntry(presentationKey, kind, visualPrefab, isDefault, vfxStyleKey);
         }
 
         private static TileFeaturePresentationCatalogEntry CreateEntry(
@@ -1174,7 +1209,6 @@ namespace Game.Feature.Stages.Editor.Tests
             TileFeatureKind kind,
             GameObject visualPrefab,
             bool isDefault = false,
-            Direction2D directionHint = Direction2D.None,
             VfxStyleKey vfxStyleKey = default)
         {
             var entry = new TileFeaturePresentationCatalogEntry();
@@ -1183,7 +1217,6 @@ namespace Game.Feature.Stages.Editor.Tests
             SetPrivateField(entry, "kind", kind);
             SetPrivateField(entry, "visualPrefab", visualPrefab);
             SetPrivateField(entry, "isDefaultForKind", isDefault);
-            SetPrivateField(entry, "directionHint", directionHint);
             SetPrivateField(entry, "vfxStyleKey", vfxStyleKey);
             return entry;
         }
@@ -1307,6 +1340,19 @@ namespace Game.Feature.Stages.Editor.Tests
                     parameter.type == parameterType),
                 Is.True,
                 $"Missing Animator parameter '{parameterName}' ({parameterType}).");
+        }
+
+        private static void AssertSlideCatalogEntry(
+            TileFeaturePresentationCatalog catalog,
+            string presentationKey,
+            string prefabPath)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+
+            Assert.That(prefab, Is.Not.Null, prefabPath);
+            Assert.That(catalog.TryGetEntry(presentationKey, out var entry), Is.True, presentationKey);
+            Assert.That(entry.Kind, Is.EqualTo(TileFeatureKind.Slide), presentationKey);
+            Assert.That(entry.VisualPrefab, Is.SameAs(prefab), presentationKey);
         }
 
         private static void InvokeStageTileFeatureVisualInstantiation(

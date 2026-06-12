@@ -37,14 +37,6 @@ MonoBehaviour:
     Owner: stage-authoring-pipeline
     Reason: Presentation catalog integrity migration warning; tile feature presentation key needs authored kind cleanup.
     RemovalGate: Align the tile feature presentation key with the authored gameplay tile kind.
-  - IssueCode: presentation.tile-feature.catalog-direction-mismatch
-    AssetGuid: 997f5288e66444a6b16cbb4f4cc4945c
-    ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/mechanics-showcase/mechanics-showcase_Presentation.asset
-    ExpectedAssetName: mechanics-showcase_Presentation
-    ExpectedStageId: mechanics-showcase
-    Owner: stage-authoring-pipeline
-    Reason: Presentation catalog integrity migration warning; slide tile presentation hint needs authored direction cleanup.
-    RemovalGate: Align the slide tile presentation key with the authored slide direction.
   - IssueCode: GameplayDrift.ObjectiveMismatch
     AssetGuid: e3ec79d9fcf96274f849a61efc576a27
     ExpectedAssetPath: Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/onboarding/onboarding_Authoring.asset
