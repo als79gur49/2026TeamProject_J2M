@@ -585,17 +585,6 @@ namespace Game.Feature.Gameplay.Entities
                     jumpState.landingTick == tickIndex);
         }
 
-        private bool ShouldSuppressCombatAttackForJump(WorldSnapshot snapshot)
-        {
-            if (!TryGetJumpState(snapshot, out var jumpState))
-            {
-                return false;
-            }
-
-            return jumpState.phase == EnemyJumpPhase.Windup ||
-                   jumpState.phase == EnemyJumpPhase.Airborne;
-        }
-
         private bool ShouldSuppressAutonomousMovementAndFacing(
             WorldSnapshot snapshot,
             in EntityState source,
@@ -1031,20 +1020,6 @@ namespace Game.Feature.Gameplay.Entities
             return TryGetChargeState(snapshot, out var chargeState) &&
                    (chargeState.phase == EnemyChargePhase.Windup ||
                     chargeState.phase == EnemyChargePhase.Recover);
-        }
-
-        private static bool TryResolveSolidBoundGlideKinematicTerminal(
-            WorldSnapshot snapshot,
-            int entityId,
-            in EnemyGlideRuntimeState glideState,
-            out SurfaceCell terminalCell)
-        {
-            if (!TryResolveUnsettledGlideKinematicTerminal(snapshot, entityId, glideState, out terminalCell))
-            {
-                return false;
-            }
-
-            return snapshot.TryGetSolidSemanticAt(terminalCell, out _);
         }
 
         private static bool TryResolveUnsettledGlideKinematicTerminal(
