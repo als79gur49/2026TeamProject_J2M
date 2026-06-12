@@ -149,7 +149,6 @@ namespace Game.Feature.UI.Tests
                 ScreenId.StageResult,
                 new StageResultScreenPayload(
                     "Title",
-                    "Summary",
                     "Detail",
                     "Continue",
                     StageNavigationRequest.None,

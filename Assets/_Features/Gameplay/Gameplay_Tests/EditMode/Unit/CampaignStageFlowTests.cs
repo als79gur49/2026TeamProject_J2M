@@ -2121,7 +2121,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 result,
                 "Stage Clear",
                 string.Empty,
-                string.Empty,
                 "Continue",
                 new StageNavigationRequest(stageId, StageNavigationKind.Continue, "campaign-test-continue"),
                 new StageNavigationRequest(stageId, StageNavigationKind.Retry, "campaign-test-retry"),

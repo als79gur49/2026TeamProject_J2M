@@ -161,7 +161,6 @@ namespace Game.Feature.UI.Screens
     {
         public StageResultScreenPayload(
             string titleText,
-            string summaryText,
             string detailText,
             string continueLabel,
             StageNavigationRequest continueStageRequest,
@@ -170,7 +169,6 @@ namespace Game.Feature.UI.Screens
             bool isContinueEnabled = true)
         {
             TitleText = titleText ?? string.Empty;
-            SummaryText = summaryText ?? string.Empty;
             DetailText = detailText ?? string.Empty;
             ContinueLabel = continueLabel ?? string.Empty;
             ContinueStageRequest = continueStageRequest;
@@ -180,8 +178,6 @@ namespace Game.Feature.UI.Screens
         }
 
         public string TitleText { get; }
-
-        public string SummaryText { get; }
 
         public string DetailText { get; }
 
@@ -436,8 +432,6 @@ namespace Game.Feature.UI.Screens
 
         public string TitleText { get; private set; } = string.Empty;
 
-        public string SummaryText { get; private set; } = string.Empty;
-
         public string DetailText { get; private set; } = string.Empty;
 
         public string ContinueLabel { get; private set; } = string.Empty;
@@ -446,13 +440,11 @@ namespace Game.Feature.UI.Screens
 
         public void SetContent(
             string titleText,
-            string summaryText,
             string detailText,
             string continueLabel,
             bool isContinueEnabled = true)
         {
             TitleText = titleText ?? string.Empty;
-            SummaryText = summaryText ?? string.Empty;
             DetailText = detailText ?? string.Empty;
             ContinueLabel = continueLabel ?? string.Empty;
             IsContinueEnabled = isContinueEnabled;

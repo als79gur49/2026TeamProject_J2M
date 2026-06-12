@@ -49,7 +49,6 @@ namespace Game.Feature.Stages
             string displayName,
             MinimalStageCompletionResult result,
             string presentationTitle,
-            string presentationSummary,
             string presentationDetail,
             string continueLabel,
             StageNavigationRequest continueRequest,
@@ -60,7 +59,6 @@ namespace Game.Feature.Stages
             DisplayName = displayName ?? string.Empty;
             Result = result ?? throw new ArgumentNullException(nameof(result));
             PresentationTitle = presentationTitle ?? string.Empty;
-            PresentationSummary = presentationSummary ?? string.Empty;
             PresentationDetail = presentationDetail ?? string.Empty;
             ContinueLabel = continueLabel ?? string.Empty;
             ContinueRequest = continueRequest;
@@ -75,8 +73,6 @@ namespace Game.Feature.Stages
         public MinimalStageCompletionResult Result { get; }
 
         public string PresentationTitle { get; }
-
-        public string PresentationSummary { get; }
 
         public string PresentationDetail { get; }
 
@@ -137,7 +133,6 @@ namespace Game.Feature.Stages
                 presentation.DisplayName,
                 result,
                 string.IsNullOrWhiteSpace(presentation.ResultTitle) ? "Stage Cleared" : presentation.ResultTitle,
-                presentation.ResultSummaryText,
                 presentation.ResultDetailText,
                 string.IsNullOrWhiteSpace(presentation.ResultContinueLabel) ? "Continue" : presentation.ResultContinueLabel,
                 continueRequest,

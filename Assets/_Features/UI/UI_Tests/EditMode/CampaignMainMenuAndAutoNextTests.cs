@@ -101,7 +101,6 @@ namespace Game.Feature.UI.Tests
             var payload = new StageResultScreenPayload(
                 "Clear",
                 string.Empty,
-                string.Empty,
                 "Continue",
                 nextRequest,
                 StageNavigationRequest.None,

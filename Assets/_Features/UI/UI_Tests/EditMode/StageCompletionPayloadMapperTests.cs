@@ -21,9 +21,8 @@ namespace Game.Feature.UI.Tests
                     wasCleared: true,
                     finalTickIndex: 24,
                     new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
-                    StageClearSource.Objective),
+                StageClearSource.Objective),
                 "Presentation Title",
-                "Presentation Summary",
                 "Presentation Detail",
                 "Continue",
                 CreateNavigationRequest("payload-stage", StageNavigationKind.Continue),
@@ -33,10 +32,8 @@ namespace Game.Feature.UI.Tests
             var payload = StageResultPayloadMapper.Map(readModel);
 
             Assert.That(payload.TitleText, Is.EqualTo("Presentation Title"));
-            Assert.That(payload.SummaryText, Is.EqualTo("Presentation Summary"));
             Assert.That(payload.DetailText, Is.EqualTo("Presentation Detail"));
             Assert.That(payload.ContinueLabel, Is.EqualTo("Continue"));
-            Assert.That(payload.SummaryText, Does.Not.Contain("Score"));
             Assert.That(payload.DetailText, Does.Not.Contain("Rank"));
         }
 

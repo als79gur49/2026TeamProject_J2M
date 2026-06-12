@@ -11,7 +11,6 @@ namespace Game.Feature.UI.Screens
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _titleLabel;
-        [SerializeField] private TMP_Text _summaryLabel;
         [SerializeField] private TMP_Text _detailLabel;
         [SerializeField] private Button _continueButton;
         [SerializeField] private TMP_Text _continueButtonLabel;
@@ -119,7 +118,6 @@ namespace Game.Feature.UI.Screens
         {
             ValidateSerializedReference(_root, nameof(_root));
             ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
-            ValidateSerializedReference(_summaryLabel, nameof(_summaryLabel));
             ValidateSerializedReference(_detailLabel, nameof(_detailLabel));
             ValidateSerializedReference(_continueButton, nameof(_continueButton));
             ValidateSerializedReference(_continueButtonLabel, nameof(_continueButtonLabel));
@@ -152,11 +150,6 @@ namespace Game.Feature.UI.Screens
             if (_titleLabel != null)
             {
                 _titleLabel.text = _viewModel.TitleText;
-            }
-
-            if (_summaryLabel != null)
-            {
-                _summaryLabel.text = _viewModel.SummaryText;
             }
 
             if (_detailLabel != null)

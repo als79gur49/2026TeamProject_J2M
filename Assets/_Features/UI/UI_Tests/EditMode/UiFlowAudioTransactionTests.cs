@@ -207,7 +207,6 @@ namespace Game.Feature.UI.Tests
                 ScreenId.Settings => SettingsScreenPayload.Default,
                 ScreenId.StageResult => new StageResultScreenPayload(
                     "Title",
-                    "Summary",
                     "Detail",
                     "Continue",
                     Game.Feature.Stages.StageNavigationRequest.None,

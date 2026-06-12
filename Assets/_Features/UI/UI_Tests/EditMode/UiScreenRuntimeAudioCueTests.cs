@@ -93,7 +93,6 @@ namespace Game.Feature.UI.Tests
             var request = CreateStageNavigationRequest(StageNavigationKind.NextStage);
             var payload = new StageResultScreenPayload(
                 "Clear",
-                "Summary",
                 "Detail",
                 "Continue",
                 request,

@@ -640,7 +640,6 @@ namespace Game.Feature.UI.Tests
             var stagePayload = stageResultRecord.Request.Payload as StageResultScreenPayload;
             Assert.That(stagePayload, Is.Not.Null);
             Assert.That(stagePayload.TitleText, Is.EqualTo("Payload Title"));
-            Assert.That(stagePayload.SummaryText, Does.Contain("Payload Stage"));
             Assert.That(stagePayload.DetailText, Does.Contain("Tick 9"));
             Assert.That(stagePayload.ContinueLabel, Is.EqualTo("Collect"));
             Assert.That(stagePayload.ContinueStageRequest.StageId, Is.EqualTo(StageId.CreateOrThrow("payload-stage")));
@@ -1085,7 +1084,6 @@ namespace Game.Feature.UI.Tests
                 "Payload Stage",
                 result,
                 "Payload Title",
-                "Payload Stage",
                 $"Tick {tickIndex} completed.",
                 "Collect",
                 continueRequest,
