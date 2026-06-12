@@ -70,22 +70,30 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            try
+            if (_pendingRequests.Count == 0)
             {
-                for (var i = _pendingRequests.Count - 1; i >= 0; i--)
-                {
-                    var request = _pendingRequests[i];
-                    if (request.DelaySeconds > 0f)
-                    {
-                        continue;
-                    }
-
-                    _pendingRequests.RemoveAt(i);
-                    PlayRequest(request);
-                }
+                return;
             }
-            finally
+
+            var readyRequests = new List<TileFeatureAudioRequest>();
+            var delayedRequests = new List<TileFeatureAudioRequest>();
+            for (var i = 0; i < _pendingRequests.Count; i++)
             {
+                var request = _pendingRequests[i];
+                if (request.DelaySeconds > 0f)
+                {
+                    delayedRequests.Add(request);
+                    continue;
+                }
+
+                readyRequests.Add(request);
+            }
+
+            _pendingRequests.Clear();
+            _pendingRequests.AddRange(delayedRequests);
+            for (var i = 0; i < readyRequests.Count; i++)
+            {
+                PlayRequest(readyRequests[i]);
             }
         }
 
@@ -101,23 +109,32 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            for (var i = _pendingRequests.Count - 1; i >= 0; i--)
+            var readyRequests = new List<TileFeatureAudioRequest>();
+            var delayedRequests = new List<TileFeatureAudioRequest>();
+            for (var i = 0; i < _pendingRequests.Count; i++)
             {
                 var request = _pendingRequests[i];
                 if (request.DelaySeconds <= 0f)
                 {
+                    readyRequests.Add(request);
                     continue;
                 }
 
                 var advanced = CreateAdvancedRequest(request, deltaTime);
                 if (advanced.DelaySeconds > 0f)
                 {
-                    _pendingRequests[i] = advanced;
+                    delayedRequests.Add(advanced);
                     continue;
                 }
 
-                _pendingRequests.RemoveAt(i);
-                PlayRequest(advanced);
+                readyRequests.Add(advanced);
+            }
+
+            _pendingRequests.Clear();
+            _pendingRequests.AddRange(delayedRequests);
+            for (var i = 0; i < readyRequests.Count; i++)
+            {
+                PlayRequest(readyRequests[i]);
             }
         }
 
