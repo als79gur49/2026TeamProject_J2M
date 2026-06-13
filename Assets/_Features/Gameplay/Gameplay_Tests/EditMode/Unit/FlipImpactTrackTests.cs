@@ -21,7 +21,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string StayCommandBuilderPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/FlipImpactStayMotionCommandBuilder.cs";
         private const string VfxEnumsPath =
-            "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxEnums.cs";
+            "Assets/_Features/Gameplay/Gameplay_VfxContracts/Runtime/GameplayVfxEnums.cs";
         private const string VfxProductionRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs";
         private const string GameplayEntityPresentationApplierPath =

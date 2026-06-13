@@ -5,6 +5,7 @@
     "Game.Feature.Gameplay",
     "Game.Feature.Gameplay.EnemyPresentation",
     "Game.Feature.Gameplay.Host",
+    "Game.Feature.Gameplay.PresentationVfx.Contracts",
     "Game.Feature.Gameplay.Vfx",
     "Game.Feature.Gameplay.Vfx.Authoring",
     "Game.Feature.Gameplay.Vfx.Host"

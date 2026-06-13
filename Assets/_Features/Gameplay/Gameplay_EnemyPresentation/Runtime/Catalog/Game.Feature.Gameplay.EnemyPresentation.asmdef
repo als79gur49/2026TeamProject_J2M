@@ -3,7 +3,7 @@
   "rootNamespace": "Game.Feature.Gameplay.Host",
   "references": [
     "Game.Feature.Gameplay",
-    "Game.Feature.Gameplay.Vfx",
+    "Game.Feature.Gameplay.PresentationVfx.Contracts",
     "Game.Feature.Gameplay.Vfx.Authoring"
   ]
 }

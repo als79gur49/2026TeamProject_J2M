@@ -1233,8 +1233,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var moonButtonPrefab = ReadRepoFile(
                 "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Button_MoonOnly.prefab");
 
-            Assert.That(defaultButtonPrefab, Does.Contain("buttonActivatedParticles: {fileID: 0}"));
-            Assert.That(moonButtonPrefab, Does.Contain("buttonActivatedParticles: {fileID: 0}"));
+            Assert.That(defaultButtonPrefab, Does.Not.Contain("buttonActivatedParticles"));
+            Assert.That(moonButtonPrefab, Does.Not.Contain("buttonActivatedParticles"));
             Assert.That(defaultButtonPrefab, Does.Not.Contain("guid: 751080a0ee13c914f9b17bd4ab9d198b"));
             Assert.That(moonButtonPrefab, Does.Not.Contain("guid: d7184659b8b2d0740a0898761e0bde6b"));
         }
