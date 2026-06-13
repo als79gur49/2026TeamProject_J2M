@@ -357,6 +357,7 @@ Screen classification notes:
 
 - `Gameplay` is the logical gameplay root. It has no gameplay-screen prefab catalog entry.
 - `StageResult`, `LevelFailed`, and `GameClear` are canonical terminal result screens.
+- `GameClear` is a result-only terminal screen with title and main label bindings only; retired authored restart/detail compatibility objects are not current contract.
 - `Help` and `Inventory` are not current gameplay screens. Any old reference that described them as canonical gameplay screens is documentation drift or historical context only.
 
 Popup classification notes:

@@ -52,6 +52,10 @@ namespace Game.Feature.UI.Tests
                         Assert.That(continueButton, Is.Not.Null);
                         Assert.That(FindChildByName(continueButton, "SelectionFrame"), Is.Not.Null);
                     }
+                    else if (prefab is GameClearScreenView gameClear)
+                    {
+                        AssertGameClearResultOnlyPrefab(gameClear);
+                    }
                 }
                 catch (Exception exception)
                 {
@@ -326,6 +330,36 @@ namespace Game.Feature.UI.Tests
         {
             return root.GetComponentsInChildren<Transform>(true)
                 .FirstOrDefault(child => string.Equals(child.name, childName, StringComparison.Ordinal));
+        }
+
+        private static void AssertGameClearResultOnlyPrefab(GameClearScreenView gameClear)
+        {
+            var serialized = new SerializedObject(gameClear);
+            AssertRequiredObjectReference(serialized, "_titleLabel", nameof(GameClearScreenView));
+            AssertRequiredObjectReference(serialized, "_mainButton", nameof(GameClearScreenView));
+            AssertRequiredObjectReference(serialized, "_mainButtonLabel", nameof(GameClearScreenView));
+            Assert.That(serialized.FindProperty("_detailLabel"), Is.Null);
+            Assert.That(serialized.FindProperty("_restartLevelButton"), Is.Null);
+            Assert.That(serialized.FindProperty("_restartLevelButtonLabel"), Is.Null);
+
+            Assert.That(FindChildByName(gameClear.transform, "Title"), Is.Not.Null);
+            Assert.That(FindChildByName(gameClear.transform, "ResultDetail"), Is.Null);
+            Assert.That(FindChildByName(gameClear.transform, "Detail"), Is.Null);
+            Assert.That(FindChildByName(gameClear.transform, "RestartLevelButton"), Is.Null);
+
+            var mainButton = FindChildByName(gameClear.transform, "MainButton");
+            Assert.That(mainButton, Is.Not.Null);
+            Assert.That(FindChildByName(mainButton, "SelectionFrame"), Is.Not.Null);
+        }
+
+        private static void AssertRequiredObjectReference(
+            SerializedObject serializedObject,
+            string propertyName,
+            string ownerName)
+        {
+            var property = serializedObject.FindProperty(propertyName);
+            Assert.That(property, Is.Not.Null, $"{ownerName}.{propertyName}");
+            Assert.That(property.objectReferenceValue, Is.Not.Null, $"{ownerName}.{propertyName}");
         }
 
         private static void AssertPausePopupButtonHasSingleHoverScaleEffect(PausePopupView pausePopup, string buttonName)

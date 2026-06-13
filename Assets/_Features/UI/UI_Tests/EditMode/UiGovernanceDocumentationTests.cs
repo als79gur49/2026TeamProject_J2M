@@ -86,6 +86,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("Scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract."));
             Assert.That(guidelines, Does.Contain("`LevelFailedRestart` does not own a current dedicated transition message/text content contract."));
             Assert.That(guidelines, Does.Contain("`StageResult`, `LevelFailed`, and `GameClear` are canonical terminal result screens."));
+            Assert.That(guidelines, Does.Contain("`GameClear` is a result-only terminal screen with title and main label bindings only; retired authored restart/detail compatibility objects are not current contract."));
             Assert.That(guidelines, Does.Contain("`Help` and `Inventory` are not current gameplay screens."));
             Assert.That(guidelines, Does.Contain("`DemoStageControl` is not a gameplay popup catalog entry."));
             Assert.That(guidelines, Does.Contain("catalog-less runtime assist popup created through the factory/runtime/hotkey path"));
@@ -148,6 +149,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("Help is also not a current gameplay screen"));
             Assert.That(baseline, Does.Contain("current canonical `ScreenId` values are `None`, `Gameplay`, `Settings`, `StageResult`, `LevelFailed`, and `GameClear`"));
             Assert.That(baseline, Does.Contain("`StageResultScreen`, `LevelFailedScreen`, and `GameClearScreen` remain runtime-owned terminal result screens"));
+            Assert.That(baseline, Does.Contain("`GameClearScreen` is a result-only terminal screen with title and main label bindings only; retired authored `RestartLevelButton` and `Detail` compatibility objects were removed from its runtime view and prefab"));
             Assert.That(baseline, Does.Contain("current canonical `PopupId` values are `None`, `Pause`, `Confirm`, `Tooltip`, and `DemoStageControl`"));
             Assert.That(baseline, Does.Contain("`DemoStageControl` is a catalog-less runtime assist popup created through the factory/runtime/hotkey path and not a gameplay popup catalog entry"));
             Assert.That(baseline, Does.Contain("`DemoStageControl` is a build-included tester/demo/showcase assist feature"));
@@ -248,6 +250,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Contain("`Tooltip`"));
             Assert.That(source, Does.Contain("Reward popup is not current popup vocabulary."));
             Assert.That(source, Does.Contain("Stage reward/progression vocabulary remains stage-owned content/system vocabulary"));
+            Assert.That(source, Does.Contain("`GameClear` is a result-only terminal screen with title and main label bindings only; retired authored restart/detail compatibility objects are not current contract."));
             Assert.That(source, Does.Contain("`DemoStageControl` is not a gameplay popup catalog entry."));
             Assert.That(source, Does.Contain("catalog-less runtime assist popup"));
             Assert.That(source, Does.Contain("build-included tester/demo/showcase assist feature"));

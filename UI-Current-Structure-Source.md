@@ -48,6 +48,7 @@ This file is the external current-structure source for the completed UI cleanup 
 - Future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision.
 - Reward popup is not current popup vocabulary. Stage reward/progression vocabulary remains stage-owned content/system vocabulary, not a UI popup route.
 - Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`.
+- `GameClear` is a result-only terminal screen with title and main label bindings only; retired authored restart/detail compatibility objects are not current contract.
 
 - `ActionBar` is removed retired HUD proof residue. It is not a current HUD member.
 - `ActionBarView` and `ActionBarPresenter` are not current display components.

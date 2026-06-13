@@ -154,6 +154,7 @@
 - current canonical `ScreenId` values are `None`, `Gameplay`, `Settings`, `StageResult`, `LevelFailed`, and `GameClear`
 - `ScreenId.Gameplay` remains gameplay-root-adjacent with no visible screen prefab/view and does not acquire gameplay-access shortcuts, pause ownership, or history shortcuts
 - `StageResultScreen`, `LevelFailedScreen`, and `GameClearScreen` remain runtime-owned terminal result screens; their actions stay intent-only and do not locally decide root replacement policy
+- `GameClearScreen` is a result-only terminal screen with title and main label bindings only; retired authored `RestartLevelButton` and `Detail` compatibility objects were removed from its runtime view and prefab
 - `SettingsScreen` now remains one runtime-managed shell with authored `SettingsAudioSection` and `SettingsDisplaySection` children; audio/display fallback rebuilding is removed while preview/session ownership remains in `SettingsRuntime`
 - Settings authored child-view canonicalization is closed here; future changes should update runtime contracts and focused behavior tests directly
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path through `MinimalStageCompletionReadModel`; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
