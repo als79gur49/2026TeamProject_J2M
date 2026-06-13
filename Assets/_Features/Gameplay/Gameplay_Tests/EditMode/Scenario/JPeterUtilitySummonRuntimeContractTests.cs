@@ -19,7 +19,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     {
         private const int EnemyId = 40;
         private const string ArchetypeSummonerProfilePath =
-            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_UtilitySummoner/EnemyAi_ArchetypeSummoner.asset";
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_ArchetypeSummoner/EnemyAi_ArchetypeSummoner.asset";
         private const string CombinedArchetypeCatalogPath =
             StageContentPaths.SharedEnemyAiRoot + "/Catalogs/EnemyUnitArchetypeCatalog_CampaignMainEnemy.asset";
 
