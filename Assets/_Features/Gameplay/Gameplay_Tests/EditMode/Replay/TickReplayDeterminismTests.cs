@@ -143,12 +143,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(
-                firstReplay[0].FinalEntitiesDump
-                    .Split('\n')
-                    .Count(line => line.Contains("|Type=Projectile|", StringComparison.Ordinal)),
-                Is.Zero);
-            AssertNoLegacyProjectileReplayResidue(firstReplay);
         }
 
         [Test]
@@ -986,7 +980,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            AssertNoLegacyProjectileReplayResidue(firstReplay);
         }
 
         [Test]
@@ -1008,7 +1001,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=5|Pos=(1,0)|Hp=1|MaxHp=1|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Left|Marked=0|SpawnTick=0"));
             Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("Target=40"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(0,1)|Hp=2|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0"));
-            AssertNoLegacyProjectileReplayResidue(firstReplay);
         }
 
         [Test]
@@ -2079,15 +2071,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     "Amount=1"),
                 Is.True);
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=2"));
-        }
-
-        private static void AssertNoLegacyProjectileReplayResidue(IReadOnlyList<TickReplayFrame> replay)
-        {
-            Assert.That(replay.Select(frame => frame.FinalEntitiesDump), Has.All.Not.Contains("|Type=Projectile|"));
-            Assert.That(replay.Select(frame => frame.OccupancyDump), Has.All.Not.Contains("Layer=Projectile"));
-            Assert.That(replay.Select(frame => frame.OccupancyDump), Has.All.Not.Contains("ProjectileOccupancy"));
-            Assert.That(replay.Select(frame => frame.Trace), Has.All.Not.Contains("Layer=Projectile"));
-            Assert.That(replay.Select(frame => frame.Trace), Has.All.Not.Contains("ProjectileOccupancy"));
         }
 
         private static IReadOnlyList<TickReplayFrame> RunReplaySequence()

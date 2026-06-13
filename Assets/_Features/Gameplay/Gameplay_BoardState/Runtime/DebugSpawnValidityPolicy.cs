@@ -86,10 +86,6 @@ namespace Game.Feature.Gameplay.BoardState
                 case EntityType.Box:
                     solidOccupancyByCell[entity.position] = entity.entityId;
                     break;
-
-                case EntityType.Projectile:
-                    throw new NotSupportedException(
-                        "EntityType.Projectile is reserved for legacy serialized values and cannot be used as a debug spawn.");
             }
         }
 

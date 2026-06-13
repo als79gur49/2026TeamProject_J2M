@@ -433,12 +433,6 @@ namespace Game.Feature.Gameplay.Loop
                 return 2;
             }
 
-            if (entity.type == EntityType.Projectile)
-            {
-                throw new NotSupportedException(
-                    "EntityType.Projectile is reserved for legacy serialized values and cannot be imported into projected runtime worlds.");
-            }
-
             return entity.type == EntityType.Unit ? 2 : 1;
         }
     }

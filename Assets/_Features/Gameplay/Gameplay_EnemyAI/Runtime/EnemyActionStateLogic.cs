@@ -310,7 +310,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var settings = _combatCapability.WindupForwardCellProjectileSettings;
-            var impactDelayTicks = ResolveForwardCellProjectileImpactDelayTicks(action, settings);
+            var impactDelayTicks = ResolveForwardCellImpactDelayTicks(action, settings);
             var impact = new PendingCellImpact(
                 AllocatePendingCellImpactId(_entityId, action.sequence),
                 _entityId,
@@ -343,7 +343,7 @@ namespace Game.Feature.Gameplay.Entities
             return checked((ownerId * 100000) + Math.Max(1, actionSequence));
         }
 
-        private static int ResolveForwardCellProjectileImpactDelayTicks(
+        private static int ResolveForwardCellImpactDelayTicks(
             in EnemyActionRuntimeState action,
             in WindupForwardCellProjectileSettings settings)
         {

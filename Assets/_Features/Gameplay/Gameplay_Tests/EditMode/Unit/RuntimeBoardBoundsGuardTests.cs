@@ -103,52 +103,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHost_Initialize_RejectsPreExistingProjectileEntity()
-        {
-            var hostObject = new GameObject("GameplaySceneHost_Initialize_RejectsPreExistingProjectileEntity");
-
-            try
-            {
-                var host = hostObject.AddComponent<GameplaySceneHost>();
-                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_Initialize_RejectsPreExistingProjectileEntity_PlayerPrefab");
-                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
-
-                Assert.Throws<NotSupportedException>(() =>
-                    host.Initialize(
-                        new GameplaySceneHostConfiguration
-                        {
-                            InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
-                            InitialEntities = new[]
-                            {
-                                new EntityState
-                                {
-                                    entityId = 20,
-                                    position = new SurfaceCell(FaceId.Floor, 0, 0),
-                                    hp = 1,
-                                    maxHp = 1,
-                                    teamId = 1,
-                                    type = EntityType.Projectile,
-                                    state = EntityPhaseState.Idle,
-                                    facing = Direction.Right,
-                                    boardPresence = EntityBoardPresence.Occupying,
-                                },
-                            },
-                            InitialTopology = new CubeTopologyState(FaceId.Floor),
-                            PlayerEntityId = 10,
-                            PlayerViewPrefab = playerViewPrefab,
-                            StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                            SimulationTicksPerSecond = 10,
-                            ProjectileStepIntervalSeconds = 0.3f,
-                        }));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(hostObject);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
         public void GameplaySceneHostConfiguration_CreateTimingProfile_DefaultsTopologyMotionDurationToPushAndAllowsOverride()
         {
             var configuration = new GameplaySceneHostConfiguration
@@ -1115,10 +1069,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     factory.CreateView(CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right)),
                     GameplayEntityVisualProfile.Create(EntityType.Box, 1f),
                     new Color(0.72f, 0.5f, 0.24f));
-                Assert.Throws<NotSupportedException>(() =>
-                    factory.CreateView(CreateSurfaceProjectile(30, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right)));
-                Assert.Throws<NotSupportedException>(() =>
-                    GameplayEntityVisualProfile.Create(EntityType.Projectile, 1f));
                 AssertVisualMatchesProfile(
                     factory.CreateView(CreateSurfaceWall(40, new SurfaceCell(FaceId.Floor, 0, 0))),
                     GameplayEntityVisualProfile.Create(EntityType.None, 1f),
@@ -7429,23 +7379,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 state = EntityPhaseState.Idle,
                 facing = facing,
                 boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
-            };
-        }
-
-        private static EntityState CreateSurfaceProjectile(int entityId, SurfaceCell position, Direction facing)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 1,
-                type = EntityType.Projectile,
-                unitRole = UnitRole.None,
-                state = EntityPhaseState.Idle,
-                facing = facing,
-                boardPresence = EntityBoardPresence.Occupying,
             };
         }
 

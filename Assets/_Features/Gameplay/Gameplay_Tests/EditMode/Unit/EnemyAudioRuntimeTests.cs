@@ -155,7 +155,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That((int)EnemyAudioCue.Landing, Is.EqualTo(4));
             Assert.That((int)EnemyAudioCue.Active, Is.EqualTo(5));
             Assert.That((int)EnemyAudioCue.Recover, Is.EqualTo(6));
-            Assert.That((int)EnemyAudioCue.ProjectileImpact, Is.EqualTo(7));
+            Assert.That((int)EnemyAudioCue.ForwardCellImpact, Is.EqualTo(7));
             Assert.That((int)EnemyAudioCue.ChargeActiveLoop, Is.EqualTo(8));
             Assert.That((int)EnemyAudioCue.StationaryActive, Is.EqualTo(9));
             Assert.That((int)EnemyAudioCue.PassiveContact, Is.EqualTo(10));
@@ -464,8 +464,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(audioManager, Does.Not.Contain("PlayerInvincible"));
             Assert.That(playbackService, Does.Not.Contain("ForwardCellImpact"));
             Assert.That(audioManager, Does.Not.Contain("ForwardCellImpact"));
-            Assert.That(playbackService, Does.Not.Contain("ProjectileImpact"));
-            Assert.That(audioManager, Does.Not.Contain("ProjectileImpact"));
+            Assert.That(playbackService, Does.Not.Contain("ForwardCellImpact"));
+            Assert.That(audioManager, Does.Not.Contain("ForwardCellImpact"));
         }
 
         [Test]
@@ -1165,7 +1165,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ForwardCellProjectile_HitArrival_CreatesProjectileImpactSfx()
+        public void ForwardCellProjectile_HitArrival_CreatesForwardCellImpactSfx()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var planner = new EnemyAudioRequestPlanner();
@@ -1182,12 +1182,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(
                 requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
-                Is.EqualTo(new[] { (20, EnemyAudioCue.ProjectileImpact) }));
+                Is.EqualTo(new[] { (20, EnemyAudioCue.ForwardCellImpact) }));
         }
 
         [Test]
         [Category("Extended")]
-        public void ForwardCellProjectile_ProjectileImpactSfx_UsesArrivalSignalNotHitSignal()
+        public void ForwardCellProjectile_ForwardCellImpactSfx_UsesArrivalSignalNotHitSignal()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var planner = new EnemyAudioRequestPlanner();
@@ -1206,12 +1206,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(
                 requests.Select(request => request.Cue).ToArray(),
-                Has.No.EqualTo(EnemyAudioCue.ProjectileImpact));
+                Has.No.EqualTo(EnemyAudioCue.ForwardCellImpact));
         }
 
         [Test]
         [Category("Extended")]
-        public void ForwardCellProjectile_MissArrival_CreatesProjectileImpactSfx()
+        public void ForwardCellProjectile_MissArrival_CreatesForwardCellImpactSfx()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var planner = new EnemyAudioRequestPlanner();
@@ -1228,36 +1228,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(
                 requests.Select(request => (request.OwnerEntityId, request.Cue)).ToArray(),
-                Is.EqualTo(new[] { (20, EnemyAudioCue.ProjectileImpact) }));
+                Is.EqualTo(new[] { (20, EnemyAudioCue.ForwardCellImpact) }));
         }
 
         [Test]
         [Category("Extended")]
-        public void ForwardCellProjectile_CancelledSourceInvalid_DoesNotCreateProjectileImpactSfx()
+        public void ForwardCellProjectile_CancelledSourceInvalid_DoesNotCreateForwardCellImpactSfx()
         {
-            AssertForwardCellProjectileArrivalDoesNotCreateProjectileImpactSfx(
+            AssertForwardCellProjectileArrivalDoesNotCreateForwardCellImpactSfx(
                 PendingCellImpactResolutionKind.CancelledSourceInvalid);
         }
 
         [Test]
         [Category("Extended")]
-        public void ForwardCellProjectile_CancelledTargetInvalid_DoesNotCreateProjectileImpactSfx()
+        public void ForwardCellProjectile_CancelledTargetInvalid_DoesNotCreateForwardCellImpactSfx()
         {
-            AssertForwardCellProjectileArrivalDoesNotCreateProjectileImpactSfx(
+            AssertForwardCellProjectileArrivalDoesNotCreateForwardCellImpactSfx(
                 PendingCellImpactResolutionKind.CancelledTargetInvalid);
         }
 
         [Test]
         [Category("Extended")]
-        public void ForwardCellProjectile_ExpiredTopologyInvalid_DoesNotCreateProjectileImpactSfx()
+        public void ForwardCellProjectile_ExpiredTopologyInvalid_DoesNotCreateForwardCellImpactSfx()
         {
-            AssertForwardCellProjectileArrivalDoesNotCreateProjectileImpactSfx(
+            AssertForwardCellProjectileArrivalDoesNotCreateForwardCellImpactSfx(
                 PendingCellImpactResolutionKind.ExpiredTopologyInvalid);
         }
 
         [Test]
         [Category("Extended")]
-        public void ForwardCellProjectile_Hit_DoesNotDuplicateProjectileImpactSfx()
+        public void ForwardCellProjectile_Hit_DoesNotDuplicateForwardCellImpactSfx()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var planner = new EnemyAudioRequestPlanner();
@@ -1282,13 +1282,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var requests = planner.BuildRequests(result);
 
             Assert.That(
-                requests.Count(request => request.Cue == EnemyAudioCue.ProjectileImpact),
+                requests.Count(request => request.Cue == EnemyAudioCue.ForwardCellImpact),
                 Is.EqualTo(1));
         }
 
         [Test]
         [Category("Core")]
-        public void BlackEyeProjectile_PlayerHit_EmitsProjectileImpactRequest()
+        public void BlackEyeProjectile_PlayerHit_EmitsForwardCellImpactRequest()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var planner = new EnemyAudioRequestPlanner();
@@ -1328,7 +1328,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(
                 requestPairs,
-                Has.Some.EqualTo((20, EnemyAudioCue.ProjectileImpact)));
+                Has.Some.EqualTo((20, EnemyAudioCue.ForwardCellImpact)));
             Assert.That(
                 requestPairs,
                 Has.No.EqualTo((20, EnemyAudioCue.Active)));
@@ -1336,7 +1336,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAudioRequestPlanner_DoesNotSuppressActualActiveWhenProjectileImpactExists()
+        public void EnemyAudioRequestPlanner_DoesNotSuppressActualActiveWhenForwardCellImpactExists()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var planner = new EnemyAudioRequestPlanner();
@@ -1378,7 +1378,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(new[]
                 {
                     (20, EnemyAudioCue.Active),
-                    (20, EnemyAudioCue.ProjectileImpact),
+                    (20, EnemyAudioCue.ForwardCellImpact),
                 }));
         }
 
@@ -1952,14 +1952,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void BlackEyeProjectile_PlayerHit_ResolvesProjectileImpactToBlackEyePlasma()
+        public void BlackEyeProjectile_PlayerHit_ResolvesForwardCellImpactToBlackEyePlasma()
         {
             var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(BlackEyeAudioProfilePath);
             var expectedDefinition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(BlackEyePlasmaDefinitionPath);
 
             Assert.That(profile, Is.Not.Null, $"Missing BlackEye audio profile at '{BlackEyeAudioProfilePath}'.");
             Assert.That(expectedDefinition, Is.Not.Null, $"Missing BlackEye plasma definition at '{BlackEyePlasmaDefinitionPath}'.");
-            Assert.That(profile.TryResolve(EnemyAudioCue.ProjectileImpact, out var binding), Is.True);
+            Assert.That(profile.TryResolve(EnemyAudioCue.ForwardCellImpact, out var binding), Is.True);
             Assert.That(binding.Definition, Is.SameAs(expectedDefinition));
             Assert.That(
                 AssetDatabase.GetAssetPath(binding.Definition.Resolve(new AudioPlaybackContext()).Clip),
@@ -1968,14 +1968,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void BlackEyeProjectile_PlayerHit_DoesNotResolveProjectileImpactToBlackEyeActive()
+        public void BlackEyeProjectile_PlayerHit_DoesNotResolveForwardCellImpactToBlackEyeActive()
         {
             var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(BlackEyeAudioProfilePath);
             var activeDefinition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(BlackEyeActiveDefinitionPath);
 
             Assert.That(profile, Is.Not.Null, $"Missing BlackEye audio profile at '{BlackEyeAudioProfilePath}'.");
             Assert.That(activeDefinition, Is.Not.Null, $"Missing BlackEye active definition at '{BlackEyeActiveDefinitionPath}'.");
-            Assert.That(profile.TryResolve(EnemyAudioCue.ProjectileImpact, out var projectileBinding), Is.True);
+            Assert.That(profile.TryResolve(EnemyAudioCue.ForwardCellImpact, out var projectileBinding), Is.True);
             Assert.That(profile.TryResolve(EnemyAudioCue.Active, out var activeBinding), Is.True);
             Assert.That(projectileBinding.Definition, Is.Not.SameAs(activeDefinition));
             Assert.That(projectileBinding.Definition, Is.Not.SameAs(activeBinding.Definition));
@@ -2042,10 +2042,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(
                     playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
-                    Is.EqualTo(new[] { "PlayerDamage", "ProjectileImpact" }));
+                    Is.EqualTo(new[] { "PlayerDamage", "ForwardCellImpact" }));
                 Assert.That(playbackPort.TwoDCalls.Select(call => call.Definition), Has.No.SameAs(activeDefinition));
 
-                var projectileCall = playbackPort.TwoDCalls.Single(call => call.Context.DebugTag == "ProjectileImpact");
+                var projectileCall = playbackPort.TwoDCalls.Single(call => call.Context.DebugTag == "ForwardCellImpact");
                 Assert.That(projectileCall.Definition, Is.SameAs(expectedDefinition));
                 Assert.That(projectileCall.Definition, Is.Not.SameAs(activeDefinition));
                 Assert.That(
@@ -2060,12 +2060,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void TopologyTransition_AndProjectileImpactAudioInSamePresent_IsDeferredUntilTransitionCompletes()
+        public void TopologyTransition_AndForwardCellImpactAudioInSamePresent_IsDeferredUntilTransitionCompletes()
         {
-            var rootObject = new GameObject(nameof(TopologyTransition_AndProjectileImpactAudioInSamePresent_IsDeferredUntilTransitionCompletes));
+            var rootObject = new GameObject(nameof(TopologyTransition_AndForwardCellImpactAudioInSamePresent_IsDeferredUntilTransitionCompletes));
             using var mapBundle = CreateGameplayAudioMap();
             using var profileBundle = CreateEnemyAudioProfile(
-                new EnemyAudioEntrySpec(EnemyAudioCue.ProjectileImpact, CreateDefinitionSpec()));
+                new EnemyAudioEntrySpec(EnemyAudioCue.ForwardCellImpact, CreateDefinitionSpec()));
             try
             {
                 var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
@@ -2126,7 +2126,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.DeferredGameplayAudioRequestCount, Is.Zero);
                 Assert.That(
                     playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
-                    Is.EqualTo(new[] { "PlayerDamage", "ProjectileImpact" }));
+                    Is.EqualTo(new[] { "PlayerDamage", "ForwardCellImpact" }));
             }
             finally
             {
@@ -2136,12 +2136,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void TopologyTransition_ProjectileImpactAudioDeferred_DoesNotDuplicateOnRepeatedPresentationUpdate()
+        public void TopologyTransition_ForwardCellImpactAudioDeferred_DoesNotDuplicateOnRepeatedPresentationUpdate()
         {
-            var rootObject = new GameObject(nameof(TopologyTransition_ProjectileImpactAudioDeferred_DoesNotDuplicateOnRepeatedPresentationUpdate));
+            var rootObject = new GameObject(nameof(TopologyTransition_ForwardCellImpactAudioDeferred_DoesNotDuplicateOnRepeatedPresentationUpdate));
             using var mapBundle = CreateGameplayAudioMap();
             using var profileBundle = CreateEnemyAudioProfile(
-                new EnemyAudioEntrySpec(EnemyAudioCue.ProjectileImpact, CreateDefinitionSpec()));
+                new EnemyAudioEntrySpec(EnemyAudioCue.ForwardCellImpact, CreateDefinitionSpec()));
             try
             {
                 var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
@@ -2187,7 +2187,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(
                     playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
-                    Is.EqualTo(new[] { "ProjectileImpact" }));
+                    Is.EqualTo(new[] { "ForwardCellImpact" }));
             }
             finally
             {
@@ -2330,7 +2330,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(
                     playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(),
-                    Is.EqualTo(new[] { "ProjectileImpact" }));
+                    Is.EqualTo(new[] { "ForwardCellImpact" }));
                 Assert.That(playbackPort.TwoDCalls[0].Definition, Is.SameAs(expectedDefinition));
                 Assert.That(
                     AssetDatabase.GetAssetPath(playbackPort.TwoDCalls[0].Definition.Resolve(new AudioPlaybackContext()).Clip),
@@ -2344,14 +2344,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void BlackEyeAudioProfile_UsesActForActiveAndPlasmaForProjectileImpact()
+        public void BlackEyeAudioProfile_UsesActForActiveAndPlasmaForForwardCellImpact()
         {
             var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(BlackEyeAudioProfilePath);
 
             Assert.That(profile, Is.Not.Null, $"Missing BlackEye audio profile at '{BlackEyeAudioProfilePath}'.");
             Assert.That(profile.HasCue(EnemyAudioCue.Windup), Is.False);
             Assert.That(profile.HasCue(EnemyAudioCue.Active), Is.True);
-            Assert.That(profile.HasCue(EnemyAudioCue.ProjectileImpact), Is.True);
+            Assert.That(profile.HasCue(EnemyAudioCue.ForwardCellImpact), Is.True);
         }
 
         [Test]
@@ -2376,7 +2376,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profile.HasCue(EnemyAudioCue.Recover), Is.True);
             Assert.That(profile.HasCue(EnemyAudioCue.Death), Is.True);
             Assert.That(profile.HasCue(EnemyAudioCue.Landing), Is.False);
-            Assert.That(profile.HasCue(EnemyAudioCue.ProjectileImpact), Is.False);
+            Assert.That(profile.HasCue(EnemyAudioCue.ForwardCellImpact), Is.False);
             Assert.That(profile.HasCue(EnemyAudioCue.ChargeActiveLoop), Is.False);
             Assert.That(profile.HasCue(EnemyAudioCue.StationaryActive), Is.False);
             Assert.That(profile.HasCue(EnemyAudioCue.PassiveContact), Is.False);
@@ -2473,7 +2473,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     $"{EnemyPrefabRoot}/EnemyView_BlackEye.prefab",
                     EnemyAudioCue.Move,
                     EnemyAudioCue.Active,
-                    EnemyAudioCue.ProjectileImpact,
+                    EnemyAudioCue.ForwardCellImpact,
                     EnemyAudioCue.Death),
                 new EnemyPrefabExpectation(
                     $"{EnemyPrefabRoot}/EnemyView_DrSaturn.prefab",
@@ -2728,7 +2728,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 targetEntityId);
         }
 
-        private static void AssertForwardCellProjectileArrivalDoesNotCreateProjectileImpactSfx(
+        private static void AssertForwardCellProjectileArrivalDoesNotCreateForwardCellImpactSfx(
             PendingCellImpactResolutionKind resolutionKind)
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -2743,7 +2743,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(
                 requests.Select(request => request.Cue).ToArray(),
-                Has.No.EqualTo(EnemyAudioCue.ProjectileImpact));
+                Has.No.EqualTo(EnemyAudioCue.ForwardCellImpact));
         }
 
         private static TickEnemyActionPresentationSignal CreateEnemyActionStartedSignal(int entityId)

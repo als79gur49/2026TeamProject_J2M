@@ -242,26 +242,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void GameplayCompositionRoot_CreateTickRunner_RejectsInitialProjectileEntity()
-        {
-            Assert.Throws<NotSupportedException>(() =>
-                CreateWorldState(new[]
-                {
-                    new EntityState
-                    {
-                        entityId = 10,
-                        position = new Vector2Int(0, 0),
-                        hp = 1,
-                        maxHp = 1,
-                        teamId = 1,
-                        type = EntityType.Projectile,
-                        facing = Direction.Right,
-                    },
-                }));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void RunTick_OffBottomEnemy_DoesNotEmitMovementOrAttackTrace()
         {
             var player = CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Front, 1, 0), Direction.Left);
@@ -328,48 +308,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.Trace.Text, Does.Contain("E=40|Prev=Melee|Curr=None|PrevSeq=1|CurrSeq=1|Started=False|Canceled=True"));
             Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40"));
             Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=AfterAttack|E=40"));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void GameplayBootstrapper_CreateTickRunner_RejectsPreExistingProjectileEntity()
-        {
-            Assert.Throws<NotSupportedException>(() =>
-                CreateWorldState(new[]
-                {
-                    new EntityState
-                    {
-                        entityId = 20,
-                        position = new Vector2Int(2, 1),
-                        hp = 1,
-                        maxHp = 1,
-                        teamId = 2,
-                        type = EntityType.Projectile,
-                        facing = Direction.Left,
-                    },
-                }));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void RunTick_RejectsAuthoritativeProjectileStateTimer()
-        {
-            Assert.Throws<NotSupportedException>(() =>
-                GameplayCompositionRoot.CreateWorldState(
-                    new[]
-                    {
-                        new EntityState
-                        {
-                            entityId = 10,
-                            position = new Vector2Int(0, 0),
-                            hp = 1,
-                            maxHp = 1,
-                            teamId = 1,
-                            type = EntityType.Projectile,
-                            facing = Direction.Right,
-                        },
-                    },
-                    new BoardBounds(new Vector2Int(-32, -32), new Vector2Int(32, 32))));
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)

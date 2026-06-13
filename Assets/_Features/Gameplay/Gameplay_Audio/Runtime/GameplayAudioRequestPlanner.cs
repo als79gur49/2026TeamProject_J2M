@@ -161,7 +161,7 @@ namespace Game.Feature.Gameplay.Audio
                     return timingProfile.PushMotionDurationSeconds;
                 case TickEntityMotionKind.Flip:
                     return timingProfile.FlipMotionDurationSeconds;
-                case TickEntityMotionKind.ProjectileMove:
+                case TickEntityMotionKind.ForwardCellMove:
                     return timingProfile.ProjectileStepIntervalSeconds;
                 case TickEntityMotionKind.BoxSlide:
                     return timingProfile.BoxSlideStepIntervalSeconds;

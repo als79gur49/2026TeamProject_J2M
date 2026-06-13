@@ -218,22 +218,12 @@ namespace Game.Feature.Gameplay.Attack.Intents
                         null,
                         null);
 
-                case AttackCommandKind.FireProjectile:
-                    throw new NotSupportedException(
-                        "FireProjectile is a retired legacy EntityType.Projectile path. Use PendingCellImpact-based forward-cell projectile runtime instead.");
-
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(rawIntent),
                         rawIntent.CommandKind,
                         "Raw attack intent contained an unsupported entity command.");
             }
-        }
-
-        internal static AttackIntent CreateFireProjectile(int sourceId, int priority, int localSequence = 0)
-        {
-            throw new NotSupportedException(
-                "FireProjectile is a retired legacy EntityType.Projectile path. Use PendingCellImpact-based forward-cell projectile runtime instead.");
         }
 
         private static void ValidateContract(
@@ -281,10 +271,6 @@ namespace Game.Feature.Gameplay.Attack.Intents
                     }
 
                     return;
-
-                case AttackCommandKind.FireProjectile:
-                    throw new NotSupportedException(
-                        "FireProjectile is a retired legacy EntityType.Projectile path. Use PendingCellImpact-based forward-cell projectile runtime instead.");
 
                 case AttackCommandKind.ImpactReservation:
                     if (sourceKind != AttackSourceKind.ImpactReservation)

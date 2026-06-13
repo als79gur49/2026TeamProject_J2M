@@ -3271,23 +3271,23 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.BlackEyeProjectile_PlayerHit_EmitsProjectileImpactRequest",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.BlackEyeProjectile_PlayerHit_EmitsForwardCellImpactRequest",
       "category": "Core",
       "contracts": [
         "gameplay_audio_overlap_refactor",
         "enemy_audio_projectile_impact_active_policy"
       ],
-      "reason": "Locked Core coverage that BlackEye projectile player-hit impact ticks emit ProjectileImpact without impact-derived Active.",
+      "reason": "Locked Core coverage that BlackEye projectile player-hit impact ticks emit ForwardCellImpact without impact-derived Active.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.EnemyAudioRequestPlanner_DoesNotSuppressActualActiveWhenProjectileImpactExists",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.EnemyAudioRequestPlanner_DoesNotSuppressActualActiveWhenForwardCellImpactExists",
       "category": "Core",
       "contracts": [
         "gameplay_audio_overlap_refactor",
         "enemy_audio_projectile_impact_active_policy"
       ],
-      "reason": "Locked Core coverage that actual combat Active remains allowed when a ProjectileImpact exists in the same tick.",
+      "reason": "Locked Core coverage that actual combat Active remains allowed when a ForwardCellImpact exists in the same tick.",
       "locked": true
     },
     {
@@ -3297,7 +3297,7 @@
         "gameplay_audio_overlap_refactor",
         "enemy_audio_projectile_impact_active_policy"
       ],
-      "reason": "Locked Core coverage that BlackEye projectile player-hit final playback keeps the plasma ProjectileImpact cue.",
+      "reason": "Locked Core coverage that BlackEye projectile player-hit final playback keeps the plasma ForwardCellImpact cue.",
       "locked": true
     },
     {

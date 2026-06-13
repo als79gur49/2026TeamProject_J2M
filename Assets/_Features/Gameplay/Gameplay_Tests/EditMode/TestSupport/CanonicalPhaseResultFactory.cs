@@ -447,7 +447,7 @@ namespace Game.Feature.Gameplay.Tests
                 ResolvedActionSemanticKind.Slide => MovementSemanticKind.Slide,
                 ResolvedActionSemanticKind.Impact => MovementSemanticKind.Impact,
                 ResolvedActionSemanticKind.JumpLanding => MovementSemanticKind.JumpLanding,
-                ResolvedActionSemanticKind.ProjectileMove => MovementSemanticKind.ProjectileMove,
+                ResolvedActionSemanticKind.ForwardCellMove => MovementSemanticKind.ForwardCellMove,
                 ResolvedActionSemanticKind.Item => MovementSemanticKind.Item,
                 ResolvedActionSemanticKind.Stop => MovementSemanticKind.Stop,
                 _ => MovementSemanticKind.None,

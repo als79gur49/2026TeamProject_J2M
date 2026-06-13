@@ -81,11 +81,6 @@ namespace Game.Feature.Gameplay.Attack.Expansion
 
                 switch (intent.CommandKind)
                 {
-                    case AttackCommandKind.FireProjectile:
-                        rejectedReasons.Add(
-                            $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=FireProjectileRetired");
-                        continue;
-
                     case AttackCommandKind.Attack:
                         break;
 

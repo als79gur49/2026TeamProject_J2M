@@ -308,10 +308,6 @@ namespace Game.Feature.Gameplay.Host
                 case EntityType.Box:
                     return _boxMaterial;
 
-                case EntityType.Projectile:
-                    throw new NotSupportedException(
-                        "EntityType.Projectile is reserved for legacy serialized values and cannot create a runtime entity view.");
-
                 case EntityType.None:
                     return _wallMaterial;
 

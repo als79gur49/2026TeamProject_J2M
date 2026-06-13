@@ -589,12 +589,6 @@ namespace Game.Feature.Gameplay.Host
             {
                 var normalizedEntity = entity;
 
-                if (normalizedEntity.type == EntityType.Projectile)
-                {
-                    throw new NotSupportedException(
-                        "EntityType.Projectile is reserved for legacy serialized values and cannot be used as an initial runtime entity.");
-                }
-
                 normalizedEntities.Add(normalizedEntity);
             }
 

@@ -276,7 +276,7 @@ namespace Game.Feature.Gameplay.Host
 
         private static bool IsTopologyLockSensitive(EnemyAudioCue cue)
         {
-            return cue == EnemyAudioCue.ProjectileImpact;
+            return cue == EnemyAudioCue.ForwardCellImpact;
         }
 
         private static GameplayAudioPlaybackRequestKey CreateRequestKey(

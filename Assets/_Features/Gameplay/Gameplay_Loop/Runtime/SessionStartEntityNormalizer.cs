@@ -26,12 +26,6 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var normalizedEntity = entity;
 
-                if (normalizedEntity.type == EntityType.Projectile)
-                {
-                    throw new NotSupportedException(
-                        "EntityType.Projectile is reserved for legacy serialized values and cannot be used as an initial runtime entity.");
-                }
-
                 if (normalizedEntity.type == EntityType.Box &&
                     normalizedEntity.boxArchetype == BoxArchetype.GravityField)
                 {

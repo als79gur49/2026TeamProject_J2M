@@ -5259,7 +5259,7 @@ namespace Game.Feature.Gameplay.Loop
                 MovementSemanticKind.Push => TickEntityMotionKind.Push,
                 MovementSemanticKind.Flip => TickEntityMotionKind.Flip,
                 MovementSemanticKind.Slide => TickEntityMotionKind.BoxSlide,
-                MovementSemanticKind.ProjectileMove => TickEntityMotionKind.ProjectileMove,
+                MovementSemanticKind.ForwardCellMove => TickEntityMotionKind.ForwardCellMove,
                 _ => TickEntityMotionKind.None,
             };
 

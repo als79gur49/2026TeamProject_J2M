@@ -74,12 +74,6 @@ namespace Game.Feature.Gameplay.Attack.Collection
 
         public int LocalSequence { get; }
 
-        public static RawAttackIntent CreateFireProjectile(int sourceId, int priority)
-        {
-            throw new NotSupportedException(
-                "FireProjectile is a retired legacy EntityType.Projectile path. Use PendingCellImpact-based forward-cell projectile runtime instead.");
-        }
-
         private static void ValidateContract(int targetId, AttackCommandKind commandKind, bool hasTargetCell)
         {
             switch (commandKind)
@@ -97,15 +91,11 @@ namespace Game.Feature.Gameplay.Attack.Collection
 
                     return;
 
-                case AttackCommandKind.FireProjectile:
-                    throw new NotSupportedException(
-                        "FireProjectile is a retired legacy EntityType.Projectile path. Use PendingCellImpact-based forward-cell projectile runtime instead.");
-
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(commandKind),
                         commandKind,
-                        "Raw attack intents only support entity-generated Attack and FireProjectile commands.");
+                        "Raw attack intents only support entity-generated Attack commands.");
             }
         }
     }

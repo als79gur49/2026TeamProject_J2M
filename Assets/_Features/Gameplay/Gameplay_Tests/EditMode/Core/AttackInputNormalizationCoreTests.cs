@@ -63,11 +63,5 @@ namespace Game.Feature.Gameplay.Tests.Core
                     .ToArray());
         }
 
-        [Test]
-        [Category("Core")]
-        public void RawAttackIntent_CreateFireProjectile_ThrowsNotSupported()
-        {
-            Assert.Throws<NotSupportedException>(() => RawAttackIntent.CreateFireProjectile(10, 5));
-        }
     }
 }

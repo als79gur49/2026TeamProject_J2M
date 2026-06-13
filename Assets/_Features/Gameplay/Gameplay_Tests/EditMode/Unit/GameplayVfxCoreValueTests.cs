@@ -431,8 +431,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     source),
                 new EntitySpawnPresentationSignal(
                     50,
-                    EntityPresentationKind.Projectile,
-                    EntitySpawnPresentationReason.ProjectileSpawn,
+                    EntityPresentationKind.Enemy,
+                    EntitySpawnPresentationReason.EnemySpawn,
                     cell,
                     topology,
                     Direction.Right,

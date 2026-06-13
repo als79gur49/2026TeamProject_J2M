@@ -368,7 +368,6 @@ namespace Game.Feature.Gameplay.BoardState
             out SlideStopper blocker)
         {
             ValidateQueryDictionaries(entitiesById, solidOccupancyByCell);
-            EnsureEntityTypeSupported(entityType);
 
             if (stackedUnitsByCell == null)
             {
@@ -476,15 +475,6 @@ namespace Game.Feature.Gameplay.BoardState
 
                 default:
                     throw new InvalidOperationException($"Unsupported placement entity type: {entityType}");
-            }
-        }
-
-        private static void EnsureEntityTypeSupported(EntityType entityType)
-        {
-            if (entityType == EntityType.Projectile)
-            {
-                throw new NotSupportedException(
-                    "EntityType.Projectile is reserved for legacy serialized values and cannot be placed at runtime.");
             }
         }
 

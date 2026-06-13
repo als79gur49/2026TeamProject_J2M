@@ -90,7 +90,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ForwardCellProjectile_MissArrival_CreatesImpactVfxAndProjectileImpactSfx()
+        public void ForwardCellProjectile_MissArrival_CreatesImpactVfxAndForwardCellImpactSfx()
         {
             var data = CreatePresentationData(arrivalSignals: new[] { CreateArrivalSignal(PendingCellImpactResolutionKind.Miss) });
             var vfxPlan = PlanProjectile(data);
@@ -99,12 +99,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 vfxPlan.Requests.Count(request => request.CueId.Equals(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact))),
                 Is.EqualTo(1));
-            Assert.That(audioRequests.Count(request => request.Cue == EnemyAudioCue.ProjectileImpact), Is.EqualTo(1));
+            Assert.That(audioRequests.Count(request => request.Cue == EnemyAudioCue.ForwardCellImpact), Is.EqualTo(1));
         }
 
         [Test]
         [Category("Extended")]
-        public void ForwardCellProjectile_HitArrival_CreatesImpactVfxAndProjectileImpactSfxAndHitSignal()
+        public void ForwardCellProjectile_HitArrival_CreatesImpactVfxAndForwardCellImpactSfxAndHitSignal()
         {
             var data = CreatePresentationData(
                 forwardCellImpactSignals: new[] { CreateImpactSignal(hit: true, targetEntityId: 10) },
@@ -116,7 +116,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 vfxPlan.Requests.Count(request => request.CueId.Equals(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact))),
                 Is.EqualTo(1));
-            Assert.That(audioRequests.Count(request => request.Cue == EnemyAudioCue.ProjectileImpact), Is.EqualTo(1));
+            Assert.That(audioRequests.Count(request => request.Cue == EnemyAudioCue.ForwardCellImpact), Is.EqualTo(1));
         }
 
         [Test]
@@ -137,7 +137,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ForwardCellProjectile_ProjectileImpactVfxAndSfx_ShareArrivalPolicy()
+        public void ForwardCellProjectile_ForwardCellImpactVfxAndSfx_ShareArrivalPolicy()
         {
             var audioPlanner = new EnemyAudioRequestPlanner();
             var validArrivalKinds = new[]
@@ -156,7 +156,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     vfxPlan.Requests.Count(request => request.CueId.Equals(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact))),
                     Is.EqualTo(1));
                 Assert.That(
-                    audioRequests.Count(request => request.Cue == EnemyAudioCue.ProjectileImpact),
+                    audioRequests.Count(request => request.Cue == EnemyAudioCue.ForwardCellImpact),
                     Is.EqualTo(1));
             }
 
@@ -165,7 +165,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(PlanProjectile(impactOnlyData).Requests, Is.Empty);
             Assert.That(
                 audioPlanner.BuildRequests(CreateResult(impactOnlyData)).Select(request => request.Cue).ToArray(),
-                Has.No.EqualTo(EnemyAudioCue.ProjectileImpact));
+                Has.No.EqualTo(EnemyAudioCue.ForwardCellImpact));
         }
 
         private static void AssertInvalidForwardCellProjectileArrivalCreatesNoImpactVfxOrSfx(
@@ -178,7 +178,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 vfxPlan.Requests.Select(request => request.CueId).ToArray(),
                 Has.No.EqualTo(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellImpact)));
-            Assert.That(audioRequests.Select(request => request.Cue).ToArray(), Has.No.EqualTo(EnemyAudioCue.ProjectileImpact));
+            Assert.That(audioRequests.Select(request => request.Cue).ToArray(), Has.No.EqualTo(EnemyAudioCue.ForwardCellImpact));
         }
 
         [Test]
@@ -223,7 +223,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var owner = new GameObject("ForwardCellProjectileLifecycle");
             var activePrefab = new GameObject("ForwardCellProjectileActivePrefab");
             var flightPrefab = new GameObject("ForwardCellProjectileFlightPrefab");
-            var impactPrefab = new GameObject("ForwardCellProjectileImpactPrefab");
+            var impactPrefab = new GameObject("ForwardCellImpactPrefab");
             VfxBindingDefinitionAsset activeBinding = null;
             VfxBindingDefinitionAsset flightBinding = null;
             VfxBindingDefinitionAsset impactBinding = null;

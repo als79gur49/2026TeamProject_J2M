@@ -5748,7 +5748,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds)
         {
-            return CreateWorldState(initialEntities, boardBounds);
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds);
         }
 
         private static WorldState CreateWorldState(

@@ -1690,26 +1690,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
-        [Category("Core")]
-        public IEnumerator PlayerMove_PlayMode_FireProjectileIntent_ThrowsNotSupported()
-        {
-            var host = CreateHost(
-                new[]
-                {
-                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-                },
-                actions: null,
-                staticEntityLogics: new IEntityLogic[]
-                {
-                    new FireProjectileIntentEmitter(sourceId: 10, priority: 5),
-                });
-
-            Assert.Throws<NotSupportedException>(() => host.InputHost.RunSingleTick());
-
-            yield return DestroyHost(host);
-        }
-
-        [UnityTest]
         [Category("Full")]
         public IEnumerator PlayerMove_PlayMode_BlockedCell_DoesNotVisuallyDrift()
         {
@@ -2456,28 +2436,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 FlipExecuteDelaySeconds = flipExecuteDelayTicks / (float)ticksPerSecond,
                 FlipInputLockDurationSeconds = flipInputLockDurationTicks / (float)ticksPerSecond,
             };
-        }
-
-        private sealed class FireProjectileIntentEmitter : IAttackEntityLogic, IEntityLogicSourceBinding
-        {
-            private readonly int _priority;
-            private readonly int _sourceId;
-
-            public FireProjectileIntentEmitter(int sourceId, int priority)
-            {
-                _sourceId = sourceId;
-                _priority = priority;
-            }
-
-            public int ControlledEntityId => _sourceId;
-
-            public void CollectAttackIntents(WorldSnapshot snapshot, in TickInput input, List<RawAttackIntent> buffer)
-            {
-                if (snapshot.TryGetEntity(_sourceId, out var source) && source.hp > 0 && !source.markedForDeath)
-                {
-                    buffer.Add(RawAttackIntent.CreateFireProjectile(_sourceId, _priority));
-                }
-            }
         }
 
         private sealed class PlayModeScriptedMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding

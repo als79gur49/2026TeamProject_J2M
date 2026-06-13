@@ -208,8 +208,6 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void SpawnEntity(EntityState entity)
         {
-            EnsureEntityTypeIsRuntimeSupported(entity.type);
-
             if (_entitiesById.ContainsKey(entity.entityId))
             {
                 throw new InvalidOperationException("Duplicate entity id detected while adding entity.");
@@ -1190,15 +1188,6 @@ namespace Game.Feature.Gameplay.BoardState
         private static bool ShouldStoreEntityInOccupancy(EntityState entity)
         {
             return entity.boardPresence == EntityBoardPresence.Occupying;
-        }
-
-        private static void EnsureEntityTypeIsRuntimeSupported(EntityType entityType)
-        {
-            if (entityType == EntityType.Projectile)
-            {
-                throw new NotSupportedException(
-                    "EntityType.Projectile is reserved for legacy serialized values and cannot be instantiated at runtime.");
-            }
         }
 
         private static string FormatPlacementBlocker(SlideStopper blocker)

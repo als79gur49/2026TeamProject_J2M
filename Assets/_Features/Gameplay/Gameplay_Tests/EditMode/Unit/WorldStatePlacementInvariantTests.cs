@@ -338,69 +338,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SpawnEntity_ProjectileDestinationOccupiedByUnit_ThrowsAndLeavesWorldUnchanged()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateUnit(entityId: 10, position: Vector2Int.zero),
-                });
-
-            Assert.Throws<NotSupportedException>(
-                () => worldState.CreateWriteContext().SpawnEntity(CreateProjectile(entityId: 20, position: Vector2Int.zero)));
-
-            var snapshot = worldState.CreateSnapshot();
-            Assert.That(snapshot.TryGetEntity(10, out _), Is.True);
-            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
-            CollectionAssert.AreEqual(new[] { 10 }, GetUnitIdsAt(snapshot, Vector2Int.zero));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void SpawnEntity_ProjectileDestinationOccupiedByBox_ThrowsAndLeavesWorldUnchanged()
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateBox(entityId: 10, position: Vector2Int.zero),
-                });
-
-            Assert.Throws<NotSupportedException>(
-                () => worldState.CreateWriteContext().SpawnEntity(CreateProjectile(entityId: 20, position: Vector2Int.zero)));
-
-            var snapshot = worldState.CreateSnapshot();
-            Assert.That(snapshot.TryGetEntity(10, out var box), Is.True);
-            Assert.That(box.type, Is.EqualTo(EntityType.Box));
-            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void ProjectedWorld_ProjectileEntity_ThrowsBeforeMaterialization()
-        {
-            Assert.Throws<NotSupportedException>(() =>
-                GameplayWorldStateTestFactory.CreateBounded(
-                    new[]
-                    {
-                        CreateProjectile(entityId: 20, position: new Vector2Int(2, 0)),
-                    },
-                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0))));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void CreateWorldState_ProjectileEntity_Throws()
-        {
-            Assert.Throws<NotSupportedException>(() =>
-                GameplayWorldStateTestFactory.CreateBounded(
-                    new[]
-                    {
-                        CreateProjectile(entityId: 10, position: Vector2Int.zero),
-                    }));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void WorldState_MoveEntityTo_GliderActive_CanRepresentAirborneOverSolid()
         {
             var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -529,29 +466,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 stateTimer = 0,
                 facing = Direction.Right,
                 markedForDeath = markedForDeath,
-                spawnTick = 0,
-            };
-        }
-
-        private static EntityState CreateProjectile(int entityId, Vector2Int position)
-        {
-            return CreateProjectile(entityId, SurfaceCell.FromPlanar(position));
-        }
-
-        private static EntityState CreateProjectile(int entityId, SurfaceCell position)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 1,
-                type = EntityType.Projectile,
-                state = EntityPhaseState.Idle,
-                stateTimer = 0,
-                facing = Direction.Right,
-                markedForDeath = false,
                 spawnTick = 0,
             };
         }

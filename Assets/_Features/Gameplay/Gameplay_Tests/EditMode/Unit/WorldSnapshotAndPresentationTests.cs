@@ -827,38 +827,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayWorldStateTestFactory_CreateBounded_WithTimingProfile_RejectsPreExistingProjectileEntity()
-        {
-            var timingProfile = new GameplayTimingProfile(
-                simulationTicksPerSecond: 120,
-                initialMoveDelaySeconds: 0f,
-                repeatedMoveIntervalSeconds: 0.4f,
-                boxSlideStepIntervalSeconds: 0.2f,
-                projectileStepIntervalSeconds: 0.2f,
-                pushMotionDurationSeconds: 0.2f,
-                flipMotionDurationSeconds: 0.2f,
-                flipArcHeightInCells: 0.65f,
-                maxTicksPerFrame: 8);
-            Assert.Throws<NotSupportedException>(() =>
-                CreateWorldState(
-                    new[]
-                    {
-                        new EntityState
-                        {
-                            entityId = 10,
-                            position = new Vector2Int(0, 0),
-                            hp = 1,
-                            maxHp = 1,
-                            teamId = 1,
-                            type = EntityType.Projectile,
-                            facing = Direction.Right,
-                        },
-                    },
-                    timingProfile));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void WorldSnapshot_EnumeratesEntitiesInEntityIdOrder()
         {
             var worldState = CreateWorldState(new[]
@@ -1374,24 +1342,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 snapshot.TryGetPlacementBlocker(EntityType.Unit, new SurfaceCell(FaceId.Floor, 3, 0), ignoredEntityId: 0, out _),
                 Is.False);
-            Assert.Throws<NotSupportedException>(() =>
-                snapshot.TryGetPlacementBlocker(
-                    EntityType.Projectile,
-                    new SurfaceCell(FaceId.Floor, 3, 0),
-                    ignoredEntityId: 0,
-                    out _));
             Assert.That(
                 snapshot.TryGetPlacementBlocker(EntityType.Box, new SurfaceCell(FaceId.Floor, 3, 0), ignoredEntityId: 0, out var blocker),
                 Is.True);
             Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
             Assert.That(blocker.EntityId, Is.EqualTo(30));
-
-            Assert.Throws<NotSupportedException>(() =>
-                snapshot.TryGetPlacementBlocker(
-                    EntityType.Projectile,
-                    new SurfaceCell(FaceId.Floor, 1, 1),
-                    ignoredEntityId: 0,
-                    out _));
         }
 
         [Test]
