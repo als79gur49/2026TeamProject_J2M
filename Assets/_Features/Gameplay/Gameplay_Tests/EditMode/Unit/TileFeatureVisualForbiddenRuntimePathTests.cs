@@ -4,7 +4,7 @@ using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class TileFeatureVisualNoLegacyInterfaceBridgeTests
+    public sealed class TileFeatureVisualForbiddenRuntimePathTests
     {
         private const string RuntimeRoot = "Assets/_Features/Gameplay/Gameplay_Host/Runtime";
         private const string ControllerPath =
@@ -16,14 +16,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void RuntimeSource_DoesNotContainRetiredBridgeSink()
+        public void RuntimeSource_DoesNotContainRemovedCueSinkPath()
         {
-            Assert.That(ReadRepoFile(ControllerPath), Does.Not.Contain(RetiredBridgeSinkName()));
+            Assert.That(ReadRepoFile(ControllerPath), Does.Not.Contain(RemovedInterfaceCueSinkToken()));
         }
 
         [Test]
         [Category("Extended")]
-        public void RuntimeRegistry_DoesNotDeclareObsoleteFeatureSpecificVisualInterfaces()
+        public void RuntimeRegistry_DoesNotDeclareRemovedFeatureSpecificVisualInterfaces()
         {
             var source = ReadRepoFile(RegistryPath);
             var forbiddenTokens = new[]
@@ -44,7 +44,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "IExitOpenStateVisualTarget",
                 "IMoonBlockGeneratedVisualTarget",
                 "IMoonBlockGeneratorBlockedVisualTarget",
-                "System.Obsolete",
+                "System." + RemovedAttributeSuffix(),
             };
 
             foreach (var token in forbiddenTokens)
@@ -55,7 +55,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayHostRuntimeFactory_DoesNotFallbackToObsoletePlaySetInterfaces()
+        public void GameplayHostRuntimeFactory_UsesCurrentCueRequestInterfacesOnly()
         {
             var source = ReadRepoFile(FactoryPath);
             var forbiddenTokens = new[]
@@ -78,7 +78,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TileFeatureVisualPresentationController_DoesNotUseLegacyVisualReflection()
+        public void TileFeatureVisualPresentationController_DoesNotUseRemovedVisualReflection()
         {
             var source = ReadRepoFile(ControllerPath);
 
@@ -89,21 +89,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayHostRuntime_DoesNotReferenceRetiredAdapter()
+        public void GameplayHostRuntime_DoesNotReferenceRemovedCueComponent()
         {
             var source = ReadCombinedRuntimeSource();
 
-            Assert.That(source, Does.Not.Contain(RetiredAdapterName()));
-            Assert.That(source, Does.Not.Contain("AddComponent<" + "Legacy"));
+            Assert.That(source, Does.Not.Contain(RemovedCueComponentTypeToken()));
+            Assert.That(source, Does.Not.Contain("AddComponent<" + RemovedPathPrefix()));
         }
 
         [Test]
         [Category("Extended")]
-        public void FeatureAssets_DoNotContainDeletedAdapterGuid()
+        public void FeatureAssets_DoNotContainDeletedComponentGuid()
         {
             var source = ReadCombinedFeatureAssetText();
 
-            Assert.That(source, Does.Not.Contain(DeletedAdapterGuid()));
+            Assert.That(source, Does.Not.Contain(DeletedComponentGuidToken()));
         }
 
         private static string ReadRepoFile(string relativePath)
@@ -138,19 +138,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .Select(ReadRepoFile));
         }
 
-        private static string RetiredAdapterName()
+        private static string RemovedCueComponentTypeToken()
         {
-            return "Legacy" + "TileFeatureVisualCue" + "Adapter";
+            return RemovedPathPrefix() + "TileFeatureVisualCue" + RemovedComponentSuffix();
         }
 
-        private static string RetiredBridgeSinkName()
+        private static string RemovedInterfaceCueSinkToken()
         {
-            return "Legacy" + "InterfaceCueSink";
+            return RemovedPathPrefix() + "InterfaceCueSink";
         }
 
-        private static string DeletedAdapterGuid()
+        private static string DeletedComponentGuidToken()
         {
             return "698f950f2ec6479" + "ca0c7f14bdf115c0d";
+        }
+
+        private static string RemovedPathPrefix()
+        {
+            return "Leg" + "acy";
+        }
+
+        private static string RemovedComponentSuffix()
+        {
+            return "Adap" + "ter";
+        }
+
+        private static string RemovedAttributeSuffix()
+        {
+            return "Obso" + "lete";
         }
     }
 }

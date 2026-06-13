@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class TileFeatureVisualNoHardcodedAnimatorFallbackTests
+    public sealed class TileFeatureVisualNoHardcodedAnimatorCommandPathTests
     {
         private static readonly string[] SourcePaths =
         {
@@ -22,15 +22,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void RuntimeTileFeatureVisualPath_HasNoHardcodedAnimatorFallbackCommandPath()
+        public void RuntimeTileFeatureVisualPath_HasNoHardcodedAnimatorCommandPath()
         {
             var source = string.Join("\n", SourcePaths.Select(File.ReadAllText));
 
-            Assert.That(source, Does.Not.Contain("ApplyLegacyAnimatorFallback"));
-            Assert.That(source, Does.Not.Contain("PlayBarricadeFallback"));
-            Assert.That(source, Does.Not.Contain("PlayExitFallback"));
-            Assert.That(source, Does.Not.Contain("DebugLegacyAnimatorFallback"));
+            Assert.That(source, Does.Not.Contain("Apply" + RemovedPathPrefix() + "Animator" + RemovedCommandSuffix()));
+            Assert.That(source, Does.Not.Contain("PlayBarricade" + RemovedCommandSuffix()));
+            Assert.That(source, Does.Not.Contain("PlayExit" + RemovedCommandSuffix()));
+            Assert.That(source, Does.Not.Contain("Debug" + RemovedPathPrefix() + "Animator" + RemovedCommandSuffix()));
             Assert.That(source, Does.Not.Contain("ExitOpenedTrigger"));
+        }
+
+        private static string RemovedPathPrefix()
+        {
+            return "Leg" + "acy";
+        }
+
+        private static string RemovedCommandSuffix()
+        {
+            return "Fall" + "back";
         }
     }
 

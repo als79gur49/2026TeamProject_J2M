@@ -29,13 +29,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(prefab.GetComponent<TileFeatureVisualTargetView>(), Is.Not.Null, prefabPaths[i]);
                 Assert.That(prefab.GetComponent<TileFeatureVisualProfileProvider>(), Is.Null, prefabPaths[i]);
                 Assert.That(prefab.GetComponentInChildren<Animator>(includeInactive: true), Is.Null, prefabPaths[i]);
-                AssertNoRetiredAdapterResidue(prefab, prefabPaths[i]);
+                AssertNoMissingScriptResidue(prefab, prefabPaths[i]);
             }
         }
 
         [Test]
         [Category("Full")]
-        public void ButtonEntranceAndDefaultExitProductionPrefabs_NoProviderNoAdapter_RuntimePolicyDoesNotWarn()
+        public void ButtonEntranceAndDefaultExitProductionPrefabs_NoProviderNoProfile_RuntimePolicyDoesNotWarn()
         {
             AssertNoProfileRuntimeNoOp(
                 "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Button_Default.prefab",
@@ -104,7 +104,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
 
                 Assert.That(instance.GetComponent<TileFeatureVisualProfileProvider>(), Is.Null, prefabPath);
-                AssertNoRetiredAdapterResidue(instance, prefabPath);
+                AssertNoMissingScriptResidue(instance, prefabPath);
             }
             finally
             {
@@ -112,7 +112,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private static void AssertNoRetiredAdapterResidue(GameObject root, string context)
+        private static void AssertNoMissingScriptResidue(GameObject root, string context)
         {
             var behaviours = root.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
             for (var i = 0; i < behaviours.Length; i++)

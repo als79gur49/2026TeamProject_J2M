@@ -40,7 +40,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var target = prefabInstance.GetComponent<TileFeatureVisualTargetView>();
                 var provider = prefabInstance.GetComponent<TileFeatureVisualProfileProvider>();
                 var animator = prefabInstance.GetComponent<Animator>();
-                AssertNoRetiredAdapterResidue(prefabInstance);
+                AssertNoMissingScriptResidue(prefabInstance);
                 Assert.That(target, Is.Not.Null);
                 Assert.That(provider, Is.Not.Null);
                 Assert.That(animator, Is.Not.Null);
@@ -92,7 +92,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var provider = prefabInstance.GetComponent<TileFeatureVisualProfileProvider>();
                 var animator = prefabInstance.GetComponent<Animator>();
                 var controller = animator.runtimeAnimatorController as AnimatorController;
-                AssertNoRetiredAdapterResidue(prefabInstance);
+                AssertNoMissingScriptResidue(prefabInstance);
                 Assert.That(target, Is.Not.Null);
                 Assert.That(provider, Is.Not.Null);
                 Assert.That(controller, Is.Not.Null);
@@ -125,7 +125,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void MoonBlockGenerated_DoesNotRequireTileFeatureVisualTargetViewLegacyString()
+        public void MoonBlockGenerated_DoesNotRequireTileFeatureVisualTargetViewFeatureString()
         {
             var targetType = typeof(TileFeatureVisualTargetView);
             var members = targetType.GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -156,7 +156,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profiles.GetArrayElementAtIndex(0).objectReferenceValue, Is.SameAs(profile));
         }
 
-        private static void AssertNoRetiredAdapterResidue(GameObject root)
+        private static void AssertNoMissingScriptResidue(GameObject root)
         {
             var behaviours = root.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
             for (var i = 0; i < behaviours.Length; i++)

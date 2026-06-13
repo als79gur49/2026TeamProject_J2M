@@ -24,7 +24,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ButtonActivatedRequest_WithRegisteredTargetView_CallsPlayButtonActivatedOnce()
+        public void ButtonActivatedRequest_WithRegisteredTargetView_DispatchesButtonCueRequestOnce()
         {
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var target = new RecordingTarget(100, cell);
@@ -78,7 +78,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void DestroyTileTriggeredRequest_WithSupportedTargetView_CallsPlayDestroyTileTriggeredOnce()
+        public void DestroyTileTriggeredRequest_WithSupportedTargetView_DispatchesDestroyTileCueRequestOnce()
         {
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var target = new RecordingDestroyTarget(100, cell);
@@ -143,7 +143,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SlideTileRedirectedRequest_WithSupportedTargetView_CallsPlaySlideTileRedirectedOnce()
+        public void SlideTileRedirectedRequest_WithSupportedTargetView_DispatchesSlideCueRequestOnce()
         {
             var cell = new SurfaceCell(FaceId.Front, 1, 1);
             var target = new RecordingSlideTarget(100, cell);
@@ -160,7 +160,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void BarricadeBlockedRequest_WithSupportedTargetView_CallsPlayBarricadeBlockedOnce()
+        public void BarricadeBlockedRequest_WithSupportedTargetView_DispatchesBarricadeBlockedCueRequestOnce()
         {
             var cell = new SurfaceCell(FaceId.Front, 1, 1);
             var target = new RecordingBarricadeTarget(100, cell);
@@ -177,7 +177,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void BarricadeCrushedRequest_WithSupportedTargetView_CallsPlayBarricadeCrushedOnce()
+        public void BarricadeCrushedRequest_WithSupportedTargetView_DispatchesBarricadeCrushedCueRequestOnce()
         {
             var cell = new SurfaceCell(FaceId.Front, 1, 1);
             var target = new RecordingBarricadeTarget(100, cell);
@@ -786,7 +786,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void MoonBlockGeneratedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratedOnce()
+        public void MoonBlockGeneratedRequest_WithSupportedTargetView_DispatchesMoonBlockGeneratedCueRequestOnce()
         {
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var target = new RecordingMoonBlockGeneratedTarget(100, cell);
@@ -802,7 +802,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void MoonBlockGeneratorBlockedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratorBlockedOnce()
+        public void MoonBlockGeneratorBlockedRequest_WithSupportedTargetView_DispatchesMoonBlockGeneratorBlockedCueRequestOnce()
         {
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var target = new RecordingMoonBlockGeneratorBlockedTarget(100, cell);
@@ -1299,7 +1299,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 controller.PlayButtonActivatedRequests(new[] { CreateRequest(100, cell) });
 
                 var targetView = (TileFeatureVisualTargetView)target;
-                AssertNoRetiredAdapterResidue(targetView.gameObject, "stage tile feature visual binding");
+                AssertNoMissingScriptResidue(targetView.gameObject, "stage tile feature visual binding");
             }
             finally
             {
@@ -1474,7 +1474,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var animator = targetView.GetComponentInChildren<Animator>(includeInactive: true);
                 Assert.That(animator, Is.Not.Null);
                 Assert.That(animator.GetCurrentAnimatorStateInfo(0).shortNameHash, Is.EqualTo(expectedStateHash));
-                AssertNoRetiredAdapterResidue(targetView.gameObject, nameof(ExitInitialOpenState_ProductionPrefab_AppliesBeforeFirstTick));
+                AssertNoMissingScriptResidue(targetView.gameObject, nameof(ExitInitialOpenState_ProductionPrefab_AppliesBeforeFirstTick));
             }
             finally
             {
@@ -2706,7 +2706,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private static void AssertNoRetiredAdapterResidue(GameObject root, string context)
+        private static void AssertNoMissingScriptResidue(GameObject root, string context)
         {
             var behaviours = root.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
             for (var i = 0; i < behaviours.Length; i++)

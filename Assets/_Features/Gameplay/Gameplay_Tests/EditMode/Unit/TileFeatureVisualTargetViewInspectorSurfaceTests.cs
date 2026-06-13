@@ -47,7 +47,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TileFeatureVisualRuntime_DoesNotDeclareFeatureSpecificLegacyVisualInterfaces()
+        public void TileFeatureVisualRuntime_DoesNotDeclareRemovedFeatureSpecificVisualInterfaces()
         {
             var forbiddenInterfaces = new[]
             {
@@ -123,7 +123,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TileFeatureVisualTargetView_NoTargetViewRollbackLegacySurface()
+        public void TileFeatureVisualTargetView_NoRemovedTargetViewSurface()
         {
             var targetType = typeof(TileFeatureVisualTargetView);
             var declaredMembers = targetType
@@ -159,7 +159,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ProductionTileFeaturePrefabs_DoNotSerializeLegacyVisualTargetResidue()
+        public void ProductionTileFeaturePrefabs_DoNotSerializeRemovedVisualTargetResidue()
         {
             var prefabPaths = Directory.GetFiles(
                     ProductionTileFeaturePrefabDirectory,

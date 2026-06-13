@@ -6,11 +6,11 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class TileFeatureVisualProductionPrefabNoRetiredAdapterComponentTests
+    public sealed class TileFeatureVisualProductionPrefabForbiddenComponentAbsenceTests
     {
         [Test]
         [Category("Full")]
-        public void ProductionProfilePrefabs_LoadWithoutRetiredAdapterResidueAndKeepProviderProfiles()
+        public void ProductionProfilePrefabs_LoadWithoutMissingScriptResidueAndKeepProviderProfiles()
         {
             var prefabCases = new (string Path, TileFeatureKind Kind)[]
             {
@@ -29,7 +29,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             for (var i = 0; i < prefabCases.Length; i++)
             {
                 var prefab = LoadPrefab(prefabCases[i].Path);
-                AssertNoRetiredAdapterResidue(prefab, prefabCases[i].Path);
+                AssertNoMissingScriptResidue(prefab, prefabCases[i].Path);
 
                 var provider = prefab.GetComponent<TileFeatureVisualProfileProvider>();
                 Assert.That(provider, Is.Not.Null, prefabCases[i].Path);
@@ -41,7 +41,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ExplicitNoProfilePolicyPrefabs_LoadWithoutRetiredAdapterResidueOrProvider()
+        public void ExplicitNoProfilePolicyPrefabs_LoadWithoutMissingScriptResidueOrProvider()
         {
             var prefabPaths = new[]
             {
@@ -54,7 +54,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             for (var i = 0; i < prefabPaths.Length; i++)
             {
                 var prefab = LoadPrefab(prefabPaths[i]);
-                AssertNoRetiredAdapterResidue(prefab, prefabPaths[i]);
+                AssertNoMissingScriptResidue(prefab, prefabPaths[i]);
                 Assert.That(prefab.GetComponent<TileFeatureVisualProfileProvider>(), Is.Null, prefabPaths[i]);
             }
         }
@@ -66,7 +66,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return prefab;
         }
 
-        private static void AssertNoRetiredAdapterResidue(GameObject prefab, string prefabPath)
+        private static void AssertNoMissingScriptResidue(GameObject prefab, string prefabPath)
         {
             var behaviours = prefab.GetComponents<MonoBehaviour>();
             for (var i = 0; i < behaviours.Length; i++)

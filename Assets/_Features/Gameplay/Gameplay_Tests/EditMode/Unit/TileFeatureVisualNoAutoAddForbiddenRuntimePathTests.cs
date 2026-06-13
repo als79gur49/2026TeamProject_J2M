@@ -8,13 +8,13 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class TileFeatureVisualNoAutoAddRetiredAdapterTests
+    public sealed class TileFeatureVisualNoAutoAddForbiddenRuntimePathTests
     {
         [Test]
         [Category("Extended")]
-        public void Controller_ProviderBackedTarget_DoesNotAutoAddRetiredAdapterResidue()
+        public void Controller_ProviderBackedTarget_DoesNotAutoAddForbiddenRuntimePath()
         {
-            var root = new GameObject(nameof(Controller_ProviderBackedTarget_DoesNotAutoAddRetiredAdapterResidue));
+            var root = new GameObject(nameof(Controller_ProviderBackedTarget_DoesNotAutoAddForbiddenRuntimePath));
             var targetObject = new GameObject("TileFeatureTarget");
             targetObject.transform.SetParent(root.transform, worldPositionStays: false);
             var profile = CreateProfile(TileFeatureKind.Button, TileFeatureVisualCueId.ButtonActivated);
@@ -45,9 +45,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Factory_ProviderBackedTarget_DoesNotAutoAddRetiredAdapterResidue()
+        public void Factory_ProviderBackedTarget_DoesNotAutoAddForbiddenRuntimePath()
         {
-            var targetObject = new GameObject(nameof(Factory_ProviderBackedTarget_DoesNotAutoAddRetiredAdapterResidue));
+            var targetObject = new GameObject(nameof(Factory_ProviderBackedTarget_DoesNotAutoAddForbiddenRuntimePath));
             var profile = CreateProfile(TileFeatureKind.Exit, TileFeatureVisualCueId.ExitOpenState);
 
             try
