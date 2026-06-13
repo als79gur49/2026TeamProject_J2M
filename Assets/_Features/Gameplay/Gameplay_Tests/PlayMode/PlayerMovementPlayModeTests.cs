@@ -1691,7 +1691,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator PlayerMove_PlayMode_FireProjectileLogic_ThrowsNotSupported()
+        public IEnumerator PlayerMove_PlayMode_FireProjectileIntent_ThrowsNotSupported()
         {
             var host = CreateHost(
                 new[]
@@ -1701,7 +1701,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 actions: null,
                 staticEntityLogics: new IEntityLogic[]
                 {
-                    new FireProjectileLogic(sourceId: 10, priority: 5),
+                    new FireProjectileIntentEmitter(sourceId: 10, priority: 5),
                 });
 
             Assert.Throws<NotSupportedException>(() => host.InputHost.RunSingleTick());
@@ -2458,12 +2458,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             };
         }
 
-        private sealed class FireProjectileLogic : IAttackEntityLogic, IEntityLogicSourceBinding
+        private sealed class FireProjectileIntentEmitter : IAttackEntityLogic, IEntityLogicSourceBinding
         {
             private readonly int _priority;
             private readonly int _sourceId;
 
-            public FireProjectileLogic(int sourceId, int priority)
+            public FireProjectileIntentEmitter(int sourceId, int priority)
             {
                 _sourceId = sourceId;
                 _priority = priority;

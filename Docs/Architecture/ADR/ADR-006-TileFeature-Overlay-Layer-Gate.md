@@ -8,11 +8,11 @@
 
 TileFeature is a `SurfaceCell`-based gameplay overlay layer.
 
-TileFeature is not Unit/Solid/Projectile occupancy. It must not be modeled as `EntityType.TileFeature`, as a Unit stack entry, as Solid occupancy, or as Projectile occupancy. TileFeature-specific kinds such as DestroyTile, SlideTile, Barricade, Exit, Entrance, MoonBlock, and MoonBlockGenerator must not be added to `EntityType`.
+TileFeature is not Unit/Solid occupancy and is not part of the retired legacy projectile entity path. It must not be modeled as `EntityType.TileFeature`, as a Unit stack entry, as Solid occupancy, or as any projectile occupancy concept. TileFeature-specific kinds such as DestroyTile, SlideTile, Barricade, Exit, Entrance, MoonBlock, and MoonBlockGenerator must not be added to `EntityType`.
 
 Gameplay Terrain truth has been removed by ADR-007. TileFeature is not a terrain extension and must not recreate terrain storage, terrain flags, or terrain-specific blockers.
 
-TileFeature may coexist with Unit, Box, and Projectile occupants on the same `SurfaceCell`. Wall-like solid + TileFeature requires explicit policy. TileFeature + TileFeature same-cell support is a storage capability; gameplay policy for each pair remains explicit.
+TileFeature may coexist with Unit and Box occupants on the same `SurfaceCell`. Wall-like solid + TileFeature requires explicit policy. TileFeature + TileFeature same-cell support is a storage capability; gameplay policy for each pair remains explicit.
 
 TileFeature overlay names are not interpreted uniformly as blockers. Activated DestroyTile is a non-hard-blocking risk tile: movement, summon candidate selection, and jump landing fallback selection should avoid it when a legal neutral alternative exists, but it does not fail legality like Solid. Activated Barricade is a hard TileFeature blocker: it blocks Unit placement and settlement without creating Solid occupancy. MoonBlockGenerator remains non-blocking as a feature; the generated MoonBlock Solid is the authoritative blocker. All checks are `SurfaceCell(face,x,y)`-aware and must not flatten same-planar coordinates across faces.
 
@@ -49,7 +49,6 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 
 - Unit + TileFeature is allowed.
 - Box + TileFeature is allowed.
-- Projectile + TileFeature is allowed.
 - Other Solid + TileFeature, including Wall-like solid occupants, requires an explicit future policy decision.
 - TileFeature + TileFeature same-cell storage support and gameplay policy are separate decisions.
 - Duplicate same-cell SlideTile is rejected by gameplay authoring policy.

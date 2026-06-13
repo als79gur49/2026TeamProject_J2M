@@ -95,7 +95,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             var document = File.ReadAllText(GetAbsolutePath(TileFeatureOverlayAdrPath));
 
             Assert.That(document, Does.Contain("TileFeature is a `SurfaceCell`-based gameplay overlay layer."));
-            Assert.That(document, Does.Contain("TileFeature is not Unit/Solid/Projectile occupancy."));
+            Assert.That(document, Does.Contain("TileFeature is not Unit/Solid occupancy"));
             Assert.That(document, Does.Contain("Gameplay Terrain truth has been removed"));
             Assert.That(document, Does.Contain("Box + TileFeature is allowed."));
             Assert.That(document, Does.Contain("TileFeature overlay names are not interpreted uniformly as blockers."));

@@ -108,7 +108,7 @@ Evidence summary:
 
 Evidence summary:
 - The push/flip/item scenario rows still fail on legacy `Kind=...` tokens while current movement, cleanup, and final-snapshot semantics are already anchored elsewhere.
-- `Attack_FireProjectileIntent_SpawnsProjectileDuringCommit` already shows the correct spawn event and final projectile entity; the remaining mismatch is the old trace dump shape.
+- Historical note: `Attack_FireProjectileIntent_SpawnsProjectileDuringCommit` referred to the now-retired legacy projectile entity path and is not a current runtime contract.
 - The replay `PlayerControlState` and `PassiveContact` rows fail on dump surface expectations such as `NextDamageAllowed=0` or old trace tokens, not on per-tick hash equality or final entity/event consistency.
 - The showcase and stage rows are current asset literal drift, not runtime authoritative breakage.
 - `Movement_SameDestination_OnlyHigherPriorityWins` already preserves the higher-priority winner and final occupancy; the surviving mismatch is the loser reject-reason/order wording surface.
