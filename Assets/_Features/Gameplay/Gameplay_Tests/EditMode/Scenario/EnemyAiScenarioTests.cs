@@ -201,7 +201,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void EnemyAi_Charge_CurrentPresentationAndContactContract()
+        public void EnemyAi_Charger_CurrentPresentationAndContactContract()
         {
             EnemyCharge_KinematicFlag_ActiveStepUsesChargeKinematicMove();
             EnemyCharge_KinematicFlag_ContactStartsAtCommitAndConsumesStepAtSettle();
@@ -209,7 +209,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_Charge_WindupRecoverLocksDirectionWithoutFallbackMove()
+        public void EnemyAi_Charger_WindupRecoverLocksDirectionWithoutFallbackMove()
         {
             EnemyCharge_KinematicFlag_PatrolToChargeWaitsForOrdinarySettleThenUsesChargeKinematicMove();
             EnemyCharge_SettleWait_DuringOrdinaryKinematic_DoesNotSnap();

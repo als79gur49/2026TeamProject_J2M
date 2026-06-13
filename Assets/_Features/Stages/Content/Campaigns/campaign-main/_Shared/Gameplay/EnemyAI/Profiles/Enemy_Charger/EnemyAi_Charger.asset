@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b8e8443191cf4d54b46f4588ab76f6fe, type: 3}
-  m_Name: EnemyAi_Charge
+  m_Name: EnemyAi_Charger
   m_EditorClassIdentifier:
   coreAuthoring: {fileID: 11400000, guid: 1a22bfe1a98141bb971c6a32df55fd8e, type: 2}
   brainAuthoring: {fileID: 11400000, guid: 410b7b170bde4ce09ad62e48cd79cfd7, type: 2}

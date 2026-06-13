@@ -18,7 +18,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private const int PlayerId = 10;
         private const int EnemyId = 40;
         private const string RocketFaceProfilePath =
-            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Charge/EnemyAi_Charge.asset";
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Charger/EnemyAi_Charger.asset";
 
         [Test]
         [Category("Extended")]

@@ -1174,7 +1174,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_Charge_CurrentPresentationAndContactContract",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_Charger_CurrentPresentationAndContactContract",
       "category": "Core",
       "contracts": [
         "enemy_charge_kinematic_locomotion",
