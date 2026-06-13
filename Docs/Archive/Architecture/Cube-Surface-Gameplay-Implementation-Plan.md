@@ -95,7 +95,7 @@
 #### 3-2-2. 책임 분해
 
 - `WorldState`
-  - 모든 face의 `entitiesById`, `unitOccupancy`, `projectileOccupancy`를 보관한다.
+  - 모든 face의 `entitiesById`, `unitOccupancy`, `removed entityOccupancy`를 보관한다.
   - spawn/move legality 검사는 gameplay filter가 아니라 authoritative placement 규칙으로 수행한다.
   - inactive face 엔티티도 저장 가능해야 하므로 active-face 정책을 직접 소유하지 않는다.
 - `WorldSnapshot`
@@ -116,7 +116,7 @@
 
 ```csharp
 public bool TryGetUnitAt(SurfaceCell cell, out EntityState entity);
-public bool TryGetProjectileAt(SurfaceCell cell, out EntityState entity);
+public bool TryGetRemovedEntityAt(SurfaceCell cell, out EntityState entity);
 public bool IsTerrainBlockedForUnit(SurfaceCell cell);
 public bool IsBlockedForUnit(SurfaceCell cell);
 public bool TryResolvePlayerStep(
@@ -135,7 +135,7 @@ public bool TryResolveNextSurfaceBoxSlideStep(
 호환을 위해 아래 API는 유지하되 신규 규칙 구현의 주 경로로 쓰지 않는다.
 
 - `TryGetUnitAt(Vector2Int cell, out EntityState entity)`
-- `TryGetProjectileAt(Vector2Int cell, out EntityState entity)`
+- `TryGetRemovedEntityAt(Vector2Int cell, out EntityState entity)`
 - `IsTerrainBlockedForUnit(Vector2Int cell)`
 - `IsBlockedForUnit(Vector2Int cell)`
 - `TryResolvePlayerStep(SurfaceCell origin, Vector2Int delta, out SurfaceCell destination, out CubeRotationKind rotationKind, out CubeTopologyState updatedTopology)`
@@ -145,7 +145,7 @@ public bool TryResolveNextSurfaceBoxSlideStep(
 핵심 규칙은 "월드 저장은 전체 4면, gameplay 질의는 활성 2면"이다.
 
 - 활성 면 판단은 `CubeTopologyState.BottomFace`와 `CubeTopologyState.FrontFace`만 사용한다.
-- `TryGetUnitAt`, `TryGetProjectileAt`, `IsTerrainBlockedForUnit`, `IsBlockedForUnit`, `TryGetUnitBlocker`, `TryGetPlacementBlocker`, `EnumerateUnitOccupancyOrdered`, `EnumerateProjectileOccupancyOrdered`, `BlocksMovement`, `CanBeTargetedForNewSelection`은 모두 active-face policy를 적용한다.
+- `TryGetUnitAt`, `TryGetRemovedEntityAt`, `IsTerrainBlockedForUnit`, `IsBlockedForUnit`, `TryGetUnitBlocker`, `TryGetPlacementBlocker`, `EnumerateUnitOccupancyOrdered`, `EnumerateRemovedEntityOccupancyOrdered`, `BlocksMovement`, `CanBeTargetedForNewSelection`은 모두 active-face policy를 적용한다.
 - `TryGetEntity(int entityId, out EntityState entity)`와 `EnumerateEntitiesOrdered`는 active-face filter를 적용하지 않는다.
   - 이유: `Cleanup`, determinism hash, debug dump는 비활성 면 엔티티도 authoritative하게 봐야 한다.
 - `markedForDeath == true`는 삭제 예약이지만, 아직 board 위에 남아 있는 상태로 취급한다.
@@ -222,7 +222,7 @@ bounded board 알고리즘:
 
 추가 규칙:
 
-- projectile layer는 slide stopper에서 제외한다.
+- removed entity layer는 slide stopper에서 제외한다.
 - `markedForDeath` 엔티티는 stopper가 될 수 있다.
 - `Detached` 엔티티는 stopper가 될 수 없다.
 - `FrontFace -> Ceiling`, `BottomFace -> Back` 같은 나머지 경계 전이는 열지 않는다.

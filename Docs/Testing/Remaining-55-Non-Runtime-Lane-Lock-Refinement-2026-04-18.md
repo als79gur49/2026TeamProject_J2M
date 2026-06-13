@@ -91,7 +91,7 @@ Representative rows:
 - `TickReplayDeterminismTests.DeterminismHash_EnemyActionState_IsIncludedInCanonicalState`
 
 ### Step 3-A. Trace / Dump / Serialized Literal Drift
-- Purpose: lock legacy trace token, replay dump wording, projectile spawn literal, and serialized asset literal drift into `stale-literal`.
+- Purpose: lock stale trace token, replay dump wording, removed entity spawn literal, and serialized asset literal drift into `stale-literal`.
 - Primary signal: final snapshot, cleanup, hash/event, and spawn semantics are already green while the failure sits only on token, dump, or serialized literal wording.
 - Secondary signal: direct semantic guard rows around the same feature remain green.
 - Failure mechanisms: `Kind=*` token drift, replay dump wording drift, spawn dump drift, serialized stage/prefab/showcase literal drift.
@@ -105,7 +105,7 @@ Direct targets:
 - `Replay_CompositeItemAttackScenario_*`
 - `Replay_PlayerControlState_*`
 - `Replay_PassiveContactScenario_*`
-- `Attack_FireProjectileIntent_*`
+- `Attack_RemovedEntityIntent_*`
 - movement `Kind=Push/Flip/Item` rows
 - `MechanicsShowcaseStage_*`
 - `StageRuntimeBuilder_*`
@@ -128,7 +128,7 @@ Direct targets:
 Guard tests:
 - `Movement_EdgeReservation_StillRejectsDestinationConflict`
 - `Movement_UnitSharedMove_RejectsLaterCandidateWhenPushAlreadyReservedDestination`
-- `Replay_ProjectileImpactScenario_ProducesSamePerTickHashTraceAndEventLog`
+- `Replay_ForwardCellImpactScenario_ProducesSamePerTickHashTraceAndEventLog`
 
 ### Step 4. Limited Deferred Gate
 - Purpose: prevent forced lane locks while keeping `Deferred classification` rare and short-lived.

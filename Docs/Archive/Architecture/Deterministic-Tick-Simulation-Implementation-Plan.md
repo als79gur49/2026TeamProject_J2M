@@ -41,7 +41,7 @@
 - 근접 단일 데미지 1회만 지원
 - 사망 시 Cleanup에서 제거
 - Spawn 없음
-- Projectile 없음
+- RemovedEntity 없음
 - Push 없음
 
 이 범위만으로도 아래 핵심 제약을 검증할 수 있다.
@@ -57,7 +57,7 @@
 
 아래 기능은 뼈대 고정 이후에 연다.
 
-- Projectile 이동
+- RemovedEntity 이동
 - `ImpactReservation`
 - Spawn
 - 상태 이상 세분화
@@ -156,8 +156,8 @@ Assets/_Features/Gameplay/
       GameplayEntityLogicProviderFactory.cs
       PlayerLogic.cs
       EnemyLogic.cs
-      ProjectileEntityLogicFactory.cs
-      ProjectileLogic.cs
+      RemovedEntityLogicFactory.cs
+      RemovedEntityLogic.cs
   Gameplay_Movement/
     Runtime/
       Intents/
@@ -220,9 +220,9 @@ current-state 메모:
     - `IEntityLogicSourceBinding`
     - `IEntityLogicFactory`
     - `ISnapshotEntityLogicProvider`
-  - `Gameplay_Entities/Runtime/ProjectileLogic.cs`
-    - `ProjectileLogic`
-    - `ProjectileEntityLogicFactory`
+  - `Gameplay_Entities/Runtime/RemovedEntityLogic.cs`
+    - `RemovedEntityLogic`
+    - `RemovedEntityLogicFactory`
 - 이는 파일 배치 타협이며, 책임 경계 자체를 되돌린 것은 아니다.
 
 현재 구현 기준으로 phase 공용 실행 모델은 `Gameplay_Model`에 둔다.
@@ -240,7 +240,7 @@ current-state 메모:
 `TickPipeline`은 phase orchestration만 책임지고, dynamic `IEntityLogic` materialization 정책은 별도 provider 계층이 소유한다.
 
 - `TickPipeline`은 `ISnapshotEntityLogicProvider`를 생성하지 않는다.
-- `TickPipeline`은 `ProjectileEntityLogicFactory` 같은 concrete factory를 참조하지 않는다.
+- `TickPipeline`은 `RemovedEntityLogicFactory` 같은 concrete factory를 참조하지 않는다.
 - snapshot 기반 dynamic logic 복구는 `ISnapshotEntityLogicProvider`가 담당한다.
 - entity type별 concrete materialization은 `IEntityLogicFactory`가 담당한다.
 - static `IEntityLogic`와 dynamic `IEntityLogic`의 phase ownership 충돌 판단은 provider가 담당한다.
@@ -314,7 +314,7 @@ current-state 메모:
 - `WorldState`
   - `private Dictionary<int, EntityState> entitiesById`
   - `private Dictionary<Vector2Int, int> unitOccupancy`
-  - `private Dictionary<Vector2Int, int> projectileOccupancy`
+  - `private Dictionary<Vector2Int, int> removed entityOccupancy`
   - `private BoardBounds boardBounds`
   - `private TerrainData terrainData`
   - `MoveEntityTo`, `SpawnEntity`, `RemoveEntity`, `ApplyDamage`, `ApplyStateChange`, `MarkDestroy`, `SetFacing`
@@ -342,7 +342,7 @@ current-state 메모:
 
 - `TryGetEntity(int entityId, out EntityState entity)`
 - `TryGetUnitAt(Vector2Int cell, out EntityState entity)`
-- `TryGetProjectileAt(Vector2Int cell, out EntityState entity)`
+- `TryGetRemovedEntityAt(Vector2Int cell, out EntityState entity)`
 - `IsInsideBoard(Vector2Int cell)`
 - `IsBlockedForUnit(Vector2Int cell)`
 - `TryResolveNextSurfaceBoxSlideStep(SurfaceCell origin, Vector2Int delta, out SurfaceCell destination, out SlideStopper stopper)`
@@ -358,7 +358,7 @@ current-state 메모:
 - 외부는 occupancy 딕셔너리를 직접 순회하지 않는다.
 - 질의 정책은 중앙 함수에서만 계산한다.
 - `IsBlockedForUnit` 의미는 `board bounds + terrain blocker + blocking entity`다.
-- projectile layer는 box slide stopper와 `IsBlockedForUnit`에서 제외한다.
+- removed entity layer는 box slide stopper와 `IsBlockedForUnit`에서 제외한다.
 - `MovementExpander`는 terrain/bounds/entity를 직접 ray scan하지 않고 중앙 query만 호출한다.
 - write-side mutation도 같은 `WorldQueryService` placement helper를 재사용해서 read/write legality가 갈라지지 않게 유지한다.
 
@@ -384,7 +384,7 @@ current-state 메모:
   - `List<StateChangeAction> stateChanges`
   - `List<DestroyAction> destroys`
 
-초기 1차 슬라이스에서는 `SpawnAction`과 projectile 관련 action은 비워 둔다.
+초기 1차 슬라이스에서는 `SpawnAction`과 removed entity 관련 action은 비워 둔다.
 
 ### 5-5. IdAllocator
 
@@ -467,14 +467,14 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 
 ### 6-3. Composition Root / Bootstrapper 상세 계획
 
-이 단계는 projectile authority 복구 이후 남아 있던 `OCP`, `SRP`, `DIP` 정리를 위한 구조 단계다.
+이 단계는 removed entity authority 복구 이후 남아 있던 `OCP`, `SRP`, `DIP` 정리를 위한 구조 단계다.
 
 현재 상태: 부분 완료
 
 - 완료
   - `TickPipeline` 생성자는 `ISnapshotEntityLogicProvider`를 필수 인자로 받는다.
   - 기본 provider 조립은 `GameplayEntityLogicProviderFactory.CreateDefault()`로 이동했다.
-  - `ProjectileEntityLogicFactory`는 `Gameplay_Entities` 계층에 있다.
+  - `RemovedEntityLogicFactory`는 `Gameplay_Entities` 계층에 있다.
   - `TickPipeline` 클래스는 provider 결과만 소비하고, 내부 default composition 메서드를 갖지 않는다.
 - 부분 완료
   - `GameplayCompositionRoot`, `GameplayBootstrapper`, `GameplayEntityLogicProviderFactory`, `SnapshotEntityLogicProvider`는 존재하지만 generated `.csproj` 제약 때문에 아직 `TickPipeline.cs`에 co-locate되어 있다.
@@ -498,8 +498,8 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 2. 기본 provider 조립은 `GameplayEntityLogicProviderFactory.CreateDefault()`로 이동한다.
 3. Unity 진입점은 `GameplayBootstrapper`가 맡고, 여기서 composition root를 호출한다.
 4. `SnapshotEntityLogicProvider`는 `Gameplay_Entities` 계층으로 이동한다.
-5. `ProjectileEntityLogicFactory`도 `Gameplay_Entities` 계층으로 이동한다.
-6. `TickPipeline`은 더 이상 projectile/factory/provider concrete type을 모른다.
+5. `RemovedEntityLogicFactory`도 `Gameplay_Entities` 계층으로 이동한다.
+6. `TickPipeline`은 더 이상 removed entity/factory/provider concrete type을 모른다.
 
 초기 권장 흐름:
 
@@ -511,7 +511,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 예시 책임:
 
 - `GameplayEntityLogicProviderFactory.CreateDefault()`
-  - `ProjectileEntityLogicFactory`
+  - `RemovedEntityLogicFactory`
   - 이후 `TurretEntityLogicFactory`, `TrapEntityLogicFactory` 등 확장 지점
 - `SnapshotEntityLogicProvider`
   - snapshot ordered enumeration
@@ -528,10 +528,10 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 | 단계 1 | 도메인 골격 구현 | 완료 | `WorldState`, `WorldSnapshot`, `Intent`, `ActionGroup`, allocator 뼈대가 고정됐다. |
 | 단계 1.5 | EntityLogic 조립 책임 분리 | 부분 완료 | provider 필수 주입과 composition root는 반영됐고, 파일/entrypoint 정리는 남아 있다. |
 | 단계 2 | 최소 Movement 수직 슬라이스 | 완료 | push/edge reservation까지 포함해 최소 범위를 넘어 확장됐다. |
-| 단계 3 | 최소 Attack 수직 슬라이스 | 완료 | attack, projectile spawn, delayed-event 경계까지 검증된다. |
+| 단계 3 | 최소 Attack 수직 슬라이스 | 완료 | attack, removed entity spawn, delayed-event 경계까지 검증된다. |
 | 단계 4 | Cleanup 구현 | 완료 | remove/state timer/state transition 규칙이 테스트로 고정됐다. |
 | 단계 5 | TickResult, Trace, Replay | 완료 | trace/hash/replay/fuzz 경로가 존재한다. |
-| 단계 6 | reservation과 확장 기능 | 완료 | `ImpactReservation`, projectile movement, spawn, pushchain, edge reservation, on-hit 금지 경계가 반영됐다. |
+| 단계 6 | reservation과 확장 기능 | 완료 | `ImpactReservation`, removed entity movement, spawn, pushchain, edge reservation, on-hit 금지 경계가 반영됐다. |
 
 ## 7-1. 단계 0: 구조 뼈대 고정
 
@@ -582,7 +582,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - `IEntityLogicFactory`
 - `ISnapshotEntityLogicProvider`
 - `SnapshotEntityLogicProvider`
-- `ProjectileEntityLogicFactory`
+- `RemovedEntityLogicFactory`
 - `GameplayEntityLogicProviderFactory`
 - `GameplayCompositionRoot`
 - `GameplayBootstrapper`
@@ -591,7 +591,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 
 1. `TickPipeline`에서 provider 기본 조립 메서드를 제거한다.
 2. `TickPipeline` 생성자에서 provider를 필수 인자로 승격한다.
-3. 현재 provider/factory/concrete projectile 의존을 `Gameplay_Entities` 계층으로 이동한다.
+3. 현재 provider/factory/concrete removed entity 의존을 `Gameplay_Entities` 계층으로 이동한다.
 4. 기본 런타임 조립은 `GameplayEntityLogicProviderFactory.CreateDefault()`에 모은다.
 5. 상위 시작 지점에서 `GameplayCompositionRoot`를 통해 pipeline을 조립한다.
 6. 기존 테스트는 fake provider 주입 방식으로 유지한다.
@@ -601,7 +601,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - `TickPipeline`은 `ISnapshotEntityLogicProvider` 외 concrete dynamic logic 타입을 직접 참조하지 않는다.
 - `TickPipeline` 내부에 기본 provider 조립 메서드가 없다.
 - 새 factory 추가만으로 기본 runtime provider를 확장할 수 있다.
-- fresh pipeline + pre-existing projectile 복구 시나리오가 유지된다.
+- fresh pipeline + pre-existing removed entity 복구 시나리오가 유지된다.
 - 구조 테스트가 provider 주입 경로와 concrete 의존 제거를 검증한다.
 
 남은 작업:
@@ -721,7 +721,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 
 현재 구현 메모:
 
-- `ImpactReservation`, attack input 정규화, projectile movement, spawn은 이미 연결돼 있다.
+- `ImpactReservation`, attack input 정규화, removed entity movement, spawn은 이미 연결돼 있다.
 - `edge reservation`은 테스트로 고정돼 있다.
 - generic `on-hit` 시스템은 열지 않았고, 대신 same-tick 재진입 금지 경계를 테스트와 delayed-event 방향으로 고정했다.
 
@@ -729,7 +729,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 
 1. `ImpactReservation`
 2. Attack input 정규화
-3. Projectile movement
+3. RemovedEntity movement
 4. Spawn
 5. edge reservation
 6. on-hit 확장 검토
@@ -755,10 +755,10 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 
 현재 코드 기준 전제:
 
-- `Projectile movement`, `ImpactReservation`, `Spawn`, `Attack input 정규화`는 이미 연결되어 있다.
+- `RemovedEntity movement`, `ImpactReservation`, `Spawn`, `Attack input 정규화`는 이미 연결되어 있다.
 - `MovementResolver`는 `destination reservation`, `edge reservation`, `shared moved entity` 충돌을 함께 본다.
 - `MoveAction`은 `Source`, `Destination`, `Facing`을 함께 가진다.
-- `Attack`은 explicit `Attack` / `FireProjectile` / synthetic `ImpactReservation`로 구분된다.
+- `Attack`은 explicit `Attack` / `RemovedEntityAttack` / synthetic `ImpactReservation`로 구분된다.
 
 ### 7-9-1. Direct Move Blocking 규칙
 
@@ -772,7 +772,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 
 - 일반 `Move`는 점유된 `Unit` cell에서 항상 실패한다.
 - 일반 `Move`는 점유된 `Box` cell에서도 항상 실패한다.
-- `Projectile`은 push 대상이 아니다.
+- `RemovedEntity`은 push 대상이 아니다.
 - 플레이어의 box interaction은 canonical 용어로는 `Push`와 `Flip`로만 연다.
 - 연속 entity shove나 partial push는 허용하지 않는다.
 
@@ -782,7 +782,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - 기존 `RawMovementIntent` / `MoveIntent`를 그대로 사용한다.
 - `RawMovementIntent` / `MoveIntent`에 `Unit` push 전용 metadata는 두지 않는다.
 - `MovementExpander`는 `MoveIntent`가 점유된 `Unit` / `Box`를 만나면 기존 blocked move 규칙으로 끝낸다.
-- `Projectile`만 movement phase에서 예외적으로 `ProjectileImpact` 후보로 분기할 수 있다.
+- `RemovedEntity`만 movement phase에서 예외적으로 `ForwardCellImpact` 후보로 분기할 수 있다.
 - `Move` / `Flip` / `Push`의 blocked 판정은 중앙 `WorldSnapshot` query로 통합한다.
 
 반영된 모델 보강:
@@ -795,7 +795,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 Expander 알고리즘:
 
 1. source의 이동 delta를 계산한다.
-2. projectile가 blocking target을 만나면 `ProjectileImpact` 후보를 만든다.
+2. removed entity가 blocking target을 만나면 `ForwardCellImpact` 후보를 만든다.
 3. 일반 `Move`가 점유된 `Unit` / `Box` / terrain blocker를 만나면 `BlockedDestination` reject로 끝낸다.
 4. 비어 있는 destination만 일반 `Move` 후보를 만든다.
 5. 실패 시 현재 구조를 유지하기 위해 `Stop` 후보를 만들지 않고 `rejectedReasons`만 남긴다.
@@ -839,7 +839,7 @@ Commit 규칙:
 초기 목적:
 
 - `Move` / `Push` / `Flip` 다중 이동 경로 충돌 잠금
-- 향후 고속 projectile / slide / multi-step path 확장을 위한 준비
+- 향후 고속 removed entity / slide / multi-step path 확장을 위한 준비
 
 핵심 원칙:
 
@@ -882,7 +882,7 @@ Resolver 알고리즘 변경:
 초기 범위에서 일부러 열지 않는 것:
 
 - curved path
-- speed 2 이상 projectile 세분 경로
+- speed 2 이상 removed entity 세분 경로
 - diagonal edge
 
 테스트 우선순위:
@@ -916,7 +916,7 @@ Resolver 알고리즘 변경:
 - 플레이어는 인접 `Push` 박스 1개만 push 대상으로 삼는다.
 - authoritative push 판정은 `WorldSnapshot.TryResolveNextSurfaceBoxSlideStep` 같은 중앙 next-step query가 담당한다.
 - push stopper는 `BoardEdge -> Terrain -> Entity` 순서로 판정한다.
-- projectile은 push stopper가 아니다.
+- removed entity은 push stopper가 아니다.
 - `Push` 성공 시 박스는 그 tick에 1칸 이동하고 `Sliding` 상태가 된다.
 - `Sliding` 상태의 박스는 이후 tick에도 같은 방향으로 1칸씩 계속 이동한다.
 - 각 tick에서 다음 1칸이 막혀 있으면 push는 실패한다.
@@ -930,7 +930,7 @@ Resolver 알고리즘 변경:
 `Attack` phase 규칙:
 
 - 플레이어 box interaction용 intent는 `Attack` phase로 넘어가지 않는다.
-- `Attack` phase는 explicit `Attack`, `FireProjectile`, synthetic `ImpactReservation`를 처리한다.
+- `Attack` phase는 explicit `Attack`, `RemovedEntityAttack`, synthetic `ImpactReservation`를 처리한다.
 - destroy 대상은 same-tick 동안 occupancy를 유지한다.
 - commit 결과를 읽고 same-tick에 새 intent를 만들지 않는다.
 
@@ -956,7 +956,7 @@ Resolver 알고리즘 변경:
 - `Movement_PushInputPushBox_StopsBeforeEntityBlocker_AndEntityTypeNoneWallRemainsValid`
 - `Movement_PushInputPushBox_StartsSlidingBeforeTerrainBlocker`
 - `Movement_PushInputPushBox_StartsSlidingBeforeBoardEdge`
-- `Movement_PushInputPushBox_IgnoresProjectileAsSlideStopper`
+- `Movement_PushInputPushBox_IgnoresRemovedEntityAsSlideStopper`
 - `Movement_PushInputPushBox_StartsSlidingWhenBoundedLaneHasNoStopper`
 - `Movement_PushInputPushBox_FailsWhenEntityStopperIsAdjacent`
 - `Movement_PushInputPushBox_FailsWhenTerrainStopperIsAdjacent`
@@ -986,7 +986,7 @@ Resolver 알고리즘 변경:
 
 - 기존 입력 또는 `ImpactReservation`에서 Expander가 미리 계산할 수 있는 추가 action
 - 예:
-  - projectile self-destroy
+  - removed entity self-destroy
   - 고정 `SpawnAction`
   - 고정 `StateChangeAction`
   - 고정 `DamageAction`
@@ -1019,7 +1019,7 @@ Resolver 알고리즘 변경:
 
 예시:
 
-- projectile impact 후 self-destroy: 1
+- removed entity impact 후 self-destroy: 1
 - hit 시 고정 debuff state 적용: 1
 - kill 시 새 target으로 튕기는 chain attack: 2
 - 피격 즉시 반격: 2
@@ -1040,9 +1040,9 @@ Stage6에서 실제로 할 일:
 
 문서 순서와 현재 코드 상태를 함께 고려한 실제 순서는 아래가 맞다.
 
-1. blocked move / projectile impact / box interaction 후보 분기를 먼저 연다.
+1. blocked move / removed entity impact / box interaction 후보 분기를 먼저 연다.
 2. 그 다음 `MoveAction.Source`와 resolver 내부 `edge reservation`을 추가한다.
-3. `edge reservation`이 기존 `Move`, `ProjectileImpact`, `Push`, `Flip` 결정론을 깨지 않는지 replay로 고정한다.
+3. `edge reservation`이 기존 `Move`, `ForwardCellImpact`, `Push`, `Flip` 결정론을 깨지 않는지 replay로 고정한다.
 4. `on-hit`은 구현보다 금지 경계와 delayed-event 방향만 문서화한다.
 
 이 순서를 지켜야 하는 이유:
@@ -1232,7 +1232,7 @@ Tick 00152 | Hash 7A31E2D4
 런타임 디버그 UI는 개발용으로만 분리한다.
 
 - unit occupancy
-- projectile occupancy
+- removed entity occupancy
 - `markedForDeath`
 - `stateTimer`
 - selected `ActionGroup`
@@ -1320,7 +1320,7 @@ current-state 메모:
 
 - 현재 구현은 `TickPipeline` 클래스 기준으로 orchestration-only와 provider 필수 주입 조건을 만족한다.
 - `GameplayEntityLogicProviderFactory`, `GameplayCompositionRoot`, `GameplayBootstrapper`, `SnapshotEntityLogicProvider`는 책임상 분리됐지만, generated `.csproj` 제약으로 아직 `TickPipeline.cs`에 co-locate되어 있다.
-- `ProjectileEntityLogicFactory`는 이미 `Gameplay_Entities` 계층에 있다.
+- `RemovedEntityLogicFactory`는 이미 `Gameplay_Entities` 계층에 있다.
 - 따라서 composition root 단계는 책임 분리 측면에서는 반영됐고, 최종 파일/entrypoint 정리만 남아 있다.
 
 ## 13. 실제 착수 순서
@@ -1335,8 +1335,8 @@ current-state 메모:
 6. 최소 `MoveIntent` 수집부터 Movement 수직 슬라이스 완성
 7. 최소 `AttackIntent` 수직 슬라이스 완성
 8. Cleanup, trace, hash, replay 테스트 추가
-9. 그 다음 reservation, projectile, spawn 순으로 확장
-10. projectile authority 복구 이후 provider/factory/provider-composition을 `Gameplay_Entities + CompositionRoot` 구조로 정리
+9. 그 다음 reservation, removed entity, spawn 순으로 확장
+10. removed entity authority 복구 이후 provider/factory/provider-composition을 `Gameplay_Entities + CompositionRoot` 구조로 정리
 11. `TickPipeline`에서 기본 provider 조립 제거
 12. bootstrapper/composition root 기반 런타임 조립과 구조 테스트 보강
 
@@ -1372,7 +1372,7 @@ current-state 메모:
 추가 current-state 메모:
 
 - `TickInput`은 현재 `tickIndex`와 `PlayerTickCommand` payload를 함께 가진다.
-- `ProjectileLogic`, `ProjectileEntityLogicFactory`, `PlayerLogic`는 이미 존재한다.
+- `RemovedEntityLogic`, `RemovedEntityLogicFactory`, `PlayerLogic`는 이미 존재한다.
 - `WorldState.CreateWriteContext()`는 `internal`이며, production runtime 경로에서는 `TickPipeline`이 사용하고, 테스트는 focused verification을 위해 직접 사용할 수 있다.
 - `WorldStateWriteContext`는 thin capability adapter이며 board rule owner가 아니다.
 - read query와 write mutation은 모두 `WorldQueryService`의 중앙 placement policy를 재사용한다.
@@ -1462,7 +1462,7 @@ Assets/_Features/Gameplay/
       IEntityLogic.cs
       SnapshotEntityLogicProvider.cs
       GameplayEntityLogicProviderFactory.cs
-      ProjectileLogic.cs
+      RemovedEntityLogic.cs
   Gameplay_BoardState/
     Runtime/
       WorldState.cs
@@ -1473,7 +1473,7 @@ Assets/_Features/Gameplay/
 적용 원칙:
 
 - `TickPipeline.cs`에서는 nested/co-located type을 제거한다.
-- `ProjectileEntityLogicFactory`는 기존처럼 `ProjectileLogic.cs`에 co-locate를 유지해도 된다.
+- `RemovedEntityLogicFactory`는 기존처럼 `RemovedEntityLogic.cs`에 co-locate를 유지해도 된다.
   - 이 파일은 이미 `Gameplay_Entities` 계층에 있기 때문이다.
 - `WorldStateWriteContext`는 별도 파일로 추출하되 aggregate `IWorldWriteContext`와 phase-specific commit context 경계를 함께 유지한다.
 
@@ -1592,8 +1592,8 @@ internal sealed class WorldStateWriteContext : IWorldWriteContext
 authoritative placement 규칙:
 
 - `WorldQueryService.TryGetPlacementBlocker(...)`가 read/write 공용 placement policy다.
-- non-projectile final placement는 `board bounds + terrain + blocking entity`를 모두 통과해야 한다.
-- projectile도 terrain/bounds 정책을 같은 중앙 helper에서 명시적으로 적용한다.
+- non-removed entity final placement는 `board bounds + terrain + blocking entity`를 모두 통과해야 한다.
+- removed entity도 terrain/bounds 정책을 같은 중앙 helper에서 명시적으로 적용한다.
 - self-move 예외는 `ignoredEntityId` 같은 중앙 query parameter로만 처리한다.
 
 이 설계의 장점:
@@ -1666,7 +1666,7 @@ authoritative placement 규칙:
 
 - 생성자는 계속 `ISnapshotEntityLogicProvider`를 필수 인자로 받는다.
 - pipeline 내부에 default provider 조립 메서드를 두지 않는다.
-- concrete factory 또는 concrete projectile logic type을 field로 보유하지 않는다.
+- concrete factory 또는 concrete removed entity logic type을 field로 보유하지 않는다.
 
 ### 15-7. `GameplayBootstrapper` 구체 API 설계
 
@@ -1838,12 +1838,12 @@ runner가 plain class인 이유:
 - `TickRunner_RunNextTick_ConsumesBufferedInputAndAdvancesIndex`
 - `TickRunner_RunTick_RejectsOutOfOrderTickIndex`
 - `GameplayCompositionRoot_CreateTickRunner_UsesDefaultProvider`
-- `GameplayBootstrapper_CreateTickRunner_PreservesPreExistingProjectileRecovery`
+- `GameplayBootstrapper_CreateTickRunner_PreservesPreExistingRemovedEntityRecovery`
 
 기존 scenario/replay test 유지 포인트:
 
 - `GameplayCompositionRoot.CreateTickPipeline(...)` 시그니처는 그대로 유지한다.
-- fresh pipeline + pre-existing projectile 복구 시나리오는 그대로 통과해야 한다.
+- fresh pipeline + pre-existing removed entity 복구 시나리오는 그대로 통과해야 한다.
 - replay/fuzz는 runner 도입 여부와 무관하게 기존 pipeline direct path로도 유지 가능하다.
 
 ### 15-13. 구현 순서

@@ -72,7 +72,7 @@ That means:
 
 Enemy audio hooks in current HEAD:
 
-- `EnemyAudioRequestPlanner` for one-shots: `Move`, `Death`, `Windup`, `Landing`, `Active`, `Recover`, `ProjectileImpact`, `StationaryActive`, `PassiveContact`.
+- `EnemyAudioRequestPlanner` for one-shots: `Move`, `Death`, `Windup`, `Landing`, `Active`, `Recover`, `ForwardCellImpact`, `StationaryActive`, `PassiveContact`.
 - `EnemyAudioPresentationController` for resolving `EnemyAudioAuthoring -> EnemyAudioProfile`.
 - `EnemyChargeLoopAudioPresentationController` for persistent `ChargeActiveLoop`.
 - `GameplayTickPresentationCoordinator` plays enemy one-shot audio after core and action audio.

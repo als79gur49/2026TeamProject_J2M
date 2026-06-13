@@ -147,8 +147,8 @@ surface와 entity의 겹침을 피하기 위해 법선 방향 오프셋을 고�
   - face plane 기준 두께 절반만큼 배치
 - unit interior mount:
   - `EntitySurfaceOffset = 0.08f * CellSize`
-- projectile interior mount:
-  - `ProjectileSurfaceOffset = 0.18f * CellSize`
+- removed entity interior mount:
+  - `RemovedEntitySurfaceOffset = 0.18f * CellSize`
 - wall thickness:
   - `0.9f * CellSize`
 - wall height:
@@ -158,7 +158,7 @@ surface와 entity의 겹침을 피하기 위해 법선 방향 오프셋을 고�
 
 - surface tile은 face plane에서 cube 내부 방향으로 반 두께만큼 들어간다.
 - entity root는 face plane에서 cube 내부 방향으로 오프셋된다.
-- unit, box, wall, projectile model center는 모두 cube 내부 방향으로 절반 두께만큼 더 이동해 실제 메시가 cube 내부 쪽에 놓이게 한다.
+- unit, box, wall, removed entity model center는 모두 cube 내부 방향으로 절반 두께만큼 더 이동해 실제 메시가 cube 내부 쪽에 놓이게 한다.
 - 즉 "면 위에 붙는다"의 의미는 cube 외부가 아니라 cube 내부 공간 기준이다.
 
 ## 6. 새 presentation 구성요소
@@ -252,7 +252,7 @@ public sealed class GameplayCubeProjector
 - wall entity
 - unit
 - box
-- projectile
+- removed entity
 - debug decorative top face
 - debug decorative back face
 
@@ -361,7 +361,7 @@ GameplayEntityView
   - `(0.78, 0.78, 0.78) * CellSize`
 - Box:
   - `(0.82, 0.82, 0.82) * CellSize`
-- Projectile:
+- RemovedEntity:
   - `(0.35, 0.35, 0.55) * CellSize`
 - Wall entity:
   - `(0.96, 0.96, 0.96) * CellSize`
@@ -473,9 +473,9 @@ topology motion은 "보드가 굴러간다"로 표현한다.
 
 - 3D 공간에서 월드 Y축 arc를 쓰면 face orientation이 바뀔 때 부자연스럽다.
 
-### 9-4. Projectile
+### 9-4. RemovedEntity
 
-- projectile은 더 높은 surface offset 사용
+- removed entity은 더 높은 surface offset 사용
 - direction facing은 진행 방향 기준으로 회전
 
 ## 10. board shell 설계
@@ -577,10 +577,10 @@ topology motion은 "보드가 굴러간다"로 표현한다.
 - `RuntimeBoardBoundsGuardTests`
   - bounded board guard
   - world factory guard
-  - projectile cadence normalization
+  - removed entity cadence normalization
 - `GameplayViewProjectionTests`
   - detach/remove visibility sequencing
-  - move/push/projectile/flip motion interpolation
+  - move/push/removed entity/flip motion interpolation
   - committed world query와 presented motion의 분리 검증
 - `PlayerMovementPlayModeTests`
   - input cadence

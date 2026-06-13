@@ -92,7 +92,7 @@ ordinary move, push, flip의 local motion clip이 남아 있는 상태에서 top
 - `Move`
 - `Push`
 - `Flip`
-- `ProjectileMove`
+- `ForwardCellMove`
 
 ### 6-2. Topology Transition
 

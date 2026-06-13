@@ -8,7 +8,7 @@
 
 TileFeature is a `SurfaceCell`-based gameplay overlay layer.
 
-TileFeature is not Unit/Solid occupancy and is not part of the retired legacy projectile entity path. It must not be modeled as `EntityType.TileFeature`, as a Unit stack entry, as Solid occupancy, or as any projectile occupancy concept. TileFeature-specific kinds such as DestroyTile, SlideTile, Barricade, Exit, Entrance, MoonBlock, and MoonBlockGenerator must not be added to `EntityType`.
+TileFeature is not Unit/Solid occupancy and is not part of the removed entity path. It must not be modeled as `EntityType.TileFeature`, as a Unit stack entry, as Solid occupancy, or as any projectile occupancy concept. TileFeature-specific kinds such as DestroyTile, SlideTile, Barricade, Exit, Entrance, MoonBlock, and MoonBlockGenerator must not be added to `EntityType`.
 
 Gameplay Terrain truth has been removed by ADR-007. TileFeature is not a terrain extension and must not recreate terrain storage, terrain flags, or terrain-specific blockers.
 
@@ -98,7 +98,7 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - Air units are immune to DestroyTile lethal hazard/effect policy, so player voluntary access guards must not block active DestroyTile destination or Free2D scoped blocker entry for Air mobility.
 - Unit targets are destroyed when non-blocked Unit locomotion, locomotion anchor commit, or jump landing moves them into an active DestroyTile after movement and before attack collection, and lethal Ground Units are also destroyed when a topology-caused DestroyTile activation occurs under them.
 - Player and Enemy are both Unit targets; Player death presentation/audio is transported through `TickResult` presentation facts, not direct gameplay UI/audio calls.
-- Projectile and non-box solid occupants are not destroyed in v1.
+- ForwardCell signals and non-box solid occupants are not destroyed in v1.
 - MoonBlock is a Box, so a moving MoonBlock contact is destroyed.
 - DestroyTile itself is not consumed, updated, or removed.
 - Contact facts are transient and are not authoritative state or direct determinism hash input.
@@ -142,11 +142,11 @@ Barricade is a hard TileFeature blocker. Barricade remains a TileFeature overlay
 - Active Barricade blocks box movement paths that query TileFeature box blockers.
 - Active Barricade blocks Unit ground traversal, placement, and settlement, including player, enemy, and future NPC/friendly units.
 - Active Barricade blocks Jpeter summon placement and Astreton jump landing settlement through TileFeature legality blockers such as `LegalityBlockerKind.TileFeature`.
-- Barricade does not occupy Unit, Solid, or Projectile layer.
+- Barricade does not occupy Unit or Solid lanes.
 - Barricade does not invalidate existing Unit occupancy.
 - If a topology-active Barricade has a same-`SurfaceCell` gameplay-visible live Unit occupant, it enters `ActiveSuppressedByUnit`: raised visual and box pre-impact blocking are suppressed for that existing occupant.
 - Suppressed Barricade allows the existing blocking Unit occupant to remain, but it still blocks new Unit entrants through the TileFeature blocker path.
-- Projectile movement is not blocked.
+- PendingCellImpact and ForwardCell presentation signals are not blocked by Barricade movement rules.
 - `ActiveBlocking` Barricade blocks Push start, Sliding Push continuation, and Flip landing before hostile unit impact on the blocked cell.
 - `ActiveSuppressedByUnit` allows incoming Push start, Sliding Push continuation, Bottom-to-Front Sliding Push continuation, and Flip landing boxes to create occupant impact before Barricade blocking.
 - If the suppressed occupant survives, ordinary impact outcome closes and the incoming box does not settle on the Barricade cell.
@@ -173,7 +173,7 @@ Barricade active-transition crush is separate from movement blocking.
 - If the Unit leaves after topology-active is no longer true, Barricade does not activate.
 - Active Barricade cells with no valid Box Solid occupant are no-op; effective activation may be re-derived from current snapshots to resume after Unit defer clears.
 - Crush uses logical `CubeTopologyState`, not visual progress, presenter state, or camera state.
-- Unit kill/eject and Projectile interaction are not implemented.
+- Unit kill/eject and ForwardCell signal interaction are not implemented.
 - MoonBlock is a Box, so it may be crushed.
 - If DestroyTile and Barricade attempt to destroy the same box, DestroyTile wins.
 - `BarricadeCrushed` is emitted only when an actual crush operation is created.
@@ -248,7 +248,7 @@ Exit presentation is presentation-only.
 - Empty generator cell respawns the MoonBlock.
 - Normal/non-Moon Box at the generator cell is detached/marked destroy before MoonBlock spawn.
 - Unit/player/enemy at the generator cell causes defer; no kill or eject occurs.
-- Projectile is not a blocker and is not destroyed.
+- PendingCellImpact and ForwardCell presentation signals are not blockers and are not destroyed.
 - Wall-like/non-box solid causes defer.
 - Blocking box destroy then MoonBlock spawn ordering is deterministic.
 - Final solid occupant at the generator cell must be the single MoonBlock.
@@ -295,14 +295,14 @@ Exit presentation is presentation-only.
 - Live MoonBlock no-op emits no blocked event.
 - Live MoonBlock no-op and inactive generator do not emit `MoonBlockGeneratorBlocked`.
 - Normal/non-Moon Box conflict destroy plus spawn success emits `MoonBlockGenerated`, not blocked.
-- Projectile coexist spawn success emits `MoonBlockGenerated`, not blocked.
+- Non-blocking coexist success emits `MoonBlockGenerated`, not blocked.
 - Debounce key is GeneratorTileId + BlockedReason + BlockingEntityId, with `0` for no blocking entity.
 - The same key does not emit repeatedly while maintained; key change may emit.
 - Generator inactive, blocker cleared, live MoonBlock exists, and MoonBlockGenerated success clear debounce memory.
 - Debounce memory is transient processor state, not `WorldState`, `StageRuntimeBuildResult`, snapshot, or determinism hash input.
 - Public event/request payload exposes only MoonBlockGenerator-specific presentation facts and is not authoritative gameplay state.
 - Audio remains optional Sfx one-shot; reason-specific binding entries are owned by `TileFeatureAudioMap`.
-- No UI/HUD notification, spatial audio/Play3D, Unit kill/eject, Projectile destroy, or wall-like solid destroy is introduced.
+- No UI/HUD notification, spatial audio/Play3D, Unit kill/eject, ForwardCell signal destroy, or wall-like solid destroy is introduced.
 
 ## Presentation Rule
 

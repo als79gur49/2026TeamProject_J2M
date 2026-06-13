@@ -19,7 +19,7 @@ This plan supersedes the earlier full-matrix `EnemyAudioRequirementProfile` draf
 | --- | --- | --- | --- |
 | `EnemyAudioRequirementBinding_WallFollowerSun` | `EnemyAudioProfile_WallFollowerSun` | `Mover` | `Move`, `Death` |
 | `EnemyAudioRequirementBinding_JumpChaserAstra` | `EnemyAudioProfile_JumpChaserAstra` | `JumpChaser` | `Move`, `Landing`, `Death` |
-| `EnemyAudioRequirementBinding_BlackEye` | `EnemyAudioProfile_BlackEye` | `ProjectileShooter` | `Move`, `Active`, `ProjectileImpact`, `Death` |
+| `EnemyAudioRequirementBinding_BlackEye` | `EnemyAudioProfile_BlackEye` | `ProjectileShooter` | `Move`, `Active`, `ForwardCellImpact`, `Death` |
 | `EnemyAudioRequirementBinding_DrSaturn` | `EnemyAudioProfile_DrSaturn` | `GravityFieldUtility` | `Move`, `Windup`, `Active`, `Recover`, `Death` |
 | `EnemyAudioRequirementBinding_UtilitySummoner` | `EnemyAudioProfile_UtilitySummoner` | `Summoner` | `Move`, `Active`, `Death` |
 | `EnemyAudioRequirementBinding_Nebulous` | `EnemyAudioProfile_Nebulous` | `GravityFieldUtility` | `Move`, `Windup`, `Active`, `Recover`, `Death` |

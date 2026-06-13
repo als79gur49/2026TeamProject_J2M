@@ -63,8 +63,8 @@
 
 ### 3-4. 계층형 Occupancy
 
-- 단일 `occupancyByCell`만으로는 Unit과 Projectile의 동시 존재를 자연스럽게 표현하기 어렵다.
-- 초기 구현은 `Unit`과 `Projectile` 두 동적 계층만 둔다.
+- 단일 `occupancyByCell`만으로는 Unit과 RemovedEntity의 동시 존재를 자연스럽게 표현하기 어렵다.
+- 초기 구현은 `Unit`과 `RemovedEntity` 두 동적 계층만 둔다.
 - `Terrain`은 동적 occupancy가 아니라 별도 board or tile data로 분리한다.
 - `Effect` 계층은 실제 필요가 생길 때 추가한다.
 - 처음부터 범용 `N-layer occupancy graph`를 만들지 않는다.
@@ -93,14 +93,14 @@
 
 - `entitiesById`
 - `unitOccupancy`
-- `projectileOccupancy`
+- `removed entityOccupancy`
 - `boardBounds`
 - `terrainData`
 
 설명:
 
 - `unitOccupancy`: 플레이어, 적, 소환 유닛
-- `projectileOccupancy`: 투사체, 날아가는 오브젝트
+- `removed entityOccupancy`: 투사체, 날아가는 오브젝트
 - `boardBounds`: 보드 안/밖을 authoritative하게 판정하는 경계 데이터
 - `terrainData`: 벽, 바닥, 컨베이어 같은 정적 혹은 준정적 보드 데이터
 
@@ -109,8 +109,8 @@
 - 샘플 씬의 외벽처럼 보이는 일부 blocker는 아직 terrain이 아니라 `EntityType.None` entity wall이다.
 - 따라서 중앙 이동 질의는 `board bounds + terrain + blocking entity`를 모두 보고, entity wall도 valid stopper로 유지한다.
 - 같은 중앙 질의를 write path에서도 재사용해서 `MoveEntity` / `SpawnEntity`의 최종 배치를 검증한다.
-- non-projectile final placement는 `board bounds + terrain + blocking entity`를 모두 통과해야 한다.
-- projectile의 terrain/bounds 정책도 별도 예외 플래그가 아니라 중앙 placement query에서 명시적으로 관리한다.
+- non-removed entity final placement는 `board bounds + terrain + blocking entity`를 모두 통과해야 한다.
+- removed entity의 terrain/bounds 정책도 별도 예외 플래그가 아니라 중앙 placement query에서 명시적으로 관리한다.
 - spatial mutation은 validation 이후에만 occupancy와 entity record를 갱신해서 partial mutation을 남기지 않는다.
 
 `effectOccupancy`는 실제 필요가 생길 때 추가한다.
@@ -277,10 +277,10 @@ public class WorldSnapshot
     public BoardBounds BoardBounds { get; }
     public IReadOnlyDictionary<int, EntityState> entitiesById;
     public IReadOnlyDictionary<Vector2Int, int> unitOccupancy;
-    public IReadOnlyDictionary<Vector2Int, int> projectileOccupancy;
+    public IReadOnlyDictionary<Vector2Int, int> removed entityOccupancy;
 
     public bool TryGetUnitAt(Vector2Int cell, out EntityState entity);
-    public bool TryGetProjectileAt(Vector2Int cell, out EntityState entity);
+    public bool TryGetRemovedEntityAt(Vector2Int cell, out EntityState entity);
     public bool IsInsideBoard(Vector2Int cell);
     public bool IsBlockedForUnit(Vector2Int cell);
     public bool TryResolveNextSurfaceBoxSlideStep(
@@ -300,7 +300,7 @@ public class WorldSnapshot
 - Snapshot 순회는 결정론적 정렬 버퍼를 통해 수행한다.
 - 외부 호출부는 내부 저장 구조를 직접 알지 않는다.
 - `IsBlockedForUnit`은 `board bounds + terrain blocker + blocking entity`를 함께 본다.
-- projectile layer는 `IsBlockedForUnit`과 box slide stopper에서 제외한다.
+- removed entity layer는 `IsBlockedForUnit`과 box slide stopper에서 제외한다.
 - `MovementExpander`는 직접 entity ray scan을 하지 않고, `WorldSnapshot` / `WorldQueryService`의 중앙 질의만 사용한다.
 - same placement policy를 write-side mutation도 재사용해서 read/write legality가 갈라지지 않게 유지한다.
 
@@ -466,7 +466,7 @@ TickEnd
 - `Move`
 - `Push`
 - `Flip`
-- `ProjectileMove`
+- `ForwardCellMove`
 
 ### 9-2. 입력 기준
 
@@ -481,7 +481,7 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 - `MoveIntent(Move) -> Move / Stop`
 - `PushIntent -> Push / Fail`
 - `FlipIntent -> Flip / Fail`
-- `ProjectileMoveIntent -> ProjectileMove / ImpactReservation`
+- `ForwardCellMoveIntent -> ForwardCellMove / ImpactReservation`
 
 후보 생성 규칙:
 
@@ -508,7 +508,7 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 - `Push`는 인접 `Push` 박스 1개만 대상으로 삼는다.
 - authoritative push 판정은 `WorldSnapshot` / `WorldQueryService`의 중앙 next-step query가 담당한다.
 - push stopper는 `BoardEdge -> Terrain -> Entity` 순서로 판정한다.
-- projectile은 push stopper가 아니다.
+- removed entity은 push stopper가 아니다.
 - `Push` 성공 시 박스는 그 tick에 1칸만 이동하고 `Sliding` 상태가 된다.
 - `Sliding` 상태의 박스는 이후 tick에도 같은 방향으로 1칸씩 계속 이동한다.
 - bounded board에서도 각 tick은 "다음 1칸 가능 여부"만 판정한다.
@@ -520,13 +520,13 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 - 실제 제거와 occupancy 정리는 반드시 `Cleanup`에서만 수행한다.
 - 현재 sample scene의 `EntityType.None` blocker wall은 terrain wall이 아니라 entity stopper로 취급한다.
 
-### 9-6. Projectile 정책
+### 9-6. RemovedEntity 정책
 
 투사체의 이동 자체는 Movement에서 처리한다.
 
 권장 정책:
 
-1. `ProjectileMoveIntent` 생성
+1. `ForwardCellMoveIntent` 생성
 2. Movement Expander가 경로 충돌을 검사
 3. 충돌이 발생하면 `ImpactReservation`을 남긴다
 4. 실제 피해와 파괴는 Attack Phase에서 처리한다
@@ -556,7 +556,7 @@ Movement Commit은 선택된 이동 그룹만 적용한다.
 - `Attack`
 - `ImpactReservation`
 - `Laser`
-- `FireProjectile`
+- `RemovedEntityAttack`
 - `CastStart`
 - `CastRelease`
 - `ImpactReservation` 소비
@@ -659,7 +659,7 @@ Cleanup은 Tick의 마감 단계다.
 
 - `blocked`
 - `rejected`
-- `projectile impact`
+- `removed entity impact`
 - `cleanup removed`
 - `cast start`
 - `cast release`
@@ -690,7 +690,7 @@ Assets/_Features/Gameplay/
 - `Gameplay_Movement`: MoveIntent, raw movement collection, Expanders, Resolver, Committer
 - `Gameplay_Attack`: AttackIntent, raw attack collection, Expanders, Resolver, Committer, ImpactReservationExpander
 - `Gameplay_Cleanup`: CleanupProcessor, StateTransitionProcessor
-- `Gameplay_Entities`: IEntityLogic, IEntityLogicSourceBinding, IEntityLogicFactory, ISnapshotEntityLogicProvider, SnapshotEntityLogicProvider, GameplayEntityLogicProviderFactory, PlayerLogic, EnemyLogic, TurretLogic, ProjectileLogic, ProjectileEntityLogicFactory
+- `Gameplay_Entities`: IEntityLogic, IEntityLogicSourceBinding, IEntityLogicFactory, ISnapshotEntityLogicProvider, SnapshotEntityLogicProvider, GameplayEntityLogicProviderFactory, PlayerLogic, EnemyLogic, TurretLogic, RemovedEntityLogic, RemovedEntityLogicFactory
 
 현재 구현 메모:
 
@@ -786,11 +786,11 @@ Assets/_Features/Gameplay/
 
 1. `WorldState`, `WorldSnapshot`, `TickPipeline`, `TickResult` 뼈대 작성
 2. `PhaseTransientBuffer`, raw intent 수집, post-sort ID 발급 구현
-3. `Unit` / `Projectile` 2계층 occupancy와 movement blocking 규칙 구현
+3. `Unit` / `RemovedEntity` 2계층 occupancy와 movement blocking 규칙 구현
 4. Attack Phase와 `ImpactReservation` 소비 구현
 5. Cleanup과 상태 전이 구현
 6. ViewBridge와 리플레이 테스트 구축
-7. Projectile 고속 경로 정책 확장
+7. RemovedEntity 고속 경로 정책 확장
 
 ## 16. 최종 요약
 

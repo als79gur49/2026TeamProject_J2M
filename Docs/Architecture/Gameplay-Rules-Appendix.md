@@ -41,7 +41,7 @@
 ## Push / Flip Impact Disposition Table
 - `ImpactDisposition`은 narrow internal Push/Flip-only contract, not a generalized impact framework다.
 - 허용 family는 current `Push`, `Sliding Push`, `Flip` hostile `BoxImpact` path뿐이다.
-- `ProjectileImpact`, jump landing, melee/contact, delayed effect, item consume, broader impact family generalization은 이번 단계 non-goal이다.
+- `ForwardCellImpact`, jump landing, melee/contact, delayed effect, item consume, broader impact family generalization은 이번 단계 non-goal이다.
 
 | Family | Attack outcome | Settlement outcome | Disposition | Note |
 | --- | --- | --- | --- | --- |

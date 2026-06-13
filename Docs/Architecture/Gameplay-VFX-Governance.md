@@ -605,7 +605,7 @@ Future possible users:
 - Unit movement trail
 - Projectile trail
 
-Unit movement, Projectile movement, generic gameplay motion drivers, exact scrape/decal trails, and full `VfxAnchorKind.MotionTrack` resolver support remain outside this sampler change.
+Unit movement, ForwardCell presentation motion, generic gameplay motion drivers, exact scrape/decal trails, and full `VfxAnchorKind.MotionTrack` resolver support remain outside this sampler change.
 
 ## Box Slide Spark Follow VFX
 

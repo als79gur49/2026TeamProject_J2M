@@ -91,14 +91,14 @@ Vocabulary:
 - `Landing`
 - `Active`
 - `Recover`
-- `ProjectileImpact`
+- `ForwardCellImpact`
 - `ChargeActiveLoop`
 - `StationaryActive`
 - `PassiveContact`
 
 Planner/controller emission:
 
-- `EnemyAudioRequestPlanner` can request `Move`, `Death`, `Windup`, `Landing`, `Active`, `Recover`, `ProjectileImpact`, `StationaryActive`, and `PassiveContact`.
+- `EnemyAudioRequestPlanner` can request `Move`, `Death`, `Windup`, `Landing`, `Active`, `Recover`, `ForwardCellImpact`, `StationaryActive`, and `PassiveContact`.
 - `EnemyChargeLoopAudioPresentationController` can start `ChargeActiveLoop` from `TickEnemyChargePresentationSignal` while phase is `Active`.
 - Charge also produces one-shot `Active` at active start through `EnemyAudioRequestPlanner`, but `EnemyAudioProfile_RocketFace` currently authors `ChargeActiveLoop` and not `Active`.
 
@@ -123,7 +123,7 @@ Production profile authoring:
 | `EnemyAudioProfile_JumpChaserAstra` / `EnemyView_Astreton` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
 | `EnemyAudioProfile_BlackEye` / `EnemyView_BlackEye` | `Move` | Yes | Yes | Invalid binding fails validation | REQUIRED |
 | `EnemyAudioProfile_BlackEye` / `EnemyView_BlackEye` | `Active` | Yes | Yes | Invalid binding fails validation | REQUIRED for fire release |
-| `EnemyAudioProfile_BlackEye` / `EnemyView_BlackEye` | `ProjectileImpact` | Yes | Yes | Invalid binding fails validation | REQUIRED for projectile arrival |
+| `EnemyAudioProfile_BlackEye` / `EnemyView_BlackEye` | `ForwardCellImpact` | Yes | Yes | Invalid binding fails validation | REQUIRED for projectile arrival |
 | `EnemyAudioProfile_BlackEye` / `EnemyView_BlackEye` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
 | `EnemyAudioProfile_DrSaturn` / `EnemyView_DrSaturn` | `Move` | Yes | Yes | Invalid binding fails validation | REQUIRED |
 | `EnemyAudioProfile_DrSaturn` / `EnemyView_DrSaturn` | `Windup` | Yes | Yes | Invalid binding fails validation | REQUIRED for utility windup |
@@ -149,7 +149,7 @@ Production profile authoring:
 | `EnemyAudioProfile_Startis` / `EnemyView_Startis` | `Death` | Yes | Yes | Invalid binding fails validation | REQUIRED |
 | `EnemyAudioProfile_Startis` / `EnemyView_Startis` | `PassiveContact` | Yes | Yes | Invalid binding fails validation | REQUIRED for NonAttacking contact damage |
 | Non-passive-contact production profiles | `PassiveContact` | Yes for passive contact source | No | Missing cue no-op | DISABLED by current tests for JPeter, DrSaturn, Nebulous; DEFER for future passive-contact archetypes |
-| Non-projectile production profiles | `ProjectileImpact` | Can emit only when projectile arrival signal exists | No | Missing cue no-op | DISABLED unless the archetype emits projectile arrivals |
+| Non-projectile production profiles | `ForwardCellImpact` | Can emit only when projectile arrival signal exists | No | Missing cue no-op | DISABLED unless the archetype emits projectile arrivals |
 | Non-jump production profiles | `Landing` | Can emit only when jump landed signal exists | No | Missing cue no-op | DISABLED unless the archetype emits jump landings |
 | Non-stationary-active production profiles | `StationaryActive` | Can emit for stationary enemy state | No | Missing cue no-op | DISABLED unless product wants idle/stationary SFX |
 
@@ -275,7 +275,7 @@ Decision tag meanings:
 | Action | `Execute`, `Recovery` | OPTIONAL |
 | Action | `Contact`, `ImpactEnemy`, `Blocked` | REMOVED from action-audio vocabulary |
 | Enemy | Authored movement/death cues on production enemy profiles | REQUIRED |
-| Enemy | BlackEye `Active`, `ProjectileImpact` | REQUIRED |
+| Enemy | BlackEye `Active`, `ForwardCellImpact` | REQUIRED |
 | Enemy | DrSaturn/Nebulous `Windup`, `Active`, `Recover` | REQUIRED |
 | Enemy | JumpChaserAstra `Landing` | REQUIRED |
 | Enemy | RocketFace `ChargeActiveLoop` | REQUIRED |

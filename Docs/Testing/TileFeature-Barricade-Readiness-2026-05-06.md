@@ -16,7 +16,7 @@
 
 ## C. Policy Documentation / Test Coverage
 
-- TileFeature remains a `SurfaceCell` overlay, not Unit/Solid occupancy, terrain flags, an `EntityType`, or any retired legacy projectile occupancy concept.
+- TileFeature remains a `SurfaceCell` overlay, not Unit/Solid occupancy, terrain flags, an `EntityType`, or any removed occupancy concept.
 - TileFeature + Unit/Box same cell remains allowed. Wall-like solid overlap remains future explicit policy. Same-cell TileFeature storage and gameplay policy are separated.
 - Button latch is documented as `TileFeatureFlags.Activated` runtime state. Authored initial Activated remains disallowed. Condition completion reads final snapshot state, not presentation events or requests.
 - MoonBlock identity remains `EntityType.Box + BoxArchetype.Moon`; `EntityType.MoonBlock` and `BoxCapabilities.Moon` remain forbidden.

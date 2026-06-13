@@ -77,7 +77,6 @@
   - `BoardEdge`
   - `Solid`
   - `Unit`
-  - `Projectile` lane rules where applicable
   - `Reservation`
   - `TileFeature`
   - topology transition reject reasons
@@ -264,7 +263,7 @@
 - 현재 authoritative occupancy storage는 `WorldState`의 두 레이어다.
   - `_stackedUnitsByCell`
   - `_solidOccupancy`
-- `EntityType.Projectile` is a reserved legacy serialized enum slot. Runtime entity creation, placement, movement, and occupancy for that type are not supported.
+- `removed entity enum slot` is a unused serialized enum value. Runtime entity creation, placement, movement, and occupancy for that type are not supported.
 - `WindupForwardCellProjectile` is not a projectile entity or occupancy lane. It uses `PendingCellImpact` plus presentation/audio arrival carriers.
 - There is no runtime gameplay terrain canonical storage. Every in-bounds `SurfaceCell` is terrain-free for legality.
 - Canonical query vocabulary는 `WorldSnapshot`의 layered API를 기준으로 한다.
@@ -291,12 +290,10 @@
 ## Layer Rules
 - Unit layer는 stacked 허용이다.
 - Solid layer는 `Box`와 `Wall`이 점유한다.
-- Projectile layer는 unit과 분리된다.
 - Canonical rule set:
   - `Unit + Unit` 허용
   - `Unit + Box/Wall` 금지
   - `Box + Box` 금지
-  - `Projectile + Unit` 허용
 
 ## Validity Taxonomy
 - `RepresentableState`: storage invariant를 깨지 않는 상태
@@ -321,7 +318,7 @@
 - Attack:
   - raw attack input, `ImpactReservation`, delayed effect handoff를 소비한다.
   - reservation을 attack damage로 전개한다.
-  - `PendingCellImpact` due tick과 topology transition이 같은 tick에 발생하면 movement/topology commit 이후의 attack snapshot을 기준으로 no-arrival 정책을 판정한다. `ForwardCellProjectile` pending impact는 already-fired projectile이므로 release 이후 source current cell, source facing, source alive/occupying/current Bottom participant state, target occupant, player anchor, presentation anchor representability는 arrival를 무효화하지 않는다. 이 값들은 diagnostics, hit/damage resolution, 또는 presentation fallback에만 쓰인다.
+  - `PendingCellImpact` due tick과 topology transition이 같은 tick에 발생하면 movement/topology commit 이후의 attack snapshot을 기준으로 no-arrival 정책을 판정한다. `ForwardCellProjectile` pending impact는 already-fired ForwardCell impact이므로 release 이후 source current cell, source facing, source alive/occupying/current Bottom participant state, target occupant, player anchor, presentation anchor representability는 arrival를 무효화하지 않는다. 이 값들은 diagnostics, hit/damage resolution, 또는 presentation fallback에만 쓰인다.
   - Current no-arrival policy for `PendingCellImpact` is limited to explicit cancel/expire records, topology policy expiration, or structurally invalid target policy. The current implementation records topology policy expiration at due-time with `LaunchTopology != CurrentTopology -> ExpiredTopologyInvalid`, and records structurally invalid target policy with inactive target face -> `CancelledTargetInvalid`; both create no arrival, VFX, or SFX. Future work may move topology expiration recording to the topology transition commit point.
   - resolve는 current Push/Flip impact-disposition plan에서 `Stay / FollowThrough / DestroySelf` 중 하나를 닫는다.
 - Cleanup:

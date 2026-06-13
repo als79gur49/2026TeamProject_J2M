@@ -270,7 +270,7 @@ The historical inventory below was captured before Phase 1.1 fixture stabilizati
 - `AttackInputNormalizationTests` (1):
   - `ImpactReservationComparer_PreservesFaceBeforePlanarOrder`: Expected and actual are both `SurfaceCell[3]`; first value expected `Floor(0,1)` but was `Front(0,0)`.
 - `AttackPhaseScenarioTests` (3):
-  - `Attack_FireProjectileIntent_SpawnsProjectileDuringCommit`: historical retired legacy projectile entity trace expectation mismatch.
+  - `Attack_RemovedEntityIntent_SpawnsRemovedEntityDuringCommit`: historical removed entity trace expectation mismatch.
   - `Attack_OnHit_DoesNotCreateSameTickNewIntent`: expected 1, actual 2.
   - `Attack_OnHit_DoesNotReenterMovementPhase`: expected 1, actual 2.
 - `CampaignStageFlowTests` (1):
@@ -336,7 +336,6 @@ The historical inventory below was captured before Phase 1.1 fixture stabilizati
   - `GameplayCubeProjector_ProjectsFrontFaceToVerticalPlane`: expected `1.91999996f`, actual `1.62999976f`.
   - `GameplaySceneHost_CameraTarget_StaysOnCubeCenterDuringTopologyTransition`: expected `(-0.50, -0.50, 1.13)`, actual `(-0.50, -0.82, 0.81)`.
   - `GameplaySceneHost_MoveMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates`: expected entity query result for `10`, actual empty.
-  - `GameplaySceneHost_PushMotion_KeepsProjectileLayerQueriesOnCommittedDestinationWhileViewInterpolates`: expected true, actual false.
   - `GameplaySceneHost_PushMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates`: expected true, actual false.
   - `GameplaySceneHost_TopologyTransition_CameraOrbitPreservesScreenContinuityAtStart`: expected `(-0.50, -0.50, 1.13)`, actual `(-0.50, -1.13, 0.50)`.
   - `GameplayTickViewPresenter_Present_MapsEnemyAttackHitAndMoveSignalsToAnimatorDrivers`: expected 1, actual 0.

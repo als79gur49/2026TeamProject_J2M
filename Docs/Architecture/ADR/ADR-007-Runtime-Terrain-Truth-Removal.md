@@ -35,6 +35,6 @@ Removed gameplay vocabulary:
 
 Placement, traversal, and settlement remain separate legality domains. They must not be collapsed into a generic boolean check.
 
-`SurfaceCell`, `FaceId`, `CubeTopologyState`, `BoardBounds`, `WorldState`, `WorldSnapshot`, Unit/Solid occupancy lanes, reservations, and TileFeature blockers remain part of the gameplay contract. `EntityType.Projectile = 2` remains a reserved/deprecated serialized compatibility slot only; it is not an active runtime occupancy lane.
+`SurfaceCell`, `FaceId`, `CubeTopologyState`, `BoardBounds`, `WorldState`, `WorldSnapshot`, Unit/Solid occupancy lanes, reservations, and TileFeature blockers remain part of the gameplay contract. `removed entity enum value 2` remains a unused serialized compatibility value only; it is not an active runtime occupancy lane.
 
 Debug, replay, and determinism exports must not contain a gameplay `Terrain` section. Historical archive documents may mention older terrain plans, but active architecture docs and runtime source must not preserve a gameplay terrain contract.

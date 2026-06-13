@@ -96,7 +96,7 @@ Evidence summary:
 - `Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PassiveContactScenario_ProducesStableHashTraceAndPlayerDamage`
 - `Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PlayerControlState_DeterministicallyReflectsCustomAuthoritativeActionTiming`
 - `Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PlayerControlState_IsIncludedInHashTraceAndReplayDump`
-- `Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_FireProjectileIntent_SpawnsProjectileDuringCommit`
+- `Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_RemovedEntityIntent_SpawnsRemovedEntityDuringCommit`
 - `Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_Flip_SucceedsWhenOppositeCellIsFree`
 - `Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_FlipInputOnItemFlipDestroyBox_UsesFlipBranch_WithoutConsumeOrDestroy`
 - `Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_PushInputOnItemPushFlipBox_ResolvesAsItemBeforePushOrFlip`
@@ -108,7 +108,7 @@ Evidence summary:
 
 Evidence summary:
 - The push/flip/item scenario rows still fail on legacy `Kind=...` tokens while current movement, cleanup, and final-snapshot semantics are already anchored elsewhere.
-- Historical note: `Attack_FireProjectileIntent_SpawnsProjectileDuringCommit` referred to the now-retired legacy projectile entity path and is not a current runtime contract.
+- Historical note: `Attack_RemovedEntityIntent_SpawnsRemovedEntityDuringCommit` referred to the now-removed entity path and is not a current runtime contract.
 - The replay `PlayerControlState` and `PassiveContact` rows fail on dump surface expectations such as `NextDamageAllowed=0` or old trace tokens, not on per-tick hash equality or final entity/event consistency.
 - The showcase and stage rows are current asset literal drift, not runtime authoritative breakage.
 - `Movement_SameDestination_OnlyHigherPriorityWins` already preserves the higher-priority winner and final occupancy; the surviving mismatch is the loser reject-reason/order wording surface.
@@ -125,7 +125,7 @@ Evidence summary:
 - `Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForAirborneStartAndRetry`
 - `Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForWindupStart`
 - `Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsMoveMotionForUnitMove`
-- `Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsProjectileMoveMotionForProjectileMove`
+- `Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsForwardCellMoveMotionForForwardCellMove`
 
 Evidence summary:
 - These rows fail on `TickPresentationData` semantics, semantic signal flags, motion-kind selection, or presenter-driver state mapping.
