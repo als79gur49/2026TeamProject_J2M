@@ -61,7 +61,7 @@ Production policy assets live under `AudioRequirementPolicies/`; production bind
 | `EnemyAudioProfile_Nebulous` / Nebulous | `Move`, `Windup`, `Active`, `Recover`, `Death` | `PassiveContact` disabled for this utility profile. |
 | `EnemyAudioProfile_RocketFace` / RocketFace | `Move`, `ChargeActiveLoop`, `Death` | One-shot `Active` disabled; charge active audio is loop-only. |
 | `EnemyAudioProfile_SecBot` / SecBot | `Move`, `StationaryActive`, `Death` | Other cues disabled. |
-| `EnemyAudioProfile_Startis` / Startis | `Move`, `PassiveContact`, `Death` | `PassiveContact` is required because Startis uses the NonAttacking passive-contact gameplay profile. |
+| `EnemyAudioProfile_Startis` / Startis | `Move`, `PassiveContact`, `Death` | `PassiveContact` is required because Startis uses the PassiveContactPatroller gameplay profile. |
 
 Startis `PassiveContact` is an authored content coverage change, not a runtime no-op policy change. The runtime still no-ops missing enemy audio cues; Startis production authoring now provides the cue that was previously allowed to be absent.
 

@@ -45,7 +45,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static readonly string[] RequiredCanonicalAssetPaths =
         {
-            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset",
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_PassiveContactPatroller/EnemyAi_PassiveContactPatroller.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WallFollower/EnemyAi_WallFollower.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Charger/EnemyAi_Charger.asset",
@@ -257,15 +257,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Startis_ProfileBinding_UsesNonAttackingGameplayProfile()
+        public void Startis_ProfileBinding_UsesPassiveContactPatrollerGameplayProfile()
         {
             var bindings = FindCampaignEnemyPresentationProfileBindings("startis");
 
             Assert.That(bindings, Is.Not.Empty, "No campaign stage binds presentation id 'startis'.");
             Assert.That(
                 bindings.Select(binding => binding.ProfilePath).Distinct().ToArray(),
-                Is.EquivalentTo(new[] { NonAttackingProfilePath }),
-                "Startis is a presentation/prefab id. Every campaign spawn using it must bind the NonAttacking gameplay profile.");
+                Is.EquivalentTo(new[] { PassiveContactPatrollerProfilePath }),
+                "Startis is a presentation/prefab id. Every campaign spawn using it must bind the PassiveContactPatroller gameplay profile.");
             AssertCatalogEntryUsesPrefab("startis", "EnemyView_Startis.prefab");
         }
 
@@ -273,15 +273,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void Startis_ProfileCompiles_WithGroundMovementAndPassiveContact()
         {
-            var profile = LoadRequiredProfile(NonAttackingProfilePath);
+            var profile = LoadRequiredProfile(PassiveContactPatrollerProfilePath);
             var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.CreateDefault().SimulationTicksPerSecond);
 
-            Assert.That(definition.Brain.Patrol.Strategy, Is.Not.Null, "NonAttacking runtime must keep a ground movement patrol strategy.");
+            Assert.That(definition.Brain.Patrol.Strategy, Is.Not.Null, "PassiveContactPatroller runtime must keep a ground movement patrol strategy.");
             Assert.That(definition.Core.LocomotionTimingSettings.MoveCooldownTicks, Is.GreaterThanOrEqualTo(0));
             Assert.That(
                 definition.Capabilities.TryGetCombat(out var combat),
                 Is.False,
-                $"EnemyAi_NonAttacking.asset compiled Combat={combat?.Kind.ToString() ?? "<null>"}; ContactSameCell must live in PassiveContact, not Combat.");
+                $"EnemyAi_PassiveContactPatroller.asset compiled Combat={combat?.Kind.ToString() ?? "<null>"}; ContactSameCell must live in PassiveContact, not Combat.");
             Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
             Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
         }
@@ -462,8 +462,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return Path.Combine(projectRoot, assetPath);
         }
 
-        private const string NonAttackingProfilePath =
-            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset";
+        private const string PassiveContactPatrollerProfilePath =
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_PassiveContactPatroller/EnemyAi_PassiveContactPatroller.asset";
 
         private const string TutorialPassiveContactProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset";

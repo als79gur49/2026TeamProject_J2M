@@ -159,10 +159,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void MechanicsShowcase_NonAttackingEnemyProfileAndStartisPrefab_ShareMoveCadence()
+        public void MechanicsShowcase_PassiveContactPatrollerEnemyProfileAndStartisPrefab_ShareMoveCadence()
         {
             const string enemyProfilePath =
-                StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset";
+                StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_PassiveContactPatroller/EnemyAi_PassiveContactPatroller.asset";
             const string enemyPrefabPath =
                 StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_Startis.prefab";
 
