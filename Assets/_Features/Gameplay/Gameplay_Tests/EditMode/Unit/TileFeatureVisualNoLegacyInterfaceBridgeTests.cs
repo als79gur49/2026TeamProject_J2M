@@ -16,9 +16,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void RuntimeSource_DoesNotContainLegacyInterfaceCueSink()
+        public void RuntimeSource_DoesNotContainRetiredBridgeSink()
         {
-            Assert.That(ReadRepoFile(ControllerPath), Does.Not.Contain("LegacyInterfaceCueSink"));
+            Assert.That(ReadRepoFile(ControllerPath), Does.Not.Contain(RetiredBridgeSinkName()));
         }
 
         [Test]
@@ -93,8 +93,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var source = ReadCombinedRuntimeSource();
 
-            Assert.That(source, Does.Not.Contain("LegacyTileFeatureVisualCueAdapter"));
-            Assert.That(source, Does.Not.Contain("AddComponent<Legacy"));
+            Assert.That(source, Does.Not.Contain(RetiredAdapterName()));
+            Assert.That(source, Does.Not.Contain("AddComponent<" + "Legacy"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FeatureAssets_DoNotContainDeletedAdapterGuid()
+        {
+            var source = ReadCombinedFeatureAssetText();
+
+            Assert.That(source, Does.Not.Contain(DeletedAdapterGuid()));
         }
 
         private static string ReadRepoFile(string relativePath)
@@ -108,6 +117,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "\n",
                 Directory.GetFiles(RuntimeRoot, "*.cs", SearchOption.AllDirectories)
                     .Select(ReadRepoFile));
+        }
+
+        private static string ReadCombinedFeatureAssetText()
+        {
+            var textExtensions = new[]
+            {
+                ".asmdef",
+                ".asset",
+                ".cs",
+                ".meta",
+                ".prefab",
+                ".unity",
+            };
+
+            return string.Join(
+                "\n",
+                Directory.GetFiles("Assets/_Features", "*", SearchOption.AllDirectories)
+                    .Where(path => textExtensions.Contains(Path.GetExtension(path)))
+                    .Select(ReadRepoFile));
+        }
+
+        private static string RetiredAdapterName()
+        {
+            return "Legacy" + "TileFeatureVisualCue" + "Adapter";
+        }
+
+        private static string RetiredBridgeSinkName()
+        {
+            return "Legacy" + "InterfaceCueSink";
+        }
+
+        private static string DeletedAdapterGuid()
+        {
+            return "698f950f2ec6479" + "ca0c7f14bdf115c0d";
         }
     }
 }
