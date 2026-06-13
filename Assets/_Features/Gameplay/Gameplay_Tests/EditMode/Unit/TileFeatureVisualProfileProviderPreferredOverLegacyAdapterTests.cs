@@ -33,13 +33,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 #pragma warning restore CS0618
                 adapter.ConfigureTarget(target);
                 SetAdapterProfiles(adapter, legacyProfile);
+                var registry = root.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(root.transform);
+                var presentationController = new TileFeatureVisualPresentationController();
+                presentationController.AttachRegistry(registry);
 
-                adapter.SetExitOpenImmediate(true);
+                presentationController.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        target.Cell,
+                        TileFeatureKind.Exit,
+                        isActive: true,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                });
 
                 Assert.That(animator.GetBool("ProviderOpen"), Is.True);
                 Assert.That(animator.GetBool("LegacyOpen"), Is.False);
-                Assert.That(adapter.DebugExitLegacyAnimatorFallbackCount, Is.Zero);
-                Assert.That(adapter.DebugLegacyAnimatorFallbackCount, Is.Zero);
+                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.Zero);
             }
             finally
             {
@@ -71,12 +84,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 #pragma warning restore CS0618
                 adapter.ConfigureTarget(target);
                 SetAdapterProfiles(adapter);
+                var registry = root.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(root.transform);
+                var presentationController = new TileFeatureVisualPresentationController();
+                presentationController.AttachRegistry(registry);
 
-                adapter.SetExitOpenImmediate(true);
+                presentationController.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        target.Cell,
+                        TileFeatureKind.Exit,
+                        isActive: true,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                });
 
                 Assert.That(animator.GetBool("ProviderOpen"), Is.True);
-                Assert.That(adapter.DebugExitLegacyAnimatorFallbackCount, Is.Zero);
-                Assert.That(adapter.DebugLegacyAnimatorFallbackCount, Is.Zero);
+                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.Zero);
             }
             finally
             {
@@ -129,9 +155,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(animator.GetBool("ProviderOpen"), Is.True);
                 Assert.That(animator.GetBool("LegacyOpen"), Is.False);
-                Assert.That(adapter.DebugExitOpenedCount, Is.Zero);
-                Assert.That(adapter.DebugExitLegacyAnimatorFallbackCount, Is.Zero);
-                Assert.That(adapter.DebugLegacyAnimatorFallbackCount, Is.Zero);
+                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.Zero);
             }
             finally
             {

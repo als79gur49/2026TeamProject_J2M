@@ -56,81 +56,7 @@ namespace Game.Feature.Gameplay.Host
 
         public Renderer PrimaryRenderer => primaryRenderer;
 
-        public int DebugPlayButtonActivatedCount => ResolveDebugAdapter()?.DebugPlayButtonActivatedCount ?? 0;
-
-        public int DebugPlayDestroyTileTriggeredCount => ResolveDebugAdapter()?.DebugPlayDestroyTileTriggeredCount ?? 0;
-
-        public int DebugPlayDestroyTileActivatedCount => ResolveDebugAdapter()?.DebugPlayDestroyTileActivatedCount ?? 0;
-
-        public int DebugPlayDestroyTileDeactivatedCount => ResolveDebugAdapter()?.DebugPlayDestroyTileDeactivatedCount ?? 0;
-
-        public bool DebugDestroyTileActive => ResolveDebugAdapter()?.DebugDestroyTileActive ?? false;
-
-        public bool DebugSlideTileActive => ResolveDebugAdapter()?.DebugSlideTileActive ?? false;
-
-        public int DebugPlaySlideTileRedirectedCount => ResolveDebugAdapter()?.DebugPlaySlideTileRedirectedCount ?? 0;
-
-        public int DebugBarricadeBlockedCount => ResolveDebugAdapter()?.DebugBarricadeBlockedCount ?? 0;
-
-        public int DebugBarricadeCrushedCount => ResolveDebugAdapter()?.DebugBarricadeCrushedCount ?? 0;
-
-        public int DebugBarricadeActivatedCount => ResolveDebugAdapter()?.DebugBarricadeActivatedCount ?? 0;
-
-        public int DebugBarricadeDeactivatedCount => ResolveDebugAdapter()?.DebugBarricadeDeactivatedCount ?? 0;
-
-        internal int DebugBarricadeActiveImmediateStatePlayCount =>
-            ResolveDebugAdapter()?.DebugBarricadeActiveImmediateStatePlayCount ?? 0;
-
-        public int DebugExitOpenedCount => ResolveDebugAdapter()?.DebugExitOpenedCount ?? 0;
-
-        public Animator DebugAnimator => ResolveDebugAdapter()?.Animator;
-
-        public int DebugExitEnteredCount => ResolveDebugAdapter()?.DebugExitEnteredCount ?? 0;
-
-        public bool DebugExitOpen => ResolveDebugAdapter()?.DebugExitOpen ?? false;
-
-        public int DebugMoonBlockGeneratedCount => ResolveDebugAdapter()?.DebugMoonBlockGeneratedCount ?? 0;
-
-        public int DebugMoonBlockGeneratorBlockedCount =>
-            ResolveDebugAdapter()?.DebugMoonBlockGeneratorBlockedCount ?? 0;
-
-        public int DebugMoonBlockGeneratorBlockedUnitCount =>
-            ResolveDebugAdapter()?.DebugMoonBlockGeneratorBlockedUnitCount ?? 0;
-
-        public int DebugMoonBlockGeneratorBlockedWallLikeSolidCount =>
-            ResolveDebugAdapter()?.DebugMoonBlockGeneratorBlockedWallLikeSolidCount ?? 0;
-
-        public int DebugMoonBlockGeneratorBlockedPlacementCount =>
-            ResolveDebugAdapter()?.DebugMoonBlockGeneratorBlockedPlacementCount ?? 0;
-
-        public Direction DebugLastSlideTileDirection =>
-            ResolveDebugAdapter()?.DebugLastSlideTileDirection ?? Direction.None;
-
-        public Direction DebugLastBarricadeBlockedDirection =>
-            ResolveDebugAdapter()?.DebugLastBarricadeBlockedDirection ?? Direction.None;
-
-        public int DebugLastSlideTileTargetEntityId => ResolveDebugAdapter()?.DebugLastSlideTileTargetEntityId ?? 0;
-
-        public int DebugLastBarricadeBlockedTargetEntityId =>
-            ResolveDebugAdapter()?.DebugLastBarricadeBlockedTargetEntityId ?? 0;
-
-        public int DebugLastBarricadeCrushedTargetEntityId =>
-            ResolveDebugAdapter()?.DebugLastBarricadeCrushedTargetEntityId ?? 0;
-
-        public int DebugLastExitEnteredPlayerEntityId =>
-            ResolveDebugAdapter()?.DebugLastExitEnteredPlayerEntityId ?? 0;
-
-        public int DebugLastMoonBlockGeneratedEntityId =>
-            ResolveDebugAdapter()?.DebugLastMoonBlockGeneratedEntityId ?? 0;
-
-        public MoonBlockGeneratorBlockedPayload DebugLastMoonBlockGeneratorBlockedPayload =>
-            ResolveDebugAdapter()?.DebugLastMoonBlockGeneratorBlockedPayload ?? default;
-
-        public MoonBlockGeneratorBlockedReason DebugLastMoonBlockGeneratorBlockedReason =>
-            DebugLastMoonBlockGeneratorBlockedPayload.Reason;
-
-        public int DebugLastMoonBlockGeneratorBlockedEntityId =>
-            DebugLastMoonBlockGeneratorBlockedPayload.BlockingEntityId;
+        public Animator DebugAnimator => GetComponentInChildren<Animator>(includeInactive: true);
 
         public void Configure(int newTileId, SurfaceCell newCell)
         {
@@ -141,7 +67,6 @@ namespace Game.Feature.Gameplay.Host
         {
             tileId = newTileId;
             cell = newCell;
-            ResolveDebugAdapter()?.ResetBarricadeActiveImmediateState();
         }
 
         internal void ConfigurePresentationRoot(Transform newPresentationRoot)
@@ -219,12 +144,6 @@ namespace Game.Feature.Gameplay.Host
 
             binding = default;
             return false;
-        }
-
-        private LegacyTileFeatureVisualCueAdapter ResolveDebugAdapter()
-        {
-            // TODO: replace TargetView debug adapter dependency with non-legacy diagnostics probe.
-            return GetComponent<LegacyTileFeatureVisualCueAdapter>();
         }
     }
 }

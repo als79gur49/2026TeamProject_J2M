@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
@@ -17,6 +18,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -471,6 +473,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var target = rootObject.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, new SurfaceCell(FaceId.Floor, 0, 0));
 #pragma warning disable CS0618
                 var adapter = rootObject.AddComponent<LegacyTileFeatureVisualCueAdapter>();
 #pragma warning restore CS0618
@@ -478,11 +481,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = new GameplayPresentationPauseRegistry();
                 registry.RegisterRoot(rootObject);
                 registry.SetPresentationPaused(true);
+                LogAssert.Expect(LogType.Warning, new Regex("LegacyTileFeatureVisualCueAdapter is diagnostic-only"));
 
-                adapter.PlayButtonActivated();
+                adapter.TryHandle(new TileFeatureVisualRequest(
+                    TileFeatureVisualCueId.ButtonActivated,
+                    100,
+                    target.Cell,
+                    TileFeatureKind.Button));
 
                 Assert.That(adapter.IsGameplayPresentationPaused, Is.True);
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
+                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.EqualTo(1));
             }
             finally
             {
@@ -10601,7 +10609,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ?.Invoke(target, args);
         }
 
-        private static TileFeatureVisualTargetView AttachTileVisualTarget(
+        private static RecordingTileFeatureVisualTarget AttachTileVisualTarget(
             GameObject rootObject,
             GameplayTickViewPresenter presenter,
             int tileId,
@@ -10611,10 +10619,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 rootObject.AddComponent<TileFeatureVisualRegistry>();
             var targetObject = new GameObject($"TileFeatureVisualTarget_{tileId}");
             targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
-            var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-#pragma warning disable CS0618
-            targetObject.AddComponent<LegacyTileFeatureVisualCueAdapter>();
-#pragma warning restore CS0618
+            var target = targetObject.AddComponent<RecordingTileFeatureVisualTarget>();
             target.Configure(tileId, cell);
             registry.ConfigureSearchRoot(rootObject.transform);
             presenter.AttachTileFeatureVisualRegistry(registry);
@@ -11734,6 +11739,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 PlayButtonActivatedCount++;
                 WasActiveInHierarchyWhenButtonActivated = gameObject.activeInHierarchy;
+            }
+        }
+
+        private sealed class RecordingTileFeatureVisualTarget :
+            MonoBehaviour,
+            ITileFeatureVisualTarget,
+            IDestroyTileVisualTarget,
+            IMoonBlockGeneratedVisualTarget
+        {
+            public int TileId { get; private set; }
+
+            public SurfaceCell Cell { get; private set; }
+
+            public int DebugPlayButtonActivatedCount { get; private set; }
+
+            public int DebugPlayDestroyTileTriggeredCount { get; private set; }
+
+            public int DebugMoonBlockGeneratedCount { get; private set; }
+
+            public int DebugLastMoonBlockGeneratedEntityId { get; private set; }
+
+            public void Configure(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public void PlayButtonActivated()
+            {
+                DebugPlayButtonActivatedCount++;
+            }
+
+            public void PlayDestroyTileTriggered()
+            {
+                DebugPlayDestroyTileTriggeredCount++;
+            }
+
+            public void PlayMoonBlockGenerated(int moonBlockEntityId)
+            {
+                DebugMoonBlockGeneratedCount++;
+                DebugLastMoonBlockGeneratedEntityId = moonBlockEntityId;
             }
         }
 

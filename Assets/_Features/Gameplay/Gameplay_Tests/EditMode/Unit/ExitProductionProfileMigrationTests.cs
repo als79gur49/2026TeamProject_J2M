@@ -2,6 +2,7 @@ using System.IO;
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
@@ -102,30 +103,66 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ExitOpened_DoesNotDependOnLegacyAdapterFallback()
+        public void ExitOpened_UsesProviderProfilePathWithoutLegacyAdapterCommand()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Exit3x3PrefabPath);
             Assert.That(prefab, Is.Not.Null, Exit3x3PrefabPath);
 
-            var instance = Object.Instantiate(prefab);
+            var root = new GameObject(nameof(ExitOpened_UsesProviderProfilePathWithoutLegacyAdapterCommand));
+            var instance = Object.Instantiate(prefab, root.transform, worldPositionStays: false);
             try
             {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var target = instance.GetComponent<TileFeatureVisualTargetView>();
+                Assert.That(target, Is.Not.Null);
+                target.Configure(100, cell);
+                var registry = root.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(root.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
                 var adapter = instance.GetComponent<LegacyTileFeatureVisualCueAdapter>();
                 Assert.That(adapter, Is.Not.Null);
 
-                adapter.PlayExitOpened();
-                adapter.PlayExitEntered(playerEntityId: 20);
-                adapter.SetExitOpenImmediate(true);
+                controller.PlayRequests(new[]
+                {
+                    new TilePresentationRequest(
+                        TilePresentationRequestKind.ExitOpened,
+                        100,
+                        cell,
+                        TileFeatureKind.Exit,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                    new TilePresentationRequest(
+                        TilePresentationRequestKind.ExitEntered,
+                        100,
+                        cell,
+                        TileFeatureKind.Exit,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0,
+                        targetEntityId: 20),
+                });
+                controller.RefreshContinuousStates(new[]
+                {
+                    new TileFeatureVisualState(
+                        100,
+                        cell,
+                        TileFeatureKind.Exit,
+                        isActive: true,
+                        sourceEntityId: 0,
+                        ownerEntityId: 0,
+                        teamId: 0),
+                });
 
-                Assert.That(adapter.DebugExitOpenedCount, Is.EqualTo(1));
-                Assert.That(adapter.DebugExitEnteredCount, Is.EqualTo(1));
-                Assert.That(adapter.DebugExitOpen, Is.True);
-                Assert.That(adapter.DebugExitLegacyAnimatorFallbackCount, Is.Zero);
-                Assert.That(adapter.DebugLegacyAnimatorFallbackCount, Is.Zero);
+                var animator = instance.GetComponentInChildren<Animator>(includeInactive: true);
+                Assert.That(animator, Is.Not.Null);
+                Assert.That(animator.GetBool("ExitOpen"), Is.True);
+                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.Zero);
             }
             finally
             {
-                Object.DestroyImmediate(instance);
+                Object.DestroyImmediate(root);
             }
         }
 

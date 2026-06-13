@@ -38,9 +38,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var adapter = prefabInstance.GetComponent<LegacyTileFeatureVisualCueAdapter>();
+                var target = prefabInstance.GetComponent<TileFeatureVisualTargetView>();
                 var provider = prefabInstance.GetComponent<TileFeatureVisualProfileProvider>();
                 var animator = prefabInstance.GetComponent<Animator>();
                 Assert.That(adapter, Is.Not.Null);
+                Assert.That(target, Is.Not.Null);
                 Assert.That(provider, Is.Not.Null);
                 Assert.That(animator, Is.Not.Null);
                 Assert.That(animator.runtimeAnimatorController, Is.Not.Null);
@@ -52,11 +54,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     parameter.type == AnimatorControllerParameterType.Trigger), Is.True);
 
                 AssertProfileReference(provider, profile);
+                target.Configure(100, new SurfaceCell(FaceId.Floor, 1, 1));
+                var sink = prefabInstance.AddComponent<TileFeatureVisualProfileCueSink>();
+                sink.Configure(target, provider);
 
-                adapter.PlayMoonBlockGenerated(201);
+                var handled = sink.TryHandle(new TileFeatureVisualRequest(
+                    TileFeatureVisualCueId.MoonBlockGenerated,
+                    100,
+                    target.Cell,
+                    TileFeatureKind.MoonBlockGenerator,
+                    targetEntityId: 201));
 
-                Assert.That(adapter.DebugMoonBlockGeneratedCount, Is.EqualTo(1));
-                Assert.That(adapter.DebugLastMoonBlockGeneratedEntityId, Is.EqualTo(201));
+                Assert.That(handled, Is.True);
+                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.Zero);
             }
             finally
             {
@@ -81,9 +91,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var adapter = prefabInstance.GetComponent<LegacyTileFeatureVisualCueAdapter>();
+                var target = prefabInstance.GetComponent<TileFeatureVisualTargetView>();
                 var provider = prefabInstance.GetComponent<TileFeatureVisualProfileProvider>();
                 var animator = prefabInstance.GetComponent<Animator>();
                 var controller = animator.runtimeAnimatorController as AnimatorController;
+                Assert.That(adapter, Is.Not.Null);
+                Assert.That(target, Is.Not.Null);
                 Assert.That(provider, Is.Not.Null);
                 Assert.That(controller, Is.Not.Null);
                 Assert.That(controller.parameters.Any(parameter => parameter.name == "MoonBlockGeneratorBlocked"), Is.False);
@@ -94,13 +107,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     MoonBlockGeneratorBlockedReason.UnitOccupant,
                     blockingEntityId: 10,
                     blockedCell);
+                target.Configure(100, blockedCell);
+                var sink = prefabInstance.AddComponent<TileFeatureVisualProfileCueSink>();
+                sink.Configure(target, provider);
 
-                adapter.PlayMoonBlockGeneratorBlocked(payload);
+                var handled = sink.TryHandle(new TileFeatureVisualRequest(
+                    TileFeatureVisualCueId.MoonBlockGeneratorBlocked,
+                    100,
+                    blockedCell,
+                    TileFeatureKind.MoonBlockGenerator,
+                    moonBlockGeneratorBlockedPayload: payload));
 
-                Assert.That(adapter.DebugMoonBlockGeneratorBlockedCount, Is.EqualTo(1));
-                Assert.That(adapter.DebugLastMoonBlockGeneratorBlockedPayload.Reason, Is.EqualTo(MoonBlockGeneratorBlockedReason.UnitOccupant));
-                Assert.That(adapter.DebugLastMoonBlockGeneratorBlockedPayload.BlockingEntityId, Is.EqualTo(10));
-                Assert.That(adapter.DebugLastMoonBlockGeneratorBlockedPayload.BlockedCell, Is.EqualTo(blockedCell));
+                Assert.That(handled, Is.True);
+                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.Zero);
             }
             finally
             {

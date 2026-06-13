@@ -26,113 +26,69 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void ButtonActivatedRequest_WithRegisteredTargetView_CallsPlayButtonActivatedOnce()
         {
-            var rootObject = new GameObject(nameof(ButtonActivatedRequest_WithRegisteredTargetView_CallsPlayButtonActivatedOnce));
-            var targetObject = new GameObject("ButtonVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingTarget(100, cell);
+            var registry = new RecordingRegistry(target);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(registry);
 
-            try
-            {
-                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
+            controller.PlayButtonActivatedRequests(new[] { CreateRequest(100, cell) });
 
-                controller.PlayButtonActivatedRequests(new[] { CreateRequest(100, cell) });
-
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
-                Assert.That(registry.TryGetTileVisual(100, out var resolved), Is.True);
-                Assert.That(resolved, Is.SameAs(target));
-            }
-            finally
-            {
-                Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(target.PlayCount, Is.EqualTo(1));
+            Assert.That(registry.TryGetTileVisual(100, out var resolved), Is.True);
+            Assert.That(resolved, Is.SameAs(target));
         }
 
         [Test]
         [Category("Extended")]
         public void ButtonActivatedRequest_WithMotionContactTiming_WaitsUntilDelayElapses()
         {
-            var rootObject = new GameObject(nameof(ButtonActivatedRequest_WithMotionContactTiming_WaitsUntilDelayElapses));
-            var targetObject = new GameObject("ButtonVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
-
-            try
-            {
-                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
-                var barrierKey = PresentationBarrierKey.ButtonActivated(100);
-                var request = new TilePresentationRequest(
-                    TilePresentationRequestKind.ButtonActivated,
-                    100,
-                    cell,
-                    TileFeatureKind.Button,
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            var barrierKey = PresentationBarrierKey.ButtonActivated(100);
+            var request = new TilePresentationRequest(
+                TilePresentationRequestKind.ButtonActivated,
+                100,
+                cell,
+                TileFeatureKind.Button,
+                sourceEntityId: 20,
+                ownerEntityId: 0,
+                teamId: 1,
+                timingAnchor: PresentationTimingAnchor.MotionContact(
                     sourceEntityId: 20,
-                    ownerEntityId: 0,
-                    teamId: 1,
-                    timingAnchor: PresentationTimingAnchor.MotionContact(
-                        sourceEntityId: 20,
-                        targetEntityId: 0,
-                        actionPlanId: 45,
-                        localActionIndex: 0,
-                        movementSemanticKind: MovementSemanticKind.Flip,
-                        visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
-                        barrierKey: barrierKey),
-                    barrierKey: barrierKey);
-                var delaySeconds = GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds *
-                                   GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime;
+                    targetEntityId: 0,
+                    actionPlanId: 45,
+                    localActionIndex: 0,
+                    movementSemanticKind: MovementSemanticKind.Flip,
+                    visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                    barrierKey: barrierKey),
+                barrierKey: barrierKey);
+            var delaySeconds = GameplayTimingProfile.CreateDefault().FlipMotionDurationSeconds *
+                               GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime;
 
-                controller.PlayRequests(new[] { request });
-                controller.Update(delaySeconds - 0.001f);
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
+            controller.PlayRequests(new[] { request });
+            controller.Update(delaySeconds - 0.001f);
+            Assert.That(target.PlayCount, Is.Zero);
 
-                controller.Update(0.001f);
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.EqualTo(1));
-            }
-            finally
-            {
-                Object.DestroyImmediate(rootObject);
-            }
+            controller.Update(0.001f);
+            Assert.That(target.PlayCount, Is.EqualTo(1));
         }
 
         [Test]
         [Category("Extended")]
         public void DestroyTileTriggeredRequest_WithSupportedTargetView_CallsPlayDestroyTileTriggeredOnce()
         {
-            var rootObject = new GameObject(nameof(DestroyTileTriggeredRequest_WithSupportedTargetView_CallsPlayDestroyTileTriggeredOnce));
-            var targetObject = new GameObject("DestroyTileVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingDestroyTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
 
-            try
-            {
-                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
+            controller.PlayRequests(new[] { CreateDestroyRequest(100, cell) });
 
-                controller.PlayRequests(new[] { CreateDestroyRequest(100, cell) });
-
-                Assert.That(target.DebugPlayDestroyTileTriggeredCount, Is.EqualTo(1));
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
-            }
-            finally
-            {
-                Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(target.DestroyPlayCount, Is.EqualTo(1));
+            Assert.That(target.ButtonPlayCount, Is.Zero);
         }
 
         [Test]
@@ -189,397 +145,206 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void SlideTileRedirectedRequest_WithSupportedTargetView_CallsPlaySlideTileRedirectedOnce()
         {
-            var rootObject = new GameObject(nameof(SlideTileRedirectedRequest_WithSupportedTargetView_CallsPlaySlideTileRedirectedOnce));
-            var targetObject = new GameObject("SlideTileVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var target = new RecordingSlideTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
 
-            try
-            {
-                var cell = new SurfaceCell(FaceId.Front, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
+            controller.PlayRequests(new[] { CreateSlideRequest(100, cell, Direction.Up, targetEntityId: 20) });
 
-                controller.PlayRequests(new[] { CreateSlideRequest(100, cell, Direction.Up, targetEntityId: 20) });
-
-                Assert.That(target.DebugPlaySlideTileRedirectedCount, Is.EqualTo(1));
-                Assert.That(target.DebugLastSlideTileDirection, Is.EqualTo(Direction.Up));
-                Assert.That(target.DebugLastSlideTileTargetEntityId, Is.EqualTo(20));
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
-                Assert.That(target.DebugPlayDestroyTileTriggeredCount, Is.Zero);
-            }
-            finally
-            {
-                Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(target.SlidePlayCount, Is.EqualTo(1));
+            Assert.That(target.LastDirection, Is.EqualTo(Direction.Up));
+            Assert.That(target.LastTargetEntityId, Is.EqualTo(20));
+            Assert.That(target.ButtonPlayCount, Is.Zero);
         }
 
         [Test]
         [Category("Extended")]
         public void BarricadeBlockedRequest_WithSupportedTargetView_CallsPlayBarricadeBlockedOnce()
         {
-            var rootObject = new GameObject(nameof(BarricadeBlockedRequest_WithSupportedTargetView_CallsPlayBarricadeBlockedOnce));
-            var targetObject = new GameObject("BarricadeVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var target = new RecordingBarricadeTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
 
-            try
-            {
-                var cell = new SurfaceCell(FaceId.Front, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
+            controller.PlayRequests(new[] { CreateBarricadeBlockedRequest(100, cell, Direction.Right, targetEntityId: 20) });
 
-                controller.PlayRequests(new[] { CreateBarricadeBlockedRequest(100, cell, Direction.Right, targetEntityId: 20) });
-
-                Assert.That(target.DebugBarricadeBlockedCount, Is.EqualTo(1));
-                Assert.That(target.DebugLastBarricadeBlockedDirection, Is.EqualTo(Direction.Right));
-                Assert.That(target.DebugLastBarricadeBlockedTargetEntityId, Is.EqualTo(20));
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
-            }
-            finally
-            {
-                Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(target.BlockedPlayCount, Is.EqualTo(1));
+            Assert.That(target.LastBlockedDirection, Is.EqualTo(Direction.Right));
+            Assert.That(target.LastBlockedTargetEntityId, Is.EqualTo(20));
+            Assert.That(target.ButtonPlayCount, Is.Zero);
         }
 
         [Test]
         [Category("Extended")]
         public void BarricadeCrushedRequest_WithSupportedTargetView_CallsPlayBarricadeCrushedOnce()
         {
-            var rootObject = new GameObject(nameof(BarricadeCrushedRequest_WithSupportedTargetView_CallsPlayBarricadeCrushedOnce));
-            var targetObject = new GameObject("BarricadeVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var target = new RecordingBarricadeTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
 
-            try
-            {
-                var cell = new SurfaceCell(FaceId.Front, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
+            controller.PlayRequests(new[] { CreateBarricadeCrushedRequest(100, cell, targetEntityId: 20) });
 
-                controller.PlayRequests(new[] { CreateBarricadeCrushedRequest(100, cell, targetEntityId: 20) });
-
-                Assert.That(target.DebugBarricadeCrushedCount, Is.EqualTo(1));
-                Assert.That(target.DebugLastBarricadeCrushedTargetEntityId, Is.EqualTo(20));
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
-            }
-            finally
-            {
-                Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(target.CrushedPlayCount, Is.EqualTo(1));
+            Assert.That(target.LastCrushedTargetEntityId, Is.EqualTo(20));
+            Assert.That(target.ButtonPlayCount, Is.Zero);
         }
 
         [Test]
         [Category("Extended")]
         public void BarricadeActiveStateRequests_WithSupportedTargetView_CallActiveStateHooks()
         {
-            var rootObject = new GameObject(nameof(BarricadeActiveStateRequests_WithSupportedTargetView_CallActiveStateHooks));
-            var targetObject = new GameObject("BarricadeVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var target = new RecordingBarricadeTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
 
-            try
+            controller.PlayRequests(new[]
             {
-                var cell = new SurfaceCell(FaceId.Front, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
+                CreateBarricadeActivatedRequest(100, cell),
+                CreateBarricadeDeactivatedRequest(100, cell),
+            });
 
-                controller.PlayRequests(new[]
-                {
-                    CreateBarricadeActivatedRequest(100, cell),
-                    CreateBarricadeDeactivatedRequest(100, cell),
-                });
-
-                Assert.That(target.DebugBarricadeActivatedCount, Is.EqualTo(1));
-                Assert.That(target.DebugBarricadeDeactivatedCount, Is.EqualTo(1));
-                Assert.That(target.DebugBarricadeBlockedCount, Is.Zero);
-                Assert.That(target.DebugBarricadeCrushedCount, Is.Zero);
-            }
-            finally
-            {
-                Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void BarricadeActiveImmediateState_WithSameState_DoesNotReplayIdleState()
-        {
-            var targetObject = new GameObject(nameof(BarricadeActiveImmediateState_WithSameState_DoesNotReplayIdleState));
-            var controller = CreateBarricadeAnimatorController(nameof(BarricadeActiveImmediateState_WithSameState_DoesNotReplayIdleState));
-
-            try
-            {
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, new SurfaceCell(FaceId.Front, 1, 1));
-                AttachAnimator(targetObject, controller);
-                var adapter = EnsureLegacyAdapter(target);
-
-                adapter.SetBarricadeActiveImmediate(true);
-                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(1));
-                Assert.That(adapter.DebugLastBarricadeActiveAnimatorStateHash, Is.EqualTo(Animator.StringToHash("RaisedIdle")));
-
-                adapter.SetBarricadeActiveImmediate(true);
-                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(1));
-
-                adapter.SetBarricadeActiveImmediate(false);
-                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(2));
-                Assert.That(adapter.DebugLastBarricadeActiveAnimatorStateHash, Is.EqualTo(Animator.StringToHash("LoweredIdle")));
-
-                adapter.SetBarricadeActiveImmediate(false);
-                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(2));
-
-                adapter.SetBarricadeActiveImmediate(true);
-                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(3));
-                Assert.That(adapter.DebugLastBarricadeActiveAnimatorStateHash, Is.EqualTo(Animator.StringToHash("RaisedIdle")));
-
-                Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.EqualTo(3));
-            }
-            finally
-            {
-                Object.DestroyImmediate(controller);
-                Object.DestroyImmediate(targetObject);
-            }
+            Assert.That(target.ActivatedPlayCount, Is.EqualTo(1));
+            Assert.That(target.DeactivatedPlayCount, Is.EqualTo(1));
+            Assert.That(target.BlockedPlayCount, Is.Zero);
+            Assert.That(target.CrushedPlayCount, Is.Zero);
         }
 
         [Test]
         [Category("Extended")]
         public void BarricadeBlockedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle()
         {
-            var rootObject = new GameObject(nameof(BarricadeBlockedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle));
-            var targetObject = new GameObject("BarricadeVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
-            var animatorController = CreateBarricadeAnimatorController(nameof(BarricadeBlockedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle));
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var target = new RecordingBarricadeTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            var activeState = new TileFeatureVisualState(
+                100,
+                cell,
+                TileFeatureKind.Barricade,
+                isActive: true,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0);
 
-            try
-            {
-                var cell = new SurfaceCell(FaceId.Front, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                var animator = AttachAnimator(targetObject, animatorController);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
-                var activeState = new TileFeatureVisualState(
-                    100,
-                    cell,
-                    TileFeatureKind.Barricade,
-                    isActive: true,
-                    sourceEntityId: 0,
-                    ownerEntityId: 0,
-                    teamId: 0);
-                var adapter = EnsureLegacyAdapter(target);
+            controller.PlayRequests(new[] { CreateBarricadeBlockedRequest(100, cell, Direction.Right, targetEntityId: 20) });
+            controller.RefreshContinuousStates(new[] { activeState });
 
-                adapter.SetBarricadeActiveImmediate(true);
-                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(1));
-                controller.PlayRequests(new[] { CreateBarricadeBlockedRequest(100, cell, Direction.Right, targetEntityId: 20) });
-                controller.RefreshContinuousStates(new[] { activeState });
-
-                Assert.That(target.DebugBarricadeBlockedCount, Is.EqualTo(1));
-                Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.EqualTo(1));
-                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(1));
-                Assert.That(animator.GetBool("BarricadeActive"), Is.True);
-                Assert.That(adapter.DebugLastBarricadeActiveAnimatorStateHash, Is.EqualTo(Animator.StringToHash("RaisedIdle")));
-            }
-            finally
-            {
-                Object.DestroyImmediate(animatorController);
-                Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(target.BlockedPlayCount, Is.EqualTo(1));
+            Assert.That(target.ImmediateSyncCount, Is.EqualTo(1));
+            Assert.That(target.LastImmediateActive, Is.True);
         }
 
         [Test]
         [Category("Extended")]
         public void BarricadeCrushedRequest_WithActiveStateRefresh_DoesNotReplayIdle()
         {
-            var rootObject = new GameObject(nameof(BarricadeCrushedRequest_WithActiveStateRefresh_DoesNotReplayIdle));
-            var targetObject = new GameObject("BarricadeVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
-            var animatorController = CreateBarricadeAnimatorController(nameof(BarricadeCrushedRequest_WithActiveStateRefresh_DoesNotReplayIdle));
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var target = new RecordingBarricadeTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            var activeState = new TileFeatureVisualState(
+                100,
+                cell,
+                TileFeatureKind.Barricade,
+                isActive: false,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0);
 
-            try
-            {
-                var cell = new SurfaceCell(FaceId.Front, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                var animator = AttachAnimator(targetObject, animatorController);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
-                var activeState = new TileFeatureVisualState(
-                    100,
-                    cell,
-                    TileFeatureKind.Barricade,
-                    isActive: false,
-                    sourceEntityId: 0,
-                    ownerEntityId: 0,
-                    teamId: 0);
-                var adapter = EnsureLegacyAdapter(target);
+            controller.PlayRequests(new[] { CreateBarricadeCrushedRequest(100, cell, targetEntityId: 20) });
+            controller.RefreshContinuousStates(new[] { activeState });
 
-                adapter.SetBarricadeActiveImmediate(false);
-                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(1));
-                controller.PlayRequests(new[] { CreateBarricadeCrushedRequest(100, cell, targetEntityId: 20) });
-                controller.RefreshContinuousStates(new[] { activeState });
-
-                Assert.That(target.DebugBarricadeCrushedCount, Is.EqualTo(1));
-                Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.EqualTo(1));
-                Assert.That(adapter.DebugBarricadeActiveAnimatorStatePlayCount, Is.EqualTo(1));
-                Assert.That(animator.GetBool("BarricadeActive"), Is.False);
-                Assert.That(adapter.DebugLastBarricadeActiveAnimatorStateHash, Is.EqualTo(Animator.StringToHash("LoweredIdle")));
-            }
-            finally
-            {
-                Object.DestroyImmediate(animatorController);
-                Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(target.CrushedPlayCount, Is.EqualTo(1));
+            Assert.That(target.ImmediateSyncCount, Is.EqualTo(1));
+            Assert.That(target.LastImmediateActive, Is.False);
         }
 
         [Test]
         [Category("Extended")]
         public void BarricadeActivatedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle()
         {
-            var rootObject = new GameObject(nameof(BarricadeActivatedRequest_WithActiveStateRefresh_DoesNotReplayRaisedIdle));
-            var targetObject = new GameObject("BarricadeVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var target = new RecordingBarricadeTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            var activeState = new TileFeatureVisualState(
+                100,
+                cell,
+                TileFeatureKind.Barricade,
+                isActive: true,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0);
 
-            try
-            {
-                var cell = new SurfaceCell(FaceId.Front, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
-                var activeState = new TileFeatureVisualState(
-                    100,
-                    cell,
-                    TileFeatureKind.Barricade,
-                    isActive: true,
-                    sourceEntityId: 0,
-                    ownerEntityId: 0,
-                    teamId: 0);
+            controller.PlayRequests(new[] { CreateBarricadeActivatedRequest(100, cell) });
+            controller.RefreshContinuousStates(new[] { activeState });
 
-                controller.PlayRequests(new[] { CreateBarricadeActivatedRequest(100, cell) });
-                controller.RefreshContinuousStates(new[] { activeState });
-
-                Assert.That(target.DebugBarricadeActivatedCount, Is.EqualTo(1));
-                Assert.That(target.DebugBarricadeActiveImmediateStatePlayCount, Is.Zero);
-            }
-            finally
-            {
-                Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(target.ActivatedPlayCount, Is.EqualTo(1));
+            Assert.That(target.ImmediateSyncCount, Is.EqualTo(1));
+            Assert.That(target.LastImmediateActive, Is.True);
         }
 
         [Test]
         [Category("Extended")]
         public void ExitRequests_WithSupportedTargetView_CallExitVisualHooks()
         {
-            var rootObject = new GameObject(nameof(ExitRequests_WithSupportedTargetView_CallExitVisualHooks));
-            var targetObject = new GameObject("ExitVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingExitTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
 
-            try
+            controller.PlayRequests(new[]
             {
-                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
+                CreateExitOpenedRequest(100, cell),
+                CreateExitEnteredRequest(100, cell, playerEntityId: 10),
+            });
 
-                controller.PlayRequests(new[]
-                {
-                    CreateExitOpenedRequest(100, cell),
-                    CreateExitEnteredRequest(100, cell, playerEntityId: 10),
-                });
-
-                Assert.That(target.DebugExitOpenedCount, Is.EqualTo(1));
-                Assert.That(target.DebugExitEnteredCount, Is.EqualTo(1));
-                Assert.That(target.DebugLastExitEnteredPlayerEntityId, Is.EqualTo(10));
-                Assert.That(target.DebugExitOpen, Is.True);
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
-            }
-            finally
-            {
-                Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(target.OpenedPlayCount, Is.EqualTo(1));
+            Assert.That(target.EnteredPlayCount, Is.EqualTo(1));
+            Assert.That(target.LastPlayerEntityId, Is.EqualTo(10));
+            Assert.That(target.ButtonPlayCount, Is.Zero);
         }
 
         [Test]
         [Category("Extended")]
         public void ExitVisualState_WithSupportedTargetView_SyncsOpenStateImmediate()
         {
-            var rootObject = new GameObject(nameof(ExitVisualState_WithSupportedTargetView_SyncsOpenStateImmediate));
-            var targetObject = new GameObject("ExitVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingExitOpenStateTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
 
-            try
+            controller.RefreshContinuousStates(new[]
             {
-                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
+                new TileFeatureVisualState(
+                    100,
+                    cell,
+                    TileFeatureKind.Exit,
+                    isActive: false,
+                    sourceEntityId: 0,
+                    ownerEntityId: 0,
+                    teamId: 0),
+            });
+            Assert.That(target.LastImmediateOpen, Is.False);
 
-                controller.RefreshContinuousStates(new[]
-                {
-                    new TileFeatureVisualState(
-                        100,
-                        cell,
-                        TileFeatureKind.Exit,
-                        isActive: false,
-                        sourceEntityId: 0,
-                        ownerEntityId: 0,
-                        teamId: 0),
-                });
-                Assert.That(target.DebugExitOpen, Is.False);
-
-                controller.RefreshContinuousStates(new[]
-                {
-                    new TileFeatureVisualState(
-                        100,
-                        cell,
-                        TileFeatureKind.Exit,
-                        isActive: true,
-                        sourceEntityId: 0,
-                        ownerEntityId: 0,
-                        teamId: 0),
-                });
-
-                Assert.That(target.DebugExitOpen, Is.True);
-                Assert.That(target.DebugExitOpenedCount, Is.Zero);
-                Assert.That(target.DebugExitEnteredCount, Is.Zero);
-            }
-            finally
+            controller.RefreshContinuousStates(new[]
             {
-                Object.DestroyImmediate(rootObject);
-            }
+                new TileFeatureVisualState(
+                    100,
+                    cell,
+                    TileFeatureKind.Exit,
+                    isActive: true,
+                    sourceEntityId: 0,
+                    ownerEntityId: 0,
+                    teamId: 0),
+            });
+
+            Assert.That(target.LastImmediateOpen, Is.True);
+            Assert.That(target.OpenedPlayCount, Is.Zero);
+            Assert.That(target.ImmediateSyncCount, Is.EqualTo(2));
         }
 
         [Test]
@@ -892,10 +657,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
+                ConfigureInactiveVisualTargets(target, TileFeatureKind.Slide);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
+                LogAssert.Expect(LogType.Warning, "Slide tile visual profile has no inactive material targets.");
 
                 controller.RefreshContinuousStates(new[]
                 {
@@ -909,9 +675,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         teamId: 0),
                 });
 
-                Assert.That(target.DebugSlideTileActive, Is.False);
                 AssertTileFeatureMaterialCleared(targetRenderer, Color.white, 1f);
-                Assert.That(target.DebugDestroyTileActive, Is.False);
             }
             finally
             {
@@ -990,160 +754,95 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void ButtonVisualState_WithVisibilityGate_DoesNotPlayPressedVisualFromContinuousSync()
         {
-            var rootObject = new GameObject(nameof(ButtonVisualState_WithVisibilityGate_DoesNotPlayPressedVisualFromContinuousSync));
-            var targetObject = new GameObject("ButtonVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
+            var barrierKey = PresentationBarrierKey.ButtonActivated(100);
+            var timingAnchor = PresentationTimingAnchor.MotionContact(
+                sourceEntityId: 20,
+                targetEntityId: 0,
+                actionPlanId: 77,
+                localActionIndex: 0,
+                movementSemanticKind: MovementSemanticKind.Flip,
+                visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
+                barrierKey: barrierKey);
 
-            try
+            controller.RefreshContinuousStates(new[]
             {
-                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
-                var barrierKey = PresentationBarrierKey.ButtonActivated(100);
-                var timingAnchor = PresentationTimingAnchor.MotionContact(
+                new TileFeatureVisualState(
+                    100,
+                    cell,
+                    TileFeatureKind.Button,
+                    isActive: true,
                     sourceEntityId: 20,
-                    targetEntityId: 0,
-                    actionPlanId: 77,
-                    localActionIndex: 0,
-                    movementSemanticKind: MovementSemanticKind.Flip,
-                    visualContactNormalizedTime: GameplayPresentationTimingConstants.FlipVisualSlamContactNormalizedTime,
-                    barrierKey: barrierKey);
+                    ownerEntityId: 0,
+                    teamId: 1,
+                    visibilityGate: new PresentationVisibilityGate(timingAnchor, barrierKey)),
+            });
 
-                controller.RefreshContinuousStates(new[]
-                {
-                    new TileFeatureVisualState(
-                        100,
-                        cell,
-                        TileFeatureKind.Button,
-                        isActive: true,
-                        sourceEntityId: 20,
-                        ownerEntityId: 0,
-                        teamId: 1,
-                        visibilityGate: new PresentationVisibilityGate(timingAnchor, barrierKey)),
-                });
-
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
-            }
-            finally
-            {
-                Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(target.PlayCount, Is.Zero);
         }
 
         [Test]
         [Category("Extended")]
         public void MoonBlockGeneratedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratedOnce()
         {
-            var rootObject = new GameObject(nameof(MoonBlockGeneratedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratedOnce));
-            var targetObject = new GameObject("MoonBlockGeneratorVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingMoonBlockGeneratedTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
 
-            try
-            {
-                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
+            controller.PlayRequests(new[] { CreateMoonBlockGeneratedRequest(100, cell, moonBlockEntityId: 20) });
 
-                controller.PlayRequests(new[] { CreateMoonBlockGeneratedRequest(100, cell, moonBlockEntityId: 20) });
-
-                Assert.That(target.DebugMoonBlockGeneratedCount, Is.EqualTo(1));
-                Assert.That(target.DebugLastMoonBlockGeneratedEntityId, Is.EqualTo(20));
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
-            }
-            finally
-            {
-                Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(target.GeneratedPlayCount, Is.EqualTo(1));
+            Assert.That(target.LastMoonBlockEntityId, Is.EqualTo(20));
+            Assert.That(target.ButtonPlayCount, Is.Zero);
         }
 
         [Test]
         [Category("Extended")]
         public void MoonBlockGeneratorBlockedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratorBlockedOnce()
         {
-            var rootObject = new GameObject(nameof(MoonBlockGeneratorBlockedRequest_WithSupportedTargetView_CallsPlayMoonBlockGeneratorBlockedOnce));
-            var targetObject = new GameObject("MoonBlockGeneratorVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingMoonBlockGeneratorBlockedTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
 
-            try
+            controller.PlayRequests(new[]
             {
-                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
+                CreateMoonBlockGeneratorBlockedRequest(
+                    100,
+                    cell,
+                    blockerEntityId: 20,
+                    MoonBlockGeneratorBlockedReason.UnitOccupant),
+            });
 
-                controller.PlayRequests(new[]
-                {
-                    CreateMoonBlockGeneratorBlockedRequest(
-                        100,
-                        cell,
-                        blockerEntityId: 20,
-                        MoonBlockGeneratorBlockedReason.UnitOccupant),
-                });
-
-                Assert.That(target.DebugMoonBlockGeneratorBlockedCount, Is.EqualTo(1));
-                Assert.That(target.DebugLastMoonBlockGeneratorBlockedEntityId, Is.EqualTo(20));
-                Assert.That(target.DebugLastMoonBlockGeneratorBlockedReason, Is.EqualTo(MoonBlockGeneratorBlockedReason.UnitOccupant));
-                Assert.That(target.DebugLastMoonBlockGeneratorBlockedPayload.BlockedCell, Is.EqualTo(cell));
-                Assert.That(target.DebugMoonBlockGeneratorBlockedUnitCount, Is.EqualTo(1));
-                Assert.That(target.DebugMoonBlockGeneratedCount, Is.Zero);
-                Assert.That(target.DebugPlayButtonActivatedCount, Is.Zero);
-            }
-            finally
-            {
-                Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(target.BlockedPlayCount, Is.EqualTo(1));
+            Assert.That(target.LastPayload.BlockingEntityId, Is.EqualTo(20));
+            Assert.That(target.LastPayload.Reason, Is.EqualTo(MoonBlockGeneratorBlockedReason.UnitOccupant));
+            Assert.That(target.LastPayload.BlockedCell, Is.EqualTo(cell));
+            Assert.That(target.ButtonPlayCount, Is.Zero);
         }
 
         [Test]
         [Category("Extended")]
-        public void MoonBlockGeneratorBlockedRequest_ReasonSpecificDebugCounts_KeepGenericFallback()
+        public void MoonBlockGeneratorBlockedRequest_PreservesLastBlockedPayload()
         {
-            var rootObject = new GameObject(nameof(MoonBlockGeneratorBlockedRequest_ReasonSpecificDebugCounts_KeepGenericFallback));
-            var targetObject = new GameObject("MoonBlockGeneratorVisualTarget");
-            targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var target = new RecordingMoonBlockGeneratorBlockedTarget(100, cell);
+            var controller = new TileFeatureVisualPresentationController();
+            controller.AttachRegistry(new RecordingRegistry(target));
 
-            try
+            controller.PlayRequests(new[]
             {
-                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
-                var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
-                var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, cell);
-                EnsureLegacyAdapter(target);
-                registry.ConfigureSearchRoot(rootObject.transform);
-                var controller = new TileFeatureVisualPresentationController();
-                controller.AttachRegistry(registry);
+                CreateMoonBlockGeneratorBlockedRequest(100, cell, 20, MoonBlockGeneratorBlockedReason.UnitOccupant),
+                CreateMoonBlockGeneratorBlockedRequest(100, cell, 21, MoonBlockGeneratorBlockedReason.WallLikeSolid),
+                CreateMoonBlockGeneratorBlockedRequest(100, cell, 0, MoonBlockGeneratorBlockedReason.PlacementBlocked),
+            });
 
-                controller.PlayRequests(new[]
-                {
-                    CreateMoonBlockGeneratorBlockedRequest(100, cell, 20, MoonBlockGeneratorBlockedReason.UnitOccupant),
-                    CreateMoonBlockGeneratorBlockedRequest(100, cell, 21, MoonBlockGeneratorBlockedReason.WallLikeSolid),
-                    CreateMoonBlockGeneratorBlockedRequest(100, cell, 0, MoonBlockGeneratorBlockedReason.PlacementBlocked),
-                });
-
-                Assert.That(target.DebugMoonBlockGeneratorBlockedCount, Is.EqualTo(3));
-                Assert.That(target.DebugMoonBlockGeneratorBlockedUnitCount, Is.EqualTo(1));
-                Assert.That(target.DebugMoonBlockGeneratorBlockedWallLikeSolidCount, Is.EqualTo(1));
-                Assert.That(target.DebugMoonBlockGeneratorBlockedPlacementCount, Is.EqualTo(1));
-                Assert.That(target.DebugLastMoonBlockGeneratorBlockedReason, Is.EqualTo(MoonBlockGeneratorBlockedReason.PlacementBlocked));
-            }
-            finally
-            {
-                Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(target.BlockedPlayCount, Is.EqualTo(3));
+            Assert.That(target.LastPayload.Reason, Is.EqualTo(MoonBlockGeneratorBlockedReason.PlacementBlocked));
         }
 
         [Test]
@@ -1780,9 +1479,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 #pragma warning disable CS0618
                 var adapter = targetView.GetComponent<LegacyTileFeatureVisualCueAdapter>();
                 Assert.That(adapter, Is.Not.Null);
-                Assert.That(adapter.DebugExitOpen, Is.False);
-                Assert.That(adapter.DebugExitLegacyAnimatorFallbackCount, Is.Zero);
-                Assert.That(adapter.DebugLegacyAnimatorFallbackCount, Is.Zero);
+                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.Zero);
 #pragma warning restore CS0618
             }
             finally
@@ -2272,20 +1969,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(raisedState, Is.Not.Null);
             return controller;
         }
-
-#pragma warning disable CS0618
-        private static LegacyTileFeatureVisualCueAdapter EnsureLegacyAdapter(TileFeatureVisualTargetView target)
-        {
-            var adapter = target.GetComponent<LegacyTileFeatureVisualCueAdapter>();
-            if (adapter == null)
-            {
-                adapter = target.gameObject.AddComponent<LegacyTileFeatureVisualCueAdapter>();
-            }
-
-            adapter.ConfigureTarget(target);
-            return adapter;
-        }
-#pragma warning restore CS0618
 
         private static TilePresentationRequest CreateRequest(int tileId, SurfaceCell cell)
         {
@@ -2790,7 +2473,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private sealed class RecordingBarricadeTarget :
             ITileFeatureVisualTarget,
             IBarricadeBlockedVisualTarget,
-            IBarricadeCrushedVisualTarget
+            IBarricadeCrushedVisualTarget,
+            IBarricadeActivatedVisualTarget,
+            IBarricadeDeactivatedVisualTarget,
+            IBarricadeActiveStateVisualTarget
         {
             public RecordingBarricadeTarget(int tileId, SurfaceCell cell)
             {
@@ -2807,6 +2493,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public int BlockedPlayCount { get; private set; }
 
             public int CrushedPlayCount { get; private set; }
+
+            public int ActivatedPlayCount { get; private set; }
+
+            public int DeactivatedPlayCount { get; private set; }
+
+            public int ImmediateSyncCount { get; private set; }
+
+            public bool? LastImmediateActive { get; private set; }
 
             public Direction LastBlockedDirection { get; private set; }
 
@@ -2830,6 +2524,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 CrushedPlayCount++;
                 LastCrushedTargetEntityId = targetEntityId;
+            }
+
+            public void PlayBarricadeActivated()
+            {
+                ActivatedPlayCount++;
+            }
+
+            public void PlayBarricadeDeactivated()
+            {
+                DeactivatedPlayCount++;
+            }
+
+            public void SetBarricadeActiveImmediate(bool active)
+            {
+                ImmediateSyncCount++;
+                LastImmediateActive = active;
             }
         }
 
