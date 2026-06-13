@@ -638,7 +638,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxTerrainStopperScenario_ProducesSameHashTraceAndEventLog",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxSolidStopperScenario_ProducesSameHashTraceAndEventLog",
       "category": "Core",
       "contracts": [
         "determinism",

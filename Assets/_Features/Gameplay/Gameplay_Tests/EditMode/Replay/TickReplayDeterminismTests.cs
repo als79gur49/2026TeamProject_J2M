@@ -764,7 +764,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_PushBoxTerrainStopperScenario_ProducesSameHashTraceAndEventLog()
+        public void Replay_PushBoxSolidStopperScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunPushBoxSolidReplaySequence();
             var secondReplay = RunPushBoxSolidReplaySequence();

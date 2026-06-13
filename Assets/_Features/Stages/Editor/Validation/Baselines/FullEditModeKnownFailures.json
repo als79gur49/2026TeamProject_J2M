@@ -639,7 +639,7 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxTerrainStopperScenario_ProducesSameHashTraceAndEventLog",
+      "testFullName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxSolidStopperScenario_ProducesSameHashTraceAndEventLog",
       "assembly": "Game.Integration.Replay.Tests.dll",
       "domain": "Replay",
       "authoringRelated": false,
