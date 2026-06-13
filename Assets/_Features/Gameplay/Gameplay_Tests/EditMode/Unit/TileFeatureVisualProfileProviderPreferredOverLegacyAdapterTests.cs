@@ -1,6 +1,7 @@
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Loop;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -82,6 +83,62 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Object.DestroyImmediate(root);
                 Object.DestroyImmediate(providerProfile);
                 Object.DestroyImmediate(controller);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ControllerProviderPath_DoesNotDispatchThroughLegacyAdapterWhenBothArePresent()
+        {
+            var root = new GameObject(nameof(ControllerProviderPath_DoesNotDispatchThroughLegacyAdapterWhenBothArePresent));
+            var providerProfile = CreateExitOpenBoolProfile("ProviderOpen");
+            var legacyProfile = CreateExitOpenBoolProfile("LegacyOpen");
+            var controllerAsset = CreateAnimatorController("ControllerProviderPreferred_Controller");
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var registry = root.AddComponent<TileFeatureVisualRegistry>();
+                var target = root.AddComponent<TileFeatureVisualTargetView>();
+                target.Configure(100, cell);
+                var animator = root.AddComponent<Animator>();
+                animator.runtimeAnimatorController = controllerAsset;
+                var provider = root.AddComponent<TileFeatureVisualProfileProvider>();
+                SetProfiles(provider, providerProfile);
+#pragma warning disable CS0618
+                var adapter = root.AddComponent<LegacyTileFeatureVisualCueAdapter>();
+#pragma warning restore CS0618
+                adapter.ConfigureTarget(target);
+                SetAdapterProfiles(adapter, legacyProfile);
+                registry.ConfigureSearchRoot(root.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                controller.RefreshContinuousStates(
+                    new[]
+                    {
+                        new TileFeatureVisualState(
+                            100,
+                            cell,
+                            TileFeatureKind.Exit,
+                            isActive: true,
+                            sourceEntityId: 0,
+                            ownerEntityId: 0,
+                            teamId: 0),
+                    });
+
+                Assert.That(animator.GetBool("ProviderOpen"), Is.True);
+                Assert.That(animator.GetBool("LegacyOpen"), Is.False);
+                Assert.That(adapter.DebugExitOpenedCount, Is.Zero);
+                Assert.That(adapter.DebugExitLegacyAnimatorFallbackCount, Is.Zero);
+                Assert.That(adapter.DebugLegacyAnimatorFallbackCount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+                Object.DestroyImmediate(providerProfile);
+                Object.DestroyImmediate(legacyProfile);
+                Object.DestroyImmediate(controllerAsset);
             }
         }
 

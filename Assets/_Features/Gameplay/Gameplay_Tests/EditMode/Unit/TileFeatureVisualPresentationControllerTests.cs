@@ -36,6 +36,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -66,6 +67,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -117,6 +119,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -166,8 +169,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateDestroyActivatedRequest(100, cell),
                 });
 
-                Assert.That(target.DebugPlayDestroyTileActivatedCount, Is.EqualTo(1));
-                Assert.That(target.DebugDestroyTileActive, Is.True);
                 AssertDestroyTileMaterialCleared(targetRenderer);
 
                 controller.PlayRequests(new[]
@@ -175,10 +176,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateDestroyDeactivatedRequest(100, cell),
                 });
 
-                Assert.That(target.DebugPlayDestroyTileDeactivatedCount, Is.EqualTo(1));
-                Assert.That(target.DebugDestroyTileActive, Is.False);
                 AssertDestroyTileInactiveMaterial(targetRenderer);
-                Assert.That(target.DebugPlayDestroyTileTriggeredCount, Is.Zero);
             }
             finally
             {
@@ -201,6 +199,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -233,6 +232,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -264,6 +264,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -294,6 +295,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -464,6 +466,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -502,6 +505,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -538,6 +542,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -762,7 +767,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         ownerEntityId: 0,
                         teamId: 0),
                 });
-                Assert.That(target.DebugDestroyTileActive, Is.True);
+                AssertDestroyTileMaterialCleared(targetRenderer);
 
                 controller.RefreshContinuousStates(new[]
                 {
@@ -776,10 +781,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         teamId: 0),
                 });
 
-                Assert.That(target.DebugDestroyTileActive, Is.False);
                 AssertDestroyTileInactiveMaterial(targetRenderer);
-                Assert.That(target.DebugPlayDestroyTileActivatedCount, Is.Zero);
-                Assert.That(target.DebugPlayDestroyTileDeactivatedCount, Is.Zero);
 
                 controller.RefreshContinuousStates(new[]
                 {
@@ -793,7 +795,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         teamId: 0),
                 });
 
-                Assert.That(target.DebugDestroyTileActive, Is.True);
                 AssertDestroyTileMaterialCleared(targetRenderer);
             }
             finally
@@ -844,7 +845,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         teamId: 0),
                 });
 
-                Assert.That(target.DebugSlideTileActive, Is.False);
                 AssertTileFeatureMaterialState(targetRenderer, Color.gray, 1f, materialIndex: 0);
                 AssertTileFeatureMaterialState(targetRenderer, Color.cyan, 0.5f, materialIndex: 1);
                 Assert.That(firstSharedMaterial.color, Is.EqualTo(Color.black));
@@ -862,12 +862,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         teamId: 0),
                 });
 
-                Assert.That(target.DebugSlideTileActive, Is.True);
                 AssertTileFeatureMaterialCleared(targetRenderer, Color.gray, 1f, materialIndex: 0);
                 AssertTileFeatureMaterialCleared(targetRenderer, Color.cyan, 0.5f, materialIndex: 1);
                 Assert.That(firstSharedMaterial.color, Is.EqualTo(Color.black));
                 Assert.That(secondSharedMaterial.color, Is.EqualTo(Color.white));
-                Assert.That(target.DebugDestroyTileActive, Is.False);
             }
             finally
             {
@@ -894,6 +892,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -1001,6 +1000,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -1049,6 +1049,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -1079,6 +1080,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -1120,6 +1122,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var registry = rootObject.AddComponent<TileFeatureVisualRegistry>();
                 var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
                 target.Configure(100, cell);
+                EnsureLegacyAdapter(target);
                 registry.ConfigureSearchRoot(rootObject.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
@@ -1596,7 +1599,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 controller.AttachRegistry(registry);
                 controller.PlayButtonActivatedRequests(new[] { CreateRequest(100, cell) });
 
-                Assert.That(((TileFeatureVisualTargetView)target).DebugPlayButtonActivatedCount, Is.EqualTo(1));
+                var targetView = (TileFeatureVisualTargetView)target;
+#pragma warning disable CS0618
+                Assert.That(targetView.GetComponent<LegacyTileFeatureVisualCueAdapter>(), Is.Null);
+#pragma warning restore CS0618
             }
             finally
             {
@@ -1759,14 +1765,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(target.TileId, Is.EqualTo(100));
                 Assert.That(target.Cell, Is.EqualTo(cell));
                 var targetView = (TileFeatureVisualTargetView)target;
+                var providerSink = targetView.GetComponent<TileFeatureVisualProfileCueSink>();
+                Assert.That(providerSink, Is.Not.Null);
+                var provider = targetView.GetComponent<TileFeatureVisualProfileProvider>();
+                Assert.That(provider, Is.Not.Null);
+                Assert.That(provider.TryGetProfile(TileFeatureKind.Exit, out var profile), Is.True);
+                Assert.That(profile.TryGetCueBinding(TileFeatureVisualCueId.ExitOpenState, out var binding), Is.True);
+                var expectedStateHash = expectedOpen
+                    ? binding.ActiveStateAnimatorBinding.Hash
+                    : binding.InactiveStateAnimatorBinding.Hash;
+                var animator = targetView.GetComponentInChildren<Animator>(includeInactive: true);
+                Assert.That(animator, Is.Not.Null);
+                Assert.That(animator.GetCurrentAnimatorStateInfo(0).shortNameHash, Is.EqualTo(expectedStateHash));
+#pragma warning disable CS0618
                 var adapter = targetView.GetComponent<LegacyTileFeatureVisualCueAdapter>();
                 Assert.That(adapter, Is.Not.Null);
-                Assert.That(targetView.DebugExitOpen, Is.EqualTo(expectedOpen));
-                Assert.That(targetView.DebugExitOpenedCount, Is.Zero);
-                Assert.That(targetView.DebugExitEnteredCount, Is.Zero);
-                Assert.That(adapter.DebugExitProfileOpenStatePlayCount, Is.EqualTo(1));
+                Assert.That(adapter.DebugExitOpen, Is.False);
                 Assert.That(adapter.DebugExitLegacyAnimatorFallbackCount, Is.Zero);
                 Assert.That(adapter.DebugLegacyAnimatorFallbackCount, Is.Zero);
+#pragma warning restore CS0618
             }
             finally
             {

@@ -660,33 +660,11 @@ namespace Game.Feature.Gameplay.Host
             return false;
         }
 
-        private static ITileFeatureVisualCueSink ResolveTileFeatureCueSink(ITileFeatureVisualTarget target)
+        private static ITileFeatureVisualCueSink ResolveTileFeatureCueSink(
+            ITileFeatureVisualTarget target,
+            TileFeatureKind featureKind)
         {
-            if (target is ITileFeatureVisualCueSink sink)
-            {
-                return sink;
-            }
-
-            if (target is Component component)
-            {
-                var componentSink = component.GetComponent<ITileFeatureVisualCueSink>();
-                if (componentSink != null)
-                {
-                    return componentSink;
-                }
-
-                if (target is TileFeatureVisualTargetView targetView)
-                {
-#pragma warning disable CS0618
-                    // TODO: remove LegacyTileFeatureVisualCueAdapter auto-add after provider migration is complete.
-                    var adapter = component.gameObject.AddComponent<LegacyTileFeatureVisualCueAdapter>();
-#pragma warning restore CS0618
-                    adapter.ConfigureTarget(targetView);
-                    return adapter;
-                }
-            }
-
-            return null;
+            return TileFeatureVisualCueSinkResolver.Resolve(target, featureKind);
         }
 
         private static bool TryApplyInitialBarricadeActiveState(
@@ -695,7 +673,7 @@ namespace Game.Feature.Gameplay.Host
             SurfaceCell cell,
             bool active)
         {
-            var sink = ResolveTileFeatureCueSink(target);
+            var sink = ResolveTileFeatureCueSink(target, TileFeatureKind.Barricade);
             if (sink != null)
             {
                 return sink.TryHandle(
@@ -737,7 +715,7 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            var sink = ResolveTileFeatureCueSink(target);
+            var sink = ResolveTileFeatureCueSink(target, featureKind);
             if (sink != null)
             {
                 return sink.TryHandle(
@@ -773,7 +751,7 @@ namespace Game.Feature.Gameplay.Host
             SurfaceCell cell,
             bool open)
         {
-            var sink = ResolveTileFeatureCueSink(target);
+            var sink = ResolveTileFeatureCueSink(target, TileFeatureKind.Exit);
             if (sink != null)
             {
                 return sink.TryHandle(

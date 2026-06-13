@@ -10612,6 +10612,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var targetObject = new GameObject($"TileFeatureVisualTarget_{tileId}");
             targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
             var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+#pragma warning disable CS0618
+            targetObject.AddComponent<LegacyTileFeatureVisualCueAdapter>();
+#pragma warning restore CS0618
             target.Configure(tileId, cell);
             registry.ConfigureSearchRoot(rootObject.transform);
             presenter.AttachTileFeatureVisualRegistry(registry);

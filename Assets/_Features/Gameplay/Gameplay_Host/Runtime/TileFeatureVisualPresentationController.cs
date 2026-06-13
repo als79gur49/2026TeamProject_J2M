@@ -134,7 +134,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void RefreshContinuousState(TileFeatureVisualState visualState, ITileFeatureVisualTarget target)
         {
-            var sink = ResolveCueSink(target);
+            var sink = ResolveCueSink(target, visualState.TileFeatureKind);
             if (sink == null)
             {
                 _diagnosticSink?.Invoke(
@@ -177,7 +177,7 @@ namespace Game.Feature.Gameplay.Host
 
         private bool PlayRequest(TilePresentationRequest request, ITileFeatureVisualTarget target)
         {
-            var sink = ResolveCueSink(target);
+            var sink = ResolveCueSink(target, request.TileFeatureKind);
             if (sink == null)
             {
                 _diagnosticSink?.Invoke(
@@ -218,30 +218,14 @@ namespace Game.Feature.Gameplay.Host
                 $"{nameof(TileFeatureVisualPresentationController)} unsupported {visualState.TileFeatureKind} visual state target for tile {visualState.TileId}.");
         }
 
-        private static ITileFeatureVisualCueSink ResolveCueSink(ITileFeatureVisualTarget target)
+        private static ITileFeatureVisualCueSink ResolveCueSink(
+            ITileFeatureVisualTarget target,
+            TileFeatureKind featureKind)
         {
-            if (target is ITileFeatureVisualCueSink sink)
+            var sink = TileFeatureVisualCueSinkResolver.Resolve(target, featureKind);
+            if (sink != null)
             {
                 return sink;
-            }
-
-            if (target is UnityEngine.Component component)
-            {
-                var componentSink = component.GetComponent<ITileFeatureVisualCueSink>();
-                if (componentSink != null)
-                {
-                    return componentSink;
-                }
-
-                if (target is TileFeatureVisualTargetView targetView)
-                {
-#pragma warning disable CS0618
-                    // TODO: remove LegacyTileFeatureVisualCueAdapter auto-add after provider migration is complete.
-                    var adapter = component.gameObject.AddComponent<LegacyTileFeatureVisualCueAdapter>();
-#pragma warning restore CS0618
-                    adapter.ConfigureTarget(targetView);
-                    return adapter;
-                }
             }
 
             return LegacyInterfaceCueSink.CanWrap(target)

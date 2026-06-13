@@ -1,7 +1,10 @@
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -27,6 +30,87 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(prefab.GetComponent<TileFeatureVisualProfileProvider>(), Is.Null, prefabPaths[i]);
                 Assert.That(prefab.GetComponentInChildren<Animator>(includeInactive: true), Is.Null, prefabPaths[i]);
                 Assert.That(prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>(), Is.Null, prefabPaths[i]);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void ButtonEntranceAndDefaultExitProductionPrefabs_NoProviderNoAdapter_RuntimePolicyDoesNotWarn()
+        {
+            AssertNoProfileRuntimeNoOp(
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Button_Default.prefab",
+                TileFeatureKind.Button);
+            AssertNoProfileRuntimeNoOp(
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Button_MoonOnly.prefab",
+                TileFeatureKind.Button);
+            AssertNoProfileRuntimeNoOp(
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Entrance_Default.prefab",
+                TileFeatureKind.Entrance);
+            AssertNoProfileRuntimeNoOp(
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Exit_Default.prefab",
+                TileFeatureKind.Exit);
+
+            LogAssert.NoUnexpectedReceived();
+        }
+
+        private static void AssertNoProfileRuntimeNoOp(string prefabPath, TileFeatureKind featureKind)
+        {
+            var root = new GameObject($"{nameof(AssertNoProfileRuntimeNoOp)}_{featureKind}");
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefab, Is.Not.Null, prefabPath);
+
+            try
+            {
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var instance = Object.Instantiate(prefab, root.transform, worldPositionStays: false);
+                var target = instance.GetComponent<TileFeatureVisualTargetView>();
+                Assert.That(target, Is.Not.Null, prefabPath);
+                target.Configure(100, cell);
+
+                var registry = root.AddComponent<TileFeatureVisualRegistry>();
+                registry.ConfigureSearchRoot(root.transform);
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(registry);
+
+                if (featureKind == TileFeatureKind.Button)
+                {
+                    controller.PlayButtonActivatedRequests(
+                        new[]
+                        {
+                            new TilePresentationRequest(
+                                TilePresentationRequestKind.ButtonActivated,
+                                100,
+                                cell,
+                                TileFeatureKind.Button,
+                                sourceEntityId: 0,
+                                ownerEntityId: 0,
+                                teamId: 0),
+                        });
+                }
+                else
+                {
+                    controller.RefreshContinuousStates(
+                        new[]
+                        {
+                            new TileFeatureVisualState(
+                                100,
+                                cell,
+                            featureKind,
+                                isActive: true,
+                                sourceEntityId: 0,
+                                ownerEntityId: 0,
+                                teamId: 0),
+                        });
+                }
+
+                Assert.That(instance.GetComponent<TileFeatureVisualProfileProvider>(), Is.Null, prefabPath);
+#pragma warning disable CS0618
+                Assert.That(instance.GetComponent<LegacyTileFeatureVisualCueAdapter>(), Is.Null, prefabPath);
+#pragma warning restore CS0618
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
             }
         }
     }
