@@ -1478,8 +1478,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(animator.GetCurrentAnimatorStateInfo(0).shortNameHash, Is.EqualTo(expectedStateHash));
 #pragma warning disable CS0618
                 var adapter = targetView.GetComponent<LegacyTileFeatureVisualCueAdapter>();
-                Assert.That(adapter, Is.Not.Null);
-                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.Zero);
+                Assert.That(adapter, Is.Null);
 #pragma warning restore CS0618
             }
             finally

@@ -80,7 +80,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(provider.Profiles.Count, Is.GreaterThan(0), prefabPath);
             Assert.That(provider.TryGetProfile(expectedKind, out var actualProfile), Is.True, prefabPath);
             Assert.That(actualProfile, Is.SameAs(expectedProfile), prefabPath);
-            AssertLegacyAdapterProfilesEmpty(prefab, prefabPath);
+            AssertNoLegacyAdapter(prefab, prefabPath);
         }
 
         private static void AssertNoProviderProfile(string prefabPath)
@@ -90,17 +90,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(prefab.GetComponent<TileFeatureVisualProfileProvider>(), Is.Null, prefabPath);
         }
 
-#pragma warning disable CS0618
-        private static void AssertLegacyAdapterProfilesEmpty(GameObject prefab, string prefabPath)
+        private static void AssertNoLegacyAdapter(GameObject prefab, string prefabPath)
         {
+#pragma warning disable CS0618
             var adapter = prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>();
-            Assert.That(adapter, Is.Not.Null, prefabPath);
-
-            var serializedAdapter = new SerializedObject(adapter);
-            var profiles = serializedAdapter.FindProperty("profiles");
-            Assert.That(profiles, Is.Not.Null, prefabPath);
-            Assert.That(profiles.arraySize, Is.Zero, prefabPath);
-        }
 #pragma warning restore CS0618
+            Assert.That(adapter, Is.Null, prefabPath);
+        }
     }
 }

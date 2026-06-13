@@ -37,11 +37,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var prefabInstance = InstantiateMoonGeneratorPrefab();
             try
             {
+#pragma warning disable CS0618
                 var adapter = prefabInstance.GetComponent<LegacyTileFeatureVisualCueAdapter>();
+#pragma warning restore CS0618
                 var target = prefabInstance.GetComponent<TileFeatureVisualTargetView>();
                 var provider = prefabInstance.GetComponent<TileFeatureVisualProfileProvider>();
                 var animator = prefabInstance.GetComponent<Animator>();
-                Assert.That(adapter, Is.Not.Null);
+                Assert.That(adapter, Is.Null);
                 Assert.That(target, Is.Not.Null);
                 Assert.That(provider, Is.Not.Null);
                 Assert.That(animator, Is.Not.Null);
@@ -66,7 +68,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     targetEntityId: 201));
 
                 Assert.That(handled, Is.True);
-                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.Zero);
             }
             finally
             {
@@ -90,12 +91,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var prefabInstance = InstantiateMoonGeneratorPrefab();
             try
             {
+#pragma warning disable CS0618
                 var adapter = prefabInstance.GetComponent<LegacyTileFeatureVisualCueAdapter>();
+#pragma warning restore CS0618
                 var target = prefabInstance.GetComponent<TileFeatureVisualTargetView>();
                 var provider = prefabInstance.GetComponent<TileFeatureVisualProfileProvider>();
                 var animator = prefabInstance.GetComponent<Animator>();
                 var controller = animator.runtimeAnimatorController as AnimatorController;
-                Assert.That(adapter, Is.Not.Null);
+                Assert.That(adapter, Is.Null);
                 Assert.That(target, Is.Not.Null);
                 Assert.That(provider, Is.Not.Null);
                 Assert.That(controller, Is.Not.Null);
@@ -119,7 +122,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     moonBlockGeneratorBlockedPayload: payload));
 
                 Assert.That(handled, Is.True);
-                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.Zero);
             }
             finally
             {

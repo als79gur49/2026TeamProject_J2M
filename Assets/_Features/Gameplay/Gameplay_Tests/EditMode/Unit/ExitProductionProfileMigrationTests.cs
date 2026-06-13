@@ -120,8 +120,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 registry.ConfigureSearchRoot(root.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
+#pragma warning disable CS0618
                 var adapter = instance.GetComponent<LegacyTileFeatureVisualCueAdapter>();
-                Assert.That(adapter, Is.Not.Null);
+#pragma warning restore CS0618
+                Assert.That(adapter, Is.Null);
 
                 controller.PlayRequests(new[]
                 {
@@ -158,7 +160,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var animator = instance.GetComponentInChildren<Animator>(includeInactive: true);
                 Assert.That(animator, Is.Not.Null);
                 Assert.That(animator.GetBool("ExitOpen"), Is.True);
-                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.Zero);
             }
             finally
             {
