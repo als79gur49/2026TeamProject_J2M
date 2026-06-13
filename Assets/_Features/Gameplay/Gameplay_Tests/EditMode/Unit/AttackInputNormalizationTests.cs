@@ -21,13 +21,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void AttackExpander_SyntheticReservations_ExpandToDamageAndProjectileDestroyCandidates()
+        public void AttackExpander_SyntheticReservations_ExpandToDamageCandidates()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 3),
-                CreateProjectile(entityId: 30, teamId: 1, position: new Vector2Int(2, 0), hp: 1),
+                CreateUnit(entityId: 30, teamId: 1, position: new Vector2Int(2, 0), hp: 1),
             });
             var snapshot = SnapshotBuilder.Create(worldState);
             var normalizedInputs = new List<AttackIntent>();
@@ -55,7 +55,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     (IntentId: 1, SourceId: 10, FirstDamageTargetId: 20, DamageCount: 1),
-                    (IntentId: 2, SourceId: 30, FirstDamageTargetId: 20, DamageCount: 2),
+                    (IntentId: 2, SourceId: 30, FirstDamageTargetId: 20, DamageCount: 1),
                 },
                 expandedCandidates
                     .Select(group => (group.IntentId, group.SourceId, FirstDamageTargetId: group.Damages[0].TargetId, DamageCount: group.Damages.Count))
@@ -65,7 +65,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     (IntentId: 2, TargetId: 20, Amount: 1),
-                    (IntentId: 2, TargetId: 30, Amount: 1),
                 },
                 expandedCandidates
                     .Single(group => group.IntentId == 2)
@@ -73,7 +72,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .Select(damage => (IntentId: 2, damage.TargetId, damage.Amount))
                     .ToArray());
             CollectionAssert.AreEqual(
-                new[] { 20, 30 },
+                new[] { 20 },
                 expandedCandidates
                     .Single(group => group.IntentId == 2)
                     .Destroys
@@ -89,7 +88,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 3),
-                CreateProjectile(entityId: 30, teamId: 1, position: new Vector2Int(2, 0), hp: 1),
+                CreateUnit(entityId: 30, teamId: 1, position: new Vector2Int(2, 0), hp: 1),
             });
             var snapshot = SnapshotBuilder.Create(worldState);
             var reservation = new ImpactReservation(30, 20, new SurfaceCell(FaceId.Floor, 1, 0), 1, 7, 2, 1);
@@ -289,22 +288,5 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
-        private static EntityState CreateProjectile(int entityId, int teamId, Vector2Int position, int hp)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = hp,
-                maxHp = hp,
-                teamId = teamId,
-                type = EntityType.Projectile,
-                state = EntityPhaseState.Idle,
-                stateTimer = 0,
-                facing = Direction.Right,
-                markedForDeath = false,
-                spawnTick = 0,
-            };
-        }
     }
 }

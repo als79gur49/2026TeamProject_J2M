@@ -656,13 +656,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             40,
                             MotionMode.Voluntary,
                             ForcedMotionOp.None,
-                            entityType: EntityType.Projectile),
+                            entityType: EntityType.Box),
                     }),
                 new[]
                 {
                     CreateUnit(10, UnitRole.Player),
                     CreateEntity(30, EntityType.Box),
-                    CreateEntity(40, EntityType.Projectile),
+                    CreateEntity(40, EntityType.Box),
                 });
 
             var requests = planner.BuildRequests(result);

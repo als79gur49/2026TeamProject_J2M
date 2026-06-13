@@ -76,15 +76,8 @@ namespace Game.Feature.Gameplay.Attack.Collection
 
         public static RawAttackIntent CreateFireProjectile(int sourceId, int priority)
         {
-            return new RawAttackIntent(
-                sourceId,
-                priority,
-                0,
-                AttackCommandKind.FireProjectile,
-                AttackSourceKind.Combat,
-                default,
-                hasTargetCell: false,
-                localSequence: 0);
+            throw new NotSupportedException(
+                "FireProjectile is a retired legacy EntityType.Projectile path. Use PendingCellImpact-based forward-cell projectile runtime instead.");
         }
 
         private static void ValidateContract(int targetId, AttackCommandKind commandKind, bool hasTargetCell)
@@ -105,17 +98,8 @@ namespace Game.Feature.Gameplay.Attack.Collection
                     return;
 
                 case AttackCommandKind.FireProjectile:
-                    if (targetId != 0)
-                    {
-                        throw new ArgumentOutOfRangeException(nameof(targetId), "FireProjectile intents must not carry a target ID.");
-                    }
-
-                    if (hasTargetCell)
-                    {
-                        throw new ArgumentException("FireProjectile intents must not carry a target cell.", nameof(hasTargetCell));
-                    }
-
-                    return;
+                    throw new NotSupportedException(
+                        "FireProjectile is a retired legacy EntityType.Projectile path. Use PendingCellImpact-based forward-cell projectile runtime instead.");
 
                 default:
                     throw new ArgumentOutOfRangeException(

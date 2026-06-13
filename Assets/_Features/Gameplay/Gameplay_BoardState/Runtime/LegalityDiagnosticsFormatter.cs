@@ -21,9 +21,7 @@ namespace Game.Feature.Gameplay.BoardState
             return blocker.Kind switch
             {
                 LegalityBlockerKind.BoardEdge => "SpawnDestinationOutsideBoard",
-                LegalityBlockerKind.Solid => blocker.EntityType == EntityType.Projectile
-                    ? "SpawnDestinationBlockedByProjectile"
-                    : "SpawnDestinationBlockedByEntity",
+                LegalityBlockerKind.Solid => "SpawnDestinationBlockedByEntity",
                 LegalityBlockerKind.Unit => "SpawnDestinationBlockedByEntity",
                 LegalityBlockerKind.Reservation => "SpawnDestinationBlockedByReservation",
                 LegalityBlockerKind.TileFeature => "SpawnDestinationBlockedByTileFeature",

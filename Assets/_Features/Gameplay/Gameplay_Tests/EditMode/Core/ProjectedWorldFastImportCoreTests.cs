@@ -37,15 +37,12 @@ namespace Game.Feature.Gameplay.Tests.Core
             var fastSnapshot = SnapshotBuilder.Create(WorldState.CreateFromSnapshotFast(baseSnapshot));
             var unitCell = new SurfaceCell(FaceId.Floor, 1, 1);
             var boxCell = new SurfaceCell(FaceId.Floor, 2, 1);
-            var projectileCell = new SurfaceCell(FaceId.Floor, 3, 1);
 
             Assert.That(fastSnapshot.HasAnyUnitAt(unitCell), Is.EqualTo(slowSnapshot.HasAnyUnitAt(unitCell)));
             Assert.That(fastSnapshot.TryGetPrimaryUnitAt(unitCell, out var fastUnit), Is.EqualTo(slowSnapshot.TryGetPrimaryUnitAt(unitCell, out var slowUnit)));
             Assert.That(fastUnit.entityId, Is.EqualTo(slowUnit.entityId));
             Assert.That(fastSnapshot.TryGetSolidOccupantAt(boxCell, out var fastBox), Is.EqualTo(slowSnapshot.TryGetSolidOccupantAt(boxCell, out var slowBox)));
             Assert.That(fastBox.entityId, Is.EqualTo(slowBox.entityId));
-            Assert.That(fastSnapshot.TryGetProjectileAt(projectileCell, out var fastProjectile), Is.EqualTo(slowSnapshot.TryGetProjectileAt(projectileCell, out var slowProjectile)));
-            Assert.That(fastProjectile.entityId, Is.EqualTo(slowProjectile.entityId));
             Assert.That(
                 fastSnapshot.TryGetPlacementBlocker(EntityType.Box, unitCell, ignoredEntityId: 0, out var fastBlocker),
                 Is.EqualTo(slowSnapshot.TryGetPlacementBlocker(EntityType.Box, unitCell, ignoredEntityId: 0, out var slowBlocker)));
@@ -154,7 +151,6 @@ namespace Game.Feature.Gameplay.Tests.Core
                     CreateUnit(30, new SurfaceCell(FaceId.Floor, 0, 2), UnitRole.Enemy, teamId: 2),
                     CreateUnit(60, new SurfaceCell(FaceId.Floor, 3, 3), UnitRole.Enemy, teamId: 2, boardPresence: EntityBoardPresence.Detached),
                     CreateBox(40, new SurfaceCell(FaceId.Floor, 2, 1)),
-                    CreateProjectile(50, new SurfaceCell(FaceId.Floor, 3, 1)),
                 },
                 TestBounds,
                 new CubeTopologyState(FaceId.Floor),
@@ -292,7 +288,6 @@ namespace Game.Feature.Gameplay.Tests.Core
             CollectionAssert.AreEqual(Collect<TileFeatureState>(expected.EnumerateTileFeaturesOrdered), Collect<TileFeatureState>(actual.EnumerateTileFeaturesOrdered));
             CollectionAssert.AreEqual(Collect<SnapshotOccupancyEntry>(expected.EnumerateUnitOccupancyOrdered), Collect<SnapshotOccupancyEntry>(actual.EnumerateUnitOccupancyOrdered));
             CollectionAssert.AreEqual(Collect<SnapshotOccupancyEntry>(expected.EnumerateSolidOccupancyOrdered), Collect<SnapshotOccupancyEntry>(actual.EnumerateSolidOccupancyOrdered));
-            CollectionAssert.AreEqual(Collect<SnapshotOccupancyEntry>(expected.EnumerateProjectileOccupancyOrdered), Collect<SnapshotOccupancyEntry>(actual.EnumerateProjectileOccupancyOrdered));
             CollectionAssert.AreEqual(Collect<PlayerControlSnapshotEntry>(expected.EnumeratePlayerControlStatesOrdered), Collect<PlayerControlSnapshotEntry>(actual.EnumeratePlayerControlStatesOrdered));
             CollectionAssert.AreEqual(Collect<PlayerDamageSnapshotEntry>(expected.EnumeratePlayerDamageStatesOrdered), Collect<PlayerDamageSnapshotEntry>(actual.EnumeratePlayerDamageStatesOrdered));
             CollectionAssert.AreEqual(Collect<EnemyActionSnapshotEntry>(expected.EnumerateEnemyActionStatesOrdered), Collect<EnemyActionSnapshotEntry>(actual.EnumerateEnemyActionStatesOrdered));
@@ -384,22 +379,6 @@ namespace Game.Feature.Gameplay.Tests.Core
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
                 boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
-            };
-        }
-
-        private static EntityState CreateProjectile(int entityId, SurfaceCell position)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 1,
-                type = EntityType.Projectile,
-                state = EntityPhaseState.Idle,
-                facing = Direction.Right,
-                boardPresence = EntityBoardPresence.Occupying,
             };
         }
 

@@ -9,7 +9,6 @@ namespace Game.Feature.Gameplay.BoardState
     public sealed class WorldState : IWorldStateMutationPort
     {
         private readonly Dictionary<int, EntityState> _entitiesById = new();
-        private readonly Dictionary<SurfaceCell, int> _projectileOccupancy = new();
         private readonly Dictionary<SurfaceCell, int> _solidOccupancy = new();
         private readonly Dictionary<int, TileFeatureState> _tileFeaturesById = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _tileFeatureIdsByCell = new();
@@ -149,7 +148,6 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, EntityState>(_entitiesById),
                 CreateSnapshotOwnedStackedUnitsByCell(),
                 new Dictionary<SurfaceCell, int>(_solidOccupancy),
-                new Dictionary<SurfaceCell, int>(_projectileOccupancy),
                 new Dictionary<int, TileFeatureState>(_tileFeaturesById),
                 CreateSnapshotOwnedTileFeatureIdsByCell(),
                 new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
@@ -181,7 +179,6 @@ namespace Game.Feature.Gameplay.BoardState
             snapshot.CopyEntitiesByIdTo(_entitiesById);
             snapshot.CopyStackedUnitsByCellTo(_stackedUnitsByCell);
             snapshot.CopySolidOccupancyTo(_solidOccupancy);
-            snapshot.CopyProjectileOccupancyTo(_projectileOccupancy);
             snapshot.CopyTileFeaturesByIdTo(_tileFeaturesById);
             snapshot.CopyTileFeatureIdsByCellTo(_tileFeatureIdsByCell);
             snapshot.CopyEnemyActionStatesByEntityIdTo(_enemyActionStatesByEntityId);
@@ -211,6 +208,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void SpawnEntity(EntityState entity)
         {
+            EnsureEntityTypeIsRuntimeSupported(entity.type);
+
             if (_entitiesById.ContainsKey(entity.entityId))
             {
                 throw new InvalidOperationException("Duplicate entity id detected while adding entity.");
@@ -767,10 +766,6 @@ namespace Game.Feature.Gameplay.BoardState
 
             switch (entity.type)
             {
-                case EntityType.Projectile:
-                    ClearLayerOccupancy(_projectileOccupancy, entity.position, entity.entityId);
-                    break;
-
                 case EntityType.Unit:
                     ClearStackedUnitOccupancy(entity.position, entity.entityId);
                     break;
@@ -790,10 +785,6 @@ namespace Game.Feature.Gameplay.BoardState
 
             switch (entity.type)
             {
-                case EntityType.Projectile:
-                    SetLayerOccupancy(_projectileOccupancy, entity.position, entity.entityId);
-                    break;
-
                 case EntityType.Unit:
                     SetStackedUnitOccupancy(entity.position, entity.entityId);
                     break;
@@ -816,7 +807,6 @@ namespace Game.Feature.Gameplay.BoardState
                 _stackedUnitsByCell,
                 _enemyGlideStatesByEntityId,
                 _solidOccupancy,
-                _projectileOccupancy,
                 _boardBounds,
                 entity.type,
                 cell,
@@ -1200,6 +1190,15 @@ namespace Game.Feature.Gameplay.BoardState
         private static bool ShouldStoreEntityInOccupancy(EntityState entity)
         {
             return entity.boardPresence == EntityBoardPresence.Occupying;
+        }
+
+        private static void EnsureEntityTypeIsRuntimeSupported(EntityType entityType)
+        {
+            if (entityType == EntityType.Projectile)
+            {
+                throw new NotSupportedException(
+                    "EntityType.Projectile is reserved for legacy serialized values and cannot be instantiated at runtime.");
+            }
         }
 
         private static string FormatPlacementBlocker(SlideStopper blocker)

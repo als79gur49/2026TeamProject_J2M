@@ -206,7 +206,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             AppendOccupancyEntries(builder, "Units", snapshot, static (source, buffer) => source.EnumerateUnitOccupancyOrdered(buffer));
             AppendOccupancyEntries(builder, "Solids", snapshot, static (source, buffer) => source.EnumerateSolidOccupancyOrdered(buffer));
-            AppendOccupancyEntries(builder, "Projectiles", snapshot, static (source, buffer) => source.EnumerateProjectileOccupancyOrdered(buffer));
             AppendPlayerControlEntries(builder, snapshot);
             AppendUnitKinematicEntries(builder, snapshot);
             AppendPlayerDamageEntries(builder, snapshot);

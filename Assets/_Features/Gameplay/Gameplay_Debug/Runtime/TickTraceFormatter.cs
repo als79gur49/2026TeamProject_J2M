@@ -153,10 +153,6 @@ namespace Game.Feature.Gameplay.Debug
             snapshot.EnumerateUnitOccupancyOrdered(unitEntries);
             AddOccupancyEntries(occupancyEntries, "Unit", unitEntries);
 
-            var projectileEntries = new List<SnapshotOccupancyEntry>();
-            snapshot.EnumerateProjectileOccupancyOrdered(projectileEntries);
-            AddOccupancyEntries(occupancyEntries, "Projectile", projectileEntries);
-
             occupancyEntries.Sort(TraceOccupancyEntryComparer.Instance);
 
             var occupancyLines = new List<string>(occupancyEntries.Count);

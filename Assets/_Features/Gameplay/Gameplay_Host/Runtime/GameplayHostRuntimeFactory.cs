@@ -589,13 +589,10 @@ namespace Game.Feature.Gameplay.Host
             {
                 var normalizedEntity = entity;
 
-                if (normalizedEntity.type == EntityType.Projectile &&
-                    normalizedEntity.spawnTick == 0 &&
-                    normalizedEntity.stateTimer == 0 &&
-                    normalizedEntity.hp > 0 &&
-                    !normalizedEntity.markedForDeath)
+                if (normalizedEntity.type == EntityType.Projectile)
                 {
-                    normalizedEntity.stateTimer = timingProfile.ProjectileStepIntervalTicks;
+                    throw new NotSupportedException(
+                        "EntityType.Projectile is reserved for legacy serialized values and cannot be used as an initial runtime entity.");
                 }
 
                 normalizedEntities.Add(normalizedEntity);

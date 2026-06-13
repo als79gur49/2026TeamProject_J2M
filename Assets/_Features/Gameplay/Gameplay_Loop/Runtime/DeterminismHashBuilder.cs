@@ -112,9 +112,6 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("StackedUnitOccupancy").Append('\n');
             AppendOccupancyLines(builder, GetOrderedUnitOccupancy(finalSnapshot));
 
-            builder.Append("ProjectileOccupancy").Append('\n');
-            AppendOccupancyLines(builder, GetOrderedProjectileOccupancy(finalSnapshot));
-
             builder.Append("MarkedForDeath").Append('\n');
             AppendMarkedForDeathLines(builder, tickResultData.FinalEntities);
 
@@ -309,13 +306,6 @@ namespace Game.Feature.Gameplay.Loop
             var pendingReactions = new List<PendingEnemyBlockedReactionSnapshotEntry>();
             finalSnapshot.EnumeratePendingEnemyBlockedReactionsOrdered(pendingReactions);
             return pendingReactions;
-        }
-
-        private static List<SnapshotOccupancyEntry> GetOrderedProjectileOccupancy(WorldSnapshot finalSnapshot)
-        {
-            var occupancyEntries = new List<SnapshotOccupancyEntry>();
-            finalSnapshot.EnumerateProjectileOccupancyOrdered(occupancyEntries);
-            return occupancyEntries;
         }
 
         private static List<TileFeatureState> GetOrderedTileFeatures(WorldSnapshot finalSnapshot)

@@ -178,20 +178,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(occupancy, Is.Empty);
             snapshot.EnumerateSolidOccupancyOrdered(occupancy);
             Assert.That(occupancy, Is.Empty);
-            snapshot.EnumerateProjectileOccupancyOrdered(occupancy);
-            Assert.That(occupancy, Is.Empty);
             Assert.That(snapshot.TryGetTileFeature(10, out _), Is.True);
         }
 
         [Test]
         [Category("Core")]
-        public void TileFeatureLayer_AllowsBoxUnitAndProjectileSameCell()
+        public void TileFeatureLayer_AllowsBoxAndUnitSameCell()
         {
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
 
             AssertOccupantAndTileFeatureCanShareCell(CreateBox(10, cell), cell);
             AssertOccupantAndTileFeatureCanShareCell(CreateUnit(20, cell), cell);
-            AssertOccupantAndTileFeatureCanShareCell(CreateProjectile(30, cell), cell);
         }
 
         [Test]
@@ -509,21 +506,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 3,
                 teamId = 1,
                 type = EntityType.Unit,
-                state = EntityPhaseState.Idle,
-                facing = Direction.Right,
-            };
-        }
-
-        private static EntityState CreateProjectile(int entityId, SurfaceCell position)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 1,
-                type = EntityType.Projectile,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
             };

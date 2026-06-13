@@ -149,11 +149,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 .ToArray();
 
             Assert.That(fieldTypes, Has.Member(typeof(ISnapshotEntityLogicProvider)));
-            Assert.That(
-                fieldTypes.Any(fieldType =>
-                    fieldType == typeof(ProjectileLogic) ||
-                    (fieldType.IsGenericType && fieldType.GetGenericArguments().Contains(typeof(ProjectileLogic)))),
-                Is.False);
+            Assert.That(fieldTypes.Any(fieldType => fieldType.Name.Contains("ProjectileLogic")), Is.False);
         }
 
         [Test]

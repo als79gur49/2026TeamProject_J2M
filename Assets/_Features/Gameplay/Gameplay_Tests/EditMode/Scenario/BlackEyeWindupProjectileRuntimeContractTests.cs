@@ -243,7 +243,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(startedAction.lockedTargetCell, Is.EqualTo(lockedCell));
 
             InvalidatePlayerDuringWindup(worldState, invalidationKind);
-            var projectileCountAfterInvalidation = CountProjectiles(worldState.CreateSnapshot());
 
             var executeTick = pipeline.RunTick(new TickInput(startedAction.executeTick));
             var impact = GetSinglePendingImpact(worldState);
@@ -255,7 +254,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(executeTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.Zero);
             Assert.That(executeTick.PresentationData.ForwardCellProjectileReleaseSignals, Has.Count.EqualTo(1));
             Assert.That(executeTick.PresentationData.ForwardCellProjectileReleaseSignals.Single().TargetCell, Is.EqualTo(lockedCell));
-            Assert.That(CountProjectiles(worldState.CreateSnapshot()), Is.EqualTo(projectileCountAfterInvalidation));
 
             var actionAfterRelease = GetEnemyActionState(worldState);
             Assert.That(actionAfterRelease.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
@@ -450,15 +448,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_BlockerPolicy_ProjectileOccupied_CurrentContract()
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_SolidOccupied_CurrentContract()
         {
-            var projectileCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var solidCell = new SurfaceCell(FaceId.Floor, 2, 0);
             var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
             var worldState = CreateCombatWorld(
                 targetCell,
-                extraEntities: new[] { CreateProjectile(70, projectileCell) });
+                extraEntities: new[] { CreateBox(70, solidCell) });
 
-            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Does.Contain($"Projectile:70@{projectileCell};"));
+            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Does.Contain($"Solid:70@{solidCell};"));
 
             var observation = ReleaseForwardCellProjectile(worldState);
 
@@ -583,7 +581,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
             var frontSolidCell = new SurfaceCell(FaceId.Front, 2, 0);
-            var frontProjectileCell = new SurfaceCell(FaceId.Front, 3, 0);
             var frontUnitCell = new SurfaceCell(FaceId.Front, 1, 0);
             var worldState = CreateCombatWorld(
                 targetCell,
@@ -591,7 +588,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CreateUnit(50, 2, frontUnitCell, EnemyAiMode.None, Direction.Left, UnitRole.Enemy),
                     CreateBox(60, frontSolidCell),
-                    CreateProjectile(70, frontProjectileCell),
                 });
 
             var observation = ReleaseForwardCellProjectile(worldState);
@@ -611,14 +607,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 extraEntities: new EntityState[]
                 {
                     CreateUnit(50, 2, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.None, Direction.Left, UnitRole.Enemy),
-                    CreateProjectile(70, new SurfaceCell(FaceId.Floor, 3, 0)),
                 });
 
             var observation = ReleaseForwardCellProjectile(worldState);
 
             Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
             Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
-            Assert.That(observation.ReleaseTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.EqualTo(1));
+            Assert.That(observation.ReleaseTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.Zero);
         }
 
         [Test]
@@ -944,25 +939,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             };
         }
 
-        private static EntityState CreateProjectile(int entityId, SurfaceCell cell)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = cell,
-                hp = 1,
-                maxHp = 1,
-                teamId = 0,
-                type = EntityType.Projectile,
-                unitRole = UnitRole.None,
-                state = EntityPhaseState.Idle,
-                facing = Direction.None,
-                boardPresence = EntityBoardPresence.Occupying,
-                markedForDeath = false,
-                spawnTick = 0,
-            };
-        }
-
         private static EntityState GetEntity(WorldState worldState, int entityId)
         {
             Assert.That(worldState.CreateSnapshot().TryGetEntity(entityId, out var entity), Is.True);
@@ -998,7 +974,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var afterOccupancy = DumpOccupancy(worldState.CreateSnapshot());
 
             Assert.That(releaseTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-            Assert.That(releaseTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.EqualTo(CountProjectiles(worldState.CreateSnapshot())));
+            Assert.That(releaseTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.Zero);
 
             return new ForwardCellProjectileReleaseObservation(
                 action,
@@ -1092,7 +1068,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var startTick = pipeline.RunTick(new TickInput(1));
             var startedAction = GetEnemyActionState(worldState);
             var beforeMoveOccupancy = DumpOccupancy(worldState.CreateSnapshot());
-            var projectileCountBeforeMove = CountProjectiles(worldState.CreateSnapshot());
 
             Assert.That(startedAction.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
             Assert.That(startedAction.lockedTargetEntityId, Is.EqualTo(PlayerId));
@@ -1114,7 +1089,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var releaseTick = pipeline.RunTick(new TickInput(startedAction.executeTick));
             var afterReleaseOccupancy = DumpOccupancy(worldState.CreateSnapshot());
-            var projectileCountAfterRelease = CountProjectiles(worldState.CreateSnapshot());
             var impacts = new List<PendingCellImpactSnapshotEntry>();
             worldState.CreateSnapshot().EnumeratePendingCellImpactsOrdered(impacts);
             var hasActionAfterRelease = worldState.CreateSnapshot().TryGetEnemyActionState(EnemyId, out var actionAfterRelease);
@@ -1133,8 +1107,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 beforeMoveOccupancy,
                 afterMoveOccupancy,
                 afterReleaseOccupancy,
-                projectileCountBeforeMove,
-                projectileCountAfterRelease);
+                0,
+                0);
         }
 
         private static IReadOnlyList<TargetMoveReplayFrame> RunTargetMoveDuringWindupReplay(
@@ -1170,13 +1144,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 DumpPendingImpacts(snapshot),
                 DumpReleaseSignals(result),
                 DumpOccupancy(snapshot));
-        }
-
-        private static int CountProjectiles(WorldSnapshot snapshot)
-        {
-            var entities = new List<EntityState>();
-            snapshot.EnumerateEntitiesOrdered(entities);
-            return entities.Count(entity => entity.type == EntityType.Projectile);
         }
 
         private static void AssertReleasedAtLockedCell(
@@ -1325,7 +1292,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var builder = new StringBuilder();
             AppendOccupancy(builder, "Unit", snapshot, (source, buffer) => source.EnumerateUnitOccupancyOrdered(buffer));
             AppendOccupancy(builder, "Solid", snapshot, (source, buffer) => source.EnumerateSolidOccupancyOrdered(buffer));
-            AppendOccupancy(builder, "Projectile", snapshot, (source, buffer) => source.EnumerateProjectileOccupancyOrdered(buffer));
             return builder.ToString();
         }
 

@@ -94,13 +94,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var unitCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var boxCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var projectileCell = new SurfaceCell(FaceId.Floor, 2, 0);
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(10, unitCell),
                     CreateBox(20, boxCell),
-                    CreateProjectile(30, projectileCell),
                 },
                 Array.Empty<TileFeatureState>());
             var projectedSnapshot = ProjectTileFeatures(
@@ -110,8 +108,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(projectedSnapshot.HasAnyUnitAt(unitCell), Is.True);
             Assert.That(projectedSnapshot.TryGetSolidOccupantAt(boxCell, out var box), Is.True);
             Assert.That(box.entityId, Is.EqualTo(20));
-            Assert.That(projectedSnapshot.TryGetProjectileAt(projectileCell, out var projectile), Is.True);
-            Assert.That(projectile.entityId, Is.EqualTo(30));
         }
 
         [Test]
@@ -410,21 +406,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 3,
                 teamId = 1,
                 type = EntityType.Unit,
-                state = EntityPhaseState.Idle,
-                facing = Direction.Right,
-            };
-        }
-
-        private static EntityState CreateProjectile(int entityId, SurfaceCell position)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 1,
-                type = EntityType.Projectile,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
             };

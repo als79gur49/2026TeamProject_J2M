@@ -574,7 +574,6 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             return entitiesById.TryGetValue(entityId, out var entity) &&
-                   entity.type != EntityType.Projectile &&
                    GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
                        ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology));
         }

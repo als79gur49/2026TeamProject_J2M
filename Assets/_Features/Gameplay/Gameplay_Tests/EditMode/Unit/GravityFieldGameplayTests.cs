@@ -156,7 +156,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 dead,
                 marked,
                 detached,
-                CreateProjectile(49, new SurfaceCell(FaceId.Floor, -1, -1)),
                 CreateBox(50, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
             });
 
@@ -774,23 +773,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boxArchetype = archetype,
                 gravityFieldPhase = phase,
                 gravityFieldTimerTicks = timerTicks,
-            };
-        }
-
-        private static EntityState CreateProjectile(int entityId, SurfaceCell position)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 2,
-                type = EntityType.Projectile,
-                unitRole = UnitRole.None,
-                state = EntityPhaseState.Idle,
-                facing = Direction.Right,
-                boardPresence = EntityBoardPresence.Occupying,
             };
         }
 

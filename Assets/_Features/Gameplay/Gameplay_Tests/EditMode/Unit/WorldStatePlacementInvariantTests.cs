@@ -338,7 +338,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SpawnEntity_ProjectileDestinationOccupiedByUnit_AllowsProjectileAndPreservesUnitOccupancy()
+        public void SpawnEntity_ProjectileDestinationOccupiedByUnit_ThrowsAndLeavesWorldUnchanged()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
@@ -346,16 +346,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(entityId: 10, position: Vector2Int.zero),
                 });
 
-            worldState.CreateWriteContext().SpawnEntity(CreateProjectile(entityId: 20, position: Vector2Int.zero));
+            Assert.Throws<NotSupportedException>(
+                () => worldState.CreateWriteContext().SpawnEntity(CreateProjectile(entityId: 20, position: Vector2Int.zero)));
 
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(10, out _), Is.True);
-            Assert.That(snapshot.TryGetEntity(20, out var projectile), Is.True);
-            Assert.That(projectile.type, Is.EqualTo(EntityType.Projectile));
-            Assert.That(projectile.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
             CollectionAssert.AreEqual(new[] { 10 }, GetUnitIdsAt(snapshot, Vector2Int.zero));
-            Assert.That(snapshot.TryGetProjectileAt(Vector2Int.zero, out var projectileOccupant), Is.True);
-            Assert.That(projectileOccupant.entityId, Is.EqualTo(20));
         }
 
         [Test]
@@ -368,55 +365,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateBox(entityId: 10, position: Vector2Int.zero),
                 });
 
-            Assert.Throws<InvalidOperationException>(
+            Assert.Throws<NotSupportedException>(
                 () => worldState.CreateWriteContext().SpawnEntity(CreateProjectile(entityId: 20, position: Vector2Int.zero)));
 
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(10, out var box), Is.True);
             Assert.That(box.type, Is.EqualTo(EntityType.Box));
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
-            Assert.That(snapshot.TryGetProjectileAt(Vector2Int.zero, out _), Is.False);
         }
 
         [Test]
         [Category("Extended")]
-        public void ProjectedWorld_BoxMovedOntoProjectileCell_RemainsMaterializable()
+        public void ProjectedWorld_ProjectileEntity_ThrowsBeforeMaterialization()
         {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateBox(entityId: 10, position: new Vector2Int(1, 0)),
-                    CreateProjectile(entityId: 20, position: new Vector2Int(2, 0)),
-                },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
-            worldState.CreateWriteContext().MoveEntity(10, new Vector2Int(2, 0));
-
-            var projectedSnapshot = new ProjectedWorld(worldState.CreateSnapshot()).CreateSnapshot();
-
-            Assert.That(projectedSnapshot.TryGetSolidOccupantAt(new Vector2Int(2, 0), out var boxOccupant), Is.True);
-            Assert.That(boxOccupant.entityId, Is.EqualTo(10));
-            Assert.That(projectedSnapshot.TryGetProjectileAt(new Vector2Int(2, 0), out var projectileOccupant), Is.True);
-            Assert.That(projectileOccupant.entityId, Is.EqualTo(20));
+            Assert.Throws<NotSupportedException>(() =>
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new[]
+                    {
+                        CreateProjectile(entityId: 20, position: new Vector2Int(2, 0)),
+                    },
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0))));
         }
 
         [Test]
         [Category("Extended")]
-        public void SpawnEntity_ProjectileDestinationOccupiedByProjectile_ThrowsAndLeavesWorldUnchanged()
+        public void CreateWorldState_ProjectileEntity_Throws()
         {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateProjectile(entityId: 10, position: Vector2Int.zero),
-                });
-
-            Assert.Throws<InvalidOperationException>(
-                () => worldState.CreateWriteContext().SpawnEntity(CreateProjectile(entityId: 20, position: Vector2Int.zero)));
-
-            var snapshot = worldState.CreateSnapshot();
-            Assert.That(snapshot.TryGetEntity(10, out _), Is.True);
-            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
-            Assert.That(snapshot.TryGetProjectileAt(Vector2Int.zero, out var occupant), Is.True);
-            Assert.That(occupant.entityId, Is.EqualTo(10));
+            Assert.Throws<NotSupportedException>(() =>
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new[]
+                    {
+                        CreateProjectile(entityId: 10, position: Vector2Int.zero),
+                    }));
         }
 
         [Test]

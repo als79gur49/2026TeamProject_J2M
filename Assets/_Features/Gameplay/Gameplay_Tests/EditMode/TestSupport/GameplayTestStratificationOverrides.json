@@ -604,18 +604,6 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_ProjectileImpactScenario_ProducesSamePerTickHashTraceAndEventLog",
-      "category": "Core",
-      "contracts": [
-        "determinism",
-        "damage_affects_movement",
-        "spawn_destroy_delayed_ordering",
-        "tick_replay_determinism_contract"
-      ],
-      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
-      "locked": true
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxBoardEdgeScenario_ProducesSameHashTraceAndEventLog",
       "category": "Core",
       "contracts": [
@@ -792,24 +780,6 @@
         "attack_phase_scenario_contract"
       ],
       "reason": "Locked Core coverage for damage_affects_movement in AttackPhaseScenarioTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_FireProjectileIntent_AllowsSpawnIntoOccupiedUnitCell",
-      "category": "Core",
-      "contracts": [
-        "attack_phase_scenario_contract"
-      ],
-      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_FireProjectileIntent_SpawnsProjectileDuringCommit",
-      "category": "Core",
-      "contracts": [
-        "attack_phase_scenario_contract"
-      ],
-      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
       "locked": true
     },
     {

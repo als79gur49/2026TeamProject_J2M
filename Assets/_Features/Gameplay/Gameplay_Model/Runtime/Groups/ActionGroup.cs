@@ -58,8 +58,6 @@ namespace Game.Feature.Gameplay.Model.Groups
 
         public SurfaceCell DeferredImpactCell { get; private set; }
 
-        public int ProjectileImpactTargetId => GroupKind == ActionGroupKind.ProjectileImpact ? ImpactTargetId : 0;
-
         public int BoxKineticTargetId { get; private set; }
 
         public int BoxKineticInstigatorEntityId { get; private set; }
@@ -85,27 +83,6 @@ namespace Game.Feature.Gameplay.Model.Groups
         public bool HasResolvedImpact => ImpactSourceId > 0 && ImpactTargetIds.Count > 0;
 
         public bool HasDeferredImpact => DeferredImpactSourceId > 0;
-
-        public void AssignProjectileImpactTarget(int targetId)
-        {
-            if (GroupKind != ActionGroupKind.ProjectileImpact)
-            {
-                throw new InvalidOperationException("Only projectile impact groups can assign an impact target.");
-            }
-
-            if (targetId <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(targetId), "Projectile impact targets must be positive entity IDs.");
-            }
-
-            if (HasResolvedImpact)
-            {
-                throw new InvalidOperationException("Projectile impact target has already been assigned.");
-            }
-
-            ImpactSourceId = SourceId;
-            ((List<int>)ImpactTargetIds).Add(targetId);
-        }
 
         public void AssignImpactReservation(int impactSourceId, int impactTargetId)
         {

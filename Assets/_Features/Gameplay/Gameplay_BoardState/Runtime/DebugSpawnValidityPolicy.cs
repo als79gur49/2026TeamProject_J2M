@@ -17,7 +17,6 @@ namespace Game.Feature.Gameplay.BoardState
             var entitiesById = new Dictionary<int, EntityState>();
             var stackedUnitsByCell = new Dictionary<SurfaceCell, SortedSet<int>>();
             var solidOccupancyByCell = new Dictionary<SurfaceCell, int>();
-            var projectileOccupancy = new Dictionary<SurfaceCell, int>();
 
             foreach (var entity in entities)
             {
@@ -33,7 +32,6 @@ namespace Game.Feature.Gameplay.BoardState
                         entitiesById,
                         stackedUnitsByCell,
                         solidOccupancyByCell,
-                        projectileOccupancy,
                         boardBounds,
                         entity.type,
                         entity.position,
@@ -45,7 +43,7 @@ namespace Game.Feature.Gameplay.BoardState
                 }
 
                 entitiesById.Add(entity.entityId, entity);
-                ReserveEntityOccupancy(entity, stackedUnitsByCell, solidOccupancyByCell, projectileOccupancy);
+                ReserveEntityOccupancy(entity, stackedUnitsByCell, solidOccupancyByCell);
             }
         }
 
@@ -66,8 +64,7 @@ namespace Game.Feature.Gameplay.BoardState
         private static void ReserveEntityOccupancy(
             EntityState entity,
             IDictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,
-            IDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IDictionary<SurfaceCell, int> projectileOccupancy)
+            IDictionary<SurfaceCell, int> solidOccupancyByCell)
         {
             if (entity.boardPresence != EntityBoardPresence.Occupying)
             {
@@ -91,8 +88,8 @@ namespace Game.Feature.Gameplay.BoardState
                     break;
 
                 case EntityType.Projectile:
-                    projectileOccupancy[entity.position] = entity.entityId;
-                    break;
+                    throw new NotSupportedException(
+                        "EntityType.Projectile is reserved for legacy serialized values and cannot be used as a debug spawn.");
             }
         }
 

@@ -87,7 +87,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var normalBoxCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var moonBoxCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var unitCell = new SurfaceCell(FaceId.Floor, 2, 0);
-            var projectileCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var emptyCell = new SurfaceCell(FaceId.Floor, 3, 0);
             var wallCell = new SurfaceCell(FaceId.Floor, 4, 0);
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
@@ -95,7 +95,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateBox(20, normalBoxCell),
                     CreateBox(21, moonBoxCell, BoxArchetype.Moon),
                     CreateUnit(30, unitCell),
-                    CreateProjectile(40, projectileCell),
                     CreateWall(50, wallCell),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(4, 1)));
@@ -106,7 +105,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetBoxArchetypeAt(moonBoxCell, out var moonArchetype), Is.True);
             Assert.That(moonArchetype, Is.EqualTo(BoxArchetype.Moon));
             Assert.That(snapshot.TryGetBoxArchetypeAt(unitCell, out _), Is.False);
-            Assert.That(snapshot.TryGetBoxArchetypeAt(projectileCell, out _), Is.False);
+            Assert.That(snapshot.TryGetBoxArchetypeAt(emptyCell, out _), Is.False);
             Assert.That(snapshot.TryGetBoxArchetypeAt(wallCell, out _), Is.False);
         }
 
@@ -1595,25 +1594,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 spawnTick = 0,
                 boxCapabilities = BoxCapabilities.None,
                 boxArchetype = boxArchetype,
-            };
-        }
-
-        private static EntityState CreateProjectile(int entityId, SurfaceCell position)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 1,
-                type = EntityType.Projectile,
-                state = EntityPhaseState.Idle,
-                stateTimer = 0,
-                facing = Direction.Right,
-                boardPresence = EntityBoardPresence.Occupying,
-                markedForDeath = false,
-                spawnTick = 0,
             };
         }
 

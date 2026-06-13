@@ -39,7 +39,6 @@ namespace Game.Feature.Gameplay.Entities
                     new EnemyActionStateEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId, hasDefaultDefinition),
                     new EnemyCombatEntityLogicFactory(defaultDefinition, definitionsByEntityId, definitionsByArchetypeId, hasDefaultDefinition),
                     new SlidingBoxEntityLogicFactory(),
-                    new ProjectileEntityLogicFactory(),
                 });
         }
     }

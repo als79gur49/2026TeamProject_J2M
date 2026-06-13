@@ -169,7 +169,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         CreateUnit(EnemyId, 2, new SurfaceCell(FaceId.Floor, 0, 0), UnitRole.Enemy, EnemyAiMode.Chase),
                         CreateUnit(50, 1, new SurfaceCell(FaceId.Front, 1, 0), UnitRole.Player),
                         CreateUnit(60, 0, new SurfaceCell(FaceId.Front, 2, 0), UnitRole.None, type: EntityType.Box),
-                        CreateUnit(70, 1, new SurfaceCell(FaceId.Front, 3, 0), UnitRole.None, type: EntityType.Projectile),
+                        CreateUnit(70, 1, new SurfaceCell(FaceId.Front, 3, 0), UnitRole.None, type: EntityType.Box),
                     });
                 var floorDestination = new SurfaceCell(FaceId.Floor, 1, 0);
                 var snapshot = worldState.CreateSnapshot();

@@ -1138,14 +1138,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateObjectiveTickFacts(1));
             Assert.That(enemyResult.IsCleared, Is.False);
 
-            var projectileResult = tracker.Advance(
+            var boxResult = tracker.Advance(
                 CreateExitSnapshot(
                     exitCell,
                     new CubeTopologyState(FaceId.Floor),
                     CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 0, 0)),
-                    CreateProjectileEntity(30, exitCell)),
+                    CreateBoxEntity(30, exitCell, BoxCapabilities.Push, BoxArchetype.Normal)),
                 CreateObjectiveTickFacts(2));
-            Assert.That(projectileResult.IsCleared, Is.False);
+            Assert.That(boxResult.IsCleared, Is.False);
 
             var moonBlockSnapshot = CreateExitSnapshot(
                 exitCell,
@@ -1548,21 +1548,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(activeResult.PresentationData.TileEvents.Any(tileEvent =>
                     tileEvent.EventKind == TilePresentationEventKind.ExitEntered), Is.False);
 
-                var projectileWorld = GameplayCompositionRoot.CreateWorldState(
+                var boxWorld = GameplayCompositionRoot.CreateWorldState(
                     new[]
                     {
                         CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 0, 0)),
-                        CreateProjectileEntity(30, activeExitCell),
+                        CreateBoxEntity(30, activeExitCell, BoxCapabilities.Push, BoxArchetype.Normal),
                     },
                     activeBuild.BoardBounds,
                     activeBuild.InitialTopology,
                     activeBuild.InitialTileFeatures);
-                var projectileResult = CreatePipeline(
-                        projectileWorld,
+                var boxResult = CreatePipeline(
+                        boxWorld,
                         activeBuild.ObjectiveRuntimeDefinition,
                         activeBuild.TileFeatureDefinitions)
                     .RunTick(new TickInput(9));
-                Assert.That(projectileResult.PresentationData.TileEvents.Any(tileEvent =>
+                Assert.That(boxResult.PresentationData.TileEvents.Any(tileEvent =>
                     tileEvent.EventKind == TilePresentationEventKind.ExitEntered), Is.False);
 
                 var moonWorld = GameplayCompositionRoot.CreateWorldState(
@@ -3305,23 +3305,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 facing = Direction.Left,
                 boardPresence = EntityBoardPresence.Occupying,
                 markedForDeath = markedForDeath,
-            };
-        }
-
-        private static EntityState CreateProjectileEntity(int entityId, SurfaceCell cell)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = cell,
-                hp = 1,
-                maxHp = 1,
-                teamId = 2,
-                type = EntityType.Projectile,
-                unitRole = UnitRole.None,
-                state = EntityPhaseState.Idle,
-                facing = Direction.Left,
-                boardPresence = EntityBoardPresence.Occupying,
             };
         }
 

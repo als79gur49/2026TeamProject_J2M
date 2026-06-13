@@ -428,10 +428,6 @@ namespace Game.Feature.Gameplay.Loop
 
         private static int ResolveProjectedMaterializationPriority(EntityState entity)
         {
-            // Projection rehydrates already-authoritative snapshots. Occupying projectiles
-            // must materialize ahead of solids so box/projectile overlap states that are
-            // legal in the live world can be reconstructed without relaxing placement
-            // invariants for normal world writes.
             if (entity.boardPresence != EntityBoardPresence.Occupying)
             {
                 return 2;
@@ -439,7 +435,8 @@ namespace Game.Feature.Gameplay.Loop
 
             if (entity.type == EntityType.Projectile)
             {
-                return 0;
+                throw new NotSupportedException(
+                    "EntityType.Projectile is reserved for legacy serialized values and cannot be imported into projected runtime worlds.");
             }
 
             return entity.type == EntityType.Unit ? 2 : 1;

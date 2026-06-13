@@ -41,14 +41,13 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void AttackInputNormalizer_PreservesExplicitEntityCommandKinds()
+        public void AttackInputNormalizer_PreservesExplicitAttackCommandKind()
         {
             var normalizedInputs = new List<AttackIntent>();
 
             new AttackInputNormalizer().Normalize(
                 new[]
                 {
-                    RawAttackIntent.CreateFireProjectile(10, 5),
                     new RawAttackIntent(20, 1, 30),
                 },
                 Array.Empty<ImpactReservation>(),
@@ -57,12 +56,18 @@ namespace Game.Feature.Gameplay.Tests.Core
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, Command: AttackCommandKind.FireProjectile, TargetId: 0),
                     (SourceId: 20, Command: AttackCommandKind.Attack, TargetId: 30),
                 },
                 normalizedInputs
                     .Select(intent => (intent.SourceId, intent.CommandKind, intent.TargetId))
                     .ToArray());
+        }
+
+        [Test]
+        [Category("Core")]
+        public void RawAttackIntent_CreateFireProjectile_ThrowsNotSupported()
+        {
+            Assert.Throws<NotSupportedException>(() => RawAttackIntent.CreateFireProjectile(10, 5));
         }
     }
 }

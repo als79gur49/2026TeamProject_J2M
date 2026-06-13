@@ -103,48 +103,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHost_Initialize_NormalizesPreExistingProjectileCadence()
+        public void GameplaySceneHost_Initialize_RejectsPreExistingProjectileEntity()
         {
-            var hostObject = new GameObject("GameplaySceneHost_Initialize_NormalizesPreExistingProjectileCadence");
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_RejectsPreExistingProjectileEntity");
 
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
-                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_Initialize_NormalizesPreExistingProjectileCadence_PlayerPrefab");
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_Initialize_RejectsPreExistingProjectileEntity_PlayerPrefab");
                 playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
 
-                host.Initialize(
-                    new GameplaySceneHostConfiguration
-                    {
-                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
-                        InitialEntities = new[]
+                Assert.Throws<NotSupportedException>(() =>
+                    host.Initialize(
+                        new GameplaySceneHostConfiguration
                         {
-                            new EntityState
+                            InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                            InitialEntities = new[]
                             {
-                                entityId = 20,
-                                position = new SurfaceCell(FaceId.Floor, 0, 0),
-                                hp = 1,
-                                maxHp = 1,
-                                teamId = 1,
-                                type = EntityType.Projectile,
-                                state = EntityPhaseState.Idle,
-                                facing = Direction.Right,
-                                boardPresence = EntityBoardPresence.Occupying,
+                                new EntityState
+                                {
+                                    entityId = 20,
+                                    position = new SurfaceCell(FaceId.Floor, 0, 0),
+                                    hp = 1,
+                                    maxHp = 1,
+                                    teamId = 1,
+                                    type = EntityType.Projectile,
+                                    state = EntityPhaseState.Idle,
+                                    facing = Direction.Right,
+                                    boardPresence = EntityBoardPresence.Occupying,
+                                },
                             },
-                        },
-                        InitialTopology = new CubeTopologyState(FaceId.Floor),
-                        PlayerEntityId = 10,
-                        PlayerViewPrefab = playerViewPrefab,
-                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                        SimulationTicksPerSecond = 10,
-                        ProjectileStepIntervalSeconds = 0.3f,
-                    });
-
-                var snapshot = host.WorldState.CreateSnapshot();
-
-                Assert.That(snapshot.TryGetProjectileAt(new SurfaceCell(FaceId.Floor, 0, 0), out var projectile), Is.True);
-                Assert.That(projectile.entityId, Is.EqualTo(20));
-                Assert.That(projectile.stateTimer, Is.EqualTo(host.TimingProfile.ProjectileStepIntervalTicks));
+                            InitialTopology = new CubeTopologyState(FaceId.Floor),
+                            PlayerEntityId = 10,
+                            PlayerViewPrefab = playerViewPrefab,
+                            StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                            SimulationTicksPerSecond = 10,
+                            ProjectileStepIntervalSeconds = 0.3f,
+                        }));
             }
             finally
             {
@@ -1120,10 +1115,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     factory.CreateView(CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right)),
                     GameplayEntityVisualProfile.Create(EntityType.Box, 1f),
                     new Color(0.72f, 0.5f, 0.24f));
-                AssertVisualMatchesProfile(
-                    factory.CreateView(CreateSurfaceProjectile(30, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right)),
-                    GameplayEntityVisualProfile.Create(EntityType.Projectile, 1f),
-                    new Color(0.9f, 0.4f, 0.2f));
+                Assert.Throws<NotSupportedException>(() =>
+                    factory.CreateView(CreateSurfaceProjectile(30, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right)));
+                Assert.Throws<NotSupportedException>(() =>
+                    GameplayEntityVisualProfile.Create(EntityType.Projectile, 1f));
                 AssertVisualMatchesProfile(
                     factory.CreateView(CreateSurfaceWall(40, new SurfaceCell(FaceId.Floor, 0, 0))),
                     GameplayEntityVisualProfile.Create(EntityType.None, 1f),
@@ -5800,9 +5795,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHost_PushMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates()
+        public void GameplaySceneHost_PushMotion_BoxViewInterpolatesAfterWorldCommit()
         {
-            var hostObject = new GameObject("GameplaySceneHost_PushMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates");
+            var hostObject = new GameObject("GameplaySceneHost_PushMotion_BoxViewInterpolatesAfterWorldCommit");
 
             try
             {
@@ -5858,9 +5853,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHost_PushMotion_KeepsProjectileLayerQueriesOnCommittedDestinationWhileViewInterpolates()
+        public void GameplaySceneHost_PushMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates()
         {
-            var hostObject = new GameObject("GameplaySceneHost_PushMotion_KeepsProjectileLayerQueriesOnCommittedDestinationWhileViewInterpolates");
+            var hostObject = new GameObject("GameplaySceneHost_PushMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates");
 
             try
             {
@@ -5878,7 +5873,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         {
                             CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
                             CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 1, 0), facing: Direction.Right),
-                            CreateSurfaceProjectile(30, new SurfaceCell(FaceId.Floor, 2, 0), facing: Direction.Left),
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
@@ -6105,9 +6099,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplayTickViewPresenter_ProjectileMoveMotion_MidpointInterpolatesBetweenSourceAndDestination()
+        public void GameplayTickViewPresenter_UnitMoveMotion_MidpointInterpolatesBetweenSourceAndDestination()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_ProjectileMoveMotion_MidpointInterpolatesBetweenSourceAndDestination");
+            var rootObject = new GameObject("GameplayTickViewPresenter_UnitMoveMotion_MidpointInterpolatesBetweenSourceAndDestination");
 
             try
             {
@@ -6135,7 +6129,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.PresentInitial(
                     new[]
                     {
-                        CreateSurfaceProjectile(30, new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                        CreateSurfaceUnit(30, new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
                     },
                     topology);
 
@@ -6143,7 +6137,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateTickResult(
                         new[]
                         {
-                            CreateSurfaceProjectile(30, new SurfaceCell(FaceId.Floor, 1, 0), facing: Direction.Right),
+                            CreateSurfaceUnit(30, new SurfaceCell(FaceId.Floor, 1, 0), facing: Direction.Right),
                         },
                         topology,
                         new TickPresentationData(
@@ -6151,23 +6145,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             {
                                 new TickEntityMotion(
                                     30,
-                                    TickEntityMotionKind.ProjectileMove,
+                                    TickEntityMotionKind.Move,
                                     new SurfaceCell(FaceId.Floor, 0, 0),
                                     new SurfaceCell(FaceId.Floor, 1, 0)),
                             })));
-                presenter.UpdatePresentation(timingProfile.ProjectileStepIntervalSeconds * 0.5f);
+                presenter.UpdatePresentation(timingProfile.RepeatedMoveIntervalSeconds * 0.5f);
 
                 Assert.That(registry.TryGetView(30, out var view), Is.True);
                 var sourcePosition = GetProjectedEntityPosition(
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
                     topology,
                     new SurfaceCell(FaceId.Floor, 0, 0),
-                    EntityType.Projectile);
+                    EntityType.Unit);
                 var destinationPosition = GetProjectedEntityPosition(
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
                     topology,
                     new SurfaceCell(FaceId.Floor, 1, 0),
-                    EntityType.Projectile);
+                    EntityType.Unit);
                 Assert.That(view.transform.position.x, Is.GreaterThan(sourcePosition.x));
                 Assert.That(view.transform.position.x, Is.LessThan(destinationPosition.x));
                 Assert.That(view.transform.position.y, Is.EqualTo(sourcePosition.y).Within(0.001f));
@@ -6288,7 +6282,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.PresentInitial(
                     new[]
                     {
-                        CreateSurfaceProjectile(30, new SurfaceCell(FaceId.Floor, 1, 0), facing: Direction.Right),
+                        CreateSurfaceUnit(30, new SurfaceCell(FaceId.Floor, 1, 0), facing: Direction.Right),
                     },
                     topology);
 

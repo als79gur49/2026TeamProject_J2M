@@ -46,13 +46,8 @@ namespace Game.Feature.Gameplay.Host
                     0.5f,
                     BoxVisibleRevealMultiplier,
                     ResolveSurfaceOffsetMultiplier(entityType)),
-                EntityType.Projectile => CreateInteriorMountedCube(
-                    cellSize,
-                    0.18f,
-                    0.48f,
-                    0.18f,
-                    ProjectileVisibleRevealMultiplier,
-                    ResolveSurfaceOffsetMultiplier(entityType)),
+                EntityType.Projectile => throw new System.NotSupportedException(
+                    "EntityType.Projectile is reserved for legacy serialized values and has no runtime entity visual profile."),
                 EntityType.None => CreateInteriorMountedCube(
                     cellSize,
                     1f,
@@ -108,7 +103,8 @@ namespace Game.Feature.Gameplay.Host
             return entityType switch
             {
                 EntityType.Box => GameplayPresentationGeometry.TileThicknessMultiplier + BoxVisibleRevealMultiplier,
-                EntityType.Projectile => ProjectileSurfaceOffsetMultiplier,
+                EntityType.Projectile => throw new System.NotSupportedException(
+                    "EntityType.Projectile is reserved for legacy serialized values and has no runtime entity surface offset."),
                 EntityType.None => GameplayPresentationGeometry.TileThicknessMultiplier + DefaultVisibleRevealMultiplier,
                 _ => GameplayPresentationGeometry.TileThicknessMultiplier + DefaultVisibleRevealMultiplier,
             };

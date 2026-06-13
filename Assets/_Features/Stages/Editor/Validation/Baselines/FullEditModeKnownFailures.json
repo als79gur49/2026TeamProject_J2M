@@ -648,33 +648,6 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_FireProjectileIntent_SpawnsProjectileDuringCommit",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "5256bcf55d9f550026db82b1f7d242d9f40ae1aadb5097a9ba786e30a4851e6c",
-      "firstObserved": "2026-05-09",
-      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_OnHit_DoesNotCreateSameTickNewIntent",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "0eccbe0f9f39960a58961e2ae6e3bdc92593f39617c22573626e45c7d49c1c04",
-      "firstObserved": "2026-05-09",
-      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_OnHit_DoesNotReenterMovementPhase",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "0eccbe0f9f39960a58961e2ae6e3bdc92593f39617c22573626e45c7d49c1c04",
-      "firstObserved": "2026-05-09",
-      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
-    },
-    {
       "testFullName": "Game.Feature.Gameplay.Tests.Scenario.EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingEnemyFrames_DoesNotChangeLaterTickAuthoritativeResults",
       "assembly": "Game.Integration.Simulation.Tests.dll",
       "domain": "Simulation",

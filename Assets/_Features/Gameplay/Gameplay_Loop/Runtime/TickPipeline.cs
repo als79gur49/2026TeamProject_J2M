@@ -6569,11 +6569,6 @@ namespace Game.Feature.Gameplay.Loop
                 return 2;
             }
 
-            if (group.GroupKind == ActionGroupKind.ProjectileImpact)
-            {
-                return 3;
-            }
-
             if (snapshot.TryGetPlayerControlState(group.SourceId, out _))
             {
                 return 0;
@@ -6599,11 +6594,6 @@ namespace Game.Feature.Gameplay.Loop
             if (payload.MovementCandidateKind == MovementCandidateKind.BoxImpact)
             {
                 return 2;
-            }
-
-            if (payload.MovementCandidateKind == MovementCandidateKind.ProjectileImpact)
-            {
-                return 3;
             }
 
             if (snapshot.TryGetPlayerControlState(payload.SourceActorEntityId, out _))
@@ -6667,7 +6657,6 @@ namespace Game.Feature.Gameplay.Loop
                 ActionGroupKind.Push => 3,
                 ActionGroupKind.Stop => 4,
                 ActionGroupKind.BoxImpact => 5,
-                ActionGroupKind.ProjectileImpact => 6,
                 _ => 99,
             };
         }
@@ -6682,7 +6671,6 @@ namespace Game.Feature.Gameplay.Loop
                 MovementCandidateKind.Push => 3,
                 MovementCandidateKind.Stop => 4,
                 MovementCandidateKind.BoxImpact => 5,
-                MovementCandidateKind.ProjectileImpact => 6,
                 _ => 99,
             };
         }
@@ -6708,7 +6696,6 @@ namespace Game.Feature.Gameplay.Loop
                 ActionGroupKind.Push => MovementCandidateKind.Push,
                 ActionGroupKind.Flip => MovementCandidateKind.Flip,
                 ActionGroupKind.BoxImpact => MovementCandidateKind.BoxImpact,
-                ActionGroupKind.ProjectileImpact => MovementCandidateKind.ProjectileImpact,
                 ActionGroupKind.Stop => MovementCandidateKind.Stop,
                 ActionGroupKind.Item => MovementCandidateKind.Item,
                 _ => MovementCandidateKind.Move,
@@ -6735,7 +6722,6 @@ namespace Game.Feature.Gameplay.Loop
                     return ResolvedActionSemanticKind.Flip;
 
                 case ActionGroupKind.BoxImpact:
-                case ActionGroupKind.ProjectileImpact:
                     return ResolvedActionSemanticKind.Impact;
 
                 case ActionGroupKind.Item:
@@ -6744,11 +6730,6 @@ namespace Game.Feature.Gameplay.Loop
                 case ActionGroupKind.Move:
                     if (TryResolveMovementEntity(snapshot, group, out var entity))
                     {
-                        if (entity.type == EntityType.Projectile)
-                        {
-                            return ResolvedActionSemanticKind.ProjectileMove;
-                        }
-
                         if (entity.type == EntityType.Box &&
                             entity.state == EntityPhaseState.Sliding &&
                             (entity.boxCapabilities & BoxCapabilities.Push) == BoxCapabilities.Push)
@@ -6923,11 +6904,6 @@ namespace Game.Feature.Gameplay.Loop
 
         private static MovementBlockingType ResolveMovementBlockingType(WorldSnapshot snapshot, ActionGroup group)
         {
-            if (group.GroupKind == ActionGroupKind.ProjectileImpact)
-            {
-                return MovementBlockingType.PassThrough;
-            }
-
             return ResolveReservationMode(snapshot, group) == ReservationMode.UnitSharedMove
                 ? MovementBlockingType.NonBlocking
                 : MovementBlockingType.Blocking;
@@ -9103,8 +9079,7 @@ namespace Game.Feature.Gameplay.Loop
                     rejectedReasons.Add(
                         $"MovementRejected|Stage=Resolve|G={payload.ActionPlanId}|I={payload.IntentId}|Source={payload.SourceActorEntityId}|Reason=IntentAlreadySelected");
                 }
-                else if (payload.MovementCandidateKind == MovementCandidateKind.BoxImpact ||
-                         payload.MovementCandidateKind == MovementCandidateKind.ProjectileImpact)
+                else if (payload.MovementCandidateKind == MovementCandidateKind.BoxImpact)
                 {
                     accepted = true;
                     selectedIntentIds.Add(payload.IntentId);

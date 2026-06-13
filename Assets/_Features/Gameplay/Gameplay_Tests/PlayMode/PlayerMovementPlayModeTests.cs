@@ -1691,7 +1691,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator PlayerMove_PlayMode_SpawnedEntity_BecomesVisibleAfterTick()
+        public IEnumerator PlayerMove_PlayMode_FireProjectileLogic_ThrowsNotSupported()
         {
             var host = CreateHost(
                 new[]
@@ -1704,12 +1704,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     new FireProjectileLogic(sourceId: 10, priority: 5),
                 });
 
-            host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(0f);
-
-            Assert.That(host.ViewRegistry.TryGetView(11, out var projectileView), Is.True);
-            Assert.That(projectileView.gameObject.activeSelf, Is.True);
-            AssertViewMatchesProjectedState(host, entityId: 11);
+            Assert.Throws<NotSupportedException>(() => host.InputHost.RunSingleTick());
 
             yield return DestroyHost(host);
         }

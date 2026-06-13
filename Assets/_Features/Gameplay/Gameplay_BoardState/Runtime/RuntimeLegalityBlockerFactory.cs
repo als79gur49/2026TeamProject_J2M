@@ -107,9 +107,7 @@ namespace Game.Feature.Gameplay.BoardState
                 LegalityBlockerKind.Solid,
                 entity.entityId,
                 entityType: entity.type,
-                solidKind: entity.type == EntityType.Projectile
-                    ? (SolidKind?)null
-                    : SnapshotReadQueries.ResolveSolidKind(entity));
+                solidKind: SnapshotReadQueries.ResolveSolidKind(entity));
         }
     }
 }

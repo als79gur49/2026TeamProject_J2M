@@ -146,7 +146,6 @@ namespace Game.Feature.Gameplay.Movement.Commit
 
     internal sealed class MovementCommitter
     {
-        private const int ProjectileImpactDamageAmount = 1;
         private const int BoxImpactDamageAmount = 1;
         private readonly int _moveOccupancyTicks;
         private readonly int _playerMoveCooldownTicks;
@@ -312,7 +311,6 @@ namespace Game.Feature.Gameplay.Movement.Commit
             for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
             {
                 var group = selectedGroups[groupIndex];
-                var hasImpactReservation = false;
                 for (var impactIndex = 0; impactIndex < impactReservations.Count; impactIndex++)
                 {
                     var impactReservation = impactReservations[impactIndex];
@@ -321,15 +319,8 @@ namespace Game.Feature.Gameplay.Movement.Commit
                         continue;
                     }
 
-                    hasImpactReservation = true;
                     commitEvents.Add(
                         $"ImpactReservationCreated|G={group.GroupId}|I={group.IntentId}|Source={impactReservation.SourceId}|Target={impactReservation.TargetId}|At={FormatCell(impactReservation.ImpactCell)}|Damage={impactReservation.Damage}|Sequence={impactReservation.LocalActionIndex}");
-                }
-
-                if (hasImpactReservation &&
-                    group.GroupKind == ActionGroupKind.ProjectileImpact)
-                {
-                    continue;
                 }
 
                 var hasImpactSpaceResolution = TryFindImpactSpaceResolution(
@@ -498,8 +489,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
             for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
             {
                 var group = selectedGroups[groupIndex];
-                if (group.GroupKind != ActionGroupKind.ProjectileImpact &&
-                    !group.HasResolvedImpact)
+                if (!group.HasResolvedImpact)
                 {
                     continue;
                 }
@@ -1054,13 +1044,6 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     $"Impact group references a missing source entity. ImpactSource={group.ImpactSourceId}, Intent={group.IntentId}, Group={group.GroupId}");
             }
 
-            if (group.GroupKind == ActionGroupKind.ProjectileImpact &&
-                source.type != EntityType.Projectile)
-            {
-                throw new InvalidOperationException(
-                    $"Projectile impact group must reference a projectile source. Source={group.SourceId}, Type={source.type}, Intent={group.IntentId}");
-            }
-
             if (!group.HasResolvedImpact)
             {
                 throw new InvalidOperationException(
@@ -1092,9 +1075,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
                         source.entityId,
                         target.entityId,
                         target.position,
-                        group.GroupKind == ActionGroupKind.ProjectileImpact
-                            ? ProjectileImpactDamageAmount
-                            : BoxImpactDamageAmount,
+                        BoxImpactDamageAmount,
                         tickIndex,
                         group.GroupId,
                         reservationSequence++));

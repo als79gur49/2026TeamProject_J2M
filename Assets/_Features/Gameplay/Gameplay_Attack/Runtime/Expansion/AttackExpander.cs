@@ -12,18 +12,14 @@ namespace Game.Feature.Gameplay.Attack.Expansion
     internal sealed class AttackExpander
     {
         private const int StageThreeDamageAmount = 1;
-        private const int SpawnedProjectileHp = 1;
-        private readonly int _projectileStateTimerTicks;
 
         public AttackExpander()
-            : this(GameplayTimingProfile.CreateDefault())
         {
         }
 
         public AttackExpander(GameplayTimingProfile timingProfile)
         {
-            _projectileStateTimerTicks = (timingProfile ?? throw new ArgumentNullException(nameof(timingProfile)))
-                .ProjectileStepIntervalTicks;
+            _ = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
         }
 
         public void Expand(
@@ -86,7 +82,8 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                 switch (intent.CommandKind)
                 {
                     case AttackCommandKind.FireProjectile:
-                        ExpandFireProjectile(snapshot, source, intent, buffer, rejectedReasons);
+                        rejectedReasons.Add(
+                            $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=FireProjectileRetired");
                         continue;
 
                     case AttackCommandKind.Attack:
@@ -188,12 +185,6 @@ namespace Game.Feature.Gameplay.Attack.Expansion
             actionGroup.Damages.Add(new DamageAction(target.entityId, reservation.Damage));
             actionGroup.Destroys.Add(new DestroyAction(target.entityId));
 
-            if (source.type == EntityType.Projectile)
-            {
-                actionGroup.Damages.Add(new DamageAction(source.entityId, source.hp));
-                actionGroup.Destroys.Add(new DestroyAction(source.entityId));
-            }
-
             buffer.Add(actionGroup);
         }
 
@@ -244,99 +235,10 @@ namespace Game.Feature.Gameplay.Attack.Expansion
             buffer.Add(actionGroup);
         }
 
-        private void ExpandFireProjectile(
-            WorldSnapshot snapshot,
-            EntityState source,
-            AttackIntent intent,
-            List<ActionGroup> buffer,
-            List<string> rejectedReasons)
-        {
-            if (source.type != EntityType.Unit)
-            {
-                rejectedReasons.Add(
-                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=SourceCannotFireProjectile|Type={source.type}");
-                return;
-            }
-
-            var spawnDelta = ResolveDelta(source.facing);
-            if (!spawnDelta.HasValue)
-            {
-                rejectedReasons.Add(
-                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=InvalidSpawnFacing|Facing={source.facing}");
-                return;
-            }
-
-            var spawnPosition = source.position + spawnDelta.Value;
-            var spawnLegality = RuntimePlacementValidityPolicy.EvaluateGameplayPlacement(
-                snapshot,
-                EntityType.Projectile,
-                spawnPosition,
-                ignoredEntityId: 0);
-            if (spawnLegality.Verdict == LegalityVerdict.Blocked)
-            {
-                rejectedReasons.Add(
-                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason={LegalityDiagnosticsFormatter.ResolveSpawnBlockedReason(spawnLegality)}|{LegalityDiagnosticsFormatter.FormatPlacementBlocker(spawnLegality)}|{LegalityDiagnosticsFormatter.FormatStableSummary(spawnLegality)}");
-                return;
-            }
-
-            var actionGroup = new ActionGroup(
-                intent.IntentId,
-                intent.SourceId,
-                intent.Priority,
-                ActionGroupKind.Attack,
-                intent.SourceKind);
-            actionGroup.StateChanges.Add(
-                new StateChangeAction(
-                    intent.SourceId,
-                    EntityPhaseState.Acting,
-                    0));
-            actionGroup.Spawns.Add(new SpawnAction(0, CreateProjectileTemplate(source, spawnPosition)));
-            buffer.Add(actionGroup);
-        }
-
-        private EntityState CreateProjectileTemplate(EntityState source, Vector2Int spawnPosition)
-        {
-            return new EntityState
-            {
-                entityId = 0,
-                position = spawnPosition,
-                hp = SpawnedProjectileHp,
-                maxHp = SpawnedProjectileHp,
-                teamId = source.teamId,
-                type = EntityType.Projectile,
-                state = EntityPhaseState.Idle,
-                stateTimer = _projectileStateTimerTicks,
-                facing = source.facing,
-                markedForDeath = false,
-                spawnTick = 0,
-            };
-        }
-
         private static bool IsExactSameCell(SurfaceCell source, SurfaceCell target)
         {
             return source.face == target.face &&
                    source.PlanarPosition == target.PlanarPosition;
-        }
-
-        private static Vector2Int? ResolveDelta(Direction direction)
-        {
-            switch (direction)
-            {
-                case Direction.Up:
-                    return Vector2Int.up;
-
-                case Direction.Right:
-                    return Vector2Int.right;
-
-                case Direction.Down:
-                    return Vector2Int.down;
-
-                case Direction.Left:
-                    return Vector2Int.left;
-
-                default:
-                    return null;
-            }
         }
 
         private static bool IsSameCellOrOrthogonallyAdjacent(SurfaceCell source, SurfaceCell target)

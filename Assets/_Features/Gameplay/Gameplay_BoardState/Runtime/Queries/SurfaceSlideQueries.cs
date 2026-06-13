@@ -7,8 +7,6 @@ namespace Game.Feature.Gameplay.BoardState
 {
     internal static class SurfaceSlideQueries
     {
-        private static readonly IReadOnlyDictionary<SurfaceCell, int> EmptyProjectileOccupancy = new Dictionary<SurfaceCell, int>();
-
         public static bool TryResolveNextSurfaceBoxSlideStep(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
@@ -144,7 +142,6 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyGlideStatesByEntityId,
                 phasedStatesByEntityId,
                 solidOccupancyByCell,
-                EmptyProjectileOccupancy,
                 topology,
                 boardBounds,
                 cell,

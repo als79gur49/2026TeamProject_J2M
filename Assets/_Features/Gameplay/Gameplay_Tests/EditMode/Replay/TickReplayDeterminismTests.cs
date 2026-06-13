@@ -146,7 +146,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 firstReplay[0].EventLogDump
                     .Split('\n')
-                    .Count(line => line.StartsWith("SpawnCommitted|", StringComparison.Ordinal)),
+                    .Count(line => line.StartsWith("DamageCommitted|", StringComparison.Ordinal)),
                 Is.EqualTo(2));
             Assert.That(
                 firstReplay[0].FinalEntitiesDump
@@ -567,35 +567,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_ProjectileImpactScenario_ProducesSamePerTickHashTraceAndEventLog()
-        {
-            var firstReplay = RunProjectileImpactReplaySequence();
-            var secondReplay = RunProjectileImpactReplaySequence();
-
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
-                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.Trace).ToArray(),
-                secondReplay.Select(frame => frame.Trace).ToArray());
-            CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
-                secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
-                    "ImpactReservationCreated",
-                    "Source=10",
-                    "Target=20",
-                    "At=(1,0)",
-                    "Damage=1",
-                    "Sequence=1"),
-                Is.True);
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("CleanupRemoved|E=10"));
-        }
-
-        [Test]
-        [Category("Core")]
         public void Replay_ScriptedMoveIntoUnitStackedScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunScriptedMoveIntoUnitStackedReplaySequence();
@@ -652,7 +623,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 {
                     CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(0, 0), hp: 2),
                     CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
-                    CreateProjectile(entityId: 50, teamId: 1, position: new Vector2Int(0, 0), hp: 1),
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0)),
                 }),
                 new IEntityLogic[0],
@@ -663,7 +633,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 Is.EqualTo(
                     "Layer=Unit|Cell=(0,0)|E=10|Face=Floor\n" +
                     "Layer=Unit|Cell=(0,0)|E=20|Face=Floor\n" +
-                    "Layer=Projectile|Cell=(0,0)|E=50|Face=Floor\n" +
                     "Layer=Solid|Cell=(1,0)|E=30|Face=Floor"));
             Assert.That(frames[0].Trace, Does.Contain("Final.Occupancy"));
         }
@@ -1004,10 +973,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_SpawnScenario_ProducesSamePerTickHashTraceAndEventLog()
+        public void Replay_AttackScenario_ProducesSamePerTickHashTraceAndEventLog()
         {
-            var firstReplay = RunSpawnReplaySequence();
-            var secondReplay = RunSpawnReplaySequence();
+            var firstReplay = RunAttackReplaySequence();
+            var secondReplay = RunAttackReplaySequence();
 
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -1021,39 +990,22 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=21|Pos=(1,0)|Hp=1|MaxHp=1|Team=1|Type=Projectile|State=Idle|Timer=12|Facing=Right|Marked=0|SpawnTick=1"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     firstReplay[0].EventLogDump,
-                    "SpawnCommitted",
-                    "SpawnId=1",
-                    "E=21",
-                    "Pos=(1,0)",
-                    "Type=Projectile",
-                    "SpawnTick=1"),
-                Is.True);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[13].EventLogDump,
-                    "ImpactReservationCreated",
-                    "Source=21",
+                    "DamageCommitted",
+                    "Source=10",
                     "Target=20",
-                    "At=(2,0)",
-                    "Damage=1",
-                    "Sequence=1"),
+                    "Amount=1"),
                 Is.True);
-            Assert.That(firstReplay[13].EventLogDump, Does.Contain("CleanupRemoved|E=21"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     firstReplay[14].EventLogDump,
-                    "SpawnCommitted",
-                    "SpawnId=1",
-                    "E=22",
-                    "Pos=(1,0)",
-                    "Type=Projectile",
-                    "SpawnTick=15"),
+                    "DamageCommitted",
+                    "Source=10",
+                    "Target=20",
+                    "Amount=1"),
                 Is.True);
-            Assert.That(firstReplay[14].FinalEntitiesDump, Does.Contain("E=22|Pos=(1,0)|Hp=1|MaxHp=1|Team=1|Type=Projectile|State=Idle|Timer=12|Facing=Right|Marked=0|SpawnTick=15"));
         }
 
         [Test]
@@ -1072,16 +1024,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
-                    "ImpactReservationCreated",
-                    "Source=5",
-                    "Target=20",
-                    "At=(1,0)",
-                    "Damage=1",
-                    "Sequence=1"),
-                Is.True);
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=5|Pos=(2,0)|Hp=1|MaxHp=1|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0"));
             Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("Target=40"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(0,1)|Hp=2|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0"));
         }
@@ -2203,10 +2146,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
             var firstLogic = new ScriptedCombatLogic(
                 sourceId: 10,
-                attackIntent: RawAttackIntent.CreateFireProjectile(10, 5));
+                attackIntent: new RawAttackIntent(10, 5, 20));
             var secondLogic = new ScriptedCombatLogic(
                 sourceId: 20,
-                attackIntent: RawAttackIntent.CreateFireProjectile(20, 5));
+                attackIntent: new RawAttackIntent(20, 5, 10));
             var entityLogics = reverseLogicOrder
                 ? new IEntityLogic[] { secondLogic, firstLogic }
                 : new IEntityLogic[] { firstLogic, secondLogic };
@@ -2634,32 +2577,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
-        private static IReadOnlyList<TickReplayFrame> RunProjectileImpactReplaySequence()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateProjectile(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 1),
-                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 3),
-            });
-            var entityLogics = new IEntityLogic[]
-            {
-                new ScriptedCombatLogic(
-                    sourceId: 10,
-                    movementIntentsByTick: new Dictionary<int, RawMovementIntent>
-                    {
-                        { 1, new RawMovementIntent(10, 5, new Vector2Int(1, 0)) },
-                    }),
-            };
-
-            return new TickReplayHarness().Run(
-                worldState,
-                entityLogics,
-                new[]
-                {
-                    new TickInput(1),
-                });
-        }
-
         private static IReadOnlyList<TickReplayFrame> RunScriptedMoveIntoUnitStackedReplaySequence()
         {
             var worldState = CreateWorldState(new[]
@@ -2914,12 +2831,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
-        private static IReadOnlyList<TickReplayFrame> RunSpawnReplaySequence()
+        private static IReadOnlyList<TickReplayFrame> RunAttackReplaySequence()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
-                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(2, 0), hp: 2),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 5),
             });
             var entityLogics = new IEntityLogic[]
             {
@@ -2927,8 +2844,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     sourceId: 10,
                     attackIntentsByTick: new Dictionary<int, RawAttackIntent>
                     {
-                        { 1, RawAttackIntent.CreateFireProjectile(10, 5) },
-                        { 15, RawAttackIntent.CreateFireProjectile(10, 5) },
+                        { 1, new RawAttackIntent(10, 5, 20) },
+                        { 15, new RawAttackIntent(10, 5, 20) },
                     }),
             };
 
@@ -2944,7 +2861,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateProjectile(entityId: 5, teamId: 1, position: new Vector2Int(2, 0), hp: 1),
+                CreateUnit(entityId: 5, teamId: 1, position: new Vector2Int(2, 0), hp: 1),
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 1),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2),
@@ -3043,29 +2960,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 aiMode = aiMode,
                 aiStateTimer = aiStateTimer,
                 enemyLocomotionCooldownTicks = enemyLocomotionCooldownTicks,
-            };
-        }
-
-        private static EntityState CreateProjectile(int entityId, int teamId, Vector2Int position, int hp)
-        {
-            return CreateProjectile(entityId, teamId, SurfaceCell.FromPlanar(position), hp);
-        }
-
-        private static EntityState CreateProjectile(int entityId, int teamId, SurfaceCell position, int hp)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = hp,
-                maxHp = hp,
-                teamId = teamId,
-                type = EntityType.Projectile,
-                state = EntityPhaseState.Idle,
-                stateTimer = 0,
-                facing = Direction.Right,
-                markedForDeath = false,
-                spawnTick = 0,
             };
         }
 

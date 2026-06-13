@@ -6,13 +6,10 @@ namespace Game.Feature.Gameplay.BoardState
 {
     internal static class WorldPlacementPolicy
     {
-        private static readonly IReadOnlyDictionary<SurfaceCell, int> EmptyOccupancy = new Dictionary<SurfaceCell, int>();
-
         public static bool TryGetAuthoritativePlacementBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
             EntityType entityType,
             SurfaceCell cell,
@@ -23,7 +20,6 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 CreateStackedUnitQueryView(stackedUnitsByCell),
                 solidOccupancyByCell,
-                projectileOccupancy,
                 boardBounds,
                 entityType,
                 cell,
@@ -35,7 +31,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
             EntityType entityType,
             SurfaceCell cell,
@@ -49,7 +44,6 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyGlideStatesByEntityId: null,
                 phasedStatesByEntityId: null,
                 solidOccupancyByCell,
-                projectileOccupancy,
                 boardBounds,
                 entityType,
                 cell,
@@ -64,7 +58,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
             EntityType entityType,
             SurfaceCell cell,
@@ -78,7 +71,6 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyGlideStatesByEntityId,
                 phasedStatesByEntityId,
                 solidOccupancyByCell,
-                projectileOccupancy,
                 boardBounds,
                 entityType,
                 cell,
@@ -93,7 +85,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             EntityType entityType,
@@ -108,7 +99,6 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyGlideStatesByEntityId: null,
                 phasedStatesByEntityId: null,
                 solidOccupancyByCell,
-                projectileOccupancy,
                 topology,
                 boardBounds,
                 entityType,
@@ -124,7 +114,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             EntityType entityType,
@@ -139,7 +128,6 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyGlideStatesByEntityId,
                 phasedStatesByEntityId,
                 solidOccupancyByCell,
-                projectileOccupancy,
                 boardBounds,
                 entityType,
                 cell,
@@ -157,7 +145,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             SurfaceCell cell,
@@ -170,7 +157,6 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyGlideStatesByEntityId,
                 phasedStatesByEntityId,
                 solidOccupancyByCell,
-                projectileOccupancy,
                 boardBounds,
                 EntityType.Box,
                 cell,
@@ -188,7 +174,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             SurfaceCell cell,
@@ -201,7 +186,6 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyGlideStatesByEntityId,
                 phasedStatesByEntityId,
                 solidOccupancyByCell,
-                projectileOccupancy,
                 boardBounds,
                 EntityType.Box,
                 cell,
@@ -216,7 +200,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
             EntityType entityType,
             SurfaceCell cell,
@@ -228,7 +211,6 @@ namespace Game.Feature.Gameplay.BoardState
                 CreateStackedUnitQueryView(stackedUnitsByCell),
                 enemyGlideStatesByEntityId: null,
                 solidOccupancyByCell,
-                projectileOccupancy,
                 boardBounds,
                 entityType,
                 cell,
@@ -240,7 +222,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
             EntityType entityType,
             SurfaceCell cell,
@@ -254,7 +235,6 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyGlideStatesByEntityId: null,
                 phasedStatesByEntityId: null,
                 solidOccupancyByCell,
-                projectileOccupancy,
                 boardBounds,
                 entityType,
                 cell,
@@ -270,7 +250,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
             EntityType entityType,
             SurfaceCell cell,
@@ -282,7 +261,6 @@ namespace Game.Feature.Gameplay.BoardState
                 CreateStackedUnitQueryView(stackedUnitsByCell),
                 enemyGlideStatesByEntityId,
                 solidOccupancyByCell,
-                projectileOccupancy,
                 boardBounds,
                 entityType,
                 cell,
@@ -295,7 +273,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
             EntityType entityType,
             SurfaceCell cell,
@@ -309,7 +286,6 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyGlideStatesByEntityId,
                 phasedStatesByEntityId: null,
                 solidOccupancyByCell,
-                projectileOccupancy,
                 boardBounds,
                 entityType,
                 cell,
@@ -367,7 +343,6 @@ namespace Game.Feature.Gameplay.BoardState
                 enemyGlideStatesByEntityId,
                 phasedStatesByEntityId,
                 solidOccupancyByCell,
-                EmptyOccupancy,
                 topology,
                 boardBounds,
                 EntityType.Unit,
@@ -383,7 +358,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
             EntityType entityType,
             SurfaceCell cell,
@@ -394,15 +368,11 @@ namespace Game.Feature.Gameplay.BoardState
             out SlideStopper blocker)
         {
             ValidateQueryDictionaries(entitiesById, solidOccupancyByCell);
+            EnsureEntityTypeSupported(entityType);
 
             if (stackedUnitsByCell == null)
             {
                 throw new ArgumentNullException(nameof(stackedUnitsByCell));
-            }
-
-            if (projectileOccupancy == null)
-            {
-                throw new ArgumentNullException(nameof(projectileOccupancy));
             }
 
             if (queryMode == PlacementQueryMode.Gameplay && !topology.IsFaceActive(cell.face))
@@ -424,7 +394,6 @@ namespace Game.Feature.Gameplay.BoardState
                     enemyGlideStatesByEntityId,
                     phasedStatesByEntityId,
                     solidOccupancyByCell,
-                    projectileOccupancy,
                     topology,
                     queryMode,
                     entityType,
@@ -448,7 +417,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EnemyGlideRuntimeState> enemyGlideStatesByEntityId,
             IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
             PlacementQueryMode queryMode,
             EntityType entityType,
@@ -460,38 +428,6 @@ namespace Game.Feature.Gameplay.BoardState
             switch (entityType)
             {
                 case EntityType.Unit:
-                    return TryGetPlacementOccupant(
-                        entitiesById,
-                        solidOccupancyByCell,
-                        enemyJumpStatesByEntityId,
-                        enemyGlideStatesByEntityId,
-                        phasedStatesByEntityId,
-                        topology,
-                        queryMode,
-                        cell,
-                        ignoredEntityId,
-                        entityType,
-                        glideQueryMode,
-                        out entity);
-
-                case EntityType.Projectile:
-                    if (TryGetPlacementOccupant(
-                            entitiesById,
-                            projectileOccupancy,
-                            enemyJumpStatesByEntityId,
-                            enemyGlideStatesByEntityId,
-                            phasedStatesByEntityId,
-                            topology,
-                            queryMode,
-                            cell,
-                            ignoredEntityId,
-                            entityType,
-                            glideQueryMode,
-                            out entity))
-                    {
-                        return true;
-                    }
-
                     return TryGetPlacementOccupant(
                         entitiesById,
                         solidOccupancyByCell,
@@ -540,6 +476,15 @@ namespace Game.Feature.Gameplay.BoardState
 
                 default:
                     throw new InvalidOperationException($"Unsupported placement entity type: {entityType}");
+            }
+        }
+
+        private static void EnsureEntityTypeSupported(EntityType entityType)
+        {
+            if (entityType == EntityType.Projectile)
+            {
+                throw new NotSupportedException(
+                    "EntityType.Projectile is reserved for legacy serialized values and cannot be placed at runtime.");
             }
         }
 

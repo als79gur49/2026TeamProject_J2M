@@ -180,25 +180,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GeneratorCellProjectile_DoesNotBlockSpawn()
-        {
-            var template = CreateMoonBlock(20, InitialMoonCell);
-            var projectile = CreateProjectile(40, GeneratorCell);
-            var worldState = CreateWorld(new[] { CreatePlayer(), projectile });
-            var pipeline = CreatePipeline(worldState, template);
-
-            var result = pipeline.RunTick(new TickInput(1));
-            var snapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
-
-            Assert.That(snapshot.TryGetEntity(20, out var moon), Is.True);
-            Assert.That(moon.position, Is.EqualTo(GeneratorCell));
-            Assert.That(snapshot.TryGetEntity(40, out var finalProjectile), Is.True);
-            Assert.That(finalProjectile.position, Is.EqualTo(GeneratorCell));
-            AssertMoonBlockGeneratedEvent(result, moonBlockEntityId: 20);
-        }
-
-        [Test]
-        [Category("Core")]
         public void GeneratorCellWallLikeSolid_Defers()
         {
             var template = CreateMoonBlock(20, InitialMoonCell);
@@ -625,22 +606,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardPresence = EntityBoardPresence.Occupying,
                 boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Destroy,
                 boxArchetype = BoxArchetype.Normal,
-            };
-        }
-
-        private static EntityState CreateProjectile(int entityId, SurfaceCell position)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 1,
-                type = EntityType.Projectile,
-                unitRole = UnitRole.None,
-                facing = Direction.Right,
-                boardPresence = EntityBoardPresence.Occupying,
             };
         }
 
