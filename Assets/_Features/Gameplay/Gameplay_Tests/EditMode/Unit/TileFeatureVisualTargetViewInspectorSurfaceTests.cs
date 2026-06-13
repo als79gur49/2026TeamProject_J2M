@@ -47,33 +47,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TileFeatureVisualTargetView_DoesNotImplementFeatureSpecificLegacyVisualInterfaces()
+        public void TileFeatureVisualRuntime_DoesNotDeclareFeatureSpecificLegacyVisualInterfaces()
         {
-            var targetType = typeof(TileFeatureVisualTargetView);
             var forbiddenInterfaces = new[]
             {
-                typeof(IDestroyTileVisualTarget),
-                typeof(IDestroyTileActivatedVisualTarget),
-                typeof(IDestroyTileDeactivatedVisualTarget),
-                typeof(IDestroyTileActiveStateVisualTarget),
-                typeof(ITileFeatureActiveStateVisualTarget),
-                typeof(ISlideTileVisualTarget),
-                typeof(IBarricadeBlockedVisualTarget),
-                typeof(IBarricadeCrushedVisualTarget),
-                typeof(IBarricadeActivatedVisualTarget),
-                typeof(IBarricadeDeactivatedVisualTarget),
-                typeof(IBarricadeActiveStateVisualTarget),
-                typeof(IExitOpenedVisualTarget),
-                typeof(IExitEnteredVisualTarget),
-                typeof(IExitOpenStateVisualTarget),
-                typeof(IMoonBlockGeneratedVisualTarget),
-                typeof(IMoonBlockGeneratorBlockedVisualTarget),
+                "IDestroyTileVisualTarget",
+                "IDestroyTileActivatedVisualTarget",
+                "IDestroyTileDeactivatedVisualTarget",
+                "IDestroyTileActiveStateVisualTarget",
+                "ITileFeatureActiveStateVisualTarget",
+                "ISlideTileVisualTarget",
+                "IBarricadeBlockedVisualTarget",
+                "IBarricadeCrushedVisualTarget",
+                "IBarricadeActivatedVisualTarget",
+                "IBarricadeDeactivatedVisualTarget",
+                "IBarricadeActiveStateVisualTarget",
+                "IExitOpenedVisualTarget",
+                "IExitEnteredVisualTarget",
+                "IExitOpenStateVisualTarget",
+                "IMoonBlockGeneratedVisualTarget",
+                "IMoonBlockGeneratorBlockedVisualTarget",
             };
+            var registrySource = File.ReadAllText(
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/ITileFeatureVisualRegistry.cs");
 
             foreach (var forbiddenInterface in forbiddenInterfaces)
             {
-                Assert.That(forbiddenInterface.IsAssignableFrom(targetType), Is.False, forbiddenInterface.Name);
+                Assert.That(registrySource, Does.Not.Contain(forbiddenInterface), forbiddenInterface);
             }
+
+            Assert.That(typeof(ITileFeatureVisualCueSink).IsAssignableFrom(typeof(TileFeatureVisualTargetView)), Is.False);
         }
 
         [Test]

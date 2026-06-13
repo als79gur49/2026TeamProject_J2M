@@ -2347,7 +2347,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private sealed class RecordingTarget : ITileFeatureVisualTarget
+        private sealed class RecordingTarget : ITileFeatureVisualTarget, ITileFeatureVisualCueSink
         {
             private readonly List<int> _calls;
 
@@ -2364,14 +2364,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public int PlayCount { get; private set; }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
+                if (request.CueId != TileFeatureVisualCueId.ButtonActivated)
+                {
+                    return false;
+                }
+
                 PlayCount++;
                 _calls?.Add(TileId);
+                return true;
             }
         }
 
-        private sealed class RecordingDestroyTarget : ITileFeatureVisualTarget, IDestroyTileVisualTarget
+        private sealed class RecordingDestroyTarget : ITileFeatureVisualTarget, ITileFeatureVisualCueSink
         {
             public RecordingDestroyTarget(int tileId, SurfaceCell cell)
             {
@@ -2387,18 +2393,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public int DestroyPlayCount { get; private set; }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
-                ButtonPlayCount++;
-            }
-
-            public void PlayDestroyTileTriggered()
-            {
-                DestroyPlayCount++;
+                switch (request.CueId)
+                {
+                    case TileFeatureVisualCueId.ButtonActivated:
+                        ButtonPlayCount++;
+                        return true;
+                    case TileFeatureVisualCueId.DestroyTileTriggered:
+                        DestroyPlayCount++;
+                        return true;
+                    default:
+                        return false;
+                }
             }
         }
 
-        private sealed class RecordingSlideTarget : ITileFeatureVisualTarget, ISlideTileVisualTarget
+        private sealed class RecordingSlideTarget : ITileFeatureVisualTarget, ITileFeatureVisualCueSink
         {
             public RecordingSlideTarget(int tileId, SurfaceCell cell)
             {
@@ -2418,20 +2429,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public int LastTargetEntityId { get; private set; }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
-                ButtonPlayCount++;
-            }
-
-            public void PlaySlideTileRedirected(Direction direction, int targetEntityId)
-            {
-                SlidePlayCount++;
-                LastDirection = direction;
-                LastTargetEntityId = targetEntityId;
+                switch (request.CueId)
+                {
+                    case TileFeatureVisualCueId.ButtonActivated:
+                        ButtonPlayCount++;
+                        return true;
+                    case TileFeatureVisualCueId.SlideTileRedirected:
+                        SlidePlayCount++;
+                        LastDirection = request.Direction;
+                        LastTargetEntityId = request.TargetEntityId;
+                        return true;
+                    default:
+                        return false;
+                }
             }
         }
 
-        private sealed class RecordingActiveStateTarget : ITileFeatureVisualTarget, ITileFeatureActiveStateVisualTarget
+        private sealed class RecordingActiveStateTarget : ITileFeatureVisualTarget, ITileFeatureVisualCueSink
         {
             public RecordingActiveStateTarget(int tileId, SurfaceCell cell)
             {
@@ -2451,26 +2467,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public bool LastActiveState { get; private set; }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
-                ButtonPlayCount++;
-            }
-
-            public void SetTileFeatureActiveImmediate(TileFeatureKind kind, bool active)
-            {
-                ActiveStateCalls++;
-                LastActiveStateKind = kind;
-                LastActiveState = active;
+                switch (request.CueId)
+                {
+                    case TileFeatureVisualCueId.ButtonActivated:
+                        ButtonPlayCount++;
+                        return true;
+                    case TileFeatureVisualCueId.DestroyTileActiveState:
+                    case TileFeatureVisualCueId.SlideTileActiveState:
+                        ActiveStateCalls++;
+                        LastActiveStateKind = request.FeatureKind;
+                        LastActiveState = request.Active;
+                        return true;
+                    default:
+                        return false;
+                }
             }
         }
 
         private sealed class RecordingBarricadeTarget :
             ITileFeatureVisualTarget,
-            IBarricadeBlockedVisualTarget,
-            IBarricadeCrushedVisualTarget,
-            IBarricadeActivatedVisualTarget,
-            IBarricadeDeactivatedVisualTarget,
-            IBarricadeActiveStateVisualTarget
+            ITileFeatureVisualCueSink
         {
             public RecordingBarricadeTarget(int tileId, SurfaceCell cell)
             {
@@ -2502,38 +2520,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public int LastCrushedTargetEntityId { get; private set; }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
-                ButtonPlayCount++;
-            }
-
-            public void PlayBarricadeBlocked(Direction direction, int targetEntityId)
-            {
-                BlockedPlayCount++;
-                LastBlockedDirection = direction;
-                LastBlockedTargetEntityId = targetEntityId;
-            }
-
-            public void PlayBarricadeCrushed(int targetEntityId)
-            {
-                CrushedPlayCount++;
-                LastCrushedTargetEntityId = targetEntityId;
-            }
-
-            public void PlayBarricadeActivated()
-            {
-                ActivatedPlayCount++;
-            }
-
-            public void PlayBarricadeDeactivated()
-            {
-                DeactivatedPlayCount++;
-            }
-
-            public void SetBarricadeActiveImmediate(bool active)
-            {
-                ImmediateSyncCount++;
-                LastImmediateActive = active;
+                switch (request.CueId)
+                {
+                    case TileFeatureVisualCueId.ButtonActivated:
+                        ButtonPlayCount++;
+                        return true;
+                    case TileFeatureVisualCueId.BarricadeBlocked:
+                        BlockedPlayCount++;
+                        LastBlockedDirection = request.Direction;
+                        LastBlockedTargetEntityId = request.TargetEntityId;
+                        return true;
+                    case TileFeatureVisualCueId.BarricadeCrushed:
+                        CrushedPlayCount++;
+                        LastCrushedTargetEntityId = request.TargetEntityId;
+                        return true;
+                    case TileFeatureVisualCueId.BarricadeActivated:
+                        ActivatedPlayCount++;
+                        return true;
+                    case TileFeatureVisualCueId.BarricadeDeactivated:
+                        DeactivatedPlayCount++;
+                        return true;
+                    case TileFeatureVisualCueId.BarricadeActiveState:
+                        ImmediateSyncCount++;
+                        LastImmediateActive = request.Active;
+                        return true;
+                    default:
+                        return false;
+                }
             }
         }
 
@@ -2541,7 +2556,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             MonoBehaviour,
             ITileFeatureVisualTarget,
             ITileFeatureVisualTargetConfigurator,
-            IBarricadeActiveStateVisualTarget
+            ITileFeatureVisualCueSink
         {
             public int TileId { get; private set; }
 
@@ -2557,14 +2572,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Cell = cell;
             }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
-            }
+                if (request.CueId != TileFeatureVisualCueId.BarricadeActiveState)
+                {
+                    return false;
+                }
 
-            public void SetBarricadeActiveImmediate(bool active)
-            {
                 ImmediateSyncCount++;
-                LastImmediateActive = active;
+                LastImmediateActive = request.Active;
+                return true;
             }
         }
 
@@ -2572,7 +2589,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             MonoBehaviour,
             ITileFeatureVisualTarget,
             ITileFeatureVisualTargetConfigurator,
-            ITileFeatureActiveStateVisualTarget
+            ITileFeatureVisualCueSink
         {
             public int TileId { get; private set; }
 
@@ -2590,18 +2607,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Cell = cell;
             }
 
-            public void SetTileFeatureActiveImmediate(TileFeatureKind kind, bool active)
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
+                if (request.CueId != TileFeatureVisualCueId.DestroyTileActiveState &&
+                    request.CueId != TileFeatureVisualCueId.SlideTileActiveState)
+                {
+                    return false;
+                }
+
                 ActiveStateCalls++;
-                LastActiveStateKind = kind;
-                LastActiveState = active;
+                LastActiveStateKind = request.FeatureKind;
+                LastActiveState = request.Active;
+                return true;
             }
         }
 
         private sealed class RecordingExitTarget :
             ITileFeatureVisualTarget,
-            IExitOpenedVisualTarget,
-            IExitEnteredVisualTarget
+            ITileFeatureVisualCueSink
         {
             public RecordingExitTarget(int tileId, SurfaceCell cell)
             {
@@ -2621,27 +2644,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public int LastPlayerEntityId { get; private set; }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
-                ButtonPlayCount++;
-            }
-
-            public void PlayExitOpened()
-            {
-                OpenedPlayCount++;
-            }
-
-            public void PlayExitEntered(int playerEntityId)
-            {
-                EnteredPlayCount++;
-                LastPlayerEntityId = playerEntityId;
+                switch (request.CueId)
+                {
+                    case TileFeatureVisualCueId.ButtonActivated:
+                        ButtonPlayCount++;
+                        return true;
+                    case TileFeatureVisualCueId.ExitOpened:
+                        OpenedPlayCount++;
+                        return true;
+                    case TileFeatureVisualCueId.ExitEntered:
+                        EnteredPlayCount++;
+                        LastPlayerEntityId = request.TargetEntityId;
+                        return true;
+                    default:
+                        return false;
+                }
             }
         }
 
         private sealed class RecordingExitOpenStateTarget :
             ITileFeatureVisualTarget,
-            IExitOpenedVisualTarget,
-            IExitOpenStateVisualTarget
+            ITileFeatureVisualCueSink
         {
             public RecordingExitOpenStateTarget(int tileId, SurfaceCell cell)
             {
@@ -2661,20 +2686,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public bool? LastImmediateOpen { get; private set; }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
-                ButtonPlayCount++;
-            }
-
-            public void PlayExitOpened()
-            {
-                OpenedPlayCount++;
-            }
-
-            public void SetExitOpenImmediate(bool open)
-            {
-                ImmediateSyncCount++;
-                LastImmediateOpen = open;
+                switch (request.CueId)
+                {
+                    case TileFeatureVisualCueId.ButtonActivated:
+                        ButtonPlayCount++;
+                        return true;
+                    case TileFeatureVisualCueId.ExitOpened:
+                        OpenedPlayCount++;
+                        return true;
+                    case TileFeatureVisualCueId.ExitOpenState:
+                        ImmediateSyncCount++;
+                        LastImmediateOpen = request.Active;
+                        return true;
+                    default:
+                        return false;
+                }
             }
         }
 
@@ -2689,7 +2717,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private sealed class RecordingMoonBlockGeneratedTarget :
             ITileFeatureVisualTarget,
-            IMoonBlockGeneratedVisualTarget
+            ITileFeatureVisualCueSink
         {
             public RecordingMoonBlockGeneratedTarget(int tileId, SurfaceCell cell)
             {
@@ -2707,21 +2735,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public int LastMoonBlockEntityId { get; private set; }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
-                ButtonPlayCount++;
-            }
-
-            public void PlayMoonBlockGenerated(int moonBlockEntityId)
-            {
-                GeneratedPlayCount++;
-                LastMoonBlockEntityId = moonBlockEntityId;
+                switch (request.CueId)
+                {
+                    case TileFeatureVisualCueId.ButtonActivated:
+                        ButtonPlayCount++;
+                        return true;
+                    case TileFeatureVisualCueId.MoonBlockGenerated:
+                        GeneratedPlayCount++;
+                        LastMoonBlockEntityId = request.TargetEntityId;
+                        return true;
+                    default:
+                        return false;
+                }
             }
         }
 
         private sealed class RecordingMoonBlockGeneratorBlockedTarget :
             ITileFeatureVisualTarget,
-            IMoonBlockGeneratorBlockedVisualTarget
+            ITileFeatureVisualCueSink
         {
             public RecordingMoonBlockGeneratorBlockedTarget(int tileId, SurfaceCell cell)
             {
@@ -2739,15 +2772,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public MoonBlockGeneratorBlockedPayload LastPayload { get; private set; }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
-                ButtonPlayCount++;
-            }
-
-            public void PlayMoonBlockGeneratorBlocked(MoonBlockGeneratorBlockedPayload payload)
-            {
-                BlockedPlayCount++;
-                LastPayload = payload;
+                switch (request.CueId)
+                {
+                    case TileFeatureVisualCueId.ButtonActivated:
+                        ButtonPlayCount++;
+                        return true;
+                    case TileFeatureVisualCueId.MoonBlockGeneratorBlocked:
+                        BlockedPlayCount++;
+                        LastPayload = request.MoonBlockGeneratorBlockedPayload;
+                        return true;
+                    default:
+                        return false;
+                }
             }
         }
     }

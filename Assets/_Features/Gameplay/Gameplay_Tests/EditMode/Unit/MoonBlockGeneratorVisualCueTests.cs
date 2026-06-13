@@ -135,9 +135,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(members.Select(member => member.Name), Has.None.Contains("PlayMoonBlockGenerated"));
             Assert.That(members.Select(member => member.Name), Has.None.Contains("PlayMoonBlockGeneratorBlocked"));
 
-            var targetInterfaces = targetType.GetInterfaces();
-            Assert.That(targetInterfaces, Has.None.EqualTo(typeof(IMoonBlockGeneratedVisualTarget)));
-            Assert.That(targetInterfaces, Has.None.EqualTo(typeof(IMoonBlockGeneratorBlockedVisualTarget)));
+            var targetInterfaceNames = targetType.GetInterfaces().Select(type => type.Name);
+            Assert.That(targetInterfaceNames, Has.None.EqualTo("IMoonBlockGeneratedVisualTarget"));
+            Assert.That(targetInterfaceNames, Has.None.EqualTo("IMoonBlockGeneratorBlockedVisualTarget"));
         }
 
         private static GameObject InstantiateMoonGeneratorPrefab()

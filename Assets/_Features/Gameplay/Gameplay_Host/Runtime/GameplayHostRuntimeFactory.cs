@@ -685,14 +685,6 @@ namespace Game.Feature.Gameplay.Host
                         active: active));
             }
 
-#pragma warning disable CS0618
-            if (target is IBarricadeActiveStateVisualTarget legacyTarget)
-            {
-                legacyTarget.SetBarricadeActiveImmediate(active);
-                return true;
-            }
-#pragma warning restore CS0618
-
             return false;
         }
 
@@ -727,21 +719,6 @@ namespace Game.Feature.Gameplay.Host
                         active: active));
             }
 
-#pragma warning disable CS0618
-            if (target is ITileFeatureActiveStateVisualTarget activeStateTarget)
-            {
-                activeStateTarget.SetTileFeatureActiveImmediate(featureKind, active);
-                return true;
-            }
-
-            if (featureKind == TileFeatureKind.Destroy &&
-                target is IDestroyTileActiveStateVisualTarget destroyActiveTarget)
-            {
-                destroyActiveTarget.SetDestroyTileActiveImmediate(active);
-                return true;
-            }
-#pragma warning restore CS0618
-
             return false;
         }
 
@@ -762,14 +739,6 @@ namespace Game.Feature.Gameplay.Host
                         TileFeatureKind.Exit,
                         active: open));
             }
-
-#pragma warning disable CS0618
-            if (target is IExitOpenStateVisualTarget exitOpenTarget)
-            {
-                exitOpenTarget.SetExitOpenImmediate(open);
-                return true;
-            }
-#pragma warning restore CS0618
 
             return false;
         }

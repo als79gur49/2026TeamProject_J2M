@@ -11684,7 +11684,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return renderers;
         }
 
-        private sealed class ActiveStateRecordingTileFeatureTarget : MonoBehaviour, ITileFeatureVisualTarget
+        private sealed class ActiveStateRecordingTileFeatureTarget :
+            MonoBehaviour,
+            ITileFeatureVisualTarget,
+            ITileFeatureVisualCueSink
         {
             public int TileId { get; private set; }
 
@@ -11700,18 +11703,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Cell = cell;
             }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
+                if (request.CueId != TileFeatureVisualCueId.ButtonActivated)
+                {
+                    return false;
+                }
+
                 PlayButtonActivatedCount++;
                 WasActiveInHierarchyWhenButtonActivated = gameObject.activeInHierarchy;
+                return true;
             }
         }
 
         private sealed class RecordingTileFeatureVisualTarget :
             MonoBehaviour,
             ITileFeatureVisualTarget,
-            IDestroyTileVisualTarget,
-            IMoonBlockGeneratedVisualTarget
+            ITileFeatureVisualCueSink
         {
             public int TileId { get; private set; }
 
@@ -11731,20 +11739,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Cell = cell;
             }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
-                DebugPlayButtonActivatedCount++;
-            }
-
-            public void PlayDestroyTileTriggered()
-            {
-                DebugPlayDestroyTileTriggeredCount++;
-            }
-
-            public void PlayMoonBlockGenerated(int moonBlockEntityId)
-            {
-                DebugMoonBlockGeneratedCount++;
-                DebugLastMoonBlockGeneratedEntityId = moonBlockEntityId;
+                switch (request.CueId)
+                {
+                    case TileFeatureVisualCueId.ButtonActivated:
+                        DebugPlayButtonActivatedCount++;
+                        return true;
+                    case TileFeatureVisualCueId.DestroyTileTriggered:
+                        DebugPlayDestroyTileTriggeredCount++;
+                        return true;
+                    case TileFeatureVisualCueId.MoonBlockGenerated:
+                        DebugMoonBlockGeneratedCount++;
+                        DebugLastMoonBlockGeneratedEntityId = request.TargetEntityId;
+                        return true;
+                    default:
+                        return false;
+                }
             }
         }
 
