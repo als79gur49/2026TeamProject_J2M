@@ -375,46 +375,6 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayUiFlowInstaller_TooltipAndConfirmShareStackWithDifferentPolicies()
-        {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_TooltipAndConfirmShareStackWithDifferentPolicies");
-
-            try
-            {
-                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
-                installer.Install(UiTestPortFactory.CreatePorts());
-
-                var completions = new List<PopupCompletion>();
-                Assert.That(installer.Coordinator.RequestTooltipPopup(
-                    new TooltipPopupPayload("Tip", "Tooltip body", TooltipPopupAnchorPreset.UpperRight),
-                    completions.Add), Is.True);
-                Assert.That(installer.TooltipPopupView, Is.Not.Null);
-                Assert.That(installer.PopupLayerView.IsDimVisible, Is.False);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.False);
-
-                Assert.That(installer.Coordinator.RequestConfirmPopup(
-                    new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", true),
-                    completions.Add), Is.True);
-                Assert.That(installer.ConfirmPopupView, Is.Not.Null);
-                Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Confirm));
-                Assert.That(installer.PopupLayerView.IsDimVisible, Is.True);
-                Assert.That(installer.HudController.IsGameplayReadOnly, Is.True);
-
-                Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
-                Assert.That(completions, Has.Count.EqualTo(1));
-                Assert.That(completions[0].CompletionKind, Is.EqualTo(PopupCompletionKind.Cancelled));
-                Assert.That(installer.TooltipPopupView, Is.Not.Null);
-                Assert.That(installer.PopupLayerView.IsDimVisible, Is.False);
-            }
-            finally
-            {
-                DestroyEventSystemIfPresent();
-                Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
         public void GameplayUiFlowInstaller_SettingsScreen_KeepsSectionViewsNestedUnderOneScreenShell()
         {
             var rootObject = new GameObject("GameplayUiFlowInstaller_SettingsScreen_KeepsSectionViewsNestedUnderOneScreenShell");

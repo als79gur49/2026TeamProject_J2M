@@ -175,7 +175,6 @@ namespace Game.Feature.UI.Tests
                 typeof(StageResultScreenPresenter).Assembly,
                 typeof(PausePopupPresenter).Assembly,
                 typeof(ConfirmPopupPresenter).Assembly,
-                typeof(TooltipPopupPresenter).Assembly,
             }.Distinct().ToArray();
 
             Assert.That(representativePresenterAssemblies, Is.EqualTo(new[] { applicationAssembly }));
@@ -659,7 +658,6 @@ namespace Game.Feature.UI.Tests
         {
             AssertViewBindSignature(typeof(PausePopupView), typeof(PausePopupViewModel));
             AssertViewBindSignature(typeof(ConfirmPopupView), typeof(ConfirmPopupViewModel));
-            AssertViewBindSignature(typeof(TooltipPopupView), typeof(TooltipPopupViewModel));
             Assert.That(TypeDependsOn(typeof(PopupLayerView), typeof(UIPresentationSnapshot)), Is.False);
         }
 
@@ -670,7 +668,6 @@ namespace Game.Feature.UI.Tests
             {
                 typeof(PausePopupView),
                 typeof(ConfirmPopupView),
-                typeof(TooltipPopupView),
             };
 
             foreach (var popupViewType in popupViewTypes)
@@ -690,7 +687,6 @@ namespace Game.Feature.UI.Tests
             {
                 typeof(PausePopupView),
                 typeof(ConfirmPopupView),
-                typeof(TooltipPopupView),
             };
             var forbiddenTypes = new[]
             {
@@ -723,7 +719,6 @@ namespace Game.Feature.UI.Tests
                 {
                     "ConfirmPrefab",
                     "PausePrefab",
-                    "TooltipPrefab",
                 }));
             Assert.That(GetPublicEventNames(typeof(PopupPrefabCatalog)), Is.Empty);
             Assert.That(GetPublicMethodSignatures(typeof(PopupPrefabCatalog)), Is.Empty);
@@ -752,7 +747,6 @@ namespace Game.Feature.UI.Tests
             {
                 typeof(PausePopupPresenter),
                 typeof(ConfirmPopupPresenter),
-                typeof(TooltipPopupPresenter),
             };
             var forbiddenTypes = new[]
             {
@@ -783,13 +777,10 @@ namespace Game.Feature.UI.Tests
             {
                 typeof(PausePopupPresenter),
                 typeof(ConfirmPopupPresenter),
-                typeof(TooltipPopupPresenter),
                 typeof(PausePopupViewModel),
                 typeof(ConfirmPopupViewModel),
-                typeof(TooltipPopupViewModel),
                 typeof(PausePopupView),
                 typeof(ConfirmPopupView),
-                typeof(TooltipPopupView),
             };
 
             foreach (var forbiddenType in forbiddenTypes)
@@ -821,7 +812,6 @@ namespace Game.Feature.UI.Tests
                     "RequestConfirmPopup(ConfirmPopupPayload, Action<PopupCompletion>)",
                     "RequestDemoStageControlPopup(IPopupPayload)",
                     "RequestPausePopup()",
-                    "RequestTooltipPopup(TooltipPopupPayload, Action<PopupCompletion>)",
                 }));
             Assert.That(
                 GetConstructorSignatures(typeof(UIFlowCoordinator)),
@@ -970,8 +960,6 @@ namespace Game.Feature.UI.Tests
                 typeof(PopupId),
                 typeof(IPopupRuntime),
                 typeof(IPopupRuntimeFactory),
-                typeof(TooltipPopupPresenter),
-                typeof(TooltipPopupView),
             };
 
             foreach (var forbiddenType in forbiddenTypes)

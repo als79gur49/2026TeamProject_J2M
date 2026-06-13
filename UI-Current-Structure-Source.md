@@ -22,7 +22,6 @@ This file is the external current-structure source for the completed UI cleanup 
   - `None`
   - `Pause`
   - `Confirm`
-  - `Tooltip`
   - `DemoStageControl`
 
 - Current HUD members:
@@ -46,6 +45,7 @@ This file is the external current-structure source for the completed UI cleanup 
 - `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing.
 - `DemoStageControl` is not a deletion candidate and is not a dev-only compile exclusion target.
 - Future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision.
+- `TooltipPopup` was retired from the current popup vocabulary after PR-TT1 found no production caller. Settings display hover hint remains as a local inline pointer-hover affordance and does not use `PopupId.Tooltip`.
 - Reward popup is not current popup vocabulary. Stage reward/progression vocabulary remains stage-owned content/system vocabulary, not a UI popup route.
 - Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`.
 - `StageResult` is a minimal stage-completion navigation endpoint. It no longer carries or displays title/summary/detail result text; continue, retry, and next-stage paths remain `StageNavigationRequest` intent boundaries.
@@ -84,7 +84,7 @@ This file is the external current-structure source for the completed UI cleanup 
 - Do not modify runtime code for this source regeneration.
 - Do not modify prefabs or catalogs for this source regeneration.
 - Do not change `DemoStageControl` runtime behavior.
-- Do not simplify or reroute StageResult, Pause/Confirm/Tooltip popup, settings, audio, display, or UI bridge paths.
+- Do not simplify or reroute StageResult, Pause/Confirm popup, settings, audio, display, or UI bridge paths.
 - Do not restore Settings tooltip on/off or large text on/off toggles without a separate product decision.
 - Do not revive `ActionBar`, diagnostics runtime UI, or `SceneTransitionOverlayView`.
 - Do not restore `Help` or `Inventory` as current gameplay screens.

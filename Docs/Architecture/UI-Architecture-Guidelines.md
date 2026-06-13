@@ -350,7 +350,6 @@ Current canonical identity lists:
   - `None`
   - `Pause`
   - `Confirm`
-  - `Tooltip`
   - `DemoStageControl`
 
 Screen classification notes:
@@ -362,7 +361,8 @@ Screen classification notes:
 
 Popup classification notes:
 
-- `Pause`, `Confirm`, and `Tooltip` are canonical gameplay popup catalog entries.
+- `Pause` and `Confirm` are canonical gameplay popup catalog entries.
+- `TooltipPopup` was retired from the current popup vocabulary after PR-TT1 found no production caller. Settings display hover hint remains as a local inline pointer-hover affordance and does not use `PopupId.Tooltip`.
 - Reward popup is not current popup vocabulary: it is not a `PopupId`, catalog entry, prefab, factory case, or stage-clear presentation path. Stage reward/progression vocabulary remains stage-owned content/system vocabulary, not popup UI vocabulary.
 - `DemoStageControl` is not a gameplay popup catalog entry. It is a catalog-less runtime assist popup created through the factory/runtime/hotkey path.
 - `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing. It is not a deletion candidate and is not a dev-only compile exclusion target.

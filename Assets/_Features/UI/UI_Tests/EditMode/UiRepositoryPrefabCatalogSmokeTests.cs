@@ -278,7 +278,6 @@ namespace Game.Feature.UI.Tests
             {
                 PopupId.Pause => catalog.PausePrefab,
                 PopupId.Confirm => catalog.ConfirmPrefab,
-                PopupId.Tooltip => catalog.TooltipPrefab,
                 _ => throw new ArgumentOutOfRangeException(nameof(popupId), popupId, null),
             };
         }

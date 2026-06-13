@@ -199,7 +199,9 @@ namespace Game.Feature.UI.Tests
                 mainMenuView.ShowSection(MainMenuSectionId.SaveSlots);
                 harness.OverlayController.Open();
                 popupController.Push(
-                    new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Body")),
+                    new PopupRequest(
+                        PopupId.Confirm,
+                        new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)),
                     out _);
 
                 SetPrivateField(installer, "_keyboardBindingSettingsPort", new RebindingKeyboardSettingsPort());

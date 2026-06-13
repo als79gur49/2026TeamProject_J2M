@@ -37,7 +37,7 @@
   - HUD prefab migration guards proving the installer mounts one authored HUD prefab under `HudLayer`, the shell remains HUD-markup free, and the legacy HUD builder symbols are absent from code and docs
   - HUD view boundary guards proving HUD views no longer expose runtime `Configure(...)` entrypoints and stay free of flow/gameplay-access dependencies
   - popup prefab migration guards proving the installer mounts one fixed-shape popup catalog, the popup factory instantiates one canonical authored prefab per popup kind under `PopupLayer`, and popup legacy builder symbols are absent from code and docs
-  - per-kind popup prefab contract and boundary guards proving `Pause`, `Confirm`, and `Tooltip` stay visual/local only, tooltip keeps bounded anchor/clamp behavior, and popup callbacks/timers do not acquire lifecycle ownership
+  - per-kind popup prefab contract and boundary guards proving `Pause` and `Confirm` stay visual/local only, and popup callbacks/timers do not acquire lifecycle ownership
   - screen prefab migration guards proving the installer mounts one fixed-shape screen-only catalog, the screen factory instantiates one canonical authored prefab per screen id under `ScreenLayer`, and screen legacy builder symbols are absent from code and docs
   - screen checkpoint guards proving the simple-shell, terminal-screen, and complex-screen checkpoints stay mechanically inspectable instead of hiding risk inside one broad migration phase
   - stronger screen-view ownership guards proving screen views do not surface navigation, popup, back-stack, controller, or gameplay-access shortcuts
@@ -158,7 +158,7 @@
 - `SettingsScreen` now remains one runtime-managed shell with authored `SettingsAudioSection` and `SettingsDisplaySection` children; audio/display fallback rebuilding is removed while preview/session ownership remains in `SettingsRuntime`
 - Settings authored child-view canonicalization is closed here; future changes should update runtime contracts and focused behavior tests directly
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path through `MinimalStageCompletionReadModel`; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
-- current canonical `PopupId` values are `None`, `Pause`, `Confirm`, `Tooltip`, and `DemoStageControl`
+- current canonical `PopupId` values are `None`, `Pause`, `Confirm`, and `DemoStageControl`
 - StageResult screen is a minimal stage-completion navigation endpoint. It no longer carries or displays title/summary/detail result text; it consumes `MinimalStageCompletionReadModel`-derived navigation payloads and emits intent-only `StageNavigationRequest` values for continue, retry, and next-stage paths.
 - Reward popup is not a stage-clear presentation endpoint or reward commit owner. Reward/progression commit remains owned by the stage subsystem before UI consumes the read model.
 - UI remains non-authoritative: it does not mutate `WorldState`, does not receive raw `TickResult` or raw gameplay frames in views, and consumes snapshots/viewmodels/read models instead.
@@ -167,8 +167,9 @@
 - `DemoStageControl` is a catalog-less runtime assist popup created through the factory/runtime/hotkey path and not a gameplay popup catalog entry
 - `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing; it is not a deletion candidate or dev-only compile exclusion target
 - future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision, not a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate
-- `Pause`, `Confirm`, and `Tooltip` remain protected canonical popup paths; Reward popup is absent from current popup vocabulary and is not the canonical stage-clear result path
-- protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, Pause/Confirm/Tooltip popup paths, `UI_Composition` adapters, UI audio/display/settings bridges, and `StageNavigationRequest`
+- `Pause` and `Confirm` remain protected canonical popup paths; Reward popup is absent from current popup vocabulary and is not the canonical stage-clear result path
+- `TooltipPopup` was retired from the current popup vocabulary after PR-TT1 found no production caller. Settings display hover hint remains as a local inline pointer-hover affordance and does not use `PopupId.Tooltip`.
+- protected UI paths for drift correction include `LevelFailed`, `GameClear`, `StageResult`, Pause/Confirm popup paths, `UI_Composition` adapters, UI audio/display/settings bridges, and `StageNavigationRequest`
 - no Stage 4–8 contract is widened merely for test/debug convenience
 - Policy extraction candidates for later PR: terminal screen selection, terminal back handling, pause return decision, audio transaction outcome mapping, and final-stage routing. Do not extract in PR-1.
 - Remaining PR-1 gaps: builder registry completeness belongs to PR-2; popup completion audio mapping, settings adapter lifecycle, HUD module completeness, and broader stage completion end-to-end/manual runtime evidence remain follow-up work.

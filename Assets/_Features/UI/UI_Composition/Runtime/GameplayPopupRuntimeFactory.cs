@@ -38,9 +38,6 @@ namespace Game.Feature.UI.Composition
                 case PopupId.Confirm:
                     return CreateConfirmPopup(ExpectPayload<ConfirmPopupPayload>(request.Payload));
 
-                case PopupId.Tooltip:
-                    return CreateTooltipPopup(ExpectPayload<TooltipPopupPayload>(request.Payload));
-
                 case PopupId.DemoStageControl:
                     return CreateDemoStageControlPopup(ExpectPayload<DemoStageControlPanelPayload>(request.Payload));
 
@@ -91,30 +88,6 @@ namespace Game.Feature.UI.Composition
                     showsDim: true,
                     blocksLowerLayers: true),
                 new PopupRuntime<ConfirmPopupView>(view, () =>
-                {
-                    view.Bind(null);
-                    DestroyObject(view.gameObject);
-                }));
-        }
-
-        private PopupRuntimeFactoryResult CreateTooltipPopup(TooltipPopupPayload payload)
-        {
-            var presenter = new TooltipPopupPresenter();
-            presenter.Apply(payload);
-
-            var view = InstantiatePopupPrefab(_popupPrefabCatalog.TooltipPrefab, PopupId.Tooltip);
-            view.Bind(presenter.ViewModel);
-            view.IsVisible = true;
-
-            return new PopupRuntimeFactoryResult(
-                new PopupPolicy(
-                    PopupPolicyClass.AnchoredEphemeral,
-                    PopupLifetimeScope.CurrentScreen,
-                    PopupBackAction.Close,
-                    PopupBackdropMode.None,
-                    showsDim: false,
-                    blocksLowerLayers: false),
-                new PopupRuntime<TooltipPopupView>(view, () =>
                 {
                     view.Bind(null);
                     DestroyObject(view.gameObject);

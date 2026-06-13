@@ -37,7 +37,6 @@ namespace Game.Feature.UI.Flow
     {
         ModalBlocking = 0,
         NonModalInformational = 1,
-        AnchoredEphemeral = 2,
     }
 
     public enum PopupLifetimeScope

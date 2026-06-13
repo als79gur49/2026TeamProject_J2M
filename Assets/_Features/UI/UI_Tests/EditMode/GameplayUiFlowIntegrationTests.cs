@@ -106,9 +106,9 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiFlowInstaller_ComposesTooltipPolicyWithScreenTransitions()
+        public void GameplayUiFlowInstaller_ComposesConfirmPolicyWithScreenTransitions()
         {
-            var hostObject = new GameObject("GameplayUiFlowInstaller_ComposesTooltipPolicyWithScreenTransitions");
+            var hostObject = new GameObject("GameplayUiFlowInstaller_ComposesConfirmPolicyWithScreenTransitions");
 
             try
             {
@@ -122,30 +122,31 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(host);
 
-                var tooltipCompletions = new List<PopupCompletion>();
-                Assert.That(installer.Coordinator.RequestTooltipPopup(
-                    new TooltipPopupPayload("Tip", "Tooltip body"),
-                    tooltipCompletions.Add), Is.True);
-                Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Tooltip));
-                Assert.That(installer.PopupLayerView.IsDimVisible, Is.False);
-                Assert.That(installer.Coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.False);
+                var confirmCompletions = new List<PopupCompletion>();
+                Assert.That(installer.Coordinator.RequestConfirmPopup(
+                    new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false),
+                    confirmCompletions.Add), Is.True);
+                Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Confirm));
+                Assert.That(installer.PopupLayerView.IsDimVisible, Is.True);
+                Assert.That(installer.Coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.True);
 
                 Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
-                Assert.That(tooltipCompletions, Has.Count.EqualTo(1));
-                Assert.That(tooltipCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.Back));
+                Assert.That(confirmCompletions, Has.Count.EqualTo(1));
+                Assert.That(confirmCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.Back));
+                Assert.That(confirmCompletions[0].CompletionKind, Is.EqualTo(PopupCompletionKind.Cancelled));
 
-                var gameplayTooltipCompletions = new List<PopupCompletion>();
-                Assert.That(installer.Coordinator.RequestTooltipPopup(
-                    new TooltipPopupPayload("Gameplay Tip", "Tooltip body"),
-                    gameplayTooltipCompletions.Add), Is.True);
+                var transitionConfirmCompletions = new List<PopupCompletion>();
+                Assert.That(installer.Coordinator.RequestConfirmPopup(
+                    new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false),
+                    transitionConfirmCompletions.Add), Is.True);
 
                 Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
-                Assert.That(gameplayTooltipCompletions, Has.Count.EqualTo(1));
-                Assert.That(gameplayTooltipCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.ScreenTransition));
+                Assert.That(transitionConfirmCompletions, Has.Count.EqualTo(1));
+                Assert.That(transitionConfirmCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.ScreenTransition));
 
             }
             finally
