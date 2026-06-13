@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 9126562856896865021}
   - component: {fileID: 7271734382504846241}
   - component: {fileID: 8501000000000013002}
+  - component: {fileID: 9201000000000000002}
   m_Layer: 0
   m_Name: TileFeature_Exit_3x3
   m_TagString: Untagged
@@ -71,6 +72,19 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   targetView: {fileID: 7271734382504846241}
   animator: {fileID: 8501000000000013001}
+  profiles: []
+--- !u!114 &9201000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2666720464963727994}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ccfcd3b3c9094270bfe4a1ad1a503f52, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.TileFeatureVisualProfileProvider
   profiles:
   - {fileID: 11400000, guid: 626a705993be4686bbcab184fb80e6bf, type: 2}
 --- !u!1 &8695777941922866866

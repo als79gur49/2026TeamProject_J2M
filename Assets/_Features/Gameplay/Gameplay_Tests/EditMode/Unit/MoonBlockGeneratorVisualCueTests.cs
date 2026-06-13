@@ -38,8 +38,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var adapter = prefabInstance.GetComponent<LegacyTileFeatureVisualCueAdapter>();
+                var provider = prefabInstance.GetComponent<TileFeatureVisualProfileProvider>();
                 var animator = prefabInstance.GetComponent<Animator>();
                 Assert.That(adapter, Is.Not.Null);
+                Assert.That(provider, Is.Not.Null);
                 Assert.That(animator, Is.Not.Null);
                 Assert.That(animator.runtimeAnimatorController, Is.Not.Null);
 
@@ -49,7 +51,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     parameter.name == "MoonBlockGenerated" &&
                     parameter.type == AnimatorControllerParameterType.Trigger), Is.True);
 
-                AssertProfileReference(adapter, profile);
+                AssertProfileReference(provider, profile);
 
                 adapter.PlayMoonBlockGenerated(201);
 
@@ -79,11 +81,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var adapter = prefabInstance.GetComponent<LegacyTileFeatureVisualCueAdapter>();
+                var provider = prefabInstance.GetComponent<TileFeatureVisualProfileProvider>();
                 var animator = prefabInstance.GetComponent<Animator>();
                 var controller = animator.runtimeAnimatorController as AnimatorController;
+                Assert.That(provider, Is.Not.Null);
                 Assert.That(controller, Is.Not.Null);
                 Assert.That(controller.parameters.Any(parameter => parameter.name == "MoonBlockGeneratorBlocked"), Is.False);
-                AssertProfileReference(adapter, profile);
+                AssertProfileReference(provider, profile);
 
                 var blockedCell = new SurfaceCell(FaceId.Floor, 12, 4);
                 var payload = new MoonBlockGeneratorBlockedPayload(
@@ -128,9 +132,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return Object.Instantiate(prefab);
         }
 
-        private static void AssertProfileReference(LegacyTileFeatureVisualCueAdapter adapter, TileFeatureVisualProfile profile)
+        private static void AssertProfileReference(TileFeatureVisualProfileProvider provider, TileFeatureVisualProfile profile)
         {
-            var serialized = new SerializedObject(adapter);
+            var serialized = new SerializedObject(provider);
             var profiles = serialized.FindProperty("profiles");
             Assert.That(profiles, Is.Not.Null);
             Assert.That(profiles.arraySize, Is.GreaterThanOrEqualTo(1));

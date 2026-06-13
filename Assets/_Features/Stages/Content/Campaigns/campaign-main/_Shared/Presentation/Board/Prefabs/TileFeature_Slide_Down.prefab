@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 4979790982512867837}
   - component: {fileID: 7600931071118227644}
   - component: {fileID: 9101000000000000005}
+  - component: {fileID: 9201000000000000006}
   m_Layer: 0
   m_Name: TileFeature_Slide_Down
   m_TagString: Untagged
@@ -77,6 +78,19 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   targetView: {fileID: 7600931071118227644}
   animator: {fileID: 0}
+  profiles: []
+--- !u!114 &9201000000000000006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2042845922330102480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ccfcd3b3c9094270bfe4a1ad1a503f52, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.TileFeatureVisualProfileProvider
   profiles:
   - {fileID: 11400000, guid: 9d492210fab04e1e8b77ac960c9470c7, type: 2}
 --- !u!1 &5733682360089378469

@@ -685,12 +685,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(targetView, Is.Not.Null);
             Assert.That(animator, Is.Not.Null);
             Assert.That(targetView.DebugAnimator, Is.SameAs(animator));
-#pragma warning disable CS0618
-            var adapter = prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>();
-#pragma warning restore CS0618
-            Assert.That(adapter, Is.Not.Null, prefabPath);
-
-            var profile = ResolveTileFeatureProfile(adapter, TileFeatureKind.Barricade);
+            var provider = prefab.GetComponent<TileFeatureVisualProfileProvider>();
+            Assert.That(provider, Is.Not.Null, prefabPath);
+            var profile = ResolveTileFeatureProfile(provider, TileFeatureKind.Barricade);
             Assert.That(profile, Is.Not.Null, prefabPath);
             var diagnostics = TileFeatureVisualBindingDiagnostics.ForProfile(profile, targetView);
             Assert.That(diagnostics.IsValid, Is.True, string.Join("\n", diagnostics.Messages));
@@ -1393,13 +1390,12 @@ namespace Game.Feature.Stages.Editor.Tests
                 $"Missing Animator parameter '{parameterName}' ({parameterType}).");
         }
 
-#pragma warning disable CS0618
         private static TileFeatureVisualProfile ResolveTileFeatureProfile(
-            LegacyTileFeatureVisualCueAdapter adapter,
+            TileFeatureVisualProfileProvider provider,
             TileFeatureKind expectedKind)
         {
-            var serializedAdapter = new SerializedObject(adapter);
-            var profiles = serializedAdapter.FindProperty("profiles");
+            var serializedProvider = new SerializedObject(provider);
+            var profiles = serializedProvider.FindProperty("profiles");
             Assert.That(profiles, Is.Not.Null);
             for (var i = 0; i < profiles.arraySize; i++)
             {
@@ -1412,7 +1408,6 @@ namespace Game.Feature.Stages.Editor.Tests
 
             return null;
         }
-#pragma warning restore CS0618
 
         private static void AssertCueAnimatorBinding(
             TileFeatureVisualProfile profile,
@@ -1458,13 +1453,11 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(prefab, Is.Not.Null, prefabPath);
             var targetView = prefab.GetComponent<TileFeatureVisualTargetView>();
             Assert.That(targetView, Is.Not.Null, prefabPath);
-#pragma warning disable CS0618
-            var adapter = prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>();
-#pragma warning restore CS0618
-            Assert.That(adapter, Is.Not.Null, prefabPath);
+            var provider = prefab.GetComponent<TileFeatureVisualProfileProvider>();
+            Assert.That(provider, Is.Not.Null, prefabPath);
 
-            var serializedAdapter = new SerializedObject(adapter);
-            var profiles = serializedAdapter.FindProperty("profiles");
+            var serializedProvider = new SerializedObject(provider);
+            var profiles = serializedProvider.FindProperty("profiles");
             Assert.That(profiles, Is.Not.Null, prefabPath);
             Assert.That(profiles.arraySize, Is.GreaterThan(0), prefabPath);
 

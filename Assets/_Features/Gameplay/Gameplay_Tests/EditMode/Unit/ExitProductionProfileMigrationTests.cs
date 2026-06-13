@@ -39,12 +39,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profile.FeatureKind, Is.EqualTo(TileFeatureKind.Exit));
 
             var targetView = prefab.GetComponent<TileFeatureVisualTargetView>();
-            var adapter = prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>();
+            var provider = prefab.GetComponent<TileFeatureVisualProfileProvider>();
             var animator = prefab.GetComponentInChildren<Animator>(includeInactive: true);
             Assert.That(targetView, Is.Not.Null, Exit3x3PrefabPath);
-            Assert.That(adapter, Is.Not.Null, Exit3x3PrefabPath);
+            Assert.That(provider, Is.Not.Null, Exit3x3PrefabPath);
             Assert.That(animator, Is.Not.Null, Exit3x3PrefabPath);
-            Assert.That(PrefabReferencesProfile(adapter, profile), Is.True);
+            Assert.That(provider.TryGetProfile(TileFeatureKind.Exit, out var providerProfile), Is.True);
+            Assert.That(providerProfile, Is.SameAs(profile));
 
             var diagnostics = TileFeatureVisualBindingDiagnostics.ForProfile(profile, targetView);
             Assert.That(diagnostics.IsValid, Is.True, string.Join("\n", diagnostics.Messages));
@@ -135,6 +136,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(ExitDefaultPrefabPath);
             Assert.That(prefab, Is.Not.Null, ExitDefaultPrefabPath);
             Assert.That(prefab.GetComponent<TileFeatureVisualTargetView>(), Is.Not.Null);
+            Assert.That(prefab.GetComponent<TileFeatureVisualProfileProvider>(), Is.Null);
             Assert.That(prefab.GetComponentInChildren<Animator>(includeInactive: true), Is.Null);
             Assert.That(prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>(), Is.Null);
 
@@ -158,28 +160,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(entry.VisualPrefab, Is.SameAs(prefab));
             Assert.That(entry.PlacementMode, Is.EqualTo(TileFeatureVisualPlacementMode.ReplaceBaseTile));
             Assert.That(entry.FootprintMode, Is.EqualTo(TileFeatureVisualFootprintMode.ThreeByThreeSameFace));
-        }
-
-        private static bool PrefabReferencesProfile(
-            LegacyTileFeatureVisualCueAdapter adapter,
-            TileFeatureVisualProfile expectedProfile)
-        {
-            var serializedAdapter = new SerializedObject(adapter);
-            var profiles = serializedAdapter.FindProperty("profiles");
-            if (profiles == null || !profiles.isArray)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < profiles.arraySize; i++)
-            {
-                if (profiles.GetArrayElementAtIndex(i).objectReferenceValue == expectedProfile)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private static void AssertCueAnimatorBinding(

@@ -2246,11 +2246,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(prefab, Is.Not.Null);
 
             var target = prefab.GetComponent<TileFeatureVisualTargetView>();
+            var provider = prefab.GetComponent<TileFeatureVisualProfileProvider>();
+            var animator = prefab.GetComponent<Animator>();
             Assert.That(target, Is.Not.Null);
-            Assert.That(target.DebugAnimator, Is.Not.Null);
-            Assert.That(target.DebugAnimator.runtimeAnimatorController, Is.Not.Null);
-            Assert.That(target.DebugAnimator.runtimeAnimatorController.name, Is.EqualTo("TileFeature_MoonGenerator_Default"));
-            Assert.That(prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>(), Is.Not.Null);
+            Assert.That(provider, Is.Not.Null);
+            Assert.That(animator, Is.Not.Null);
+            Assert.That(animator.runtimeAnimatorController, Is.Not.Null);
+            Assert.That(animator.runtimeAnimatorController.name, Is.EqualTo("TileFeature_MoonGenerator_Default"));
 
             var monoBehaviours = prefab.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
             Assert.That(
@@ -2260,6 +2262,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var profile = AssetDatabase.LoadAssetAtPath<TileFeatureVisualProfile>(MoonGeneratorProfilePath);
             Assert.That(profile, Is.Not.Null);
             Assert.That(profile.FeatureKind, Is.EqualTo(TileFeatureKind.MoonBlockGenerator));
+            Assert.That(provider.TryGetProfile(TileFeatureKind.MoonBlockGenerator, out var providerProfile), Is.True);
+            Assert.That(providerProfile, Is.SameAs(profile));
             Assert.That(profile.TryGetCueBinding(TileFeatureVisualCueId.MoonBlockGenerated, out var generatedBinding), Is.True);
             Assert.That(generatedBinding.AnimatorBinding.ParameterOrStateName, Is.EqualTo("MoonBlockGenerated"));
 

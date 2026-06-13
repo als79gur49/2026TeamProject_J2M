@@ -31,9 +31,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profile, Is.Not.Null);
             Assert.That(profile.FeatureKind, Is.EqualTo(TileFeatureKind.MoonBlockGenerator));
 
-            var adapter = prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>();
-            Assert.That(adapter, Is.Not.Null);
-            Assert.That(PrefabReferencesProfile(adapter, profile), Is.True);
+            var provider = prefab.GetComponent<TileFeatureVisualProfileProvider>();
+            Assert.That(provider, Is.Not.Null);
+            Assert.That(provider.TryGetProfile(TileFeatureKind.MoonBlockGenerator, out var providerProfile), Is.True);
+            Assert.That(providerProfile, Is.SameAs(profile));
 
             Assert.That(profile.TryGetCueBinding(TileFeatureVisualCueId.MoonBlockGenerated, out var generated), Is.True);
             Assert.That(generated.AnimatorBinding.CueId, Is.EqualTo(TileFeatureVisualCueId.MoonBlockGenerated));
@@ -88,26 +89,5 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(prefabSource, Does.Not.Contain("PlayMoonBlock"));
         }
 
-        private static bool PrefabReferencesProfile(
-            LegacyTileFeatureVisualCueAdapter adapter,
-            TileFeatureVisualProfile expectedProfile)
-        {
-            var serializedAdapter = new SerializedObject(adapter);
-            var profiles = serializedAdapter.FindProperty("profiles");
-            if (profiles == null || !profiles.isArray)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < profiles.arraySize; i++)
-            {
-                if (profiles.GetArrayElementAtIndex(i).objectReferenceValue == expectedProfile)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
     }
 }
