@@ -239,9 +239,10 @@ namespace Game.Feature.UI.Tests
                 Assert.That(FindChildByName(instance.transform, "ResetInput_Legacy"), Is.Null);
                 Assert.That(FindChildByName(instance.transform, "DisplayApplyButton"), Is.Null);
                 Assert.That(FindChildByName(instance.transform, "DisplayRevertButton"), Is.Null);
+                Assert.That(FindChildByName(instance.transform, "DisplayReveryButton_New"), Is.Null);
                 Assert.That(FindChildByName(instance.transform, "ResetInput_New"), Is.Not.Null);
                 Assert.That(FindChildByName(instance.transform, "DisplayApplyButton_New"), Is.Not.Null);
-                Assert.That(FindChildByName(instance.transform, "DisplayReveryButton_New"), Is.Not.Null);
+                Assert.That(FindChildByName(instance.transform, "DisplayRevertButton_New"), Is.Not.Null);
             }
             finally
             {

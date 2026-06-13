@@ -22683,7 +22683,7 @@ GameObject:
   - component: {fileID: 2228145176961253482}
   - component: {fileID: 4389870363209980448}
   m_Layer: 5
-  m_Name: DisplayReveryButton_New
+  m_Name: DisplayRevertButton_New
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
