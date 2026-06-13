@@ -433,7 +433,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
             var snapshot = worldState.CreateSnapshot();
 
-            var resolved = WindupMeleeCombatPoseQueries.TryResolveForwardTargetCell(
+            var resolved = CombatWindupPoseQueries.TryResolveForwardTargetCell(
                 snapshot,
                 new SurfaceCell(FaceId.Floor, 4, 0),
                 Direction.Right,

@@ -126,8 +126,8 @@ namespace Game.Feature.Gameplay.Entities
 
         public abstract EnemyAttackTimingAuthoringSettings AttackTimingSettings { get; }
 
-        public virtual WindupMeleeSettings WindupMeleeSettings =>
-            global::Game.Feature.Gameplay.Entities.WindupMeleeSettings.CreateDefault();
+        public virtual ProjectileWindupSettings ProjectileWindupSettings =>
+            global::Game.Feature.Gameplay.Entities.ProjectileWindupSettings.CreateDefault();
 
         public virtual WindupForwardCellProjectileSettings WindupForwardCellProjectileSettings =>
             global::Game.Feature.Gameplay.Entities.WindupForwardCellProjectileSettings.CreateDefault();
@@ -139,7 +139,7 @@ namespace Game.Feature.Gameplay.Entities
                 AttackDecisionSettings,
                 AttackTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
                 ResolveStrategy(),
-                WindupMeleeSettings,
+                ProjectileWindupSettings,
                 WindupForwardCellProjectileSettings);
         }
 

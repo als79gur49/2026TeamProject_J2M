@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
-    internal enum WindupMeleeStartBlockReason
+    internal enum CombatWindupStartBlockReason
     {
         None = 0,
         TargetInvalid = 1,
@@ -20,12 +20,12 @@ namespace Game.Feature.Gameplay.Entities
         NotSettledAtAnchor = 10,
     }
 
-    internal readonly struct WindupMeleeStartQueryResult
+    internal readonly struct CombatWindupStartQueryResult
     {
-        public WindupMeleeStartQueryResult(
+        public CombatWindupStartQueryResult(
             bool canStart,
             bool shouldApproach,
-            WindupMeleeStartBlockReason blockReason,
+            CombatWindupStartBlockReason blockReason,
             int distanceFixedUnits,
             int thresholdFixedUnits,
             CombatOriginAnchor enemyOrigin)
@@ -42,7 +42,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public bool ShouldApproach { get; }
 
-        public WindupMeleeStartBlockReason BlockReason { get; }
+        public CombatWindupStartBlockReason BlockReason { get; }
 
         public int DistanceFixedUnits { get; }
 
@@ -50,11 +50,11 @@ namespace Game.Feature.Gameplay.Entities
 
         public CombatOriginAnchor EnemyOrigin { get; }
 
-        public static WindupMeleeStartQueryResult Block(WindupMeleeStartBlockReason reason)
+        public static CombatWindupStartQueryResult Block(CombatWindupStartBlockReason reason)
         {
-            return new WindupMeleeStartQueryResult(
+            return new CombatWindupStartQueryResult(
                 canStart: false,
-                shouldApproach: reason == WindupMeleeStartBlockReason.OutsideSimulationStartRange,
+                shouldApproach: reason == CombatWindupStartBlockReason.OutsideSimulationStartRange,
                 reason,
                 distanceFixedUnits: -1,
                 thresholdFixedUnits: -1,
@@ -62,53 +62,53 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    internal static class WindupMeleeCombatPoseQueries
+    internal static class CombatWindupPoseQueries
     {
-        private static WindupMeleeStartQueryResult QueryStartShortRangeWindupFromSimulationPose(
+        private static CombatWindupStartQueryResult QueryStartShortRangeWindupFromSimulationPose(
             WorldSnapshot snapshot,
             in EntityState enemy,
             in EntityState player,
             in AttackDecisionSettings attackDecisionSettings,
-            in WindupMeleeSettings windupMeleeSettings)
+            in ProjectileWindupSettings projectileWindupSettings)
         {
             if (IsInSevereCombatOriginTransition(snapshot, enemy) ||
                 IsInSevereCombatOriginTransition(snapshot, player))
             {
-                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.SevereTransition);
+                return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.SevereTransition);
             }
 
             if (!TryResolveSimulationCombatOrigin(snapshot, enemy, out var enemyOrigin) ||
                 !TryResolveSimulationCombatOrigin(snapshot, player, out var playerOrigin))
             {
-                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.MissingSimulationPose);
+                return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.MissingSimulationPose);
             }
 
             if (enemyOrigin.AnchorCell.face != playerOrigin.AnchorCell.face)
             {
-                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.DifferentFace);
+                return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.DifferentFace);
             }
 
             var thresholdUnits = checked((attackDecisionSettings.AttackRange * KinematicFixed.UnitsPerCell) +
-                                         windupMeleeSettings.VisualRangeSlackUnits);
+                                         projectileWindupSettings.VisualRangeSlackUnits);
             var distanceUnits = GetManhattanDistanceUnits(enemyOrigin, playerOrigin);
             return distanceUnits <= thresholdUnits
-                ? new WindupMeleeStartQueryResult(
+                ? new CombatWindupStartQueryResult(
                     canStart: true,
                     shouldApproach: false,
-                    WindupMeleeStartBlockReason.None,
+                    CombatWindupStartBlockReason.None,
                     distanceUnits,
                     thresholdUnits,
                     enemyOrigin)
-                : new WindupMeleeStartQueryResult(
+                : new CombatWindupStartQueryResult(
                     canStart: false,
                     shouldApproach: true,
-                    WindupMeleeStartBlockReason.OutsideSimulationStartRange,
+                    CombatWindupStartBlockReason.OutsideSimulationStartRange,
                     distanceUnits,
                     thresholdUnits,
                     enemyOrigin);
         }
 
-        public static WindupMeleeStartQueryResult QueryStartWindupForwardCellProjectile(
+        public static CombatWindupStartQueryResult QueryStartWindupForwardCellProjectile(
             WorldSnapshot snapshot,
             in EntityState enemy,
             in EntityState player,
@@ -128,7 +128,7 @@ namespace Game.Feature.Gameplay.Entities
                 out targetCell);
         }
 
-        public static WindupMeleeStartQueryResult QueryStartWindupForwardCellProjectile(
+        public static CombatWindupStartQueryResult QueryStartWindupForwardCellProjectile(
             WorldSnapshot snapshot,
             in EntityState enemy,
             in EntityState player,
@@ -152,12 +152,12 @@ namespace Game.Feature.Gameplay.Entities
 
             if (attackDecisionStrategy is not WindupForwardCellProjectileAttackDecisionStrategy)
             {
-                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.TargetInvalid);
+                return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.TargetInvalid);
             }
 
             if (!EnemyAttackRangeQueries.IsTargetInRange(enemy, player, attackDecisionSettings))
             {
-                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.OutsideLogicRange);
+                return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.OutsideLogicRange);
             }
 
             var startQuery = QueryStartShortRangeWindupFromSimulationPose(
@@ -173,12 +173,12 @@ namespace Game.Feature.Gameplay.Entities
 
             if (!UnitSpatialQuery.IsSettledAtAnchor(snapshot, enemy.entityId))
             {
-                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.NotSettledAtAnchor);
+                return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.NotSettledAtAnchor);
             }
 
             if (snapshot.CountPendingCellImpactsForOwner(enemy.entityId) >= settings.ActivePendingImpactLimitPerOwner)
             {
-                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.ActivePendingImpactLimitReached);
+                return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.ActivePendingImpactLimitReached);
             }
 
             var attackDirection = EnemyActionStateTargeting.ResolveFacing(enemy, player);
@@ -192,7 +192,7 @@ namespace Game.Feature.Gameplay.Entities
                     tileFeatureDefinitions,
                     out targetCell))
             {
-                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.InvalidForwardTargetCell);
+                return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.InvalidForwardTargetCell);
             }
 
             if (settings.RequireValidForwardCell &&
@@ -202,7 +202,7 @@ namespace Game.Feature.Gameplay.Entities
                     targetCell,
                     tileFeatureDefinitions))
             {
-                return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.ForwardPathBlockedByTileFeature);
+                return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.ForwardPathBlockedByTileFeature);
             }
 
             if (!settings.RequireValidForwardCell)
@@ -220,7 +220,7 @@ namespace Game.Feature.Gameplay.Entities
             return startQuery;
         }
 
-        public static WindupMeleeStartQueryResult QueryShortRangeWindupStart(
+        public static CombatWindupStartQueryResult QueryShortRangeWindupStart(
             WorldSnapshot snapshot,
             in EntityState enemy,
             in EntityState player,
@@ -236,7 +236,7 @@ namespace Game.Feature.Gameplay.Entities
                 out lockedTargetCell);
         }
 
-        public static WindupMeleeStartQueryResult QueryShortRangeWindupStart(
+        public static CombatWindupStartQueryResult QueryShortRangeWindupStart(
             WorldSnapshot snapshot,
             in EntityState enemy,
             in EntityState player,
@@ -269,7 +269,7 @@ namespace Game.Feature.Gameplay.Entities
                 return result;
             }
 
-            return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.TargetInvalid);
+            return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.TargetInvalid);
         }
 
         public static bool TryResolveForwardTargetCell(
@@ -472,7 +472,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             // Conservative gameplay path: if WorldSnapshot cannot expose a simulation pose,
-            // WindupMelee gate/execute must not fall back to renderer or presentation state.
+            // Combat windup gate/execute must not fall back to renderer or presentation state.
             origin = default;
             return false;
         }

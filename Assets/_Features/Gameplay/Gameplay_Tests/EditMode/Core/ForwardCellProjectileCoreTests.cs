@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             var snapshot = CreateSnapshot();
 
-            var resolved = WindupMeleeCombatPoseQueries.TryResolveForwardTargetCell(
+            var resolved = CombatWindupPoseQueries.TryResolveForwardTargetCell(
                 snapshot,
                 new SurfaceCell(FaceId.Floor, 0, 0),
                 Direction.Right,
@@ -32,7 +32,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             var snapshot = CreateSnapshot();
 
-            var resolved = WindupMeleeCombatPoseQueries.TryResolveForwardTargetCell(
+            var resolved = CombatWindupPoseQueries.TryResolveForwardTargetCell(
                 snapshot,
                 new SurfaceCell(FaceId.Floor, 0, 0),
                 Direction.Right,
@@ -48,7 +48,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         public void ForwardProjectile_PerCellDelay_UsesPointFourSecondsAtSixtyTicks()
         {
             var settings = new WindupForwardCellProjectileSettings(
-                WindupMeleeSettings.DefaultVisualRangeSlackCells,
+                ProjectileWindupSettings.DefaultVisualRangeSlackCells,
                 impactDelayTicks: 24,
                 damage: 1,
                 activePendingImpactLimitPerOwner: 1,

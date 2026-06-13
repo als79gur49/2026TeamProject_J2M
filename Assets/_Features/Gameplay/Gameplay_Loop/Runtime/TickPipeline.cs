@@ -6000,7 +6000,7 @@ namespace Game.Feature.Gameplay.Loop
             in EntityState player,
             SurfaceCell targetCell)
         {
-            return WindupMeleeCombatPoseQueries.TryResolveSimulationCombatOrigin(snapshot, player, out var playerOrigin) &&
+            return CombatWindupPoseQueries.TryResolveSimulationCombatOrigin(snapshot, player, out var playerOrigin) &&
                    playerOrigin.AnchorCell.Equals(targetCell);
         }
 

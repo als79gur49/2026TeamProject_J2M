@@ -401,7 +401,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     enemy,
                     player,
                     AttackDecisionSettings.CreateAdjacentRange());
-                var query = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+                var query = CombatWindupPoseQueries.QueryStartWindupForwardCellProjectile(
                     beforeSnapshot,
                     enemy,
                     player,
@@ -416,7 +416,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(logicRange, Is.True, BuildWindupStartGateDebug(logicRange, query, result));
                 Assert.That(query.CanStart, Is.False, BuildWindupStartGateDebug(logicRange, query, result));
                 Assert.That(query.ShouldApproach, Is.True, BuildWindupStartGateDebug(logicRange, query, result));
-                Assert.That(query.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.OutsideSimulationStartRange));
+                Assert.That(query.BlockReason, Is.EqualTo(CombatWindupStartBlockReason.OutsideSimulationStartRange));
                 Assert.That(query.DistanceFixedUnits, Is.GreaterThan(query.ThresholdFixedUnits));
                 Assert.That(
                     result.PresentationData.EnemyActionSignals.Where(signal => signal.EntityId == 40),
@@ -491,7 +491,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var beforeSnapshot = worldState.CreateSnapshot();
                 Assert.That(beforeSnapshot.TryGetEntity(40, out var enemy), Is.True);
                 Assert.That(beforeSnapshot.TryGetEntity(10, out var player), Is.True);
-                var query = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+                var query = CombatWindupPoseQueries.QueryStartWindupForwardCellProjectile(
                     beforeSnapshot,
                     enemy,
                     player,
@@ -504,7 +504,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 Assert.That(query.CanStart, Is.False, BuildWindupStartGateDebug(true, query, result));
                 Assert.That(query.ShouldApproach, Is.False);
-                Assert.That(query.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.SevereTransition));
+                Assert.That(query.BlockReason, Is.EqualTo(CombatWindupStartBlockReason.SevereTransition));
                 Assert.That(result.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == 40), Is.Empty);
                 Assert.That(result.PresentationData.EnemyActionSignals.Where(signal => signal.EntityId == 40), Is.Empty);
             }
@@ -5918,7 +5918,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static string BuildWindupStartGateDebug(
             bool logicRange,
-            in WindupMeleeStartQueryResult query,
+            in CombatWindupStartQueryResult query,
             TickResult result)
         {
             var movementSources = string.Join(
@@ -5928,7 +5928,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 ",",
                 result.PresentationData.EnemyActionSignals.Select(signal => $"{signal.EntityId}:Start={signal.StartedThisTick}:Execute={signal.ExecutedThisTick}"));
 
-            return $"LogicRange={logicRange}|CanStart={query.CanStart}|ShouldApproach={query.ShouldApproach}|Reason={query.BlockReason}|Distance={query.DistanceFixedUnits}|Threshold={query.ThresholdFixedUnits}|Slack={WindupMeleeSettings.CreateDefault().VisualRangeSlackUnits}|Movement=[{movementSources}]|Signals=[{actionSignals}]|Trace={result.Trace.Text}";
+            return $"LogicRange={logicRange}|CanStart={query.CanStart}|ShouldApproach={query.ShouldApproach}|Reason={query.BlockReason}|Distance={query.DistanceFixedUnits}|Threshold={query.ThresholdFixedUnits}|Slack={ProjectileWindupSettings.CreateDefault().VisualRangeSlackUnits}|Movement=[{movementSources}]|Signals=[{actionSignals}]|Trace={result.Trace.Text}";
         }
 
         private static void SetUnitKinematicLocomotionState(

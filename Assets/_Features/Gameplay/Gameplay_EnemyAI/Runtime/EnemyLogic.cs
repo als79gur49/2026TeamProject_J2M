@@ -2286,7 +2286,7 @@ namespace Game.Feature.Gameplay.Entities
                         return default;
                     }
 
-                    if (ShouldHoldWindupMeleeMovementForAttackerTransition(snapshot, source, chaseTarget))
+                    if (ShouldHoldWindupProjectileMovementForAttackerTransition(snapshot, source, chaseTarget))
                     {
                         return default;
                     }
@@ -2304,7 +2304,7 @@ namespace Game.Feature.Gameplay.Entities
                         return CreateGroundLocomotionResolution(snapshot, source, chaseIntent);
                     }
 
-                    if (TryBuildWindupMeleeSimulationApproachIntent(
+                    if (TryBuildWindupProjectileSimulationApproachIntent(
                             snapshot,
                             source,
                             chaseTarget,
@@ -2380,7 +2380,7 @@ namespace Game.Feature.Gameplay.Entities
                 out intent);
         }
 
-        private bool TryBuildWindupMeleeSimulationApproachIntent(
+        private bool TryBuildWindupProjectileSimulationApproachIntent(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,
@@ -2442,7 +2442,7 @@ namespace Game.Feature.Gameplay.Entities
                    glideState.Phase == EnemyGlidePhase.Active;
         }
 
-        private bool ShouldHoldWindupMeleeMovementForAttackerTransition(
+        private bool ShouldHoldWindupProjectileMovementForAttackerTransition(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target)
@@ -2453,11 +2453,11 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var startQuery = QueryCombatWindupStart(snapshot, source, target, _combatCapability, _tileFeatureDefinitions);
-            return startQuery.BlockReason == WindupMeleeStartBlockReason.SevereTransition &&
-                   WindupMeleeCombatPoseQueries.IsInSevereCombatOriginTransition(snapshot, source);
+            return startQuery.BlockReason == CombatWindupStartBlockReason.SevereTransition &&
+                   CombatWindupPoseQueries.IsInSevereCombatOriginTransition(snapshot, source);
         }
 
-        private static WindupMeleeStartQueryResult QueryCombatWindupStart(
+        private static CombatWindupStartQueryResult QueryCombatWindupStart(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,
@@ -2466,7 +2466,7 @@ namespace Game.Feature.Gameplay.Entities
         {
             if (combatCapability.Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile)
             {
-                return WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+                return CombatWindupPoseQueries.QueryStartWindupForwardCellProjectile(
                     snapshot,
                     source,
                     target,
@@ -2477,7 +2477,7 @@ namespace Game.Feature.Gameplay.Entities
                     out _);
             }
 
-            return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.TargetInvalid);
+            return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.TargetInvalid);
         }
 
         private bool TryResolveScheduledJumpStart(
@@ -3138,7 +3138,7 @@ namespace Game.Feature.Gameplay.Entities
             if (combatCapability != null &&
                 combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
             {
-                var startQuery = WindupMeleeCombatPoseQueries.QueryShortRangeWindupStart(
+                var startQuery = CombatWindupPoseQueries.QueryShortRangeWindupStart(
                     snapshot,
                     source,
                     target,
@@ -3147,7 +3147,7 @@ namespace Game.Feature.Gameplay.Entities
                     out _);
                 if (startQuery.CanStart &&
                     source.position.Equals(target.position) &&
-                    WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
+                    CombatWindupPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
                 {
                     return new EnemyAiTransitionDecision(
                         EnemyAiMode.Chase,
@@ -3524,7 +3524,7 @@ namespace Game.Feature.Gameplay.Entities
             if (combatCapability != null &&
                 combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
             {
-                var startQuery = WindupMeleeCombatPoseQueries.QueryShortRangeWindupStart(
+                var startQuery = CombatWindupPoseQueries.QueryShortRangeWindupStart(
                     snapshot,
                     source,
                     target,
@@ -3533,7 +3533,7 @@ namespace Game.Feature.Gameplay.Entities
                     out _);
                 if (startQuery.CanStart &&
                     source.position.Equals(target.position) &&
-                    WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
+                    CombatWindupPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
                 {
                     return new EnemyAiTransitionDecision(
                         EnemyAiMode.Chase,
@@ -3663,7 +3663,7 @@ namespace Game.Feature.Gameplay.Entities
             if (combatCapability != null &&
                 combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
             {
-                var startQuery = WindupMeleeCombatPoseQueries.QueryShortRangeWindupStart(
+                var startQuery = CombatWindupPoseQueries.QueryShortRangeWindupStart(
                     snapshot,
                     source,
                     target,
@@ -3672,7 +3672,7 @@ namespace Game.Feature.Gameplay.Entities
                     out _);
                 if (startQuery.CanStart &&
                     source.position.Equals(target.position) &&
-                    WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
+                    CombatWindupPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
                 {
                     return new EnemyAiTransitionDecision(
                         EnemyAiMode.Chase,
