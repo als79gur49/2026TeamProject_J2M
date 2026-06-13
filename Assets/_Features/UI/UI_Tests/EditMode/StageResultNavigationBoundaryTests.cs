@@ -85,9 +85,6 @@ namespace Game.Feature.UI.Tests
             var stageId = StageId.CreateOrThrow("stage-result-boundary");
             var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "boundary-test");
             var payload = new StageResultScreenPayload(
-                "Title",
-                "Summary",
-                "Detail",
                 "Continue",
                 request,
                 StageNavigationRequest.None,

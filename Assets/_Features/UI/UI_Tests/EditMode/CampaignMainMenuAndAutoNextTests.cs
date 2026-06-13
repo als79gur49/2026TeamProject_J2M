@@ -99,9 +99,6 @@ namespace Game.Feature.UI.Tests
                 StageNavigationKind.NextStage,
                 "test");
             var payload = new StageResultScreenPayload(
-                "Clear",
-                string.Empty,
-                string.Empty,
                 "Continue",
                 nextRequest,
                 StageNavigationRequest.None,

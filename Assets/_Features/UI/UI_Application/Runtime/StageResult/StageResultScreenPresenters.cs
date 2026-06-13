@@ -7,30 +7,18 @@ namespace Game.Feature.UI.Application
     public sealed class StageResultScreenPayload : IScreenPayload
     {
         public StageResultScreenPayload(
-            string titleText,
-            string summaryText,
-            string detailText,
             string continueLabel,
             StageNavigationRequest continueStageRequest,
             StageNavigationRequest retryStageRequest,
             StageNavigationRequest nextStageRequest,
             bool isContinueEnabled = true)
         {
-            TitleText = titleText ?? string.Empty;
-            SummaryText = summaryText ?? string.Empty;
-            DetailText = detailText ?? string.Empty;
             ContinueLabel = continueLabel ?? string.Empty;
             ContinueStageRequest = continueStageRequest;
             RetryStageRequest = retryStageRequest;
             NextStageRequest = nextStageRequest;
             IsContinueEnabled = isContinueEnabled && continueStageRequest.IsValid;
         }
-
-        public string TitleText { get; }
-
-        public string SummaryText { get; }
-
-        public string DetailText { get; }
 
         public string ContinueLabel { get; }
 
@@ -101,9 +89,6 @@ namespace Game.Feature.UI.Application
             }
 
             ViewModel.SetContent(
-                payload.TitleText,
-                payload.SummaryText,
-                payload.DetailText,
                 payload.ContinueLabel,
                 payload.IsContinueEnabled);
         }

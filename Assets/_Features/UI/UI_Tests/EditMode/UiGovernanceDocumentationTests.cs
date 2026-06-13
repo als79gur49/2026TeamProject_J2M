@@ -100,6 +100,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("removed as retired HUD proof residue"));
             Assert.That(guidelines, Does.Contain("Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path"));
             Assert.That(guidelines, Does.Contain("Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`."));
+            Assert.That(guidelines, Does.Contain("`StageResult` is a minimal stage-completion navigation endpoint"));
+            Assert.That(guidelines, Does.Contain("It no longer carries or displays title/summary/detail result text"));
             Assert.That(guidelines, Does.Contain("UI diagnostics overlay was removed as an unused runtime feature after an explicit owner decision."));
             Assert.That(guidelines, Does.Contain("Canonical runtime UI must not include a diagnostics overlay, `DiagnosticsLayer`, or F3/F4 diagnostics input path."));
             Assert.That(guidelines, Does.Not.Contain("Diagnostics overlay is also not a deletion-safe item in this phase."));
@@ -173,7 +175,8 @@ namespace Game.Feature.UI.Tests
             var baseline = ReadRepoFile("Docs/Testing/UI-EditMode-Baseline-2026-04-15.md");
 
             Assert.That(baseline, Does.Contain("PR-1 stage completion guards proving StageResult + Continue, final-stage GameClear, retry payload, next-stage/no-next-stage mapping, terminal back consume, Reward popup absence, and screen/popup/HUD separation before UI refactor scaffolding begins"));
-            Assert.That(baseline, Does.Contain("StageResult screen is a stage completion presentation endpoint"));
+            Assert.That(baseline, Does.Contain("StageResult screen is a minimal stage-completion navigation endpoint"));
+            Assert.That(baseline, Does.Contain("It no longer carries or displays title/summary/detail result text"));
             Assert.That(baseline, Does.Contain("emits intent-only `StageNavigationRequest` values for continue, retry, and next-stage paths"));
             Assert.That(baseline, Does.Contain("Reward popup is not a stage-clear presentation endpoint or reward commit owner"));
             Assert.That(baseline, Does.Contain("Reward/progression commit remains owned by the stage subsystem"));
@@ -242,6 +245,8 @@ namespace Game.Feature.UI.Tests
             Assert.That(source, Does.Not.Contain("`ObjectiveStatus`"));
             Assert.That(source, Does.Contain("`Settings`"));
             Assert.That(source, Does.Contain("`StageResult`"));
+            Assert.That(source, Does.Contain("`StageResult` is a minimal stage-completion navigation endpoint"));
+            Assert.That(source, Does.Contain("It no longer carries or displays title/summary/detail result text"));
             Assert.That(source, Does.Contain("`LevelFailed`"));
             Assert.That(source, Does.Contain("`GameClear`"));
             Assert.That(source, Does.Contain("`Pause`"));

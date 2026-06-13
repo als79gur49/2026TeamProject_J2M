@@ -639,9 +639,6 @@ namespace Game.Feature.UI.Tests
             var stageResultRecord = screenRuntimeFactory.CreatedRuntimes.Find(record => record.Request.ScreenId == ScreenId.StageResult);
             var stagePayload = stageResultRecord.Request.Payload as StageResultScreenPayload;
             Assert.That(stagePayload, Is.Not.Null);
-            Assert.That(stagePayload.TitleText, Is.EqualTo("Payload Title"));
-            Assert.That(stagePayload.SummaryText, Does.Contain("Payload Stage"));
-            Assert.That(stagePayload.DetailText, Does.Contain("Tick 9"));
             Assert.That(stagePayload.ContinueLabel, Is.EqualTo("Collect"));
             Assert.That(stagePayload.ContinueStageRequest.StageId, Is.EqualTo(StageId.CreateOrThrow("payload-stage")));
             Assert.That(stagePayload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Continue));

@@ -46,11 +46,7 @@ namespace Game.Feature.UI.Tests
                     }
                     else if (prefab is StageResultScreenView stageResult)
                     {
-                        Assert.That(FindChildByName(stageResult.transform, "ContinueButton (1)"), Is.Null);
-
-                        var continueButton = FindChildByName(stageResult.transform, "ContinueButton");
-                        Assert.That(continueButton, Is.Not.Null);
-                        Assert.That(FindChildByName(continueButton, "SelectionFrame"), Is.Not.Null);
+                        AssertStageResultMinimalNavigationEndpointPrefab(stageResult);
                     }
                     else if (prefab is GameClearScreenView gameClear)
                     {
@@ -257,7 +253,6 @@ namespace Game.Feature.UI.Tests
 
             var payload = StageResultPayloadMapper.Map(readModel);
 
-            Assert.That(payload.TitleText, Is.Not.Empty);
             Assert.That(payload.ContinueStageRequest.IsValid, Is.True);
             Assert.That(payload.RetryStageRequest.IsValid, Is.True);
             Assert.That(payload.NextStageRequest.IsValid, Is.True);
@@ -351,6 +346,27 @@ namespace Game.Feature.UI.Tests
             var mainButton = FindChildByName(gameClear.transform, "MainButton");
             Assert.That(mainButton, Is.Not.Null);
             Assert.That(FindChildByName(mainButton, "SelectionFrame"), Is.Not.Null);
+        }
+
+        private static void AssertStageResultMinimalNavigationEndpointPrefab(StageResultScreenView stageResult)
+        {
+            var serialized = new SerializedObject(stageResult);
+            Assert.That(serialized.FindProperty("_titleLabel"), Is.Null);
+            Assert.That(serialized.FindProperty("_summaryLabel"), Is.Null);
+            Assert.That(serialized.FindProperty("_detailLabel"), Is.Null);
+            AssertRequiredObjectReference(serialized, "_continueButton", nameof(StageResultScreenView));
+            AssertRequiredObjectReference(serialized, "_continueButtonLabel", nameof(StageResultScreenView));
+
+            Assert.That(FindChildByName(stageResult.transform, "Title"), Is.Null);
+            Assert.That(FindChildByName(stageResult.transform, "ResultSummary"), Is.Null);
+            Assert.That(FindChildByName(stageResult.transform, "Summary"), Is.Null);
+            Assert.That(FindChildByName(stageResult.transform, "ResultDetail"), Is.Null);
+            Assert.That(FindChildByName(stageResult.transform, "Detail"), Is.Null);
+            Assert.That(FindChildByName(stageResult.transform, "ContinueButton (1)"), Is.Null);
+
+            var continueButton = FindChildByName(stageResult.transform, "ContinueButton");
+            Assert.That(continueButton, Is.Not.Null);
+            Assert.That(FindChildByName(continueButton, "SelectionFrame"), Is.Not.Null);
         }
 
         private static void AssertRequiredObjectReference(

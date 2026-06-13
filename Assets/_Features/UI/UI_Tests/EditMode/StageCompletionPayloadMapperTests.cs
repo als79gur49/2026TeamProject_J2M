@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Stages;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using NUnit.Framework;
 
@@ -8,7 +9,7 @@ namespace Game.Feature.UI.Tests
     public sealed class StageCompletionPayloadMapperTests
     {
         [Test]
-        public void StageResultPayloadMapper_UsesPresentationText_WithoutScoreRankResultData()
+        public void StageResultPayloadMapper_RetiresPresentationText_AndKeepsContinueLabel()
         {
             var readModel = new MinimalStageCompletionReadModel(
                 StageId.CreateOrThrow("payload-stage"),
@@ -32,12 +33,19 @@ namespace Game.Feature.UI.Tests
 
             var payload = StageResultPayloadMapper.Map(readModel);
 
-            Assert.That(payload.TitleText, Is.EqualTo("Presentation Title"));
-            Assert.That(payload.SummaryText, Is.EqualTo("Presentation Summary"));
-            Assert.That(payload.DetailText, Is.EqualTo("Presentation Detail"));
             Assert.That(payload.ContinueLabel, Is.EqualTo("Continue"));
-            Assert.That(payload.SummaryText, Does.Not.Contain("Score"));
-            Assert.That(payload.DetailText, Does.Not.Contain("Rank"));
+            Assert.That(
+                typeof(StageResultScreenPayload).GetProperty("TitleText"),
+                Is.Null,
+                "StageResult text presentation contract is retired; payload must not carry title text.");
+            Assert.That(
+                typeof(StageResultScreenPayload).GetProperty("SummaryText"),
+                Is.Null,
+                "StageResult text presentation contract is retired; payload must not carry summary text.");
+            Assert.That(
+                typeof(StageResultScreenPayload).GetProperty("DetailText"),
+                Is.Null,
+                "StageResult text presentation contract is retired; payload must not carry detail text.");
         }
 
         [Test]
