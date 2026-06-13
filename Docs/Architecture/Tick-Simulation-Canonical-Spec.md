@@ -261,10 +261,11 @@
 - `Flip DestroySelf`에서 shared contact normalized time은 final impact-pose arrival time이 아니라 break/release onset threshold다. destroy transient root flight는 일반 flip duration 전체를 사용하고, break/fade는 그 threshold부터 overlap된다.
 
 ## Occupancy And Queries
-- 현재 authoritative occupancy storage는 `WorldState`의 세 레이어다.
+- 현재 authoritative occupancy storage는 `WorldState`의 두 레이어다.
   - `_stackedUnitsByCell`
   - `_solidOccupancy`
-  - `_projectileOccupancy`
+- `EntityType.Projectile` is a reserved legacy serialized enum slot. Runtime entity creation, placement, movement, and occupancy for that type are not supported.
+- `WindupForwardCellProjectile` is not a projectile entity or occupancy lane. It uses `PendingCellImpact` plus presentation/audio arrival carriers.
 - There is no runtime gameplay terrain canonical storage. Every in-bounds `SurfaceCell` is terrain-free for legality.
 - Canonical query vocabulary는 `WorldSnapshot`의 layered API를 기준으로 한다.
   - `EnumerateUnitsAt(...)`
@@ -273,6 +274,7 @@
   - `IsBoxAt(...)`
   - `TryPickImpactTargetAt(...)`
   - `TryGetUnitTraversalBlocker(...)`
+- Determinism and trace occupancy export includes `SolidOccupancy`, `StackedUnitOccupancy`, and `Layer=Solid` / `Layer=Unit` only. It does not emit an empty projectile section.
 - Legacy compatibility API는 canonical vocabulary가 아니다.
   - `TryGetUnitAt(...)`
   - `TryGetSolidOccupantAt(...)`

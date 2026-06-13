@@ -412,4 +412,4 @@ Every in-bounds `SurfaceCell` is terrain-free for gameplay legality.
 
 Do not add terrain storage, terrain flags, terrain blocker kinds, or terrain query APIs to model Trap, Hazard, Buff, Trigger, Aura, Zone, TileFeature, MoonBlockGenerator, Barricade, Exit, or other effect semantics.
 
-Gameplay overlay effects belong to TileFeature or another explicitly accepted future ADR. Hard blockers must use the remaining vocabulary: board edge, solid, unit, projectile lane rules, reservation, TileFeature, or topology reject reasons.
+Gameplay overlay effects belong to TileFeature or another explicitly accepted future ADR. Hard blockers must use the remaining vocabulary: board edge, solid, unit, reservation, TileFeature, or topology reject reasons.
