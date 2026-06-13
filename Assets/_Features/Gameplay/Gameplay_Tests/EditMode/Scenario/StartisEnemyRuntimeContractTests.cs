@@ -20,7 +20,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Startis_AppliesPassiveContactDamage_OnSameSurfaceCell()
+        public void Startis_AppliesPassiveContact_OnSameSurfaceCell()
         {
             var profile = EnemyAiProfileTestFactory.CreateNonAttacking(includePassiveContact: true);
             try

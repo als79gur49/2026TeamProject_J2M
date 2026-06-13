@@ -231,7 +231,7 @@ namespace Game.Feature.Gameplay.Tests
             });
         }
 
-        public static EnemyAiProfile CreateContactDamage(int moveCooldownTicks = 0, int recoverTicks = 1)
+        public static EnemyAiProfile CreatePassiveContact(int moveCooldownTicks = 0, int recoverTicks = 1)
         {
             return Create(new EnemyAiTestProfileSpec
             {

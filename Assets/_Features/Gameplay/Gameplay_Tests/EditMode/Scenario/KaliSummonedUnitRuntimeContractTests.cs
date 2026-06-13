@@ -54,7 +54,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void KaliSummonedUnit_AppliesPassiveContactDamage_OnSameSurfaceCell()
+        public void KaliSummonedUnit_AppliesPassiveContact_OnSameSurfaceCell()
         {
             var worldState = CreateWorldState(new[]
             {

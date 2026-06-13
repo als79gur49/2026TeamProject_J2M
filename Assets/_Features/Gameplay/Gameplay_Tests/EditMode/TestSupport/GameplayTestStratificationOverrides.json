@@ -919,7 +919,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.ContactDamage_PlayerOwnedCooldown_RejectsStackedHitUntilReceiverGateExpires",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.PassiveContact_PlayerOwnedCooldown_RejectsStackedHitUntilReceiverGateExpires",
       "category": "Core",
       "contracts": [
         "attack_phase_scenario_contract"
@@ -928,7 +928,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.ContactDamage_SameTickMultipleSources_OnlyFirstDeterministicResolutionIsAccepted",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.PassiveContact_SameTickMultipleSources_OnlyFirstDeterministicResolutionIsAccepted",
       "category": "Core",
       "contracts": [
         "determinism",

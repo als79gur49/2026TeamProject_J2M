@@ -1055,16 +1055,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Glider_Active_UnitOverlap_UsesExistingPassiveContactDamage()
+        public void Glider_Active_UnitOverlap_UsesExistingPassiveContact()
         {
-            AssertGliderPassiveContactDamage(includeSolidUnderGlider: false);
+            AssertGliderPassiveContact(includeSolidUnderGlider: false);
         }
 
         [Test]
         [Category("Extended")]
-        public void Glider_Active_OnSolidAndPlayerSameCell_ContactDamageStillFires()
+        public void Glider_Active_OnSolidAndPlayerSameCell_PassiveContactStillFires()
         {
-            AssertGliderPassiveContactDamage(includeSolidUnderGlider: true);
+            AssertGliderPassiveContact(includeSolidUnderGlider: true);
         }
 
         [Test]
@@ -2608,7 +2608,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private static void AssertGliderPassiveContactDamage(bool includeSolidUnderGlider)
+        private static void AssertGliderPassiveContact(bool includeSolidUnderGlider)
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var gliderCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -2644,7 +2644,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             ((IPreMovementStateCommitContext)writeContext).SetFacing(40, Direction.Left);
-            var profile = EnemyAiProfileTestFactory.CreateContactDamage();
+            var profile = EnemyAiProfileTestFactory.CreatePassiveContact();
             try
             {
                 var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)

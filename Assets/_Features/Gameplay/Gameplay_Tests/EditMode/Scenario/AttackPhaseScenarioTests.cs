@@ -1280,7 +1280,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void ContactDamage_PlayerOwnedCooldown_RejectsStackedHitUntilReceiverGateExpires()
+        public void PassiveContact_PlayerOwnedCooldown_RejectsStackedHitUntilReceiverGateExpires()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -1310,8 +1310,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerInvincible_WhenOff_PlayerDamageAppliesNormally()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
-            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 1);
 
             var result = pipeline.RunTick(new TickInput(1), DemoGameplayOverrideSnapshot.None);
             var snapshot = CreateSnapshot(worldState);
@@ -1324,8 +1324,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerInvincible_WhenOn_PlayerDamageIsIgnored()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
-            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 1);
 
             var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
             var snapshot = CreateSnapshot(worldState);
@@ -1344,8 +1344,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerInvincible_WhenOn_LethalDamageDoesNotMarkPlayerForDeath()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 1, enemyHp: 3);
-            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 5);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 1, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 5);
 
             var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
             var snapshot = CreateSnapshot(worldState);
@@ -1359,8 +1359,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerInvincible_WhenOn_PlayerHpDoesNotChange()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
-            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 3);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 3);
 
             pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
 
@@ -1371,7 +1371,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerInvincible_WhenOn_EnemyDamageStillApplies()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 5, enemyHp: 3);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -1392,8 +1392,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerInvincible_WhenOffAgain_DamageWaitsForReceiverCooldownThenAppliesAgain()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
-            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 1);
 
             pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
             var cooldownTick = pipeline.RunTick(new TickInput(2), new DemoGameplayOverrideSnapshot(playerInvincible: false));
@@ -1409,8 +1409,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerInvincible_DoesNotCreateCleanupRemovalForPlayer()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 1, enemyHp: 3);
-            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 5);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 1, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 5);
 
             var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
 
@@ -1422,8 +1422,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerInvincible_DoesNotTriggerPlayerDeathSignal()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 1, enemyHp: 3);
-            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 5);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 1, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 5);
 
             var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
 
@@ -1435,8 +1435,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerInvincible_PassiveContactOverlap_ConsumesReceiverCooldown()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
-            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 1);
 
             var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
             var snapshot = CreateSnapshot(worldState);
@@ -1453,8 +1453,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerInvincible_PassiveContactOverlap_DoesNotRetryInvincibleEveryTick()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
-            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 1);
 
             var first = CaptureInvincibleContactDiagnostics(
                 pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true)));
@@ -1477,8 +1477,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerInvincible_RejectedDamage_DoesNotEmitCorePlayerDamageAudio()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
-            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 1);
 
             var diagnostics = CaptureInvincibleContactDiagnostics(
                 pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true)));
@@ -1491,8 +1491,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerInvincible_PassiveContactReject_DoesNotProduceCombatPresentationSource()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
-            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 1);
 
             var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
             var executedSignals = result.PresentationData.EnemyActionSignals
@@ -1511,8 +1511,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void ReceiverCooldownReject_DoesNotProduceEnemyActionExecutionSignal()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
-            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 1);
 
             pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
             var result = pipeline.RunTick(new TickInput(2), new DemoGameplayOverrideSnapshot(playerInvincible: true));
@@ -1525,8 +1525,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerInvincible_FlagIncludedInTraceOrDebugSnapshot()
         {
-            var worldState = CreatePlayerContactDamageWorld(playerHp: 5, enemyHp: 3);
-            var pipeline = CreatePassiveContactDamagePipeline(worldState, damage: 1);
+            var worldState = CreatePlayerPassiveContactWorld(playerHp: 5, enemyHp: 3);
+            var pipeline = CreatePassiveContactPipeline(worldState, damage: 1);
 
             var result = pipeline.RunTick(new TickInput(1), new DemoGameplayOverrideSnapshot(playerInvincible: true));
 
@@ -1535,7 +1535,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void ContactDamage_SameTickMultipleSources_OnlyFirstDeterministicResolutionIsAccepted()
+        public void PassiveContact_SameTickMultipleSources_OnlyFirstDeterministicResolutionIsAccepted()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -1691,7 +1691,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 rejectedReasons);
         }
 
-        private static WorldState CreatePlayerContactDamageWorld(int playerHp, int enemyHp)
+        private static WorldState CreatePlayerPassiveContactWorld(int playerHp, int enemyHp)
         {
             return CreateWorldState(new[]
             {
@@ -1700,7 +1700,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
         }
 
-        private static TickPipeline CreatePassiveContactDamagePipeline(WorldState worldState, int damage)
+        private static TickPipeline CreatePassiveContactPipeline(WorldState worldState, int damage)
         {
             return GameplayCompositionRoot.CreateTickPipeline(
                 worldState,

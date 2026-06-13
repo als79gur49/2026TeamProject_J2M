@@ -2432,7 +2432,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void StartisAudioProfile_BindsPassiveContactForNonAttackingContactDamage()
+        public void StartisAudioProfile_BindsPassiveContactForNonAttackingProfile()
         {
             var profile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(StartisAudioProfilePath);
             var definition = AssetDatabase.LoadAssetAtPath<AudioDefinition>(StartisPassiveContactDefinitionPath);

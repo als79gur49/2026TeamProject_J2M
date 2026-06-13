@@ -3328,14 +3328,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_ContactDamageProfile_MovesIntoPlayerCell_AndDealsSameTickDamage()
+        public void EnemyAi_PassiveContactProfile_MovesIntoPlayerCell_AndDealsSameTickDamage()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -3380,7 +3380,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -3432,7 +3432,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -3478,7 +3478,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -3522,7 +3522,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -3596,7 +3596,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     facing: Direction.Left,
                     enemyLocomotionCooldownTicks: 3),
             });
-            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            var profile = CreateGlidePassiveContactProfile(durationTicks: 20);
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateActiveGlide(activeUntilTickExclusive: 20, durationTicks: 20, recoveryTicks: 1, cooldownTicks: 0));
@@ -3641,7 +3641,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            var profile = CreateGlidePassiveContactProfile(durationTicks: 20);
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateActiveGlide(activeUntilTickExclusive: 20, durationTicks: 20, recoveryTicks: 1, cooldownTicks: 0));
@@ -3699,7 +3699,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            var profile = CreateGlidePassiveContactProfile(durationTicks: 20);
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateCooldownGlide(cooldownUntilTickExclusive: 100, durationTicks: 20, recoveryTicks: 2, cooldownTicks: 100));
@@ -3744,7 +3744,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 1), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
             });
-            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            var profile = CreateGlidePassiveContactProfile(durationTicks: 20);
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateActiveGlide(activeUntilTickExclusive: 20, durationTicks: 20, recoveryTicks: 2, cooldownTicks: 0));
@@ -3816,7 +3816,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 1), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 1, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
             });
-            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            var profile = CreateGlidePassiveContactProfile(durationTicks: 20);
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateActiveGlide(activeUntilTickExclusive: 20, durationTicks: 20, recoveryTicks: 2, cooldownTicks: 0));
@@ -3876,7 +3876,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     startedTick = 1,
                     stepDirectionX = 1,
                 });
-            var profile = CreateGlideContactDamageProfile(durationTicks: 4);
+            var profile = CreateGlidePassiveContactProfile(durationTicks: 4);
 
             try
             {
@@ -3912,7 +3912,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -3954,7 +3954,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -5116,7 +5116,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -5164,7 +5164,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 1, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -5196,7 +5196,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_ContactDamageProfile_AlreadySharingPlayerCell_DealsDamageWithoutMoving()
+        public void EnemyAi_PassiveContactProfile_AlreadySharingPlayerCell_DealsDamageWithoutMoving()
         {
             var stackedCell = new Vector2Int(0, 0);
             var worldState = CreateWorldState(new[]
@@ -5204,7 +5204,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: stackedCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: stackedCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -5331,14 +5331,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_ContactDamageProfile_PlayerOwnedCooldownWhileStacked_OnlyAcceptsAtReceiverCadence()
+        public void EnemyAi_PassiveContactProfile_PlayerOwnedCooldownWhileStacked_OnlyAcceptsAtReceiverCadence()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -5367,7 +5367,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_ContactDamageProfile_TwoEnemiesSameCellSameTick_OnlyFirstDeterministicHitIsAccepted()
+        public void EnemyAi_PassiveContactProfile_TwoEnemiesSameCellSameTick_OnlyFirstDeterministicHitIsAccepted()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -5375,7 +5375,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
                 CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -5402,7 +5402,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_ContactDamageProfile_CooldownExpiryWhileStillStacked_ReacceptsExactlyOneHit()
+        public void EnemyAi_PassiveContactProfile_CooldownExpiryWhileStillStacked_ReacceptsExactlyOneHit()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -5410,7 +5410,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
                 CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -5433,10 +5433,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_ContactDamageProfile_RecoverTicks_DoNotControlContactCadence()
+        public void EnemyAi_PassiveContactProfile_RecoverTicks_DoNotControlContactCadence()
         {
-            var fastContactProfile = CreateContactDamageProfile(recoverTicks: 0);
-            var slowContactProfile = CreateContactDamageProfile(recoverTicks: 5);
+            var fastContactProfile = CreatePassiveContactProfile(recoverTicks: 0);
+            var slowContactProfile = CreatePassiveContactProfile(recoverTicks: 5);
 
             try
             {
@@ -6309,9 +6309,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
         }
 
-        private static EnemyAiProfile CreateContactDamageProfile(int moveCooldownTicks = 0, int recoverTicks = 1)
+        private static EnemyAiProfile CreatePassiveContactProfile(int moveCooldownTicks = 0, int recoverTicks = 1)
         {
-            return EnemyAiProfileTestFactory.CreateContactDamage(moveCooldownTicks, recoverTicks);
+            return EnemyAiProfileTestFactory.CreatePassiveContact(moveCooldownTicks, recoverTicks);
         }
 
         private static EnemyAiProfile CreateStationaryPassiveContactProfile()
@@ -6329,7 +6329,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
         }
 
-        private static EnemyAiProfile CreateGlideContactDamageProfile(int durationTicks)
+        private static EnemyAiProfile CreateGlidePassiveContactProfile(int durationTicks)
         {
             return EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: durationTicks, recoveryTicks: 2, cooldownTicks: 0),

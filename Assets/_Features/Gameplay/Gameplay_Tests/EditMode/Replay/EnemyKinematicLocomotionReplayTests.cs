@@ -22,7 +22,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var inputs = Enumerable.Range(1, 10)
                 .Select(tick => new TickInput(tick))
                 .ToArray();
-            var profile = EnemyAiProfileTestFactory.CreateContactDamage();
+            var profile = EnemyAiProfileTestFactory.CreatePassiveContact();
             var harness = new TickReplayHarness();
 
             try
@@ -62,7 +62,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var inputs = Enumerable.Range(1, 4)
                 .Select(tick => new TickInput(tick))
                 .ToArray();
-            var profile = EnemyAiProfileTestFactory.CreateContactDamage(moveCooldownTicks: 8);
+            var profile = EnemyAiProfileTestFactory.CreatePassiveContact(moveCooldownTicks: 8);
             var harness = new TickReplayHarness();
 
             try
@@ -97,10 +97,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public void Replay_EnemySameFaceContinuousLocomotion_OrdinaryKinematicDuration_ChangesDeterminismHash()
         {
             var inputs = new[] { new TickInput(1) };
-            var fastProfile = CreateContactDamageProfile(
+            var fastProfile = CreatePassiveContactProfile(
                 moveCooldownSeconds: 12f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                 ordinaryKinematicMoveDurationSeconds: 4f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-            var slowProfile = CreateContactDamageProfile(
+            var slowProfile = CreatePassiveContactProfile(
                 moveCooldownSeconds: 12f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                 ordinaryKinematicMoveDurationSeconds: 8f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             var harness = new TickReplayHarness();
@@ -137,7 +137,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             {
                 new TickInput(1),
             };
-            var profile = EnemyAiProfileTestFactory.CreateContactDamage();
+            var profile = EnemyAiProfileTestFactory.CreatePassiveContact();
             var harness = new TickReplayHarness();
 
             try
@@ -407,7 +407,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var enemyInputs = Enumerable.Range(1, 10)
                 .Select(tick => new TickInput(tick))
                 .ToArray();
-            var enemyProfile = EnemyAiProfileTestFactory.CreateContactDamage();
+            var enemyProfile = EnemyAiProfileTestFactory.CreatePassiveContact();
             try
             {
                 var firstEnemyReplay = harness.Run(
@@ -1149,7 +1149,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var enemyInputs = Enumerable.Range(1, 6)
                 .Select(tick => new TickInput(tick))
                 .ToArray();
-            var enemyProfile = EnemyAiProfileTestFactory.CreateContactDamage();
+            var enemyProfile = EnemyAiProfileTestFactory.CreatePassiveContact();
             try
             {
                 var firstEnemyReplay = harness.Run(
@@ -1546,7 +1546,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             };
         }
 
-        private static EnemyAiProfile CreateContactDamageProfile(
+        private static EnemyAiProfile CreatePassiveContactProfile(
             float moveCooldownSeconds,
             float ordinaryKinematicMoveDurationSeconds)
         {
