@@ -152,16 +152,6 @@ namespace Game.Feature.Gameplay.BoardState
                     reservationStatus);
             }
 
-            if (snapshot.IsTerrainBlockedForUnit(cell))
-            {
-                return LegalityResult.Blocked(
-                    LegalityDomain.Traversal,
-                    cell,
-                    snapshot.Topology,
-                    RuntimeLegalityBlockerFactory.CreateTerrain(TerrainFlags.BlocksGroundTraversal),
-                    reservationStatus);
-            }
-
             if (snapshot.TryGetSolidSemanticAt(cell, out var solidSemantic))
             {
                 return LegalityResult.Blocked(

@@ -10,7 +10,6 @@ using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Replay
 {
@@ -213,7 +212,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(4, 4)),
-                GameplayTerrainData.Empty,
                 topology);
         }
 

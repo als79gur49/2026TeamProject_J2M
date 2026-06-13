@@ -6,7 +6,6 @@ using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Vfx;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -461,7 +460,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayCompositionRoot.CreateWorldState(
                 initialEntities,
                 TestBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 initialTileFeatures);
         }

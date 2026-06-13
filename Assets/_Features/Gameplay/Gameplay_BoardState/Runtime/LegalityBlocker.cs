@@ -7,7 +7,6 @@ namespace Game.Feature.Gameplay.BoardState
             int entityId = 0,
             EntityType? entityType = null,
             SolidKind? solidKind = null,
-            TerrainFlags terrainFlags = TerrainFlags.None,
             int tileId = 0,
             TileFeatureKind? tileFeatureKind = null)
         {
@@ -15,7 +14,6 @@ namespace Game.Feature.Gameplay.BoardState
             EntityId = entityId;
             EntityType = entityType;
             SolidKind = solidKind;
-            TerrainFlags = terrainFlags;
             TileId = tileId;
             TileFeatureKind = tileFeatureKind;
         }
@@ -27,8 +25,6 @@ namespace Game.Feature.Gameplay.BoardState
         public EntityType? EntityType { get; }
 
         public SolidKind? SolidKind { get; }
-
-        public TerrainFlags TerrainFlags { get; }
 
         public int TileId { get; }
 

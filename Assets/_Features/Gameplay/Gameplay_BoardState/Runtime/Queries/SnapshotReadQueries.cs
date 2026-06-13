@@ -553,34 +553,6 @@ namespace Game.Feature.Gameplay.BoardState
                 out entity);
         }
 
-        public static bool IsTerrainBlockedForUnit(
-            CubeTopologyState topology,
-            TerrainData terrainData,
-            SurfaceCell cell)
-        {
-            if (terrainData == null)
-            {
-                throw new ArgumentNullException(nameof(terrainData));
-            }
-
-            return topology.IsFaceActive(cell.face) &&
-                   TryGetTerrain(terrainData, cell, out var terrainCell) &&
-                   (terrainCell.Flags & TerrainFlags.BlocksGroundTraversal) != 0;
-        }
-
-        public static bool TryGetTerrain(
-            TerrainData terrainData,
-            SurfaceCell cell,
-            out TerrainCellState terrainCell)
-        {
-            if (terrainData == null)
-            {
-                throw new ArgumentNullException(nameof(terrainData));
-            }
-
-            return terrainData.TryGetTerrain(cell, out terrainCell);
-        }
-
         public static bool BlocksMovement(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             CubeTopologyState topology,
@@ -846,52 +818,6 @@ namespace Game.Feature.Gameplay.BoardState
 
                     buffer.Add(new SnapshotOccupancyEntry(pair.Key, entity.entityId));
                 }
-            }
-        }
-
-        public static void EnumerateTerrainCellsOrdered(
-            TerrainData terrainData,
-            List<TerrainCellState> buffer)
-        {
-            if (terrainData == null)
-            {
-                throw new ArgumentNullException(nameof(terrainData));
-            }
-
-            if (buffer == null)
-            {
-                throw new ArgumentNullException(nameof(buffer));
-            }
-
-            buffer.Clear();
-
-            var orderedCells = terrainData.OrderedTerrainCells;
-            for (var i = 0; i < orderedCells.Count; i++)
-            {
-                buffer.Add(orderedCells[i]);
-            }
-        }
-
-        public static void EnumerateTerrainBlockedCellsOrdered(
-            TerrainData terrainData,
-            List<Vector2Int> buffer)
-        {
-            if (terrainData == null)
-            {
-                throw new ArgumentNullException(nameof(terrainData));
-            }
-
-            if (buffer == null)
-            {
-                throw new ArgumentNullException(nameof(buffer));
-            }
-
-            buffer.Clear();
-
-            var orderedCells = terrainData.OrderedUnitBlockingCells;
-            for (var i = 0; i < orderedCells.Count; i++)
-            {
-                buffer.Add(orderedCells[i]);
             }
         }
 

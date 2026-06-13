@@ -20,7 +20,6 @@ using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
@@ -314,7 +313,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var approachWorld = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(approachWorld, localX: 0, localY: KinematicFixed.MaxPositiveLocalOffset, speedUnitsPerTick: speed);
             var approachPipeline = CreatePipeline(
@@ -786,8 +784,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var topologyWorld = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             topologyWorld.CreateWriteContext().SetPlayerControlState(10, default);
             var topologyIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(0, 2));
             topologyIntent.AssignIntentId(1);
@@ -892,8 +889,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var topologyWorld = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             topologyWorld.CreateWriteContext().SetPlayerControlState(10, default);
             var topologyIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(0, 2));
             topologyIntent.AssignIntentId(1);
@@ -918,7 +914,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             var tick = CreatePipeline(
                     worldState,
@@ -946,7 +941,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             worldState.CreateWriteContext().SetUnitContinuousLocomotionState(
                 10,
@@ -989,7 +983,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { CreatePlayer(10, sourceCell) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 new[] { CreateTileFeature(100, blockedCell, TileFeatureKind.Barricade) });
@@ -1035,7 +1028,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             var topologyIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(0, 2));
             topologyIntent.AssignIntentId(1);
@@ -2950,10 +2942,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> entities,
             BoardBounds boardBounds,
-            GameplayTerrainData terrainData,
             CubeTopologyState topology)
         {
-            return GameplayWorldStateTestFactory.CreateBounded(entities, boardBounds, terrainData, topology);
+            return GameplayWorldStateTestFactory.CreateBounded(entities, boardBounds, topology);
         }
 
         private static List<MoveIntent> InvokeValidateLegacyExpansionIntents(

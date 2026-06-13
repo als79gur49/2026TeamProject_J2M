@@ -4,7 +4,6 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -12,6 +11,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 {
     public sealed class EnemyAiInactiveFaceResidualScenarioTests
     {
+
         [Test]
         [Category("Extended")]
         public void EnemyAi_JumpLanding_InactiveFaceSolidBlocker_TopologySuspendDefersResolve()
@@ -23,59 +23,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 4, 1)),
                     CreateEnemyUnit(entityId: 40, position: sourceCell),
-                    CreateWall(entityId: 90, position: targetCell),
-                },
-                GameplayTerrainData.Empty);
-            var profile = CreateJumpChaserProfile();
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
-            PrimePlayerControlState(worldState, 10);
-
-            try
-            {
-                var writeContext = worldState.CreateWriteContext();
-                writeContext.SetBoardPresence(40, EntityBoardPresence.Detached);
-                writeContext.SetEnemyJumpState(40, CreateEnemyJumpState(sourceCell, targetCell, landingTick: 1));
-
-                var airborneSnapshot = worldState.CreateSnapshot();
-                Assert.That(airborneSnapshot.TryGetPlacementBlocker(EntityType.Unit, targetCell, ignoredEntityId: 40, out _), Is.True);
-
-                writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
-                var driftedSnapshot = worldState.CreateSnapshot();
-                Assert.That(driftedSnapshot.TryGetPlacementBlocker(EntityType.Unit, targetCell, ignoredEntityId: 40, out _), Is.False);
-                Assert.That(driftedSnapshot.TryGetAuthoritativePlacementBlocker(EntityType.Unit, targetCell, ignoredEntityId: 40, out _), Is.True);
-
-                TickResult landingTick = default;
-                Assert.DoesNotThrow(() => landingTick = pipeline.RunTick(new TickInput(1)));
-
-                var jumpState = GetEnemyJumpState(worldState, 40);
-                Assert.That(landingTick.Trace.Text, Does.Contain("EnemyJumpStateUpdated|E=40|Label=TopologySuspend"));
-                Assert.That(landingTick.Trace.Text, Does.Not.Contain("Label=Retry"));
-                Assert.That(landingTick.Trace.Text, Does.Not.Contain("Label=Landing"));
-                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(sourceCell));
-                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
-                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
-                Assert.That(jumpState.retryCount, Is.EqualTo(0));
-                Assert.That(jumpState.landingTick, Is.EqualTo(2));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_JumpLanding_InactiveFaceTerrainBlocker_TopologySuspendDefersResolve()
-        {
-            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
-            var targetCell = new SurfaceCell(FaceId.Front, 2, 1);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 4, 1)),
-                    CreateEnemyUnit(entityId: 40, position: sourceCell),
-                },
-                new GameplayTerrainData(new[] { targetCell.PlanarPosition }));
+                    CreateWall(entityId: 50, position: targetCell),
+                });
             var profile = CreateJumpChaserProfile();
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
             PrimePlayerControlState(worldState, 10);
@@ -93,7 +42,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var driftedSnapshot = worldState.CreateSnapshot();
                 Assert.That(driftedSnapshot.TryGetPlacementBlocker(EntityType.Unit, targetCell, ignoredEntityId: 40, out _), Is.False);
                 Assert.That(driftedSnapshot.TryGetAuthoritativePlacementBlocker(EntityType.Unit, targetCell, ignoredEntityId: 40, out var blocker), Is.True);
-                Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Terrain));
+                Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
 
                 TickResult landingTick = default;
                 Assert.DoesNotThrow(() => landingTick = pipeline.RunTick(new TickInput(1)));
@@ -126,8 +75,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 4, 1)),
                     CreateEnemyUnit(entityId: 40, position: sourceCell),
                     CreateUnit(entityId: 60, teamId: 1, position: targetCell, boardPresence: EntityBoardPresence.Detached),
-                },
-                GameplayTerrainData.Empty);
+                });
             var profile = CreateJumpChaserProfile();
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
             PrimePlayerControlState(worldState, 10);
@@ -163,13 +111,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         private static WorldState CreateWorldState(
-            EntityState[] initialEntities,
-            GameplayTerrainData terrainData)
+            EntityState[] initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 new BoardBounds(Vector2Int.zero, new Vector2Int(4, 2)),
-                terrainData,
                 new CubeTopologyState(FaceId.Floor));
         }
 

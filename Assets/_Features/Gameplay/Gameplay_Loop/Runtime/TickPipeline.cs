@@ -2484,7 +2484,6 @@ namespace Game.Feature.Gameplay.Loop
 
             return transition.RejectReason switch
             {
-                Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTerrain => TickTraversalBlockerKind.Terrain,
                 Free2DTopologyTransitionRejectReason.TargetFaceBlockedBySolid => TickTraversalBlockerKind.Solid,
                 Free2DTopologyTransitionRejectReason.TargetFaceBlockedByUnit => TickTraversalBlockerKind.Unit,
                 Free2DTopologyTransitionRejectReason.TargetFaceBlockedByReservation => TickTraversalBlockerKind.Reservation,
@@ -2530,7 +2529,6 @@ namespace Game.Feature.Gameplay.Loop
         {
             return reason == Free2DTopologyTransitionRejectReason.TopologyTransitionUnavailable ||
                    reason == Free2DTopologyTransitionRejectReason.TargetFaceOutOfBounds ||
-                   reason == Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTerrain ||
                    reason == Free2DTopologyTransitionRejectReason.TargetFaceBlockedBySolid ||
                    reason == Free2DTopologyTransitionRejectReason.TargetFaceBlockedByUnit ||
                    reason == Free2DTopologyTransitionRejectReason.TargetFaceBlockedByReservation ||

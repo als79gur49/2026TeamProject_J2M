@@ -5,7 +5,6 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.Timing;
 using Game.Feature.Stages;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -20,7 +19,6 @@ namespace Game.Feature.Gameplay.Host
                 BoardBounds boardBounds,
                 CubeTopologyState initialTopology,
                 EntityState[] initialEntities,
-                GameplayTerrainData initialTerrain,
                 TileFeatureState[] initialTileFeatures,
                 TileFeatureRuntimeDefinition[] tileFeatureDefinitions,
                 MoonBlockRespawnDefinition[] moonBlockRespawnDefinitions,
@@ -47,7 +45,6 @@ namespace Game.Feature.Gameplay.Host
                 BoardBounds = boardBounds;
                 InitialTopology = initialTopology;
                 InitialEntities = initialEntities ?? Array.Empty<EntityState>();
-                InitialTerrain = initialTerrain ?? GameplayTerrainData.Empty;
                 InitialTileFeatures = initialTileFeatures ?? Array.Empty<TileFeatureState>();
                 TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
                 MoonBlockRespawnDefinitions = moonBlockRespawnDefinitions ?? Array.Empty<MoonBlockRespawnDefinition>();
@@ -80,8 +77,6 @@ namespace Game.Feature.Gameplay.Host
             public CubeTopologyState InitialTopology { get; }
 
             public EntityState[] InitialEntities { get; }
-
-            public GameplayTerrainData InitialTerrain { get; }
 
             public TileFeatureState[] InitialTileFeatures { get; }
 
@@ -387,7 +382,6 @@ namespace Game.Feature.Gameplay.Host
                 SuppressedBaseTileCells = initialState.SuppressedBaseTileCells,
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialEntities = initialState.InitialEntities,
-                InitialTerrain = initialState.InitialTerrain,
                 InitialTileFeatures = initialState.InitialTileFeatures,
                 TileFeatureDefinitions = initialState.TileFeatureDefinitions,
                 MoonBlockRespawnDefinitions = initialState.MoonBlockRespawnDefinitions,

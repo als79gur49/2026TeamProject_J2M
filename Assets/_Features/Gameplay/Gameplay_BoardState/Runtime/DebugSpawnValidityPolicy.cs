@@ -7,14 +7,8 @@ namespace Game.Feature.Gameplay.BoardState
     {
         public static void EnsureRepresentable(
             BoardBounds boardBounds,
-            TerrainData terrainData,
             IEnumerable<EntityState> entities)
         {
-            if (terrainData == null)
-            {
-                throw new ArgumentNullException(nameof(terrainData));
-            }
-
             if (entities == null)
             {
                 throw new ArgumentNullException(nameof(entities));
@@ -27,7 +21,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             foreach (var entity in entities)
             {
-                EnsureRepresentable(boardBounds, terrainData, entity);
+                EnsureRepresentable(boardBounds, entity);
 
                 if (entitiesById.ContainsKey(entity.entityId))
                 {
@@ -41,7 +35,6 @@ namespace Game.Feature.Gameplay.BoardState
                         solidOccupancyByCell,
                         projectileOccupancy,
                         boardBounds,
-                        terrainData,
                         entity.type,
                         entity.position,
                         ignoredEntityId: 0,
@@ -56,7 +49,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
         }
 
-        public static void EnsureRepresentable(BoardBounds boardBounds, TerrainData terrainData, EntityState entity)
+        public static void EnsureRepresentable(BoardBounds boardBounds, EntityState entity)
         {
             if (entity.entityId <= 0)
             {
@@ -67,11 +60,6 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 throw new InvalidOperationException(
                     $"Debug spawn entity {entity.entityId} is outside the configured board bounds at {entity.position}.");
-            }
-
-            if (terrainData == null)
-            {
-                throw new ArgumentNullException(nameof(terrainData));
             }
         }
 

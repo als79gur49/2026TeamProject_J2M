@@ -1185,11 +1185,10 @@ namespace Game.Feature.Gameplay.Loop
     {
         None = 0,
         BoardEdge = 1,
-        Terrain = 2,
-        Solid = 3,
-        Unit = 4,
-        Reservation = 5,
-        TileFeature = 6,
+        Solid = 2,
+        Unit = 3,
+        Reservation = 4,
+        TileFeature = 5,
     }
 
     public readonly struct TickPlayerTopologyTransitionBlockedSignal

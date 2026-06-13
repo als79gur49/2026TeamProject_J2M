@@ -9,7 +9,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
@@ -386,27 +385,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_BlockerPolicy_TerrainBlocked_CurrentContract()
-        {
-            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
-            var terrainData = new GameplayTerrainData(
-                new[]
-                {
-                    new TerrainCellState(targetCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                });
-            var worldState = CreateCombatWorld(targetCell, terrainData: terrainData);
-
-            Assert.That(worldState.CreateSnapshot().IsTerrainBlockedForUnit(targetCell), Is.True);
-
-            var observation = ReleaseForwardCellProjectile(worldState);
-
-            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals.Single().TargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void BlackEye_ForwardCellProjectile_NonSettledOwner_DoesNotStartWindup()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
@@ -601,18 +579,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_BlockerPolicy_DoesNotFlattenAcrossFaces_CurrentContract()
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_DoesNotFlattenOccupancyAcrossFaces_CurrentContract()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
-            var frontTerrainCell = new SurfaceCell(FaceId.Front, 4, 0);
             var frontSolidCell = new SurfaceCell(FaceId.Front, 2, 0);
             var frontProjectileCell = new SurfaceCell(FaceId.Front, 3, 0);
             var frontUnitCell = new SurfaceCell(FaceId.Front, 1, 0);
-            var terrainData = new GameplayTerrainData(
-                new[]
-                {
-                    new TerrainCellState(frontTerrainCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                });
             var worldState = CreateCombatWorld(
                 targetCell,
                 extraEntities: new[]
@@ -620,11 +592,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(50, 2, frontUnitCell, EnemyAiMode.None, Direction.Left, UnitRole.Enemy),
                     CreateBox(60, frontSolidCell),
                     CreateProjectile(70, frontProjectileCell),
-                },
-                terrainData: terrainData);
-
-            Assert.That(worldState.CreateSnapshot().IsTerrainBlockedForUnit(frontTerrainCell), Is.True);
-            Assert.That(worldState.CreateSnapshot().IsTerrainBlockedForUnit(targetCell), Is.False);
+                });
 
             var observation = ReleaseForwardCellProjectile(worldState);
 
@@ -638,19 +606,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void BlackEye_ForwardCellProjectile_BlockerPolicy_DoesNotMutateOccupancy_CurrentContract()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
-            var terrainData = new GameplayTerrainData(
-                new[]
-                {
-                    new TerrainCellState(targetCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                });
             var worldState = CreateCombatWorld(
                 targetCell,
                 extraEntities: new EntityState[]
                 {
                     CreateUnit(50, 2, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.None, Direction.Left, UnitRole.Enemy),
                     CreateProjectile(70, new SurfaceCell(FaceId.Floor, 3, 0)),
-                },
-                terrainData: terrainData);
+                });
 
             var observation = ReleaseForwardCellProjectile(worldState);
 
@@ -813,26 +775,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_TerrainBlockedTarget_ReleasesCellImpact_StrongContract()
-        {
-            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
-            var terrainData = new GameplayTerrainData(
-                new[]
-                {
-                    new TerrainCellState(targetCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                });
-            var worldState = CreateCombatWorld(targetCell, terrainData: terrainData);
-
-            var observation = ReleaseForwardCellProjectile(worldState);
-
-            Assert.That(worldState.CreateSnapshot().IsTerrainBlockedForUnit(targetCell), Is.True);
-            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals.Single().TargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void BlackEye_ForwardCellProjectile_ReleaseDoesNotCreateProjectileEntityOrMutateOccupancy_StrongContract()
         {
             var lockedCell = new SurfaceCell(FaceId.Floor, 4, 0);
@@ -932,7 +874,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WorldState CreateCombatWorld(
             SurfaceCell playerCell,
             IEnumerable<EntityState> extraEntities = null,
-            GameplayTerrainData terrainData = null,
             BoardBounds? boardBounds = null,
             CubeTopologyState? topology = null,
             IEnumerable<TileFeatureState> initialTileFeatures = null)
@@ -950,7 +891,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayWorldStateTestFactory.CreateBounded(
                 entities,
                 boardBounds ?? new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(4, 4)),
-                terrainData ?? GameplayTerrainData.Empty,
                 topology ?? new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 initialTileFeatures);

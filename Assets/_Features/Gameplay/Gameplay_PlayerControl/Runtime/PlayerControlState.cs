@@ -887,7 +887,6 @@ namespace Game.Feature.Gameplay.PlayerControl
                 switch (blockers[i].Kind)
                 {
                     case LegalityBlockerKind.BoardEdge:
-                    case LegalityBlockerKind.Terrain:
                     case LegalityBlockerKind.Solid:
                     case LegalityBlockerKind.Reservation:
                     case LegalityBlockerKind.TileFeature:

@@ -607,12 +607,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PendingCellImpact_TargetTerrainInvalidFlag_DoesNotInvalidateArrival()
+        public void PendingCellImpact_TargetCellWithoutPlacementBlocker_DoesNotInvalidateArrival()
         {
             var (result, worldState) = RunDirectPendingImpact(playerCell: new SurfaceCell(FaceId.Floor, 1, 0));
             var resolution = result.AttackPhaseResult.PendingCellImpactResolutions.Single();
 
-            Assert.That(worldState.CreateSnapshot().TryGetTerrain(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
+            Assert.That(worldState.CreateSnapshot().TryGetPlacementBlocker(EntityType.Projectile, new SurfaceCell(FaceId.Floor, 1, 0), ignoredEntityId: 0, out _), Is.False);
             Assert.That(resolution.ResultKind, Is.EqualTo(PendingCellImpactResolutionKind.Hit));
             Assert.That(result.PresentationData.ForwardCellImpactSignals, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.ForwardCellProjectileArrivalSignals, Has.Count.EqualTo(1));
@@ -1072,8 +1072,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(PlayerId, 1, playerCell, EnemyAiMode.None, Direction.Left, UnitRole.Player),
                     CreateUnit(EnemyId, 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Attack, Direction.Right, UnitRole.Enemy),
                 },
-                new BoardBounds(new Vector2Int(-2, -2), new Vector2Int(4, 4)),
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty);
+                new BoardBounds(new Vector2Int(-2, -2), new Vector2Int(4, 4)));
         }
 
         private static EntityState CreateUnit(

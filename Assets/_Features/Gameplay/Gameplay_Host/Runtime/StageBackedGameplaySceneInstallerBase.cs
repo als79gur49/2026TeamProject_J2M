@@ -82,7 +82,6 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.GameplayBuildResult.BoardBounds,
                 compositionData.GameplayBuildResult.InitialTopology,
                 compositionData.GameplayBuildResult.InitialEntities,
-                compositionData.GameplayBuildResult.InitialTerrain,
                 compositionData.GameplayBuildResult.InitialTileFeatures,
                 compositionData.GameplayBuildResult.TileFeatureDefinitions,
                 compositionData.GameplayBuildResult.MoonBlockRespawnDefinitions,

@@ -18,7 +18,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Stages;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -99,8 +98,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.Throws<InvalidOperationException>(
                 () => GameplayCompositionRoot.CreateWorldState(
                     Array.Empty<EntityState>(),
-                    BoardBounds.Unbounded,
-                    GameplayTerrainData.Empty));
+                    BoardBounds.Unbounded));
         }
 
         [Test]

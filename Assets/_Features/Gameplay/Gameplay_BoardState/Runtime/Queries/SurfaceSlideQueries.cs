@@ -18,18 +18,12 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             SurfaceCell origin,
             Vector2Int delta,
             out SurfaceCell destination,
             out SlideStopper stopper)
         {
             ValidateQueryDictionaries(entitiesById, stackedUnitsByCell, solidOccupancyByCell);
-
-            if (terrainData == null)
-            {
-                throw new ArgumentNullException(nameof(terrainData));
-            }
 
             SurfaceTraversalQueries.ValidateSlideDelta(delta);
 
@@ -52,7 +46,6 @@ namespace Game.Feature.Gameplay.BoardState
                         solidOccupancyByCell,
                         topology,
                         boardBounds,
-                        terrainData,
                         destination,
                         out stopper))
                 {
@@ -85,7 +78,6 @@ namespace Game.Feature.Gameplay.BoardState
                     solidOccupancyByCell,
                     topology,
                     boardBounds,
-                    terrainData,
                     destination,
                     out stopper))
             {
@@ -142,7 +134,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             SurfaceCell cell,
             out SlideStopper stopper)
         {
@@ -156,7 +147,6 @@ namespace Game.Feature.Gameplay.BoardState
                 EmptyProjectileOccupancy,
                 topology,
                 boardBounds,
-                terrainData,
                 cell,
                 out stopper);
         }

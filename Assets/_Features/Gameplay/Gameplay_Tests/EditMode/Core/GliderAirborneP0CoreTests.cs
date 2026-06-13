@@ -9,7 +9,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Movement.Collection;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Core
 {
@@ -833,8 +832,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             return GameplayCompositionRoot.CreateWorldState(
                 entities,
-                bounds,
-                GameplayTerrainData.Empty);
+                bounds);
         }
 
         private static EntityState CreateUnit(

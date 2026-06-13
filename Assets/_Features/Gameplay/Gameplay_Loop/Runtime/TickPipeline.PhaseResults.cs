@@ -868,8 +868,7 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < candidateOffsets.Count; i++)
             {
                 var candidateCell = source.position + candidateOffsets[i];
-                if (!snapshot.IsInsideBoard(candidateCell) ||
-                    snapshot.IsTerrainBlockedForUnit(candidateCell))
+                if (!snapshot.IsInsideBoard(candidateCell))
                 {
                     continue;
                 }

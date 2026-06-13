@@ -1620,7 +1620,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             },
                         },
                         new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
-                        Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                         topology,
                         GameplayTimingProfile.CreateDefault(),
                         tileFeatures)

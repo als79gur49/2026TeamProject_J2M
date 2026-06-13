@@ -207,7 +207,6 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _stackedUnitsByCell;
         private readonly IReadOnlyDictionary<int, TileFeatureState> _tileFeaturesById;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _tileFeatureIdsByCell;
-        private readonly TerrainData _terrainData;
         private readonly CubeTopologyState _topology;
         private readonly int _topologyRevision;
         private EntityState[] _orderedEntitiesCache;
@@ -240,8 +239,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
             CubeTopologyState topology,
             int topologyRevision,
-            BoardBounds boardBounds,
-            TerrainData terrainData)
+            BoardBounds boardBounds)
             : this(
                 entitiesById,
                 CreateReadonlyStackedUnitsByCell(stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell))),
@@ -269,8 +267,7 @@ namespace Game.Feature.Gameplay.BoardState
                 unitContinuousLocomotionStatesByEntityId,
                 topology,
                 topologyRevision,
-                boardBounds,
-                terrainData)
+                boardBounds)
         {
         }
 
@@ -301,8 +298,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
             CubeTopologyState topology,
             int topologyRevision,
-            BoardBounds boardBounds,
-            TerrainData terrainData)
+            BoardBounds boardBounds)
         {
             return new WorldSnapshot(
                 entitiesById,
@@ -331,8 +327,7 @@ namespace Game.Feature.Gameplay.BoardState
                 unitContinuousLocomotionStatesByEntityId,
                 topology,
                 topologyRevision,
-                boardBounds,
-                terrainData);
+                boardBounds);
         }
 
         private WorldSnapshot(
@@ -362,8 +357,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
             CubeTopologyState topology,
             int topologyRevision,
-            BoardBounds boardBounds,
-            TerrainData terrainData)
+            BoardBounds boardBounds)
         {
             _entitiesById = new ReadOnlyDictionary<int, EntityState>(entitiesById ?? throw new ArgumentNullException(nameof(entitiesById)));
             _stackedUnitsByCell = stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell));
@@ -392,7 +386,6 @@ namespace Game.Feature.Gameplay.BoardState
             _topology = topology;
             _topologyRevision = topologyRevision;
             _boardBounds = boardBounds;
-            _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
         }
 
         public BoardBounds BoardBounds => _boardBounds;
@@ -400,8 +393,6 @@ namespace Game.Feature.Gameplay.BoardState
         public CubeTopologyState Topology => _topology;
 
         public int TopologyRevision => _topologyRevision;
-
-        internal TerrainData TerrainData => _terrainData;
 
         internal IReadOnlyDictionary<int, EntityState> EntitiesById => _entitiesById;
 
@@ -917,26 +908,6 @@ namespace Game.Feature.Gameplay.BoardState
             return _boardBounds.Contains(cell);
         }
 
-        public bool IsTerrainBlockedForUnit(SurfaceCell cell)
-        {
-            return SnapshotReadQueries.IsTerrainBlockedForUnit(_topology, _terrainData, cell);
-        }
-
-        public bool IsTerrainBlockedForUnit(Vector2Int cell)
-        {
-            return IsTerrainBlockedForUnit(CreateDefaultQueryCell(cell));
-        }
-
-        public bool TryGetTerrain(SurfaceCell cell, out TerrainCellState terrainCell)
-        {
-            return SnapshotReadQueries.TryGetTerrain(_terrainData, cell, out terrainCell);
-        }
-
-        public bool TryGetTerrain(Vector2Int cell, out TerrainCellState terrainCell)
-        {
-            return TryGetTerrain(CreateDefaultQueryCell(cell), out terrainCell);
-        }
-
         public bool TryGetTileFeature(int tileId, out TileFeatureState tileFeature)
         {
             return _tileFeaturesById.TryGetValue(tileId, out tileFeature);
@@ -1023,7 +994,6 @@ namespace Game.Feature.Gameplay.BoardState
                 _projectileOccupancy,
                 topology,
                 _boardBounds,
-                _terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -1054,7 +1024,6 @@ namespace Game.Feature.Gameplay.BoardState
                 _projectileOccupancy,
                 topology,
                 _boardBounds,
-                _terrainData,
                 cell,
                 out blocker);
         }
@@ -1074,7 +1043,6 @@ namespace Game.Feature.Gameplay.BoardState
                 _solidOccupancy,
                 _projectileOccupancy,
                 _boardBounds,
-                _terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -1185,7 +1153,6 @@ namespace Game.Feature.Gameplay.BoardState
                 _solidOccupancy,
                 topology,
                 _boardBounds,
-                _terrainData,
                 origin,
                 delta,
                 out destination,
@@ -1244,7 +1211,6 @@ namespace Game.Feature.Gameplay.BoardState
                 _solidOccupancy,
                 topology,
                 _boardBounds,
-                _terrainData,
                 cell,
                 out blocker);
         }
@@ -1252,16 +1218,6 @@ namespace Game.Feature.Gameplay.BoardState
         internal bool TryGetUnitBlocker(Vector2Int cell, out SlideStopper blocker)
         {
             return TryGetUnitBlocker(CreateDefaultQueryCell(cell), out blocker);
-        }
-
-        internal void EnumerateTerrainBlockedCellsOrdered(List<Vector2Int> buffer)
-        {
-            SnapshotReadQueries.EnumerateTerrainBlockedCellsOrdered(_terrainData, buffer);
-        }
-
-        internal void EnumerateTerrainCellsOrdered(List<TerrainCellState> buffer)
-        {
-            SnapshotReadQueries.EnumerateTerrainCellsOrdered(_terrainData, buffer);
         }
 
         internal void EnumerateUnitOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)

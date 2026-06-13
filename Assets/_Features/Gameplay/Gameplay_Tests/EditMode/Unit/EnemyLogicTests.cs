@@ -3360,22 +3360,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void WallFollow_TerrainDoesNotBecomeBoundaryAnchor()
+        public void WallFollow_OpenInBoundsCellDoesNotBecomeBoundaryAnchor()
         {
-            var terrainData = new Game.Feature.Gameplay.BoardState.TerrainData(new[]
-            {
-                new TerrainCellState(
-                    new SurfaceCell(FaceId.Floor, 0, 1),
-                    TerrainKind.Generic,
-                    TerrainFlags.BlocksGroundTraversal),
-            });
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 1), aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)),
-                terrainData);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)));
             var source = GetEntity(worldState, 40);
 
             var chosen = EnemyMovementStrategyShared.ChooseWallFollowDirection(
@@ -5453,15 +5445,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds)
         {
-            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, Game.Feature.Gameplay.BoardState.TerrainData.Empty);
-        }
-
-        private static WorldState CreateWorldState(
-            IEnumerable<EntityState> initialEntities,
-            BoardBounds boardBounds,
-            Game.Feature.Gameplay.BoardState.TerrainData terrainData)
-        {
-            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds);
         }
 
         private static WorldState CreateWorldState(
@@ -5472,7 +5456,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 boardBounds,
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 initialTileFeatures);
@@ -5485,7 +5468,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 new BoardBounds(new Vector2Int(-32, -32), new Vector2Int(32, 32)),
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                 topology);
         }
 

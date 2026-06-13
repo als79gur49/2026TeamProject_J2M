@@ -4,7 +4,6 @@ using System.Linq;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -113,28 +112,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(box.entityId, Is.EqualTo(20));
             Assert.That(projectedSnapshot.TryGetProjectileAt(projectileCell, out var projectile), Is.True);
             Assert.That(projectile.entityId, Is.EqualTo(30));
-        }
-
-        [Test]
-        [Category("Core")]
-        public void ProjectedWorld_TileFeatureOperation_DoesNotAffectTerrain()
-        {
-            var terrainCell = new TerrainCellState(
-                new SurfaceCell(FaceId.Floor, 1, 1),
-                TerrainKind.Generic,
-                TerrainFlags.BlocksGroundTraversal);
-            var terrainData = new GameplayTerrainData(new[] { terrainCell });
-            var baseSnapshot = CreateWorldState(
-                Array.Empty<EntityState>(),
-                Array.Empty<TileFeatureState>(),
-                terrainData)
-                .CreateSnapshot();
-            var projectedSnapshot = ProjectTileFeatures(
-                baseSnapshot,
-                TileFeatureOperation.Add(CreateTileFeature(10, new SurfaceCell(FaceId.Floor, 2, 1), TileFeatureKind.Button)));
-
-            Assert.That(projectedSnapshot.TryGetTerrain(terrainCell.Cell, out var projectedTerrain), Is.True);
-            Assert.That(projectedTerrain, Is.EqualTo(terrainCell));
         }
 
         [Test]
@@ -386,13 +363,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
-            IEnumerable<TileFeatureState> initialTileFeatures,
-            GameplayTerrainData terrainData = null)
+            IEnumerable<TileFeatureState> initialTileFeatures)
         {
             return GameplayCompositionRoot.CreateWorldState(
                 initialEntities,
                 TestBounds,
-                terrainData ?? GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 initialTileFeatures);
         }

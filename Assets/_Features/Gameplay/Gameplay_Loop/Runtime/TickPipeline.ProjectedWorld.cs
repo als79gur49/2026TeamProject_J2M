@@ -310,7 +310,6 @@ namespace Game.Feature.Gameplay.Loop
             var worldState = new WorldState(
                 entities,
                 snapshot.BoardBounds,
-                snapshot.TerrainData,
                 snapshot.Topology,
                 tileFeatures,
                 enemyGlideStatesByEntityId,

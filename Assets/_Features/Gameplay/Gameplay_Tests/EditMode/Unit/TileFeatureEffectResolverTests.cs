@@ -13,7 +13,6 @@ using Game.Feature.Gameplay.Movement.Expansion;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -318,23 +317,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var cases = new[]
             {
-                new object[] { "Unit", new[] { CreateUnit(20, cell) }, GameplayTerrainData.Empty },
-                new object[] { "Projectile", new[] { CreateProjectile(20, cell) }, GameplayTerrainData.Empty },
-                new object[] { "WallLikeTerrain", Array.Empty<EntityState>(), new GameplayTerrainData(new[] { CreateWallLikeTerrain(cell) }) },
-                new object[] { "NonPushableBox", new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Flip) }, GameplayTerrainData.Empty },
-                new object[] { "DetachedBox", new[] { CreateBox(20, cell, boardPresence: EntityBoardPresence.Detached) }, GameplayTerrainData.Empty },
-                new object[] { "DeadBox", new[] { CreateBox(20, cell, hp: 0) }, GameplayTerrainData.Empty },
-                new object[] { "MarkedForDeathBox", new[] { CreateBox(20, cell, markedForDeath: true) }, GameplayTerrainData.Empty },
+                new object[] { "Unit", new[] { CreateUnit(20, cell) } },
+                new object[] { "Projectile", new[] { CreateProjectile(20, cell) } },
+                new object[] { "NonBoxSolid", new[] { CreateSolid(21, cell) } },
+                new object[] { "NonPushableBox", new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Flip) } },
+                new object[] { "DetachedBox", new[] { CreateBox(20, cell, boardPresence: EntityBoardPresence.Detached) } },
+                new object[] { "DeadBox", new[] { CreateBox(20, cell, hp: 0) } },
+                new object[] { "MarkedForDeathBox", new[] { CreateBox(20, cell, markedForDeath: true) } },
             };
 
             for (var i = 0; i < cases.Length; i++)
             {
                 var name = (string)cases[i][0];
                 var entities = (EntityState[])cases[i][1];
-                var terrain = (GameplayTerrainData)cases[i][2];
                 var button = CreateButton(10, cell);
                 var result = ResolveWithStops(
-                    CreateWorldState(entities, new[] { button }, terrain).CreateSnapshot(),
+                    CreateWorldState(entities, new[] { button }).CreateSnapshot(),
                     new[] { CreateStop(20, cell, TileEffectBoxMovementFamily.Push) },
                     CreateDefinition(10));
 
@@ -402,23 +400,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var moonCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy;
             var cases = new[]
             {
-                new object[] { "NormalPushableBox", new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Push) }, GameplayTerrainData.Empty },
-                new object[] { "Unit", new[] { CreateUnit(20, cell) }, GameplayTerrainData.Empty },
-                new object[] { "Projectile", new[] { CreateProjectile(20, cell) }, GameplayTerrainData.Empty },
-                new object[] { "WallLikeTerrain", Array.Empty<EntityState>(), new GameplayTerrainData(new[] { CreateWallLikeTerrain(cell) }) },
-                new object[] { "DetachedMoonBox", new[] { CreateBox(20, cell, boxCapabilities: moonCapabilities, boardPresence: EntityBoardPresence.Detached, boxArchetype: BoxArchetype.Moon) }, GameplayTerrainData.Empty },
-                new object[] { "DeadMoonBox", new[] { CreateBox(20, cell, hp: 0, boxCapabilities: moonCapabilities, boxArchetype: BoxArchetype.Moon) }, GameplayTerrainData.Empty },
-                new object[] { "MarkedMoonBox", new[] { CreateBox(20, cell, boxCapabilities: moonCapabilities, markedForDeath: true, boxArchetype: BoxArchetype.Moon) }, GameplayTerrainData.Empty },
+                new object[] { "NormalPushableBox", new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Push) } },
+                new object[] { "Unit", new[] { CreateUnit(20, cell) } },
+                new object[] { "Projectile", new[] { CreateProjectile(20, cell) } },
+                new object[] { "NonBoxSolid", new[] { CreateSolid(21, cell) } },
+                new object[] { "DetachedMoonBox", new[] { CreateBox(20, cell, boxCapabilities: moonCapabilities, boardPresence: EntityBoardPresence.Detached, boxArchetype: BoxArchetype.Moon) } },
+                new object[] { "DeadMoonBox", new[] { CreateBox(20, cell, hp: 0, boxCapabilities: moonCapabilities, boxArchetype: BoxArchetype.Moon) } },
+                new object[] { "MarkedMoonBox", new[] { CreateBox(20, cell, boxCapabilities: moonCapabilities, markedForDeath: true, boxArchetype: BoxArchetype.Moon) } },
             };
 
             for (var i = 0; i < cases.Length; i++)
             {
                 var name = (string)cases[i][0];
                 var entities = (EntityState[])cases[i][1];
-                var terrain = (GameplayTerrainData)cases[i][2];
                 var button = CreateButton(10, cell);
                 var result = ResolveWithStops(
-                    CreateWorldState(entities, new[] { button }, terrain).CreateSnapshot(),
+                    CreateWorldState(entities, new[] { button }).CreateSnapshot(),
                     new[] { CreateStop(20, cell, TileEffectBoxMovementFamily.Slide) },
                     CreateDefinition(10, selector: TileFeatureBoxSelector.MoonBlockOnly));
 
@@ -3525,29 +3522,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 selector: TileFeatureBoxSelector.None);
             var cases = new[]
             {
-                new object[] { "Projectile", new[] { CreateProjectile(22, barricadeCell) }, GameplayTerrainData.Empty },
-                new object[] { "WallLikeTerrain", Array.Empty<EntityState>(), new GameplayTerrainData(new[] { CreateWallLikeTerrain(barricadeCell) }) },
-                new object[] { "NonBoxSolid", new[] { CreateSolid(23, barricadeCell) }, GameplayTerrainData.Empty },
-                new object[] { "DeadBox", new[] { CreateBox(24, barricadeCell, hp: 0) }, GameplayTerrainData.Empty },
-                new object[] { "DetachedBox", new[] { CreateBox(25, barricadeCell, boardPresence: EntityBoardPresence.Detached) }, GameplayTerrainData.Empty },
-                new object[] { "MarkedBox", new[] { CreateBox(26, barricadeCell, markedForDeath: true) }, GameplayTerrainData.Empty },
+                new object[] { "Projectile", new[] { CreateProjectile(22, barricadeCell) } },
+                new object[] { "NonBoxSolid", new[] { CreateSolid(23, barricadeCell) } },
+                new object[] { "DeadBox", new[] { CreateBox(24, barricadeCell, hp: 0) } },
+                new object[] { "DetachedBox", new[] { CreateBox(25, barricadeCell, boardPresence: EntityBoardPresence.Detached) } },
+                new object[] { "MarkedBox", new[] { CreateBox(26, barricadeCell, markedForDeath: true) } },
             };
 
             for (var i = 0; i < cases.Length; i++)
             {
                 var name = (string)cases[i][0];
                 var entities = (EntityState[])cases[i][1];
-                var terrain = (GameplayTerrainData)cases[i][2];
                 var previousSnapshot = CreateWorldState(
                         entities,
                         new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
-                        terrain,
                         new CubeTopologyState(FaceId.Floor))
                     .CreateSnapshot();
                 var currentSnapshot = CreateWorldState(
                         entities,
                         new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
-                        terrain,
                         new CubeTopologyState(FaceId.Front))
                     .CreateSnapshot();
 
@@ -4849,9 +4842,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             box.stateTimer = 0;
             var attackLogic = new CapturingAttackLogic();
             var worldState = CreateWorldState(
-                new[] { box },
-                new[] { button },
-                new GameplayTerrainData(new[] { CreateWallLikeTerrain(new SurfaceCell(FaceId.Floor, 2, 1)) }));
+                new[] { box, CreateSolid(21, new SurfaceCell(FaceId.Floor, 2, 1)) },
+                new[] { button });
             var pipeline = CreatePipeline(
                 worldState,
                 new[] { CreateDefinition(10) },
@@ -5601,13 +5593,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
             IEnumerable<TileFeatureState> initialTileFeatures,
-            GameplayTerrainData terrainData = null,
             CubeTopologyState? topology = null)
         {
             return GameplayCompositionRoot.CreateWorldState(
                 initialEntities,
                 TestBounds,
-                terrainData ?? GameplayTerrainData.Empty,
                 topology ?? new CubeTopologyState(FaceId.Floor),
                 initialTileFeatures);
         }
@@ -5661,8 +5651,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new Dictionary<int, UnitContinuousLocomotionState>(),
                 topology,
                 topologyRevision: 0,
-                TestBounds,
-                GameplayTerrainData.Empty);
+                TestBounds);
         }
 
         private static TileFeatureState CreateButton(
@@ -5707,11 +5696,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 selector,
                 boundEntityId: 0,
                 presentationKey: string.Empty);
-        }
-
-        private static TerrainCellState CreateWallLikeTerrain(SurfaceCell cell)
-        {
-            return new TerrainCellState(cell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal);
         }
 
         private static EntityState CreateUnit(

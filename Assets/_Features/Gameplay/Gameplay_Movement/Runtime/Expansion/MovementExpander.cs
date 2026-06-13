@@ -526,7 +526,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             return blockerKind switch
             {
                 LegalityBlockerKind.BoardEdge => TickTraversalBlockerKind.BoardEdge,
-                LegalityBlockerKind.Terrain => TickTraversalBlockerKind.Terrain,
                 LegalityBlockerKind.Solid => TickTraversalBlockerKind.Solid,
                 LegalityBlockerKind.Unit => TickTraversalBlockerKind.Unit,
                 LegalityBlockerKind.Reservation => TickTraversalBlockerKind.Reservation,
@@ -1390,9 +1389,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             {
                 case SlideStopperKind.BoardEdge:
                     return $"StopperKind=BoardEdge|Cell={FormatCell(stopper.Cell)}";
-
-                case SlideStopperKind.Terrain:
-                    return $"StopperKind=Terrain|Cell={FormatCell(stopper.Cell)}";
 
                 case SlideStopperKind.Entity:
                     return $"StopperKind=Entity|Stopper={stopper.EntityId}|StopperType={stopper.EntityType}|Cell={FormatCell(stopper.Cell)}";

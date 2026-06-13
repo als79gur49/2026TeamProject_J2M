@@ -19,7 +19,6 @@ using Game.Feature.Gameplay.Movement.Resolution;
 using Game.Feature.Gameplay.Movement.Sorting;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -960,8 +959,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             topologyWorldState.CreateWriteContext().SetPlayerControlState(10, default);
             var topologyIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(0, 2));
             topologyIntent.AssignIntentId(1);
@@ -1265,8 +1263,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var topologyResult = GameplayCompositionRoot.CreateTickPipeline(
                     topologyWorldState,
                     new IEntityLogic[] { new PlayerLogic(10) })
@@ -1467,16 +1464,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Movement_SlidingPushBox_StoppedByTerrain_DoesNotEmitBoxSlideStopSignal()
+        public void Movement_SlidingPushBox_StoppedBySolid_DoesNotEmitBoxSlideStopSignal()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                    CreateBox(entityId: 40, position: new Vector2Int(4, 0), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
-                new GameplayTerrainData(new[] { new Vector2Int(4, 0) }));
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -1525,8 +1522,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     slidingBox,
                     CreateNonUnitBlocker(entityId: 90, position: new SurfaceCell(FaceId.Front, 0, 0)),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>());
@@ -1562,8 +1558,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -1625,8 +1620,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -1677,16 +1671,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Movement_PushInputPushBox_StartsSlidingBeforeTerrainBlocker()
+        public void Movement_PushInputPushBox_StartsSlidingBeforeSolidBlocker()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                    CreateBox(entityId: 40, position: new Vector2Int(4, 0), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
-                new GameplayTerrainData(new[] { new Vector2Int(4, 0) }));
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -1726,8 +1720,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -1767,9 +1760,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                     CreateProjectile(entityId: 40, position: new Vector2Int(2, 0), hp: 1),
+                    CreateBox(entityId: 50, position: new Vector2Int(4, 0), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
-                new GameplayTerrainData(new[] { new Vector2Int(4, 0) }));
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -1796,8 +1789,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                     CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -2153,16 +2145,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Movement_ImmediatePushHoldMoveIntoPushBox_FallsBackToBlockedDestinationWhenTerrainStopperIsAdjacent()
+        public void Movement_ImmediatePushHoldMoveIntoPushBox_FallsBackToBlockedDestinationWhenSolidStopperIsAdjacent()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                     CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                    CreateBox(entityId: 40, position: new Vector2Int(2, 0), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)),
-                new GameplayTerrainData(new[] { new Vector2Int(2, 0) }));
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -2182,7 +2174,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Source=10",
                     "Reason=SlideStopperAdjacent",
                     "Target=20",
-                    "StopperKind=Terrain",
+                    "StopperKind=Entity",
                     "Cell=(2,0)"),
                 Is.True);
             Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
@@ -3404,8 +3396,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
                 },
-                new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(3, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(3, 0)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3432,8 +3423,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1), facing: Direction.Up),
                     CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Flip),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3467,8 +3457,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3695,8 +3684,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                     CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Floor, 2, 0), teamId: 2, facing: Direction.Left),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3734,8 +3722,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                     CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Floor, 2, 0), teamId: 2, facing: Direction.Left),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3772,8 +3759,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                     CreateNonUnitBlocker(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0)),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3800,15 +3786,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Movement_MoveAcrossBottomTopEdge_FailsWhenRotatedDestinationTerrainBlocked()
+        public void Movement_MoveAcrossBottomTopEdge_FailsWhenRotatedDestinationSolidBlocked()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
                     CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                new GameplayTerrainData(new[] { new Vector2Int(0, 0) }));
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3838,21 +3824,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(signal.SourceTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
             Assert.That(signal.RequiredTopology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
             Assert.That(signal.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
-            Assert.That(signal.PrimaryBlockerKind, Is.EqualTo(TickTraversalBlockerKind.Terrain));
+            Assert.That(signal.PrimaryBlockerKind, Is.EqualTo(TickTraversalBlockerKind.Solid));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
         }
 
         [Test]
         [Category("Extended")]
-        public void Movement_MoveAcrossBottomBottomEdge_FailsWhenRotatedBackDestinationTerrainBlocked()
+        public void Movement_MoveAcrossBottomBottomEdge_FailsWhenRotatedBackDestinationSolidBlocked()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
                     CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Back, 0, 1), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                new GameplayTerrainData(new[] { new Vector2Int(0, 1) }));
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3882,7 +3868,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(signal.SourceTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
             Assert.That(signal.RequiredTopology, Is.EqualTo(new CubeTopologyState(FaceId.Back)));
             Assert.That(signal.RotationKind, Is.EqualTo(CubeRotationKind.Backward));
-            Assert.That(signal.PrimaryBlockerKind, Is.EqualTo(TickTraversalBlockerKind.Terrain));
+            Assert.That(signal.PrimaryBlockerKind, Is.EqualTo(TickTraversalBlockerKind.Solid));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
         }
 
@@ -3894,15 +3880,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[]
                 {
                     CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                new GameplayTerrainData(new[]
-                {
-                    new TerrainCellState(
-                        new SurfaceCell(FaceId.Floor, 1, 0),
-                        TerrainKind.Generic,
-                        TerrainFlags.BlocksGroundTraversal),
-                }));
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3926,8 +3906,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 0)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3951,8 +3930,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3983,8 +3961,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Front, 0, 0)),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
             var timingProfile = GameplayTimingProfile.CreateDefault();
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -4013,8 +3990,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Item),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -4053,8 +4029,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -4091,8 +4066,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -4140,8 +4114,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
                     CreateUnit(entityId: 30, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 1, teamId: 2),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -4208,8 +4181,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
                     CreateUnit(entityId: 30, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3, teamId: 2),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -4259,8 +4231,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
                     CreateUnit(entityId: 30, position: new SurfaceCell(FaceId.Front, 0, 1), hp: 3, teamId: 2),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -4322,8 +4293,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Front, 0, 1)),
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Push),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -4420,8 +4390,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Destroy),
                     CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(3, 0)),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(5, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(5, 0)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -4943,8 +4912,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), capabilities: BoxCapabilities.Push),
                     CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Front, 1, 0), hp: 3, teamId: 2),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, Array.Empty<IEntityLogic>());
             var snapshot = CreateSnapshot(worldState);
             var group = new ActionGroup(intentId: 1, sourceId: 10, priority: 5, ActionGroupKind.BoxImpact);
@@ -5625,10 +5593,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
-            BoardBounds boardBounds,
-            GameplayTerrainData terrainData)
+            BoardBounds boardBounds)
         {
-            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds);
         }
 
         private static WorldState CreateWorldState(
@@ -5639,7 +5606,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 initialTileFeatures);

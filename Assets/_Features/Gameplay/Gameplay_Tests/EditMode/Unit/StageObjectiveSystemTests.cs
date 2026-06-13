@@ -1190,13 +1190,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var firstWorld = GameplayCompositionRoot.CreateWorldState(
                     new[] { CreatePlayerEntity(10, exitCell) },
                     firstBuild.BoardBounds,
-                    firstBuild.InitialTerrain,
                     firstBuild.InitialTopology,
                     firstBuild.InitialTileFeatures);
                 var secondWorld = GameplayCompositionRoot.CreateWorldState(
                     new[] { CreatePlayerEntity(10, exitCell) },
                     secondBuild.BoardBounds,
-                    secondBuild.InitialTerrain,
                     secondBuild.InitialTopology,
                     secondBuild.InitialTileFeatures);
 
@@ -1433,7 +1431,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var worldState = GameplayCompositionRoot.CreateWorldState(
                     new[] { CreatePlayerEntity(10, exitCell) },
                     buildResult.BoardBounds,
-                    buildResult.InitialTerrain,
                     buildResult.InitialTopology,
                     buildResult.InitialTileFeatures);
                 var pipeline = CreatePipeline(
@@ -1513,7 +1510,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var inactiveWorld = GameplayCompositionRoot.CreateWorldState(
                     new[] { CreatePlayerEntity(10, exitCell) },
                     inactiveBuild.BoardBounds,
-                    inactiveBuild.InitialTerrain,
                     inactiveBuild.InitialTopology,
                     inactiveBuild.InitialTileFeatures);
                 var inactiveResult = CreatePipeline(
@@ -1541,7 +1537,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         CreateEnemyEntity(20, activeExitCell),
                     },
                     activeBuild.BoardBounds,
-                    activeBuild.InitialTerrain,
                     activeBuild.InitialTopology,
                     activeBuild.InitialTileFeatures);
                 var activeResult = CreatePipeline(
@@ -1560,7 +1555,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         CreateProjectileEntity(30, activeExitCell),
                     },
                     activeBuild.BoardBounds,
-                    activeBuild.InitialTerrain,
                     activeBuild.InitialTopology,
                     activeBuild.InitialTileFeatures);
                 var projectileResult = CreatePipeline(
@@ -1582,7 +1576,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             BoxArchetype.Moon),
                     },
                     activeBuild.BoardBounds,
-                    activeBuild.InitialTerrain,
                     activeBuild.InitialTopology,
                     activeBuild.InitialTileFeatures);
                 var moonResult = CreatePipeline(
@@ -1738,7 +1731,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 Array.Empty<EntityState>(),
                 DefaultBoardBounds,
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 new[] { CreateButtonState(10, cell, TileFeatureFlags.Activated) });
@@ -1828,9 +1820,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         TileFeatureActivationRule.Always,
                         TileFeatureBoxSelector.AnyPushableBox));
                 var worldState = GameplayCompositionRoot.CreateWorldState(
-                    new[] { CreateSlidingBoxEntity(20, cell, BoxCapabilities.Push) },
+                    new[] { CreateSlidingBoxEntity(20, cell, BoxCapabilities.Push), CreateSlideStopWallEntity(120, cell) },
                     buildResult.BoardBounds,
-                    CreateSlideStopTerrain(cell),
                     buildResult.InitialTopology,
                     buildResult.InitialTileFeatures);
                 var pipeline = CreatePipeline(
@@ -1887,9 +1878,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         TileFeatureBoxSelector.MoonBlockOnly),
                     CreateBoxSpawn(20, new SurfaceCell(FaceId.Floor, 2, 1), moonCapabilities, BoxArchetype.Moon));
                 var worldState = GameplayCompositionRoot.CreateWorldState(
-                    new[] { CreateSlidingBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon) },
+                    new[] { CreateSlidingBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon), CreateSlideStopWallEntity(120, cell) },
                     buildResult.BoardBounds,
-                    CreateSlideStopTerrain(cell),
                     buildResult.InitialTopology,
                     buildResult.InitialTileFeatures);
                 var pipeline = CreatePipeline(
@@ -1931,7 +1921,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var worldState = GameplayCompositionRoot.CreateWorldState(
                     new[] { CreateBoxEntity(20, cell, BoxCapabilities.Push) },
                     buildResult.BoardBounds,
-                    buildResult.InitialTerrain,
                     buildResult.InitialTopology,
                     buildResult.InitialTileFeatures);
                 var pipeline = CreatePipeline(
@@ -1971,7 +1960,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var worldState = GameplayCompositionRoot.CreateWorldState(
                     new[] { CreateBoxEntity(20, cell, BoxCapabilities.Flip) },
                     buildResult.BoardBounds,
-                    buildResult.InitialTerrain,
                     buildResult.InitialTopology,
                     buildResult.InitialTileFeatures);
                 var pipeline = CreatePipeline(
@@ -2011,9 +1999,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         TileFeatureActivationRule.Always,
                         TileFeatureBoxSelector.AnyPushableBox));
                 var worldState = GameplayCompositionRoot.CreateWorldState(
-                    new[] { box },
+                    new[] { box, CreateSlideStopWallEntity(120, cell) },
                     buildResult.BoardBounds,
-                    CreateSlideStopTerrain(cell),
                     buildResult.InitialTopology,
                     buildResult.InitialTileFeatures);
                 var pipeline = CreatePipeline(
@@ -2063,9 +2050,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         TileFeatureActivationRule.Always,
                         TileFeatureBoxSelector.AnyPushableBox));
                 var worldState = GameplayCompositionRoot.CreateWorldState(
-                    new[] { box },
+                    new[] { box, CreateSlideStopWallEntity(120, cell) },
                     buildResult.BoardBounds,
-                    CreateSlideStopTerrain(cell),
                     buildResult.InitialTopology,
                     buildResult.InitialTileFeatures);
                 var pipeline = CreatePipeline(
@@ -2113,7 +2099,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var worldState = GameplayCompositionRoot.CreateWorldState(
                     new[] { box },
                     buildResult.BoardBounds,
-                    buildResult.InitialTerrain,
                     buildResult.InitialTopology,
                     buildResult.InitialTileFeatures);
                 var pipeline = CreatePipeline(
@@ -2154,15 +2139,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var firstBuild = BuildButtonObjectiveStage(firstCondition, tileFeature);
                 var secondBuild = BuildButtonObjectiveStage(secondCondition, tileFeature);
                 var firstWorld = GameplayCompositionRoot.CreateWorldState(
-                    new[] { CreateSlidingBoxEntity(20, cell, BoxCapabilities.Push) },
+                    new[] { CreateSlidingBoxEntity(20, cell, BoxCapabilities.Push), CreateSlideStopWallEntity(120, cell) },
                     firstBuild.BoardBounds,
-                    CreateSlideStopTerrain(cell),
                     firstBuild.InitialTopology,
                     firstBuild.InitialTileFeatures);
                 var secondWorld = GameplayCompositionRoot.CreateWorldState(
-                    new[] { CreateSlidingBoxEntity(20, cell, BoxCapabilities.Push) },
+                    new[] { CreateSlidingBoxEntity(20, cell, BoxCapabilities.Push), CreateSlideStopWallEntity(120, cell) },
                     secondBuild.BoardBounds,
-                    CreateSlideStopTerrain(cell),
                     secondBuild.InitialTopology,
                     secondBuild.InitialTileFeatures);
 
@@ -2217,15 +2200,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var firstBuild = BuildButtonObjectiveStage(firstCondition, tileFeature, authoredMoonSpawn);
                 var secondBuild = BuildButtonObjectiveStage(secondCondition, tileFeature, authoredMoonSpawn);
                 var firstWorld = GameplayCompositionRoot.CreateWorldState(
-                    new[] { CreateSlidingBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon) },
+                    new[] { CreateSlidingBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon), CreateSlideStopWallEntity(120, cell) },
                     firstBuild.BoardBounds,
-                    CreateSlideStopTerrain(cell),
                     firstBuild.InitialTopology,
                     firstBuild.InitialTileFeatures);
                 var secondWorld = GameplayCompositionRoot.CreateWorldState(
-                    new[] { CreateSlidingBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon) },
+                    new[] { CreateSlidingBoxEntity(20, cell, moonCapabilities, BoxArchetype.Moon), CreateSlideStopWallEntity(120, cell) },
                     secondBuild.BoardBounds,
-                    CreateSlideStopTerrain(cell),
                     secondBuild.InitialTopology,
                     secondBuild.InitialTileFeatures);
 
@@ -3030,7 +3011,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayWorldStateTestFactory.CreateBounded(
                 entities,
                 DefaultBoardBounds,
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault()).CreateSnapshot();
         }
@@ -3042,7 +3022,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayWorldStateTestFactory.CreateBounded(
                 entities,
                 DefaultBoardBounds,
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 tileFeatures).CreateSnapshot();
@@ -3056,7 +3035,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayWorldStateTestFactory.CreateBounded(
                 entities,
                 DefaultBoardBounds,
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                 topology,
                 GameplayTimingProfile.CreateDefault(),
                 tileFeatures).CreateSnapshot();
@@ -3186,7 +3164,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayCompositionRoot.CreateWorldState(
                 entities,
                 DefaultBoardBounds,
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                 topology,
                 new[] { CreateTileFeatureState(100, exitCell, TileFeatureKind.Exit) });
         }
@@ -3296,16 +3273,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return box;
         }
 
-        private static Game.Feature.Gameplay.BoardState.TerrainData CreateSlideStopTerrain(SurfaceCell cell)
+        private static EntityState CreateSlideStopWallEntity(int entityId, SurfaceCell cell)
         {
-            return new Game.Feature.Gameplay.BoardState.TerrainData(
-                new[]
-                {
-                    new TerrainCellState(
-                        new SurfaceCell(cell.face, cell.x + 1, cell.y),
-                        TerrainKind.Generic,
-                        TerrainFlags.BlocksGroundTraversal),
-                });
+            return new EntityState
+            {
+                entityId = entityId,
+                position = new SurfaceCell(cell.face, cell.x + 1, cell.y),
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.None,
+                unitRole = UnitRole.None,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Left,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
         }
 
         private static EntityState CreateEnemyEntity(int entityId, SurfaceCell cell, int hp = 1, bool markedForDeath = false)

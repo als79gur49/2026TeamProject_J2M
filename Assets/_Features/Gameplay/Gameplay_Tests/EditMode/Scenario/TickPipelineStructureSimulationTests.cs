@@ -16,7 +16,6 @@ using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -299,7 +298,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     enemy,
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
 
@@ -327,7 +325,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     enemy,
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             worldState.CreateWriteContext().SetEnemyActionState(
                 40,
@@ -430,8 +427,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         facing = Direction.Right,
                     },
                 },
-                new BoardBounds(new Vector2Int(-32, -32), new Vector2Int(32, 32)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(-32, -32), new Vector2Int(32, 32)));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
@@ -465,18 +461,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds,
-            GameplayTerrainData terrainData)
-        {
-            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
-        }
-
-        private static WorldState CreateWorldState(
-            IEnumerable<EntityState> initialEntities,
-            BoardBounds boardBounds,
-            GameplayTerrainData terrainData,
             CubeTopologyState topology)
         {
-            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData, topology);
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, topology);
         }
 
         private static EnemyActionRuntimeState CreateEnemyActionState(
@@ -641,7 +628,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1)),
                 },
                 DefaultBoardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 timingProfile);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -703,7 +689,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { player },
                 DefaultBoardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 timingProfile);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(

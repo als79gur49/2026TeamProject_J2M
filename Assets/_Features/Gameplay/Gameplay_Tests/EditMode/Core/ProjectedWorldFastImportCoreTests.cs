@@ -7,7 +7,6 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Core
 {
@@ -147,11 +146,6 @@ namespace Game.Feature.Gameplay.Tests.Core
         private static WorldSnapshot CreateRichSnapshot()
         {
             var stackedCell = new SurfaceCell(FaceId.Floor, 1, 1);
-            var terrainData = new GameplayTerrainData(
-                new[]
-                {
-                    new TerrainCellState(new SurfaceCell(FaceId.Floor, 4, 0), TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                });
             var worldState = GameplayCompositionRoot.CreateWorldState(
                 new[]
                 {
@@ -163,7 +157,6 @@ namespace Game.Feature.Gameplay.Tests.Core
                     CreateProjectile(50, new SurfaceCell(FaceId.Floor, 3, 1)),
                 },
                 TestBounds,
-                terrainData,
                 new CubeTopologyState(FaceId.Floor),
                 new[]
                 {
@@ -295,7 +288,6 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(actual.BoardBounds, Is.EqualTo(expected.BoardBounds));
             Assert.That(actual.Topology, Is.EqualTo(expected.Topology));
             Assert.That(actual.TopologyRevision, Is.EqualTo(expected.TopologyRevision));
-            CollectionAssert.AreEqual(Collect<TerrainCellState>(expected.EnumerateTerrainCellsOrdered), Collect<TerrainCellState>(actual.EnumerateTerrainCellsOrdered));
             CollectionAssert.AreEqual(Collect<EntityState>(expected.EnumerateEntitiesOrdered), Collect<EntityState>(actual.EnumerateEntitiesOrdered));
             CollectionAssert.AreEqual(Collect<TileFeatureState>(expected.EnumerateTileFeaturesOrdered), Collect<TileFeatureState>(actual.EnumerateTileFeaturesOrdered));
             CollectionAssert.AreEqual(Collect<SnapshotOccupancyEntry>(expected.EnumerateUnitOccupancyOrdered), Collect<SnapshotOccupancyEntry>(actual.EnumerateUnitOccupancyOrdered));

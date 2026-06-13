@@ -1602,8 +1602,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
-                boardBounds,
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty);
+                boardBounds);
         }
 
         private static void AssertPlayerControlStateEqual(PlayerControlState expected, PlayerControlState actual)

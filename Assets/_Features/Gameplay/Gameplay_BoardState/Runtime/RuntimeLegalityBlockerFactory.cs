@@ -13,16 +13,6 @@ namespace Game.Feature.Gameplay.BoardState
             };
         }
 
-        public static IReadOnlyList<LegalityBlocker> CreateTerrain(TerrainFlags terrainFlags)
-        {
-            return new[]
-            {
-                new LegalityBlocker(
-                    LegalityBlockerKind.Terrain,
-                    terrainFlags: terrainFlags),
-            };
-        }
-
         public static IReadOnlyList<LegalityBlocker> Create(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             SlideStopper blocker)
@@ -87,11 +77,6 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 case SlideStopperKind.BoardEdge:
                     return new LegalityBlocker(LegalityBlockerKind.BoardEdge);
-
-                case SlideStopperKind.Terrain:
-                    return new LegalityBlocker(
-                        LegalityBlockerKind.Terrain,
-                        terrainFlags: TerrainFlags.BlocksGroundTraversal);
 
                 case SlideStopperKind.Entity:
                     if (blocker.EntityId != 0 &&

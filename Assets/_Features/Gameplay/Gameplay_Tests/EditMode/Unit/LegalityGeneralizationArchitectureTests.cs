@@ -23,7 +23,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             "switch (blocker.Kind)",
             "LegalityBlockerKind.BoardEdge =>",
-            "LegalityBlockerKind.Terrain =>",
             "LegalityBlockerKind.Unit =>",
             "LegalityBlockerKind.Solid =>",
             "LegalityBlockerKind.Reservation =>",

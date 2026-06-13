@@ -14,7 +14,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
@@ -26,7 +25,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
-                terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -39,7 +37,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
@@ -54,7 +51,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
-                terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -70,7 +66,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
@@ -85,7 +80,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
-                terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -102,7 +96,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
@@ -118,7 +111,6 @@ namespace Game.Feature.Gameplay.BoardState
                 projectileOccupancy,
                 topology,
                 boardBounds,
-                terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -135,7 +127,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
@@ -150,7 +141,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
-                terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -170,7 +160,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             SurfaceCell cell,
             out SlideStopper blocker)
         {
@@ -183,7 +172,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
-                terrainData,
                 EntityType.Box,
                 cell,
                 ignoredEntityId: 0,
@@ -203,7 +191,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             SurfaceCell cell,
             out SlideStopper blocker)
         {
@@ -216,7 +203,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
-                terrainData,
                 EntityType.Box,
                 cell,
                 ignoredEntityId: 0,
@@ -232,7 +218,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
@@ -245,7 +230,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
-                terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -258,7 +242,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
@@ -273,7 +256,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
-                terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -290,7 +272,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
@@ -303,7 +284,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
-                terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -317,7 +297,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
@@ -332,7 +311,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
-                terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -348,7 +326,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             SurfaceCell cell,
             out SlideStopper blocker)
         {
@@ -361,7 +338,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 topology,
                 boardBounds,
-                terrainData,
                 cell,
                 out blocker);
         }
@@ -375,7 +351,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             SurfaceCell cell,
             out SlideStopper blocker)
         {
@@ -395,7 +370,6 @@ namespace Game.Feature.Gameplay.BoardState
                 EmptyOccupancy,
                 topology,
                 boardBounds,
-                terrainData,
                 EntityType.Unit,
                 cell,
                 ignoredEntityId: 0,
@@ -411,7 +385,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
@@ -432,11 +405,6 @@ namespace Game.Feature.Gameplay.BoardState
                 throw new ArgumentNullException(nameof(projectileOccupancy));
             }
 
-            if (terrainData == null)
-            {
-                throw new ArgumentNullException(nameof(terrainData));
-            }
-
             if (queryMode == PlacementQueryMode.Gameplay && !topology.IsFaceActive(cell.face))
             {
                 blocker = default;
@@ -446,13 +414,6 @@ namespace Game.Feature.Gameplay.BoardState
             if (!boardBounds.Contains(cell.PlanarPosition))
             {
                 blocker = SlideStopper.CreateBoardEdge(cell);
-                return true;
-            }
-
-            if (queryMode != PlacementQueryMode.Representable &&
-                TerrainBlocksPlacement(entityType, terrainData, cell))
-            {
-                blocker = SlideStopper.CreateTerrain(cell);
                 return true;
             }
 
@@ -744,25 +705,6 @@ namespace Game.Feature.Gameplay.BoardState
                 topology,
                 hasJumpState ? jumpState : (EnemyJumpRuntimeState?)null,
                 hasPhasedState ? phasedState : (PhasedRuntimeState?)null);
-        }
-
-        private static bool TerrainBlocksPlacement(
-            EntityType entityType,
-            TerrainData terrainData,
-            SurfaceCell cell)
-        {
-            switch (entityType)
-            {
-                case EntityType.None:
-                case EntityType.Unit:
-                case EntityType.Projectile:
-                case EntityType.Box:
-                    return terrainData.TryGetTerrain(cell, out var terrainCell) &&
-                           (terrainCell.Flags & TerrainFlags.BlocksGroundTraversal) != 0;
-
-                default:
-                    throw new InvalidOperationException($"Unsupported placement entity type: {entityType}");
-            }
         }
 
         private static void ValidateQueryDictionaries(

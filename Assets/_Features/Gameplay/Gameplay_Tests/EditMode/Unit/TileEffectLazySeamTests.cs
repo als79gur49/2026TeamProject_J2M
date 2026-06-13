@@ -222,7 +222,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayWorldStateTestFactory.CreateBounded(
                 entities ?? Array.Empty<EntityState>(),
                 new BoardBounds(UnityEngine.Vector2Int.zero, new UnityEngine.Vector2Int(4, 4)),
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 new[] { tileFeature });

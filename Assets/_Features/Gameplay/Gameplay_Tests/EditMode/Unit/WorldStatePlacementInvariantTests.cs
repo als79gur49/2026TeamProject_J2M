@@ -5,7 +5,6 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Tests;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -15,15 +14,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void MoveEntity_TerrainBlockedDestination_AllowsRepresentableAuthoritativeMove()
+        public void MoveEntity_InBoundsDestination_AllowsRepresentableAuthoritativeMove()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: Vector2Int.zero),
                 },
-                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(2, 2)),
-                new GameplayTerrainData(new[] { new Vector2Int(1, 0) }));
+                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(2, 2)));
 
             Assert.DoesNotThrow(
                 () => worldState.CreateWriteContext().MoveEntity(10, new Vector2Int(1, 0)));
@@ -31,15 +29,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void MoveEntity_TerrainBlockedDestination_UpdatesEntityStateAndOccupancy()
+        public void MoveEntity_InBoundsDestination_UpdatesEntityStateAndOccupancy()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: Vector2Int.zero),
                 },
-                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(2, 2)),
-                new GameplayTerrainData(new[] { new Vector2Int(1, 0) }));
+                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(2, 2)));
 
             worldState.CreateWriteContext().MoveEntity(10, new Vector2Int(1, 0));
 
@@ -52,12 +49,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SpawnEntity_TerrainBlockedDestination_AllowsRepresentableAuthoritativeSpawn()
+        public void SpawnEntity_InBoundsDestination_AllowsRepresentableAuthoritativeSpawn()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new EntityState[0],
-                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(2, 2)),
-                new GameplayTerrainData(new[] { new Vector2Int(1, 0) }));
+                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(2, 2)));
 
             Assert.DoesNotThrow(
                 () => worldState.CreateWriteContext().SpawnEntity(CreateUnit(entityId: 20, position: new Vector2Int(1, 0))));
@@ -77,8 +73,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     CreateUnit(entityId: 10, position: Vector2Int.zero),
                 },
-                new BoardBounds(Vector2Int.zero, Vector2Int.zero),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, Vector2Int.zero));
 
             Assert.Throws<InvalidOperationException>(
                 () => worldState.CreateWriteContext().MoveEntity(10, Vector2Int.right));
@@ -96,8 +91,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new EntityState[0],
-                new BoardBounds(Vector2Int.zero, Vector2Int.zero),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, Vector2Int.zero));
 
             Assert.Throws<InvalidOperationException>(
                 () => worldState.CreateWriteContext().SpawnEntity(CreateUnit(entityId: 20, position: Vector2Int.right)));
@@ -147,8 +141,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(entityId: 10, position: Vector2Int.zero),
                     CreateUnit(entityId: 20, position: Vector2Int.right),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
 
             worldState.CreateWriteContext().MoveEntity(10, Vector2Int.right);
 
@@ -163,12 +156,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SpawnEntity_InactiveFaceTerrainBlockedDestination_AllowsRepresentableAuthoritativeState()
+        public void SpawnEntity_InactiveFaceInBoundsDestination_AllowsRepresentableAuthoritativeState()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 Array.Empty<EntityState>(),
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                new GameplayTerrainData(new[] { new Vector2Int(1, 0) }));
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
 
             Assert.DoesNotThrow(
                 () => worldState.CreateWriteContext().SpawnEntity(
@@ -181,32 +173,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SpawnEntity_FaceAwareTerrain_AllowsSamePlanarCellOnDifferentFace()
-        {
-            var floorBlockedCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var frontOpenCell = new SurfaceCell(FaceId.Front, 1, 0);
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                Array.Empty<EntityState>(),
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                new GameplayTerrainData(new[]
-                {
-                    new TerrainCellState(
-                        floorBlockedCell,
-                        TerrainKind.Generic,
-                        TerrainFlags.BlocksGroundTraversal),
-                }));
-
-            worldState.CreateWriteContext().SpawnEntity(CreateUnit(entityId: 20, position: frontOpenCell));
-
-            var snapshot = worldState.CreateSnapshot();
-            Assert.That(snapshot.TryGetEntity(20, out var entity), Is.True);
-            Assert.That(entity.position, Is.EqualTo(frontOpenCell));
-            Assert.That(snapshot.IsTerrainBlockedForUnit(floorBlockedCell), Is.True);
-            Assert.That(snapshot.IsTerrainBlockedForUnit(frontOpenCell), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
         public void SpawnEntity_InactiveFaceSolidDestination_StillThrowsForAuthoritativeStateValidation()
         {
             var blockedCell = new SurfaceCell(FaceId.Ceiling, 1, 0);
@@ -215,8 +181,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     CreateBox(entityId: 10, position: blockedCell),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
 
             Assert.Throws<InvalidOperationException>(
                 () => worldState.CreateWriteContext().SpawnEntity(
@@ -237,8 +202,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Ceiling, 1, 0)),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
 
             worldState.CreateWriteContext().SpawnEntity(
                 CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Ceiling, 1, 0)));
@@ -260,8 +224,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(entityId: 10, position: Vector2Int.zero),
                     CreateUnit(entityId: 20, position: new Vector2Int(1, 0), markedForDeath: true),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
 
             worldState.CreateWriteContext().MoveEntity(10, new Vector2Int(1, 0));
 
@@ -287,8 +250,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(entityId: 10, position: Vector2Int.zero),
                     CreateUnit(entityId: 20, position: Vector2Int.right),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var writeContext = worldState.CreateWriteContext();
 
             writeContext.SetBoardPresence(10, EntityBoardPresence.Detached);
@@ -426,8 +388,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateBox(entityId: 10, position: new Vector2Int(1, 0)),
                     CreateProjectile(entityId: 20, position: new Vector2Int(2, 0)),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
             worldState.CreateWriteContext().MoveEntity(10, new Vector2Int(2, 0));
 
             var projectedSnapshot = new ProjectedWorld(worldState.CreateSnapshot()).CreateSnapshot();
@@ -469,8 +430,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateWall(entityId: 238, position: wallCell),
                     CreateUnit(entityId: 241, position: Vector2Int.zero),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var writeContext = worldState.CreateWriteContext();
             writeContext.SetEnemyGlideState(
                 241,
@@ -553,8 +513,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateWall(entityId: 238, position: wallCell),
                     CreateUnit(entityId: 241, position: Vector2Int.zero),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var writeContext = worldState.CreateWriteContext();
             if (glideState.HasValue)
             {

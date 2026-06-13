@@ -110,29 +110,12 @@ namespace Game.Feature.Gameplay.BoardState
             return boardBounds.Contains(cell);
         }
 
-        public static bool IsTerrainBlockedForUnit(
-            CubeTopologyState topology,
-            TerrainData terrainData,
-            SurfaceCell cell)
-        {
-            return SnapshotReadQueries.IsTerrainBlockedForUnit(topology, terrainData, cell);
-        }
-
-        public static bool TryGetTerrain(
-            TerrainData terrainData,
-            SurfaceCell cell,
-            out TerrainCellState terrainCell)
-        {
-            return SnapshotReadQueries.TryGetTerrain(terrainData, cell, out terrainCell);
-        }
-
         public static bool TryGetUnitTraversalBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             SurfaceCell cell,
             out SlideStopper blocker)
         {
@@ -142,7 +125,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 topology,
                 boardBounds,
-                terrainData,
                 cell,
                 out blocker);
         }
@@ -153,7 +135,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
@@ -165,7 +146,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
-                terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -179,7 +159,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             EntityType entityType,
             SurfaceCell cell,
             int ignoredEntityId,
@@ -192,7 +171,6 @@ namespace Game.Feature.Gameplay.BoardState
                 projectileOccupancy,
                 topology,
                 boardBounds,
-                terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -223,27 +201,12 @@ namespace Game.Feature.Gameplay.BoardState
             SnapshotReadQueries.EnumerateOccupancyOrdered(entitiesById, occupancyByCell, topology, buffer);
         }
 
-        public static void EnumerateTerrainBlockedCellsOrdered(
-            TerrainData terrainData,
-            List<Vector2Int> buffer)
-        {
-            SnapshotReadQueries.EnumerateTerrainBlockedCellsOrdered(terrainData, buffer);
-        }
-
-        public static void EnumerateTerrainCellsOrdered(
-            TerrainData terrainData,
-            List<TerrainCellState> buffer)
-        {
-            SnapshotReadQueries.EnumerateTerrainCellsOrdered(terrainData, buffer);
-        }
-
         public static bool TryGetUnitBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             SurfaceCell cell,
             out SlideStopper blocker)
         {
@@ -253,7 +216,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 topology,
                 boardBounds,
-                terrainData,
                 cell,
                 out blocker);
         }
@@ -357,7 +319,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             SurfaceCell origin,
             Vector2Int delta,
             out SurfaceCell destination,
@@ -372,7 +333,6 @@ namespace Game.Feature.Gameplay.BoardState
                 solidOccupancyByCell,
                 topology,
                 boardBounds,
-                terrainData,
                 origin,
                 delta,
                 out destination,

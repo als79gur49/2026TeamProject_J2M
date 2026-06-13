@@ -220,14 +220,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GeneratorCellPlacementBlocked_DefersWithPlacementPayload()
+        public void GeneratorCellSolidBlocked_DefersWithPlacementPayload()
         {
             var template = CreateMoonBlock(20, InitialMoonCell);
-            var terrain = new TerrainData(new[]
-            {
-                new TerrainCellState(GeneratorCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-            });
-            var worldState = CreateWorld(new[] { CreatePlayer() }, terrainData: terrain);
+            var worldState = CreateWorld(new[] { CreatePlayer(), CreateWall(50, GeneratorCell) });
             var pipeline = CreatePipeline(worldState, template);
 
             var result = pipeline.RunTick(new TickInput(1));
@@ -235,8 +231,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(GameplayCompositionRoot.CreateSnapshot(worldState).TryGetEntity(20, out _), Is.False);
             AssertMoonBlockGeneratorBlockedEvent(
                 result,
-                blockerEntityId: 0,
-                MoonBlockGeneratorBlockedReason.PlacementBlocked);
+                blockerEntityId: 50,
+                MoonBlockGeneratorBlockedReason.WallLikeSolid);
         }
 
         [Test]
@@ -506,8 +502,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static WorldState CreateWorld(
             IReadOnlyList<EntityState> entities,
-            CubeTopologyState topology = default,
-            TerrainData terrainData = null)
+            CubeTopologyState topology = default)
         {
             if (topology.Equals(default(CubeTopologyState)))
             {
@@ -517,7 +512,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayCompositionRoot.CreateWorldState(
                 entities,
                 Bounds,
-                terrainData ?? TerrainData.Empty,
                 topology,
                 new[] { CreateGeneratorTileFeatureState() });
         }

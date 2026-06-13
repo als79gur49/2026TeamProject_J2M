@@ -33,61 +33,55 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, UnitKinematicRuntimeState> _unitKinematicStatesByEntityId = new();
         private readonly Dictionary<int, UnitContinuousLocomotionState> _unitContinuousLocomotionStatesByEntityId = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
-        private readonly TerrainData _terrainData;
         private CubeTopologyState _topology;
         private int _topologyRevision;
 
         internal WorldState()
-            : this(Array.Empty<EntityState>(), BoardBounds.Unbounded, TerrainData.Empty, new CubeTopologyState(FaceId.Floor))
+            : this(Array.Empty<EntityState>(), BoardBounds.Unbounded, new CubeTopologyState(FaceId.Floor))
         {
         }
 
         internal WorldState(IEnumerable<EntityState> initialEntities)
-            : this(initialEntities, BoardBounds.Unbounded, TerrainData.Empty, new CubeTopologyState(FaceId.Floor))
+            : this(initialEntities, BoardBounds.Unbounded, new CubeTopologyState(FaceId.Floor))
+        {
+        }
+
+        internal WorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds)
+            : this(initialEntities, boardBounds, new CubeTopologyState(FaceId.Floor))
         {
         }
 
         internal WorldState(
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds,
-            TerrainData terrainData)
-            : this(initialEntities, boardBounds, terrainData, new CubeTopologyState(FaceId.Floor))
-        {
-        }
-
-        internal WorldState(
-            IEnumerable<EntityState> initialEntities,
-            BoardBounds boardBounds,
-            TerrainData terrainData,
             CubeTopologyState topology)
-            : this(initialEntities, boardBounds, terrainData, topology, initialTileFeatures: null, initialEnemyGlideStatesByEntityId: null)
+            : this(initialEntities, boardBounds, topology, initialTileFeatures: null, initialEnemyGlideStatesByEntityId: null)
         {
         }
 
         internal WorldState(
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             CubeTopologyState topology,
             IEnumerable<TileFeatureState> initialTileFeatures)
-            : this(initialEntities, boardBounds, terrainData, topology, initialTileFeatures, initialEnemyGlideStatesByEntityId: null)
+            : this(initialEntities, boardBounds, topology, initialTileFeatures, initialEnemyGlideStatesByEntityId: null)
         {
         }
 
         internal WorldState(
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             CubeTopologyState topology,
             IReadOnlyDictionary<int, EnemyGlideRuntimeState> initialEnemyGlideStatesByEntityId)
-            : this(initialEntities, boardBounds, terrainData, topology, initialTileFeatures: null, initialEnemyGlideStatesByEntityId: initialEnemyGlideStatesByEntityId)
+            : this(initialEntities, boardBounds, topology, initialTileFeatures: null, initialEnemyGlideStatesByEntityId: initialEnemyGlideStatesByEntityId)
         {
         }
 
         internal WorldState(
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             CubeTopologyState topology,
             IEnumerable<TileFeatureState> initialTileFeatures,
             IReadOnlyDictionary<int, EnemyGlideRuntimeState> initialEnemyGlideStatesByEntityId,
@@ -99,10 +93,8 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _boardBounds = boardBounds;
-            _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
             _topology = topology;
             _topologyRevision = topologyRevision;
-            ValidateTerrainBounds();
             AddInitialTileFeatures(initialTileFeatures);
 
             if (initialEnemyGlideStatesByEntityId != null)
@@ -124,19 +116,12 @@ namespace Game.Feature.Gameplay.BoardState
 
         private WorldState(
             BoardBounds boardBounds,
-            TerrainData terrainData,
             CubeTopologyState topology,
-            int topologyRevision,
-            bool validateTerrainBounds)
+            int topologyRevision)
         {
             _boardBounds = boardBounds;
-            _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
             _topology = topology;
             _topologyRevision = topologyRevision;
-            if (validateTerrainBounds)
-            {
-                ValidateTerrainBounds();
-            }
         }
 
         internal static WorldState CreateFromSnapshotFast(WorldSnapshot snapshot)
@@ -148,10 +133,8 @@ namespace Game.Feature.Gameplay.BoardState
 
             var worldState = new WorldState(
                 snapshot.BoardBounds,
-                snapshot.TerrainData,
                 snapshot.Topology,
-                snapshot.TopologyRevision,
-                validateTerrainBounds: false);
+                snapshot.TopologyRevision);
             worldState.RestoreFromSnapshotFast(snapshot);
             SnapshotMaterializationDiagnostics.RecordFastBaseSnapshotImport(
                 snapshot.EntityCount,
@@ -189,8 +172,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, UnitContinuousLocomotionState>(_unitContinuousLocomotionStatesByEntityId),
                 _topology,
                 _topologyRevision,
-                _boardBounds,
-                _terrainData);
+                _boardBounds);
         }
 
         private void RestoreFromSnapshotFast(WorldSnapshot snapshot)
@@ -836,7 +818,6 @@ namespace Game.Feature.Gameplay.BoardState
                 _solidOccupancy,
                 _projectileOccupancy,
                 _boardBounds,
-                _terrainData,
                 entity.type,
                 cell,
                 ignoredEntityId,
@@ -855,26 +836,6 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return new InvalidOperationException(
                 $"Entity {entity.entityId} cannot occupy {cell}. {FormatPlacementBlocker(blocker)}");
-        }
-
-        private void ValidateTerrainBounds()
-        {
-            if (!_boardBounds.IsBounded)
-            {
-                return;
-            }
-
-            var terrainCells = _terrainData.OrderedTerrainCells;
-            for (var i = 0; i < terrainCells.Count; i++)
-            {
-                if (_boardBounds.Contains(terrainCells[i].Cell.PlanarPosition))
-                {
-                    continue;
-                }
-
-                throw new InvalidOperationException(
-                    $"Terrain cell {terrainCells[i].Cell} is outside the configured board bounds.");
-            }
         }
 
         private void AddInitialTileFeatures(IEnumerable<TileFeatureState> initialTileFeatures)
@@ -1247,9 +1208,6 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 case SlideStopperKind.BoardEdge:
                     return $"Board bounds reject the cell at {blocker.Cell}.";
-
-                case SlideStopperKind.Terrain:
-                    return $"Terrain blocks the cell at {blocker.Cell}.";
 
                 case SlideStopperKind.Entity:
                     return $"Entity {blocker.EntityId} ({blocker.EntityType}) already occupies {blocker.Cell}.";

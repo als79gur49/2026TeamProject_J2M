@@ -213,7 +213,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AppendEnemyActionEntries(builder, snapshot);
             AppendEnemyJumpEntries(builder, snapshot);
             AppendExecutionLockEntries(builder, snapshot);
-            AppendTerrainEntries(builder, snapshot);
 
             return builder.ToString();
         }
@@ -356,22 +355,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .Append(entries[i].State.phase).Append('|')
                     .Append(entries[i].State.sequence).Append('|')
                     .Append(entries[i].State.unlockTickExclusive).Append('\n');
-            }
-        }
-
-        private static void AppendTerrainEntries(StringBuilder builder, WorldSnapshot snapshot)
-        {
-            var entries = new List<TerrainCellState>();
-            snapshot.EnumerateTerrainCellsOrdered(entries);
-            builder.Append("Terrain=").Append(entries.Count).Append('\n');
-            for (var i = 0; i < entries.Count; i++)
-            {
-                builder
-                    .Append((int)entries[i].Cell.face).Append('|')
-                    .Append(entries[i].Cell.x).Append('|')
-                    .Append(entries[i].Cell.y).Append('|')
-                    .Append((int)entries[i].Kind).Append('|')
-                    .Append((int)entries[i].Flags).Append('\n');
             }
         }
 

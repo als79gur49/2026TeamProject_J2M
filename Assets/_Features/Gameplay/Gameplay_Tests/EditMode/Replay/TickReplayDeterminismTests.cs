@@ -13,7 +13,6 @@ using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -767,8 +766,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void Replay_PushBoxTerrainStopperScenario_ProducesSameHashTraceAndEventLog()
         {
-            var firstReplay = RunPushBoxTerrainReplaySequence();
-            var secondReplay = RunPushBoxTerrainReplaySequence();
+            var firstReplay = RunPushBoxSolidReplaySequence();
+            var secondReplay = RunPushBoxSolidReplaySequence();
 
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -1684,7 +1683,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var worldState = CreateWorldState(
                 new[] { enemy },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Front));
             var chargeState = new EnemyChargeRuntimeState
             {
@@ -2201,8 +2199,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                     CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(2, 0), hp: 3),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 0)));
 
             var firstLogic = new ScriptedCombatLogic(
                 sourceId: 10,
@@ -2232,7 +2229,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
 
             return new TickReplayHarness().Run(
@@ -2253,7 +2249,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Attack),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             return new TickReplayHarness().Run(
                 worldState,
@@ -2296,8 +2291,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 {
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 1)));
 
             try
             {
@@ -2341,8 +2335,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 {
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 1)));
 
             try
             {
@@ -2373,8 +2366,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 {
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(2, 2), hp: 3, aiMode: EnemyAiMode.Patrol),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
             var profile = EnemyAiProfileTestFactory.CreateNonAttacking();
 
             try
@@ -2408,8 +2400,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
             var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectileRandomWalk(windupTicks: 1);
 
             try
@@ -2444,8 +2435,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
             var profile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectileRandomWalk(windupTicks: 1);
             var dumps = new List<string>();
 
@@ -2488,8 +2478,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 {
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
             {
                 PatrolStrategyKind = PatrolStrategyKind.Forward,
@@ -2527,8 +2516,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
             var profile = EnemyAiProfileTestFactory.CreateWallFollower(WallFollowTurnPreference.Right);
 
             try
@@ -2564,8 +2552,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 {
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 1), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
             var profile = EnemyAiProfileTestFactory.CreateWallFollower(WallFollowTurnPreference.Left);
 
             try
@@ -2597,8 +2584,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateWall(entityId: 30, position: new Vector2Int(1, 0)),
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol),
                 },
-                new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)));
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
             {
                 PatrolStrategyKind = PatrolStrategyKind.Forward,
@@ -2840,16 +2826,16 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
-        private static IReadOnlyList<TickReplayFrame> RunPushBoxTerrainReplaySequence()
+        private static IReadOnlyList<TickReplayFrame> RunPushBoxSolidReplaySequence()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
                     CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push, facing: Direction.Left),
+                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
-                new GameplayTerrainData(new[] { new Vector2Int(4, 0) }));
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
 
             return new TickReplayHarness().Run(
                 worldState,
@@ -2872,8 +2858,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
                     CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push, facing: Direction.Left),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)));
 
             return new TickReplayHarness().Run(
                 worldState,
@@ -3146,19 +3131,17 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
-            BoardBounds boardBounds,
-            GameplayTerrainData terrainData)
+            BoardBounds boardBounds)
         {
-            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds);
         }
 
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds,
-            GameplayTerrainData terrainData,
             CubeTopologyState topology)
         {
-            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData, topology);
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, topology);
         }
 
         private static EnemyAiProfile CreateUtilitySummonProfile(

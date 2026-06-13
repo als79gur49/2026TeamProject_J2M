@@ -500,7 +500,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayCompositionRoot.CreateWorldState(
                 entities,
                 new BoardBounds(Vector2Int.zero, new Vector2Int(5, 5)),
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                 new CubeTopologyState(playerCell.face));
         }
 

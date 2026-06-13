@@ -1382,8 +1382,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                         boardPresence = EntityBoardPresence.Occupying,
                     },
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 1)),
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 1)));
         }
 
         private static WorldState CreateJumpLandingWorldState()

@@ -13,7 +13,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
@@ -727,7 +726,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                 },
                 new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { destroyTile });
 
@@ -4821,15 +4819,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new[]
                     {
                         CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Charge, facing: Direction.Right),
+                        CreateWall(entityId: 51, position: new Vector2Int(1, 0)),
                     },
-                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)),
-                    new GameplayTerrainData(new[]
-                    {
-                        new TerrainCellState(
-                            new SurfaceCell(FaceId.Floor, 1, 0),
-                            TerrainKind.Generic,
-                            TerrainFlags.BlocksGroundTraversal),
-                    })));
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0))));
         }
 
         [Test]
@@ -5756,15 +5748,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds)
         {
-            return CreateWorldState(initialEntities, boardBounds, GameplayTerrainData.Empty);
-        }
-
-        private static WorldState CreateWorldState(
-            IEnumerable<EntityState> initialEntities,
-            BoardBounds boardBounds,
-            GameplayTerrainData terrainData)
-        {
-            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
+            return CreateWorldState(initialEntities, boardBounds);
         }
 
         private static WorldState CreateWorldState(
@@ -5774,7 +5758,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 new BoardBounds(new Vector2Int(-32, -32), new Vector2Int(32, 32)),
-                GameplayTerrainData.Empty,
                 topology);
         }
 

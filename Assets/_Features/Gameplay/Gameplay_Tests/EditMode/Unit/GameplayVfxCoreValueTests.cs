@@ -151,7 +151,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             IGameplayVfxFamilyRequestPlanner[] planners =
             {
-                new TerrainVfxRequestPlanner(),
+                new EnvironmentVfxRequestPlanner(),
                 new ObjectiveStageVfxRequestPlanner(),
             };
             var builder = new GameplayVfxRequestPlanBuilder();
@@ -164,7 +164,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(planners.Select(planner => planner.Family).ToArray(), Is.EqualTo(new[]
             {
-                GameplayVfxFamily.Terrain,
+                GameplayVfxFamily.Environment,
                 GameplayVfxFamily.ObjectiveStage,
             }));
             Assert.That(builder.Build(), Is.SameAs(GameplayVfxRequestPlan.Empty));

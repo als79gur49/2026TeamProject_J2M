@@ -6,10 +6,9 @@ namespace Game.Feature.Gameplay.BoardState
     public enum LegalityBlockerKind
     {
         BoardEdge = 0,
-        Terrain = 1,
-        Solid = 2,
-        Unit = 3,
-        Reservation = 4,
-        TileFeature = 5,
+        Solid = 1,
+        Unit = 2,
+        Reservation = 3,
+        TileFeature = 4,
     }
 }

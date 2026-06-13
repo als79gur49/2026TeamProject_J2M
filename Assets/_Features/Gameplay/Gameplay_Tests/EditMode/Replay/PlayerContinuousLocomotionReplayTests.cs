@@ -10,7 +10,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Replay
 {
@@ -132,7 +131,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreateWorldState(
                     new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                     boardBounds,
-                    GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Floor)),
                 CreatePlayerLogics(),
                 inputs,
@@ -141,7 +139,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreateWorldState(
                     new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                     boardBounds,
-                    GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Floor)),
                 CreatePlayerLogics(),
                 inputs,
@@ -166,7 +163,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var firstWorld = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(firstWorld, 256, KinematicFixed.MaxPositiveLocalOffset);
             Assert.That(firstWorld.CreateSnapshot().TryGetUnitContinuousLocomotionState(10, out var firstPreState), Is.True);
@@ -174,7 +170,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var secondWorld = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(secondWorld, 256, KinematicFixed.MaxPositiveLocalOffset);
             Assert.That(secondWorld.CreateSnapshot().TryGetUnitContinuousLocomotionState(10, out var secondPreState), Is.True);
@@ -210,7 +205,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreateWorldState(
                     new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) },
                     boardBounds,
-                    GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Floor)),
                 CreatePlayerLogics(),
                 inputs,
@@ -219,7 +213,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreateWorldState(
                     new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) },
                     boardBounds,
-                    GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Floor)),
                 CreatePlayerLogics(),
                 inputs,
@@ -553,10 +546,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> entities,
             BoardBounds boardBounds,
-            GameplayTerrainData terrainData,
             CubeTopologyState topology)
         {
-            return GameplayWorldStateTestFactory.CreateBounded(entities, boardBounds, terrainData, topology);
+            return GameplayWorldStateTestFactory.CreateBounded(entities, boardBounds, topology);
         }
 
         private static WorldState CreateWorldStateWithPlayerOffset(

@@ -187,7 +187,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void PlannerVisibility_VisibleSurfaceAllowedCue_NotSuppressedByDefaultGameplay()
         {
-            var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(TerrainVfxCue.TerrainChanged));
+            var request = CreateInactiveFaceCellRequest(GameplayVfxCueId.From(EnvironmentVfxCue.EnvironmentChanged));
 
             var plan = FilterByPlanningVisibility(
                 new GameplayVfxRequestPlan(new[] { request }),
@@ -324,7 +324,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void VisibleSurfaceAllowed_AllowsVisibleSurfaceProjection()
         {
             var decision = GameplayVfxVisibilityPolicy.EvaluateBeforeAnchor(
-                CreateInactiveFaceCellRequest(GameplayVfxCueId.From(TerrainVfxCue.TerrainChanged)),
+                CreateInactiveFaceCellRequest(GameplayVfxCueId.From(EnvironmentVfxCue.EnvironmentChanged)),
                 GameplayVfxVisibilityMode.VisibleSurfaceAllowed,
                 default);
 
@@ -501,8 +501,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var binding = CreateBindingAsset(
                 "VisibleSurfaceBinding",
-                GameplayVfxFamily.Terrain,
-                (int)TerrainVfxCue.TerrainChanged,
+                GameplayVfxFamily.Environment,
+                (int)EnvironmentVfxCue.EnvironmentChanged,
                 GameplayVfxVisibilityMode.VisibleSurfaceAllowed);
             try
             {
