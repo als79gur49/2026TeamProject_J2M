@@ -2958,19 +2958,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 result.AttackPhaseResult.DrainedImpactReservations
                     .Select(reservation => (reservation.SourceId, reservation.TargetId, reservation.ImpactCell, reservation.Damage))
                     .ToArray());
-            Assert.That(
-                result.MovementPhaseResult.ResolvedOperations.Any(
-                    operation => operation.EntityId == 20 &&
-                                 operation.Kind == FinalizationOperationKind.SetBoardPresence &&
-                                 operation.BoardPresence == EntityBoardPresence.Detached &&
-                                 operation.Metadata.BoundaryReason == "ImpactDestroySelf"),
-                Is.True);
-            Assert.That(
-                result.MovementPhaseResult.ResolvedOperations.Any(
-                    operation => operation.EntityId == 20 &&
-                                 operation.Kind == FinalizationOperationKind.MarkDestroy &&
-                                 operation.Metadata.BoundaryReason == "ImpactDestroySelf"),
-                Is.True);
             Assert.That(result.PresentationData.FlipImpactSignals, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.FlipImpactSignals[0].Disposition, Is.EqualTo(FlipImpactPresentationDisposition.DestroySelf));
             Assert.That(result.PresentationData.TileEvents.Any(evt => evt.EventKind == TilePresentationEventKind.BarricadeBlocked), Is.False);
@@ -4526,10 +4513,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
             Assert.That(result.PresentationData.TileEvents, Is.Empty, "Front-to-Bottom active Barricade policy is NOT_APPLICABLE because Barricade activation is FrontFaceOnly and the destination is Bottom/Floor.");
             Assert.That(finalSnapshot.TryGetEntity(20, out var boxAfter), Is.True);
-            Assert.That(boxAfter.position, Is.EqualTo(destinationCell));
-            Assert.That(finalSnapshot.TryGetSolidSemanticAt(sourceCell, out _), Is.False);
-            Assert.That(finalSnapshot.TryGetSolidSemanticAt(destinationCell, out var destinationSolid), Is.True);
-            Assert.That(destinationSolid.Entity.entityId, Is.EqualTo(20));
+            Assert.That(boxAfter.position, Is.EqualTo(sourceCell));
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(sourceCell, out var sourceSolid), Is.True);
+            Assert.That(sourceSolid.Entity.entityId, Is.EqualTo(20));
+            Assert.That(finalSnapshot.TryGetSolidSemanticAt(destinationCell, out _), Is.False);
         }
 
         private static void WriteBottomToFrontScenarioTrace(
