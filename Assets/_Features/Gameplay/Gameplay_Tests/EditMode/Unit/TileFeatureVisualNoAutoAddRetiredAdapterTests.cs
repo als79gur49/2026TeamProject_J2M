@@ -8,13 +8,13 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class TileFeatureVisualNoAutoAddLegacyAdapterTests
+    public sealed class TileFeatureVisualNoAutoAddRetiredAdapterTests
     {
         [Test]
         [Category("Extended")]
-        public void Controller_ProviderBackedTarget_DoesNotAutoAddLegacyAdapter()
+        public void Controller_ProviderBackedTarget_DoesNotAutoAddRetiredAdapterResidue()
         {
-            var root = new GameObject(nameof(Controller_ProviderBackedTarget_DoesNotAutoAddLegacyAdapter));
+            var root = new GameObject(nameof(Controller_ProviderBackedTarget_DoesNotAutoAddRetiredAdapterResidue));
             var targetObject = new GameObject("TileFeatureTarget");
             targetObject.transform.SetParent(root.transform, worldPositionStays: false);
             var profile = CreateProfile(TileFeatureKind.Button, TileFeatureVisualCueId.ButtonActivated);
@@ -33,9 +33,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 controller.PlayButtonActivatedRequests(new[] { CreateButtonRequest(100, cell) });
 
-#pragma warning disable CS0618
-                Assert.That(targetObject.GetComponent<LegacyTileFeatureVisualCueAdapter>(), Is.Null);
-#pragma warning restore CS0618
+                AssertNoMissingMonoBehaviours(targetObject);
                 Assert.That(targetObject.GetComponent<TileFeatureVisualProfileCueSink>(), Is.Not.Null);
             }
             finally
@@ -47,9 +45,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Factory_ProviderBackedTarget_DoesNotAutoAddLegacyAdapter()
+        public void Factory_ProviderBackedTarget_DoesNotAutoAddRetiredAdapterResidue()
         {
-            var targetObject = new GameObject(nameof(Factory_ProviderBackedTarget_DoesNotAutoAddLegacyAdapter));
+            var targetObject = new GameObject(nameof(Factory_ProviderBackedTarget_DoesNotAutoAddRetiredAdapterResidue));
             var profile = CreateProfile(TileFeatureKind.Exit, TileFeatureVisualCueId.ExitOpenState);
 
             try
@@ -62,9 +60,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var sink = InvokeFactoryResolveTileFeatureCueSink(target, TileFeatureKind.Exit);
 
                 Assert.That(sink, Is.TypeOf<TileFeatureVisualProfileCueSink>());
-#pragma warning disable CS0618
-                Assert.That(targetObject.GetComponent<LegacyTileFeatureVisualCueAdapter>(), Is.Null);
-#pragma warning restore CS0618
+                AssertNoMissingMonoBehaviours(targetObject);
             }
             finally
             {
@@ -132,6 +128,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             serializedProvider.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void AssertNoMissingMonoBehaviours(GameObject root)
+        {
+            var behaviours = root.GetComponents<MonoBehaviour>();
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                Assert.That(behaviours[i], Is.Not.Null, root.name);
+            }
         }
     }
 }

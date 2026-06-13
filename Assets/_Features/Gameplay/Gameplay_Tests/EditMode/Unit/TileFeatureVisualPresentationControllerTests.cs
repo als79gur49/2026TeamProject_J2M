@@ -1299,9 +1299,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 controller.PlayButtonActivatedRequests(new[] { CreateRequest(100, cell) });
 
                 var targetView = (TileFeatureVisualTargetView)target;
-#pragma warning disable CS0618
-                Assert.That(targetView.GetComponent<LegacyTileFeatureVisualCueAdapter>(), Is.Null);
-#pragma warning restore CS0618
+                AssertNoRetiredAdapterResidue(targetView.gameObject, "stage tile feature visual binding");
             }
             finally
             {
@@ -1476,10 +1474,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var animator = targetView.GetComponentInChildren<Animator>(includeInactive: true);
                 Assert.That(animator, Is.Not.Null);
                 Assert.That(animator.GetCurrentAnimatorStateInfo(0).shortNameHash, Is.EqualTo(expectedStateHash));
-#pragma warning disable CS0618
-                var adapter = targetView.GetComponent<LegacyTileFeatureVisualCueAdapter>();
-                Assert.That(adapter, Is.Null);
-#pragma warning restore CS0618
+                AssertNoRetiredAdapterResidue(targetView.gameObject, nameof(ExitInitialOpenState_ProductionPrefab_AppliesBeforeFirstTick));
             }
             finally
             {
@@ -2680,6 +2675,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 ImmediateSyncCount++;
                 LastImmediateOpen = open;
+            }
+        }
+
+        private static void AssertNoRetiredAdapterResidue(GameObject root, string context)
+        {
+            var behaviours = root.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                Assert.That(behaviours[i], Is.Not.Null, context);
             }
         }
 

@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text.RegularExpressions;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
@@ -457,40 +456,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 registry.SetPresentationPaused(false);
                 Assert.That(particles.isPlaying, Is.True);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void TileFeatureVisual_GameplayPause_DoesNotAdvanceOrEmit()
-        {
-            var rootObject = new GameObject(nameof(TileFeatureVisual_GameplayPause_DoesNotAdvanceOrEmit));
-
-            try
-            {
-                var target = rootObject.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, new SurfaceCell(FaceId.Floor, 0, 0));
-#pragma warning disable CS0618
-                var adapter = rootObject.AddComponent<LegacyTileFeatureVisualCueAdapter>();
-#pragma warning restore CS0618
-                adapter.ConfigureTarget(target);
-                var registry = new GameplayPresentationPauseRegistry();
-                registry.RegisterRoot(rootObject);
-                registry.SetPresentationPaused(true);
-                LogAssert.Expect(LogType.Warning, new Regex("LegacyTileFeatureVisualCueAdapter is diagnostic-only"));
-
-                adapter.TryHandle(new TileFeatureVisualRequest(
-                    TileFeatureVisualCueId.ButtonActivated,
-                    100,
-                    target.Cell,
-                    TileFeatureKind.Button));
-
-                Assert.That(adapter.IsGameplayPresentationPaused, Is.True);
-                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.EqualTo(1));
             }
             finally
             {

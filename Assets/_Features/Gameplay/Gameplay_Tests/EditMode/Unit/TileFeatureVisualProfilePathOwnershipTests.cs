@@ -1,5 +1,5 @@
 using System.IO;
-using System.Text.RegularExpressions;
+using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
@@ -7,33 +7,30 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
-using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class TileFeatureVisualNoHardcodedAnimatorFallbackTests
     {
-        private const string AdapterPath =
-            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/LegacyTileFeatureVisualCueAdapter.cs";
+        private static readonly string[] SourcePaths =
+        {
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TileFeatureVisualProfileCueSink.cs",
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TileFeatureVisualHandlers.cs",
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TileFeatureVisualPresentationController.cs",
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs",
+        };
 
         [Test]
         [Category("Extended")]
-        public void LegacyAdapter_HasNoHardcodedAnimatorFallbackCommandPath()
+        public void RuntimeTileFeatureVisualPath_HasNoHardcodedAnimatorFallbackCommandPath()
         {
-            var source = File.ReadAllText(AdapterPath);
+            var source = string.Join("\n", SourcePaths.Select(File.ReadAllText));
 
             Assert.That(source, Does.Not.Contain("ApplyLegacyAnimatorFallback"));
             Assert.That(source, Does.Not.Contain("PlayBarricadeFallback"));
             Assert.That(source, Does.Not.Contain("PlayExitFallback"));
             Assert.That(source, Does.Not.Contain("DebugLegacyAnimatorFallback"));
             Assert.That(source, Does.Not.Contain("ExitOpenedTrigger"));
-            Assert.That(source, Does.Not.Contain("BarricadeBlocked"));
-            Assert.That(source, Does.Not.Contain("MoonBlockGenerated"));
-            Assert.That(source, Does.Not.Contain("Animator.StringToHash"));
-            Assert.That(source, Does.Not.Contain("AnimatorControllerParameterType"));
-            Assert.That(source, Does.Not.Contain(".SetTrigger("));
-            Assert.That(source, Does.Not.Contain(".SetBool("));
-            Assert.That(source, Does.Not.Contain(".Play("));
         }
     }
 
@@ -63,10 +60,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 animator.runtimeAnimatorController = controller;
                 var provider = root.AddComponent<TileFeatureVisualProfileProvider>();
                 SetProviderProfiles(provider, barricadeProfile, exitProfile, moonProfile);
-#pragma warning disable CS0618
-                var adapter = root.AddComponent<LegacyTileFeatureVisualCueAdapter>();
-#pragma warning restore CS0618
-                adapter.ConfigureTarget(target);
                 var sink = root.AddComponent<TileFeatureVisualProfileCueSink>();
                 sink.Configure(target, provider);
 
@@ -92,7 +85,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     target.Cell,
                     TileFeatureKind.MoonBlockGenerator,
                     targetEntityId: 20)), Is.True);
-                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.Zero);
             }
             finally
             {
@@ -315,73 +307,4 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
     }
 
-    public sealed class TileFeatureVisualLegacyAdapterIsDiagnosticOnlyTests
-    {
-        [Test]
-        [Category("Extended")]
-        public void ExplicitLegacyAdapter_DoesNotExecuteAnimatorMaterialOrVfxCommands()
-        {
-            var root = new GameObject(nameof(ExplicitLegacyAdapter_DoesNotExecuteAnimatorMaterialOrVfxCommands));
-            var controller = new AnimatorController { name = "DiagnosticOnly_Controller" };
-            controller.AddLayer("Base Layer");
-            controller.AddParameter("ExitOpen", AnimatorControllerParameterType.Bool);
-            var material = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            var profile = ScriptableObject.CreateInstance<TileFeatureVisualProfile>();
-
-            try
-            {
-                var target = root.AddComponent<TileFeatureVisualTargetView>();
-                target.Configure(100, new SurfaceCell(FaceId.Floor, 1, 1));
-                var animator = root.AddComponent<Animator>();
-                animator.runtimeAnimatorController = controller;
-                var renderer = root.AddComponent<MeshRenderer>();
-                renderer.sharedMaterials = new[] { material };
-#pragma warning disable CS0618
-                var adapter = root.AddComponent<LegacyTileFeatureVisualCueAdapter>();
-#pragma warning restore CS0618
-                adapter.ConfigureTarget(target);
-                SetAdapterProfiles(adapter, profile);
-                LogAssert.Expect(LogType.Warning, new Regex("LegacyTileFeatureVisualCueAdapter is diagnostic-only"));
-
-                var handled = adapter.TryHandle(new TileFeatureVisualRequest(
-                    TileFeatureVisualCueId.ExitOpenState,
-                    100,
-                    target.Cell,
-                    TileFeatureKind.Exit,
-                    active: true));
-
-                Assert.That(handled, Is.False);
-                Assert.That(adapter.DebugUnsupportedLegacyUsageCount, Is.EqualTo(1));
-                Assert.That(adapter.DebugConfiguredMigrationProfileCount, Is.EqualTo(1));
-                Assert.That(animator.GetBool("ExitOpen"), Is.False);
-                var propertyBlock = new MaterialPropertyBlock();
-                renderer.GetPropertyBlock(propertyBlock, 0);
-                Assert.That(propertyBlock.GetColor(Shader.PropertyToID("_BaseColor")), Is.EqualTo(default(Color)));
-            }
-            finally
-            {
-                Object.DestroyImmediate(root);
-                Object.DestroyImmediate(controller);
-                Object.DestroyImmediate(material);
-                Object.DestroyImmediate(profile);
-            }
-        }
-
-#pragma warning disable CS0618
-        private static void SetAdapterProfiles(
-            LegacyTileFeatureVisualCueAdapter adapter,
-            params TileFeatureVisualProfile[] profiles)
-        {
-            var serializedAdapter = new SerializedObject(adapter);
-            var profilesProperty = serializedAdapter.FindProperty("profiles");
-            profilesProperty.arraySize = profiles.Length;
-            for (var i = 0; i < profiles.Length; i++)
-            {
-                profilesProperty.GetArrayElementAtIndex(i).objectReferenceValue = profiles[i];
-            }
-
-            serializedAdapter.ApplyModifiedPropertiesWithoutUndo();
-        }
-#pragma warning restore CS0618
-    }
 }

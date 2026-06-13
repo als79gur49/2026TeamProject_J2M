@@ -103,12 +103,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ExitOpened_UsesProviderProfilePathWithoutLegacyAdapterCommand()
+        public void ExitOpened_UsesProviderProfilePathWithoutRetiredAdapterCommand()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Exit3x3PrefabPath);
             Assert.That(prefab, Is.Not.Null, Exit3x3PrefabPath);
 
-            var root = new GameObject(nameof(ExitOpened_UsesProviderProfilePathWithoutLegacyAdapterCommand));
+            var root = new GameObject(nameof(ExitOpened_UsesProviderProfilePathWithoutRetiredAdapterCommand));
             var instance = Object.Instantiate(prefab, root.transform, worldPositionStays: false);
             try
             {
@@ -120,10 +120,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 registry.ConfigureSearchRoot(root.transform);
                 var controller = new TileFeatureVisualPresentationController();
                 controller.AttachRegistry(registry);
-#pragma warning disable CS0618
-                var adapter = instance.GetComponent<LegacyTileFeatureVisualCueAdapter>();
-#pragma warning restore CS0618
-                Assert.That(adapter, Is.Null);
+                AssertNoRetiredAdapterResidue(instance, Exit3x3PrefabPath);
 
                 controller.PlayRequests(new[]
                 {
@@ -176,7 +173,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(prefab.GetComponent<TileFeatureVisualTargetView>(), Is.Not.Null);
             Assert.That(prefab.GetComponent<TileFeatureVisualProfileProvider>(), Is.Null);
             Assert.That(prefab.GetComponentInChildren<Animator>(includeInactive: true), Is.Null);
-            Assert.That(prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>(), Is.Null);
+            AssertNoRetiredAdapterResidue(prefab, ExitDefaultPrefabPath);
 
             var prefabSource = File.ReadAllText(ExitDefaultPrefabPath);
             Assert.That(prefabSource, Does.Not.Contain("profiles:"));
@@ -247,6 +244,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     parameter.type == parameterType),
                 Is.True,
                 $"Missing Animator parameter '{parameterName}' ({parameterType}).");
+        }
+
+        private static void AssertNoRetiredAdapterResidue(GameObject root, string context)
+        {
+            var behaviours = root.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                Assert.That(behaviours[i], Is.Not.Null, context);
+            }
         }
     }
 }

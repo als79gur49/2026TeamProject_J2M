@@ -122,8 +122,7 @@ namespace Game.Feature.Gameplay.Host
             ITileFeatureVisualTarget target,
             TileFeatureKind featureKind)
         {
-            if (target is ITileFeatureVisualCueSink targetSink &&
-                !IsLegacyAdapter(targetSink))
+            if (target is ITileFeatureVisualCueSink targetSink)
             {
                 return targetSink;
             }
@@ -132,7 +131,6 @@ namespace Game.Feature.Gameplay.Host
             {
                 var componentSink = component.GetComponent<ITileFeatureVisualCueSink>();
                 if (componentSink != null &&
-                    !IsLegacyAdapter(componentSink) &&
                     componentSink is not TileFeatureVisualProfileCueSink)
                 {
                     return componentSink;
@@ -214,13 +212,6 @@ namespace Game.Feature.Gameplay.Host
             return featureKind == TileFeatureKind.Button ||
                    featureKind == TileFeatureKind.Entrance ||
                    featureKind == TileFeatureKind.Exit;
-        }
-
-        private static bool IsLegacyAdapter(ITileFeatureVisualCueSink sink)
-        {
-#pragma warning disable CS0618
-            return sink is LegacyTileFeatureVisualCueAdapter;
-#pragma warning restore CS0618
         }
 
         private sealed class NoProfileTileFeatureVisualCueSink : ITileFeatureVisualCueSink

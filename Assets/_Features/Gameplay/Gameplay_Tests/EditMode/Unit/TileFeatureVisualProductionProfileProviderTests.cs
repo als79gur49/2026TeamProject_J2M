@@ -80,7 +80,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(provider.Profiles.Count, Is.GreaterThan(0), prefabPath);
             Assert.That(provider.TryGetProfile(expectedKind, out var actualProfile), Is.True, prefabPath);
             Assert.That(actualProfile, Is.SameAs(expectedProfile), prefabPath);
-            AssertNoLegacyAdapter(prefab, prefabPath);
+            AssertNoRetiredAdapterResidue(prefab, prefabPath);
         }
 
         private static void AssertNoProviderProfile(string prefabPath)
@@ -90,12 +90,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(prefab.GetComponent<TileFeatureVisualProfileProvider>(), Is.Null, prefabPath);
         }
 
-        private static void AssertNoLegacyAdapter(GameObject prefab, string prefabPath)
+        private static void AssertNoRetiredAdapterResidue(GameObject prefab, string prefabPath)
         {
-#pragma warning disable CS0618
-            var adapter = prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>();
-#pragma warning restore CS0618
-            Assert.That(adapter, Is.Null, prefabPath);
+            var behaviours = prefab.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                Assert.That(behaviours[i], Is.Not.Null, prefabPath);
+            }
         }
     }
 }

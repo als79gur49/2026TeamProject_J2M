@@ -6,11 +6,11 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class TileFeatureVisualProductionPrefabNoLegacyAdapterComponentTests
+    public sealed class TileFeatureVisualProductionPrefabNoRetiredAdapterComponentTests
     {
         [Test]
         [Category("Full")]
-        public void ProductionProfilePrefabs_LoadWithoutLegacyAdapterAndKeepProviderProfiles()
+        public void ProductionProfilePrefabs_LoadWithoutRetiredAdapterResidueAndKeepProviderProfiles()
         {
             var prefabCases = new (string Path, TileFeatureKind Kind)[]
             {
@@ -29,7 +29,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             for (var i = 0; i < prefabCases.Length; i++)
             {
                 var prefab = LoadPrefab(prefabCases[i].Path);
-                AssertNoLegacyAdapter(prefab, prefabCases[i].Path);
+                AssertNoRetiredAdapterResidue(prefab, prefabCases[i].Path);
 
                 var provider = prefab.GetComponent<TileFeatureVisualProfileProvider>();
                 Assert.That(provider, Is.Not.Null, prefabCases[i].Path);
@@ -41,7 +41,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ExplicitNoProfilePolicyPrefabs_LoadWithoutLegacyAdapterOrProvider()
+        public void ExplicitNoProfilePolicyPrefabs_LoadWithoutRetiredAdapterResidueOrProvider()
         {
             var prefabPaths = new[]
             {
@@ -54,7 +54,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             for (var i = 0; i < prefabPaths.Length; i++)
             {
                 var prefab = LoadPrefab(prefabPaths[i]);
-                AssertNoLegacyAdapter(prefab, prefabPaths[i]);
+                AssertNoRetiredAdapterResidue(prefab, prefabPaths[i]);
                 Assert.That(prefab.GetComponent<TileFeatureVisualProfileProvider>(), Is.Null, prefabPaths[i]);
             }
         }
@@ -66,12 +66,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return prefab;
         }
 
-        private static void AssertNoLegacyAdapter(GameObject prefab, string prefabPath)
+        private static void AssertNoRetiredAdapterResidue(GameObject prefab, string prefabPath)
         {
-#pragma warning disable CS0618
-            var adapter = prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>();
-#pragma warning restore CS0618
-            Assert.That(adapter, Is.Null, prefabPath);
+            var behaviours = prefab.GetComponents<MonoBehaviour>();
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                Assert.That(behaviours[i], Is.Not.Null, prefabPath);
+            }
         }
     }
 }

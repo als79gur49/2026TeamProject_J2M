@@ -29,7 +29,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(prefab.GetComponent<TileFeatureVisualTargetView>(), Is.Not.Null, prefabPaths[i]);
                 Assert.That(prefab.GetComponent<TileFeatureVisualProfileProvider>(), Is.Null, prefabPaths[i]);
                 Assert.That(prefab.GetComponentInChildren<Animator>(includeInactive: true), Is.Null, prefabPaths[i]);
-                Assert.That(prefab.GetComponent<LegacyTileFeatureVisualCueAdapter>(), Is.Null, prefabPaths[i]);
+                AssertNoRetiredAdapterResidue(prefab, prefabPaths[i]);
             }
         }
 
@@ -104,13 +104,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
 
                 Assert.That(instance.GetComponent<TileFeatureVisualProfileProvider>(), Is.Null, prefabPath);
-#pragma warning disable CS0618
-                Assert.That(instance.GetComponent<LegacyTileFeatureVisualCueAdapter>(), Is.Null, prefabPath);
-#pragma warning restore CS0618
+                AssertNoRetiredAdapterResidue(instance, prefabPath);
             }
             finally
             {
                 Object.DestroyImmediate(root);
+            }
+        }
+
+        private static void AssertNoRetiredAdapterResidue(GameObject root, string context)
+        {
+            var behaviours = root.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                Assert.That(behaviours[i], Is.Not.Null, context);
             }
         }
     }

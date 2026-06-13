@@ -37,13 +37,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var prefabInstance = InstantiateMoonGeneratorPrefab();
             try
             {
-#pragma warning disable CS0618
-                var adapter = prefabInstance.GetComponent<LegacyTileFeatureVisualCueAdapter>();
-#pragma warning restore CS0618
                 var target = prefabInstance.GetComponent<TileFeatureVisualTargetView>();
                 var provider = prefabInstance.GetComponent<TileFeatureVisualProfileProvider>();
                 var animator = prefabInstance.GetComponent<Animator>();
-                Assert.That(adapter, Is.Null);
+                AssertNoRetiredAdapterResidue(prefabInstance);
                 Assert.That(target, Is.Not.Null);
                 Assert.That(provider, Is.Not.Null);
                 Assert.That(animator, Is.Not.Null);
@@ -91,14 +88,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var prefabInstance = InstantiateMoonGeneratorPrefab();
             try
             {
-#pragma warning disable CS0618
-                var adapter = prefabInstance.GetComponent<LegacyTileFeatureVisualCueAdapter>();
-#pragma warning restore CS0618
                 var target = prefabInstance.GetComponent<TileFeatureVisualTargetView>();
                 var provider = prefabInstance.GetComponent<TileFeatureVisualProfileProvider>();
                 var animator = prefabInstance.GetComponent<Animator>();
                 var controller = animator.runtimeAnimatorController as AnimatorController;
-                Assert.That(adapter, Is.Null);
+                AssertNoRetiredAdapterResidue(prefabInstance);
                 Assert.That(target, Is.Not.Null);
                 Assert.That(provider, Is.Not.Null);
                 Assert.That(controller, Is.Not.Null);
@@ -160,6 +154,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profiles, Is.Not.Null);
             Assert.That(profiles.arraySize, Is.GreaterThanOrEqualTo(1));
             Assert.That(profiles.GetArrayElementAtIndex(0).objectReferenceValue, Is.SameAs(profile));
+        }
+
+        private static void AssertNoRetiredAdapterResidue(GameObject root)
+        {
+            var behaviours = root.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
+            for (var i = 0; i < behaviours.Length; i++)
+            {
+                Assert.That(behaviours[i], Is.Not.Null, root.name);
+            }
         }
     }
 }
