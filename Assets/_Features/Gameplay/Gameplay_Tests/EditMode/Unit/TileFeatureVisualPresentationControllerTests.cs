@@ -2207,13 +2207,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             serializedProfile.ApplyModifiedPropertiesWithoutUndo();
 
-            var adapter = EnsureLegacyAdapter(target);
-            var serializedAdapter = new SerializedObject(adapter);
-            var profilesProperty = serializedAdapter.FindProperty("profiles");
+            var provider = target.GetComponent<TileFeatureVisualProfileProvider>() ??
+                           target.gameObject.AddComponent<TileFeatureVisualProfileProvider>();
+            var serializedProvider = new SerializedObject(provider);
+            var profilesProperty = serializedProvider.FindProperty("profiles");
             Assert.That(profilesProperty, Is.Not.Null);
             profilesProperty.arraySize = 1;
             profilesProperty.GetArrayElementAtIndex(0).objectReferenceValue = profile;
-            serializedAdapter.ApplyModifiedPropertiesWithoutUndo();
+            serializedProvider.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static Animator AttachAnimator(GameObject targetObject, RuntimeAnimatorController controller)

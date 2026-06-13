@@ -7,6 +7,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Host
 {
     [DisallowMultipleComponent]
+    // TODO: remove adapter component from production prefabs in adapter deletion PR.
     [Obsolete("Partial split bridge only. New TileFeature visuals should bind handlers/profiles and route through ITileFeatureVisualCueSink.")]
     public sealed class LegacyTileFeatureVisualCueAdapter :
         MonoBehaviour,
@@ -144,12 +145,14 @@ namespace Game.Feature.Gameplay.Host
         {
             TrackDebug(request);
             var target = ResolveTarget();
-            var profile = ResolveProfile(request.FeatureKind);
+            var profileResolution = ResolveProfile(request.FeatureKind, target);
+            var profile = profileResolution.Profile;
             var handler = ResolveHandler(request);
-            WarnMissingProfileIfNeeded(request, profile, handler);
+            WarnMissingProfileIfNeeded(request, profileResolution, handler);
             var handled = handler.TryHandle(request, target, profile, Animator, gameplayVfxPlaybackPort);
             if (profile == null)
             {
+                // TODO: remove hardcoded animator fallback after provider-backed production tests pass.
                 ApplyLegacyAnimatorFallback(request);
             }
 
@@ -196,10 +199,10 @@ namespace Game.Feature.Gameplay.Host
 
         private void WarnMissingProfileIfNeeded(
             in TileFeatureVisualRequest request,
-            TileFeatureVisualProfile profile,
+            ProfileResolution profileResolution,
             ITileFeatureVisualHandler handler)
         {
-            if (profile != null ||
+            if (profileResolution.Profile != null ||
                 handler == null ||
                 !handler.CanHandle(request.CueId))
             {
@@ -218,7 +221,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             UnityEngine.Debug.LogWarning(
-                $"{nameof(LegacyTileFeatureVisualCueAdapter)} handled {request.FeatureKind} cue {request.CueId} without a {nameof(TileFeatureVisualProfile)}. Production Animator-backed TileFeature visuals should resolve profile-local cue bindings.",
+                $"{nameof(LegacyTileFeatureVisualCueAdapter)} handled {request.FeatureKind} cue {request.CueId} without a {nameof(TileFeatureVisualProfile)}. Profile source: {profileResolution.DescribeMissingSource()}. Production Animator-backed TileFeature visuals should resolve provider-local cue bindings.",
                 this);
         }
 
@@ -362,7 +365,56 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private TileFeatureVisualProfile ResolveProfile(TileFeatureKind featureKind)
+        private ProfileResolution ResolveProfile(
+            TileFeatureKind featureKind,
+            TileFeatureVisualTargetView target)
+        {
+            var provider = ResolveProfileProvider(target);
+            if (provider != null &&
+                provider.TryGetProfile(featureKind, out var providerProfile))
+            {
+                return ProfileResolution.FromProvider(providerProfile);
+            }
+
+            if (TryGetLegacyAdapterProfile(featureKind, out var legacyProfile))
+            {
+                return ProfileResolution.FromLegacyAdapter(legacyProfile, provider != null);
+            }
+
+            return ProfileResolution.Missing(provider != null, HasLegacyAdapterProfiles());
+        }
+
+        private TileFeatureVisualProfileProvider ResolveProfileProvider(TileFeatureVisualTargetView target)
+        {
+            var provider = GetComponent<TileFeatureVisualProfileProvider>();
+            if (provider != null)
+            {
+                return provider;
+            }
+
+            if (target == null)
+            {
+                return null;
+            }
+
+            provider = target.GetComponent<TileFeatureVisualProfileProvider>();
+            if (provider != null)
+            {
+                return provider;
+            }
+
+            provider = target.GetComponentInParent<TileFeatureVisualProfileProvider>(true);
+            if (provider != null)
+            {
+                return provider;
+            }
+
+            return target.GetComponentInChildren<TileFeatureVisualProfileProvider>(true);
+        }
+
+        private bool TryGetLegacyAdapterProfile(
+            TileFeatureKind featureKind,
+            out TileFeatureVisualProfile profile)
         {
             if (profiles != null)
             {
@@ -371,12 +423,32 @@ namespace Game.Feature.Gameplay.Host
                     if (profiles[i] != null &&
                         profiles[i].FeatureKind == featureKind)
                     {
-                        return profiles[i];
+                        profile = profiles[i];
+                        return true;
                     }
                 }
             }
 
-            return null;
+            profile = null;
+            return false;
+        }
+
+        private bool HasLegacyAdapterProfiles()
+        {
+            if (profiles == null)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < profiles.Length; i++)
+            {
+                if (profiles[i] != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private TileFeatureVisualTargetView ResolveTarget()
@@ -609,11 +681,98 @@ namespace Game.Feature.Gameplay.Host
 
         private void TrackLegacyAnimatorFallback(in TileFeatureVisualRequest request)
         {
+            // TODO: replace TargetView debug adapter dependency with non-legacy diagnostics probe.
             DebugLegacyAnimatorFallbackCount++;
             if (request.FeatureKind == TileFeatureKind.Exit)
             {
                 DebugExitLegacyAnimatorFallbackCount++;
             }
+        }
+
+        private readonly struct ProfileResolution
+        {
+            private ProfileResolution(
+                TileFeatureVisualProfile profile,
+                TileFeatureVisualProfileSource source,
+                bool providerFound,
+                bool legacyAdapterProfilesConfigured)
+            {
+                Profile = profile;
+                Source = source;
+                ProviderFound = providerFound;
+                LegacyAdapterProfilesConfigured = legacyAdapterProfilesConfigured;
+            }
+
+            public TileFeatureVisualProfile Profile { get; }
+
+            public TileFeatureVisualProfileSource Source { get; }
+
+            public bool ProviderFound { get; }
+
+            public bool LegacyAdapterProfilesConfigured { get; }
+
+            public static ProfileResolution FromProvider(TileFeatureVisualProfile profile)
+            {
+                return new ProfileResolution(
+                    profile,
+                    TileFeatureVisualProfileSource.Provider,
+                    providerFound: true,
+                    legacyAdapterProfilesConfigured: false);
+            }
+
+            public static ProfileResolution FromLegacyAdapter(
+                TileFeatureVisualProfile profile,
+                bool providerFound)
+            {
+                return new ProfileResolution(
+                    profile,
+                    TileFeatureVisualProfileSource.LegacyAdapter,
+                    providerFound,
+                    legacyAdapterProfilesConfigured: true);
+            }
+
+            public static ProfileResolution Missing(
+                bool providerFound,
+                bool legacyAdapterProfilesConfigured)
+            {
+                return new ProfileResolution(
+                    null,
+                    TileFeatureVisualProfileSource.None,
+                    providerFound,
+                    legacyAdapterProfilesConfigured);
+            }
+
+            public string DescribeMissingSource()
+            {
+                if (Source != TileFeatureVisualProfileSource.None)
+                {
+                    return Source.ToString();
+                }
+
+                if (ProviderFound && LegacyAdapterProfilesConfigured)
+                {
+                    return "provider present without matching profile; legacy adapter fallback profiles also had no match";
+                }
+
+                if (ProviderFound)
+                {
+                    return "provider present without matching profile; no legacy adapter fallback profile";
+                }
+
+                if (LegacyAdapterProfilesConfigured)
+                {
+                    return "no provider found; legacy adapter fallback profiles had no match";
+                }
+
+                return "no provider found and no legacy adapter fallback profile";
+            }
+        }
+
+        private enum TileFeatureVisualProfileSource
+        {
+            None = 0,
+            Provider = 1,
+            LegacyAdapter = 2,
         }
 
         private static void SetTriggerIfPresent(Animator targetAnimator, int hash)

@@ -119,6 +119,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void TileFeatureVisualTargetView_NoTargetViewRollbackLegacySurface()
+        {
+            var targetType = typeof(TileFeatureVisualTargetView);
+            var declaredMembers = targetType
+                .GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(member => member.Name)
+                .ToArray();
+            var forbiddenNames = new[]
+            {
+                "PlayButton",
+                "PlayDestroy",
+                "PlaySlide",
+                "PlayBarricade",
+                "PlayExit",
+                "PlayMoon",
+            };
+
+            foreach (var forbiddenName in forbiddenNames)
+            {
+                Assert.That(
+                    declaredMembers.Where(memberName => memberName.StartsWith(forbiddenName, StringComparison.Ordinal)).ToArray(),
+                    Is.Empty,
+                    forbiddenName);
+            }
+
+            var serializedFields = targetType
+                .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Where(IsUnitySerializedField)
+                .ToArray();
+            Assert.That(serializedFields.Any(field => field.FieldType == typeof(string)), Is.False);
+            Assert.That(serializedFields.Any(field => typeof(UnityEventBase).IsAssignableFrom(field.FieldType)), Is.False);
+            Assert.That(serializedFields.Any(field => typeof(ParticleSystem).IsAssignableFrom(field.FieldType)), Is.False);
+        }
+
+        [Test]
         [Category("Full")]
         public void ProductionTileFeaturePrefabs_DoNotSerializeLegacyVisualTargetResidue()
         {

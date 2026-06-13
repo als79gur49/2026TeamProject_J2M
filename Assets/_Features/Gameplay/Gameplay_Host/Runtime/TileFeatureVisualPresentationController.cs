@@ -236,6 +236,7 @@ namespace Game.Feature.Gameplay.Host
                 if (target is TileFeatureVisualTargetView targetView)
                 {
 #pragma warning disable CS0618
+                    // TODO: remove LegacyTileFeatureVisualCueAdapter auto-add after provider migration is complete.
                     var adapter = component.gameObject.AddComponent<LegacyTileFeatureVisualCueAdapter>();
 #pragma warning restore CS0618
                     adapter.ConfigureTarget(targetView);

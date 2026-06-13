@@ -223,6 +223,7 @@ namespace Game.Feature.Gameplay.Host
 
         private LegacyTileFeatureVisualCueAdapter ResolveDebugAdapter()
         {
+            // TODO: replace TargetView debug adapter dependency with non-legacy diagnostics probe.
             return GetComponent<LegacyTileFeatureVisualCueAdapter>();
         }
     }
