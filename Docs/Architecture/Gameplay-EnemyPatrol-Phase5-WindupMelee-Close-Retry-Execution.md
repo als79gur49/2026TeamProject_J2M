@@ -95,7 +95,7 @@
 ## Allowed Claims
 - `WindupMelee RandomWalk pilot` phase 5 bounded rollout은 same-revision targeted evidence bundle을 기준으로 close되었다.
 - close gate에는 `TestResults/phase5-red-closure/` bundle과 documentation governance lock만 사용한다.
-- retired `EnemyAi_WindupMelee.asset` profile은 current repository inventory가 아니다. `EnemyBrain_WindupMelee.asset` shared brain, `Forward` fallback/oracle 유지, other archetype no-touch가 계속 current truth다.
+- retired `EnemyAi_WindupMelee.asset` profile은 current repository inventory가 아니다. Current WindupProjectile shared brain, `Forward` fallback/oracle 유지, other archetype no-touch가 계속 current truth다.
 
 ## Explicit Non-Claims
 - 이 close는 broad/full suite가 모두 closed라는 뜻이 아니다.
@@ -104,7 +104,7 @@
 - evidence verdict `Close Retry Ready`와 final decision `Closed`를 한 문구로 합치지 않는다.
 
 ## No-Touch Confirmation
-- retired `EnemyAi_WindupMelee.asset` profile은 current repository inventory가 아니며, `EnemyBrain_WindupMelee.asset` shared brain은 유지
+- retired `EnemyAi_WindupMelee.asset` profile은 current repository inventory가 아니며, current WindupProjectile shared brain은 유지
 - `Forward` fallback/oracle 유지
 - `NonAttacking` pilot unchanged
 - `JumpChaser`, `Charge`, `WallFollow`, `TutorialPassiveContact` rollout/patrol 정책 unchanged

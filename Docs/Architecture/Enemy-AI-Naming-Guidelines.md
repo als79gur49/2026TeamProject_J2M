@@ -56,16 +56,15 @@ Correct separation:
 `dr_saturn` is the presentation binding identity.
 These names must not be forced into one string.
 
-Current residue:
+Current aligned residue:
 
-- `EnemyView_GravityFieldChaser` is a renamed non-catalog residue prefab and is
-  not the canonical production view if `StagePresentationDefinition` maps
-  `dr_saturn` to `EnemyView_DrSaturn`.
-- `EnemyAnimator_GravityFieldChaserDrS` is acceptable as an intermediate residue
-  name, but long-term naming should prefer visual-first form such as
-  `EnemyAnimator_DrSaturn_GravityField` if that controller is DrSaturn-specific.
-- `Capabilities/Enemy_LockNearbyBoxes` is a folder taxonomy residue and requires
-  separate decision.
+- `EnemyView_PrototypeGravityFieldChaser` is an explicit prototype/non-catalog
+  residue prefab. It is not the canonical production view if
+  `StagePresentationDefinition` maps `dr_saturn` to `EnemyView_DrSaturn`.
+- `EnemyAnimator_DrSaturn_GravityField` is the visual-first controller name for
+  the DrSaturn-specific gravity-field motion set.
+- `Capabilities/GravityFieldAura` is the selected semantic folder for the active
+  gravity-field utility capability.
 
 ## Folder Rules
 
@@ -172,11 +171,8 @@ Do not:
 
 ## Current Follow-Up Decisions
 
-- Decide whether `EnemyView_GravityFieldChaser` is delete candidate, prototype,
-  or needs a real visual archetype name.
-- Decide whether `EnemyAnimator_GravityFieldChaserDrS` should become
-  `EnemyAnimator_DrSaturn_GravityField`.
-- Decide capability folder taxonomy for `Capabilities/Enemy_LockNearbyBoxes`.
-- Decide `WindupMelee -> WindupProjectile` support taxonomy.
-- Decide `ContactDamage -> PassiveContact / ContactSameCell` editor/code naming
-  taxonomy.
+- Decide whether `EnemyView_PrototypeGravityFieldChaser` remains prototype-only,
+  becomes a delete candidate, or needs a real visual archetype name.
+- Decide whether remaining `ContactDamage` class/file/default asset names should
+  migrate to `PassiveContact` / `ContactSameCell` naming with a compatibility
+  plan.
