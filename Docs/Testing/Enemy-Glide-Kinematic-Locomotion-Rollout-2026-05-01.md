@@ -8,7 +8,7 @@ This rollout is guarded by `GameplayRuntimeFeatureFlags.EnableEnemyGlideKinemati
 - Flag on: the kinematic state uses `MotionMode.Voluntary`; glide semantics stay in `EnemyGlideRuntimeState.Active` and boundary/trace reason text.
 - Flag on: horizontal presentation comes from `TickKinematicMotionTrack`; height presentation stays in `TickEnemyGlidePresentationSignal` and remains presentation-only.
 - Flag on: active glide anchor commits are `MovementExecutionBoundaryKind.LocomotionAnchorCommit` with reason `GlideActiveKinematicAnchorCommit`.
-- Active glide solid blocker bypass is preserved. Terrain, board edge, topology, reservation, and unit overlap restrictions are not bypassed.
+- Active glide solid blocker bypass is preserved. Board edge, topology, reservation, TileFeature, and unit overlap restrictions are not bypassed.
 - Contact remains anchor-based: source anchor before commit, destination anchor from commit tick onward. Swept and footprint contact are not introduced.
 - If active ends while a kinematic segment is non-settled, the segment completes naturally. New glide kinematic steps start only while phase is `Active`.
 - If active ends while the current committed anchor overlaps a solid, the existing `EnemyGlidePhase.LandingPending` lifecycle starts or persists and movement remains suppressed until the solid overlap clears.

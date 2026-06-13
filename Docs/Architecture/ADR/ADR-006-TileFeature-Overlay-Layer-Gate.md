@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-04-30
-- Last updated: 2026-06-02
+- Last updated: 2026-06-13
 
 ## Decision
 
@@ -10,7 +10,7 @@ TileFeature is a `SurfaceCell`-based gameplay overlay layer.
 
 TileFeature is not Unit/Solid/Projectile occupancy. It must not be modeled as `EntityType.TileFeature`, as a Unit stack entry, as Solid occupancy, or as Projectile occupancy. TileFeature-specific kinds such as DestroyTile, SlideTile, Barricade, Exit, Entrance, MoonBlock, and MoonBlockGenerator must not be added to `EntityType`.
 
-TileFeature is not a `TerrainFlags` effect semantic. Blocking Terrain remains owned by `TerrainData` and `TerrainFlags`; non-blocker overlay behavior belongs to TileFeature or a future ADR-approved layer.
+Gameplay Terrain truth has been removed by ADR-007. TileFeature is not a terrain extension and must not recreate terrain storage, terrain flags, or terrain-specific blockers.
 
 TileFeature may coexist with Unit, Box, and Projectile occupants on the same `SurfaceCell`. Wall-like solid + TileFeature requires explicit policy. TileFeature + TileFeature same-cell support is a storage capability; gameplay policy for each pair remains explicit.
 
@@ -54,7 +54,6 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - TileFeature + TileFeature same-cell storage support and gameplay policy are separate decisions.
 - Duplicate same-cell SlideTile is rejected by gameplay authoring policy.
 - DestroyTile + SlideTile same-cell is allowed; DestroyTile wins over SlideTile redirect for destroyed boxes.
-- Terrain blocker + TileFeature requires an explicit future policy decision.
 
 ## Button Policy
 
@@ -407,10 +406,10 @@ VFX, audio, and UI must not call `WorldState.CreateSnapshot` to infer TileFeatur
 - `TickPipeline` does not execute visual/audio/UI.
 - `TickPipeline` only transports presentation facts where necessary.
 
-## TerrainFlags Boundary
+## Terrain-Free Boundary
 
-`TerrainFlags` remains blocker terrain vocabulary. Future blocker-only flags may be added only when they preserve terrain blocker semantics.
+Every in-bounds `SurfaceCell` is terrain-free for gameplay legality.
 
-Do not add Trap, Hazard, Buff, Trigger, Aura, Zone, TileFeature, MoonBlockGenerator, Barricade, Exit, or other effect semantics to `TerrainFlags`.
+Do not add terrain storage, terrain flags, terrain blocker kinds, or terrain query APIs to model Trap, Hazard, Buff, Trigger, Aura, Zone, TileFeature, MoonBlockGenerator, Barricade, Exit, or other effect semantics.
 
-Any non-blocker terrain behavior or gameplay overlay effect belongs to TileFeature or another explicitly accepted future ADR. Any new `TerrainFlags` value that is not clearly blocker terrain vocabulary requires an ADR/test update before implementation.
+Gameplay overlay effects belong to TileFeature or another explicitly accepted future ADR. Hard blockers must use the remaining vocabulary: board edge, solid, unit, projectile lane rules, reservation, TileFeature, or topology reject reasons.

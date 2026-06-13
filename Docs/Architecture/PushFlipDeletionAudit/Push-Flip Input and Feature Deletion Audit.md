@@ -103,7 +103,7 @@ Mandatory input verdicts:
 | Case | Production reachable? | Stage content reachable? | Test-only? | Obsolete path? | Delete candidate? |
 | --- | --- | --- | --- | --- | --- |
 | Push normal slide | Yes | Yes: Push-capable boxes in campaign/tutorial/showcase content | No | No | No |
-| Push blocked by wall/terrain/solid | Yes | Yes: board and solid lanes are runtime blockers | No | No | No |
+| Push blocked by wall/solid/board edge | Yes | Yes: board and solid lanes are runtime blockers | No | No | No |
 | Push first-step blocked + Destroy fallback | Yes | Yes: Destroy-capable box capability rows exist | No | No | No |
 | Push hostile impact + target dies | Yes | Content has boxes/enemies; runtime impact/disposition tests cover behavior | No | No | No |
 | Push hostile impact + target survives | Yes | Same runtime path | No | No | No |

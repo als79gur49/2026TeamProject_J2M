@@ -2,7 +2,7 @@
 
 ## Decision
 
-Gameplay VFX is a presentation-only lane. It is not tile-only, and it serves Player, Box, Enemy, TileFeature, Terrain, Projectile, Objective/Stage, and GravityField domains.
+Gameplay VFX is a presentation-only lane. It is not tile-only, and it serves Player, Box, Enemy, TileFeature, Environment/Surface, Projectile, Objective/Stage, and GravityField domains.
 
 Gameplay VFX consumes `TickResult.PresentationData`-derived presentation facts. Gameplay VFX must not read WorldState, WorldSnapshot, or TickPipeline, and must not call WorldState.CreateSnapshot. TickPipeline must not execute prefabs or visual effects.
 
@@ -27,7 +27,7 @@ Family-specific planners are:
 - `BoxVfxRequestPlanner`
 - `EnemyVfxRequestPlanner`
 - `TileFeatureVfxRequestPlanner`
-- `TerrainVfxRequestPlanner`
+- `EnvironmentVfxRequestPlanner`
 - `ProjectileVfxRequestPlanner`
 - `ObjectiveStageVfxRequestPlanner`
 - `GravityFieldVfxRequestPlanner`
@@ -757,7 +757,7 @@ Visual tuning:
 
 The host connection for manual verification uses the `UIAudioScene` canonical gameplay shell, where `GameplayVfxProductionRuntime` is attached to the existing host object with `EnableEnemyJumpTargetVfx` enabled and the host default cue map assigned.
 
-Future work remains out of scope for this slice: persistent telegraph desired state, jump execute/cancel/death/retarget stop logic, prefab-local jumper profile ownership, stage/tile/terrain VFX, and existing presenter migration.
+Future work remains out of scope for this slice: persistent telegraph desired state, jump execute/cancel/death/retarget stop logic, prefab-local jumper profile ownership, stage/tile/environment VFX, and existing presenter migration.
 
 ## Enemy Jump Landing Dust Cue
 
@@ -930,7 +930,7 @@ Excluded from this slice:
 
 - `EnemyDeathBurst` / enemy death clone motion migration.
 - flip impact migration and persistent VFX.
-- TileFeature, Terrain, UtilityWindup, and Shield VFX.
+- TileFeature, Environment, UtilityWindup, and Shield VFX.
 
 ## Enemy Death Burst Migration
 
@@ -1014,7 +1014,7 @@ Boundaries:
 
 - no `TickPipeline`, `WorldState`, `WorldSnapshot`, `ProjectedWorld`, `FinalizationBatch`, or `DeterminismHashBuilder` changes.
 - no `TickPresentationData` or `TickEntityExitPresentationSignal` shape change.
-- no gameplay death rule, cleanup rule, camera rig, projectile trail, unit movement trail, TileFeature, Terrain, or stage content changes.
+- no gameplay death rule, cleanup rule, camera rig, projectile trail, unit movement trail, TileFeature, Environment, or stage content changes.
 
 ## Utility Windup VFX Migration
 
@@ -1045,7 +1045,7 @@ Default binding:
 Boundaries:
 
 - no one-shot fallback is allowed for this cue.
-- no MotionTrack anchor, Screen/BoardLocal anchor, topology queue, stage map, TileFeature, Terrain, or full FlipImpact MotionTrack migration is included.
+- no MotionTrack anchor, Screen/BoardLocal anchor, topology queue, stage map, TileFeature, Environment, or full FlipImpact MotionTrack migration is included.
 - `TickPresentationData`, `TickPipeline`, `WorldState`, and `WorldSnapshot` shape or authority changes remain forbidden.
 
 ## Prefab-local Profile Owner Gate
@@ -1262,7 +1262,7 @@ Persistent identity and `VfxPersistentKey` remain request-owned because aura, gl
 - `VfxStopPolicy`
 - default lifetime, tail, and max-concurrent hints
 
-`VfxProfile` owns prefab-local family cue policy. `VfxCueMap` owns stage, host, or global cue policy. Stage-specific tile, terrain, and environment cues should use a stage presentation map in a future slice. Player, Box, Enemy, and Projectile common VFX should use prefab-local profiles or host default maps.
+`VfxProfile` owns prefab-local family cue policy. `VfxCueMap` owns stage, host, or global cue policy. Stage-specific tile, surface, and environment cues should use a stage presentation map in a future slice. Player, Box, Enemy, and Projectile common VFX should use prefab-local profiles or host default maps.
 
 ## Compatibility Rule
 
@@ -1328,7 +1328,7 @@ Stage map composition is a future slice. This gate does not decide whether futur
 
 ## Future Owner Binding
 
-Host default map owner is future gameplay host presentation config. Player, Box, Enemy, and Projectile prefab-local profile owner is future prefab authoring. Tile, Terrain, and Stage environmental map owner is future stage presentation binding.
+Host default map owner is future gameplay host presentation config. Player, Box, Enemy, and Projectile prefab-local profile owner is future prefab authoring. Tile, Surface, and Stage environmental map owner is future stage presentation binding.
 
 This stage only proves conversion and resolver composition. It does not expose host default maps in scene inspectors, add `GameplaySceneHostConfiguration` fields, add `StagePresentationDefinition` fields, or attach VFX profiles to entity prefabs.
 
@@ -1529,7 +1529,7 @@ Allowed presentation components include ParticleSystem, Renderer, Animator, Trai
 
 ## Stage/Prefab Binding Boundary
 
-This stage does not add fields to `StagePresentationDefinition`, `GameplaySceneHostConfiguration`, or entity view prefab authoring. Stage-specific tile, terrain, and environment VFX map binding is a future slice. Player, Box, Enemy, and Projectile prefab-local profile binding is a future slice. Existing presenter migration remains a future slice.
+This stage does not add fields to `StagePresentationDefinition`, `GameplaySceneHostConfiguration`, or entity view prefab authoring. Stage-specific tile, surface, and environment VFX map binding is a future slice. Player, Box, Enemy, and Projectile prefab-local profile binding is a future slice. Existing presenter migration remains a future slice.
 
 ## Production Connection Gate
 
@@ -1549,14 +1549,14 @@ Before connecting Gameplay VFX to `GameplayTickPresentationCoordinator`:
 
 Ownership defaults:
 
-- Tile / Terrain / Stage environmental cue: `StagePresentationDefinition` or stage presentation map.
+- Tile / Surface / Stage environmental cue: `StagePresentationDefinition` or stage presentation map.
 - Player common VFX: player prefab-local profile or host default profile.
 - Box common VFX: box/static entity presentation profile or host default profile.
 - Enemy-specific VFX: enemy prefab-local profile.
 - Projectile VFX: projectile prefab/profile.
 - Global fallback: host-level default VFX map.
 
-Do not put every player, box, enemy, and projectile VFX binding into `StagePresentationDefinition`. Stage should own stage-specific tile, terrain, and environment bindings, not the global cue vocabulary.
+Do not put every player, box, enemy, and projectile VFX binding into `StagePresentationDefinition`. Stage should own stage-specific tile, surface, and environment bindings, not the global cue vocabulary.
 
 ## Prefab Validation Policy
 

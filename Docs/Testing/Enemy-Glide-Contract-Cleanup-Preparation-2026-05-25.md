@@ -38,7 +38,7 @@ This slice keeps behavior unchanged and records the cleanup map before B-style a
 
 | Class | Tests |
 |---|---|
-| A. Keep invariant | timing compile/lifecycle tests, traversal still blocks terrain/edge/topology/reservations, non-glide placement invariants, `WorldState_MoveEntityTo_LandingPendingGlider_CannotOccupyNonPendingSolidCell` |
+| A. Keep invariant | timing compile/lifecycle tests, traversal still blocks edge/topology/reservations/TileFeature, non-glide placement invariants, `WorldState_MoveEntityTo_LandingPendingGlider_CannotOccupyNonPendingSolidCell` |
 | B. stage-3-1 regression/safety | `StageRuntimeBuilder_Stage31Build_MaterializesGlider241AndWall238Contract`; do not move wall 238 or enemy 241 in `stage-3-1.asset` |
 | C. Old-contract tests | active solid anchor, matching-wall allow, `LandingPending` preserve, active-origin continuation into pending/recovery/cooldown, locked-step terminal matrix |
 | D. Trace-output-config fragile | rejected reason substring and rejected reason sequence tests around `GlideLandingPendingAnchorNotRepresentable` |

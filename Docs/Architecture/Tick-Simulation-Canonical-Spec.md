@@ -43,8 +43,8 @@
 
 ## Query Layer
 - Canonical query boundary는 다음 순서를 따른다.
-  - `Storage Query`: raw occupancy, raw terrain, deterministic ordered enumeration
-  - `Semantic Query`: `TryGetSolidSemanticAt(...)`, `IsWallAt(...)`, `IsBoxAt(...)`, `TryGetTerrain(...)`, `IsTerrainBlockedForUnit(...)`
+  - `Storage Query`: raw occupancy, TileFeature state, deterministic ordered enumeration
+  - `Semantic Query`: `TryGetSolidSemanticAt(...)`, `IsWallAt(...)`, `IsBoxAt(...)`
   - `State Query`: `ResolvedSpatialState` base fact, occupancy claim, gameplay visibility, precompiled actor capability fact
   - `Modifier Query`: legality domain/evidence 기준 override만 제공하는 narrow read seam
   - `Reservation Query`: frozen reservation export를 legality read seam으로 번역하는 adapter
@@ -73,18 +73,20 @@
 - `TickPipeline`은 orchestration-only owner다. legality owner가 아니며 `SpatialState` source aggregation owner도 아니다.
 
 ## Blocker Vocabulary
-- current canonical blocker kind는 정확히 다섯 개다.
+- current canonical blocker kind는 gameplay source 기준으로 다음 vocabulary만 사용한다.
   - `BoardEdge`
-  - `Terrain`
   - `Solid`
   - `Unit`
+  - `Projectile` lane rules where applicable
   - `Reservation`
+  - `TileFeature`
+  - topology transition reject reasons
 - extension rule:
-  - 새 top-level blocker kind는 현재 다섯 source 어디에도 속하지 않는 새 world-source가 실제로 생길 때만 허용한다.
+  - 새 top-level blocker kind는 현재 source 어디에도 속하지 않는 새 world-source가 실제로 생길 때만 허용한다.
   - 기존 source 상세화는 top-level kind를 늘리지 않고 sub-facet으로만 확장한다.
 - future slot reservation:
   - `host/socket/attachment`: 실제 host relation이 독립 blocker source가 될 때만 새 top-level kind 검토
-  - `field/aura`: terrain/entity/reservation이 아닌 독립 field source가 생길 때만 새 top-level kind 검토
+  - `field/aura`: occupancy/reservation/TileFeature/topology가 아닌 독립 field source가 생길 때만 새 top-level kind 검토
   - `targetability-only suppression`: blocker vocabulary가 아니라 `ModifierQuery` 축으로 유지
   - `reservation detail`: `Reservation` top-level kind 유지, future `cell/edge/entity/payload/topology-exclusive` facet은 `ReservationQuery`/central factory에서만 확장
 - governance rule:
@@ -263,14 +265,12 @@
   - `_stackedUnitsByCell`
   - `_solidOccupancy`
   - `_projectileOccupancy`
-- terrain canonical storage는 `TerrainData`의 `SurfaceCell -> TerrainCellState`다.
+- There is no runtime gameplay terrain canonical storage. Every in-bounds `SurfaceCell` is terrain-free for legality.
 - Canonical query vocabulary는 `WorldSnapshot`의 layered API를 기준으로 한다.
   - `EnumerateUnitsAt(...)`
   - `TryGetSolidSemanticAt(...)`
   - `IsWallAt(...)`
   - `IsBoxAt(...)`
-  - `TryGetTerrain(...)`
-  - `IsTerrainBlockedForUnit(...)`
   - `TryPickImpactTargetAt(...)`
   - `TryGetUnitTraversalBlocker(...)`
 - Legacy compatibility API는 canonical vocabulary가 아니다.
@@ -278,7 +278,7 @@
   - `TryGetSolidOccupantAt(...)`
   - `IsBlockedForUnit(...)`
   - `BlocksMovement(...)`
-- `TryGetBoxAt(...)`, `CreateDefaultQueryCell(...)`, `SurfaceCell.FromPlanar(...)`, terrain `Vector2Int` overload는 compatibility helper다. 새 gameplay core path는 사용하지 않는다.
+- `TryGetBoxAt(...)`, `CreateDefaultQueryCell(...)`, `SurfaceCell.FromPlanar(...)` 같은 legacy convenience helper는 canonical vocabulary가 아니다. 새 gameplay core path는 `SurfaceCell`-aware API를 사용한다.
 - `TryGetPrimaryUnitAt(...)`는 helper/convenience API로만 취급한다. stacked-unit 모델의 대표 vocabulary로 쓰지 않으며, gameplay core에서는 post-legality 대표값 조회 외에 승격하지 않는다.
 - query interpretation rule:
   - occupancy truth와 `SpatialState` truth는 다르다.
