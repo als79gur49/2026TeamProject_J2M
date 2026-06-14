@@ -310,7 +310,6 @@ namespace Game.Feature.Gameplay.Loop
             var worldState = new WorldState(
                 entities,
                 snapshot.BoardBounds,
-                snapshot.TerrainData,
                 snapshot.Topology,
                 tileFeatures,
                 enemyGlideStatesByEntityId,
@@ -429,18 +428,9 @@ namespace Game.Feature.Gameplay.Loop
 
         private static int ResolveProjectedMaterializationPriority(EntityState entity)
         {
-            // Projection rehydrates already-authoritative snapshots. Occupying projectiles
-            // must materialize ahead of solids so box/projectile overlap states that are
-            // legal in the live world can be reconstructed without relaxing placement
-            // invariants for normal world writes.
             if (entity.boardPresence != EntityBoardPresence.Occupying)
             {
                 return 2;
-            }
-
-            if (entity.type == EntityType.Projectile)
-            {
-                return 0;
             }
 
             return entity.type == EntityType.Unit ? 2 : 1;

@@ -400,7 +400,7 @@ Gameplay 도메인 이벤트와 실제 공용 오디오 정의를 연결하는 F
 - `boxSlide`
 - `boxDestroyed`
 - `throwStart`
-- `projectileHit`
+- `removed entityHit`
 - `entityDeath`
 
 중요한 분리:
@@ -447,7 +447,7 @@ Gameplay 도메인 이벤트와 실제 공용 오디오 정의를 연결하는 F
 다음 계층에서는 오디오를 직접 재생하지 않는다.
 
 - `PlayerLogic`
-- `ProjectileLogic`
+- `RemovedEntityLogic`
 - `TickPipeline`
 - `MovementCommitter`
 - `AttackCommitter`

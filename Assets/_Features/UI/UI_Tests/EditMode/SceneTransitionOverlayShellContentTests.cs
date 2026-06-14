@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using Game.Feature.Stages;
 using Game.Feature.UI.Composition;
 using NUnit.Framework;
@@ -15,27 +17,26 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void SceneTransitionOverlayContentResolver_UsesStageTransitionKindExactMatch()
         {
-            using var manual = ContentHandle.Create<ManualRestartOverlayContentView>("Manual");
-            using var levelFailed = ContentHandle.Create<LevelFailedRestartOverlayContentView>("LevelFailed");
+            using var fallback = ContentHandle.Create<ChanceLostOverlayContentView>("FallbackRestart");
+            using var generic = ContentHandle.Create<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
             using var catalog = CatalogHandle.Create(
-                Entry(StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart, manual.View),
-                Entry(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart, levelFailed.View));
+                Entry(StageTransitionKind.Unknown, TransitionOverlayKind.Restart, fallback.View),
+                Entry(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart, generic.View));
             var resolver = new SceneTransitionOverlayContentResolver();
             var model = Model(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart);
 
             var resolved = resolver.Resolve(model, catalog.Catalog);
 
-            Assert.That(resolved, Is.SameAs(levelFailed.View));
+            Assert.That(resolved, Is.SameAs(generic.View));
         }
 
         [Test]
-        public void SceneTransitionOverlayContentResolver_StageRetryManualAndLevelFailedRestartResolveDifferentContents()
+        public void SceneTransitionOverlayContentResolver_CommonRestartSemanticIdsCanShareGenericContent()
         {
-            using var manual = ContentHandle.Create<ManualRestartOverlayContentView>("Manual");
-            using var levelFailed = ContentHandle.Create<LevelFailedRestartOverlayContentView>("LevelFailed");
+            using var generic = ContentHandle.Create<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
             using var catalog = CatalogHandle.Create(
-                Entry(StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart, manual.View),
-                Entry(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart, levelFailed.View));
+                Entry(StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart, generic.View),
+                Entry(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart, generic.View));
             var resolver = new SceneTransitionOverlayContentResolver();
 
             var manualResolved = resolver.Resolve(
@@ -45,24 +46,23 @@ namespace Game.Feature.UI.Tests
                 Model(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart),
                 catalog.Catalog);
 
-            Assert.That(manualResolved, Is.SameAs(manual.View));
-            Assert.That(levelFailedResolved, Is.SameAs(levelFailed.View));
-            Assert.That(manualResolved, Is.Not.SameAs(levelFailedResolved));
+            Assert.That(manualResolved, Is.SameAs(generic.View));
+            Assert.That(levelFailedResolved, Is.SameAs(generic.View));
         }
 
         [Test]
         public void SceneTransitionOverlayContentResolver_FallsBackToOverlayKind()
         {
-            using var manual = ContentHandle.Create<ManualRestartOverlayContentView>("Manual");
+            using var generic = ContentHandle.Create<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
             using var catalog = CatalogHandle.Create(
-                Entry(StageTransitionKind.Unknown, TransitionOverlayKind.Restart, manual.View));
+                Entry(StageTransitionKind.Unknown, TransitionOverlayKind.Restart, generic.View));
             var resolver = new SceneTransitionOverlayContentResolver();
 
             var resolved = resolver.Resolve(
                 Model(StageTransitionKind.Unknown, TransitionOverlayKind.Restart),
                 catalog.Catalog);
 
-            Assert.That(resolved, Is.SameAs(manual.View));
+            Assert.That(resolved, Is.SameAs(generic.View));
         }
 
         [Test]
@@ -81,22 +81,22 @@ namespace Game.Feature.UI.Tests
         public void SceneTransitionOverlayShell_ShowContent_MountsOnlySelectedContent()
         {
             using var shell = ShellHandle.Create();
-            using var manual = ContentHandle.Create<ManualRestartOverlayContentView>("ManualRestartOverlayContent");
+            using var generic = ContentHandle.Create<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
 
-            var content = shell.View.MountContent(manual.View);
+            var content = shell.View.MountContent(generic.View);
             shell.View.ShowContent(Model(StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart), content);
 
             Assert.That(shell.VisualRoot.activeSelf, Is.True);
             Assert.That(shell.ContentMount.childCount, Is.EqualTo(1));
-            Assert.That(shell.ContentMount.GetChild(0).name, Is.EqualTo("ManualRestartOverlayContent"));
+            Assert.That(shell.ContentMount.GetChild(0).name, Is.EqualTo("GenericLoadingOverlayContent"));
         }
 
         [Test]
         public void SceneTransitionOverlayShell_HideAll_DisablesBlockerAndVisual()
         {
             using var shell = ShellHandle.Create();
-            using var manual = ContentHandle.Create<ManualRestartOverlayContentView>("ManualRestartOverlayContent");
-            var content = shell.View.MountContent(manual.View);
+            using var generic = ContentHandle.Create<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
+            var content = shell.View.MountContent(generic.View);
             shell.View.ShowContent(Model(StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart), content);
 
             shell.View.HideAll();
@@ -117,29 +117,79 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ChanceLostOverlayContent_BindsTmpTexts()
+        public void ChanceLostOverlayContentView_DoesNotExposeRetiredChanceTextBindings()
+        {
+            var fieldNames = typeof(ChanceLostOverlayContentView)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(field => field.Name)
+                .ToArray();
+
+            Assert.That(fieldNames, Does.Not.Contain("_previousChanceText"));
+            Assert.That(fieldNames, Does.Not.Contain("_currentChanceText"));
+            Assert.That(fieldNames, Does.Not.Contain("_totalChanceText"));
+            Assert.That(fieldNames, Does.Not.Contain("_deathCountText"));
+            Assert.That(fieldNames, Does.Not.Contain("_currentTextPulseScalePunch"));
+            Assert.That(fieldNames, Does.Not.Contain("_currentTextPulseDurationSeconds"));
+            Assert.That(fieldNames, Does.Not.Contain("_previousTextDimAlpha"));
+            Assert.That(fieldNames, Does.Not.Contain("_previousTextDimDurationSeconds"));
+            Assert.That(fieldNames, Does.Contain("_chanceSlotRoots"));
+        }
+
+        [Test]
+        public void ChanceLostOverlayContentView_UsesInspectorSlotRootsAsPrimarySource()
         {
             using var content = ContentHandle.Create<ChanceLostOverlayContentView>("ChanceLost");
-            var model = new SceneTransitionOverlayModel(
-                StageTransitionKind.DeathRetryChanceLost,
-                TransitionOverlayKind.ChanceLost,
-                "Chance Lost",
-                "Retrying.",
-                blockInput: true,
-                showProgress: true,
-                progress01: 0.25f,
-                hasChanceLost: true,
-                previousRemainingChances: 2,
-                currentRemainingChances: 1,
-                totalChances: 3,
-                deathCount: 4);
+            var view = (ChanceLostOverlayContentView)content.View;
 
-            content.View.Bind(model);
+            Assert.That(view.CollectValidationIssues(), Is.Empty);
 
-            Assert.That(content.PreviousChanceText.text, Is.EqualTo("2"));
-            Assert.That(content.CurrentChanceText.text, Is.EqualTo("1"));
-            Assert.That(content.TotalChanceText.text, Is.EqualTo("/ 3"));
-            Assert.That(content.DeathCountText.text, Is.EqualTo("Deaths 4"));
+            var extraFallbackSlot = new GameObject("ChanceSlotView 99", typeof(RectTransform), typeof(CanvasGroup));
+            extraFallbackSlot.transform.SetParent(content.Root.transform, false);
+
+            Assert.That(view.ResolvedChanceSlotCountForTests, Is.EqualTo(3));
+            Assert.That(view.ResolvedChanceSlotsForTests, Is.EqualTo(content.ChanceSlots));
+            Assert.That(view.CollectValidationIssues(), Has.Some.Contains("_chanceSlotRoots count 3"));
+        }
+
+        [Test]
+        public void ChanceLostOverlayContentView_FallbackIsSafetyNet_NotCurrentPrefabContract()
+        {
+            using var content = ContentHandle.Create<ChanceLostOverlayContentView>(
+                "ChanceLost",
+                bindChanceSlotRoots: false);
+            var view = (ChanceLostOverlayContentView)content.View;
+
+            Assert.That(view.ResolvedChanceSlotCountForTests, Is.EqualTo(3));
+            Assert.That(
+                view.CollectValidationIssues(),
+                Has.Some.Contains("requires explicit _chanceSlotRoots inspector bindings"));
+        }
+
+        [Test]
+        public void SceneTransitionOverlayContentView_RequiresOnlyRootGroupAndProgressTextBaseBindings()
+        {
+            using var content = ContentHandle.Create<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
+
+            var issues = content.View.CollectValidationIssues();
+
+            Assert.That(issues, Is.Empty);
+        }
+
+        [Test]
+        public void SceneTransitionOverlayContentView_DoesNotExposeRetiredBaseTextProgressAnimatorBindings()
+        {
+            var fieldNames = typeof(SceneTransitionOverlayContentView)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(field => field.Name)
+                .ToArray();
+
+            Assert.That(fieldNames, Does.Contain("_rootGroup"));
+            Assert.That(fieldNames, Does.Contain("_progressText"));
+            Assert.That(fieldNames, Does.Not.Contain("_titleText"));
+            Assert.That(fieldNames, Does.Not.Contain("_messageText"));
+            Assert.That(fieldNames, Does.Not.Contain("_progressRoot"));
+            Assert.That(fieldNames, Does.Not.Contain("_progressFill"));
+            Assert.That(fieldNames, Does.Not.Contain("_animator"));
         }
 
         [Test]
@@ -196,7 +246,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(CountCrackLines(lostTweenRoot), Is.EqualTo(5));
             Assert.That(CountCrackShards(lostTweenRoot), Is.EqualTo(9));
             AssertCrackShardsRestored(lostTweenRoot);
-            Assert.That(content.CurrentChanceText.rectTransform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(lostSlot.GetComponent<CanvasGroup>().alpha, Is.EqualTo(1f));
         }
 
@@ -241,19 +290,19 @@ namespace Game.Feature.UI.Tests
             view.Show();
 
             Assert.That(view.ActiveLostChanceAnimationCountForTests, Is.Zero);
-            Assert.That(content.CurrentChanceText.text, Is.Empty);
-            Assert.That(content.CurrentChanceText.rectTransform.localScale, Is.EqualTo(Vector3.one));
         }
 
         [Test]
-        public void LevelFailedRestartOverlayContent_DoesNotShowChanceLostFields()
+        public void GenericLoadingOverlayContent_LevelFailedRestartDoesNotShowChanceLostFields()
         {
-            using var content = ContentHandle.Create<LevelFailedRestartOverlayContentView>("LevelFailed");
+            using var content = ContentHandle.Create<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
 
             content.View.Bind(Model(StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart));
 
             Assert.That(content.Root.GetComponentsInChildren<ChanceLostOverlayContentView>(true), Is.Empty);
-            Assert.That(content.Root.GetComponentsInChildren<TMP_Text>(true).Length, Is.GreaterThanOrEqualTo(3));
+            Assert.That(
+                content.Root.GetComponentsInChildren<TMP_Text>(true).Select(text => text.name),
+                Does.Not.Contain("PreviousChanceText_TMP"));
         }
 
         [Test]
@@ -488,77 +537,46 @@ namespace Game.Feature.UI.Tests
             private ContentHandle(
                 GameObject root,
                 SceneTransitionOverlayContentView view,
-                TMP_Text previousChanceText,
-                TMP_Text currentChanceText,
-                TMP_Text totalChanceText,
-                TMP_Text deathCountText,
                 RectTransform[] chanceSlots)
             {
                 Root = root;
                 View = view;
-                PreviousChanceText = previousChanceText;
-                CurrentChanceText = currentChanceText;
-                TotalChanceText = totalChanceText;
-                DeathCountText = deathCountText;
                 ChanceSlots = chanceSlots;
             }
 
             public GameObject Root { get; }
             public SceneTransitionOverlayContentView View { get; }
-            public TMP_Text PreviousChanceText { get; }
-            public TMP_Text CurrentChanceText { get; }
-            public TMP_Text TotalChanceText { get; }
-            public TMP_Text DeathCountText { get; }
             public RectTransform[] ChanceSlots { get; }
 
-            public static ContentHandle Create<T>(string name)
+            public static ContentHandle Create<T>(string name, bool bindChanceSlotRoots = true)
                 where T : SceneTransitionOverlayContentView
             {
                 var root = new GameObject(name, typeof(RectTransform), typeof(CanvasGroup));
                 var view = root.AddComponent<T>();
-                var title = CreateText(root.transform, "TitleText_TMP");
-                var message = CreateText(root.transform, "MessageText_TMP");
-                var progressRoot = new GameObject("ProgressRoot", typeof(RectTransform));
-                progressRoot.transform.SetParent(root.transform, false);
-                var progressFill = new GameObject("ProgressFill", typeof(RectTransform));
-                progressFill.transform.SetParent(progressRoot.transform, false);
-                var progressText = CreateText(progressRoot.transform, "ProgressText_TMP");
+                var progressText = CreateText(root.transform, "ProgressText_TMP");
 
-                TMP_Text previous = null;
-                TMP_Text current = null;
-                TMP_Text total = null;
-                TMP_Text deaths = null;
                 var chanceSlots = Array.Empty<RectTransform>();
 
                 var serialized = new SerializedObject(view);
                 serialized.FindProperty("_rootGroup").objectReferenceValue = root.GetComponent<CanvasGroup>();
-                serialized.FindProperty("_titleText").objectReferenceValue = title;
-                serialized.FindProperty("_messageText").objectReferenceValue = message;
-                serialized.FindProperty("_progressRoot").objectReferenceValue = progressRoot;
-                serialized.FindProperty("_progressFill").objectReferenceValue = progressFill.GetComponent<RectTransform>();
                 serialized.FindProperty("_progressText").objectReferenceValue = progressText;
 
                 if (view is ChanceLostOverlayContentView)
                 {
-                    previous = CreateText(root.transform, "PreviousChanceText_TMP");
-                    current = CreateText(root.transform, "CurrentChanceText_TMP");
-                    total = CreateText(root.transform, "TotalChanceText_TMP");
-                    deaths = CreateText(root.transform, "DeathCountText_TMP");
-                    serialized.FindProperty("_previousChanceText").objectReferenceValue = previous;
-                    serialized.FindProperty("_currentChanceText").objectReferenceValue = current;
-                    serialized.FindProperty("_totalChanceText").objectReferenceValue = total;
-                    serialized.FindProperty("_deathCountText").objectReferenceValue = deaths;
                     chanceSlots = CreateChanceSlots(root.transform);
-                }
-
-                if (view is LevelFailedRestartOverlayContentView)
-                {
-                    serialized.FindProperty("_levelRestartMessageText").objectReferenceValue =
-                        CreateText(root.transform, "LevelRestartMessageText_TMP");
+                    if (bindChanceSlotRoots)
+                    {
+                        var chanceSlotRoots = serialized.FindProperty("_chanceSlotRoots");
+                        chanceSlotRoots.arraySize = chanceSlots.Length;
+                        for (var i = 0; i < chanceSlots.Length; i++)
+                        {
+                            chanceSlotRoots.GetArrayElementAtIndex(i).objectReferenceValue = chanceSlots[i];
+                        }
+                    }
                 }
 
                 serialized.ApplyModifiedPropertiesWithoutUndo();
-                return new ContentHandle(root, view, previous, current, total, deaths, chanceSlots);
+                return new ContentHandle(root, view, chanceSlots);
             }
 
             public void Dispose()

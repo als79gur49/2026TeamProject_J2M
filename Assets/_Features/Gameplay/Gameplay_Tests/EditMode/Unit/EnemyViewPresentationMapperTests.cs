@@ -229,7 +229,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyViewPresentationMapper_MapsLockNearbyBoxesUtilityWindupWithoutEnemyActionSignal()
+        public void EnemyViewPresentationMapper_MapsGravityFieldAuraUtilityWindupWithoutEnemyActionSignal()
         {
             const int enemyId = 40;
             var mapper = new EnemyViewPresentationMapper();
@@ -243,7 +243,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     enemy,
                     new TickEnemyUtilityPresentationSignal(
                         enemyId,
-                        EnemyUtilityPresentationKind.LockNearbyBoxes,
+                        EnemyUtilityPresentationKind.GravityFieldAura,
                         EnemyUtilityPresentationPhase.WindupStarted,
                         startTick: 1,
                         executeTick: 3,
@@ -252,7 +252,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 states);
 
             Assert.That(states.TryGetValue(enemyId, out var state), Is.True);
-            Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.LockNearbyBoxes));
+            Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.GravityFieldAura));
             Assert.That(state.StartedUtilityWindupThisTick, Is.True);
             Assert.That(state.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
             Assert.That(state.StartedWindupThisTick, Is.False);
@@ -329,7 +329,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     enemy,
                     new TickEnemyUtilityPhasePresentationState(
                         enemyId,
-                        EnemyUtilityPresentationKind.LockNearbyBoxes,
+                        EnemyUtilityPresentationKind.GravityFieldAura,
                         EnemyUtilityEffectPhase.Recover,
                         phaseElapsedTicks: 1,
                         phaseDurationTicks: 42)),
@@ -337,7 +337,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 states);
 
             Assert.That(states.TryGetValue(enemyId, out var state), Is.True);
-            Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.LockNearbyBoxes));
+            Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.GravityFieldAura));
             Assert.That(state.UtilityPhase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
             Assert.That(state.StartedUtilityWindupThisTick, Is.False);
             Assert.That(state.StartedUtilityRecoverThisTick, Is.False);
@@ -362,7 +362,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     enemy,
                     new TickEnemyUtilityPhasePresentationState(
                         enemyId,
-                        EnemyUtilityPresentationKind.LockNearbyBoxes,
+                        EnemyUtilityPresentationKind.GravityFieldAura,
                         EnemyUtilityEffectPhase.Windup,
                         phaseElapsedTicks: 1,
                         phaseDurationTicks: 3)),
@@ -370,7 +370,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 states);
 
             Assert.That(states.TryGetValue(enemyId, out var state), Is.True);
-            Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.LockNearbyBoxes));
+            Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.GravityFieldAura));
             Assert.That(state.UtilityPhase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
             Assert.That(state.StartedUtilityWindupThisTick, Is.False);
             Assert.That(state.StartedUtilityRecoverThisTick, Is.False);
@@ -404,7 +404,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             effectIndex: 0),
                         new TickEnemyUtilityPhasePresentationState(
                             enemyId,
-                            EnemyUtilityPresentationKind.LockNearbyBoxes,
+                            EnemyUtilityPresentationKind.GravityFieldAura,
                             EnemyUtilityEffectPhase.Recover,
                             phaseElapsedTicks: 0,
                             phaseDurationTicks: 42,
@@ -414,7 +414,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 states);
 
             Assert.That(states.TryGetValue(enemyId, out var state), Is.True);
-            Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.LockNearbyBoxes));
+            Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.GravityFieldAura));
             Assert.That(state.UtilityPhase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
             Assert.That(state.StartedUtilityRecoverThisTick, Is.False);
             Assert.That(state.StartedRecoveryThisTick, Is.False);
@@ -605,9 +605,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAnimatorDriver_LockNearbyBoxesUtilityWindupUsesUtilityPathWithoutAttackSemantic()
+        public void EnemyAnimatorDriver_GravityFieldAuraUtilityWindupUsesUtilityPathWithoutAttackSemantic()
         {
-            var gameObject = new UnityEngine.GameObject("EnemyAnimatorDriver_LockNearbyBoxesUtilityWindupUsesUtilityPathWithoutAttackSemantic");
+            var gameObject = new UnityEngine.GameObject("EnemyAnimatorDriver_GravityFieldAuraUtilityWindupUsesUtilityPathWithoutAttackSemantic");
             try
             {
                 var driver = gameObject.AddComponent<EnemyAnimatorDriver>();
@@ -633,7 +633,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         startedChargeRecoverThisTick: false,
                         tookDamage: false,
                         didDie: false,
-                        utilityPresentationKind: EnemyUtilityPresentationKind.LockNearbyBoxes,
+                        utilityPresentationKind: EnemyUtilityPresentationKind.GravityFieldAura,
                         startedUtilityWindupThisTick: true));
 
                 Assert.That(driver.UtilityWindupSignalCount, Is.EqualTo(1));

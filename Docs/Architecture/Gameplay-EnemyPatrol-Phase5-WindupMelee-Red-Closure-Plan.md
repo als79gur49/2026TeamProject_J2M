@@ -14,7 +14,7 @@ baseline control green이 아니면 이하 증거는 close blocker 판정에 사
 ## 1. 유지할 강점
 - helper/oracle red와 runtime red를 분리하는 hard gate 방향은 유지한다.
 - baseline self-check 2축, replay targeted 4건, authoring/doc governance green은 유지 중인 invariant다.
-- retired `EnemyAi_WindupMelee.asset` profile은 current repository inventory가 아니다. `EnemyBrain_WindupMelee.asset` shared brain은 Stage-reachable WindupProjectile path가 사용하므로 유지한다.
+- retired `EnemyAi_WindupMelee.asset` profile은 current repository inventory가 아니다. Historical `EnemyBrain_WindupMelee.asset` shared brain 경로는 current taxonomy에서 Stage-reachable `EnemyBrain_WindupProjectile.asset` path로 정리됐다.
 - `Forward` fallback/oracle, `NonAttacking` pilot, `JumpChaser`, `Charge`, `WallFollow`, `TutorialPassiveContact` 기본 patrol 정책은 no-touch다.
 - patrol origin capture fix를 유지한 채 red를 `AttackCommitted`, `LockedTargetLost`, `duplicate CommittedMove` 3축으로 좁힌 현재 상태는 close가 아니라 close retry hard gate를 더 정확히 만들 수 있는 상태다.
 

@@ -411,17 +411,17 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void BoardTileOverride_RemainsPresentationOwned()
+        public void BoardTilePresentationOverride_IsRemovedFromPresentationSchema()
         {
             var stagePresentationDefinitionSource =
                 File.ReadAllText("Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs");
             var tileFeatureCatalogSource =
                 File.ReadAllText("Assets/_Features/Stages/Runtime/Content/TileFeaturePresentationCatalog.cs");
 
-            Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePresentationOverride"));
+            Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("BoardTilePresentationOverride"));
             Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePresentationCatalog"));
             Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePaintOverride"));
-            Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTileOverlayOverride"));
+            Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("BoardTileOverlayOverride"));
             Assert.That(tileFeatureCatalogSource, Does.Not.Contain("BoardTilePresentationOverride"));
             Assert.That(tileFeatureCatalogSource, Does.Not.Contain("BoardTilePaintOverride"));
             Assert.That(tileFeatureCatalogSource, Does.Not.Contain("BoardTileOverlayOverride"));
@@ -500,20 +500,23 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void TerrainFlags_DoNotGainBoardVisualSemantics()
+        public void StageAuthoringSchema_DoesNotReintroduceTerrainTruth()
         {
             var allSources = Directory.GetFiles("Assets", "*.cs", SearchOption.AllDirectories);
-            var terrainFlags = "Terrain" + "Flags";
-            var boardTile = "Board" + "Tile";
+            var terrainTruthType = "Terrain" + "Data";
+            var initialTerrain = "Initial" + "Terrain";
+            var blocksGroundTraversal = "Blocks" + "GroundTraversal";
             foreach (var sourcePath in allSources)
             {
+                if (!sourcePath.Contains("Stages") && !sourcePath.Contains("Gameplay_Host"))
+                {
+                    continue;
+                }
+
                 var source = File.ReadAllText(sourcePath);
-                Assert.That(source, Does.Not.Contain(terrainFlags + ".Visual"), sourcePath);
-                Assert.That(source, Does.Not.Contain(terrainFlags + ".Board"), sourcePath);
-                Assert.That(source, Does.Not.Contain(terrainFlags + ".Tile"), sourcePath);
-                Assert.That(source, Does.Not.Contain(terrainFlags + ".Presentation"), sourcePath);
-                Assert.That(source, Does.Not.Contain(boardTile + terrainFlags), sourcePath);
-                Assert.That(source, Does.Not.Contain(terrainFlags + boardTile), sourcePath);
+                Assert.That(source, Does.Not.Contain(terrainTruthType), sourcePath);
+                Assert.That(source, Does.Not.Contain(initialTerrain), sourcePath);
+                Assert.That(source, Does.Not.Contain(blocksGroundTraversal), sourcePath);
             }
         }
 

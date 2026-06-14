@@ -5,7 +5,6 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.Timing;
 using Game.Feature.Stages;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -20,7 +19,6 @@ namespace Game.Feature.Gameplay.Host
                 BoardBounds boardBounds,
                 CubeTopologyState initialTopology,
                 EntityState[] initialEntities,
-                GameplayTerrainData initialTerrain,
                 TileFeatureState[] initialTileFeatures,
                 TileFeatureRuntimeDefinition[] tileFeatureDefinitions,
                 MoonBlockRespawnDefinition[] moonBlockRespawnDefinitions,
@@ -37,19 +35,15 @@ namespace Game.Feature.Gameplay.Host
                 BoardPresentationProfile boardPresentationProfile,
                 BoardTilePresentationCatalog boardTilePresentationCatalog,
                 BoardTileStyleCatalog boardTileStyleCatalog,
-                BoardTileOverlayCatalog boardTileOverlayCatalog,
                 IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeaturePresentationBindings,
                 StageWorldGuideCatalog worldGuideCatalog = null,
                 IReadOnlyList<StageWorldGuideInstructionResolved> worldGuideInstructions = null,
-                IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides = null,
                 IReadOnlyList<BoardTilePaintOverride> boardTilePaintOverrides = null,
-                IReadOnlyList<BoardTileOverlayOverride> boardTileOverlayOverrides = null,
                 IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
             {
                 BoardBounds = boardBounds;
                 InitialTopology = initialTopology;
                 InitialEntities = initialEntities ?? Array.Empty<EntityState>();
-                InitialTerrain = initialTerrain ?? GameplayTerrainData.Empty;
                 InitialTileFeatures = initialTileFeatures ?? Array.Empty<TileFeatureState>();
                 TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
                 MoonBlockRespawnDefinitions = moonBlockRespawnDefinitions ?? Array.Empty<MoonBlockRespawnDefinition>();
@@ -66,13 +60,8 @@ namespace Game.Feature.Gameplay.Host
                 BoardPresentationProfile = boardPresentationProfile;
                 BoardTilePresentationCatalog = boardTilePresentationCatalog;
                 BoardTileStyleCatalog = boardTileStyleCatalog;
-                BoardTileOverlayCatalog = boardTileOverlayCatalog;
-                BoardTilePresentationOverrides =
-                    boardTilePresentationOverrides ?? Array.Empty<BoardTilePresentationOverride>();
                 BoardTilePaintOverrides =
                     boardTilePaintOverrides ?? Array.Empty<BoardTilePaintOverride>();
-                BoardTileOverlayOverrides =
-                    boardTileOverlayOverrides ?? Array.Empty<BoardTileOverlayOverride>();
                 TileFeaturePresentationBindings =
                     tileFeaturePresentationBindings ?? Array.Empty<TileFeaturePresentationResolvedBinding>();
                 WorldGuideCatalog = worldGuideCatalog;
@@ -85,8 +74,6 @@ namespace Game.Feature.Gameplay.Host
             public CubeTopologyState InitialTopology { get; }
 
             public EntityState[] InitialEntities { get; }
-
-            public GameplayTerrainData InitialTerrain { get; }
 
             public TileFeatureState[] InitialTileFeatures { get; }
 
@@ -120,13 +107,7 @@ namespace Game.Feature.Gameplay.Host
 
             public BoardTileStyleCatalog BoardTileStyleCatalog { get; }
 
-            public BoardTileOverlayCatalog BoardTileOverlayCatalog { get; }
-
-            public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides { get; }
-
             public IReadOnlyList<BoardTilePaintOverride> BoardTilePaintOverrides { get; }
-
-            public IReadOnlyList<BoardTileOverlayOverride> BoardTileOverlayOverrides { get; }
 
             public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings { get; }
 
@@ -388,17 +369,13 @@ namespace Game.Feature.Gameplay.Host
                 BoardPresentationProfile = initialState.BoardPresentationProfile,
                 BoardTilePresentationCatalog = initialState.BoardTilePresentationCatalog,
                 BoardTileStyleCatalog = initialState.BoardTileStyleCatalog,
-                BoardTileOverlayCatalog = initialState.BoardTileOverlayCatalog,
-                BoardTilePresentationOverrides = initialState.BoardTilePresentationOverrides,
                 BoardTilePaintOverrides = initialState.BoardTilePaintOverrides,
-                BoardTileOverlayOverrides = initialState.BoardTileOverlayOverrides,
                 TileFeaturePresentationBindings = initialState.TileFeaturePresentationBindings,
                 WorldGuideCatalog = initialState.WorldGuideCatalog,
                 WorldGuideInstructions = initialState.WorldGuideInstructions,
                 SuppressedBaseTileCells = initialState.SuppressedBaseTileCells,
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialEntities = initialState.InitialEntities,
-                InitialTerrain = initialState.InitialTerrain,
                 InitialTileFeatures = initialState.InitialTileFeatures,
                 TileFeatureDefinitions = initialState.TileFeatureDefinitions,
                 MoonBlockRespawnDefinitions = initialState.MoonBlockRespawnDefinitions,

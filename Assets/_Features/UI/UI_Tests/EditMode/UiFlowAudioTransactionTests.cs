@@ -83,7 +83,7 @@ namespace Game.Feature.UI.Tests
                 new[]
                 {
                     UiFlowAudioDelta.FromRootScreenSet(ScreenId.Gameplay),
-                    CreatePopupOpenDelta(PopupId.Tooltip),
+                    CreatePopupOpenDelta(PopupId.Pause),
                 },
                 isAborted: false,
                 UiFlowAudioSilenceReason.None);
@@ -121,7 +121,7 @@ namespace Game.Feature.UI.Tests
                 new[]
                 {
                     UiFlowAudioDelta.FromRootScreenSet(screenId),
-                    CreatePopupOpenDelta(PopupId.Tooltip),
+                    CreatePopupOpenDelta(PopupId.Pause),
                 },
                 isAborted: false,
                 UiFlowAudioSilenceReason.None);
@@ -206,10 +206,6 @@ namespace Game.Feature.UI.Tests
                 ScreenId.Gameplay => GameplayRootPayload.Default,
                 ScreenId.Settings => SettingsScreenPayload.Default,
                 ScreenId.StageResult => new StageResultScreenPayload(
-                    "Title",
-                    "Summary",
-                    "Detail",
-                    "Continue",
                     Game.Feature.Stages.StageNavigationRequest.None,
                     Game.Feature.Stages.StageNavigationRequest.None,
                     Game.Feature.Stages.StageNavigationRequest.None),
@@ -223,8 +219,7 @@ namespace Game.Feature.UI.Tests
             {
                 PopupId.Pause => PausePopupPayload.Default,
                 PopupId.Confirm => new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false),
-                PopupId.Tooltip => new TooltipPopupPayload("Tip", "Body"),
-                _ => new TooltipPopupPayload("Tip", "Body"),
+                _ => PausePopupPayload.Default,
             };
         }
     }

@@ -15,7 +15,6 @@ namespace Game.Feature.Gameplay.BoardState
         UnsupportedSeam = 5,
         TopologyTransitionUnavailable = 6,
         TargetFaceOutOfBounds = 7,
-        TargetFaceBlockedByTerrain = 8,
         TargetFaceBlockedBySolid = 9,
         TargetFaceBlockedByUnit = 10,
         TargetFaceBlockedByReservation = 11,
@@ -631,7 +630,6 @@ namespace Game.Feature.Gameplay.BoardState
             return legality.Blockers[0].Kind switch
             {
                 LegalityBlockerKind.BoardEdge => Free2DTopologyTransitionRejectReason.TargetFaceOutOfBounds,
-                LegalityBlockerKind.Terrain => Free2DTopologyTransitionRejectReason.TargetFaceBlockedByTerrain,
                 LegalityBlockerKind.Unit => Free2DTopologyTransitionRejectReason.TargetFaceBlockedByUnit,
                 LegalityBlockerKind.Solid => Free2DTopologyTransitionRejectReason.TargetFaceBlockedBySolid,
                 LegalityBlockerKind.Reservation => Free2DTopologyTransitionRejectReason.TargetFaceBlockedByReservation,

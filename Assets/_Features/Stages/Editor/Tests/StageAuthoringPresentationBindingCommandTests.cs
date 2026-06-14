@@ -343,158 +343,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void AddBoardTileOverlayOverride_AllowsDifferentKeysOnSameCell()
-        {
-            WithBoardTileFixture((authoring, presentation) =>
-            {
-                var cell = new SurfaceCell(FaceId.Floor, 0, 0);
-
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    cell,
-                    "guide",
-                    out var guideError), Is.True, guideError);
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    cell,
-                    "danger",
-                    out var dangerError), Is.True, dangerError);
-
-                Assert.That(presentation.BoardTileOverlayOverrides.Count, Is.EqualTo(2));
-                Assert.That(
-                    presentation.BoardTileOverlayOverrides.Select(entry => entry.OverlayKey).ToArray(),
-                    Is.EqualTo(new[] { "danger", "guide" }));
-            });
-        }
-
-        [Test]
-        public void AddBoardTileOverlayOverride_DoesNotDuplicateSameCellAndKey()
-        {
-            WithBoardTileFixture((authoring, presentation) =>
-            {
-                var cell = new SurfaceCell(FaceId.Floor, 0, 0);
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    cell,
-                    "guide",
-                    out _), Is.True);
-                EditorUtility.ClearDirty(presentation);
-
-                var changed = StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    cell,
-                    " guide ",
-                    out var error);
-
-                Assert.That(changed, Is.True, error);
-                Assert.That(presentation.BoardTileOverlayOverrides.Count, Is.EqualTo(1));
-                Assert.That(EditorUtility.IsDirty(presentation), Is.False);
-            });
-        }
-
-        [Test]
-        public void RemoveBoardTileOverlayOverride_RemovesOnlySelectedKey()
-        {
-            WithBoardTileFixture((authoring, presentation) =>
-            {
-                var cell = new SurfaceCell(FaceId.Floor, 0, 0);
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    cell,
-                    "guide",
-                    out _), Is.True);
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    cell,
-                    "danger",
-                    out _), Is.True);
-
-                var removed = StageAuthoringPresentationBindingCommands.TryRemoveBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    cell,
-                    "guide",
-                    out var error);
-
-                Assert.That(removed, Is.True, error);
-                Assert.That(presentation.BoardTileOverlayOverrides.Count, Is.EqualTo(1));
-                Assert.That(presentation.BoardTileOverlayOverrides[0].OverlayKey, Is.EqualTo("danger"));
-            });
-        }
-
-        [Test]
-        public void ClearBoardTileOverlayOverrides_RemovesOnlySelectedCell()
-        {
-            WithBoardTileFixture((authoring, presentation) =>
-            {
-                var first = new SurfaceCell(FaceId.Floor, 0, 0);
-                var second = new SurfaceCell(FaceId.Floor, 1, 0);
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    first,
-                    "guide",
-                    out _), Is.True);
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    second,
-                    "danger",
-                    out _), Is.True);
-
-                var cleared = StageAuthoringPresentationBindingCommands.TryClearBoardTileOverlayOverrides(
-                    presentation,
-                    authoring,
-                    first,
-                    out var error);
-
-                Assert.That(cleared, Is.True, error);
-                Assert.That(presentation.BoardTileOverlayOverrides.Count, Is.EqualTo(1));
-                Assert.That(presentation.BoardTileOverlayOverrides[0].Cell, Is.EqualTo(second));
-                Assert.That(presentation.BoardTileOverlayOverrides[0].OverlayKey, Is.EqualTo("danger"));
-            });
-        }
-
-        [Test]
-        public void ClearBoardTileOverlayOverridesByLayer_RemovesOnlyMatchingLayer()
-        {
-            WithBoardTileFixture((authoring, presentation) =>
-            {
-                var cell = new SurfaceCell(FaceId.Floor, 0, 0);
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    cell,
-                    "guide",
-                    out _), Is.True);
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    cell,
-                    "danger",
-                    out _), Is.True);
-
-                var cleared = StageAuthoringPresentationBindingCommands.TryClearBoardTileOverlayOverridesByLayer(
-                    presentation,
-                    authoring,
-                    cell,
-                    BoardTileOverlayLayer.Guide,
-                    out var error);
-
-                Assert.That(cleared, Is.True, error);
-                Assert.That(presentation.BoardTileOverlayOverrides.Count, Is.EqualTo(1));
-                Assert.That(presentation.BoardTileOverlayOverrides[0].OverlayKey, Is.EqualTo("danger"));
-            });
-        }
-
-        [Test]
-        public void BoardTilePaintAndOverlayCommands_RejectInvalidCellsAndKeys()
+        public void BoardTilePaintCommands_RejectInvalidCellsAndKeys()
         {
             WithBoardTileFixture((authoring, presentation) =>
             {
@@ -519,32 +368,12 @@ namespace Game.Feature.Stages.Editor.Tests
                     new SurfaceCell(FaceId.Floor, 0, 0),
                     " ",
                     out _), Is.False);
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    invalidFace,
-                    "guide",
-                    out _), Is.False);
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    outsideBounds,
-                    "guide",
-                    out _), Is.False);
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    new SurfaceCell(FaceId.Floor, 0, 0),
-                    "",
-                    out _), Is.False);
-
                 Assert.That(presentation.BoardTilePaintOverrides, Is.Empty);
-                Assert.That(presentation.BoardTileOverlayOverrides, Is.Empty);
             });
         }
 
         [Test]
-        public void BoardTilePaintAndOverlayCommands_RejectMissingCatalogAndMissingCatalogKey()
+        public void BoardTilePaintCommands_RejectMissingCatalogAndMissingCatalogKey()
         {
             WithBoardTileFixture((authoring, presentation) =>
             {
@@ -556,14 +385,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     cell,
                     "missing-style",
                     out _), Is.False);
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    presentation,
-                    authoring,
-                    cell,
-                    "missing-overlay",
-                    out _), Is.False);
                 Assert.That(presentation.BoardTilePaintOverrides, Is.Empty);
-                Assert.That(presentation.BoardTileOverlayOverrides, Is.Empty);
             });
 
             var missingCatalogAuthoring = ScriptableObject.CreateInstance<StageAuthoringDefinition>();
@@ -582,12 +404,6 @@ namespace Game.Feature.Stages.Editor.Tests
                     missingCatalogAuthoring,
                     new SurfaceCell(FaceId.Floor, 0, 0),
                     "grass",
-                    out _), Is.False);
-                Assert.That(StageAuthoringPresentationBindingCommands.TryAddBoardTileOverlayOverride(
-                    missingCatalogPresentation,
-                    missingCatalogAuthoring,
-                    new SurfaceCell(FaceId.Floor, 0, 0),
-                    "guide",
                     out _), Is.False);
             }
             finally
@@ -628,10 +444,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var styleCatalog = CreateStyleCatalog(
                 StyleEntry("grass", "Grass", Color.green),
                 StyleEntry("danger", "Danger", Color.red));
-            var overlayCatalog = CreateOverlayCatalog(
-                OverlayEntry("guide", "Guide", BoardTileOverlayLayer.Guide, Color.yellow, 0.5f, 10),
-                OverlayEntry("danger", "Danger", BoardTileOverlayLayer.Danger, Color.red, 0.75f, 20));
-            var profile = CreateBoardPresentationProfile(styleCatalog, overlayCatalog);
+            var profile = CreateBoardPresentationProfile(styleCatalog);
             try
             {
                 authoring.SetBoard(new StageBoardDefinition
@@ -646,7 +459,6 @@ namespace Game.Feature.Stages.Editor.Tests
             finally
             {
                 Object.DestroyImmediate(profile);
-                Object.DestroyImmediate(overlayCatalog);
                 Object.DestroyImmediate(styleCatalog);
                 Object.DestroyImmediate(presentation);
                 Object.DestroyImmediate(authoring);
@@ -710,40 +522,11 @@ namespace Game.Feature.Stages.Editor.Tests
             return catalog;
         }
 
-        private static BoardTileOverlayCatalogEntry OverlayEntry(
-            string overlayKey,
-            string displayName,
-            BoardTileOverlayLayer layer,
-            Color tint,
-            float alpha,
-            int order)
-        {
-            var entry = new BoardTileOverlayCatalogEntry();
-            SetPrivateField(entry, "overlayKey", overlayKey);
-            SetPrivateField(entry, "displayName", displayName);
-            SetPrivateField(entry, "layer", layer);
-            SetPrivateField(entry, "tint", tint);
-            SetPrivateField(entry, "alpha", alpha);
-            SetPrivateField(entry, "order", order);
-            return entry;
-        }
-
-        private static BoardTileOverlayCatalog CreateOverlayCatalog(params BoardTileOverlayCatalogEntry[] entries)
-        {
-            var catalog = ScriptableObject.CreateInstance<BoardTileOverlayCatalog>();
-            catalog.name = "StageAuthoringPresentationBindingCommandTests_OverlayCatalog";
-            SetPrivateField(catalog, "entries", entries ?? System.Array.Empty<BoardTileOverlayCatalogEntry>());
-            return catalog;
-        }
-
-        private static BoardPresentationProfile CreateBoardPresentationProfile(
-            BoardTileStyleCatalog styleCatalog,
-            BoardTileOverlayCatalog overlayCatalog)
+        private static BoardPresentationProfile CreateBoardPresentationProfile(BoardTileStyleCatalog styleCatalog)
         {
             var profile = ScriptableObject.CreateInstance<BoardPresentationProfile>();
             profile.name = "StageAuthoringPresentationBindingCommandTests_BoardProfile";
             SetPrivateField(profile, "defaultBoardTileStyleCatalog", styleCatalog);
-            SetPrivateField(profile, "defaultBoardTileOverlayCatalog", overlayCatalog);
             return profile;
         }
 

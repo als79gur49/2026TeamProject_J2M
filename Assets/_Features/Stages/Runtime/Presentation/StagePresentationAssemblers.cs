@@ -11,43 +11,19 @@ namespace Game.Feature.Stages
     public readonly struct TileFeaturePresentationResolvedBinding
     {
         public TileFeaturePresentationResolvedBinding(int tileId, GameObject visualPrefab)
-            : this(
-                tileId,
-                visualPrefab,
-                TileFeatureVisualPlacementMode.Overlay,
-                TileFeatureVisualFootprintMode.SingleCell,
-                VfxStyleKey.Default)
+            : this(tileId, visualPrefab, TileFeatureKind.Unknown, VfxStyleKey.Default)
         {
         }
 
         public TileFeaturePresentationResolvedBinding(
             int tileId,
             GameObject visualPrefab,
-            TileFeatureVisualPlacementMode placementMode)
-            : this(tileId, visualPrefab, placementMode, TileFeatureVisualFootprintMode.SingleCell, VfxStyleKey.Default)
-        {
-        }
-
-        public TileFeaturePresentationResolvedBinding(
-            int tileId,
-            GameObject visualPrefab,
-            TileFeatureVisualPlacementMode placementMode,
-            TileFeatureVisualFootprintMode footprintMode)
-            : this(tileId, visualPrefab, placementMode, footprintMode, VfxStyleKey.Default)
-        {
-        }
-
-        public TileFeaturePresentationResolvedBinding(
-            int tileId,
-            GameObject visualPrefab,
-            TileFeatureVisualPlacementMode placementMode,
-            TileFeatureVisualFootprintMode footprintMode,
+            TileFeatureKind kind,
             VfxStyleKey vfxStyleKey)
         {
             TileId = tileId;
             VisualPrefab = visualPrefab;
-            PlacementMode = placementMode;
-            FootprintMode = footprintMode;
+            Kind = kind;
             VfxStyleKey = vfxStyleKey;
         }
 
@@ -55,9 +31,7 @@ namespace Game.Feature.Stages
 
         public GameObject VisualPrefab { get; }
 
-        public TileFeatureVisualPlacementMode PlacementMode { get; }
-
-        public TileFeatureVisualFootprintMode FootprintMode { get; }
+        public TileFeatureKind Kind { get; }
 
         public VfxStyleKey VfxStyleKey { get; }
     }
@@ -66,8 +40,6 @@ namespace Game.Feature.Stages
     {
         public StagePresentationResolvedData(
             string displayName,
-            string summaryText,
-            Sprite previewSprite,
             GameObject backgroundPrefab,
             EnemyPresentationCatalog enemyPresentationCatalog,
             EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog,
@@ -77,23 +49,14 @@ namespace Game.Feature.Stages
             BoardPresentationProfile boardPresentationProfile,
             BoardTilePresentationCatalog boardTilePresentationCatalog,
             BoardTileStyleCatalog boardTileStyleCatalog,
-            BoardTileOverlayCatalog boardTileOverlayCatalog,
-            IReadOnlyList<BoardTilePresentationOverride> boardTilePresentationOverrides,
             IReadOnlyList<BoardTilePaintOverride> boardTilePaintOverrides,
-            IReadOnlyList<BoardTileOverlayOverride> boardTileOverlayOverrides,
             TileFeaturePresentationCatalog tileFeaturePresentationCatalog,
             IReadOnlyList<TileFeaturePresentationResolvedBinding> tileFeatureBindings,
             StageWorldGuideCatalog worldGuideCatalog,
             IReadOnlyList<StageWorldGuideInstructionResolved> worldGuideInstructions,
-            string resultTitle,
-            string resultSummaryText,
-            string resultDetailText,
-            string resultContinueLabel,
             IReadOnlyList<SurfaceCell> suppressedBaseTileCells = null)
         {
             DisplayName = displayName ?? string.Empty;
-            SummaryText = summaryText ?? string.Empty;
-            PreviewSprite = previewSprite;
             BackgroundPrefab = backgroundPrefab;
             EnemyPresentationCatalog = enemyPresentationCatalog;
             EnemyPresentationArchetypeCatalog = enemyPresentationArchetypeCatalog;
@@ -103,26 +66,15 @@ namespace Game.Feature.Stages
             BoardPresentationProfile = boardPresentationProfile;
             BoardTilePresentationCatalog = boardTilePresentationCatalog;
             BoardTileStyleCatalog = boardTileStyleCatalog;
-            BoardTileOverlayCatalog = boardTileOverlayCatalog;
-            BoardTilePresentationOverrides = CloneReadOnlyBoardTileOverrides(boardTilePresentationOverrides);
             BoardTilePaintOverrides = CloneReadOnlyBoardTilePaintOverrides(boardTilePaintOverrides);
-            BoardTileOverlayOverrides = CloneReadOnlyBoardTileOverlayOverrides(boardTileOverlayOverrides);
             TileFeaturePresentationCatalog = tileFeaturePresentationCatalog;
             TileFeatureBindings = CloneReadOnlyBindings(tileFeatureBindings);
             WorldGuideCatalog = worldGuideCatalog;
             WorldGuideInstructions = CloneReadOnlyWorldGuideInstructions(worldGuideInstructions);
             SuppressedBaseTileCells = CloneReadOnlySurfaceCells(suppressedBaseTileCells);
-            ResultTitle = resultTitle ?? string.Empty;
-            ResultSummaryText = resultSummaryText ?? string.Empty;
-            ResultDetailText = resultDetailText ?? string.Empty;
-            ResultContinueLabel = resultContinueLabel ?? string.Empty;
         }
 
         public string DisplayName { get; }
-
-        public string SummaryText { get; }
-
-        public Sprite PreviewSprite { get; }
 
         public GameObject BackgroundPrefab { get; }
 
@@ -142,13 +94,7 @@ namespace Game.Feature.Stages
 
         public BoardTileStyleCatalog BoardTileStyleCatalog { get; }
 
-        public BoardTileOverlayCatalog BoardTileOverlayCatalog { get; }
-
-        public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides { get; }
-
         public IReadOnlyList<BoardTilePaintOverride> BoardTilePaintOverrides { get; }
-
-        public IReadOnlyList<BoardTileOverlayOverride> BoardTileOverlayOverrides { get; }
 
         public TileFeaturePresentationCatalog TileFeaturePresentationCatalog { get; }
 
@@ -159,14 +105,6 @@ namespace Game.Feature.Stages
         public IReadOnlyList<StageWorldGuideInstructionResolved> WorldGuideInstructions { get; }
 
         public IReadOnlyList<SurfaceCell> SuppressedBaseTileCells { get; }
-
-        public string ResultTitle { get; }
-
-        public string ResultSummaryText { get; }
-
-        public string ResultDetailText { get; }
-
-        public string ResultContinueLabel { get; }
 
         private static IReadOnlyList<TileFeaturePresentationResolvedBinding> CloneReadOnlyBindings(
             IReadOnlyList<TileFeaturePresentationResolvedBinding> source)
@@ -202,26 +140,6 @@ namespace Game.Feature.Stages
             return new ReadOnlyCollection<StageWorldGuideInstructionResolved>(instructions);
         }
 
-        private static IReadOnlyList<BoardTilePresentationOverride> CloneReadOnlyBoardTileOverrides(
-            IReadOnlyList<BoardTilePresentationOverride> source)
-        {
-            if (source == null || source.Count == 0)
-            {
-                return Array.Empty<BoardTilePresentationOverride>();
-            }
-
-            var overrides = new BoardTilePresentationOverride[source.Count];
-            for (var i = 0; i < source.Count; i++)
-            {
-                var entry = source[i];
-                overrides[i] = entry == null
-                    ? null
-                    : new BoardTilePresentationOverride(entry.Cell, entry.PresentationKey);
-            }
-
-            return new ReadOnlyCollection<BoardTilePresentationOverride>(overrides);
-        }
-
         private static IReadOnlyList<BoardTilePaintOverride> CloneReadOnlyBoardTilePaintOverrides(
             IReadOnlyList<BoardTilePaintOverride> source)
         {
@@ -240,26 +158,6 @@ namespace Game.Feature.Stages
             }
 
             return new ReadOnlyCollection<BoardTilePaintOverride>(overrides);
-        }
-
-        private static IReadOnlyList<BoardTileOverlayOverride> CloneReadOnlyBoardTileOverlayOverrides(
-            IReadOnlyList<BoardTileOverlayOverride> source)
-        {
-            if (source == null || source.Count == 0)
-            {
-                return Array.Empty<BoardTileOverlayOverride>();
-            }
-
-            var overrides = new BoardTileOverlayOverride[source.Count];
-            for (var i = 0; i < source.Count; i++)
-            {
-                var entry = source[i];
-                overrides[i] = entry == null
-                    ? null
-                    : new BoardTileOverlayOverride(entry.Cell, entry.OverlayKey);
-            }
-
-            return new ReadOnlyCollection<BoardTileOverlayOverride>(overrides);
         }
 
         private static IReadOnlyList<SurfaceCell> CloneReadOnlySurfaceCells(
@@ -308,8 +206,6 @@ namespace Game.Feature.Stages
     {
         public static readonly StagePresentationResolvedData EmptyResolvedData = new(
             string.Empty,
-            string.Empty,
-            null,
             null,
             null,
             null,
@@ -319,18 +215,11 @@ namespace Game.Feature.Stages
             null,
             null,
             null,
-            null,
-            Array.Empty<BoardTilePresentationOverride>(),
             Array.Empty<BoardTilePaintOverride>(),
-            Array.Empty<BoardTileOverlayOverride>(),
             null,
             Array.Empty<TileFeaturePresentationResolvedBinding>(),
             null,
-            Array.Empty<StageWorldGuideInstructionResolved>(),
-            string.Empty,
-            string.Empty,
-            string.Empty,
-            string.Empty);
+            Array.Empty<StageWorldGuideInstructionResolved>());
 
         public static StagePresentationResolvedData Resolve(StagePresentationDefinition definition)
         {
@@ -341,8 +230,6 @@ namespace Game.Feature.Stages
 
             return new StagePresentationResolvedData(
                 definition.DisplayName,
-                definition.SummaryText,
-                definition.PreviewSprite,
                 definition.BackgroundPrefab,
                 definition.EnemyPresentationCatalog,
                 definition.EnemyPresentationArchetypeCatalog,
@@ -353,18 +240,11 @@ namespace Game.Feature.Stages
                 definition.BoardPresentationProfile,
                 definition.BoardTilePresentationCatalog,
                 definition.BoardTileStyleCatalog,
-                definition.BoardTileOverlayCatalog,
-                definition.BoardTilePresentationOverrides,
                 definition.BoardTilePaintOverrides,
-                definition.BoardTileOverlayOverrides,
                 definition.TileFeaturePresentationCatalog,
                 ResolveTileFeatureBindings(definition.TileFeaturePresentationBindings),
                 definition.WorldGuideCatalog,
-                ResolveWorldGuideInstructions(definition.WorldGuideInstructions, definition),
-                definition.ResultTitle,
-                definition.ResultSummaryText,
-                definition.ResultDetailText,
-                definition.ResultContinueLabel);
+                ResolveWorldGuideInstructions(definition.WorldGuideInstructions, definition));
         }
 
         public static StagePresentationResolvedData Resolve(
@@ -383,8 +263,6 @@ namespace Game.Feature.Stages
 
             return new StagePresentationResolvedData(
                 definition.DisplayName,
-                definition.SummaryText,
-                definition.PreviewSprite,
                 definition.BackgroundPrefab,
                 definition.EnemyPresentationCatalog,
                 definition.EnemyPresentationArchetypeCatalog,
@@ -395,18 +273,11 @@ namespace Game.Feature.Stages
                 definition.BoardPresentationProfile,
                 definition.BoardTilePresentationCatalog,
                 definition.BoardTileStyleCatalog,
-                definition.BoardTileOverlayCatalog,
-                definition.BoardTilePresentationOverrides,
                 definition.BoardTilePaintOverrides,
-                definition.BoardTileOverlayOverrides,
                 definition.TileFeaturePresentationCatalog,
                 tileFeatureBindings,
                 definition.WorldGuideCatalog,
                 ResolveWorldGuideInstructions(definition.WorldGuideInstructions, definition),
-                definition.ResultTitle,
-                definition.ResultSummaryText,
-                definition.ResultDetailText,
-                definition.ResultContinueLabel,
                 BuildSuppressedBaseTileCells(gameplayDefinition, tileFeatureBindings));
         }
 
@@ -431,26 +302,6 @@ namespace Game.Feature.Stages
             return bindings;
         }
 
-        public static BoardTilePresentationOverride[] ToAuthoringBoardTilePresentationOverrides(
-            IReadOnlyList<BoardTilePresentationOverride> source)
-        {
-            if (source == null || source.Count == 0)
-            {
-                return Array.Empty<BoardTilePresentationOverride>();
-            }
-
-            var overrides = new BoardTilePresentationOverride[source.Count];
-            for (var i = 0; i < source.Count; i++)
-            {
-                var entry = source[i];
-                overrides[i] = entry == null
-                    ? null
-                    : new BoardTilePresentationOverride(entry.Cell, entry.PresentationKey);
-            }
-
-            return overrides;
-        }
-
         public static BoardTilePaintOverride[] ToAuthoringBoardTilePaintOverrides(
             IReadOnlyList<BoardTilePaintOverride> source)
         {
@@ -466,26 +317,6 @@ namespace Game.Feature.Stages
                 overrides[i] = entry == null
                     ? null
                     : new BoardTilePaintOverride(entry.Cell, entry.StyleKey);
-            }
-
-            return overrides;
-        }
-
-        public static BoardTileOverlayOverride[] ToAuthoringBoardTileOverlayOverrides(
-            IReadOnlyList<BoardTileOverlayOverride> source)
-        {
-            if (source == null || source.Count == 0)
-            {
-                return Array.Empty<BoardTileOverlayOverride>();
-            }
-
-            var overrides = new BoardTileOverlayOverride[source.Count];
-            for (var i = 0; i < source.Count; i++)
-            {
-                var entry = source[i];
-                overrides[i] = entry == null
-                    ? null
-                    : new BoardTileOverlayOverride(entry.Cell, entry.OverlayKey);
             }
 
             return overrides;
@@ -609,16 +440,14 @@ namespace Game.Feature.Stages
 
                     if (directByTileId.TryGetValue(tileFeature.TileId, out var directBinding))
                     {
-                        ResolveCatalogKeyPresentationModes(
+                        ResolveCatalogKeyKind(
                             catalog,
                             tileFeature,
-                            out var directPlacementMode,
-                            out var directFootprintMode);
+                            out var directKind);
                         resolved.Add(new TileFeaturePresentationResolvedBinding(
                             directBinding.TileId,
                             directBinding.VisualPrefab,
-                            directPlacementMode,
-                            directFootprintMode,
+                            directKind,
                             ResolveCatalogKeyVfxStyle(catalog, tileFeature)));
                         continue;
                     }
@@ -631,8 +460,7 @@ namespace Game.Feature.Stages
                         resolved.Add(new TileFeaturePresentationResolvedBinding(
                             tileFeature.TileId,
                             catalogEntry.VisualPrefab,
-                            catalogEntry.PlacementMode,
-                            catalogEntry.FootprintMode,
+                            catalogEntry.Kind,
                             ResolveTileFeatureVfxStyleKey(tileFeature, catalogEntry.VfxStyleKey)));
                     }
                 }
@@ -709,14 +537,12 @@ namespace Game.Feature.Stages
             return false;
         }
 
-        private static void ResolveCatalogKeyPresentationModes(
+        private static void ResolveCatalogKeyKind(
             TileFeaturePresentationCatalog catalog,
             StageTileFeatureDefinition tileFeature,
-            out TileFeatureVisualPlacementMode placementMode,
-            out TileFeatureVisualFootprintMode footprintMode)
+            out TileFeatureKind kind)
         {
-            placementMode = TileFeatureVisualPlacementMode.Overlay;
-            footprintMode = TileFeatureVisualFootprintMode.SingleCell;
+            kind = TileFeatureKind.Unknown;
             if (catalog == null)
             {
                 return;
@@ -733,8 +559,7 @@ namespace Game.Feature.Stages
                 return;
             }
 
-            placementMode = entry.PlacementMode;
-            footprintMode = entry.FootprintMode;
+            kind = entry.Kind;
         }
 
         private static VfxStyleKey ResolveCatalogKeyVfxStyle(
@@ -792,8 +617,7 @@ namespace Game.Feature.Stages
             {
                 var binding = bindings[i];
                 if (binding.TileId > 0 &&
-                    binding.VisualPrefab != null &&
-                    binding.PlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile)
+                    binding.VisualPrefab != null)
                 {
                     replaceBindingsByTileId[binding.TileId] = binding;
                 }
@@ -823,7 +647,7 @@ namespace Game.Feature.Stages
                     continue;
                 }
 
-                AddSuppressedBaseTileCells(tileFeature.Cell, binding.FootprintMode, boardBounds, seenCells, cells);
+                AddSuppressedBaseTileCells(tileFeature.Cell, binding.Kind, boardBounds, seenCells, cells);
             }
 
             if (cells.Count == 0)
@@ -837,29 +661,31 @@ namespace Game.Feature.Stages
 
         private static void AddSuppressedBaseTileCells(
             SurfaceCell center,
-            TileFeatureVisualFootprintMode footprintMode,
+            TileFeatureKind kind,
             BoardBounds boardBounds,
             HashSet<SurfaceCell> seenCells,
             List<SurfaceCell> cells)
         {
-            switch (footprintMode)
+            if (RequiresThreeByThreeBaseTileSuppression(kind))
             {
-                case TileFeatureVisualFootprintMode.ThreeByThreeSameFace:
-                    for (var yOffset = -1; yOffset <= 1; yOffset++)
+                for (var yOffset = -1; yOffset <= 1; yOffset++)
+                {
+                    for (var xOffset = -1; xOffset <= 1; xOffset++)
                     {
-                        for (var xOffset = -1; xOffset <= 1; xOffset++)
-                        {
-                            var candidate = new SurfaceCell(center.face, center.x + xOffset, center.y + yOffset);
-                            AddSuppressedBaseTileCell(candidate, boardBounds, seenCells, cells);
-                        }
+                        var candidate = new SurfaceCell(center.face, center.x + xOffset, center.y + yOffset);
+                        AddSuppressedBaseTileCell(candidate, boardBounds, seenCells, cells);
                     }
+                }
 
-                    return;
-                case TileFeatureVisualFootprintMode.SingleCell:
-                default:
-                    AddSuppressedBaseTileCell(center, boardBounds, seenCells, cells);
-                    return;
+                return;
             }
+
+            AddSuppressedBaseTileCell(center, boardBounds, seenCells, cells);
+        }
+
+        private static bool RequiresThreeByThreeBaseTileSuppression(TileFeatureKind kind)
+        {
+            return kind == TileFeatureKind.Exit;
         }
 
         private static void AddSuppressedBaseTileCell(

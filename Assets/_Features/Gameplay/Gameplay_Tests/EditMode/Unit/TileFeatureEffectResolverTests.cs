@@ -13,7 +13,6 @@ using Game.Feature.Gameplay.Movement.Expansion;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -318,23 +317,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var cases = new[]
             {
-                new object[] { "Unit", new[] { CreateUnit(20, cell) }, GameplayTerrainData.Empty },
-                new object[] { "Projectile", new[] { CreateProjectile(20, cell) }, GameplayTerrainData.Empty },
-                new object[] { "WallLikeTerrain", Array.Empty<EntityState>(), new GameplayTerrainData(new[] { CreateWallLikeTerrain(cell) }) },
-                new object[] { "NonPushableBox", new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Flip) }, GameplayTerrainData.Empty },
-                new object[] { "DetachedBox", new[] { CreateBox(20, cell, boardPresence: EntityBoardPresence.Detached) }, GameplayTerrainData.Empty },
-                new object[] { "DeadBox", new[] { CreateBox(20, cell, hp: 0) }, GameplayTerrainData.Empty },
-                new object[] { "MarkedForDeathBox", new[] { CreateBox(20, cell, markedForDeath: true) }, GameplayTerrainData.Empty },
+                new object[] { "Unit", new[] { CreateUnit(20, cell) } },
+                new object[] { "NonBoxSolid", new[] { CreateSolid(21, cell) } },
+                new object[] { "NonPushableBox", new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Flip) } },
+                new object[] { "DetachedBox", new[] { CreateBox(20, cell, boardPresence: EntityBoardPresence.Detached) } },
+                new object[] { "DeadBox", new[] { CreateBox(20, cell, hp: 0) } },
+                new object[] { "MarkedForDeathBox", new[] { CreateBox(20, cell, markedForDeath: true) } },
             };
 
             for (var i = 0; i < cases.Length; i++)
             {
                 var name = (string)cases[i][0];
                 var entities = (EntityState[])cases[i][1];
-                var terrain = (GameplayTerrainData)cases[i][2];
                 var button = CreateButton(10, cell);
                 var result = ResolveWithStops(
-                    CreateWorldState(entities, new[] { button }, terrain).CreateSnapshot(),
+                    CreateWorldState(entities, new[] { button }).CreateSnapshot(),
                     new[] { CreateStop(20, cell, TileEffectBoxMovementFamily.Push) },
                     CreateDefinition(10));
 
@@ -402,23 +399,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var moonCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy;
             var cases = new[]
             {
-                new object[] { "NormalPushableBox", new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Push) }, GameplayTerrainData.Empty },
-                new object[] { "Unit", new[] { CreateUnit(20, cell) }, GameplayTerrainData.Empty },
-                new object[] { "Projectile", new[] { CreateProjectile(20, cell) }, GameplayTerrainData.Empty },
-                new object[] { "WallLikeTerrain", Array.Empty<EntityState>(), new GameplayTerrainData(new[] { CreateWallLikeTerrain(cell) }) },
-                new object[] { "DetachedMoonBox", new[] { CreateBox(20, cell, boxCapabilities: moonCapabilities, boardPresence: EntityBoardPresence.Detached, boxArchetype: BoxArchetype.Moon) }, GameplayTerrainData.Empty },
-                new object[] { "DeadMoonBox", new[] { CreateBox(20, cell, hp: 0, boxCapabilities: moonCapabilities, boxArchetype: BoxArchetype.Moon) }, GameplayTerrainData.Empty },
-                new object[] { "MarkedMoonBox", new[] { CreateBox(20, cell, boxCapabilities: moonCapabilities, markedForDeath: true, boxArchetype: BoxArchetype.Moon) }, GameplayTerrainData.Empty },
+                new object[] { "NormalPushableBox", new[] { CreateBox(20, cell, boxCapabilities: BoxCapabilities.Push) } },
+                new object[] { "Unit", new[] { CreateUnit(20, cell) } },
+                new object[] { "NonBoxSolid", new[] { CreateSolid(21, cell) } },
+                new object[] { "DetachedMoonBox", new[] { CreateBox(20, cell, boxCapabilities: moonCapabilities, boardPresence: EntityBoardPresence.Detached, boxArchetype: BoxArchetype.Moon) } },
+                new object[] { "DeadMoonBox", new[] { CreateBox(20, cell, hp: 0, boxCapabilities: moonCapabilities, boxArchetype: BoxArchetype.Moon) } },
+                new object[] { "MarkedMoonBox", new[] { CreateBox(20, cell, boxCapabilities: moonCapabilities, markedForDeath: true, boxArchetype: BoxArchetype.Moon) } },
             };
 
             for (var i = 0; i < cases.Length; i++)
             {
                 var name = (string)cases[i][0];
                 var entities = (EntityState[])cases[i][1];
-                var terrain = (GameplayTerrainData)cases[i][2];
                 var button = CreateButton(10, cell);
                 var result = ResolveWithStops(
-                    CreateWorldState(entities, new[] { button }, terrain).CreateSnapshot(),
+                    CreateWorldState(entities, new[] { button }).CreateSnapshot(),
                     new[] { CreateStop(20, cell, TileEffectBoxMovementFamily.Slide) },
                     CreateDefinition(10, selector: TileFeatureBoxSelector.MoonBlockOnly));
 
@@ -924,31 +919,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ContactFacts_ProjectileMove_IsNotTileEffectEntityContact_v1()
-        {
-            var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
-            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 1);
-            var sourceSnapshot = CreateWorldState(
-                    new[] { CreateProjectile(20, fromCell) },
-                    Array.Empty<TileFeatureState>())
-                .CreateSnapshot();
-            var destinationSnapshot = CreateWorldState(
-                    new[] { CreateProjectile(20, destinationCell) },
-                    Array.Empty<TileFeatureState>())
-                .CreateSnapshot();
-            var batch = new FinalizationBatch();
-            batch.MoveEntity(
-                20,
-                destinationCell,
-                CreateMovementMetadata(MovementSemanticKind.ProjectileMove));
-
-            var contacts = TickPipeline.BuildTileEffectEntityContacts(sourceSnapshot, destinationSnapshot, batch);
-
-            Assert.That(contacts, Is.Empty);
-        }
-
-        [Test]
-        [Category("Core")]
         public void DestroyTile_ActiveBottomFace_DestroysMovingBoxOnceAndKeepsTile()
         {
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
@@ -1320,7 +1290,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var cases = new[]
             {
                 new object[] { "AirUnit", new[] { CreateUnit(20, destroyCell, UnitMobilityKind.Air) } },
-                new object[] { "Projectile", new[] { CreateProjectile(21, destroyCell) } },
                 new object[] { "DeadBox", new[] { CreateBox(22, destroyCell, hp: 0) } },
                 new object[] { "DetachedBox", new[] { CreateBox(23, destroyCell, boardPresence: EntityBoardPresence.Detached) } },
                 new object[] { "MarkedBox", new[] { CreateBox(24, destroyCell, markedForDeath: true) } },
@@ -1786,36 +1755,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DestroyTile_ProjectileEnter_DoesNotDestroy_v1()
-        {
-            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
-            var fromCell = new SurfaceCell(FaceId.Floor, 0, 1);
-            var snapshot = CreateWorldState(
-                    new[] { CreateProjectile(20, cell) },
-                    new[] { CreateTileFeature(10, cell, TileFeatureKind.Destroy) })
-                .CreateSnapshot();
-
-            var result = ResolveEntityContacts(
-                snapshot,
-                new[]
-                {
-                    new TileEffectEntityContact(
-                        20,
-                        EntityType.Projectile,
-                        fromCell,
-                        cell,
-                        cell,
-                        TileEffectEntityContactKind.MoveEnter,
-                        MovementSemanticKind.ProjectileMove,
-                        operationOrder: 0),
-                },
-                CreateDefinition(10, TileFeatureActivationRule.BottomFaceOnly));
-
-            Assert.That(result.IsEmpty, Is.True);
-        }
-
-        [Test]
-        [Category("Core")]
         public void DestroyTile_MovingBoxAndUnit_ProducesDeterministicOrder()
         {
             var boxCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -1950,14 +1889,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "Unit",
                     CreateWorldState(
                         new[] { CreateUnit(20, floorCell) },
-                        new[] { CreateTileFeature(10, floorCell, TileFeatureKind.Destroy) }).CreateSnapshot(),
-                    new[] { new TileEffectBoxContact(20, floorCell, TileEffectBoxContactKind.PushEnter) },
-                },
-                new object[]
-                {
-                    "Projectile",
-                    CreateWorldState(
-                        new[] { CreateProjectile(20, floorCell) },
                         new[] { CreateTileFeature(10, floorCell, TileFeatureKind.Destroy) }).CreateSnapshot(),
                     new[] { new TileEffectBoxContact(20, floorCell, TileEffectBoxContactKind.PushEnter) },
                 },
@@ -2147,7 +2078,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var cases = new[]
             {
                 new object[] { "Unit", new[] { CreateUnit(20, cell) }, TileEffectBoxContactKind.PushEnter },
-                new object[] { "Projectile", new[] { CreateProjectile(20, cell) }, TileEffectBoxContactKind.PushEnter },
                 new object[] { "NonBoxSolid", new[] { CreateSolid(20, cell) }, TileEffectBoxContactKind.PushEnter },
                 new object[] { "DeadBox", new[] { CreateBox(20, cell, hp: 0, state: EntityPhaseState.Sliding) }, TileEffectBoxContactKind.PushEnter },
                 new object[] { "DetachedBox", new[] { CreateBox(20, cell, state: EntityPhaseState.Sliding, boardPresence: EntityBoardPresence.Detached) }, TileEffectBoxContactKind.PushEnter },
@@ -3101,7 +3031,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void Barricade_BlocksUnitGroundTraversal_ButDoesNotAffectProjectileMovement()
+        public void Barricade_BlocksUnitGroundTraversal()
         {
             var barricadeCell = new SurfaceCell(FaceId.Front, 1, 0);
             var playerWorldState = CreateWorldState(
@@ -3130,32 +3060,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     })
                 .RunTick(new TickInput(7));
 
-            var projectileWorldState = CreateWorldState(
-                new[] { CreateProjectile(40, new SurfaceCell(FaceId.Front, 0, 0)) },
-                new[] { CreateTileFeature(102, barricadeCell, TileFeatureKind.Barricade) });
-            var projectileResult = CreatePipeline(
-                    projectileWorldState,
-                    new[] { CreateDefinition(102, TileFeatureActivationRule.FrontFaceOnly, selector: TileFeatureBoxSelector.None) },
-                    new IEntityLogic[]
-                    {
-                        new ScriptedMovementLogic(new RawMovementIntent(40, 100, new Vector2Int(1, 0), MovementCommandKind.Move)),
-                    })
-                .RunTick(new TickInput(7));
-
             Assert.That(playerResult.MovementPhaseResult.RejectedReasons, Has.Count.EqualTo(1));
             Assert.That(enemyResult.MovementPhaseResult.RejectedReasons, Has.Count.EqualTo(1));
-            Assert.That(projectileResult.MovementPhaseResult.RejectedReasons, Is.Empty);
             Assert.That(playerResult.MovementPhaseResult.RejectedReasons[0], Does.Contain("LegalityBlockerKinds=TileFeature"));
             Assert.That(enemyResult.MovementPhaseResult.RejectedReasons[0], Does.Contain("LegalityBlockerKinds=TileFeature"));
             Assert.That(playerResult.PresentationData.TileEvents, Is.Empty);
             Assert.That(enemyResult.PresentationData.TileEvents, Is.Empty);
-            Assert.That(projectileResult.PresentationData.TileEvents, Is.Empty);
             Assert.That(playerWorldState.CreateSnapshot().TryGetEntity(10, out var playerAfter), Is.True);
             Assert.That(enemyWorldState.CreateSnapshot().TryGetEntity(30, out var enemyAfter), Is.True);
-            Assert.That(projectileWorldState.CreateSnapshot().TryGetEntity(40, out var projectileAfter), Is.True);
             Assert.That(playerAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(enemyAfter.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
-            Assert.That(projectileAfter.position, Is.EqualTo(barricadeCell));
         }
 
         [Test]
@@ -3512,29 +3426,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 selector: TileFeatureBoxSelector.None);
             var cases = new[]
             {
-                new object[] { "Projectile", new[] { CreateProjectile(22, barricadeCell) }, GameplayTerrainData.Empty },
-                new object[] { "WallLikeTerrain", Array.Empty<EntityState>(), new GameplayTerrainData(new[] { CreateWallLikeTerrain(barricadeCell) }) },
-                new object[] { "NonBoxSolid", new[] { CreateSolid(23, barricadeCell) }, GameplayTerrainData.Empty },
-                new object[] { "DeadBox", new[] { CreateBox(24, barricadeCell, hp: 0) }, GameplayTerrainData.Empty },
-                new object[] { "DetachedBox", new[] { CreateBox(25, barricadeCell, boardPresence: EntityBoardPresence.Detached) }, GameplayTerrainData.Empty },
-                new object[] { "MarkedBox", new[] { CreateBox(26, barricadeCell, markedForDeath: true) }, GameplayTerrainData.Empty },
+                new object[] { "NonBoxSolid", new[] { CreateSolid(23, barricadeCell) } },
+                new object[] { "DeadBox", new[] { CreateBox(24, barricadeCell, hp: 0) } },
+                new object[] { "DetachedBox", new[] { CreateBox(25, barricadeCell, boardPresence: EntityBoardPresence.Detached) } },
+                new object[] { "MarkedBox", new[] { CreateBox(26, barricadeCell, markedForDeath: true) } },
             };
 
             for (var i = 0; i < cases.Length; i++)
             {
                 var name = (string)cases[i][0];
                 var entities = (EntityState[])cases[i][1];
-                var terrain = (GameplayTerrainData)cases[i][2];
                 var previousSnapshot = CreateWorldState(
                         entities,
                         new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
-                        terrain,
                         new CubeTopologyState(FaceId.Floor))
                     .CreateSnapshot();
                 var currentSnapshot = CreateWorldState(
                         entities,
                         new[] { CreateTileFeature(100, barricadeCell, TileFeatureKind.Barricade) },
-                        terrain,
                         new CubeTopologyState(FaceId.Front))
                     .CreateSnapshot();
 
@@ -4836,9 +4745,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             box.stateTimer = 0;
             var attackLogic = new CapturingAttackLogic();
             var worldState = CreateWorldState(
-                new[] { box },
-                new[] { button },
-                new GameplayTerrainData(new[] { CreateWallLikeTerrain(new SurfaceCell(FaceId.Floor, 2, 1)) }));
+                new[] { box, CreateSolid(21, new SurfaceCell(FaceId.Floor, 2, 1)) },
+                new[] { button });
             var pipeline = CreatePipeline(
                 worldState,
                 new[] { CreateDefinition(10) },
@@ -5588,13 +5496,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
             IEnumerable<TileFeatureState> initialTileFeatures,
-            GameplayTerrainData terrainData = null,
             CubeTopologyState? topology = null)
         {
             return GameplayCompositionRoot.CreateWorldState(
                 initialEntities,
                 TestBounds,
-                terrainData ?? GameplayTerrainData.Empty,
                 topology ?? new CubeTopologyState(FaceId.Floor),
                 initialTileFeatures);
         }
@@ -5619,7 +5525,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     { solid.position, solid.entityId },
                 },
-                new Dictionary<SurfaceCell, int>(),
                 new Dictionary<int, TileFeatureState>
                 {
                     { tileFeature.TileId, tileFeature },
@@ -5647,9 +5552,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new Dictionary<int, UnitKinematicRuntimeState>(),
                 new Dictionary<int, UnitContinuousLocomotionState>(),
                 topology,
-                topologyRevision: 0,
-                TestBounds,
-                GameplayTerrainData.Empty);
+                0,
+                TestBounds);
         }
 
         private static TileFeatureState CreateButton(
@@ -5696,11 +5600,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationKey: string.Empty);
         }
 
-        private static TerrainCellState CreateWallLikeTerrain(SurfaceCell cell)
-        {
-            return new TerrainCellState(cell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal);
-        }
-
         private static EntityState CreateUnit(
             int entityId,
             SurfaceCell position,
@@ -5734,22 +5633,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             unit.teamId = 2;
             unit.unitRole = UnitRole.Enemy;
             return unit;
-        }
-
-        private static EntityState CreateProjectile(int entityId, SurfaceCell position)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 1,
-                type = EntityType.Projectile,
-                state = EntityPhaseState.Idle,
-                facing = Direction.Right,
-                boardPresence = EntityBoardPresence.Occupying,
-            };
         }
 
         private static EntityState CreateSolid(int entityId, SurfaceCell position)

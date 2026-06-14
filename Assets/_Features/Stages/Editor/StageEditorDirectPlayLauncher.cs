@@ -12,8 +12,8 @@ namespace Game.Feature.Stages.Editor
     public static class StageEditorDirectPlayLauncher
     {
         private const string LastStageIdSessionKey = "Game.Feature.Stages.LastEditorDirectPlayStageId";
-        private const string MechanicsShowcaseStageId = "mechanics-showcase";
-        private const string OnboardingStageId = "onboarding";
+        private const string Stage0_1StageId = "stage-0-1";
+        private const string Stage1_1StageId = "stage-1-1";
 
         static StageEditorDirectPlayLauncher()
         {
@@ -50,20 +50,20 @@ namespace Game.Feature.Stages.Editor
             LaunchStage(stageId, EditorDirectPlayMode.NonCampaign, SaveSlotStore.DefaultRemainingChances);
         }
 
-        [MenuItem("Tools/Stages/Direct Play/Supported Stage Ids/mechanics-showcase")]
-        public static void LaunchMechanicsShowcase()
+        [MenuItem("Tools/Stages/Direct Play/Supported Stage Ids/stage-0-1")]
+        public static void LaunchStage0_1()
         {
             LaunchStage(
-                StageId.CreateOrThrow(MechanicsShowcaseStageId),
+                StageId.CreateOrThrow(Stage0_1StageId),
                 EditorDirectPlayMode.NonCampaign,
                 SaveSlotStore.DefaultRemainingChances);
         }
 
-        [MenuItem("Tools/Stages/Direct Play/Supported Stage Ids/onboarding")]
-        public static void LaunchOnboarding()
+        [MenuItem("Tools/Stages/Direct Play/Supported Stage Ids/stage-1-1")]
+        public static void LaunchStage1_1()
         {
             LaunchStage(
-                StageId.CreateOrThrow(OnboardingStageId),
+                StageId.CreateOrThrow(Stage1_1StageId),
                 EditorDirectPlayMode.NonCampaign,
                 SaveSlotStore.DefaultRemainingChances);
         }

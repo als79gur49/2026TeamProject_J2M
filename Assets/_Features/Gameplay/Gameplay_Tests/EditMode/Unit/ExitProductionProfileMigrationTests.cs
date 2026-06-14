@@ -183,18 +183,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void Exit3x3_ProductionCatalogBinding_PreservesThreeByThreeSameFaceFootprint()
+        public void Exit3x3_ProductionCatalogBinding_ResolvesProductionVisualPrefab()
         {
             var catalog = AssetDatabase.LoadAssetAtPath<TileFeaturePresentationCatalog>(ExitCatalogPath);
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(Exit3x3PrefabPath);
             Assert.That(catalog, Is.Not.Null, ExitCatalogPath);
             Assert.That(prefab, Is.Not.Null, Exit3x3PrefabPath);
 
-            var entry = catalog.Entries.Single(candidate => candidate.PresentationKey == "exit.default");
+            Assert.That(catalog.TryGetEntry("exit.default", out var entry), Is.True);
             Assert.That(entry.Kind, Is.EqualTo(TileFeatureKind.Exit));
             Assert.That(entry.VisualPrefab, Is.SameAs(prefab));
-            Assert.That(entry.PlacementMode, Is.EqualTo(TileFeatureVisualPlacementMode.ReplaceBaseTile));
-            Assert.That(entry.FootprintMode, Is.EqualTo(TileFeatureVisualFootprintMode.ThreeByThreeSameFace));
+            Assert.That(entry.IsDefaultForKind, Is.True);
         }
 
         private static void AssertCueAnimatorBinding(

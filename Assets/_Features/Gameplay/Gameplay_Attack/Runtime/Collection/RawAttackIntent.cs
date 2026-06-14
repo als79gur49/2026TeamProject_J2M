@@ -74,19 +74,6 @@ namespace Game.Feature.Gameplay.Attack.Collection
 
         public int LocalSequence { get; }
 
-        public static RawAttackIntent CreateFireProjectile(int sourceId, int priority)
-        {
-            return new RawAttackIntent(
-                sourceId,
-                priority,
-                0,
-                AttackCommandKind.FireProjectile,
-                AttackSourceKind.Combat,
-                default,
-                hasTargetCell: false,
-                localSequence: 0);
-        }
-
         private static void ValidateContract(int targetId, AttackCommandKind commandKind, bool hasTargetCell)
         {
             switch (commandKind)
@@ -104,24 +91,11 @@ namespace Game.Feature.Gameplay.Attack.Collection
 
                     return;
 
-                case AttackCommandKind.FireProjectile:
-                    if (targetId != 0)
-                    {
-                        throw new ArgumentOutOfRangeException(nameof(targetId), "FireProjectile intents must not carry a target ID.");
-                    }
-
-                    if (hasTargetCell)
-                    {
-                        throw new ArgumentException("FireProjectile intents must not carry a target cell.", nameof(hasTargetCell));
-                    }
-
-                    return;
-
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(commandKind),
                         commandKind,
-                        "Raw attack intents only support entity-generated Attack and FireProjectile commands.");
+                        "Raw attack intents only support entity-generated Attack commands.");
             }
         }
     }

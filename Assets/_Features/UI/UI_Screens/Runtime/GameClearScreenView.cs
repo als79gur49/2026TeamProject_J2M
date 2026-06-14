@@ -12,9 +12,6 @@ namespace Game.Feature.UI.Screens
 
         [SerializeField] private GameObject _root;
         [SerializeField] private TMP_Text _titleLabel;
-        [SerializeField] private TMP_Text _detailLabel;
-        [SerializeField] private Button _restartLevelButton;
-        [SerializeField] private TMP_Text _restartLevelButtonLabel;
         [SerializeField] private Button _mainButton;
         [SerializeField] private TMP_Text _mainButtonLabel;
         [SerializeField] private UiSelectableButtonGroup _navigationGroup = new();
@@ -140,8 +137,6 @@ namespace Game.Feature.UI.Screens
                 _root.SetActive(IsVisible);
             }
 
-            HideUnusedAuthoredElements();
-
             if (_viewModel == null)
             {
                 return;
@@ -155,25 +150,6 @@ namespace Game.Feature.UI.Screens
             if (_mainButtonLabel != null)
             {
                 _mainButtonLabel.text = _viewModel.MainLabel;
-            }
-        }
-
-        private void HideUnusedAuthoredElements()
-        {
-            if (_detailLabel != null)
-            {
-                _detailLabel.text = string.Empty;
-                _detailLabel.gameObject.SetActive(false);
-            }
-
-            if (_restartLevelButton != null)
-            {
-                _restartLevelButton.gameObject.SetActive(false);
-            }
-
-            if (_restartLevelButtonLabel != null)
-            {
-                _restartLevelButtonLabel.text = string.Empty;
             }
         }
 

@@ -35,10 +35,9 @@ namespace Game.Feature.Gameplay.Loop
     {
         None = 0,
         SolidEntity = 1,
-        Terrain = 2,
-        BoardEdge = 3,
-        RetiredShield = 4,
-        Barricade = 5,
+        BoardEdge = 2,
+        RetiredShield = 3,
+        Barricade = 4,
     }
 
     public enum BoxSlideStopCause

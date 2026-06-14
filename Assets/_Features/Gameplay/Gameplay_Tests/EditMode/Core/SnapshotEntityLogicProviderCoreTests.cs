@@ -201,7 +201,6 @@ namespace Game.Feature.Gameplay.Tests.Core
             return GameplayCompositionRoot.CreateWorldState(
                     entities,
                     new BoardBounds(new Vector2Int(-2, -2), new Vector2Int(4, 4)),
-                    Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                     new CubeTopologyState(FaceId.Floor))
                 .CreateSnapshot();
         }

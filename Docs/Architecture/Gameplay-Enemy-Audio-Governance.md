@@ -45,7 +45,7 @@ Validation rules:
 - Wrong category or loop policy fails.
 - Validation still checks every `EnemyAudioCueCatalog.RuntimeCues` value even though policy/binding authoring is sparse.
 
-`Move`, `Death`, `Windup`, `Landing`, `Active`, `Recover`, `ProjectileImpact`, `StationaryActive`, and `PassiveContact` are SFX one-shots and must not loop. `ChargeActiveLoop` is a persistent SFX loop, must use a looping definition, must provide an attachment slot, and the controller owns handle lifecycle.
+`Move`, `Death`, `Windup`, `Landing`, `Active`, `Recover`, `ForwardCellImpact`, `StationaryActive`, and `PassiveContact` are SFX one-shots and must not loop. `ChargeActiveLoop` is a persistent SFX loop, must use a looping definition, must provide an attachment slot, and the controller owns handle lifecycle.
 
 ## Production Requirements
 
@@ -55,13 +55,13 @@ Production policy assets live under `AudioRequirementPolicies/`; production bind
 |---|---|---|
 | `EnemyAudioProfile_WallFollowerSun` / Sunwheel | `Move`, `Death` | Other cues disabled. |
 | `EnemyAudioProfile_JumpChaserAstra` / Astreton | `Move`, `Landing`, `Death` | Non-jump cues disabled. |
-| `EnemyAudioProfile_BlackEye` / BlackEye | `Move`, `Active`, `ProjectileImpact`, `Death` | `ProjectileImpact` is required for projectile arrival; non-projectile cues disabled. |
+| `EnemyAudioProfile_BlackEye` / BlackEye | `Move`, `Active`, `ForwardCellImpact`, `Death` | `ForwardCellImpact` is required for projectile arrival; non-projectile cues disabled. |
 | `EnemyAudioProfile_DrSaturn` / DrSaturn | `Move`, `Windup`, `Active`, `Recover`, `Death` | Profile is named by enemy identity, not by the LockNearbyBoxes utility; `Active` is preserved for GravityField-oriented utility evaluation. |
 | `EnemyAudioProfile_UtilitySummoner` / JPeter | `Move`, `Active`, `Death` | `Windup` disabled; previous test expectation drift is closed in favor of authored `Move`. |
 | `EnemyAudioProfile_Nebulous` / Nebulous | `Move`, `Windup`, `Active`, `Recover`, `Death` | `PassiveContact` disabled for this utility profile. |
 | `EnemyAudioProfile_RocketFace` / RocketFace | `Move`, `ChargeActiveLoop`, `Death` | One-shot `Active` disabled; charge active audio is loop-only. |
 | `EnemyAudioProfile_SecBot` / SecBot | `Move`, `StationaryActive`, `Death` | Other cues disabled. |
-| `EnemyAudioProfile_Startis` / Startis | `Move`, `PassiveContact`, `Death` | `PassiveContact` is required because Startis uses the NonAttacking passive-contact gameplay profile. |
+| `EnemyAudioProfile_Startis` / Startis | `Move`, `PassiveContact`, `Death` | `PassiveContact` is required because Startis uses the PassiveContactPatroller gameplay profile. |
 
 Startis `PassiveContact` is an authored content coverage change, not a runtime no-op policy change. The runtime still no-ops missing enemy audio cues; Startis production authoring now provides the cue that was previously allowed to be absent.
 

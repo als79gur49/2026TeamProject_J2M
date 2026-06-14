@@ -59,10 +59,10 @@ namespace Game.Feature.Gameplay.Host
                     overflowMode: VoiceOverflowMode.DropNewest);
             }
 
-            if (debugTag == "ProjectileImpact")
+            if (debugTag == "ForwardCellImpact")
             {
                 return new AudioVoicePolicy(
-                    AudioVoiceGroupId.ProjectileImpact,
+                    AudioVoiceGroupId.ForwardCellImpact,
                     priority: 60,
                     maxVoicesGlobal: 3,
                     maxVoicesPerOwner: 1,

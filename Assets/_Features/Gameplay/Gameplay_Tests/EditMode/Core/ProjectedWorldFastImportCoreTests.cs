@@ -7,7 +7,6 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Core
 {
@@ -38,15 +37,12 @@ namespace Game.Feature.Gameplay.Tests.Core
             var fastSnapshot = SnapshotBuilder.Create(WorldState.CreateFromSnapshotFast(baseSnapshot));
             var unitCell = new SurfaceCell(FaceId.Floor, 1, 1);
             var boxCell = new SurfaceCell(FaceId.Floor, 2, 1);
-            var projectileCell = new SurfaceCell(FaceId.Floor, 3, 1);
 
             Assert.That(fastSnapshot.HasAnyUnitAt(unitCell), Is.EqualTo(slowSnapshot.HasAnyUnitAt(unitCell)));
             Assert.That(fastSnapshot.TryGetPrimaryUnitAt(unitCell, out var fastUnit), Is.EqualTo(slowSnapshot.TryGetPrimaryUnitAt(unitCell, out var slowUnit)));
             Assert.That(fastUnit.entityId, Is.EqualTo(slowUnit.entityId));
             Assert.That(fastSnapshot.TryGetSolidOccupantAt(boxCell, out var fastBox), Is.EqualTo(slowSnapshot.TryGetSolidOccupantAt(boxCell, out var slowBox)));
             Assert.That(fastBox.entityId, Is.EqualTo(slowBox.entityId));
-            Assert.That(fastSnapshot.TryGetProjectileAt(projectileCell, out var fastProjectile), Is.EqualTo(slowSnapshot.TryGetProjectileAt(projectileCell, out var slowProjectile)));
-            Assert.That(fastProjectile.entityId, Is.EqualTo(slowProjectile.entityId));
             Assert.That(
                 fastSnapshot.TryGetPlacementBlocker(EntityType.Box, unitCell, ignoredEntityId: 0, out var fastBlocker),
                 Is.EqualTo(slowSnapshot.TryGetPlacementBlocker(EntityType.Box, unitCell, ignoredEntityId: 0, out var slowBlocker)));
@@ -147,11 +143,6 @@ namespace Game.Feature.Gameplay.Tests.Core
         private static WorldSnapshot CreateRichSnapshot()
         {
             var stackedCell = new SurfaceCell(FaceId.Floor, 1, 1);
-            var terrainData = new GameplayTerrainData(
-                new[]
-                {
-                    new TerrainCellState(new SurfaceCell(FaceId.Floor, 4, 0), TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                });
             var worldState = GameplayCompositionRoot.CreateWorldState(
                 new[]
                 {
@@ -160,10 +151,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                     CreateUnit(30, new SurfaceCell(FaceId.Floor, 0, 2), UnitRole.Enemy, teamId: 2),
                     CreateUnit(60, new SurfaceCell(FaceId.Floor, 3, 3), UnitRole.Enemy, teamId: 2, boardPresence: EntityBoardPresence.Detached),
                     CreateBox(40, new SurfaceCell(FaceId.Floor, 2, 1)),
-                    CreateProjectile(50, new SurfaceCell(FaceId.Floor, 3, 1)),
                 },
                 TestBounds,
-                terrainData,
                 new CubeTopologyState(FaceId.Floor),
                 new[]
                 {
@@ -295,12 +284,10 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(actual.BoardBounds, Is.EqualTo(expected.BoardBounds));
             Assert.That(actual.Topology, Is.EqualTo(expected.Topology));
             Assert.That(actual.TopologyRevision, Is.EqualTo(expected.TopologyRevision));
-            CollectionAssert.AreEqual(Collect<TerrainCellState>(expected.EnumerateTerrainCellsOrdered), Collect<TerrainCellState>(actual.EnumerateTerrainCellsOrdered));
             CollectionAssert.AreEqual(Collect<EntityState>(expected.EnumerateEntitiesOrdered), Collect<EntityState>(actual.EnumerateEntitiesOrdered));
             CollectionAssert.AreEqual(Collect<TileFeatureState>(expected.EnumerateTileFeaturesOrdered), Collect<TileFeatureState>(actual.EnumerateTileFeaturesOrdered));
             CollectionAssert.AreEqual(Collect<SnapshotOccupancyEntry>(expected.EnumerateUnitOccupancyOrdered), Collect<SnapshotOccupancyEntry>(actual.EnumerateUnitOccupancyOrdered));
             CollectionAssert.AreEqual(Collect<SnapshotOccupancyEntry>(expected.EnumerateSolidOccupancyOrdered), Collect<SnapshotOccupancyEntry>(actual.EnumerateSolidOccupancyOrdered));
-            CollectionAssert.AreEqual(Collect<SnapshotOccupancyEntry>(expected.EnumerateProjectileOccupancyOrdered), Collect<SnapshotOccupancyEntry>(actual.EnumerateProjectileOccupancyOrdered));
             CollectionAssert.AreEqual(Collect<PlayerControlSnapshotEntry>(expected.EnumeratePlayerControlStatesOrdered), Collect<PlayerControlSnapshotEntry>(actual.EnumeratePlayerControlStatesOrdered));
             CollectionAssert.AreEqual(Collect<PlayerDamageSnapshotEntry>(expected.EnumeratePlayerDamageStatesOrdered), Collect<PlayerDamageSnapshotEntry>(actual.EnumeratePlayerDamageStatesOrdered));
             CollectionAssert.AreEqual(Collect<EnemyActionSnapshotEntry>(expected.EnumerateEnemyActionStatesOrdered), Collect<EnemyActionSnapshotEntry>(actual.EnumerateEnemyActionStatesOrdered));
@@ -392,22 +379,6 @@ namespace Game.Feature.Gameplay.Tests.Core
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
                 boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
-            };
-        }
-
-        private static EntityState CreateProjectile(int entityId, SurfaceCell position)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 1,
-                type = EntityType.Projectile,
-                state = EntityPhaseState.Idle,
-                facing = Direction.Right,
-                boardPresence = EntityBoardPresence.Occupying,
             };
         }
 

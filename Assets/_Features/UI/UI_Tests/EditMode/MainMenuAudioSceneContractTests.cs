@@ -24,6 +24,8 @@ namespace Game.Feature.UI.Tests
         private const string UiAudioCueMapPath = "Assets/_Features/UI/UI_Composition/Authoring/UiAudioCueMap_V1.asset";
         private const string MainMenuUiFlowInstallerPath =
             "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiFlowInstaller.cs";
+        private const string UiSettingsBridgeAssemblyPath =
+            "Assets/_Features/UI/UI_Composition/Runtime/UiSettingsBridgeAssembly.cs";
         private const string MainMenuUiAudioFeedbackControllerPath =
             "Assets/_Features/UI/UI_Composition/Runtime/MainMenuUiAudioFeedbackController.cs";
 
@@ -85,9 +87,11 @@ namespace Game.Feature.UI.Tests
         public void MainMenuBgm_DoesNotCallPlayBgmDirectlyFromMainMenuUiFlowInstaller()
         {
             var source = ReadRepoFile(MainMenuUiFlowInstallerPath);
+            var bridgeSource = ReadRepoFile(UiSettingsBridgeAssemblyPath);
 
             Assert.That(source, Does.Not.Contain("PlayBgm"));
-            Assert.That(source, Does.Contain("UiAudioPortAdapter"));
+            Assert.That(source, Does.Contain("UiSettingsBridgeAssembly"));
+            Assert.That(bridgeSource, Does.Contain("UiAudioPortAdapter"));
         }
 
         [Test]

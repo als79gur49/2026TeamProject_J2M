@@ -31,7 +31,7 @@ Strong contracts:
 - Enemy audio profile authoring stays prefab-local through `EnemyAudioAuthoring -> EnemyAudioProfile_*`.
 - Enemy audio must not be added to `GameplayPresentationAudioConfig`.
 - `ChargeActiveLoop` is a loop cue. It must use a looping `AudioDefinition` and an attachment slot when authored.
-- Shared audio runtime must not know gameplay-specific cue names such as `PassiveContact` or `ProjectileImpact`.
+- Shared audio runtime must not know gameplay-specific cue names such as `PassiveContact` or `ForwardCellImpact`.
 
 Current policy:
 
@@ -51,7 +51,7 @@ Current policy:
 - `Landing`: enemy jump landed.
 - `Active`: normal enemy action execution, gravity-field-aura attack/active start, summoned enemy spawn source, glide active start, charge active start.
 - `Recover`: enemy action recovery, lock-nearby-boxes recovery, gravity-field-aura recovery, glide recovery.
-- `ProjectileImpact`: valid forward-cell projectile arrival, hit or miss, deduped by arrival identity.
+- `ForwardCellImpact`: valid forward-cell projectile arrival, hit or miss, deduped by arrival identity.
 - `StationaryActive`: any final enemy with no motion fact and no other planned request, then filtered by face/activity and cadence in the controller.
 - `PassiveContact`: passive-contact action execution, except receiver-cooldown and player-invincible rejection paths.
 
@@ -72,7 +72,7 @@ Current policy:
 | --- | --- | --- |
 | `EnemyAudioProfile_WallFollowerSun` | `EnemyView_Sunwheel` | `Move`, `Death` |
 | `EnemyAudioProfile_JumpChaserAstra` | `EnemyView_Astreton` | `Move`, `Landing`, `Death` |
-| `EnemyAudioProfile_BlackEye` | `EnemyView_BlackEye` | `Move`, `Active`, `ProjectileImpact`, `Death` |
+| `EnemyAudioProfile_BlackEye` | `EnemyView_BlackEye` | `Move`, `Active`, `ForwardCellImpact`, `Death` |
 | `EnemyAudioProfile_DrSaturn` | `EnemyView_DrSaturn` | `Move`, `Windup`, `Active`, `Recover`, `Death` |
 | `EnemyAudioProfile_UtilitySummoner` | `EnemyView_JPeter` | `Move`, `Active`, `Death` |
 | `EnemyAudioProfile_Nebulous` | `EnemyView_Nebulous` | `Move`, `Windup`, `Active`, `Recover`, `Death` |
@@ -108,7 +108,7 @@ Decision values:
 | `EnemyAudioProfile_WallFollowerSun` | `EnemyView_Sunwheel` | `Landing` | No jump path found | No | Runtime no-op if requested | `DISABLED` | Non-jump archetype. |
 | `EnemyAudioProfile_WallFollowerSun` | `EnemyView_Sunwheel` | `Active` | No current production Sunwheel action-audio path found | No | Runtime no-op if requested | `DISABLED` | No authored active surface. |
 | `EnemyAudioProfile_WallFollowerSun` | `EnemyView_Sunwheel` | `Recover` | No current production Sunwheel path found | No | Runtime no-op if requested | `DISABLED` | No authored recover surface. |
-| `EnemyAudioProfile_WallFollowerSun` | `EnemyView_Sunwheel` | `ProjectileImpact` | No projectile path found | No | Runtime no-op if requested | `DISABLED` | Non-projectile archetype. |
+| `EnemyAudioProfile_WallFollowerSun` | `EnemyView_Sunwheel` | `ForwardCellImpact` | No projectile path found | No | Runtime no-op if requested | `DISABLED` | Non-projectile archetype. |
 | `EnemyAudioProfile_WallFollowerSun` | `EnemyView_Sunwheel` | `ChargeActiveLoop` | No charge path found | No | Loop controller no-op if requested | `DISABLED` | Non-charge archetype. |
 | `EnemyAudioProfile_WallFollowerSun` | `EnemyView_Sunwheel` | `StationaryActive` | Generic stationary candidate can be planned | No | Runtime no-op | `DISABLED` | Current product authoring uses move/death only. |
 | `EnemyAudioProfile_WallFollowerSun` | `EnemyView_Sunwheel` | `PassiveContact` | Passive-contact capability can produce signals | No | Runtime no-op | `DISABLED` | Not passive-contact-only audio policy; keep future variants separate. |
@@ -123,7 +123,7 @@ Decision values:
 | `EnemyAudioProfile_JumpChaserAstra` | `EnemyView_Astreton` | `Windup` | No current one-shot jump windup binding | No | Runtime no-op if requested | `DISABLED` | Jump windup is not authored as enemy audio. |
 | `EnemyAudioProfile_JumpChaserAstra` | `EnemyView_Astreton` | `Active` | No current jump active audio binding | No | Runtime no-op if requested | `DISABLED` | Landing is the authored jump accent. |
 | `EnemyAudioProfile_JumpChaserAstra` | `EnemyView_Astreton` | `Recover` | No recover path found | No | Runtime no-op if requested | `DISABLED` | Non-recover archetype for audio policy. |
-| `EnemyAudioProfile_JumpChaserAstra` | `EnemyView_Astreton` | `ProjectileImpact` | No projectile path found | No | Runtime no-op if requested | `DISABLED` | Non-projectile archetype. |
+| `EnemyAudioProfile_JumpChaserAstra` | `EnemyView_Astreton` | `ForwardCellImpact` | No projectile path found | No | Runtime no-op if requested | `DISABLED` | Non-projectile archetype. |
 | `EnemyAudioProfile_JumpChaserAstra` | `EnemyView_Astreton` | `ChargeActiveLoop` | No charge path found | No | Loop controller no-op if requested | `DISABLED` | Non-charge archetype. |
 | `EnemyAudioProfile_JumpChaserAstra` | `EnemyView_Astreton` | `StationaryActive` | Generic stationary candidate can be planned | No | Runtime no-op | `DISABLED` | Not the SecBot stationary cadence archetype. |
 | `EnemyAudioProfile_JumpChaserAstra` | `EnemyView_Astreton` | `PassiveContact` | Common passive-contact capability may exist | No | Runtime no-op | `DISABLED` | Not passive-contact-only audio policy. |
@@ -134,7 +134,7 @@ Decision values:
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `EnemyAudioProfile_BlackEye` | `EnemyView_BlackEye` | `Move` | Yes | Yes | Invalid binding fails profile validation | `REQUIRED` | Locomotion path is authored. |
 | `EnemyAudioProfile_BlackEye` | `EnemyView_BlackEye` | `Active` | Yes | Yes | Invalid binding fails profile validation | `REQUIRED` | Fire release remains distinct from projectile impact. |
-| `EnemyAudioProfile_BlackEye` | `EnemyView_BlackEye` | `ProjectileImpact` | Yes | Yes | Invalid binding fails profile validation | `REQUIRED` | Projectile arrival path emits hit/miss impact audio. |
+| `EnemyAudioProfile_BlackEye` | `EnemyView_BlackEye` | `ForwardCellImpact` | Yes | Yes | Invalid binding fails profile validation | `REQUIRED` | Projectile arrival path emits hit/miss impact audio. |
 | `EnemyAudioProfile_BlackEye` | `EnemyView_BlackEye` | `Death` | Yes | Yes | Invalid binding fails profile validation | `REQUIRED` | Production death cue is authored. |
 | `EnemyAudioProfile_BlackEye` | `EnemyView_BlackEye` | `Windup` | Windup projectile/action start can emit | No | Runtime no-op | `DISABLED` | Product authoring has no BlackEye windup cue. |
 | `EnemyAudioProfile_BlackEye` | `EnemyView_BlackEye` | `Landing` | No jump path found | No | Runtime no-op | `DISABLED` | Non-jump archetype. |
@@ -153,7 +153,7 @@ Decision values:
 | `EnemyAudioProfile_DrSaturn` | `EnemyView_DrSaturn` | `Death` | Yes | Yes | Invalid binding fails profile validation | `REQUIRED` | Production death cue is authored. |
 | `EnemyAudioProfile_DrSaturn` | `EnemyView_DrSaturn` | `Active` | GravityField active-start path to be re-confirmed in implementation PR | Yes | Invalid binding fails profile validation | `REQUIRED` | Authored/test-expected cue is preserved; classify by DrSaturn's GravityField-oriented utility role, not by the previous LockNearbyBoxes-specific asset name. |
 | `EnemyAudioProfile_DrSaturn` | `EnemyView_DrSaturn` | `Landing` | No jump path found | No | Runtime no-op | `DISABLED` | Non-jump archetype. |
-| `EnemyAudioProfile_DrSaturn` | `EnemyView_DrSaturn` | `ProjectileImpact` | No projectile path found | No | Runtime no-op | `DISABLED` | Non-projectile archetype. |
+| `EnemyAudioProfile_DrSaturn` | `EnemyView_DrSaturn` | `ForwardCellImpact` | No projectile path found | No | Runtime no-op | `DISABLED` | Non-projectile archetype. |
 | `EnemyAudioProfile_DrSaturn` | `EnemyView_DrSaturn` | `ChargeActiveLoop` | No charge path found | No | Loop controller no-op | `DISABLED` | Non-charge archetype. |
 | `EnemyAudioProfile_DrSaturn` | `EnemyView_DrSaturn` | `StationaryActive` | Generic stationary candidate can be planned | No | Runtime no-op | `DISABLED` | Not stationary cadence archetype. |
 | `EnemyAudioProfile_DrSaturn` | `EnemyView_DrSaturn` | `PassiveContact` | Passive-contact capability can produce signals | No | Runtime no-op | `DISABLED` | Existing test policy says JP/DrSaturn/Nebulous do not author passive contact by default. |
@@ -168,7 +168,7 @@ Decision values:
 | `EnemyAudioProfile_UtilitySummoner` | `EnemyView_JPeter` | `Windup` | Summon windup warning can emit | No | Runtime no-op | `DISABLED` | Current content policy resolves old expectation drift in favor of no JPeter windup audio. |
 | `EnemyAudioProfile_UtilitySummoner` | `EnemyView_JPeter` | `Landing` | No jump path found | No | Runtime no-op | `DISABLED` | Non-jump archetype. |
 | `EnemyAudioProfile_UtilitySummoner` | `EnemyView_JPeter` | `Recover` | Summon recover signal exists, planner does not map it to audio | No | Runtime no-op | `DISABLED` | No authored recover audio for summon profile. |
-| `EnemyAudioProfile_UtilitySummoner` | `EnemyView_JPeter` | `ProjectileImpact` | No projectile path found | No | Runtime no-op | `DISABLED` | Non-projectile archetype. |
+| `EnemyAudioProfile_UtilitySummoner` | `EnemyView_JPeter` | `ForwardCellImpact` | No projectile path found | No | Runtime no-op | `DISABLED` | Non-projectile archetype. |
 | `EnemyAudioProfile_UtilitySummoner` | `EnemyView_JPeter` | `ChargeActiveLoop` | No charge path found | No | Loop controller no-op | `DISABLED` | Non-charge archetype. |
 | `EnemyAudioProfile_UtilitySummoner` | `EnemyView_JPeter` | `StationaryActive` | Generic stationary candidate can be planned | No | Runtime no-op | `DISABLED` | Not stationary cadence archetype. |
 | `EnemyAudioProfile_UtilitySummoner` | `EnemyView_JPeter` | `PassiveContact` | Passive-contact capability can produce signals | No | Runtime no-op | `DISABLED` | Existing test policy says JP/DrSaturn/Nebulous do not author passive contact by default. |
@@ -183,7 +183,7 @@ Decision values:
 | `EnemyAudioProfile_Nebulous` | `EnemyView_Nebulous` | `Recover` | Yes | Yes | Invalid binding fails profile validation | `REQUIRED` | GravityFieldAura recovery path is production. |
 | `EnemyAudioProfile_Nebulous` | `EnemyView_Nebulous` | `Death` | Yes | Yes | Invalid binding fails profile validation | `REQUIRED` | Production death cue is authored. |
 | `EnemyAudioProfile_Nebulous` | `EnemyView_Nebulous` | `Landing` | No jump path found | No | Runtime no-op | `DISABLED` | Non-jump archetype. |
-| `EnemyAudioProfile_Nebulous` | `EnemyView_Nebulous` | `ProjectileImpact` | No projectile path found | No | Runtime no-op | `DISABLED` | Non-projectile archetype. |
+| `EnemyAudioProfile_Nebulous` | `EnemyView_Nebulous` | `ForwardCellImpact` | No projectile path found | No | Runtime no-op | `DISABLED` | Non-projectile archetype. |
 | `EnemyAudioProfile_Nebulous` | `EnemyView_Nebulous` | `ChargeActiveLoop` | No charge path found | No | Loop controller no-op | `DISABLED` | Non-charge archetype. |
 | `EnemyAudioProfile_Nebulous` | `EnemyView_Nebulous` | `StationaryActive` | Generic stationary candidate can be planned | No | Runtime no-op | `DISABLED` | Not stationary cadence archetype. |
 | `EnemyAudioProfile_Nebulous` | `EnemyView_Nebulous` | `PassiveContact` | Passive-contact capability can produce signals | No | Runtime no-op | `DISABLED` | Existing test policy says JP/DrSaturn/Nebulous do not author passive contact by default. |
@@ -199,7 +199,7 @@ Decision values:
 | `EnemyAudioProfile_RocketFace` | `EnemyView_RocketFace` | `Windup` | Charge windup signal exists but planner does not emit one-shot windup | No | Runtime no-op | `DISABLED` | Charge audio starts at active loop. |
 | `EnemyAudioProfile_RocketFace` | `EnemyView_RocketFace` | `Landing` | No jump path found | No | Runtime no-op | `DISABLED` | Non-jump archetype. |
 | `EnemyAudioProfile_RocketFace` | `EnemyView_RocketFace` | `Recover` | Charge recover signal exists but planner does not emit one-shot recover | No | Runtime no-op | `DISABLED` | Loop stop carries recover transition for audio. |
-| `EnemyAudioProfile_RocketFace` | `EnemyView_RocketFace` | `ProjectileImpact` | No projectile path found | No | Runtime no-op | `DISABLED` | Charge is not the forward-cell projectile lane. |
+| `EnemyAudioProfile_RocketFace` | `EnemyView_RocketFace` | `ForwardCellImpact` | No projectile path found | No | Runtime no-op | `DISABLED` | Charge is not the forward-cell projectile lane. |
 | `EnemyAudioProfile_RocketFace` | `EnemyView_RocketFace` | `StationaryActive` | Generic stationary candidate can be planned | No | Runtime no-op | `DISABLED` | Not stationary cadence archetype. |
 | `EnemyAudioProfile_RocketFace` | `EnemyView_RocketFace` | `PassiveContact` | Passive-contact capability may exist | No | Runtime no-op | `DISABLED` | Current charge profile audio is move/loop/death only. |
 
@@ -214,7 +214,7 @@ Decision values:
 | `EnemyAudioProfile_SecBot` | `EnemyView_SecBot` | `Landing` | No jump path found | No | Runtime no-op | `DISABLED` | Non-jump archetype. |
 | `EnemyAudioProfile_SecBot` | `EnemyView_SecBot` | `Active` | Generic action active could exist but not current SecBot policy | No | Runtime no-op | `DISABLED` | StationaryActive is the active-like audio surface. |
 | `EnemyAudioProfile_SecBot` | `EnemyView_SecBot` | `Recover` | No recover path found | No | Runtime no-op | `DISABLED` | No recover authoring. |
-| `EnemyAudioProfile_SecBot` | `EnemyView_SecBot` | `ProjectileImpact` | No projectile path found | No | Runtime no-op | `DISABLED` | Non-projectile archetype. |
+| `EnemyAudioProfile_SecBot` | `EnemyView_SecBot` | `ForwardCellImpact` | No projectile path found | No | Runtime no-op | `DISABLED` | Non-projectile archetype. |
 | `EnemyAudioProfile_SecBot` | `EnemyView_SecBot` | `ChargeActiveLoop` | No charge path found | No | Loop controller no-op | `DISABLED` | Non-charge archetype. |
 | `EnemyAudioProfile_SecBot` | `EnemyView_SecBot` | `PassiveContact` | Passive-contact capability may exist | No | Runtime no-op | `DISABLED` | Not passive-contact-only audio policy. |
 
@@ -229,7 +229,7 @@ Decision values:
 | `EnemyAudioProfile_Startis` | `EnemyView_Startis` | `Landing` | No jump path found | No | Runtime no-op | `DISABLED` | Non-jump archetype. |
 | `EnemyAudioProfile_Startis` | `EnemyView_Startis` | `Active` | Passive contact maps to `PassiveContact`, not `Active` | No | Runtime no-op | `DISABLED` | Tests guard against passive contact falling back to active/summon audio. |
 | `EnemyAudioProfile_Startis` | `EnemyView_Startis` | `Recover` | No recover path found | No | Runtime no-op | `DISABLED` | No recover authoring. |
-| `EnemyAudioProfile_Startis` | `EnemyView_Startis` | `ProjectileImpact` | No projectile path found | No | Runtime no-op | `DISABLED` | Non-projectile archetype. |
+| `EnemyAudioProfile_Startis` | `EnemyView_Startis` | `ForwardCellImpact` | No projectile path found | No | Runtime no-op | `DISABLED` | Non-projectile archetype. |
 | `EnemyAudioProfile_Startis` | `EnemyView_Startis` | `ChargeActiveLoop` | No charge path found | No | Loop controller no-op | `DISABLED` | Non-charge archetype. |
 | `EnemyAudioProfile_Startis` | `EnemyView_Startis` | `StationaryActive` | Generic stationary candidate can be planned | No | Runtime no-op | `DISABLED` | Startis active contact audio is event-driven, not idle cadence. |
 
@@ -241,9 +241,9 @@ Decision values:
 
 Passive-contact-only enemy audio should require `PassiveContact`. In current production, this applies to Startis. JP/DrSaturn/Nebulous are guarded by tests as no default passive-contact authoring. WallFollower/Sunwheel has passive-contact capability evidence but is not treated as passive-contact-only audio content in this audit.
 
-Projectile enemy audio should require `ProjectileImpact` when the production archetype emits forward-cell projectile arrivals. In current production, this applies to BlackEye.
+Projectile enemy audio should require `ForwardCellImpact` when the production archetype emits forward-cell projectile arrivals. In current production, this applies to BlackEye.
 
-`Move` and `Death` are production-required for every audited production profile because every profile authors them and runtime can emit those paths. `Windup`, `Recover`, `Landing`, `Active`, `ProjectileImpact`, `ChargeActiveLoop`, `StationaryActive`, and `PassiveContact` are archetype-specific.
+`Move` and `Death` are production-required for every audited production profile because every profile authors them and runtime can emit those paths. `Windup`, `Recover`, `Landing`, `Active`, `ForwardCellImpact`, `ChargeActiveLoop`, `StationaryActive`, and `PassiveContact` are archetype-specific.
 
 JPeter / UtilitySummoner expectation drift is a test expectation issue if the test still expects `Windup`. The production profile authors `Move`, `Active`, and `Death`; `Windup` should be disabled unless product explicitly wants summon windup audio.
 

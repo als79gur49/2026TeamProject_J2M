@@ -1073,11 +1073,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplaySfxArbiter_DoesNotDropProjectileImpactBecauseOfActiveOrPlayerDamage()
+        public void GameplaySfxArbiter_DoesNotDropForwardCellImpactBecauseOfActiveOrPlayerDamage()
         {
             var arbiter = new GameplaySfxArbiter();
             var activePolicy = GameplaySfxPolicyCatalog.Resolve("Active");
-            var impactPolicy = GameplaySfxPolicyCatalog.Resolve("ProjectileImpact");
+            var impactPolicy = GameplaySfxPolicyCatalog.Resolve("ForwardCellImpact");
             var damagePolicy = GameplaySfxPolicyCatalog.Resolve("PlayerDamage");
             var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
             try
@@ -1086,7 +1086,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[]
                     {
                         CreateSfxRequest(definition, activePolicy, "Active", 1, ownerEntityId: 20),
-                        CreateSfxRequest(definition, impactPolicy, "ProjectileImpact", 2, ownerEntityId: 20),
+                        CreateSfxRequest(definition, impactPolicy, "ForwardCellImpact", 2, ownerEntityId: 20),
                         CreateSfxRequest(definition, damagePolicy, "PlayerDamage", 3, ownerEntityId: 10),
                     },
                     tickIndex: 1,
@@ -1094,7 +1094,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(
                     accepted.Select(request => request.Context.DebugTag).ToArray(),
-                    Is.EquivalentTo(new[] { "Active", "ProjectileImpact", "PlayerDamage" }));
+                    Is.EquivalentTo(new[] { "Active", "ForwardCellImpact", "PlayerDamage" }));
             }
             finally
             {
@@ -1104,11 +1104,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplaySfxArbiter_AllowsSameOwnerActiveAndProjectileImpactInSameTick()
+        public void GameplaySfxArbiter_AllowsSameOwnerActiveAndForwardCellImpactInSameTick()
         {
             var arbiter = new GameplaySfxArbiter();
             var activePolicy = GameplaySfxPolicyCatalog.Resolve("Active");
-            var impactPolicy = GameplaySfxPolicyCatalog.Resolve("ProjectileImpact");
+            var impactPolicy = GameplaySfxPolicyCatalog.Resolve("ForwardCellImpact");
             var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
             try
             {
@@ -1116,14 +1116,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[]
                     {
                         CreateSfxRequest(definition, activePolicy, "Active", 1, ownerEntityId: 20),
-                        CreateSfxRequest(definition, impactPolicy, "ProjectileImpact", 2, ownerEntityId: 20),
+                        CreateSfxRequest(definition, impactPolicy, "ForwardCellImpact", 2, ownerEntityId: 20),
                     },
                     tickIndex: 1,
                     simulationTicksPerSecond: 20);
 
                 Assert.That(
                     accepted.Select(request => request.Context.DebugTag).ToArray(),
-                    Is.EqualTo(new[] { "Active", "ProjectileImpact" }));
+                    Is.EqualTo(new[] { "Active", "ForwardCellImpact" }));
                 Assert.That(activePolicy.Group, Is.Not.EqualTo(impactPolicy.Group));
             }
             finally
@@ -1134,28 +1134,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProjectileImpact_GroupCapStillBoundsMultipleImpacts()
+        public void ForwardCellImpact_GroupCapStillBoundsMultipleImpacts()
         {
             var arbiter = new GameplaySfxArbiter();
-            var impactPolicy = GameplaySfxPolicyCatalog.Resolve("ProjectileImpact");
+            var impactPolicy = GameplaySfxPolicyCatalog.Resolve("ForwardCellImpact");
             var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
             try
             {
                 var accepted = arbiter.Filter(
                     new[]
                     {
-                        CreateSfxRequest(definition, impactPolicy, "ProjectileImpact", 1, ownerEntityId: 20),
-                        CreateSfxRequest(definition, impactPolicy, "ProjectileImpact", 2, ownerEntityId: 21),
-                        CreateSfxRequest(definition, impactPolicy, "ProjectileImpact", 3, ownerEntityId: 22),
-                        CreateSfxRequest(definition, impactPolicy, "ProjectileImpact", 4, ownerEntityId: 23),
+                        CreateSfxRequest(definition, impactPolicy, "ForwardCellImpact", 1, ownerEntityId: 20),
+                        CreateSfxRequest(definition, impactPolicy, "ForwardCellImpact", 2, ownerEntityId: 21),
+                        CreateSfxRequest(definition, impactPolicy, "ForwardCellImpact", 3, ownerEntityId: 22),
+                        CreateSfxRequest(definition, impactPolicy, "ForwardCellImpact", 4, ownerEntityId: 23),
                     },
                     tickIndex: 1,
                     simulationTicksPerSecond: 20);
 
-                Assert.That(impactPolicy.Group, Is.EqualTo(AudioVoiceGroupId.ProjectileImpact));
+                Assert.That(impactPolicy.Group, Is.EqualTo(AudioVoiceGroupId.ForwardCellImpact));
                 Assert.That(impactPolicy.MaxVoicesGlobal, Is.EqualTo(3));
                 Assert.That(accepted, Has.Count.EqualTo(3));
-                Assert.That(accepted.All(request => request.Policy.Group == AudioVoiceGroupId.ProjectileImpact), Is.True);
+                Assert.That(accepted.All(request => request.Policy.Group == AudioVoiceGroupId.ForwardCellImpact), Is.True);
             }
             finally
             {

@@ -159,10 +159,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void MechanicsShowcase_NonAttackingEnemyProfileAndStartisPrefab_ShareMoveCadence()
+        public void MechanicsShowcase_PassiveContactPatrollerEnemyProfileAndStartisPrefab_ShareMoveCadence()
         {
             const string enemyProfilePath =
-                StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset";
+                StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_PassiveContactPatroller/EnemyAi_PassiveContactPatroller.asset";
             const string enemyPrefabPath =
                 StageContentPaths.SharedEnemyPresentationRoot + "/Prefabs/EnemyView_Startis.prefab";
 
@@ -2919,7 +2919,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         {
                             new TickEnemyUtilityPresentationSignal(
                                 40,
-                                EnemyUtilityPresentationKind.LockNearbyBoxes,
+                                EnemyUtilityPresentationKind.GravityFieldAura,
                                 EnemyUtilityPresentationPhase.RecoverStarted,
                                 startTick: 1,
                                 executeTick: 9,
@@ -2942,7 +2942,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         {
                             new TickEnemyUtilityPhasePresentationState(
                                 40,
-                                EnemyUtilityPresentationKind.LockNearbyBoxes,
+                                EnemyUtilityPresentationKind.GravityFieldAura,
                                 EnemyUtilityEffectPhase.Recover,
                                 phaseElapsedTicks: 1,
                                 phaseDurationTicks: 8,
@@ -3002,7 +3002,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         {
                             new TickEnemyUtilityPresentationSignal(
                                 40,
-                                EnemyUtilityPresentationKind.LockNearbyBoxes,
+                                EnemyUtilityPresentationKind.GravityFieldAura,
                                 EnemyUtilityPresentationPhase.WindupStarted,
                                 startTick: 1,
                                 executeTick: 3,

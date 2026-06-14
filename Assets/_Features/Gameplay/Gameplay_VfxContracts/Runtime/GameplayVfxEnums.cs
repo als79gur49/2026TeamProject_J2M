@@ -7,7 +7,7 @@ namespace Game.Feature.Gameplay.Vfx
         Box = 2,
         Enemy = 3,
         TileFeature = 4,
-        Terrain = 5,
+        Environment = 5,
         Projectile = 6,
         ObjectiveStage = 7,
         GravityField = 8,
@@ -139,11 +139,11 @@ namespace Game.Feature.Gameplay.Vfx
         ActiveStarted = 7,
     }
 
-    public enum TerrainVfxCue
+    public enum EnvironmentVfxCue
     {
-        TerrainChanged = 1,
-        TerrainCrack = 2,
-        TerrainRestore = 3,
+        EnvironmentChanged = 1,
+        SurfaceCrack = 2,
+        SurfaceRestore = 3,
     }
 
     public enum ProjectileVfxCue

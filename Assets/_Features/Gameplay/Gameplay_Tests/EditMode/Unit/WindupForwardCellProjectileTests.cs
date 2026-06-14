@@ -57,7 +57,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetEntity(EnemyId, out var enemy), Is.True);
             Assert.That(snapshot.TryGetEntity(PlayerId, out var player), Is.True);
 
-            var result = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+            var result = CombatWindupPoseQueries.QueryStartWindupForwardCellProjectile(
                 snapshot,
                 enemy,
                 player,
@@ -68,7 +68,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(result.CanStart, Is.False);
             Assert.That(result.ShouldApproach, Is.True);
-            Assert.That(result.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.OutsideSimulationStartRange));
+            Assert.That(result.BlockReason, Is.EqualTo(CombatWindupStartBlockReason.OutsideSimulationStartRange));
         }
 
         [Test]
@@ -132,13 +132,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetEntity(PlayerId, out var player), Is.True);
 
             var settings = new WindupForwardCellProjectileSettings(
-                WindupMeleeSettings.DefaultVisualRangeSlackCells,
+                ProjectileWindupSettings.DefaultVisualRangeSlackCells,
                 impactDelayTicks: 24,
                 damage: 1,
                 activePendingImpactLimitPerOwner: 1,
                 impactDelayTicksPerCell: 24);
 
-            var result = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+            var result = CombatWindupPoseQueries.QueryStartWindupForwardCellProjectile(
                 snapshot,
                 enemy,
                 player,
@@ -148,7 +148,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 out _);
 
             Assert.That(result.CanStart, Is.False);
-            Assert.That(result.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.InvalidForwardTargetCell));
+            Assert.That(result.BlockReason, Is.EqualTo(CombatWindupStartBlockReason.InvalidForwardTargetCell));
         }
 
         [Test]
@@ -607,12 +607,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PendingCellImpact_TargetTerrainInvalidFlag_DoesNotInvalidateArrival()
+        public void PendingCellImpact_TargetCellWithoutPlacementBlocker_DoesNotInvalidateArrival()
         {
             var (result, worldState) = RunDirectPendingImpact(playerCell: new SurfaceCell(FaceId.Floor, 1, 0));
             var resolution = result.AttackPhaseResult.PendingCellImpactResolutions.Single();
 
-            Assert.That(worldState.CreateSnapshot().TryGetTerrain(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
             Assert.That(resolution.ResultKind, Is.EqualTo(PendingCellImpactResolutionKind.Hit));
             Assert.That(result.PresentationData.ForwardCellImpactSignals, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.ForwardCellProjectileArrivalSignals, Has.Count.EqualTo(1));
@@ -863,7 +862,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetEntity(EnemyId, out var enemy), Is.True);
             Assert.That(snapshot.TryGetEntity(PlayerId, out var player), Is.True);
 
-            var result = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+            var result = CombatWindupPoseQueries.QueryStartWindupForwardCellProjectile(
                 snapshot,
                 enemy,
                 player,
@@ -873,7 +872,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 out _);
 
             Assert.That(result.CanStart, Is.False);
-            Assert.That(result.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.ActivePendingImpactLimitReached));
+            Assert.That(result.BlockReason, Is.EqualTo(CombatWindupStartBlockReason.ActivePendingImpactLimitReached));
         }
 
         [Test]
@@ -886,7 +885,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetEntity(EnemyId, out var enemy), Is.True);
             Assert.That(snapshot.TryGetEntity(PlayerId, out var player), Is.True);
 
-            var result = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+            var result = CombatWindupPoseQueries.QueryStartWindupForwardCellProjectile(
                 snapshot,
                 enemy,
                 player,
@@ -897,14 +896,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(result.CanStart, Is.False);
             Assert.That(result.ShouldApproach, Is.False);
-            Assert.That(result.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.NotSettledAtAnchor));
+            Assert.That(result.BlockReason, Is.EqualTo(CombatWindupStartBlockReason.NotSettledAtAnchor));
 
             worldState.CreateWriteContext().SetUnitKinematicState(EnemyId, UnitKinematicRuntimeState.SettledZero);
             snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(EnemyId, out enemy), Is.True);
             Assert.That(snapshot.TryGetEntity(PlayerId, out player), Is.True);
 
-            var settledResult = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+            var settledResult = CombatWindupPoseQueries.QueryStartWindupForwardCellProjectile(
                 snapshot,
                 enemy,
                 player,
@@ -914,7 +913,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 out _);
 
             Assert.That(settledResult.CanStart, Is.True);
-            Assert.That(settledResult.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.None));
+            Assert.That(settledResult.BlockReason, Is.EqualTo(CombatWindupStartBlockReason.None));
         }
 
         [Test]
@@ -924,7 +923,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var root = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
             var files = new[]
             {
-                "Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/WindupMeleeCombatPoseQueries.cs",
+                "Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/CombatWindupPoseQueries.cs",
                 "Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyActionStateLogic.cs",
                 "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs",
             };
@@ -1072,8 +1071,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(PlayerId, 1, playerCell, EnemyAiMode.None, Direction.Left, UnitRole.Player),
                     CreateUnit(EnemyId, 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Attack, Direction.Right, UnitRole.Enemy),
                 },
-                new BoardBounds(new Vector2Int(-2, -2), new Vector2Int(4, 4)),
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty);
+                new BoardBounds(new Vector2Int(-2, -2), new Vector2Int(4, 4)));
         }
 
         private static EntityState CreateUnit(

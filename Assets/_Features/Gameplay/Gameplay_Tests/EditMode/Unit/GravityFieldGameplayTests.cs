@@ -9,7 +9,6 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -157,7 +156,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 dead,
                 marked,
                 detached,
-                CreateProjectile(49, new SurfaceCell(FaceId.Floor, -1, -1)),
                 CreateBox(50, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
             });
 
@@ -484,18 +482,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void GravityField_LockedPushDestroyBoxDoesNotSelfDestroyOnBlockedFallback()
         {
-            var terrain = new GameplayTerrainData(new[]
-            {
-                new TerrainCellState(new SurfaceCell(FaceId.Floor, 2, 0), TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-            });
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)),
                     CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxArchetype.Normal, BoxCapabilities.Push | BoxCapabilities.Destroy),
+                    CreateBox(21, new SurfaceCell(FaceId.Floor, 2, 0), BoxArchetype.Normal, BoxCapabilities.Flip),
                     CreateBox(30, new SurfaceCell(FaceId.Floor, 1, 1), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
-                },
-                terrain);
+                });
 
             GameplayCompositionRoot.CreateTickPipeline(worldState)
                 .RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
@@ -730,12 +724,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 gravityFieldVisualStates: gravityFieldVisualStates);
         }
 
-        private static WorldState CreateWorldState(EntityState[] entities, GameplayTerrainData terrain = null)
+        private static WorldState CreateWorldState(EntityState[] entities)
         {
             return GameplayCompositionRoot.CreateWorldState(
                 entities,
                 Bounds,
-                terrain ?? GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
         }
 
@@ -780,23 +773,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boxArchetype = archetype,
                 gravityFieldPhase = phase,
                 gravityFieldTimerTicks = timerTicks,
-            };
-        }
-
-        private static EntityState CreateProjectile(int entityId, SurfaceCell position)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 2,
-                type = EntityType.Projectile,
-                unitRole = UnitRole.None,
-                state = EntityPhaseState.Idle,
-                facing = Direction.Right,
-                boardPresence = EntityBoardPresence.Occupying,
             };
         }
 

@@ -635,16 +635,6 @@ namespace Game.Feature.UI.Tests
                     showsDim: true,
                     blocksLowerLayers: true)
             },
-            {
-                PopupId.Tooltip,
-                new PopupPolicy(
-                    PopupPolicyClass.AnchoredEphemeral,
-                    PopupLifetimeScope.CurrentScreen,
-                    PopupBackAction.Close,
-                    PopupBackdropMode.None,
-                    showsDim: false,
-                    blocksLowerLayers: false)
-            },
         };
 
         public List<FakePopupRuntimeRecord> CreatedRuntimes { get; } = new();

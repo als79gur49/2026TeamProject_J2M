@@ -38,7 +38,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayCompositionRoot.CreateWorldState(
                 fixture.Build.InitialEntities,
                 fixture.Build.BoardBounds,
-                fixture.Build.InitialTerrain,
                 fixture.Build.InitialTopology,
                 fixture.Build.InitialTileFeatures);
             var pipeline = CreatePipeline(worldState, fixture.Build);

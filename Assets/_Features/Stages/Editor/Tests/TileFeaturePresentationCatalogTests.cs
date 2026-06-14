@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay;
@@ -131,110 +132,76 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void TileFeaturePresentationCatalog_AllowsDirectionHintNoneAsGeneric()
+        public void TileFeaturePresentationCatalogEntry_DoesNotExposeDirectionHint()
         {
-            var prefab = CreateValidPrefab("DirectionHintNonePrefab");
-            var catalog = CreateCatalog(Entry(
-                "slide-generic",
-                TileFeatureKind.Slide,
-                prefab,
-                directionHint: Direction2D.None));
+            var entryType = typeof(TileFeaturePresentationCatalogEntry);
 
-            try
-            {
-                Assert.That(catalog.TryGetEntry("slide-generic", out var entry), Is.True);
-                Assert.That(entry.DirectionHint, Is.EqualTo(Direction2D.None));
-            }
-            finally
-            {
-                DestroyObjects(catalog, prefab);
-            }
+            Assert.That(entryType.GetProperty("DirectionHint"), Is.Null);
+            Assert.That(entryType.GetField("directionHint", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null);
         }
 
         [Test]
-        public void TileFeaturePresentationCatalogEntry_DefaultPlacementMode_Overlay()
+        public void TileFeaturePresentationCatalogEntry_DoesNotExposePlacementMode()
         {
-            var entry = new TileFeaturePresentationCatalogEntry();
+            var entryType = typeof(TileFeaturePresentationCatalogEntry);
+            var catalogAssembly = typeof(TileFeaturePresentationCatalog).Assembly;
 
-            Assert.That(entry.PlacementMode, Is.EqualTo(TileFeatureVisualPlacementMode.Overlay));
+            Assert.That(entryType.GetProperty("PlacementMode"), Is.Null);
+            Assert.That(entryType.GetField("placementMode", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null);
+            Assert.That(catalogAssembly.GetType("Game.Feature.Stages.TileFeatureVisualPlacementMode"), Is.Null);
         }
 
         [Test]
-        public void TileFeaturePresentationCatalogEntry_DefaultFootprintMode_SingleCell()
+        public void TileFeaturePresentationCatalogEntry_DoesNotExposeIcon()
         {
-            var entry = new TileFeaturePresentationCatalogEntry();
+            var entryType = typeof(TileFeaturePresentationCatalogEntry);
 
-            Assert.That(entry.FootprintMode, Is.EqualTo(TileFeatureVisualFootprintMode.SingleCell));
+            Assert.That(entryType.GetProperty("Icon"), Is.Null);
+            Assert.That(entryType.GetField("icon", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null);
         }
 
         [Test]
-        public void TileFeaturePresentationCatalog_RejectsInvalidPlacementMode()
+        public void TileFeaturePresentationCatalogEntry_DoesNotExposeFootprintMode()
         {
-            var prefab = CreateValidPrefab("InvalidPlacementModePrefab");
-            var entry = Entry("button", TileFeatureKind.Button, prefab);
-            SetPrivateField(entry, "placementMode", (TileFeatureVisualPlacementMode)999);
-            var catalog = CreateCatalog(entry);
-            var stageEntry = CreateStageEntry(
-                CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button")),
-                CreatePresentation(catalog));
+            var entryType = typeof(TileFeaturePresentationCatalogEntry);
+            var catalogAssembly = typeof(TileFeaturePresentationCatalog).Assembly;
 
-            try
-            {
-                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
-
-                AssertHasCode(report, "presentation.tile-feature.catalog.placement-mode-invalid");
-            }
-            finally
-            {
-                DestroyObjects(stageEntry.PresentationDefinition, stageEntry.GameplayDefinition, stageEntry, catalog, prefab);
-            }
+            Assert.That(entryType.GetProperty("FootprintMode"), Is.Null);
+            Assert.That(entryType.GetField("footprintMode", BindingFlags.Instance | BindingFlags.NonPublic), Is.Null);
+            Assert.That(catalogAssembly.GetType("Game.Feature.Stages.TileFeatureVisualFootprintMode"), Is.Null);
         }
 
         [Test]
-        public void TileFeaturePresentationCatalog_RejectsInvalidFootprintMode()
+        public void CampaignMainBoardCatalog_HasNoRemovedSerializedFields()
         {
-            var prefab = CreateValidPrefab("InvalidFootprintModePrefab");
-            var entry = Entry("button", TileFeatureKind.Button, prefab);
-            SetPrivateField(entry, "footprintMode", (TileFeatureVisualFootprintMode)999);
-            var catalog = CreateCatalog(entry);
-            var stageEntry = CreateStageEntry(
-                CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button")),
-                CreatePresentation(catalog));
+            const string assetPath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Catalogs/TileFeaturePresentationCatalog_CampaignMainBoard.asset";
+            var yaml = File.ReadAllText(assetPath);
 
-            try
-            {
-                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
-
-                AssertHasCode(report, "presentation.tile-feature.catalog.footprint-mode-invalid");
-            }
-            finally
-            {
-                DestroyObjects(stageEntry.PresentationDefinition, stageEntry.GameplayDefinition, stageEntry, catalog, prefab);
-            }
+            Assert.That(yaml, Does.Not.Contain("placementMode:"));
+            Assert.That(yaml, Does.Not.Contain("icon:"));
+            Assert.That(yaml, Does.Not.Contain("footprintMode:"));
+            Assert.That(yaml, Does.Not.Contain("directionHint:"));
+            Assert.That(yaml, Does.Not.Contain("presentationKey: exit.1x1"));
+            Assert.That(yaml, Does.Contain("presentationKey: exit.default"));
+            Assert.That(yaml, Does.Contain("presentationKey: slide.up"));
+            Assert.That(yaml, Does.Contain("presentationKey: slide.right"));
+            Assert.That(yaml, Does.Contain("presentationKey: slide.down"));
+            Assert.That(yaml, Does.Contain("presentationKey: slide.left"));
         }
 
         [Test]
-        public void TileFeaturePresentationCatalog_AllowsReplaceBaseTile()
+        public void TileFeaturePresentationCatalogAssets_HaveNoDirectionHintResidue()
         {
-            var prefab = CreateValidPrefab("ReplaceBaseTilePrefab");
-            var catalog = CreateCatalog(Entry(
-                "button",
-                TileFeatureKind.Button,
-                prefab,
-                placementMode: TileFeatureVisualPlacementMode.ReplaceBaseTile));
-            var stageEntry = CreateStageEntry(
-                CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button")),
-                CreatePresentation(catalog));
+            var catalogGuids = AssetDatabase.FindAssets("t:TileFeaturePresentationCatalog");
 
-            try
+            Assert.That(catalogGuids, Is.Not.Empty);
+            foreach (var catalogGuid in catalogGuids)
             {
-                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
+                var assetPath = AssetDatabase.GUIDToAssetPath(catalogGuid);
+                var yaml = File.ReadAllText(assetPath);
 
-                AssertNoCode(report, "presentation.tile-feature.catalog.placement-mode-invalid");
-            }
-            finally
-            {
-                DestroyObjects(stageEntry.PresentationDefinition, stageEntry.GameplayDefinition, stageEntry, catalog, prefab);
+                Assert.That(yaml, Does.Not.Contain("directionHint:"), assetPath);
             }
         }
 
@@ -253,6 +220,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 Assert.That(resolved.TileFeatureBindings, Has.Count.EqualTo(1));
                 Assert.That(resolved.TileFeatureBindings[0].TileId, Is.EqualTo(100));
                 Assert.That(resolved.TileFeatureBindings[0].VisualPrefab, Is.SameAs(prefab));
+                Assert.That(resolved.TileFeatureBindings[0].Kind, Is.EqualTo(TileFeatureKind.Button));
+                Assert.That(resolved.TileFeatureBindings[0].VfxStyleKey, Is.EqualTo(VfxStyleKey.Default));
             }
             finally
             {
@@ -321,15 +290,12 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StagePresentationAssembler_ResolvesTileFeaturePlacementModeFromCatalog()
+        public void StagePresentationAssembler_CatalogResolvedTileFeatureSuppressesBaseTile()
         {
-            var prefab = CreateValidPrefab("CatalogPlacementModePrefab");
-            var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button"));
-            var catalog = CreateCatalog(Entry(
-                "button",
-                TileFeatureKind.Button,
-                prefab,
-                placementMode: TileFeatureVisualPlacementMode.ReplaceBaseTile));
+            var prefab = CreateValidPrefab("CatalogImplicitReplacePrefab");
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button", cell));
+            var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab));
             var presentation = CreatePresentation(catalog);
 
             try
@@ -337,9 +303,8 @@ namespace Game.Feature.Stages.Editor.Tests
                 var resolved = StagePresentationAssembler.Resolve(stage, presentation);
 
                 Assert.That(resolved.TileFeatureBindings, Has.Count.EqualTo(1));
-                Assert.That(
-                    resolved.TileFeatureBindings[0].PlacementMode,
-                    Is.EqualTo(TileFeatureVisualPlacementMode.ReplaceBaseTile));
+                Assert.That(resolved.SuppressedBaseTileCells, Has.Count.EqualTo(1));
+                Assert.That(resolved.SuppressedBaseTileCells[0], Is.EqualTo(cell));
             }
             finally
             {
@@ -372,17 +337,16 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StagePresentationAssembler_DirectOverrideUsesCatalogPlacementModeWhenKeyResolves()
+        public void StagePresentationAssembler_DirectOverrideUsesCatalogExitPolicyWhenKeyResolves()
         {
-            var catalogPrefab = CreateValidPrefab("DirectPlacementCatalogPrefab");
-            var directPrefab = CreateValidPrefab("DirectPlacementDirectPrefab");
-            var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button"));
+            var catalogPrefab = CreateValidPrefab("DirectExitPolicyCatalogPrefab");
+            var directPrefab = CreateValidPrefab("DirectExitPolicyDirectPrefab");
+            var center = new SurfaceCell(FaceId.Floor, 1, 1);
+            var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Exit, "exit.default", center));
             var catalog = CreateCatalog(Entry(
-                "button",
-                TileFeatureKind.Button,
-                catalogPrefab,
-                placementMode: TileFeatureVisualPlacementMode.ReplaceBaseTile,
-                footprintMode: TileFeatureVisualFootprintMode.ThreeByThreeSameFace));
+                "exit.default",
+                TileFeatureKind.Exit,
+                catalogPrefab));
             var presentation = CreatePresentation(
                 catalog,
                 new TileFeaturePresentationBinding { TileId = 100, VisualPrefab = directPrefab });
@@ -393,12 +357,7 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 Assert.That(resolved.TileFeatureBindings, Has.Count.EqualTo(1));
                 Assert.That(resolved.TileFeatureBindings[0].VisualPrefab, Is.SameAs(directPrefab));
-                Assert.That(
-                    resolved.TileFeatureBindings[0].PlacementMode,
-                    Is.EqualTo(TileFeatureVisualPlacementMode.ReplaceBaseTile));
-                Assert.That(
-                    resolved.TileFeatureBindings[0].FootprintMode,
-                    Is.EqualTo(TileFeatureVisualFootprintMode.ThreeByThreeSameFace));
+                Assert.That(resolved.TileFeatureBindings[0].Kind, Is.EqualTo(TileFeatureKind.Exit));
                 Assert.That(resolved.SuppressedBaseTileCells, Has.Count.EqualTo(9));
             }
             finally
@@ -408,10 +367,11 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StagePresentationAssembler_DirectOverrideFallsBackOverlayWhenNoCatalogKey()
+        public void StagePresentationAssembler_DirectOverrideWithoutCatalogKeyUsesSingleCellPolicy()
         {
-            var directPrefab = CreateValidPrefab("DirectPlacementOverlayPrefab");
-            var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, string.Empty));
+            var directPrefab = CreateValidPrefab("DirectSingleCellPrefab");
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Exit, string.Empty, cell));
             var presentation = CreatePresentation(
                 null,
                 new TileFeaturePresentationBinding { TileId = 100, VisualPrefab = directPrefab });
@@ -421,10 +381,9 @@ namespace Game.Feature.Stages.Editor.Tests
                 var resolved = StagePresentationAssembler.Resolve(stage, presentation);
 
                 Assert.That(resolved.TileFeatureBindings, Has.Count.EqualTo(1));
-                Assert.That(
-                    resolved.TileFeatureBindings[0].PlacementMode,
-                    Is.EqualTo(TileFeatureVisualPlacementMode.Overlay));
-                Assert.That(resolved.SuppressedBaseTileCells, Is.Empty);
+                Assert.That(resolved.TileFeatureBindings[0].Kind, Is.EqualTo(TileFeatureKind.Unknown));
+                Assert.That(resolved.SuppressedBaseTileCells, Has.Count.EqualTo(1));
+                Assert.That(resolved.SuppressedBaseTileCells[0], Is.EqualTo(cell));
             }
             finally
             {
@@ -433,16 +392,12 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StagePresentationAssembler_BuildsSuppressedBaseTileCellsForReplaceMode()
+        public void StagePresentationAssembler_BuildsSuppressedBaseTileCellsForImplicitReplace()
         {
-            var prefab = CreateValidPrefab("SuppressedReplacePrefab");
+            var prefab = CreateValidPrefab("SuppressedImplicitReplacePrefab");
             var cell = new SurfaceCell(FaceId.Front, 1, 0);
             var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button", cell));
-            var catalog = CreateCatalog(Entry(
-                "button",
-                TileFeatureKind.Button,
-                prefab,
-                placementMode: TileFeatureVisualPlacementMode.ReplaceBaseTile));
+            var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab));
             var presentation = CreatePresentation(catalog);
 
             try
@@ -459,7 +414,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StagePresentationAssembler_BuildsThreeByThreeSuppressedBaseTileCellsForFootprint()
+        public void StagePresentationAssembler_BuildsThreeByThreeSuppressedBaseTileCellsForExitKind()
         {
             var prefab = CreateValidPrefab("SuppressedThreeByThreePrefab");
             var center = new SurfaceCell(FaceId.Floor, 1, 1);
@@ -467,9 +422,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var catalog = CreateCatalog(Entry(
                 "exit",
                 TileFeatureKind.Exit,
-                prefab,
-                placementMode: TileFeatureVisualPlacementMode.ReplaceBaseTile,
-                footprintMode: TileFeatureVisualFootprintMode.ThreeByThreeSameFace));
+                prefab));
             var presentation = CreatePresentation(catalog);
 
             try
@@ -499,10 +452,11 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StagePresentationAssembler_DoesNotSuppressOverlayFeatures()
+        public void StagePresentationAssembler_AllCatalogResolvedFeaturesSuppressBaseTile()
         {
-            var prefab = CreateValidPrefab("OverlayDoesNotSuppressPrefab");
-            var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button"));
+            var prefab = CreateValidPrefab("ImplicitReplaceSuppressPrefab");
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button", cell));
             var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab));
             var presentation = CreatePresentation(catalog);
 
@@ -510,8 +464,9 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 var resolved = StagePresentationAssembler.Resolve(stage, presentation);
 
-                Assert.That(resolved.TileFeatureBindings[0].PlacementMode, Is.EqualTo(TileFeatureVisualPlacementMode.Overlay));
-                Assert.That(resolved.SuppressedBaseTileCells, Is.Empty);
+                Assert.That(resolved.TileFeatureBindings, Has.Count.EqualTo(1));
+                Assert.That(resolved.SuppressedBaseTileCells, Has.Count.EqualTo(1));
+                Assert.That(resolved.SuppressedBaseTileCells[0], Is.EqualTo(cell));
             }
             finally
             {
@@ -759,6 +714,32 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void CampaignMainBoardCatalog_KeepsSlideDirectionSpecificEntries()
+        {
+            const string catalogPath =
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Catalogs/TileFeaturePresentationCatalog_CampaignMainBoard.asset";
+            var catalog = AssetDatabase.LoadAssetAtPath<TileFeaturePresentationCatalog>(catalogPath);
+            Assert.That(catalog, Is.Not.Null);
+
+            AssertSlideCatalogEntry(
+                catalog,
+                "slide.up",
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Up.prefab");
+            AssertSlideCatalogEntry(
+                catalog,
+                "slide.right",
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Right.prefab");
+            AssertSlideCatalogEntry(
+                catalog,
+                "slide.down",
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Down.prefab");
+            AssertSlideCatalogEntry(
+                catalog,
+                "slide.left",
+                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Left.prefab");
+        }
+
+        [Test]
         public void StageCatalogValidator_ReportsDuplicateTileFeatureCatalogKey()
         {
             var prefab = CreateValidPrefab("ValidatorDuplicateKeyPrefab");
@@ -833,8 +814,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var catalog = CreateCatalog(Entry(
                 "button",
                 TileFeatureKind.Button,
-                prefab,
-                placementMode: TileFeatureVisualPlacementMode.ReplaceBaseTile));
+                prefab));
             var stageEntry = CreateStageEntry(
                 CreateStage(
                     CreateTileFeature(100, TileFeatureKind.Button, "button", cell),
@@ -859,8 +839,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var entry = Entry(
                 "button",
                 TileFeatureKind.Button,
-                null,
-                placementMode: TileFeatureVisualPlacementMode.ReplaceBaseTile);
+                null);
             var catalog = CreateCatalog(entry);
             var stageEntry = CreateStageEntry(
                 CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button")),
@@ -879,15 +858,13 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StageCatalogValidator_RejectsThreeByThreeReplaceBaseTileOutsideBoardBounds()
+        public void StageCatalogValidator_RejectsExitReplaceBaseTileOutsideBoardBounds()
         {
-            var prefab = CreateValidPrefab("FootprintOutOfBoundsPrefab");
+            var prefab = CreateValidPrefab("ExitOutOfBoundsPrefab");
             var catalog = CreateCatalog(Entry(
                 "exit",
                 TileFeatureKind.Exit,
-                prefab,
-                placementMode: TileFeatureVisualPlacementMode.ReplaceBaseTile,
-                footprintMode: TileFeatureVisualFootprintMode.ThreeByThreeSameFace));
+                prefab));
             var stageEntry = CreateStageEntry(
                 CreateStage(CreateTileFeature(
                     100,
@@ -909,16 +886,12 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StageCatalogValidator_AllowsOverlayAndReplaceSameCellIfOnlyOneReplace()
+        public void StageCatalogValidator_RejectsDifferentImplicitReplaceKeysOnSameCell()
         {
-            var prefab = CreateValidPrefab("OverlayReplaceSameCellPrefab");
+            var prefab = CreateValidPrefab("ImplicitReplaceSameCellPrefab");
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var catalog = CreateCatalog(
-                Entry(
-                    "replace",
-                    TileFeatureKind.Button,
-                    prefab,
-                    placementMode: TileFeatureVisualPlacementMode.ReplaceBaseTile),
+                Entry("replace", TileFeatureKind.Button, prefab),
                 Entry("overlay", TileFeatureKind.Button, prefab));
             var stageEntry = CreateStageEntry(
                 CreateStage(
@@ -930,7 +903,7 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
 
-                AssertNoCode(report, "presentation.tile-feature.replace-base-tile.cell-duplicate");
+                AssertHasCode(report, "presentation.tile-feature.replace-base-tile.cell-duplicate");
             }
             finally
             {
@@ -939,9 +912,9 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StageCatalogValidator_AllowsMultipleOverlaySameCell()
+        public void StageCatalogValidator_RejectsMultipleImplicitReplaceSameCell()
         {
-            var prefab = CreateValidPrefab("MultipleOverlaySameCellPrefab");
+            var prefab = CreateValidPrefab("MultipleImplicitReplaceSameCellPrefab");
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var catalog = CreateCatalog(Entry("overlay", TileFeatureKind.Button, prefab));
             var stageEntry = CreateStageEntry(
@@ -954,7 +927,7 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
 
-                AssertNoCode(report, "presentation.tile-feature.replace-base-tile.cell-duplicate");
+                AssertHasCode(report, "presentation.tile-feature.replace-base-tile.cell-duplicate");
             }
             finally
             {
@@ -1134,14 +1107,10 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StageAuthoringGridWindow_ShowsPlacementModeStatus()
+        public void StageAuthoringGridWindow_ShowsCatalogResolvedStatusWithoutPlacementMode()
         {
-            var prefab = CreateValidPrefab("PlacementModeStatusPrefab");
-            var catalog = CreateCatalog(Entry(
-                "button",
-                TileFeatureKind.Button,
-                prefab,
-                placementMode: TileFeatureVisualPlacementMode.ReplaceBaseTile));
+            var prefab = CreateValidPrefab("CatalogResolvedStatusPrefab");
+            var catalog = CreateCatalog(Entry("button", TileFeatureKind.Button, prefab));
             var authoring = CreateAuthoring(
                 CreatePresentation(catalog),
                 CreateTileFeature(100, TileFeatureKind.Button, "button"));
@@ -1154,8 +1123,9 @@ namespace Game.Feature.Stages.Editor.Tests
 
                 var status = window.GetSelectedTileFeatureCatalogStatusForTests();
 
-                Assert.That(status.PlacementMode, Is.EqualTo(TileFeatureVisualPlacementMode.ReplaceBaseTile));
-                Assert.That(status.PlacementModeSource, Is.EqualTo(TileFeaturePresentationPlacementModeSource.CatalogKey));
+                Assert.That(status.Kind, Is.EqualTo(TileFeaturePresentationCatalogStatusKind.KeyResolved));
+                Assert.That(status.Entry, Is.Not.Null);
+                Assert.That(status.Message, Does.Not.Contain("Placement"));
             }
             finally
             {
@@ -1164,21 +1134,20 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StageAuthoringGridWindow_DirectOverrideShowsPlacementModeSource()
+        public void StageAuthoringGridWindow_DirectOverrideShowsCatalogPolicyStatus()
         {
-            var catalogPrefab = CreateValidPrefab("DirectPlacementSourceCatalogPrefab");
-            var directPrefab = CreateValidPrefab("DirectPlacementSourceDirectPrefab");
+            var catalogPrefab = CreateValidPrefab("DirectPolicySourceCatalogPrefab");
+            var directPrefab = CreateValidPrefab("DirectPolicySourceDirectPrefab");
             var catalog = CreateCatalog(Entry(
-                "button",
-                TileFeatureKind.Button,
-                catalogPrefab,
-                placementMode: TileFeatureVisualPlacementMode.ReplaceBaseTile));
+                "exit.default",
+                TileFeatureKind.Exit,
+                catalogPrefab));
             var presentation = CreatePresentation(
                 catalog,
                 new TileFeaturePresentationBinding { TileId = 100, VisualPrefab = directPrefab });
             var authoring = CreateAuthoring(
                 presentation,
-                CreateTileFeature(100, TileFeatureKind.Button, "button"));
+                CreateTileFeature(100, TileFeatureKind.Exit, "exit.default"));
             var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
 
             try
@@ -1189,8 +1158,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 var status = window.GetSelectedTileFeatureCatalogStatusForTests();
 
                 Assert.That(status.Kind, Is.EqualTo(TileFeaturePresentationCatalogStatusKind.DirectOverrideActive));
-                Assert.That(status.PlacementMode, Is.EqualTo(TileFeatureVisualPlacementMode.ReplaceBaseTile));
-                Assert.That(status.PlacementModeSource, Is.EqualTo(TileFeaturePresentationPlacementModeSource.CatalogKey));
+                Assert.That(status.Entry, Is.Not.Null);
+                Assert.That(status.Entry.Kind, Is.EqualTo(TileFeatureKind.Exit));
+                Assert.That(status.Message, Does.Contain("presentation policy"));
+                Assert.That(status.Message, Does.Not.Contain("footprint"));
             }
             finally
             {
@@ -1199,37 +1170,26 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StageAuthoringGridWindow_BoardTileOverrideShowsSuppressedStatus()
+        public void StagePresentationAssembler_ReplaceBaseTileBinding_SuppressesBaseTileCell()
         {
             var prefab = CreateValidPrefab("BoardTileSuppressedStatusPrefab");
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var catalog = CreateCatalog(Entry(
                 "button",
                 TileFeatureKind.Button,
-                prefab,
-                placementMode: TileFeatureVisualPlacementMode.ReplaceBaseTile));
+                prefab));
             var presentation = CreatePresentation(catalog);
-            var authoring = CreateAuthoring(
-                presentation,
-                CreateTileFeature(100, TileFeatureKind.Button, "button", cell));
-            var window = ScriptableObject.CreateInstance<StageAuthoringGridWindow>();
+            var stage = CreateStage(CreateTileFeature(100, TileFeatureKind.Button, "button", cell));
 
             try
             {
-                window.BindForTests(authoring);
-                window.SetTargetCellForTests(cell.face, cell.PlanarPosition);
+                var resolved = StagePresentationAssembler.Resolve(stage, presentation);
 
-                var status = window.GetBoardTileOverrideStatusForTests();
-
-                if (status.IsBaseTileSuppressed)
-                {
-                    Assert.That(status.SuppressingTileId, Is.EqualTo(100));
-                    Assert.That(status.Message, Does.Contain("will not be visible while suppressed"));
-                }
+                Assert.That(resolved.SuppressedBaseTileCells, Does.Contain(cell));
             }
             finally
             {
-                DestroyObjects(window, presentation, authoring, catalog, prefab);
+                DestroyObjects(stage, presentation, catalog, prefab);
             }
         }
 
@@ -1238,12 +1198,9 @@ namespace Game.Feature.Stages.Editor.Tests
             TileFeatureKind kind,
             GameObject visualPrefab,
             bool isDefault = false,
-            Direction2D directionHint = Direction2D.None,
-            TileFeatureVisualPlacementMode placementMode = TileFeatureVisualPlacementMode.Overlay,
-            TileFeatureVisualFootprintMode footprintMode = TileFeatureVisualFootprintMode.SingleCell,
             VfxStyleKey vfxStyleKey = default)
         {
-            return CreateEntry(presentationKey, kind, visualPrefab, isDefault, directionHint, placementMode, footprintMode, vfxStyleKey);
+            return CreateEntry(presentationKey, kind, visualPrefab, isDefault, vfxStyleKey);
         }
 
         private static TileFeaturePresentationCatalogEntry CreateEntry(
@@ -1251,9 +1208,6 @@ namespace Game.Feature.Stages.Editor.Tests
             TileFeatureKind kind,
             GameObject visualPrefab,
             bool isDefault = false,
-            Direction2D directionHint = Direction2D.None,
-            TileFeatureVisualPlacementMode placementMode = TileFeatureVisualPlacementMode.Overlay,
-            TileFeatureVisualFootprintMode footprintMode = TileFeatureVisualFootprintMode.SingleCell,
             VfxStyleKey vfxStyleKey = default)
         {
             var entry = new TileFeaturePresentationCatalogEntry();
@@ -1261,10 +1215,7 @@ namespace Game.Feature.Stages.Editor.Tests
             SetPrivateField(entry, "displayName", presentationKey);
             SetPrivateField(entry, "kind", kind);
             SetPrivateField(entry, "visualPrefab", visualPrefab);
-            SetPrivateField(entry, "placementMode", placementMode);
-            SetPrivateField(entry, "footprintMode", footprintMode);
             SetPrivateField(entry, "isDefaultForKind", isDefault);
-            SetPrivateField(entry, "directionHint", directionHint);
             SetPrivateField(entry, "vfxStyleKey", vfxStyleKey);
             return entry;
         }
@@ -1388,6 +1339,19 @@ namespace Game.Feature.Stages.Editor.Tests
                     parameter.type == parameterType),
                 Is.True,
                 $"Missing Animator parameter '{parameterName}' ({parameterType}).");
+        }
+
+        private static void AssertSlideCatalogEntry(
+            TileFeaturePresentationCatalog catalog,
+            string presentationKey,
+            string prefabPath)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+
+            Assert.That(prefab, Is.Not.Null, prefabPath);
+            Assert.That(catalog.TryGetEntry(presentationKey, out var entry), Is.True, presentationKey);
+            Assert.That(entry.Kind, Is.EqualTo(TileFeatureKind.Slide), presentationKey);
+            Assert.That(entry.VisualPrefab, Is.SameAs(prefab), presentationKey);
         }
 
         private static TileFeatureVisualProfile ResolveTileFeatureProfile(

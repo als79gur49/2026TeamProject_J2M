@@ -33,14 +33,14 @@ Cue values:
 
 ```text
 Move=1, Death=2, Windup=3, Landing=4, Active=5, Recover=6,
-ProjectileImpact=7, ChargeActiveLoop=8, StationaryActive=9, PassiveContact=10
+ForwardCellImpact=7, ChargeActiveLoop=8, StationaryActive=9, PassiveContact=10
 ```
 
 | Policy | Required cues | Optional cues | GUID | Decision |
 |---|---|---|---|---|
 | `EnemyAudioRequirementPolicy_Mover` | `Move`, `Death` | empty | `8e936a47608645e1aa41787b4ea2d7a4` | PASS |
 | `EnemyAudioRequirementPolicy_JumpChaser` | `Move`, `Landing`, `Death` | empty | `fdee262c72e94d699b85ca4adf6cd64c` | PASS |
-| `EnemyAudioRequirementPolicy_ProjectileShooter` | `Move`, `Active`, `ProjectileImpact`, `Death` | empty | `51ef8f05b88447fe9ad909c95f74cdcc` | PASS |
+| `EnemyAudioRequirementPolicy_ProjectileShooter` | `Move`, `Active`, `ForwardCellImpact`, `Death` | empty | `51ef8f05b88447fe9ad909c95f74cdcc` | PASS |
 | `EnemyAudioRequirementPolicy_GravityFieldUtility` | `Move`, `Windup`, `Active`, `Recover`, `Death` | empty | `ad4f71cf3d1644a6ba3fadc1c36ea56a` | PASS |
 | `EnemyAudioRequirementPolicy_ChargeLoop` | `Move`, `ChargeActiveLoop`, `Death` | empty | `9a9419b7c7d54d56b5e309bc7bac39e2` | PASS |
 | `EnemyAudioRequirementPolicy_StationaryCadence` | `Move`, `StationaryActive`, `Death` | empty | `fb87deded6c14efe9ac2d6cfcd37e435` | PASS |
@@ -53,7 +53,7 @@ Policy-specific checks:
 - PASS: `ChargeLoop` does not require or optionalize one-shot `Active`.
 - PASS: `GravityFieldUtility` includes `Active`.
 - PASS: `PassiveContact` includes `PassiveContact`.
-- PASS: `ProjectileShooter` includes `ProjectileImpact`.
+- PASS: `ProjectileShooter` includes `ForwardCellImpact`.
 
 ## Binding Assets
 

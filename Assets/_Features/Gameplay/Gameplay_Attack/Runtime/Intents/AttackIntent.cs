@@ -218,31 +218,12 @@ namespace Game.Feature.Gameplay.Attack.Intents
                         null,
                         null);
 
-                case AttackCommandKind.FireProjectile:
-                    return CreateFireProjectile(rawIntent.SourceId, rawIntent.Priority, rawIntent.LocalSequence);
-
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(rawIntent),
                         rawIntent.CommandKind,
                         "Raw attack intent contained an unsupported entity command.");
             }
-        }
-
-        internal static AttackIntent CreateFireProjectile(int sourceId, int priority, int localSequence = 0)
-        {
-            return new AttackIntent(
-                sourceId,
-                priority,
-                0,
-                AttackCommandKind.FireProjectile,
-                AttackSourceKind.Combat,
-                AttackInputKind.EntityIntent,
-                localSequence,
-                default,
-                hasTargetCell: false,
-                null,
-                null);
         }
 
         private static void ValidateContract(
@@ -287,39 +268,6 @@ namespace Game.Feature.Gameplay.Attack.Intents
                     if (targetId <= 0)
                     {
                         throw new ArgumentOutOfRangeException(nameof(targetId), "Direct attack commands require a positive target ID.");
-                    }
-
-                    return;
-
-                case AttackCommandKind.FireProjectile:
-                    if (sourceKind != AttackSourceKind.Combat)
-                    {
-                        throw new ArgumentException("FireProjectile commands must use combat source kind.", nameof(sourceKind));
-                    }
-
-                    if (inputKind != AttackInputKind.EntityIntent)
-                    {
-                        throw new ArgumentException("FireProjectile commands must be entity-generated inputs.", nameof(inputKind));
-                    }
-
-                    if (impactReservation.HasValue)
-                    {
-                        throw new ArgumentException("FireProjectile commands must not carry an impact reservation.", nameof(impactReservation));
-                    }
-
-                    if (delayedAttackEffect.HasValue)
-                    {
-                        throw new ArgumentException("FireProjectile commands must not carry delayed attack effect data.", nameof(delayedAttackEffect));
-                    }
-
-                    if (hasTargetCell)
-                    {
-                        throw new ArgumentException("FireProjectile commands must not carry a target cell.", nameof(hasTargetCell));
-                    }
-
-                    if (targetId != 0)
-                    {
-                        throw new ArgumentOutOfRangeException(nameof(targetId), "FireProjectile commands must not carry a target ID.");
                     }
 
                     return;

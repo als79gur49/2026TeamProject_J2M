@@ -350,19 +350,20 @@ Current canonical identity lists:
   - `None`
   - `Pause`
   - `Confirm`
-  - `Tooltip`
   - `DemoStageControl`
 
 Screen classification notes:
 
 - `Gameplay` is the logical gameplay root. It has no gameplay-screen prefab catalog entry.
 - `StageResult`, `LevelFailed`, and `GameClear` are canonical terminal result screens.
+- `GameClear` is a result-only terminal screen with title and main label bindings only; retired authored restart/detail compatibility objects are not current contract.
 - `Help` and `Inventory` are not current gameplay screens. Any old reference that described them as canonical gameplay screens is documentation drift or historical context only.
 
 Popup classification notes:
 
-- `Pause`, `Confirm`, and `Tooltip` are canonical gameplay popup catalog entries.
-- `Reward` remains protected legacy/residue UI and is not the canonical stage-clear result path.
+- `Pause` and `Confirm` are canonical gameplay popup catalog entries.
+- `TooltipPopup` was retired from the current popup vocabulary after PR-TT1 found no production caller. Settings display hover hint remains as a local inline pointer-hover affordance and does not use `PopupId.Tooltip`.
+- Reward popup is not current popup vocabulary: it is not a `PopupId`, catalog entry, prefab, factory case, or stage-clear presentation path. Stage reward/progression vocabulary remains stage-owned content/system vocabulary, not popup UI vocabulary.
 - `DemoStageControl` is not a gameplay popup catalog entry. It is a catalog-less runtime assist popup created through the factory/runtime/hotkey path.
 - `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing. It is not a deletion candidate and is not a dev-only compile exclusion target.
 - Future public-release hiding or disabling for `DemoStageControl` must be controlled by a separate product/build configuration decision, not by a simple `DEVELOPMENT_BUILD` or `UNITY_EDITOR` compile gate.
@@ -380,10 +381,19 @@ HUD classification notes:
 - This deletion decision does not change Push/Flip readiness mapping or gameplay command ownership.
 - The current HUD-side mapping is display semantics only.
 
+Scene transition content notes:
+
+- Scene transition semantic ids remain distinct, but semantic ids and physical content prefab files are not one-to-one.
+- `GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` share `GenericLoadingOverlayContent`.
+- `ChanceLost` remains a dedicated `ChanceLostOverlayContent` path because chance-loss visuals are slot/effect-driven and do not expose dynamic previous/current/total/death chance text bindings; its current authored slots use explicit inspector-bound slot roots, and `ChanceSlotView*` name fallback exists only as a safety net.
+- Scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract.
+- `LevelFailedRestart` does not own a current dedicated transition message/text content contract.
+
 Deletion protection notes:
 
 - Do not delete `LevelFailed`, `GameClear`, `StageResult`, `Confirm` popup, `UI_Composition` adapters, UI audio/display/settings bridge code, or the `StageNavigationRequest` path as part of drift correction.
 - Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`.
+- `StageResult` is a minimal stage-completion navigation endpoint. It no longer carries or displays title/summary/detail result text; continue, retry, and next-stage paths remain `StageNavigationRequest` intent boundaries.
 - UI diagnostics overlay was removed as an unused runtime feature after an explicit owner decision. It is not a hidden or dev-only retained runtime path.
 - Future UI deletion safety requires a separate PR with current lane evidence and an explicit owner decision.
 

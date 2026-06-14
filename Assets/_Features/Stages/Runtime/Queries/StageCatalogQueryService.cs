@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Game.Feature.Stages
 {
@@ -9,7 +8,6 @@ namespace Game.Feature.Stages
         public StageLaunchCatalogItem(
             StageId stageId,
             string displayName,
-            Sprite previewSprite,
             string worldId,
             string chapterId,
             int sortOrder,
@@ -17,7 +15,6 @@ namespace Game.Feature.Stages
         {
             StageId = stageId;
             DisplayName = displayName ?? string.Empty;
-            PreviewSprite = previewSprite;
             WorldId = worldId ?? string.Empty;
             ChapterId = chapterId ?? string.Empty;
             SortOrder = sortOrder;
@@ -27,8 +24,6 @@ namespace Game.Feature.Stages
         public StageId StageId { get; }
 
         public string DisplayName { get; }
-
-        public Sprite PreviewSprite { get; }
 
         public string WorldId { get; }
 
@@ -93,7 +88,6 @@ namespace Game.Feature.Stages
                 presentation != null && !string.IsNullOrWhiteSpace(presentation.DisplayName)
                     ? presentation.DisplayName
                     : entry != null ? entry.StageId.Value : string.Empty,
-                presentation != null ? presentation.PreviewSprite : null,
                 entry != null ? entry.CatalogWorldId : string.Empty,
                 entry != null ? entry.CatalogChapterId : string.Empty,
                 entry != null ? entry.CatalogSortOrder : 0,

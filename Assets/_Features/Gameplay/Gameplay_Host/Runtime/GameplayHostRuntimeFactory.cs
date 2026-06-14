@@ -18,7 +18,6 @@ using Game.Feature.Gameplay.UIAccess.Queries;
 using Game.Feature.Stages;
 using Game.Shared.Audio;
 using Game.Shared.Input;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -64,7 +63,6 @@ namespace Game.Feature.Gameplay.Host
                 hostObject.GetComponent<TileFeatureVisualRegistry>() ?? hostObject.AddComponent<TileFeatureVisualRegistry>();
 
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
-            var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
             var initialTileFeatures = configuration.InitialTileFeatures ?? Array.Empty<TileFeatureState>();
             var tileFeatureDefinitions = configuration.TileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
             var moonBlockRespawnDefinitions =
@@ -81,13 +79,11 @@ namespace Game.Feature.Gameplay.Host
             var normalizedInitialEntities = NormalizeInitialEntitiesForRuntime(initialEntities, generalTimingProfile);
             DebugSpawnValidityPolicy.EnsureRepresentable(
                 configuration.InitialBoardBounds,
-                initialTerrain,
                 normalizedInitialEntities);
 
             var worldState = GameplayCompositionRoot.CreateWorldState(
                 normalizedInitialEntities,
                 configuration.InitialBoardBounds,
-                initialTerrain,
                 configuration.InitialTopology,
                 initialTileFeatures);
             var initialSnapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
@@ -193,11 +189,8 @@ namespace Game.Feature.Gameplay.Host
                 faceSeamGap,
                 configuration.BoardSurfaceTexture,
                 configuration.BoardTilePresentationCatalog,
-                configuration.BoardTilePresentationOverrides,
                 configuration.BoardTileStyleCatalog,
                 configuration.BoardTilePaintOverrides,
-                configuration.BoardTileOverlayCatalog,
-                configuration.BoardTileOverlayOverrides,
                 configuration.SuppressedBaseTileCells,
                 configuration.BoardPresentationProfile != null
                     ? configuration.BoardPresentationProfile.ActiveFaceCoverPrefab
@@ -762,15 +755,6 @@ namespace Game.Feature.Gameplay.Host
             foreach (var entity in initialEntities)
             {
                 var normalizedEntity = entity;
-
-                if (normalizedEntity.type == EntityType.Projectile &&
-                    normalizedEntity.spawnTick == 0 &&
-                    normalizedEntity.stateTimer == 0 &&
-                    normalizedEntity.hp > 0 &&
-                    !normalizedEntity.markedForDeath)
-                {
-                    normalizedEntity.stateTimer = timingProfile.ProjectileStepIntervalTicks;
-                }
 
                 normalizedEntities.Add(normalizedEntity);
             }

@@ -11,7 +11,6 @@ namespace Game.Feature.Stages
             BoardBounds boardBounds,
             CubeTopologyState initialTopology,
             EntityState[] initialEntities,
-            TerrainData initialTerrain,
             TileFeatureState[] initialTileFeatures,
             TileFeatureRuntimeDefinition[] tileFeatureDefinitions,
             MoonBlockRespawnDefinition[] moonBlockRespawnDefinitions,
@@ -22,7 +21,6 @@ namespace Game.Feature.Stages
             BoardBounds = boardBounds;
             InitialTopology = initialTopology;
             InitialEntities = initialEntities ?? Array.Empty<EntityState>();
-            InitialTerrain = initialTerrain ?? TerrainData.Empty;
             InitialTileFeatures = initialTileFeatures ?? Array.Empty<TileFeatureState>();
             TileFeatureDefinitions = tileFeatureDefinitions ?? Array.Empty<TileFeatureRuntimeDefinition>();
             MoonBlockRespawnDefinitions = moonBlockRespawnDefinitions ?? Array.Empty<MoonBlockRespawnDefinition>();
@@ -36,8 +34,6 @@ namespace Game.Feature.Stages
         public CubeTopologyState InitialTopology { get; }
 
         public EntityState[] InitialEntities { get; }
-
-        public TerrainData InitialTerrain { get; }
 
         public TileFeatureState[] InitialTileFeatures { get; }
 

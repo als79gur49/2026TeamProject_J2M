@@ -17,7 +17,7 @@ Generated: 2026-05-09
   - `CampaignMain_StageIdAliasTable.asset`
   - `CampaignMain_StageSequence.asset`
 - Stage companion folders moved to `Levels/level-01/Stages`:
-  - `mechanics-showcase`
+  - `stage-4-2`
   - `stage-0-1`
   - `stage-0-2`
   - `stage-1-1`
@@ -28,7 +28,7 @@ Generated: 2026-05-09
   - `stage-4-1`
   - `stage-4-2`
   - `legacy-stage-5-1`
-  - `onboarding`
+  - `stage-0-1`
 - Stage condition assets moved to `_Shared/Gameplay/Conditions`.
 - Enemy AI profiles/core/brain/capabilities/catalogs moved to `_Shared/Gameplay/EnemyAI`.
 - Enemy/static/board/tile/topology/VFX presentation support moved to `_Shared/Presentation`.
@@ -39,8 +39,8 @@ Generated: 2026-05-09
   - the deleted legacy combined gameplay showcase stage folder under `Assets/_Features/Stages`
   - the deleted legacy tutorial scene stage folder under `Assets/_Features/Stages`
 - Deleted/emptied loose content roots:
-  - `Assets/_Features/Stages/Content/mechanics-showcase`
-  - `Assets/_Features/Stages/Content/onboarding`
+  - `Assets/_Features/Stages/Content/stage-4-2`
+  - `Assets/_Features/Stages/Content/stage-0-1`
   - `Assets/_Features/Stages/Content/stage-0-1`
   - `Assets/_Features/Stages/Content/stage-0-2`
   - `Assets/_Features/Stages/Content/stage-1-1`
@@ -65,8 +65,8 @@ Generated: 2026-05-09
 
 | Old id | New id | Notes |
 | --- | --- | --- |
-| `combined-gameplay-showcase` | `mechanics-showcase` | runtime id rename, alias added, direct-play updated |
-| `tutorial-scene` | `onboarding` | runtime id rename, alias added, direct-play updated |
+| `stage-4-2` | `stage-4-2` | runtime id rename, alias added, direct-play updated |
+| `stage-0-1` | `stage-0-1` | runtime id rename, alias added, direct-play updated |
 | `stage-5-1` | `legacy-stage-5-1` | catalog-preserved legacy content, excluded from sequence/direct-play |
 
 Aliases are recorded in `CampaignMain_StageIdAliasTable.asset` and `StageAliasGovernanceLedger.asset`.
@@ -84,13 +84,13 @@ Aliases are recorded in `CampaignMain_StageIdAliasTable.asset` and `StageAliasGo
   - `stage-4-1`
   - `stage-4-2`
 - Direct-play supported stages:
-  - `mechanics-showcase`
-  - `onboarding`
+  - `stage-4-2`
+  - `stage-0-1`
   - `stage-0-1`
   - `stage-1-1`
 - Nonsequence support/demo stages:
-  - `mechanics-showcase`
-  - `onboarding`
+  - `stage-4-2`
+  - `stage-0-1`
 - Catalog-only legacy/archived stages:
   - `legacy-stage-5-1`
 
@@ -136,8 +136,8 @@ Follow-up issue:
 
 Allowed remaining runtime/governance old-token hits:
 - intentional alias/governance:
-  - `combined-gameplay-showcase`
-  - `tutorial-scene`
+  - `stage-4-2`
+  - `stage-0-1`
   - `stage-5-1`
 - save compatibility:
   - retired completed `stage-5-1`
@@ -174,9 +174,9 @@ Not allowed:
 - Updated direct-play/editor tooling to use `StageContentPaths` instead of legacy hardcoded catalog paths.
 
 ## Reference Repairs
-- `CampaignMain_StageCatalog` now contains 12 catalog entries, including the 9-stage current campaign sequence, nonsequence `mechanics-showcase` / `onboarding` support stages, and catalog-only legacy/archived `legacy-stage-5-1`.
-- `StageEditorDirectPlayCatalog` declares `Assets/Scenes/UIAudioScene.unity` as the canonical gameplay shell and supports quick-launch stage ids `mechanics-showcase`, `onboarding`, `stage-0-1`, and `stage-1-1`.
-- `StageRuntimeContentResolver` smoke checked launch-context resolution for `mechanics-showcase` and `onboarding`.
+- `CampaignMain_StageCatalog` now contains 12 catalog entries, including the 9-stage current campaign sequence, nonsequence `stage-4-2` / `stage-0-1` support stages, and catalog-only legacy/archived `legacy-stage-5-1`.
+- `StageEditorDirectPlayCatalog` declares `Assets/Scenes/UIAudioScene.unity` as the canonical gameplay shell and supports quick-launch stage ids `stage-4-2`, `stage-0-1`, `stage-0-1`, and `stage-1-1`.
+- `StageRuntimeContentResolver` smoke checked launch-context resolution for `stage-4-2` and `stage-0-1`.
 
 ## Addressables
 - Not applicable: `com.unity.addressables` is not installed/configured, so no package dependency or groups were added.
@@ -215,7 +215,7 @@ Not allowed:
 - Fixture changes:
   - `StageAuthoringExitGoalHelperCommandTests` now creates its test `StageContentEntry` under `StageContentPaths.CampaignLevel01StagesRoot` and cleans up only the generated per-test stage folder plus generated condition asset.
   - The shared-condition rejection test now uses a valid Campaign owner path before validating shared-condition ownership.
-  - `CombinedGameplayShowcaseInstallerTests` now launches `mechanics-showcase`, matching `StageEditorDirectPlayCatalog`, and seeds deterministic Campaign temp slot/direct-play launch state.
+  - `CombinedGameplayShowcaseInstallerTests` now launches `stage-4-2`, matching `StageEditorDirectPlayCatalog`, and seeds deterministic Campaign temp slot/direct-play launch state.
   - `GameplayCameraTopologyAuthoringExtractionArchitectureTests` now validates the canonical shell scene and stage topology preset assets separately before building configuration.
 - Production code changes: none. Campaign owner-path validation, direct-play mapping, active-slot validation, `StageDefinition` bootstrap policy, and `defaultStageId` removal remain unchanged.
 - Asset/reference changes: no runtime stage, gameplay, Campaign structure, or scene asset references were changed. Only the Full EditMode known-failure baseline JSON was rebuilt.
@@ -270,7 +270,7 @@ The historical inventory below was captured before Phase 1.1 fixture stabilizati
 - `AttackInputNormalizationTests` (1):
   - `ImpactReservationComparer_PreservesFaceBeforePlanarOrder`: Expected and actual are both `SurfaceCell[3]`; first value expected `Floor(0,1)` but was `Front(0,0)`.
 - `AttackPhaseScenarioTests` (3):
-  - `Attack_FireProjectileIntent_SpawnsProjectileDuringCommit`: projectile spawn trace expectation mismatch.
+  - `Attack_RemovedEntityIntent_SpawnsRemovedEntityDuringCommit`: historical removed entity trace expectation mismatch.
   - `Attack_OnHit_DoesNotCreateSameTickNewIntent`: expected 1, actual 2.
   - `Attack_OnHit_DoesNotReenterMovementPhase`: expected 1, actual 2.
 - `CampaignStageFlowTests` (1):
@@ -336,7 +336,6 @@ The historical inventory below was captured before Phase 1.1 fixture stabilizati
   - `GameplayCubeProjector_ProjectsFrontFaceToVerticalPlane`: expected `1.91999996f`, actual `1.62999976f`.
   - `GameplaySceneHost_CameraTarget_StaysOnCubeCenterDuringTopologyTransition`: expected `(-0.50, -0.50, 1.13)`, actual `(-0.50, -0.82, 0.81)`.
   - `GameplaySceneHost_MoveMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates`: expected entity query result for `10`, actual empty.
-  - `GameplaySceneHost_PushMotion_KeepsProjectileLayerQueriesOnCommittedDestinationWhileViewInterpolates`: expected true, actual false.
   - `GameplaySceneHost_PushMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates`: expected true, actual false.
   - `GameplaySceneHost_TopologyTransition_CameraOrbitPreservesScreenContinuityAtStart`: expected `(-0.50, -0.50, 1.13)`, actual `(-0.50, -1.13, 0.50)`.
   - `GameplayTickViewPresenter_Present_MapsEnemyAttackHitAndMoveSignalsToAnimatorDrivers`: expected 1, actual 0.

@@ -115,15 +115,13 @@ namespace Game.Feature.Stages.Editor.Tests
             var governanceReport = new StageAliasGovernanceValidator().Validate(aliasTable, ledger);
 
             Assert.That(governanceReport.Issues, Is.Empty);
-            Assert.That(aliasTable.Entries.Count, Is.EqualTo(3));
-            Assert.That(ledger.Entries.Count, Is.EqualTo(3));
+            Assert.That(aliasTable.Entries.Count, Is.EqualTo(1));
+            Assert.That(ledger.Entries.Count, Is.EqualTo(1));
             Assert.That(
                 aliasTable.Entries.Select(entry => $"{entry.DeprecatedStageId}->{entry.CurrentStageId.Value}").ToArray(),
                 Is.EquivalentTo(new[]
                 {
-                    "combined-gameplay-showcase->mechanics-showcase",
                     "stage-5-1->legacy-stage-5-1",
-                    "tutorial-scene->onboarding",
                 }));
         }
 
@@ -137,7 +135,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 new StageIdAliasEntry
                 {
                     DeprecatedStageId = "synthetic-stage-alias",
-                    CurrentStageId = StageId.CreateOrThrow("mechanics-showcase"),
+                    CurrentStageId = StageId.CreateOrThrow("synthetic-current-stage"),
                 },
             });
             ledger.SetEntries(new[]
@@ -145,7 +143,7 @@ namespace Game.Feature.Stages.Editor.Tests
                 new StageAliasGovernanceEntry
                 {
                     DeprecatedStageId = "synthetic-stage-alias",
-                    CurrentStageId = StageId.CreateOrThrow("mechanics-showcase"),
+                    CurrentStageId = StageId.CreateOrThrow("synthetic-current-stage"),
                     SourceKind = "test",
                     SourceAssetGuid = "synthetic-guid",
                     Owner = string.Empty,
@@ -249,7 +247,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(contract, Does.Contain("canonical gameplay shell direct-play catalog coverage `100%`"));
             Assert.That(contract, Does.Contain("workflow compliance"));
             Assert.That(contract, Does.Contain("warning consistency"));
-            Assert.That(contract, Does.Contain("onboarding parity"));
+            Assert.That(contract, Does.Contain("supported stage parity"));
             Assert.That(contract, Does.Contain("## Soft Adoption"));
             Assert.That(contract, Does.Contain("## Hard Enforcement"));
             Assert.That(contract, Does.Contain("## Evidence Format"));
@@ -260,8 +258,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(contract, Does.Contain("same executor + governance reviewer co-sign"));
             Assert.That(checklist, Does.Contain("Tools/Stages/Direct Play/Launch Stage..."));
             Assert.That(checklist, Does.Contain("Replay Last Stage"));
-            Assert.That(checklist, Does.Contain("mechanics-showcase"));
-            Assert.That(checklist, Does.Contain("onboarding"));
+            Assert.That(checklist, Does.Contain("stage-0-1"));
+            Assert.That(checklist, Does.Contain("stage-1-1"));
             Assert.That(checklist, Does.Contain("Cycle 1"));
             Assert.That(checklist, Does.Contain("Cycle 2"));
             Assert.That(checklist, Does.Contain("Counter Summary"));

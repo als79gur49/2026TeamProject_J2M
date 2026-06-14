@@ -1,4 +1,5 @@
 using Game.Feature.Stages;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
@@ -111,14 +112,14 @@ namespace Game.Feature.UI.Tests
 
             controller.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayRootPayload.Default, ScreenId.Gameplay.ToString()));
             var emittedAction = ScreenAction.Popup(new PopupRequest(
-                PopupId.Tooltip,
-                new TooltipPopupPayload("Tip", "Body")));
+                PopupId.Confirm,
+                new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)));
 
             runtimeFactory.CreatedRuntimes[0].Runtime.Emit(emittedAction);
 
             Assert.That(relayedAction.HasValue, Is.True);
             Assert.That(relayedAction.Value.ActionKind, Is.EqualTo(ScreenActionKind.RequestPopup));
-            Assert.That(relayedAction.Value.PopupRequest.PopupId, Is.EqualTo(PopupId.Tooltip));
+            Assert.That(relayedAction.Value.PopupRequest.PopupId, Is.EqualTo(PopupId.Confirm));
         }
 
         [Test]
@@ -148,10 +149,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(controller.Replace(new ScreenRequest(
                 ScreenId.StageResult,
                 new StageResultScreenPayload(
-                    "Title",
-                    "Summary",
-                    "Detail",
-                    "Continue",
                     StageNavigationRequest.None,
                     StageNavigationRequest.None,
                     StageNavigationRequest.None),
@@ -168,20 +165,20 @@ namespace Game.Feature.UI.Tests
             using var controller = new PopupController(runtimeFactory);
 
             Assert.That(controller.Push(
-                new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Tooltip body")),
-                out var tooltipId), Is.True);
+                new PopupRequest(PopupId.Pause, PausePopupPayload.Default),
+                out var pauseId), Is.True);
             Assert.That(controller.Push(
                 new PopupRequest(PopupId.Confirm, new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)),
                 out var confirmId), Is.True);
 
-            Assert.That(tooltipId.Equals(confirmId), Is.False);
+            Assert.That(pauseId.Equals(confirmId), Is.False);
             Assert.That(controller.PopupCount, Is.EqualTo(2));
             Assert.That(controller.TopPopup.HasValue, Is.True);
             Assert.That(controller.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Confirm));
             Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsTopmost, Is.False);
             Assert.That(runtimeFactory.CreatedRuntimes[1].Runtime.IsTopmost, Is.True);
 
-            Assert.That(controller.Close(tooltipId, PopupCloseReason.Programmatic), Is.True);
+            Assert.That(controller.Close(pauseId, PopupCloseReason.Programmatic), Is.True);
             Assert.That(controller.PopupCount, Is.EqualTo(1));
             Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsDisposed, Is.True);
             Assert.That(controller.TopPopup.Value.InstanceId, Is.EqualTo(confirmId));
@@ -198,7 +195,7 @@ namespace Game.Feature.UI.Tests
             using var controller = new PopupController(runtimeFactory);
 
             Assert.That(controller.Push(
-                new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Tooltip body")),
+                new PopupRequest(PopupId.Pause, PausePopupPayload.Default),
                 out _), Is.True);
             Assert.That(controller.Push(
                 new PopupRequest(
@@ -226,7 +223,7 @@ namespace Game.Feature.UI.Tests
             var completions = new System.Collections.Generic.List<PopupCompletion>();
 
             Assert.That(controller.Push(
-                new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Body"), completions.Add),
+                new PopupRequest(PopupId.Pause, PausePopupPayload.Default, completions.Add),
                 out _), Is.True);
             Assert.That(controller.Push(
                 new PopupRequest(PopupId.Confirm, new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false), completions.Add),
@@ -237,7 +234,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(controller.PopupCount, Is.EqualTo(0));
             Assert.That(completions, Has.Count.EqualTo(2));
             Assert.That(completions[0].PopupId, Is.EqualTo(PopupId.Confirm));
-            Assert.That(completions[1].PopupId, Is.EqualTo(PopupId.Tooltip));
+            Assert.That(completions[1].PopupId, Is.EqualTo(PopupId.Pause));
             Assert.That(completions[0].CloseReason, Is.EqualTo(PopupCloseReason.ScreenTransition));
             Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsDisposed, Is.True);
             Assert.That(runtimeFactory.CreatedRuntimes[1].Runtime.IsDisposed, Is.True);
@@ -254,13 +251,13 @@ namespace Game.Feature.UI.Tests
             controller.PopupCompleted += completed.Add;
 
             Assert.That(controller.Push(
-                new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Body")),
-                out var tooltipId), Is.True);
+                new PopupRequest(PopupId.Pause, PausePopupPayload.Default),
+                out var pauseId), Is.True);
             Assert.That(opened, Has.Count.EqualTo(1));
-            Assert.That(opened[0].Entry.PopupId, Is.EqualTo(PopupId.Tooltip));
+            Assert.That(opened[0].Entry.PopupId, Is.EqualTo(PopupId.Pause));
             Assert.That(completed, Is.Empty);
 
-            Assert.That(controller.Close(tooltipId, PopupCloseReason.Programmatic), Is.True);
+            Assert.That(controller.Close(pauseId, PopupCloseReason.Programmatic), Is.True);
             Assert.That(completed, Is.Empty);
 
             Assert.That(controller.Push(
@@ -272,7 +269,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(completed[0].Completion.CompletionKind, Is.EqualTo(PopupCompletionKind.Confirmed));
 
             Assert.That(controller.Push(
-                new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Body")),
+                new PopupRequest(PopupId.Pause, PausePopupPayload.Default),
                 out _), Is.True);
             controller.CloseAll(PopupCloseReason.ScreenTransition);
             Assert.That(completed, Has.Count.EqualTo(1));
@@ -282,10 +279,19 @@ namespace Game.Feature.UI.Tests
         public void PopupController_HandleBackdropClicked_UsesOnlyTopPopupPolicy()
         {
             var runtimeFactory = new FakePopupRuntimeFactory();
+            runtimeFactory.SetPolicy(
+                PopupId.Pause,
+                new PopupPolicy(
+                    PopupPolicyClass.NonModalInformational,
+                    PopupLifetimeScope.CurrentScreen,
+                    PopupBackAction.Close,
+                    PopupBackdropMode.None,
+                    showsDim: false,
+                    blocksLowerLayers: false));
             using var controller = new PopupController(runtimeFactory);
 
             Assert.That(controller.Push(
-                new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Tooltip body")),
+                new PopupRequest(PopupId.Pause, PausePopupPayload.Default),
                 out _), Is.True);
             Assert.That(controller.Push(
                 new PopupRequest(PopupId.Confirm, new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)),
@@ -296,7 +302,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(controller.Close(confirmId, PopupCloseReason.Programmatic), Is.True);
             Assert.That(controller.TopPopup.HasValue, Is.True);
-            Assert.That(controller.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Tooltip));
+            Assert.That(controller.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Pause));
             Assert.That(controller.HandleBackdropClicked(), Is.False);
             Assert.That(controller.PopupCount, Is.EqualTo(1));
         }

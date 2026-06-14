@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
@@ -21,6 +22,15 @@ namespace Game.Feature.UI.Tests
 
         private const string CatalogPath =
             "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/SceneTransitionOverlayContentCatalog.asset";
+
+        private const string GenericLoadingContentPrefabPath =
+            "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/Contents/GenericLoadingOverlayContent.prefab";
+
+        private const string ChanceLostContentPrefabPath =
+            "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/Contents/ChanceLostOverlayContent.prefab";
+
+        private const string SceneTransitionOverlayAssetAuthoringPath =
+            "Assets/_Features/UI/UI_Composition/Runtime/SceneTransitionOverlayAssetAuthoring.cs";
 
         [TearDown]
         public void TearDown()
@@ -46,7 +56,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void SceneTransitionOverlayContentCatalog_CoversCanonicalTransitionKinds()
+        public void SceneTransitionOverlayContentCatalog_AllSemanticIdsResolveAfterSharedMapping()
         {
             var catalog = AssetDatabase.LoadAssetAtPath<SceneTransitionOverlayContentCatalog>(CatalogPath);
             Assert.That(catalog, Is.Not.Null, CatalogPath);
@@ -62,6 +72,128 @@ namespace Game.Feature.UI.Tests
             Assert.That(coveredKinds, Does.Contain(StageTransitionKind.StageRetryManual));
             Assert.That(coveredKinds, Does.Contain(StageTransitionKind.DeathRetryChanceLost));
             Assert.That(coveredKinds, Does.Contain(StageTransitionKind.LevelFailedRestart));
+
+            foreach (var transitionKind in CommonContentTransitionKinds)
+            {
+                var prefab = ResolveCatalogContent(catalog, transitionKind);
+
+                Assert.That(prefab, Is.SameAs(catalog.GenericFallbackPrefab), transitionKind.ToString());
+                Assert.That(prefab, Is.TypeOf<GenericLoadingOverlayContentView>(), transitionKind.ToString());
+            }
+
+            var levelFailed = ResolveCatalogContent(catalog, StageTransitionKind.LevelFailedRestart);
+            var manualRestart = ResolveCatalogContent(catalog, StageTransitionKind.StageRetryManual);
+
+            Assert.That(levelFailed, Is.SameAs(catalog.GenericFallbackPrefab));
+            Assert.That(levelFailed, Is.SameAs(manualRestart));
+            Assert.That(levelFailed.GetComponentsInChildren<TMPro.TMP_Text>(true).Select(text => text.name), Does.Not.Contain("Level" + "Restart" + "MessageText_TMP"));
+
+            var chanceLost = ResolveCatalogContent(catalog, StageTransitionKind.DeathRetryChanceLost);
+
+            Assert.That(chanceLost, Is.Not.SameAs(catalog.GenericFallbackPrefab));
+            Assert.That(chanceLost, Is.TypeOf<ChanceLostOverlayContentView>());
+
+            var catalogYaml = File.ReadAllText(CatalogPath);
+
+            foreach (var guid in DeletedDuplicatePrefabGuids)
+            {
+                var assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                Assert.That(string.IsNullOrEmpty(assetPath) || !File.Exists(assetPath), Is.True, guid);
+                Assert.That(catalogYaml, Does.Not.Contain(guid), guid);
+            }
+        }
+
+        [Test]
+        public void SceneTransitionOverlayContentPrefabs_HaveCurrentBaseBindingsOnly()
+        {
+            foreach (var path in TransitionContentPrefabPaths)
+            {
+                var yaml = File.ReadAllText(path);
+
+                Assert.That(yaml, Does.Contain("_rootGroup:"), path);
+                Assert.That(yaml, Does.Contain("_progressText:"), path);
+                foreach (var retiredField in RetiredBaseContentFields)
+                {
+                    Assert.That(yaml, Does.Not.Contain(retiredField + ":"), path);
+                }
+
+                if (path == ChanceLostContentPrefabPath)
+                {
+                    foreach (var retiredField in RetiredChanceTextFields)
+                    {
+                        Assert.That(yaml, Does.Not.Contain(retiredField + ":"), retiredField);
+                    }
+
+                    foreach (var retiredChildName in RetiredChanceTextChildNames)
+                    {
+                        Assert.That(yaml, Does.Not.Contain(retiredChildName), retiredChildName);
+                    }
+
+                    Assert.That(yaml, Does.Contain("_chanceSlotRoots:"), "PR-T4 must not remove the slot root inspector array.");
+                    Assert.That(yaml, Does.Not.Contain("_chanceSlotRoots: []"), "PR-T5 requires explicit ChanceLost slot root inspector bindings.");
+                    Assert.That(yaml, Does.Contain("ChanceSlotView"), "PR-T4 must preserve the slot visual hierarchy.");
+                }
+            }
+        }
+
+        [Test]
+        public void ChanceLostOverlayContentPrefab_HasExplicitChanceSlotRootBindings()
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<ChanceLostOverlayContentView>(ChanceLostContentPrefabPath);
+            Assert.That(prefab, Is.Not.Null, ChanceLostContentPrefabPath);
+
+            var serialized = new SerializedObject(prefab);
+            var chanceSlotRoots = serialized.FindProperty("_chanceSlotRoots");
+            Assert.That(chanceSlotRoots, Is.Not.Null);
+            Assert.That(chanceSlotRoots.arraySize, Is.EqualTo(3));
+
+            var expectedNames = new[]
+            {
+                "ChanceSlotView 0",
+                "ChanceSlotView 1",
+                "ChanceSlotView 2",
+            };
+
+            for (var i = 0; i < expectedNames.Length; i++)
+            {
+                var slot = chanceSlotRoots.GetArrayElementAtIndex(i).objectReferenceValue as RectTransform;
+
+                Assert.That(slot, Is.Not.Null, $"_chanceSlotRoots[{i}]");
+                Assert.That(slot.name, Is.EqualTo(expectedNames[i]), $"_chanceSlotRoots[{i}]");
+            }
+
+            Assert.That(prefab.CollectValidationIssues(), Is.Empty);
+        }
+
+        [Test]
+        public void ChanceLostOverlayContentAuthoring_BindsChanceSlotRootsOnRebuild()
+        {
+            var source = File.ReadAllText(SceneTransitionOverlayAssetAuthoringPath);
+
+            Assert.That(source, Does.Contain("var chanceSlots = CreateChanceSlotRoots(panel);"));
+            Assert.That(source, Does.Contain("var chanceSlotRoots = serialized.FindProperty(\"_chanceSlotRoots\");"));
+            Assert.That(source, Does.Contain("chanceSlotRoots.arraySize = chanceSlots.Length;"));
+            Assert.That(source, Does.Contain("chanceSlotRoots.GetArrayElementAtIndex(i).objectReferenceValue = chanceSlots[i];"));
+            foreach (var retiredChildName in RetiredChanceTextChildNames)
+            {
+                Assert.That(source, Does.Not.Contain(retiredChildName), retiredChildName);
+            }
+        }
+
+        [Test]
+        public void ChanceLostOverlayContentPrefab_DoesNotRestoreRetiredChanceTextBindings()
+        {
+            var yaml = File.ReadAllText(ChanceLostContentPrefabPath);
+
+            foreach (var retiredField in RetiredChanceTextFields)
+            {
+                Assert.That(yaml, Does.Not.Contain(retiredField + ":"), retiredField);
+            }
+
+            foreach (var retiredChildName in RetiredChanceTextChildNames)
+            {
+                Assert.That(yaml, Does.Not.Contain(retiredChildName), retiredChildName);
+            }
         }
 
         [Test]
@@ -262,6 +394,68 @@ namespace Game.Feature.UI.Tests
                 currentRemainingChances: 0,
                 totalChances: 0,
                 deathCount: 0);
+        }
+
+        private static readonly StageTransitionKind[] CommonContentTransitionKinds =
+        {
+            StageTransitionKind.MainToGameplay,
+            StageTransitionKind.GameplayToMain,
+            StageTransitionKind.StageClearNext,
+            StageTransitionKind.StageRetryManual,
+            StageTransitionKind.LevelFailedRestart,
+        };
+
+        private static readonly string[] DeletedDuplicatePrefabGuids =
+        {
+            "bb994410" + "0587cc84f9524c34a1745c93",
+            "e53afcd5" + "78e311b4f91209518d25e637",
+            "a287560d" + "78e3fd7448af54f2859fb663",
+            "d1e542b8" + "9be2719489c78a72f68f4d3d",
+        };
+
+        private static readonly string[] TransitionContentPrefabPaths =
+        {
+            GenericLoadingContentPrefabPath,
+            ChanceLostContentPrefabPath,
+        };
+
+        private static readonly string[] RetiredBaseContentFields =
+        {
+            "_titleText",
+            "_messageText",
+            "_progressRoot",
+            "_progressFill",
+            "_animator",
+        };
+
+        private static readonly string[] RetiredChanceTextFields =
+        {
+            "_previousChanceText",
+            "_currentChanceText",
+            "_totalChanceText",
+            "_deathCountText",
+            "_currentTextPulseScalePunch",
+            "_currentTextPulseDurationSeconds",
+            "_previousTextDimAlpha",
+            "_previousTextDimDurationSeconds",
+        };
+
+        private static readonly string[] RetiredChanceTextChildNames =
+        {
+            "PreviousChanceText_TMP",
+            "CurrentChanceText_TMP",
+            "TotalChanceText_TMP",
+            "DeathCountText_TMP",
+        };
+
+        private static SceneTransitionOverlayContentView ResolveCatalogContent(
+            SceneTransitionOverlayContentCatalog catalog,
+            StageTransitionKind transitionKind)
+        {
+            var entry = catalog.Entries.SingleOrDefault(candidate => candidate.TransitionKind == transitionKind);
+            Assert.That(entry, Is.Not.Null, transitionKind.ToString());
+            Assert.That(entry.ContentPrefab, Is.Not.Null, transitionKind.ToString());
+            return entry.ContentPrefab;
         }
 
         private sealed class ShellHandle : IDisposable

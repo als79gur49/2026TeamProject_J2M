@@ -130,7 +130,7 @@ Windup
 Landing
 Active
 Recover
-ProjectileImpact
+ForwardCellImpact
 ChargeActiveLoop
 StationaryActive
 PassiveContact
@@ -145,7 +145,7 @@ Windup
 Landing
 Active
 Recover
-ProjectileImpact
+ForwardCellImpact
 ChargeActiveLoop
 StationaryActive
 PassiveContact
@@ -232,7 +232,7 @@ Manual scans run:
 
 ```text
 rg -n "EnemyAudioRequirementPolicy|EnemyAudioRequirementBinding|EnemyAudioCueRequirement" Assets/_Features/Gameplay/Gameplay_EnemyAudio Assets/_Features/Gameplay/Gameplay_Host Assets/_Shared/Audio
-rg -n "PassiveContact|ProjectileImpact|ChargeActiveLoop|EnemyAudioCue" Assets/_Shared/Audio Assets/_Features/Flow Assets/_Features/UI
+rg -n "PassiveContact|ForwardCellImpact|ChargeActiveLoop|EnemyAudioCue" Assets/_Shared/Audio Assets/_Features/Flow Assets/_Features/UI
 rg -n "GenericAudioDispatcher|AudioDispatcher|string.*Audio|audio.*string|AudioManager.Instance|FindObjectOfType<.*Audio|FindAnyObjectByType<.*Audio|new AudioManager|\\.PlayBgm\\(" Assets Docs ProjectSettings Packages
 rg -n "GameplayPresentationAudioConfig.*EnemyAudio|EnemyAudio.*GameplayPresentationAudioConfig" Assets Docs ProjectSettings Packages
 rg -n "EnemyAudioRequirementProfile|EnemyAudioRequirementPolicy|EnemyAudioRequirementBinding|EnemyAudioCueRequirement" Assets Docs ProjectSettings Packages

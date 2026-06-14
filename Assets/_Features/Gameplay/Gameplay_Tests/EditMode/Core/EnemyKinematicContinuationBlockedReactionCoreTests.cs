@@ -7,7 +7,6 @@ using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Core
 {
@@ -408,8 +407,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             return GameplayCompositionRoot.CreateWorldState(
                 entities,
-                boardBounds,
-                GameplayTerrainData.Empty);
+                boardBounds);
         }
 
         private static EntityState CreatePlayer(int entityId, SurfaceCell position)

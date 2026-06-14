@@ -16,7 +16,7 @@
 - `플레이어와 적은 반드시 같은 타일에 동시에 존재할 수 있어야 한다.`
 - `적과 적도 같은 타일에 동시에 존재할 수 있어야 한다.`
 - 이는 일부 적이 공격 액션 없이 `충돌 자체`로 피해를 주는 게임 규칙을 성립시키기 위해 필수다.
-- 반면 `Box`, `Wall(EntityType.None)`, `Projectile`의 기존 퍼즐/차단 규칙은 최대한 유지한다.
+- 반면 `Box`, `Wall(EntityType.None)`, `RemovedEntity`의 기존 퍼즐/차단 규칙은 최대한 유지한다.
 
 즉, 이번 변경은 `적 길막 해소` 수준이 아니라 `Unit끼리의 같은 타일 공유를 공식 규칙으로 승격`하는 작업이다.
 
@@ -28,8 +28,8 @@
 - `Unit + Box`: 금지
 - `Unit + Wall(EntityType.None)`: 금지
 - `Box + Box`: 금지
-- `Projectile + Projectile`: 기존 규칙 유지
-- `Projectile + Unit`: 기존 로직 유지, 단 stacked unit 중 누구를 맞추는지 명시적으로 결정
+- `RemovedEntity + RemovedEntity`: 기존 규칙 유지
+- `RemovedEntity + Unit`: 기존 로직 유지, 단 stacked unit 중 누구를 맞추는지 명시적으로 결정
 
 ## 설계 원칙
 
@@ -106,7 +106,7 @@
 - 아래 구조로 분리한다.
 - `stackedUnitsByCell : Dictionary<SurfaceCell, SortedSet<int>>`
 - `solidOccupancyByCell : Dictionary<SurfaceCell, int>` for `Box`, `EntityType.None`
-- `projectileOccupancyByCell : Dictionary<SurfaceCell, int>`
+- `removed entityOccupancyByCell : Dictionary<SurfaceCell, int>`
 - `Unit` 추가/이동/제거 시 set 기반으로 갱신한다.
 - `Box`와 `Wall`은 기존처럼 단일 occupant로 유지한다.
 - `SortedSet<int>` 또는 entityId 정렬된 리스트를 사용해 순서를 결정론적으로 유지한다.
@@ -123,7 +123,7 @@
 
 주요 구현 내용
 
-- `WorldState`의 기존 `_unitOccupancy`를 제거하고 `stackedUnitsByCell`, `solidOccupancyByCell`, `projectileOccupancyByCell`로 분리했다.
+- `WorldState`의 기존 `_unitOccupancy`를 제거하고 `stackedUnitsByCell`, `solidOccupancyByCell`, `removed entityOccupancyByCell`로 분리했다.
 - `Unit`은 `SortedSet<int>` 기반 stack 레이어로 관리되며, authoritative placement에서는 `Unit + Unit` same-cell을 허용한다.
 - `Box`, `Wall(EntityType.None)`은 `solidOccupancyByCell`에 남겨 단일 occupant 규칙을 유지했고, `Box + Box`, `Box + Unit`은 여전히 invariant 예외가 발생한다.
 - `WorldSnapshot`/`SnapshotReadQueries`는 새 점유 모델을 읽도록 변경했고, 기존 callsite 호환을 위해 `TryGetUnitAt`는 당분간 `solid 우선 + stacked unit 대표값` 조회로 유지했다.
@@ -166,17 +166,17 @@
 
 - `WorldSnapshot`/`SnapshotReadQueries`/`WorldQueryService`에 `HasAnyUnitAt`, `EnumerateUnitsAt`, `TryGetPrimaryUnitAt`, `TryGetBoxAt`, `TryGetSolidOccupantAt`, `TryPickImpactTargetAt`를 추가했다.
 - box impact 전용으로 `TryPickHostileUnitImpactTargetAt`를 추가해 `friendly fallback 없음 + hostile unit only + entityId 오름차순` 선택을 고정했다.
-- `TryGetUnitAt`는 삭제하지 않고 `legacy primary non-projectile occupant` 의미로 유지했으며, 새 코드에서는 explicit query API를 사용하도록 주석과 callsite를 정리했다.
+- `TryGetUnitAt`는 삭제하지 않고 `primary board occupant` 의미로 유지했으며, 새 코드에서는 explicit query API를 사용하도록 주석과 callsite를 정리했다.
 - stacked unit query의 공통 표현을 `IReadOnlyCollection<int>` 기준으로 맞춰 authoritative `SortedSet<int>`와 snapshot `ReadOnlyCollection<int>`를 같은 query 계층에서 읽을 수 있게 정리했다.
 - `MovementExpander`, `PlayerControlState`, `EnemyMovementPolicy`, `MovementCommitter`는 각각 `box 조회`, `solid 조회`, `impact target 선택`에 맞는 전용 snapshot query를 사용하도록 변경했다.
-- `TryPickImpactTargetAt`는 `solid occupant 우선`, stacked unit만 있는 경우 `hostile unit 우선 + entityId 오름차순 fallback`으로 결정되게 구현했고, projectile impact 예약 생성도 같은 API를 타도록 맞췄다.
-- `WorldSurfaceQueryTests`, `MovementPhaseScenarioTests`에 explicit query API와 stacked cell projectile target selection 경로를 고정하는 테스트를 추가했다.
+- `TryPickImpactTargetAt`는 `solid occupant 우선`, stacked unit만 있는 경우 `hostile unit 우선 + entityId 오름차순 fallback`으로 결정되게 구현했고, removed entity impact 예약 생성도 같은 API를 타도록 맞췄다.
+- `WorldSurfaceQueryTests`, `MovementPhaseScenarioTests`에 explicit query API와 stacked cell removed entity target selection 경로를 고정하는 테스트를 추가했다.
 
 ### 3단계. 배치 차단 규칙 재정의 [완료]
 
 목표
 
-- `Unit`의 이동 가능성과 `Box/Projectile`의 배치 가능성을 분리한다.
+- `Unit`의 이동 가능성과 `Box/RemovedEntity`의 배치 가능성을 분리한다.
 
 대상 파일
 
@@ -188,11 +188,11 @@
 - 보드 밖
 - terrain
 - solid occupant
-- `Projectile` 배치 차단
+- `RemovedEntity` 배치 차단
 - 보드 밖
 - terrain
 - solid occupant
-- projectile occupant
+- removed entity occupant
 - impact targetable unit 존재 여부는 이동 단계에서 처리
 - `Box / Wall(None)` 배치 차단
 - 보드 밖
@@ -212,11 +212,11 @@
 
 주요 구현 내용
 
-- `WorldPlacementPolicy.TryGetBlockingPlacementEntity`를 entity type별 switch로 재정의해 `Unit`, `Projectile`, `Box/Wall(None)`의 차단 대상을 명시적으로 분리했다.
+- `WorldPlacementPolicy.TryGetBlockingPlacementEntity`를 entity type별 switch로 재정의해 `Unit`, `RemovedEntity`, `Box/Wall(None)`의 차단 대상을 명시적으로 분리했다.
 - `Unit` placement/gameplay blocker는 이제 `solid occupant`만 차단하며, stacked unit이나 marked-for-death unit만 있는 칸에 대해서는 `IsBlockedForUnit()`/`TryGetPlacementBlocker(EntityType.Unit, ...)`가 `false`를 반환한다.
-- `Projectile` placement blocker는 `projectile occupant`와 `solid occupant`만 차단하도록 바꿔 unit이 서 있는 칸에도 spawn/occupy가 가능하게 했고, 실제 target 선택은 기존 `TryPickImpactTargetAt` + movement impact reservation 경로로 넘겼다.
+- `RemovedEntity` placement blocker는 `removed entity occupant`와 `solid occupant`만 차단하도록 바꿔 unit이 서 있는 칸에도 spawn/occupy가 가능하게 했고, 실제 target 선택은 기존 `TryPickImpactTargetAt` + movement impact reservation 경로로 넘겼다.
 - `Box / Wall(None)` placement blocker는 stacked unit을 계속 차단하도록 유지했고, `WorldSnapshot.TryResolveNextSurfaceBoxSlideStep()` 테스트로 stacked unit 위 slide stop을 고정했다.
-- `WorldStatePlacementInvariantTests`, `TickPipelineStageOneTests`, `WorldSurfaceQueryTests`, `AttackPhaseScenarioTests`를 갱신해 projectile-on-unit spawn 허용, projectile-on-solid 금지, unit placement unblock, box slide-on-stacked-unit block을 검증했다.
+- `WorldStatePlacementInvariantTests`, `TickPipelineStageOneTests`, `WorldSurfaceQueryTests`, `AttackPhaseScenarioTests`를 갱신해 removed entity-on-unit spawn 허용, removed entity-on-solid 금지, unit placement unblock, box slide-on-stacked-unit block을 검증했다.
 
 ### 4단계. 이동 확장 로직 수정 [완료]
 
@@ -274,7 +274,7 @@
 - `TopologyChanges.Count == 0`
 - `Moves` 대상이 모두 `EntityType.Unit`
 - 위 경우 destination reservation과 edge reservation을 생략한다.
-- `Push`, `Flip`, `Item`, `ProjectileImpact`, topology transition 포함 group은 기존처럼 보수적으로 충돌 처리한다.
+- `Push`, `Flip`, `Item`, `ForwardCellImpact`, topology transition 포함 group은 기존처럼 보수적으로 충돌 처리한다.
 
 주의점
 
@@ -333,11 +333,11 @@
 - same-cell contact damage의 tick 내 중복은 현재 구조에서 `entity당 attack phase ownership 1개 + source logic이 tick당 raw attack intent 1회 생성` 규칙으로 제한되며, scenario test에서 `DamageCommitted`가 tick당 1회만 발생하는지 고정했다.
 - `AttackPhaseScenarioTests`, `EnemyAiScenarioTests`, `EnemyLogicTests`를 확장해 post-move same-cell melee, contact-damage enemy의 same-tick overlap damage, same-cell facing 유지, `ContactSameCell` range rule을 검증했다.
 
-### 7단계. Projectile impact target 결정론화 [완료]
+### 7단계. RemovedEntity impact target 결정론화 [완료]
 
 목표
 
-- stacked unit 위로 projectile가 진입할 때 타깃이 항상 동일하게 선택되게 한다.
+- stacked unit 위로 removed entity가 진입할 때 타깃이 항상 동일하게 선택되게 한다.
 
 대상 파일
 
@@ -346,7 +346,7 @@
 
 작업
 
-- `ProjectileImpact` 생성 시 cell만 기록하지 말고 실제 target entityId를 확정한다.
+- `ForwardCellImpact` 생성 시 cell만 기록하지 말고 실제 target entityId를 확정한다.
 - 우선순위 규칙을 고정한다.
 - `hostile unit 우선`
 - 다수면 `entityId 오름차순`
@@ -360,9 +360,9 @@
 주요 구현 내용
 
 - `SnapshotReadQueries.TryPickImpactTargetAt`를 `hostile unit 우선 + entityId 오름차순`으로 명시 계산하도록 보강해 stacked unit 컬렉션의 순회 순서에 암묵적으로 기대지 않게 했다.
-- `MovementExpander`의 `ProjectileImpact` candidate는 expand 시점에 선택된 실제 `target entityId`를 `ActionGroup.ProjectileImpactTargetId`로 고정 기록하도록 바꿨다.
-- `MovementCommitter`는 projectile impact reservation 생성 시 더 이상 destination cell이나 move intent를 재조회하지 않고, group에 저장된 확정 target만 사용하도록 변경했다.
-- `TickTraceFormatter`는 projectile impact group의 `ImpactTarget`을 trace에 남기도록 보강해 replay/debug 시 target 결정 경로를 바로 확인할 수 있게 했다.
+- `MovementExpander`의 `ForwardCellImpact` candidate는 expand 시점에 선택된 실제 `target entityId`를 `ActionGroup.ForwardCellImpactTargetId`로 고정 기록하도록 바꿨다.
+- `MovementCommitter`는 removed entity impact reservation 생성 시 더 이상 destination cell이나 move intent를 재조회하지 않고, group에 저장된 확정 target만 사용하도록 변경했다.
+- `TickTraceFormatter`는 removed entity impact group의 `ImpactTarget`을 trace에 남기도록 보강해 replay/debug 시 target 결정 경로를 바로 확인할 수 있게 했다.
 - `MovementPhaseScenarioTests`를 확장해 stacked hostile target 선택, expand된 group의 target 고정, commit 단계의 `intent lookup / cell 재조회 없음`을 검증했고, build 검증에서 `Game.Feature.Gameplay.Tests.csproj` 컴파일이 오류 없이 통과했다.
 
 ### 8단계. 프레젠테이션 오프셋 도입 [완료]
@@ -388,7 +388,7 @@
 - 4명: 사각
 - 5명 이상: 작은 원형 분산
 - 오프셋은 world up이 아니라 타일 면의 local tangent plane 기준으로 준다.
-- box, projectile, wall은 center 유지한다.
+- box, removed entity, wall은 center 유지한다.
 
 주의점
 
@@ -402,7 +402,7 @@
 주요 구현 내용
 
 - `GameplayTickPresentationCoordinator.StoreCommittedEntityTargets(...)`에서 presentable entity를 먼저 수집한 뒤, `Unit`만 `cell -> entityId list`로 그룹화하고 `entityId 오름차순`으로 slot index를 확정하도록 변경했다.
-- slot pattern은 `1명 center`, `2명 좌우`, `3명 삼각`, `4명 사각`, `5명 이상 원형 분산`으로 구현했고, `Box`/`Projectile`/`Wall(None)`은 기존처럼 중심 pose를 유지한다.
+- slot pattern은 `1명 center`, `2명 좌우`, `3명 삼각`, `4명 사각`, `5명 이상 원형 분산`으로 구현했고, `Box`/`RemovedEntity`/`Wall(None)`은 기존처럼 중심 pose를 유지한다.
 - slot offset은 `ProjectedCellPose.LocalRotation`의 `right/up` 축을 사용해 타일 면의 local tangent plane 위에서만 적용되도록 구현해, floor/ceiling/front face 어디에서도 normal 방향으로 밀리지 않게 했다.
 - 기존 motion start/end pose는 committed local target pose를 그대로 재사용하게 두어, same-cell 이동 후 도착 unit과 기존 occupant가 같은 tick 프레젠테이션에서 서로 다른 slot으로 정렬되도록 맞췄다.
 - `GameplayTickPresentationCoordinatorTests`에 초기 same-cell 배치, 이동 후 same-cell 재정렬, ceiling face tangent-plane 보장을 검증하는 테스트를 추가했다.
@@ -438,9 +438,9 @@
 주요 구현 내용
 
 - `WorldSnapshot`/`SnapshotReadQueries`에 `stacked unit occupancy`와 `solid occupancy`의 ordered enumeration을 분리해, trace/hash가 새 점유 모델을 레이어별로 직접 읽게 했다.
-- `TickTraceFormatter`의 occupancy dump는 이제 `Layer=Solid|Unit|Projectile` 형식으로 출력되며, 전체 라인은 `face -> x -> y -> entityId` 순으로 재정렬되어 same-cell stacked state가 여러 줄로 안정적으로 노출된다.
-- `DeterminismHashBuilder`는 기존 뭉뚱그린 non-projectile occupancy 대신 `SolidOccupancy`, `StackedUnitOccupancy`, `ProjectileOccupancy`를 각각 canonical dump에 포함하도록 바꿔 stacked unit 정보와 solid layer 상태가 hash에 명시적으로 반영되게 했다.
-- `TickReplayDeterminismTests`, `TickPipelineStageOneTests`, `FuzzDeterminismTests`를 갱신해 stacked unit/solid/projectile layered occupancy dump, entityId 오름차순 same-cell ordering, replay artifact 포맷을 고정했다.
+- `TickTraceFormatter`의 occupancy dump는 이제 `Layer=Solid|Unit|RemovedEntity` 형식으로 출력되며, 전체 라인은 `face -> x -> y -> entityId` 순으로 재정렬되어 same-cell stacked state가 여러 줄로 안정적으로 노출된다.
+- `DeterminismHashBuilder`는 기존 뭉뚱그린 non-removed entity occupancy 대신 `SolidOccupancy`, `StackedUnitOccupancy`, `RemovedEntityOccupancy`를 각각 canonical dump에 포함하도록 바꿔 stacked unit 정보와 solid layer 상태가 hash에 명시적으로 반영되게 했다.
+- `TickReplayDeterminismTests`, `TickPipelineStageOneTests`, `FuzzDeterminismTests`를 갱신해 stacked unit/solid/removed entity layered occupancy dump, entityId 오름차순 same-cell ordering, replay artifact 포맷을 고정했다.
 
 ### 10단계. 테스트 추가 및 회귀 검증 [완료]
 
@@ -455,7 +455,7 @@
 - enemy 두 명이 같은 칸으로 동시에 이동 가능
 - same-cell player/enemy에서 melee attack 가능
 - same-cell 충돌 피해 적이 피해를 정상 적용
-- same-cell unit 위로 projectile가 들어갈 때 결정론적 타깃 선택
+- same-cell unit 위로 removed entity가 들어갈 때 결정론적 타깃 선택
 - stacked unit이 있어도 box push/flip 규칙은 유지
 - stacked unit 위로 box가 이동하거나 착지하지 못함
 - presentation slot offset이 적용되어 view가 겹치지 않음
@@ -489,7 +489,7 @@
 4. 4단계 이동 확장 수정
 5. 5단계 movement resolver 수정
 6. 6단계 공격/접촉 규칙 수정
-7. 7단계 projectile target 결정론화
+7. 7단계 removed entity target 결정론화
 8. 9단계 debug/hash 보강
 9. 10단계 테스트 추가
 10. 8단계 presentation 오프셋 마감
@@ -502,7 +502,7 @@
 ## 리스크
 
 - `TryGetUnitAt`의 의미가 남아 있는 레거시 호출부를 놓치면 런타임 버그가 생길 수 있다.
-- projectile target 선택을 commit 단계까지 미루면 stacked unit 환경에서 비결정성이 생길 수 있다.
+- removed entity target 선택을 commit 단계까지 미루면 stacked unit 환경에서 비결정성이 생길 수 있다.
 - same-cell melee를 허용했는데 contact damage 중복 규칙을 정하지 않으면 과도한 피해가 날 수 있다.
 - presentation 오프셋이 없다면 실제 플레이에서는 겹침 규칙이 읽히지 않는다.
 
@@ -514,7 +514,7 @@
 - 적과 적이 같은 타일에 동시에 존재 가능
 - 같은 타일 중첩이 단순 시각 상태가 아니라 실제 공격/접촉 판정 상태로 동작
 - box 퍼즐 규칙은 유지
-- projectile target 선택은 결정론적
+- removed entity target 선택은 결정론적
 - debug/hash/test 기반 회귀 검증 완료
 
 ## 구현 메모

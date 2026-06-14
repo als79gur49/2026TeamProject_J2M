@@ -1,6 +1,10 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using Game.Feature.Stages;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
+using Game.Feature.UI.Screens;
 using NUnit.Framework;
 
 namespace Game.Feature.UI.Tests
@@ -8,7 +12,7 @@ namespace Game.Feature.UI.Tests
     public sealed class StageCompletionPayloadMapperTests
     {
         [Test]
-        public void StageResultPayloadMapper_UsesPresentationText_WithoutScoreRankResultData()
+        public void StageResultPayloadMapper_MapsNavigationRequests_WithoutScoreRankResultData()
         {
             var readModel = new MinimalStageCompletionReadModel(
                 StageId.CreateOrThrow("payload-stage"),
@@ -21,23 +25,51 @@ namespace Game.Feature.UI.Tests
                     wasCleared: true,
                     finalTickIndex: 24,
                     new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
-                    StageClearSource.Objective),
-                "Presentation Title",
-                "Presentation Summary",
-                "Presentation Detail",
-                "Continue",
+                StageClearSource.Objective),
                 CreateNavigationRequest("payload-stage", StageNavigationKind.Continue),
                 CreateNavigationRequest("payload-stage", StageNavigationKind.Retry),
                 StageNavigationRequest.None);
 
             var payload = StageResultPayloadMapper.Map(readModel);
 
-            Assert.That(payload.TitleText, Is.EqualTo("Presentation Title"));
-            Assert.That(payload.SummaryText, Is.EqualTo("Presentation Summary"));
-            Assert.That(payload.DetailText, Is.EqualTo("Presentation Detail"));
-            Assert.That(payload.ContinueLabel, Is.EqualTo("Continue"));
-            Assert.That(payload.SummaryText, Does.Not.Contain("Score"));
-            Assert.That(payload.DetailText, Does.Not.Contain("Rank"));
+            var payloadProperties = typeof(StageResultScreenPayload)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(property => property.Name);
+            Assert.That(payloadProperties, Does.Not.Contain("TitleText"));
+            Assert.That(payloadProperties, Does.Not.Contain("DetailText"));
+            Assert.That(payloadProperties, Does.Not.Contain("ContinueLabel"));
+            Assert.That(payload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
+        }
+
+        [Test]
+        public void StageResultTextSchema_IsNotExposedByStagePresentationTypes()
+        {
+            var removedNames = new[]
+            {
+                "ResultTitle",
+                "ResultSummaryText",
+                "ResultDetailText",
+                "resultTitle",
+                "resultSummaryText",
+                "resultDetailText",
+                "ResultContinueLabel",
+                "resultContinueLabel",
+            };
+            var definitionMembers = typeof(StagePresentationDefinition)
+                .GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(member => member.Name);
+            var resolvedMembers = typeof(StagePresentationResolvedData)
+                .GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(member => member.Name);
+
+            foreach (var removedName in removedNames)
+            {
+                Assert.That(definitionMembers, Does.Not.Contain(removedName));
+                Assert.That(resolvedMembers, Does.Not.Contain(removedName));
+            }
+
+            Assert.That(typeof(StagePresentationDefinition).GetProperty("ResultContinueLabel"), Is.Null);
+            Assert.That(typeof(StagePresentationResolvedData).GetProperty("ResultContinueLabel"), Is.Null);
         }
 
         [Test]

@@ -103,7 +103,7 @@ Mandatory input verdicts:
 | Case | Production reachable? | Stage content reachable? | Test-only? | Obsolete path? | Delete candidate? |
 | --- | --- | --- | --- | --- | --- |
 | Push normal slide | Yes | Yes: Push-capable boxes in campaign/tutorial/showcase content | No | No | No |
-| Push blocked by wall/terrain/solid | Yes | Yes: board and solid lanes are runtime blockers | No | No | No |
+| Push blocked by wall/solid/board edge | Yes | Yes: board and solid lanes are runtime blockers | No | No | No |
 | Push first-step blocked + Destroy fallback | Yes | Yes: Destroy-capable box capability rows exist | No | No | No |
 | Push hostile impact + target dies | Yes | Content has boxes/enemies; runtime impact/disposition tests cover behavior | No | No | No |
 | Push hostile impact + target survives | Yes | Same runtime path | No | No | No |
@@ -129,8 +129,8 @@ The scan counted serialized `BoxCapabilities` rows in `Assets/_Features/Stages/C
 | Stage / Asset family | Push box count | Flip box count | Push/Flip reachable by current input? | Test/showcase only? | Delete impact |
 | --- | ---: | ---: | --- | --- | --- |
 | All `StageContentEntry` stage assets and authoring pairs | 1666 rows containing Push bit | 1440 rows containing Flip bit | Yes | No | Removing Push/Flip breaks campaign/tutorial/showcase content |
-| `combined-gameplay-showcase` asset + authoring | 30 combined Push rows | 16 combined Flip rows | Yes | Showcase, but active validation content | Do not delete |
-| `tutorial-scene` asset + authoring | 70 combined Push rows | 8 combined Flip rows | Yes | Tutorial content | Do not delete |
+| `stage-4-2` asset + authoring | 30 combined Push rows | 16 combined Flip rows | Yes | Showcase, but active validation content | Do not delete |
+| `stage-0-1` asset + authoring | 70 combined Push rows | 8 combined Flip rows | Yes | Tutorial content | Do not delete |
 | Campaign `stage-0-1` through `stage-5-1` asset + authoring | Push present in every listed stage family | Flip present in every listed stage family | Yes | Production campaign content | Do not delete |
 | Destroy-capable boxes | 8 rows with Destroy bit, plus 1416 rows with value `27` (`Push|Flip|Destroy|JumpCrushable`) | Same rows include Push/Flip where applicable | Yes | No | Impact/disposition cleanup is high risk |
 

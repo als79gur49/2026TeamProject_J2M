@@ -13,7 +13,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
@@ -202,7 +201,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void EnemyAi_Charge_CurrentPresentationAndContactContract()
+        public void EnemyAi_Charger_CurrentPresentationAndContactContract()
         {
             EnemyCharge_KinematicFlag_ActiveStepUsesChargeKinematicMove();
             EnemyCharge_KinematicFlag_ContactStartsAtCommitAndConsumesStepAtSettle();
@@ -210,7 +209,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_Charge_WindupRecoverLocksDirectionWithoutFallbackMove()
+        public void EnemyAi_Charger_WindupRecoverLocksDirectionWithoutFallbackMove()
         {
             EnemyCharge_KinematicFlag_PatrolToChargeWaitsForOrdinarySettleThenUsesChargeKinematicMove();
             EnemyCharge_SettleWait_DuringOrdinaryKinematic_DoesNotSnap();
@@ -402,7 +401,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     enemy,
                     player,
                     AttackDecisionSettings.CreateAdjacentRange());
-                var query = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+                var query = CombatWindupPoseQueries.QueryStartWindupForwardCellProjectile(
                     beforeSnapshot,
                     enemy,
                     player,
@@ -417,7 +416,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(logicRange, Is.True, BuildWindupStartGateDebug(logicRange, query, result));
                 Assert.That(query.CanStart, Is.False, BuildWindupStartGateDebug(logicRange, query, result));
                 Assert.That(query.ShouldApproach, Is.True, BuildWindupStartGateDebug(logicRange, query, result));
-                Assert.That(query.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.OutsideSimulationStartRange));
+                Assert.That(query.BlockReason, Is.EqualTo(CombatWindupStartBlockReason.OutsideSimulationStartRange));
                 Assert.That(query.DistanceFixedUnits, Is.GreaterThan(query.ThresholdFixedUnits));
                 Assert.That(
                     result.PresentationData.EnemyActionSignals.Where(signal => signal.EntityId == 40),
@@ -492,7 +491,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var beforeSnapshot = worldState.CreateSnapshot();
                 Assert.That(beforeSnapshot.TryGetEntity(40, out var enemy), Is.True);
                 Assert.That(beforeSnapshot.TryGetEntity(10, out var player), Is.True);
-                var query = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+                var query = CombatWindupPoseQueries.QueryStartWindupForwardCellProjectile(
                     beforeSnapshot,
                     enemy,
                     player,
@@ -505,7 +504,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 Assert.That(query.CanStart, Is.False, BuildWindupStartGateDebug(true, query, result));
                 Assert.That(query.ShouldApproach, Is.False);
-                Assert.That(query.BlockReason, Is.EqualTo(WindupMeleeStartBlockReason.SevereTransition));
+                Assert.That(query.BlockReason, Is.EqualTo(CombatWindupStartBlockReason.SevereTransition));
                 Assert.That(result.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == 40), Is.Empty);
                 Assert.That(result.PresentationData.EnemyActionSignals.Where(signal => signal.EntityId == 40), Is.Empty);
             }
@@ -727,7 +726,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                 },
                 new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { destroyTile });
 
@@ -1062,202 +1060,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 UnityEngine.Object.DestroyImmediate(archetypeCatalog);
                 DestroyProfile(defaultProfile);
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyUtilityLockNearbyBoxes_OffBottomExistingUtilityState_DoesNotAdvance()
-        {
-            var profile = CreateUtilityLockNearbyBoxesProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 3,
-                radius: 1,
-                durationTicks: 2);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 1, 0), capabilities: BoxCapabilities.Push),
-                },
-                new CubeTopologyState(FaceId.Floor));
-            worldState.SetEnemyUtilityState(
-                40,
-                new EnemyUtilityRuntimeState(
-                    new[]
-                    {
-                        new EnemyUtilityEffectState { cooldownTicksRemaining = 2 },
-                    }));
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                var tick = pipeline.RunTick(new TickInput(1));
-
-                Assert.That(GetEnemyUtilityState(worldState, 40).EffectStates[0].cooldownTicksRemaining, Is.EqualTo(2));
-                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
-                Assert.That(tick.EventLog, Has.None.Contains("BoxInteractionLockApplied|Source=40"));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyUtilityLockNearbyBoxes_BlocksPushSameTick_AndExpiresAfterDuration()
-        {
-            var profile = CreateUtilityLockNearbyBoxesProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 3,
-                radius: 1,
-                durationTicks: 2,
-                blocksPush: true,
-                blocksFlip: false);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3, facing: Direction.Right),
-                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 1), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
-            });
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
-                    worldState,
-                    new IEntityLogic[]
-                    {
-                        CreateImmediatePushPlayerLogic(10, recoveryTicks: 1),
-                    });
-
-                var blockedTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
-                var snapshotAfterBlockedTick = worldState.CreateSnapshot();
-
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        blockedTick.MovementPhaseResult.RejectedReasons,
-                        "MovementRejected",
-                        "Stage=Expand",
-                        "Source=10",
-                        "Reason=PushTargetLocked",
-                        "Cell=(1,0)",
-                        "Target=20"),
-                    Is.True);
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        blockedTick.EventLog,
-                        "PlayerActionBlockedByBoxInteractionLock",
-                        "Action=Push",
-                        "Actor=10",
-                        "Box=20",
-                        "Cell=(1,0)",
-                        "Tick=1"),
-                    Is.True);
-                Assert.That(snapshotAfterBlockedTick.TryGetBoxInteractionLockState(20, out var lockState), Is.True);
-                Assert.That(snapshotAfterBlockedTick.TryGetActiveBoxInteractionLockState(20, 1, out _), Is.True);
-                Assert.That(lockState.ExpiresTickExclusive, Is.EqualTo(3));
-                Assert.That(GetEnemyUtilityState(worldState, 40).EffectStates[0].cooldownTicksRemaining, Is.EqualTo(3));
-                Assert.That(GetEntity(worldState, 10).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-                Assert.That(GetEntity(worldState, 20).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        blockedTick.MovementPhaseResult.CommitEvents,
-                        "PlayerActionBlockedByBoxInteractionLock",
-                        "Action=Push",
-                        "Actor=10",
-                        "Box=20",
-                        "Cell=(1,0)",
-                        "Tick=1"),
-                    Is.True);
-                Assert.That(blockedTick.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
-                Assert.That(snapshotAfterBlockedTick.TryGetPlayerControlState(10, out var controlStateAfterBlockedTick), Is.True);
-                Assert.That(controlStateAfterBlockedTick.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
-                Assert.That(controlStateAfterBlockedTick.activeAction.executionAttempted, Is.True);
-
-                pipeline.RunTick(new TickInput(2));
-                var expiryTick = pipeline.RunTick(new TickInput(3));
-                var snapshotAfterExpiryTick = worldState.CreateSnapshot();
-
-                Assert.That(snapshotAfterExpiryTick.TryGetActiveBoxInteractionLockState(20, 3, out _), Is.False);
-                Assert.That(snapshotAfterExpiryTick.TryGetBoxInteractionLockState(20, out _), Is.False);
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        expiryTick.EventLog,
-                        "BoxInteractionLockExpired",
-                        "Box=20",
-                        "Expires=3",
-                        "Tick=3"),
-                    Is.True);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyUtilityLockNearbyBoxes_DelayedWindup_StartsWithoutLock_AndExecutesOnceAtEndTick()
-        {
-            var profile = CreateUtilityLockNearbyBoxesProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 3,
-                radius: 1,
-                durationTicks: 2,
-                blocksPush: true,
-                blocksFlip: false,
-                activationDelayTicks: 2);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            });
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-
-                var windupTick = pipeline.RunTick(new TickInput(1));
-                var windupState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(windupState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
-                Assert.That(windupState.windupStartTick, Is.EqualTo(1));
-                Assert.That(windupState.windupEndTick, Is.EqualTo(3));
-                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
-                Assert.That(windupTick.Trace.Text, Does.Not.Contain("Kind=LockNearbyBoxes|Tick=1"));
-                Assert.That(windupTick.PresentationData.EnemyUtilitySignals, Has.Count.EqualTo(1));
-                Assert.That(windupTick.PresentationData.EnemyUtilitySignals[0].EntityId, Is.EqualTo(40));
-                Assert.That(windupTick.PresentationData.EnemyUtilitySignals[0].Kind, Is.EqualTo(EnemyUtilityPresentationKind.LockNearbyBoxes));
-                Assert.That(windupTick.PresentationData.EnemyUtilitySignals[0].Phase, Is.EqualTo(EnemyUtilityPresentationPhase.WindupStarted));
-                Assert.That(windupTick.PresentationData.EnemyUtilitySignals[0].StartTick, Is.EqualTo(1));
-                Assert.That(windupTick.PresentationData.EnemyUtilitySignals[0].ExecuteTick, Is.EqualTo(3));
-                Assert.That(windupTick.PresentationData.EnemyUtilitySignals[0].DurationTicks, Is.EqualTo(2));
-                Assert.That(windupTick.PresentationData.EnemyActionSignals, Is.Empty);
-
-                var waitingTick = pipeline.RunTick(new TickInput(2));
-
-                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
-                Assert.That(waitingTick.PresentationData.EnemyUtilitySignals, Is.Empty);
-
-                var executeTick = pipeline.RunTick(new TickInput(3));
-                var executeState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-                var snapshot = worldState.CreateSnapshot();
-
-                Assert.That(executeTick.Trace.Text, Does.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=3"));
-                Assert.That(snapshot.TryGetBoxInteractionLockState(20, out var lockState), Is.True);
-                Assert.That(lockState.ExpiresTickExclusive, Is.EqualTo(5));
-                Assert.That(executeState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(executeState.cooldownTicksRemaining, Is.EqualTo(3));
-                Assert.That(executeTick.PresentationData.EnemyUtilitySignals, Is.Empty);
-                Assert.That(executeTick.PresentationData.EnemyUtilityCooldownSignals, Has.Count.EqualTo(1));
-                Assert.That(executeTick.PresentationData.EnemyUtilityCooldownSignals[0].EntityId, Is.EqualTo(40));
-                Assert.That(executeTick.PresentationData.EnemyUtilityCooldownSignals[0].Kind, Is.EqualTo(EnemyUtilityPresentationKind.LockNearbyBoxes));
-                Assert.That(executeTick.PresentationData.EnemyUtilityCooldownSignals[0].CooldownTicksRemaining, Is.EqualTo(3));
-            }
-            finally
-            {
                 DestroyProfile(profile);
             }
         }
@@ -1813,475 +1615,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesWindup_WithMovementSuppression_DoesNotMoveDuringWindup()
-        {
-            var profile = CreateMovingUtilityProfile(
-                CreateLockNearbyBoxesUtilityEffect(
-                    initialDelayTicks: 0,
-                    cooldownTicks: 3,
-                    radius: 1,
-                    durationTicks: 2,
-                    blocksPush: true,
-                    blocksFlip: false,
-                    includeSourceCell: false,
-                    targetPattern: BoxLockTargetPattern.ManhattanRadius,
-                    activationDelayTicks: 2,
-                    suppressMovementDuringWindup: true));
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                CreateBox(entityId: 20, position: new Vector2Int(0, 1), capabilities: BoxCapabilities.Push),
-            });
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-
-                var windupTick = pipeline.RunTick(new TickInput(1));
-                var windupState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(windupState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
-                Assert.That(windupState.movementSuppressionUntilTickInclusive, Is.EqualTo(3));
-                Assert.That(windupTick.PresentationData.EnemyUtilitySignals, Has.Count.EqualTo(1));
-                Assert.That(windupTick.MovementPhaseResult.RawIntents, Is.Empty);
-                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
-
-                var waitingTick = pipeline.RunTick(new TickInput(2));
-
-                Assert.That(waitingTick.MovementPhaseResult.RawIntents, Is.Empty);
-                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
-
-                var executeTick = pipeline.RunTick(new TickInput(3));
-                var executeState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(executeTick.Trace.Text, Does.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=3"));
-                Assert.That(executeTick.MovementPhaseResult.RawIntents, Is.Empty);
-                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.True);
-                Assert.That(executeState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(executeState.movementSuppressionUntilTickInclusive, Is.EqualTo(3));
-
-                var afterExecuteTick = pipeline.RunTick(new TickInput(4));
-                var afterExecuteState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(afterExecuteState.movementSuppressionUntilTickInclusive, Is.Zero);
-                Assert.That(afterExecuteTick.MovementPhaseResult.RawIntents, Is.Not.Empty);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesWindup_WithMovementSuppression_PreservesAutonomousPatrolFacing()
-        {
-            var profile = CreateRandomWalkUtilityProfile(
-                CreateLockNearbyBoxesUtilityEffect(
-                    initialDelayTicks: 0,
-                    cooldownTicks: 3,
-                    radius: 1,
-                    durationTicks: 2,
-                    blocksPush: true,
-                    blocksFlip: false,
-                    includeSourceCell: false,
-                    targetPattern: BoxLockTargetPattern.ManhattanRadius,
-                    activationDelayTicks: 2,
-                    suppressMovementDuringWindup: true));
-            var worldState = CreateSuppressedRandomWalkFacingWorld();
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-
-                var windupStartTick = pipeline.RunTick(new TickInput(1));
-                AssertSuppressedFacingTick(worldState, windupStartTick, Direction.Right);
-
-                var windupHoldTick = pipeline.RunTick(new TickInput(2));
-                AssertSuppressedFacingTick(worldState, windupHoldTick, Direction.Right);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesWindup_WithoutMovementSuppression_CanStillMove()
-        {
-            var profile = CreateMovingUtilityProfile(
-                CreateLockNearbyBoxesUtilityEffect(
-                    initialDelayTicks: 0,
-                    cooldownTicks: 3,
-                    radius: 1,
-                    durationTicks: 2,
-                    blocksPush: true,
-                    blocksFlip: false,
-                    includeSourceCell: false,
-                    targetPattern: BoxLockTargetPattern.ManhattanRadius,
-                    activationDelayTicks: 2));
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                CreateBox(entityId: 20, position: new Vector2Int(0, 1), capabilities: BoxCapabilities.Push),
-            });
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                var windupTick = pipeline.RunTick(new TickInput(1));
-                var windupState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(windupState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
-                Assert.That(windupState.movementSuppressionUntilTickInclusive, Is.Zero);
-                Assert.That(windupTick.MovementPhaseResult.RawIntents, Is.Not.Empty);
-                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesWindup_WithoutMovementSuppression_AllowsImminentMovementAndFacing()
-        {
-            var profile = CreateRandomWalkUtilityProfile(
-                CreateLockNearbyBoxesUtilityEffect(
-                    initialDelayTicks: 0,
-                    cooldownTicks: 3,
-                    radius: 1,
-                    durationTicks: 2,
-                    blocksPush: true,
-                    blocksFlip: false,
-                    includeSourceCell: false,
-                    targetPattern: BoxLockTargetPattern.ManhattanRadius,
-                    activationDelayTicks: 2));
-            var worldState = CreateSuppressedRandomWalkFacingWorld();
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                var windupTick = pipeline.RunTick(new TickInput(1));
-                var windupState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-                var enemy = GetEntityAfterTick(windupTick, 40);
-
-                Assert.That(windupState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
-                Assert.That(windupState.movementSuppressionUntilTickInclusive, Is.Zero);
-                Assert.That(windupTick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == 40), Is.Not.Empty);
-                Assert.That(windupTick.EventLog, Has.Some.Contains("FacingCommitted|"));
-                Assert.That(windupTick.EventLog, Has.Some.Contains("KinematicAnchorCommitted|"));
-                Assert.That(windupTick.EventLog, Has.Some.Contains("KinematicPoseCommitted|"));
-                Assert.That(enemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
-                Assert.That(enemy.facing, Is.EqualTo(Direction.Left));
-                Assert.That(GetEntity(worldState, 40).facing, Is.EqualTo(Direction.Left));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesWindup_RecoverOnlyMovementSuppression_DoesNotSuppressWindup()
-        {
-            var profile = CreateMovingUtilityProfile(
-                CreateLockNearbyBoxesUtilityEffect(
-                    initialDelayTicks: 0,
-                    cooldownTicks: 3,
-                    radius: 1,
-                    durationTicks: 2,
-                    blocksPush: true,
-                    blocksFlip: false,
-                    includeSourceCell: false,
-                    targetPattern: BoxLockTargetPattern.ManhattanRadius,
-                    activationDelayTicks: 2,
-                    recoveryTicks: 2,
-                    suppressMovementDuringRecover: true));
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                CreateBox(entityId: 20, position: new Vector2Int(0, 1), capabilities: BoxCapabilities.Push),
-            });
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                var windupTick = pipeline.RunTick(new TickInput(1));
-                var windupState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(windupState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
-                Assert.That(windupState.movementSuppressionUntilTickInclusive, Is.Zero);
-                Assert.That(windupTick.MovementPhaseResult.RawIntents, Is.Not.Empty);
-                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesWindup_StaleEffectCountUsesInitialStateForImminentSuppression()
-        {
-            var profile = CreateRandomWalkUtilityProfile(
-                CreateLockNearbyBoxesUtilityEffect(
-                    initialDelayTicks: 0,
-                    cooldownTicks: 3,
-                    radius: 1,
-                    durationTicks: 2,
-                    blocksPush: true,
-                    blocksFlip: false,
-                    includeSourceCell: false,
-                    targetPattern: BoxLockTargetPattern.ManhattanRadius,
-                    activationDelayTicks: 2,
-                    suppressMovementDuringWindup: true));
-            var worldState = CreateSuppressedRandomWalkFacingWorld();
-            worldState.SetEnemyUtilityState(
-                40,
-                new EnemyUtilityRuntimeState(
-                    new[]
-                    {
-                        new EnemyUtilityEffectState
-                        {
-                            effectKind = EnemyUtilityEffectKind.LockNearbyBoxes,
-                            cooldownTicksRemaining = 10,
-                        },
-                        new EnemyUtilityEffectState
-                        {
-                            effectKind = EnemyUtilityEffectKind.LockNearbyBoxes,
-                            cooldownTicksRemaining = 10,
-                        },
-                    }));
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                var windupTick = pipeline.RunTick(new TickInput(1));
-                var windupState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(windupState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
-                Assert.That(windupState.movementSuppressionUntilTickInclusive, Is.EqualTo(3));
-                AssertSuppressedFacingTick(worldState, windupTick, Direction.Right);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesWindupExecuteSuppressed_ThenRecoverWithoutSuppression_AllowsNextRecoverMovementAndFacing()
-        {
-            var profile = CreateRandomWalkUtilityProfile(
-                CreateLockNearbyBoxesUtilityEffect(
-                    initialDelayTicks: 0,
-                    cooldownTicks: 3,
-                    radius: 1,
-                    durationTicks: 2,
-                    blocksPush: true,
-                    blocksFlip: false,
-                    includeSourceCell: false,
-                    targetPattern: BoxLockTargetPattern.ManhattanRadius,
-                    activationDelayTicks: 1,
-                    suppressMovementDuringWindup: true,
-                    recoveryTicks: 2));
-            var worldState = CreateSuppressedRandomWalkFacingWorld();
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-
-                var windupStartTick = pipeline.RunTick(new TickInput(1));
-                AssertSuppressedFacingTick(worldState, windupStartTick, Direction.Right);
-
-                var windupExecuteTick = pipeline.RunTick(new TickInput(2));
-                var executeState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(windupExecuteTick.Trace.Text, Does.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=2"));
-                Assert.That(executeState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
-                Assert.That(executeState.recoverStartTick, Is.EqualTo(2));
-                Assert.That(executeState.recoverEndTickExclusive, Is.EqualTo(4));
-                Assert.That(executeState.movementSuppressionUntilTickInclusive, Is.EqualTo(2));
-                AssertSuppressedFacingTick(worldState, windupExecuteTick, Direction.Right);
-
-                var recoverTick = pipeline.RunTick(new TickInput(3));
-                var recoverState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-                var enemy = GetEntityAfterTick(recoverTick, 40);
-
-                Assert.That(recoverState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
-                Assert.That(recoverState.movementSuppressionUntilTickInclusive, Is.Zero);
-                Assert.That(recoverTick.MovementPhaseResult.RawIntents.Where(intent => intent.SourceId == 40), Is.Not.Empty);
-                Assert.That(recoverTick.EventLog, Has.Some.Contains("FacingCommitted|"));
-                Assert.That(recoverTick.EventLog, Has.Some.Contains("KinematicAnchorCommitted|"));
-                Assert.That(recoverTick.EventLog, Has.Some.Contains("KinematicPoseCommitted|"));
-                Assert.That(enemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
-                Assert.That(enemy.facing, Is.EqualTo(Direction.Left));
-                Assert.That(GetEntity(worldState, 40).facing, Is.EqualTo(Direction.Left));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesRecover_WithMovementSuppression_DoesNotMoveUntilRecoverEnds()
-        {
-            var profile = CreateMovingUtilityProfile(
-                CreateLockNearbyBoxesUtilityEffect(
-                    initialDelayTicks: 0,
-                    cooldownTicks: 3,
-                    radius: 1,
-                    durationTicks: 2,
-                    blocksPush: true,
-                    blocksFlip: false,
-                    includeSourceCell: false,
-                    targetPattern: BoxLockTargetPattern.ManhattanRadius,
-                    activationDelayTicks: 1,
-                    suppressMovementDuringWindup: true,
-                    recoveryTicks: 2,
-                    suppressMovementDuringRecover: true));
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                CreateBox(entityId: 20, position: new Vector2Int(0, 1), capabilities: BoxCapabilities.Push),
-            });
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-
-                var windupTick = pipeline.RunTick(new TickInput(1));
-                Assert.That(windupTick.MovementPhaseResult.RawIntents, Is.Empty);
-
-                var executeTick = pipeline.RunTick(new TickInput(2));
-                var executeState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(executeTick.Trace.Text, Does.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=2"));
-                Assert.That(executeTick.MovementPhaseResult.RawIntents, Is.Empty);
-                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.True);
-                Assert.That(executeState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
-                Assert.That(executeState.recoverStartTick, Is.EqualTo(2));
-                Assert.That(executeState.recoverEndTickExclusive, Is.EqualTo(4));
-                Assert.That(executeState.movementSuppressionUntilTickInclusive, Is.EqualTo(3));
-                Assert.That(executeTick.PresentationData.EnemyUtilitySignals, Has.Count.EqualTo(1));
-                Assert.That(executeTick.PresentationData.EnemyUtilitySignals[0].Phase, Is.EqualTo(EnemyUtilityPresentationPhase.RecoverStarted));
-                Assert.That(executeTick.PresentationData.EnemyUtilityCooldownSignals, Has.Count.EqualTo(1));
-                Assert.That(executeTick.PresentationData.EnemyUtilityCooldownSignals[0].EntityId, Is.EqualTo(40));
-                Assert.That(executeTick.PresentationData.EnemyUtilityCooldownSignals[0].Kind, Is.EqualTo(EnemyUtilityPresentationKind.LockNearbyBoxes));
-                Assert.That(executeTick.PresentationData.EnemyUtilityCooldownSignals[0].CooldownTicksRemaining, Is.EqualTo(3));
-
-                var recoverTick = pipeline.RunTick(new TickInput(3));
-                Assert.That(recoverTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=3"));
-                Assert.That(recoverTick.MovementPhaseResult.RawIntents, Is.Empty);
-                Assert.That(GetEnemyUtilityState(worldState, 40).EffectStates[0].phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
-
-                var afterRecoverTick = pipeline.RunTick(new TickInput(4));
-                var afterRecoverState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(afterRecoverState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(afterRecoverState.recoverStartTick, Is.Zero);
-                Assert.That(afterRecoverState.recoverEndTickExclusive, Is.Zero);
-                Assert.That(afterRecoverState.movementSuppressionUntilTickInclusive, Is.Zero);
-                Assert.That(afterRecoverTick.MovementPhaseResult.RawIntents, Is.Not.Empty);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesRecover_WithMovementSuppression_PreservesAutonomousPatrolFacing()
-        {
-            var profile = CreateRandomWalkUtilityProfile(
-                CreateLockNearbyBoxesUtilityEffect(
-                    initialDelayTicks: 0,
-                    cooldownTicks: 3,
-                    radius: 1,
-                    durationTicks: 2,
-                    blocksPush: true,
-                    blocksFlip: false,
-                    includeSourceCell: false,
-                    targetPattern: BoxLockTargetPattern.ManhattanRadius,
-                    activationDelayTicks: 1,
-                    suppressMovementDuringWindup: true,
-                    recoveryTicks: 2,
-                    suppressMovementDuringRecover: true));
-            var worldState = CreateSuppressedRandomWalkFacingWorld();
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-
-                var windupStartTick = pipeline.RunTick(new TickInput(1));
-                AssertSuppressedFacingTick(worldState, windupStartTick, Direction.Right);
-
-                var recoverStartTick = pipeline.RunTick(new TickInput(2));
-                AssertSuppressedFacingTick(worldState, recoverStartTick, Direction.Right);
-
-                var recoverHoldTick = pipeline.RunTick(new TickInput(3));
-                AssertSuppressedFacingTick(worldState, recoverHoldTick, Direction.Right);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesRecover_WithoutMovementSuppression_CanMoveDuringRecover()
-        {
-            var profile = CreateMovingUtilityProfile(
-                CreateLockNearbyBoxesUtilityEffect(
-                    initialDelayTicks: 0,
-                    cooldownTicks: 3,
-                    radius: 1,
-                    durationTicks: 2,
-                    blocksPush: true,
-                    blocksFlip: false,
-                    includeSourceCell: false,
-                    targetPattern: BoxLockTargetPattern.ManhattanRadius,
-                    activationDelayTicks: 1,
-                    suppressMovementDuringWindup: true,
-                    recoveryTicks: 2));
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                CreateBox(entityId: 20, position: new Vector2Int(0, 1), capabilities: BoxCapabilities.Push),
-            });
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-
-                Assert.That(pipeline.RunTick(new TickInput(1)).MovementPhaseResult.RawIntents, Is.Empty);
-                Assert.That(pipeline.RunTick(new TickInput(2)).MovementPhaseResult.RawIntents, Is.Empty);
-
-                var recoverTick = pipeline.RunTick(new TickInput(3));
-                var recoverState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(recoverState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
-                Assert.That(recoverState.movementSuppressionUntilTickInclusive, Is.Zero);
-                Assert.That(recoverTick.MovementPhaseResult.RawIntents, Is.Not.Empty);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
         public void EnemyAi_SummonWindup_DefaultPolicy_DoesNotImplicitlySuppressMovement()
         {
             var profile = CreateMovingUtilityProfile(
@@ -2310,373 +1643,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             finally
             {
                 DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesWindup_TopologySuspendExtendsMovementSuppression()
-        {
-            var profile = CreateUtilityLockNearbyBoxesProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 3,
-                radius: 1,
-                durationTicks: 2,
-                activationDelayTicks: 2,
-                suppressMovementDuringWindup: true);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
-                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new CubeTopologyState(FaceId.Floor));
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                pipeline.RunTick(new TickInput(1));
-
-                Assert.That(GetEnemyUtilityState(worldState, 40).EffectStates[0].movementSuppressionUntilTickInclusive, Is.EqualTo(3));
-
-                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
-                var suspendedTick = pipeline.RunTick(new TickInput(2));
-                var suspendedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(suspendedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
-                Assert.That(suspendedState.windupStartTick, Is.EqualTo(1));
-                Assert.That(suspendedState.windupEndTick, Is.EqualTo(4));
-                Assert.That(suspendedState.cooldownTicksRemaining, Is.Zero);
-                Assert.That(suspendedState.movementSuppressionUntilTickInclusive, Is.EqualTo(4));
-                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
-                Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=2"));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyAi_LockNearbyBoxesRecover_CancelClearsMovementSuppression()
-        {
-            var profile = CreateUtilityLockNearbyBoxesProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 3,
-                radius: 1,
-                durationTicks: 2,
-                activationDelayTicks: 1,
-                suppressMovementDuringWindup: true,
-                recoveryTicks: 2,
-                suppressMovementDuringRecover: true);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
-                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                },
-                new CubeTopologyState(FaceId.Floor));
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-
-                pipeline.RunTick(new TickInput(1));
-                pipeline.RunTick(new TickInput(2));
-                var recoverState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-                Assert.That(recoverState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
-                Assert.That(recoverState.movementSuppressionUntilTickInclusive, Is.EqualTo(3));
-
-                worldState.CreateWriteContext().SetBoardPresence(40, EntityBoardPresence.Detached);
-                var canceledTick = pipeline.RunTick(new TickInput(3));
-                var canceledState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(canceledState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(canceledState.recoverStartTick, Is.Zero);
-                Assert.That(canceledState.recoverEndTickExclusive, Is.Zero);
-                Assert.That(canceledState.movementSuppressionUntilTickInclusive, Is.Zero);
-                Assert.That(canceledTick.PresentationData.EnemyUtilitySignals, Has.Count.EqualTo(1));
-                Assert.That(canceledTick.PresentationData.EnemyUtilitySignals[0].Phase, Is.EqualTo(EnemyUtilityPresentationPhase.Canceled));
-                Assert.That(canceledTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=3"));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyUtilityLockNearbyBoxes_DelayedWindup_TopologySuspendResumesBeforeExecute()
-        {
-            var profile = CreateUtilityLockNearbyBoxesProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 3,
-                radius: 1,
-                durationTicks: 2,
-                activationDelayTicks: 1);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
-                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            });
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-
-                pipeline.RunTick(new TickInput(1));
-                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
-                var suspendedTick = pipeline.RunTick(new TickInput(2));
-                var suspendedState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(suspendedState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
-                Assert.That(suspendedState.windupStartTick, Is.EqualTo(1));
-                Assert.That(suspendedState.windupEndTick, Is.EqualTo(3));
-                Assert.That(suspendedState.cooldownTicksRemaining, Is.Zero);
-                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
-                Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("Source=40|Effect=0|Kind=LockNearbyBoxes|Tick=2"));
-
-                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Floor, 0, 0));
-                var executeTick = pipeline.RunTick(new TickInput(3));
-                var executeState = GetEnemyUtilityState(worldState, 40).EffectStates[0];
-
-                Assert.That(executeState.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
-                Assert.That(executeState.cooldownTicksRemaining, Is.EqualTo(3));
-                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.True);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyUtilityLockNearbyBoxes_DelayedWindup_UsesExecuteTickTargetSnapshot()
-        {
-            var profile = CreateUtilityLockNearbyBoxesProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 3,
-                radius: 1,
-                durationTicks: 2,
-                activationDelayTicks: 1);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
-                CreateBox(entityId: 21, position: new Vector2Int(3, 0), capabilities: BoxCapabilities.Push),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-            });
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-
-                pipeline.RunTick(new TickInput(1));
-                var writeContext = worldState.CreateWriteContext();
-                writeContext.MoveEntity(21, new SurfaceCell(FaceId.Floor, -1, 0));
-                writeContext.MoveEntity(20, new SurfaceCell(FaceId.Floor, 3, 0));
-
-                pipeline.RunTick(new TickInput(2));
-                var snapshot = worldState.CreateSnapshot();
-
-                Assert.That(snapshot.TryGetBoxInteractionLockState(20, out _), Is.False);
-                Assert.That(snapshot.TryGetBoxInteractionLockState(21, out _), Is.True);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyUtilityLockNearbyBoxes_BlocksFlipSameTick_AndStartsRecovery()
-        {
-            var profile = CreateUtilityLockNearbyBoxesProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 3,
-                radius: 1,
-                durationTicks: 2,
-                blocksPush: false,
-                blocksFlip: true);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3, facing: Direction.Up),
-                CreateBox(entityId: 20, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(-1, 1), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Down),
-            });
-
-            try
-            {
-                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
-                    worldState,
-                    new IEntityLogic[]
-                    {
-                        CreateImmediateFlipPlayerLogic(10, recoveryTicks: 1),
-                    });
-
-                var blockedTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
-                var snapshotAfterBlockedTick = worldState.CreateSnapshot();
-
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        blockedTick.MovementPhaseResult.RejectedReasons,
-                        "MovementRejected",
-                        "Stage=Expand",
-                        "Source=10",
-                        "Reason=FlipTargetLocked",
-                        "Cell=(-1,0)",
-                        "Target=20"),
-                    Is.True);
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        blockedTick.EventLog,
-                        "PlayerActionBlockedByBoxInteractionLock",
-                        "Action=Flip",
-                        "Actor=10",
-                        "Box=20",
-                        "Cell=(-1,0)",
-                        "Tick=1"),
-                    Is.True);
-                Assert.That(
-                    SemanticEventAssertions.ContainsEvent(
-                        blockedTick.MovementPhaseResult.CommitEvents,
-                        "PlayerActionBlockedByBoxInteractionLock",
-                        "Action=Flip",
-                        "Actor=10",
-                        "Box=20",
-                        "Cell=(-1,0)",
-                        "Tick=1"),
-                    Is.True);
-                Assert.That(blockedTick.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
-                Assert.That(GetEntity(worldState, 20).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
-                Assert.That(snapshotAfterBlockedTick.TryGetPlayerControlState(10, out var controlStateAfterBlockedTick), Is.True);
-                Assert.That(controlStateAfterBlockedTick.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
-                Assert.That(controlStateAfterBlockedTick.activeAction.executionAttempted, Is.True);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyUtilityLockNearbyBoxes_LocksOnlyNearbyBoxesOnSameFace()
-        {
-            var profile = CreateUtilityLockNearbyBoxesProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 5,
-                radius: 1,
-                durationTicks: 2,
-                targetPattern: BoxLockTargetPattern.OrthogonalAdjacent4);
-            var worldState = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
-                    CreateBox(entityId: 21, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Push),
-                    CreateBox(entityId: 22, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
-                    CreateBox(entityId: 23, position: new SurfaceCell(FaceId.Floor, 0, -1), capabilities: BoxCapabilities.Push),
-                    CreateBox(entityId: 24, position: new SurfaceCell(FaceId.Front, 2, 1), capabilities: BoxCapabilities.Push),
-                    CreateWall(entityId: 60, position: new SurfaceCell(FaceId.Floor, 2, 0)),
-                    CreateUnit(entityId: 61, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 2), hp: 3),
-                },
-                new CubeTopologyState(FaceId.Floor));
-
-            try
-            {
-                var pipeline = CreateEnemyPipeline(worldState, profile);
-                var tick = pipeline.RunTick(new TickInput(1));
-                var snapshot = worldState.CreateSnapshot();
-                var appliedEvents = SemanticEventAssertions.FilterEvents(tick.EventLog, "BoxInteractionLockApplied");
-                var diagnostics = string.Join("\n", tick.EventLog) + "\nTRACE\n" + tick.Trace.Text;
-
-                Assert.That(appliedEvents, Has.Length.EqualTo(4), diagnostics);
-                Assert.That(appliedEvents[0], Does.Contain("Box=20"));
-                Assert.That(appliedEvents[1], Does.Contain("Box=21"));
-                Assert.That(appliedEvents[2], Does.Contain("Box=22"));
-                Assert.That(appliedEvents[3], Does.Contain("Box=23"));
-                Assert.That(snapshot.TryGetBoxInteractionLockState(20, out _), Is.True);
-                Assert.That(snapshot.TryGetBoxInteractionLockState(21, out _), Is.True);
-                Assert.That(snapshot.TryGetBoxInteractionLockState(22, out _), Is.True);
-                Assert.That(snapshot.TryGetBoxInteractionLockState(23, out _), Is.True);
-                Assert.That(snapshot.TryGetBoxInteractionLockState(24, out _), Is.False);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void EnemyUtilityLockNearbyBoxes_MergesLongestExpiryAndInteractionFlagsAcrossSources()
-        {
-            var defaultProfile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
-            {
-                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                DetectionStrategyKind = DetectionStrategyKind.None,
-                PatrolStrategyKind = PatrolStrategyKind.Stationary,
-            });
-            var shortPushProfile = CreateUtilityLockNearbyBoxesProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 5,
-                radius: 1,
-                durationTicks: 1,
-                blocksPush: true,
-                blocksFlip: false,
-                targetPattern: BoxLockTargetPattern.OrthogonalAdjacent4);
-            var longFlipProfile = CreateUtilityLockNearbyBoxesProfile(
-                initialDelayTicks: 0,
-                cooldownTicks: 5,
-                radius: 1,
-                durationTicks: 3,
-                blocksPush: false,
-                blocksFlip: true,
-                targetPattern: BoxLockTargetPattern.OrthogonalAdjacent4);
-            var worldState = CreateWorldState(new[]
-            {
-                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(2, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
-            });
-
-            try
-            {
-                var defaultDefinition = defaultProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-                var shortPushDefinition = shortPushProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-                var longFlipDefinition = longFlipProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-                var bootstrapper = new GameplayBootstrapper(
-                    GameplayEntityLogicProviderFactory.CreateDefault(
-                        defaultDefinition,
-                        new Dictionary<int, EnemyAiRuntimeDefinition>
-                        {
-                            { 40, shortPushDefinition },
-                            { 50, longFlipDefinition },
-                        }));
-                var pipeline = bootstrapper.CreateTickPipeline(worldState);
-
-                var tick = pipeline.RunTick(new TickInput(1));
-                var snapshot = worldState.CreateSnapshot();
-                var appliedEvents = SemanticEventAssertions.FilterEvents(tick.EventLog, "BoxInteractionLockApplied");
-                var diagnostics = string.Join("\n", tick.EventLog) + "\nTRACE\n" + tick.Trace.Text;
-
-                Assert.That(appliedEvents, Has.Length.EqualTo(1), diagnostics);
-                Assert.That(snapshot.TryGetBoxInteractionLockState(20, out var lockState), Is.True);
-                Assert.That(lockState.ExpiresTickExclusive, Is.EqualTo(4));
-                Assert.That(lockState.BlocksPush, Is.True);
-                Assert.That(lockState.BlocksFlip, Is.True);
-                Assert.That(lockState.SourceEntityId, Is.EqualTo(50));
-                Assert.That(lockState.SourceEffectIndex, Is.EqualTo(0));
-            }
-            finally
-            {
-                DestroyProfile(defaultProfile);
-                DestroyProfile(shortPushProfile);
-                DestroyProfile(longFlipProfile);
             }
         }
 
@@ -4360,14 +3326,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_ContactDamageProfile_MovesIntoPlayerCell_AndDealsSameTickDamage()
+        public void EnemyAi_PassiveContactProfile_MovesIntoPlayerCell_AndDealsSameTickDamage()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -4412,7 +3378,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -4464,7 +3430,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -4510,7 +3476,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -4554,7 +3520,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -4628,7 +3594,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     facing: Direction.Left,
                     enemyLocomotionCooldownTicks: 3),
             });
-            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            var profile = CreateGlidePassiveContactProfile(durationTicks: 20);
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateActiveGlide(activeUntilTickExclusive: 20, durationTicks: 20, recoveryTicks: 1, cooldownTicks: 0));
@@ -4673,7 +3639,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            var profile = CreateGlidePassiveContactProfile(durationTicks: 20);
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateActiveGlide(activeUntilTickExclusive: 20, durationTicks: 20, recoveryTicks: 1, cooldownTicks: 0));
@@ -4731,7 +3697,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            var profile = CreateGlidePassiveContactProfile(durationTicks: 20);
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateCooldownGlide(cooldownUntilTickExclusive: 100, durationTicks: 20, recoveryTicks: 2, cooldownTicks: 100));
@@ -4776,7 +3742,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 1), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
             });
-            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            var profile = CreateGlidePassiveContactProfile(durationTicks: 20);
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateActiveGlide(activeUntilTickExclusive: 20, durationTicks: 20, recoveryTicks: 2, cooldownTicks: 0));
@@ -4848,7 +3814,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 1), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 1, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
             });
-            var profile = CreateGlideContactDamageProfile(durationTicks: 20);
+            var profile = CreateGlidePassiveContactProfile(durationTicks: 20);
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateActiveGlide(activeUntilTickExclusive: 20, durationTicks: 20, recoveryTicks: 2, cooldownTicks: 0));
@@ -4908,7 +3874,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     startedTick = 1,
                     stepDirectionX = 1,
                 });
-            var profile = CreateGlideContactDamageProfile(durationTicks: 4);
+            var profile = CreateGlidePassiveContactProfile(durationTicks: 4);
 
             try
             {
@@ -4944,7 +3910,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: enemySourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -4986,7 +3952,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -5853,15 +4819,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new[]
                     {
                         CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Charge, facing: Direction.Right),
+                        CreateWall(entityId: 51, position: new Vector2Int(1, 0)),
                     },
-                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)),
-                    new GameplayTerrainData(new[]
-                    {
-                        new TerrainCellState(
-                            new SurfaceCell(FaceId.Floor, 1, 0),
-                            TerrainKind.Generic,
-                            TerrainFlags.BlocksGroundTraversal),
-                    })));
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0))));
         }
 
         [Test]
@@ -6148,7 +5108,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -6196,7 +5156,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 1, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -6228,7 +5188,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_ContactDamageProfile_AlreadySharingPlayerCell_DealsDamageWithoutMoving()
+        public void EnemyAi_PassiveContactProfile_AlreadySharingPlayerCell_DealsDamageWithoutMoving()
         {
             var stackedCell = new Vector2Int(0, 0);
             var worldState = CreateWorldState(new[]
@@ -6236,7 +5196,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: stackedCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: stackedCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -6363,14 +5323,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_ContactDamageProfile_PlayerOwnedCooldownWhileStacked_OnlyAcceptsAtReceiverCadence()
+        public void EnemyAi_PassiveContactProfile_PlayerOwnedCooldownWhileStacked_OnlyAcceptsAtReceiverCadence()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -6399,7 +5359,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_ContactDamageProfile_TwoEnemiesSameCellSameTick_OnlyFirstDeterministicHitIsAccepted()
+        public void EnemyAi_PassiveContactProfile_TwoEnemiesSameCellSameTick_OnlyFirstDeterministicHitIsAccepted()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -6407,7 +5367,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
                 CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -6434,7 +5394,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_ContactDamageProfile_CooldownExpiryWhileStillStacked_ReacceptsExactlyOneHit()
+        public void EnemyAi_PassiveContactProfile_CooldownExpiryWhileStillStacked_ReacceptsExactlyOneHit()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -6442,7 +5402,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
                 CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var profile = CreateContactDamageProfile();
+            var profile = CreatePassiveContactProfile();
 
             try
             {
@@ -6465,10 +5425,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyAi_ContactDamageProfile_RecoverTicks_DoNotControlContactCadence()
+        public void EnemyAi_PassiveContactProfile_RecoverTicks_DoNotControlContactCadence()
         {
-            var fastContactProfile = CreateContactDamageProfile(recoverTicks: 0);
-            var slowContactProfile = CreateContactDamageProfile(recoverTicks: 5);
+            var fastContactProfile = CreatePassiveContactProfile(recoverTicks: 0);
+            var slowContactProfile = CreatePassiveContactProfile(recoverTicks: 5);
 
             try
             {
@@ -6788,15 +5748,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds)
         {
-            return CreateWorldState(initialEntities, boardBounds, GameplayTerrainData.Empty);
-        }
-
-        private static WorldState CreateWorldState(
-            IEnumerable<EntityState> initialEntities,
-            BoardBounds boardBounds,
-            GameplayTerrainData terrainData)
-        {
-            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds);
         }
 
         private static WorldState CreateWorldState(
@@ -6806,7 +5758,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 new BoardBounds(new Vector2Int(-32, -32), new Vector2Int(32, 32)),
-                GameplayTerrainData.Empty,
                 topology);
         }
 
@@ -6967,7 +5918,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static string BuildWindupStartGateDebug(
             bool logicRange,
-            in WindupMeleeStartQueryResult query,
+            in CombatWindupStartQueryResult query,
             TickResult result)
         {
             var movementSources = string.Join(
@@ -6977,7 +5928,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 ",",
                 result.PresentationData.EnemyActionSignals.Select(signal => $"{signal.EntityId}:Start={signal.StartedThisTick}:Execute={signal.ExecutedThisTick}"));
 
-            return $"LogicRange={logicRange}|CanStart={query.CanStart}|ShouldApproach={query.ShouldApproach}|Reason={query.BlockReason}|Distance={query.DistanceFixedUnits}|Threshold={query.ThresholdFixedUnits}|Slack={WindupMeleeSettings.CreateDefault().VisualRangeSlackUnits}|Movement=[{movementSources}]|Signals=[{actionSignals}]|Trace={result.Trace.Text}";
+            return $"LogicRange={logicRange}|CanStart={query.CanStart}|ShouldApproach={query.ShouldApproach}|Reason={query.BlockReason}|Distance={query.DistanceFixedUnits}|Threshold={query.ThresholdFixedUnits}|Slack={ProjectileWindupSettings.CreateDefault().VisualRangeSlackUnits}|Movement=[{movementSources}]|Signals=[{actionSignals}]|Trace={result.Trace.Text}";
         }
 
         private static void SetUnitKinematicLocomotionState(
@@ -7045,36 +5996,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     overrideHp,
                     hpOverride,
                     windupTicks,
-                    suppressMovementDuringWindup,
-                    recoveryTicks,
-                    suppressMovementDuringRecover));
-        }
-
-        private static EnemyAiProfile CreateUtilityLockNearbyBoxesProfile(
-            int initialDelayTicks,
-            int cooldownTicks,
-            int radius,
-            int durationTicks,
-            bool blocksPush = true,
-            bool blocksFlip = true,
-            bool includeSourceCell = false,
-            BoxLockTargetPattern targetPattern = BoxLockTargetPattern.ManhattanRadius,
-            int activationDelayTicks = 0,
-            bool suppressMovementDuringWindup = false,
-            int recoveryTicks = 0,
-            bool suppressMovementDuringRecover = false)
-        {
-            return CreateUtilityProfile(
-                CreateLockNearbyBoxesUtilityEffect(
-                    initialDelayTicks,
-                    cooldownTicks,
-                    radius,
-                    durationTicks,
-                    blocksPush,
-                    blocksFlip,
-                    includeSourceCell,
-                    targetPattern,
-                    activationDelayTicks,
                     suppressMovementDuringWindup,
                     recoveryTicks,
                     suppressMovementDuringRecover));
@@ -7174,40 +6095,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", TicksToSeconds(initialDelayTicks));
             EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", TicksToSeconds(cooldownTicks));
             EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
-            return effect;
-        }
-
-        private static EnemyUtilityEffectAuthoring CreateLockNearbyBoxesUtilityEffect(
-            int initialDelayTicks,
-            int cooldownTicks,
-            int radius,
-            int durationTicks,
-            bool blocksPush,
-            bool blocksFlip,
-            bool includeSourceCell,
-            BoxLockTargetPattern targetPattern,
-            int activationDelayTicks = 0,
-            bool suppressMovementDuringWindup = false,
-            int recoveryTicks = 0,
-            bool suppressMovementDuringRecover = false)
-        {
-            var lockNearbyBoxes = new LockNearbyBoxesAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "radius", radius);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "durationSeconds", TicksToSeconds(durationTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "activationDelaySeconds", TicksToSeconds(activationDelayTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "blocksPush", blocksPush);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "blocksFlip", blocksFlip);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "includeSourceCell", includeSourceCell);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "targetPattern", targetPattern);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "suppressMovementDuringWindup", suppressMovementDuringWindup);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "recoverySeconds", TicksToSeconds(recoveryTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "suppressMovementDuringRecover", suppressMovementDuringRecover);
-
-            var effect = new EnemyUtilityEffectAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.LockNearbyBoxes);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", TicksToSeconds(initialDelayTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", TicksToSeconds(cooldownTicks));
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "lockNearbyBoxes", lockNearbyBoxes);
             return effect;
         }
 
@@ -7405,9 +6292,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
         }
 
-        private static EnemyAiProfile CreateContactDamageProfile(int moveCooldownTicks = 0, int recoverTicks = 1)
+        private static EnemyAiProfile CreatePassiveContactProfile(int moveCooldownTicks = 0, int recoverTicks = 1)
         {
-            return EnemyAiProfileTestFactory.CreateContactDamage(moveCooldownTicks, recoverTicks);
+            return EnemyAiProfileTestFactory.CreatePassiveContact(moveCooldownTicks, recoverTicks);
         }
 
         private static EnemyAiProfile CreateStationaryPassiveContactProfile()
@@ -7425,7 +6312,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
         }
 
-        private static EnemyAiProfile CreateGlideContactDamageProfile(int durationTicks)
+        private static EnemyAiProfile CreateGlidePassiveContactProfile(int durationTicks)
         {
             return EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: durationTicks, recoveryTicks: 2, cooldownTicks: 0),

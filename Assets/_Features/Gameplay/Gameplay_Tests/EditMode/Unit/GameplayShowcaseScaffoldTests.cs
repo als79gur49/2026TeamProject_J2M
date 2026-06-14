@@ -1058,7 +1058,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     DefaultBoardBounds,
                     new CubeTopologyState(FaceId.Floor),
                     Array.Empty<EntityState>(),
-                    Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                     Array.Empty<TileFeatureState>(),
                     Array.Empty<TileFeatureRuntimeDefinition>(),
                     Array.Empty<MoonBlockRespawnDefinition>(),
@@ -1072,11 +1071,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<EnemyPresentationBinding>(),
                     InitialStaticEntityPresentationCatalogOverride,
                     Array.Empty<StaticEntityPresentationBinding>(),
-                    null,
-                    null,
-                    null,
-                    null,
-                    Array.Empty<TileFeaturePresentationResolvedBinding>());
+                    boardPresentationProfile: null,
+                    boardTilePresentationCatalog: null,
+                    boardTileStyleCatalog: null,
+                    tileFeaturePresentationBindings: Array.Empty<TileFeaturePresentationResolvedBinding>());
             }
 
         }

@@ -35,13 +35,13 @@
   - all targets die + suppressed Barricade occupant cleared면 `BarricadeReassertCrush`로 incoming box를 제거하고 FollowThrough하지 않는다.
   - any target survives면 `DestroySelf`다.
   - all targets die + landing denied면 `Stay`다.
-  - landing cell이 wall, solid box, terrain, board edge면 `blocked`다.
+  - landing cell이 wall/solid box, board edge, reservation conflict, tile feature, or topology rule로 막히면 `blocked`다.
   - `blocked`에서는 impact가 생기지 않는다.
 
 ## Push / Flip Impact Disposition Table
 - `ImpactDisposition`은 narrow internal Push/Flip-only contract, not a generalized impact framework다.
 - 허용 family는 current `Push`, `Sliding Push`, `Flip` hostile `BoxImpact` path뿐이다.
-- `ProjectileImpact`, jump landing, melee/contact, delayed effect, item consume, broader impact family generalization은 이번 단계 non-goal이다.
+- `ForwardCellImpact`, jump landing, melee/contact, delayed effect, item consume, broader impact family generalization은 이번 단계 non-goal이다.
 
 | Family | Attack outcome | Settlement outcome | Disposition | Note |
 | --- | --- | --- | --- | --- |
@@ -87,7 +87,7 @@
   - `Phased` live seam은 traversal에서 `Unit`/`Solid` blocker bypass capability를 이해한다.
   - `Phased` live seam은 fresh target acquisition suppression을 이해한다.
   - current enemy current-lock path만 `existing lock retention`을 narrow hook로 사용한다.
-  - `Phased`는 `Terrain`, `BoardEdge`, `Reservation` bypass를 뜻하지 않는다.
+  - `Phased`는 `BoardEdge`, `Reservation`, `TileFeature`, or topology bypass를 뜻하지 않는다.
   - current live profile은 `ClaimsAuthoritativeOccupancy=true`와 active-face visibility, anchored-like terminal settle을 `StageDefault`로 사용한다. 이것은 current implementation default이지 future invariant가 아니다.
   - current live enter/sustain/exit owner는 `MovementPreMovement`, `SystemPreMovementValidation`, `DebugForced`로 metadata table에 고정한다.
   - `RetiredEnemyPreMovement`는 retired `PhaseThroughLockedTarget` compatibility slot이며 current runtime producer가 아니다.

@@ -6,7 +6,6 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Stages;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -140,13 +139,8 @@ namespace Game.Feature.Gameplay.Host
         public BoardPresentationProfile BoardPresentationProfile;
         public BoardTilePresentationCatalog BoardTilePresentationCatalog;
         public BoardTileStyleCatalog BoardTileStyleCatalog;
-        public BoardTileOverlayCatalog BoardTileOverlayCatalog;
-        public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides =
-            Array.Empty<BoardTilePresentationOverride>();
         public IReadOnlyList<BoardTilePaintOverride> BoardTilePaintOverrides =
             Array.Empty<BoardTilePaintOverride>();
-        public IReadOnlyList<BoardTileOverlayOverride> BoardTileOverlayOverrides =
-            Array.Empty<BoardTileOverlayOverride>();
         public IReadOnlyList<TileFeaturePresentationResolvedBinding> TileFeaturePresentationBindings =
             Array.Empty<TileFeaturePresentationResolvedBinding>();
         public StageWorldGuideCatalog WorldGuideCatalog;
@@ -157,7 +151,6 @@ namespace Game.Feature.Gameplay.Host
         public BoardBounds InitialBoardBounds = BoardBounds.Unbounded;
         public float InitialMoveDelaySeconds = -1f;
         public EntityState[] InitialEntities = Array.Empty<EntityState>();
-        public GameplayTerrainData InitialTerrain = GameplayTerrainData.Empty;
         public TileFeatureState[] InitialTileFeatures = Array.Empty<TileFeatureState>();
         public TileFeatureRuntimeDefinition[] TileFeatureDefinitions = Array.Empty<TileFeatureRuntimeDefinition>();
         public MoonBlockRespawnDefinition[] MoonBlockRespawnDefinitions = Array.Empty<MoonBlockRespawnDefinition>();

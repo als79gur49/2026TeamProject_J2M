@@ -14,7 +14,7 @@
 - 이 historical phase의 목표는 `WindupMelee`를 `RandomWalk`의 두 번째 bounded pilot archetype으로 확장하되, 기존 전투 semantics와 authored baseline 체감을 검증 가능한 범위에서만 바꾸는 것이었다.
 - historical live rollout은 showcase 단일 슬롯 1건만 opt-in 했다.
 - `EnemyAi_WindupMelee.asset` repository profile은 Stage 미배치 cleanup에서 제거됐다. Current production windup lane은 Stage-reachable `EnemyAi_WindupProjectile.asset` / `WindupForwardCellProjectileCapabilityAsset` 경로다.
-- `EnemyCore_WindupMelee.asset`와 `EnemyBrain_WindupMelee.asset`는 WindupProjectile shared authoring으로 남아 있으므로 유지한다.
+- historical `EnemyCore_WindupMelee.asset`와 `EnemyBrain_WindupMelee.asset` 경로는 current taxonomy에서 `EnemyCore_WindupProjectile.asset` / `EnemyBrain_WindupProjectile.asset`로 정리됐다.
 - `Forward`는 계속 fallback oracle이다.
 - `JumpChaser`, `Charge`, `TutorialPassiveContact`, `WallFollower` 기본 patrol 정책은 이 단계에서 바꾸지 않는다.
 
@@ -23,8 +23,8 @@
 - `WindupMelee` baseline은 historical authored fallback이었다. Current repository profile inventory에는 retired profile이 없고, current production windup behavior는 explicit WindupProjectile profile 기준이다.
   - baseline AI profile: retired repository profile, previously `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset`
   - current windup AI profile: `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_WindupProjectile/EnemyAi_WindupProjectile.asset`
-  - baseline core: `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Core/Enemy_WindupMelee/EnemyCore_WindupMelee.asset`
-  - baseline brain: `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Brain/Enemy_WindupMelee/EnemyBrain_WindupMelee.asset`
+  - baseline core: previously `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Core/Enemy_WindupMelee/EnemyCore_WindupMelee.asset`; current support path is `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Core/Enemy_WindupProjectile/EnemyCore_WindupProjectile.asset`
+  - baseline brain: previously `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Brain/Enemy_WindupMelee/EnemyBrain_WindupMelee.asset`; current support path is `Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Brain/Enemy_WindupProjectile/EnemyBrain_WindupProjectile.asset`
   - patrol: `Forward`
   - detection: `NearestOpponent`
   - state resolver: `Default`
@@ -45,7 +45,7 @@
 | surface | target | fallback | rollback |
 | --- | --- | --- | --- |
 | baseline AI profile | retired repository profile | n/a | Stage 미배치 cleanup 이후 재도입 금지 |
-| baseline brain | `EnemyBrain_WindupMelee.asset` untouched | same asset | overwrite 금지 |
+| baseline brain | historical `EnemyBrain_WindupMelee.asset`, now `EnemyBrain_WindupProjectile.asset` | current WindupProjectile brain asset | overwrite 금지 |
 | pilot patrol asset | retired repository asset | `EnemyPatrol_Forward.asset` | stage ref 제거 |
 | pilot brain | retired random-walk pilot brain asset | baseline brain | stage ref 제거 |
 | pilot AI profile | retired repository profile | baseline AI profile | stage ref 제거 |
@@ -123,7 +123,7 @@
 - 새 pilot AI profile을 추가한다.
   - retired random-walk pilot profile asset
 - pilot profile은 baseline `coreAuthoring`와 capability assets를 재사용한다.
-- live rollout은 `mechanics-showcase.asset`의 entity `54` 한 슬롯만 pilot profile로 opt-in 한다.
+- live rollout은 `stage-4-2.asset`의 entity `54` 한 슬롯만 pilot profile로 opt-in 한다.
 - `Forward fallback untouched`가 authoring contract다.
 
 ## 9. 테스트 / 검증 계획
@@ -237,5 +237,5 @@
 ## 15. closed 의미와 explicit non-claims
 - `closed`는 `WindupMelee RandomWalk pilot` bounded rollout에 대한 official close decision이 승인되었음을 뜻한다.
 - `closed`는 close gate의 canonical 근거가 same-revision targeted evidence bundle이라는 뜻이며, broad/full suite closure claim은 아니다.
-- `closed` 이후에도 `EnemyBrain_WindupMelee.asset` shared brain, `Forward` fallback/oracle, other archetype no-touch 원칙은 current truth로 유지한다. Retired `EnemyAi_WindupMelee.asset` profile은 Stage 미배치 cleanup 이후 current repository inventory가 아니다.
+- `closed` 이후에도 current WindupProjectile shared brain, `Forward` fallback/oracle, other archetype no-touch 원칙은 current truth로 유지한다. Retired `EnemyAi_WindupMelee.asset` profile은 Stage 미배치 cleanup 이후 current repository inventory가 아니다.
 - phase 6 readiness review는 close 이후 별도 단계이며, `JumpChaser` 또는 `Charge` rollout이 자동으로 열리지 않는다.

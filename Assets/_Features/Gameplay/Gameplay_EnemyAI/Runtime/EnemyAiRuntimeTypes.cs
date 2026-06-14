@@ -86,7 +86,7 @@ namespace Game.Feature.Gameplay.Entities
     public enum EnemyUtilityEffectKind
     {
         SummonMinion = 0,
-        LockNearbyBoxes = 1,
+        RetiredLockNearbyBoxes = 1,
         GravityFieldAura = 2,
     }
 
@@ -378,7 +378,7 @@ namespace Game.Feature.Gameplay.Entities
             AttackDecisionSettings attackDecisionSettings,
             EnemyAttackTimingSettings attackTimingSettings,
             IAttackDecisionStrategy attackDecisionStrategy,
-            WindupMeleeSettings? windupMeleeSettings = null,
+            ProjectileWindupSettings? projectileWindupSettings = null,
             WindupForwardCellProjectileSettings? windupForwardCellProjectileSettings = null)
         {
             if (kind == AttackDecisionStrategyKind.None)
@@ -403,7 +403,7 @@ namespace Game.Feature.Gameplay.Entities
             Kind = kind;
             AttackDecisionSettings = attackDecisionSettings;
             AttackTimingSettings = attackTimingSettings;
-            WindupMeleeSettings = windupMeleeSettings ?? global::Game.Feature.Gameplay.Entities.WindupMeleeSettings.CreateDefault();
+            ProjectileWindupSettings = projectileWindupSettings ?? global::Game.Feature.Gameplay.Entities.ProjectileWindupSettings.CreateDefault();
             WindupForwardCellProjectileSettings = windupForwardCellProjectileSettings ??
                                                   global::Game.Feature.Gameplay.Entities.WindupForwardCellProjectileSettings.CreateDefault();
             AttackDecisionStrategy = attackDecisionStrategy ?? throw new ArgumentNullException(nameof(attackDecisionStrategy));
@@ -418,7 +418,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyAttackTimingSettings AttackTimingSettings { get; }
 
-        public WindupMeleeSettings WindupMeleeSettings { get; }
+        public ProjectileWindupSettings ProjectileWindupSettings { get; }
 
         public WindupForwardCellProjectileSettings WindupForwardCellProjectileSettings { get; }
 
@@ -465,7 +465,7 @@ namespace Game.Feature.Gameplay.Entities
 
             AttackDecisionSettings.Validate(paramName);
             AttackTimingSettings.Validate(paramName);
-            WindupMeleeSettings.Validate(paramName);
+            ProjectileWindupSettings.Validate(paramName);
             if (Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile)
             {
                 WindupForwardCellProjectileSettings.Validate(paramName);
@@ -809,92 +809,6 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    public readonly struct LockNearbyBoxesRuntime
-    {
-        public LockNearbyBoxesRuntime(
-            int radius,
-            int durationTicks,
-            int activationDelayTicks,
-            bool blocksPush,
-            bool blocksFlip,
-            bool includeSourceCell,
-            BoxLockTargetPattern targetPattern,
-            bool suppressMovementDuringWindup = false,
-            int recoveryTicks = 0,
-            bool suppressMovementDuringRecover = false)
-        {
-            Radius = radius;
-            DurationTicks = durationTicks;
-            ActivationDelayTicks = activationDelayTicks;
-            BlocksPush = blocksPush;
-            BlocksFlip = blocksFlip;
-            IncludeSourceCell = includeSourceCell;
-            TargetPattern = targetPattern;
-            SuppressMovementDuringWindup = suppressMovementDuringWindup;
-            RecoveryTicks = recoveryTicks;
-            SuppressMovementDuringRecover = suppressMovementDuringRecover;
-            Validate(nameof(LockNearbyBoxesRuntime));
-        }
-
-        public int Radius { get; }
-
-        public int DurationTicks { get; }
-
-        public int ActivationDelayTicks { get; }
-
-        public bool BlocksPush { get; }
-
-        public bool BlocksFlip { get; }
-
-        public bool IncludeSourceCell { get; }
-
-        public BoxLockTargetPattern TargetPattern { get; }
-
-        public bool SuppressMovementDuringWindup { get; }
-
-        public int RecoveryTicks { get; }
-
-        public bool SuppressMovementDuringRecover { get; }
-
-        public void Validate(string paramName)
-        {
-            if (Radius <= 0)
-            {
-                throw new ArgumentException("Lock nearby boxes runtime requires a positive radius.", paramName);
-            }
-
-            if (DurationTicks <= 0)
-            {
-                throw new ArgumentException("Lock nearby boxes runtime requires a positive duration.", paramName);
-            }
-
-            if (ActivationDelayTicks < 0)
-            {
-                throw new ArgumentException("Lock nearby boxes runtime requires a non-negative activation delay.", paramName);
-            }
-
-            if (RecoveryTicks < 0)
-            {
-                throw new ArgumentException("Lock nearby boxes runtime requires a non-negative recovery duration.", paramName);
-            }
-
-            if (!BlocksPush && !BlocksFlip)
-            {
-                throw new ArgumentException("Lock nearby boxes runtime must block push or flip.", paramName);
-            }
-
-            switch (TargetPattern)
-            {
-                case BoxLockTargetPattern.OrthogonalAdjacent4:
-                case BoxLockTargetPattern.ManhattanRadius:
-                    return;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(TargetPattern), TargetPattern, "Unsupported box lock target pattern.");
-            }
-        }
-    }
-
     public readonly struct EnemyGravityFieldAuraRuntime
     {
         public EnemyGravityFieldAuraRuntime(
@@ -978,14 +892,12 @@ namespace Game.Feature.Gameplay.Entities
             int initialDelayTicks,
             int cooldownTicks,
             SummonMinionRuntime summon = default,
-            LockNearbyBoxesRuntime lockNearbyBoxes = default,
             EnemyGravityFieldAuraRuntime gravityFieldAura = default)
         {
             Kind = kind;
             InitialDelayTicks = initialDelayTicks;
             CooldownTicks = cooldownTicks;
             Summon = summon;
-            LockNearbyBoxes = lockNearbyBoxes;
             GravityFieldAura = gravityFieldAura;
             Validate(nameof(EnemyUtilityEffectRuntime));
         }
@@ -997,8 +909,6 @@ namespace Game.Feature.Gameplay.Entities
         public int CooldownTicks { get; }
 
         public SummonMinionRuntime Summon { get; }
-
-        public LockNearbyBoxesRuntime LockNearbyBoxes { get; }
 
         public EnemyGravityFieldAuraRuntime GravityFieldAura { get; }
 
@@ -1020,13 +930,14 @@ namespace Game.Feature.Gameplay.Entities
                     Summon.Validate(paramName);
                     break;
 
-                case EnemyUtilityEffectKind.LockNearbyBoxes:
-                    LockNearbyBoxes.Validate(paramName);
-                    break;
-
                 case EnemyUtilityEffectKind.GravityFieldAura:
                     GravityFieldAura.Validate(paramName);
                     break;
+
+                case EnemyUtilityEffectKind.RetiredLockNearbyBoxes:
+                    throw new ArgumentException(
+                        "Enemy utility effect kind 1 (LockNearbyBoxes) is retired and cannot compile to active runtime.",
+                        paramName);
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Unknown enemy utility effect kind.");

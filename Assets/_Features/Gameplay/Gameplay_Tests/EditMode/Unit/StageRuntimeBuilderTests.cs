@@ -18,15 +18,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class StageRuntimeBuilderTests
     {
         private const string CombinedStageAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/mechanics-showcase/mechanics-showcase.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-2/stage-4-2.asset";
         private const string CombinedPresentationAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/mechanics-showcase/mechanics-showcase_Presentation.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-2/stage-4-2_Presentation.asset";
         private const string Stage31StageAssetPath =
             StageContentPaths.CampaignLevel01StagesRoot + "/stage-3-1/stage-3-1.asset";
         private const string Stage31PresentationAssetPath =
             StageContentPaths.CampaignLevel01StagesRoot + "/stage-3-1/stage-3-1_Presentation.asset";
         private const string OnboardingStageAssetPath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/onboarding/onboarding.asset";
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-0-1/stage-0-1.asset";
         private const string TutorialEnemyProfileAssetPath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset";
         private const int ConfiguredShowcaseEnemyId = 60;
@@ -44,7 +44,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const int Stage31UtilitySummonerEnemyId = 59;
         private const int Stage31GlideEnemyId = 241;
         private const int Stage31GlideWallId = 238;
-        private const int TutorialEnemyId = 101;
+        private const int TutorialEnemyId = 165;
         private const string AttackingEnemyPresentationId = "black_eye";
         private const string NonAttackingEnemyPresentationId = "startis";
         private const string WallFollowerEnemyPresentationId = "sunwheel";
@@ -1410,7 +1410,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var snapshot = GameplayCompositionRoot.CreateWorldState(
                         buildResult.InitialEntities,
                         buildResult.BoardBounds,
-                        buildResult.InitialTerrain,
                         buildResult.InitialTopology)
                     .CreateSnapshot();
                 var units = new System.Collections.Generic.List<EntityState>();
@@ -1510,13 +1509,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void StageRuntimeBuilder_CombinedShowcaseStageBuild_ReflectsCurrentConfiguredContract()
+        public void StageRuntimeBuilder_AdvancedCampaignStageBuild_ReflectsCurrentConfiguredContract()
         {
             var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
             Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{CombinedStageAssetPath}'.");
             Assert.That(stage.PlayerSpawns.Length, Is.EqualTo(1));
             Assert.That(stage.BoxSpawns.Length, Is.GreaterThanOrEqualTo(1));
-            Assert.That(stage.EnemySpawns.Length, Is.EqualTo(CombinedShowcaseEnemyCount));
+            Assert.That(stage.EnemySpawns.Length, Is.GreaterThanOrEqualTo(5));
             Assert.That(stage.WallSpawns.Length, Is.GreaterThanOrEqualTo(1));
             Assert.That(stage.TileFeatures.Length, Is.GreaterThanOrEqualTo(1));
 
@@ -1525,8 +1524,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(buildResult.BoardBounds.MinInclusive, Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(buildResult.BoardBounds.MaxInclusive, Is.EqualTo(new Vector2Int(14, 7)));
             Assert.That(buildResult.InitialTopology.BottomFace, Is.EqualTo(FaceId.Floor));
-            Assert.That(buildResult.PlayerEntityId, Is.EqualTo(10));
-            Assert.That(buildResult.InitialTerrain, Is.SameAs(Game.Feature.Gameplay.BoardState.TerrainData.Empty));
+            var playerSpawn = stage.PlayerSpawns.Single();
+            Assert.That(buildResult.PlayerEntityId, Is.EqualTo(playerSpawn.EntityId));
             Assert.That(buildResult.InitialTileFeatures.Length, Is.EqualTo(stage.TileFeatures.Length));
             Assert.That(buildResult.TileFeatureDefinitions.Length, Is.EqualTo(stage.TileFeatures.Length));
             Assert.That(
@@ -1534,102 +1533,72 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(stage.PlayerSpawns.Length + stage.BoxSpawns.Length + stage.EnemySpawns.Length + stage.WallSpawns.Length));
             AssertEntityIdsAreSorted(buildResult.InitialEntities);
 
-            Assert.That(TryGetEntity(buildResult.InitialEntities, 10, out var player), Is.True);
-            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
-            Assert.That(player.facing, Is.EqualTo(Direction.Right));
+            Assert.That(TryGetEntity(buildResult.InitialEntities, playerSpawn.EntityId, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(playerSpawn.Cell));
+            Assert.That(player.facing, Is.EqualTo(playerSpawn.Facing));
             Assert.That(player.unitRole, Is.EqualTo(UnitRole.Player));
 
-            Assert.That(TryGetEntity(buildResult.InitialEntities, 196, out var floorWall), Is.True);
-            Assert.That(floorWall.type, Is.EqualTo(EntityType.None));
-            Assert.That(floorWall.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 5, 1)));
-            Assert.That(floorWall.unitRole, Is.EqualTo(UnitRole.None));
-
-            Assert.That(TryGetEntity(buildResult.InitialEntities, 200, out var frontWall), Is.True);
-            Assert.That(frontWall.type, Is.EqualTo(EntityType.None));
-            Assert.That(frontWall.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 9, 3)));
-            Assert.That(frontWall.unitRole, Is.EqualTo(UnitRole.None));
+            var wallSpawn = stage.WallSpawns.First();
+            Assert.That(TryGetEntity(buildResult.InitialEntities, wallSpawn.EntityId, out var wall), Is.True);
+            Assert.That(wall.type, Is.EqualTo(EntityType.None));
+            Assert.That(wall.position, Is.EqualTo(wallSpawn.Cell));
+            Assert.That(wall.unitRole, Is.EqualTo(UnitRole.None));
 
             var snapshot = GameplayCompositionRoot.CreateWorldState(
                     buildResult.InitialEntities,
                     buildResult.BoardBounds,
-                    buildResult.InitialTerrain,
                     buildResult.InitialTopology)
                 .CreateSnapshot();
-            Assert.That(snapshot.TryGetUnitTraversalBlocker(floorWall.position, out var floorWallBlocker), Is.True);
-            Assert.That(floorWallBlocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
-            Assert.That(floorWallBlocker.EntityId, Is.EqualTo(floorWall.entityId));
-            Assert.That(snapshot.TryGetUnitTraversalBlocker(frontWall.position, out var frontWallBlocker), Is.True);
-            Assert.That(frontWallBlocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
-            Assert.That(frontWallBlocker.EntityId, Is.EqualTo(frontWall.entityId));
+            Assert.That(snapshot.TryGetUnitTraversalBlocker(wall.position, out var wallBlocker), Is.True);
+            Assert.That(wallBlocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
+            Assert.That(wallBlocker.EntityId, Is.EqualTo(wall.entityId));
 
-            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
-            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Front, 7, buildResult.BoardBounds.MaxInclusive.y)), Is.False);
-            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Ceiling, 2, buildResult.BoardBounds.MaxInclusive.y)), Is.False);
-            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 2, buildResult.BoardBounds.MaxInclusive.y)), Is.False);
+            Assert.That(
+                buildResult.InitialEntities.Any(entity =>
+                    entity.type == EntityType.Box &&
+                    (entity.boxCapabilities & BoxCapabilities.Push) != 0),
+                Is.True);
+            Assert.That(
+                buildResult.InitialEntities.Any(entity =>
+                    entity.type == EntityType.Box &&
+                    entity.boxArchetype == BoxArchetype.Moon),
+                Is.True);
 
-            Assert.That(HasPushableBoxAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 9, 6)), Is.True);
-            Assert.That(HasPushableBoxAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Front, 3, 1)), Is.True);
-            Assert.That(HasPushableBoxAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Ceiling, 7, 1)), Is.True);
-            Assert.That(HasPushableBoxAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Back, 3, 5)), Is.True);
-            Assert.That(TryGetEntity(buildResult.InitialEntities, 201, out var moonBox), Is.True);
-            Assert.That(moonBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 12, 2)));
-            Assert.That(moonBox.boxArchetype, Is.EqualTo(BoxArchetype.Moon));
+            foreach (var enemySpawn in stage.EnemySpawns)
+            {
+                Assert.That(TryGetEntity(buildResult.InitialEntities, enemySpawn.EntityId, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(enemySpawn.Cell));
+                Assert.That(enemy.facing, Is.EqualTo(enemySpawn.Facing));
+                Assert.That(enemy.aiMode, Is.EqualTo(enemySpawn.EnemyAiMode));
+                Assert.That(enemy.unitRole, Is.EqualTo(UnitRole.Enemy));
+            }
 
-            Assert.That(TryGetEntity(buildResult.InitialEntities, ConfiguredShowcaseEnemyId, out var showcaseEnemy), Is.True);
-            Assert.That(showcaseEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Ceiling, 4, 5)));
-            Assert.That(showcaseEnemy.facing, Is.EqualTo(Direction.Left));
-            Assert.That(showcaseEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-            Assert.That(showcaseEnemy.hp, Is.EqualTo(3));
-            Assert.That(showcaseEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
+            var expectedProfileOverrideIds = stage.EnemySpawns
+                .Where(spawn => spawn.EnemyAiProfile != null)
+                .Select(spawn => spawn.EntityId)
+                .OrderBy(entityId => entityId)
+                .ToArray();
+            var actualProfileOverrideIds = buildResult.EnemyAiProfileOverrides
+                .Select(profileOverride => profileOverride.EntityId)
+                .OrderBy(entityId => entityId)
+                .ToArray();
+            CollectionAssert.AreEqual(expectedProfileOverrideIds, actualProfileOverrideIds);
 
-            Assert.That(TryGetEntity(buildResult.InitialEntities, WallFollowerShowcaseEnemyId, out var wallFollowerEnemy), Is.True);
-            Assert.That(wallFollowerEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 7, 7)));
-            Assert.That(wallFollowerEnemy.facing, Is.EqualTo(Direction.Up));
-            Assert.That(wallFollowerEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-            Assert.That(wallFollowerEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
-
-            Assert.That(TryGetEntity(buildResult.InitialEntities, JumpShowcaseEnemyId, out var jumpEnemy), Is.True);
-            Assert.That(jumpEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 12, 3)));
-            Assert.That(jumpEnemy.facing, Is.EqualTo(Direction.Left));
-            Assert.That(jumpEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-            Assert.That(jumpEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
-
-            Assert.That(TryGetEntity(buildResult.InitialEntities, ChargeShowcaseEnemyId, out var chargeEnemy), Is.True);
-            Assert.That(chargeEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Back, 7, 7)));
-            Assert.That(chargeEnemy.facing, Is.EqualTo(Direction.Left));
-            Assert.That(chargeEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-            Assert.That(chargeEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
-
-            Assert.That(TryGetEntity(buildResult.InitialEntities, UtilitySummonerShowcaseEnemyId, out var utilitySummonerEnemy), Is.True);
-            Assert.That(utilitySummonerEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Back, 4, 5)));
-            Assert.That(utilitySummonerEnemy.facing, Is.EqualTo(Direction.Left));
-            Assert.That(utilitySummonerEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-            Assert.That(utilitySummonerEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
-
-            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(CombinedShowcaseEnemyCount));
-            Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var showcaseProfile), Is.True);
-            Assert.That(showcaseProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
-            Assert.That(showcaseProfile.name, Is.EqualTo("EnemyAi_GlideChaser"));
-            Assert.That(showcaseProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
-            Assert.That(showcaseProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.GreaterThan(0f));
-
-            Assert.That(TryGetProfileOverride(buildResult, WallFollowerShowcaseEnemyId, out var wallFollowerProfile), Is.True);
-            Assert.That(wallFollowerProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.WallFollow));
-            Assert.That(wallFollowerProfile.DetectionStrategyKind, Is.EqualTo(DetectionStrategyKind.None));
-            Assert.That(wallFollowerProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
-
-            Assert.That(TryGetProfileOverride(buildResult, JumpShowcaseEnemyId, out var jumpProfile), Is.True);
-            Assert.That(jumpProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
-            Assert.That(jumpProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
-            Assert.That(jumpProfile.JumpTimingSettings.WindupSeconds, Is.GreaterThan(0f));
-            Assert.That(jumpProfile.JumpTimingSettings.AirborneSeconds, Is.GreaterThan(0f));
-            Assert.That(jumpProfile.JumpTimingSettings.CooldownSeconds, Is.GreaterThan(0f));
-
-            Assert.That(TryGetProfileOverride(buildResult, ChargeShowcaseEnemyId, out var chargeProfile), Is.True);
-            Assert.That(chargeProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
-            Assert.That(chargeProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
-
-            Assert.That(TryGetProfileOverride(buildResult, UtilitySummonerShowcaseEnemyId, out var utilitySummonerProfile), Is.True);
+            Assert.That(
+                buildResult.EnemyAiProfileOverrides.Select(profileOverride => profileOverride.Profile.name).ToArray(),
+                Does.Contain("EnemyAi_GlideChaser"));
+            Assert.That(
+                buildResult.EnemyAiProfileOverrides.Select(profileOverride => profileOverride.Profile.name).ToArray(),
+                Does.Contain("EnemyAi_JumpChaser"));
+            Assert.That(
+                buildResult.EnemyAiProfileOverrides.Select(profileOverride => profileOverride.Profile.name).ToArray(),
+                Does.Contain("EnemyAi_Charge"));
+            Assert.That(
+                buildResult.EnemyAiProfileOverrides.Select(profileOverride => profileOverride.Profile.name).ToArray(),
+                Does.Contain("EnemyAi_ArchetypeSummoner"));
+            var utilitySummonerProfile = buildResult.EnemyAiProfileOverrides
+                .Select(profileOverride => profileOverride.Profile)
+                .First(profile => profile.name == "EnemyAi_ArchetypeSummoner");
             var utilitySummonerRuntimeDefinition =
                 utilitySummonerProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             Assert.That(utilitySummonerRuntimeDefinition.Capabilities.TryGetUtility(out var utility), Is.True);
@@ -1648,17 +1617,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 $"Missing stage presentation asset at '{CombinedPresentationAssetPath}'.");
 
             var presentation = StagePresentationAssembler.Resolve(presentationDefinition);
-            Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(CombinedShowcaseEnemyCount));
-            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ConfiguredShowcaseEnemyId, out var presentationBinding), Is.True);
-            Assert.That(presentationBinding.PresentationId, Is.EqualTo(AttackingEnemyPresentationId));
-            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, WallFollowerShowcaseEnemyId, out var wallFollowerBinding), Is.True);
-            Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(WallFollowerEnemyPresentationId));
-            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, JumpShowcaseEnemyId, out var jumpBinding), Is.True);
-            Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpChaserEnemyPresentationId));
-            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ChargeShowcaseEnemyId, out var chargeBinding), Is.True);
-            Assert.That(chargeBinding.PresentationId, Is.EqualTo(ChargeEnemyPresentationId));
-            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, UtilitySummonerShowcaseEnemyId, out var utilitySummonerBinding), Is.True);
-            Assert.That(utilitySummonerBinding.PresentationId, Is.EqualTo(UtilitySummonerEnemyPresentationId));
+            var enemySpawnIds = stage.EnemySpawns.Select(spawn => spawn.EntityId).ToHashSet();
+            Assert.That(
+                presentation.EnemyPresentationBindings.All(binding => enemySpawnIds.Contains(binding.EntityId)),
+                Is.True);
+            Assert.That(
+                presentation.EnemyPresentationBindings.Select(binding => binding.PresentationId).ToArray(),
+                Does.Contain(AttackingEnemyPresentationId));
+            Assert.That(
+                presentation.EnemyPresentationBindings.Select(binding => binding.PresentationId).ToArray(),
+                Does.Contain(WallFollowerEnemyPresentationId));
+            Assert.That(
+                presentation.EnemyPresentationBindings.Select(binding => binding.PresentationId).ToArray(),
+                Does.Contain(JumpChaserEnemyPresentationId));
+            Assert.That(
+                presentation.EnemyPresentationBindings.Select(binding => binding.PresentationId).ToArray(),
+                Does.Contain(ChargeEnemyPresentationId));
+            Assert.That(
+                presentation.EnemyPresentationBindings.Select(binding => binding.PresentationId).ToArray(),
+                Does.Contain(UtilitySummonerEnemyPresentationId));
         }
 
         [Test]
@@ -1764,7 +1741,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayCompositionRoot.CreateWorldState(
                 buildResult.InitialEntities,
                 buildResult.BoardBounds,
-                buildResult.InitialTerrain,
                 buildResult.InitialTopology,
                 buildResult.InitialTileFeatures);
             var snapshot = worldState.CreateSnapshot();
@@ -1781,7 +1757,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void StageRuntimeBuilder_TutorialEnemySpawnWithPassiveContactProfile_BuildsOverridesAndKeepsPatrolMode()
+        public void StageRuntimeBuilder_FirstCampaignStagePassiveContactEnemies_BuildsOverridesAndKeepsPatrolMode()
         {
             var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(OnboardingStageAssetPath);
             Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{OnboardingStageAssetPath}'.");
@@ -2040,20 +2016,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 Assert.That(presentation.BoardPresentationProfile, Is.Null);
                 Assert.That(presentation.BoardTileStyleCatalog, Is.Null);
-                Assert.That(presentation.BoardTileOverlayCatalog, Is.Null);
                 Assert.That(presentation.BoardTilePaintOverrides, Is.Not.Null);
                 Assert.That(presentation.BoardTilePaintOverrides, Is.Empty);
-                Assert.That(presentation.BoardTileOverlayOverrides, Is.Not.Null);
-                Assert.That(presentation.BoardTileOverlayOverrides, Is.Empty);
 
                 var resolved = StagePresentationAssembler.Resolve(presentation);
                 Assert.That(resolved.BoardPresentationProfile, Is.Null);
                 Assert.That(resolved.BoardTileStyleCatalog, Is.Null);
-                Assert.That(resolved.BoardTileOverlayCatalog, Is.Null);
                 Assert.That(resolved.BoardTilePaintOverrides, Is.Not.Null);
                 Assert.That(resolved.BoardTilePaintOverrides, Is.Empty);
-                Assert.That(resolved.BoardTileOverlayOverrides, Is.Not.Null);
-                Assert.That(resolved.BoardTileOverlayOverrides, Is.Empty);
             }
             finally
             {
@@ -2230,74 +2200,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [Test]
-        [Category("Extended")]
-        public void StagePresentationAssembler_ResolvesBoardTileOverlayCatalogFromProfileAndOverrides()
-        {
-            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-            var profile = ScriptableObject.CreateInstance<BoardPresentationProfile>();
-            var overlayCatalog = ScriptableObject.CreateInstance<BoardTileOverlayCatalog>();
-
-            try
-            {
-                SetPrivateField(profile, "defaultBoardTileOverlayCatalog", overlayCatalog);
-                SetPrivateField(presentation, "boardPresentationProfile", profile);
-                SetPrivateField(
-                    presentation,
-                    "boardTileOverlayOverrides",
-                    new[]
-                    {
-                        new BoardTileOverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "guide"),
-                    });
-
-                var resolved = StagePresentationAssembler.Resolve(presentation);
-
-                Assert.That(resolved.BoardPresentationProfile, Is.SameAs(profile));
-                Assert.That(resolved.BoardTileOverlayCatalog, Is.SameAs(overlayCatalog));
-                Assert.That(resolved.BoardTileOverlayOverrides, Is.InstanceOf<ReadOnlyCollection<BoardTileOverlayOverride>>());
-                Assert.That(resolved.BoardTileOverlayOverrides.Count, Is.EqualTo(1));
-                Assert.That(resolved.BoardTileOverlayOverrides[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-                Assert.That(resolved.BoardTileOverlayOverrides[0].OverlayKey, Is.EqualTo("guide"));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(overlayCatalog);
-                UnityEngine.Object.DestroyImmediate(profile);
-                UnityEngine.Object.DestroyImmediate(presentation);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void StagePresentationDefinition_ApplyResolvedData_PreservesBoardTileOverlayOverrides()
-        {
-            var source = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-            var copy = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-
-            try
-            {
-                SetPrivateField(
-                    source,
-                    "boardTileOverlayOverrides",
-                    new[]
-                    {
-                        new BoardTileOverlayOverride(new SurfaceCell(FaceId.Front, 1, 0), "danger"),
-                    });
-
-                copy.ApplyResolvedData(StagePresentationAssembler.Resolve(source));
-                var roundTrip = StagePresentationAssembler.Resolve(copy);
-
-                Assert.That(roundTrip.BoardTileOverlayOverrides.Count, Is.EqualTo(1));
-                Assert.That(roundTrip.BoardTileOverlayOverrides[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
-                Assert.That(roundTrip.BoardTileOverlayOverrides[0].OverlayKey, Is.EqualTo("danger"));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(copy);
-                UnityEngine.Object.DestroyImmediate(source);
-            }
-        }
-
         private static void AssertRuntimeBuildResultsMatch(
             StageRuntimeBuildResult expected,
             StageRuntimeBuildResult actual)
@@ -2307,7 +2209,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actual.BoardBounds.MaxInclusive, Is.EqualTo(expected.BoardBounds.MaxInclusive));
             Assert.That(actual.InitialTopology, Is.EqualTo(expected.InitialTopology));
             CollectionAssert.AreEqual(expected.InitialEntities, actual.InitialEntities);
-            Assert.That(actual.InitialTerrain, Is.SameAs(expected.InitialTerrain));
             CollectionAssert.AreEqual(expected.InitialTileFeatures, actual.InitialTileFeatures);
             CollectionAssert.AreEqual(expected.TileFeatureDefinitions, actual.TileFeatureDefinitions);
             CollectionAssert.AreEqual(expected.MoonBlockRespawnDefinitions, actual.MoonBlockRespawnDefinitions);

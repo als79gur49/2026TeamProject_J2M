@@ -239,7 +239,6 @@ GameObject:
   - component: {fileID: 1796191660059802174}
   - component: {fileID: 2941878131138750881}
   - component: {fileID: 241630482456550732}
-  - component: {fileID: 5047146375333435800}
   m_Layer: 0
   m_Name: SettingsButton
   m_TagString: Untagged
@@ -371,25 +370,6 @@ MonoBehaviour:
   m_FlexibleHeight: 0
   m_LayoutPriority: 1
 --- !u!114 &241630482456550732
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1180991854184225141}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f8d7bb75c1f9440bac6a0934ad301cb6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Screens.UiHoverScaleEffect
-  _target: {fileID: 5097424603102741189}
-  _hoverScale: 1.1
-  _pressedScale: 1.04
-  _durationSeconds: 0.12
-  _ease: 6
-  _useUnscaledTime: 1
-  _restoreOnDisable: 1
---- !u!114 &5047146375333435800
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -858,7 +838,6 @@ GameObject:
   - component: {fileID: 4731855746619076134}
   - component: {fileID: 5983316479604000831}
   - component: {fileID: 4024105357053352323}
-  - component: {fileID: 8281646955324236821}
   m_Layer: 0
   m_Name: RetryButton
   m_TagString: Untagged
@@ -990,25 +969,6 @@ MonoBehaviour:
   m_FlexibleHeight: 0
   m_LayoutPriority: 1
 --- !u!114 &4024105357053352323
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4407555526979525947}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f8d7bb75c1f9440bac6a0934ad301cb6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Screens.UiHoverScaleEffect
-  _target: {fileID: 4407570257805177855}
-  _hoverScale: 1.1
-  _pressedScale: 1.04
-  _durationSeconds: 0.12
-  _ease: 6
-  _useUnscaledTime: 1
-  _restoreOnDisable: 1
---- !u!114 &8281646955324236821
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1473,7 +1433,6 @@ GameObject:
   - component: {fileID: 4285709050049838829}
   - component: {fileID: 6080116673670304778}
   - component: {fileID: 7722713222690721692}
-  - component: {fileID: 3985040485774003154}
   m_Layer: 0
   m_Name: MainMenuButton
   m_TagString: Untagged
@@ -1605,25 +1564,6 @@ MonoBehaviour:
   m_FlexibleHeight: 0
   m_LayoutPriority: 1
 --- !u!114 &7722713222690721692
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5526330679827530384}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f8d7bb75c1f9440bac6a0934ad301cb6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Screens.UiHoverScaleEffect
-  _target: {fileID: 3059855729676733258}
-  _hoverScale: 1.1
-  _pressedScale: 1.04
-  _durationSeconds: 0.12
-  _ease: 6
-  _useUnscaledTime: 1
-  _restoreOnDisable: 1
---- !u!114 &3985040485774003154
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -1904,7 +1844,6 @@ GameObject:
   - component: {fileID: 3602179882493590805}
   - component: {fileID: 1702556450762034894}
   - component: {fileID: 733188337022704716}
-  - component: {fileID: 5818073374725215319}
   m_Layer: 0
   m_Name: ResumeButton
   m_TagString: Untagged
@@ -2036,25 +1975,6 @@ MonoBehaviour:
   m_FlexibleHeight: 0
   m_LayoutPriority: 1
 --- !u!114 &733188337022704716
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8088366738580490465}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f8d7bb75c1f9440bac6a0934ad301cb6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Feature.UI.Screens::Game.Feature.UI.Screens.UiHoverScaleEffect
-  _target: {fileID: 7300558090914057563}
-  _hoverScale: 1.1
-  _pressedScale: 1.04
-  _durationSeconds: 0.12
-  _ease: 6
-  _useUnscaledTime: 1
-  _restoreOnDisable: 1
---- !u!114 &5818073374725215319
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

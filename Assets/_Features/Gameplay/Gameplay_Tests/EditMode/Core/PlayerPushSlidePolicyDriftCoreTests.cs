@@ -7,7 +7,6 @@ using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Core
 {
@@ -189,7 +188,6 @@ namespace Game.Feature.Gameplay.Tests.Core
             return GameplayCompositionRoot.CreateWorldState(
                 entities,
                 new BoardBounds(Vector2Int.zero, new Vector2Int(5, 5)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
         }
 

@@ -2306,20 +2306,6 @@ namespace Game.Feature.Gameplay.Loop
                                     effectIndex,
                                     effectState.activationSequence));
                         }
-                        else if (effectState.effectKind == EnemyUtilityEffectKind.LockNearbyBoxes &&
-                            context.CurrentTickIndex == effectState.recoverStartTick)
-                        {
-                            enemyUtilitySignals.Add(
-                                new TickEnemyUtilityPresentationSignal(
-                                    entry.EntityId,
-                                    EnemyUtilityPresentationKind.LockNearbyBoxes,
-                                    EnemyUtilityPresentationPhase.RecoverStarted,
-                                    effectState.recoverStartTick,
-                                    effectState.recoverEndTickExclusive,
-                                    Math.Max(0, effectState.recoverEndTickExclusive - effectState.recoverStartTick),
-                                    effectIndex,
-                                    effectState.activationSequence));
-                        }
                         else if (effectState.effectKind == EnemyUtilityEffectKind.GravityFieldAura &&
                                  context.CurrentTickIndex == effectState.recoverStartTick)
                         {
@@ -2398,20 +2384,6 @@ namespace Game.Feature.Gameplay.Loop
                                     effectIndex,
                                     effectState.activationSequence));
                         }
-                    }
-                    else if (effectState.effectKind == EnemyUtilityEffectKind.LockNearbyBoxes &&
-                             context.CurrentTickIndex == effectState.windupStartTick)
-                    {
-                        enemyUtilitySignals.Add(
-                            new TickEnemyUtilityPresentationSignal(
-                                entry.EntityId,
-                                EnemyUtilityPresentationKind.LockNearbyBoxes,
-                                EnemyUtilityPresentationPhase.WindupStarted,
-                                effectState.windupStartTick,
-                                effectState.windupEndTick,
-                                Math.Max(0, effectState.windupEndTick - effectState.windupStartTick),
-                                effectIndex,
-                                effectState.activationSequence));
                     }
                 }
             }
@@ -2653,9 +2625,6 @@ namespace Game.Feature.Gameplay.Loop
         {
             switch (effectKind)
             {
-                case EnemyUtilityEffectKind.LockNearbyBoxes:
-                    presentationKind = EnemyUtilityPresentationKind.LockNearbyBoxes;
-                    return true;
                 case EnemyUtilityEffectKind.GravityFieldAura:
                     presentationKind = EnemyUtilityPresentationKind.GravityFieldAura;
                     return true;
@@ -5290,7 +5259,7 @@ namespace Game.Feature.Gameplay.Loop
                 MovementSemanticKind.Push => TickEntityMotionKind.Push,
                 MovementSemanticKind.Flip => TickEntityMotionKind.Flip,
                 MovementSemanticKind.Slide => TickEntityMotionKind.BoxSlide,
-                MovementSemanticKind.ProjectileMove => TickEntityMotionKind.ProjectileMove,
+                MovementSemanticKind.ForwardCellMove => TickEntityMotionKind.ForwardCellMove,
                 _ => TickEntityMotionKind.None,
             };
 

@@ -171,7 +171,7 @@ Scope:
 
 Files:
 
-- `combined-gameplay-showcase_Authoring.asset`
+- `stage-4-2_Authoring.asset`
 - Stage validation/generation docs/tests if content changes.
 - Runtime tests only if rule simplification follows content migration.
 

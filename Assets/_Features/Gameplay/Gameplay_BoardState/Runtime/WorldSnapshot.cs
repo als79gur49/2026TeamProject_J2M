@@ -202,12 +202,10 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, EnemyDefinitionBindingState> _enemyDefinitionBindingsByEntityId;
         private readonly IReadOnlyDictionary<int, UnitKinematicRuntimeState> _unitKinematicStatesByEntityId;
         private readonly IReadOnlyDictionary<int, UnitContinuousLocomotionState> _unitContinuousLocomotionStatesByEntityId;
-        private readonly IReadOnlyDictionary<SurfaceCell, int> _projectileOccupancy;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _solidOccupancy;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _stackedUnitsByCell;
         private readonly IReadOnlyDictionary<int, TileFeatureState> _tileFeaturesById;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _tileFeatureIdsByCell;
-        private readonly TerrainData _terrainData;
         private readonly CubeTopologyState _topology;
         private readonly int _topologyRevision;
         private EntityState[] _orderedEntitiesCache;
@@ -217,7 +215,6 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EntityState> entitiesById,
             Dictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,
             Dictionary<SurfaceCell, int> solidOccupancy,
-            Dictionary<SurfaceCell, int> projectileOccupancy,
             Dictionary<int, TileFeatureState> tileFeaturesById,
             Dictionary<SurfaceCell, SortedSet<int>> tileFeatureIdsByCell,
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
@@ -240,13 +237,11 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
             CubeTopologyState topology,
             int topologyRevision,
-            BoardBounds boardBounds,
-            TerrainData terrainData)
+            BoardBounds boardBounds)
             : this(
                 entitiesById,
                 CreateReadonlyStackedUnitsByCell(stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell))),
                 solidOccupancy,
-                projectileOccupancy,
                 tileFeaturesById,
                 CreateReadonlyTileFeatureIdsByCell(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell))),
                 enemyActionStatesByEntityId,
@@ -269,8 +264,7 @@ namespace Game.Feature.Gameplay.BoardState
                 unitContinuousLocomotionStatesByEntityId,
                 topology,
                 topologyRevision,
-                boardBounds,
-                terrainData)
+                boardBounds)
         {
         }
 
@@ -278,7 +272,6 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EntityState> entitiesById,
             SnapshotOwnedCellIndex<SurfaceCell> stackedUnitsByCell,
             Dictionary<SurfaceCell, int> solidOccupancy,
-            Dictionary<SurfaceCell, int> projectileOccupancy,
             Dictionary<int, TileFeatureState> tileFeaturesById,
             SnapshotOwnedCellIndex<SurfaceCell> tileFeatureIdsByCell,
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
@@ -301,14 +294,12 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
             CubeTopologyState topology,
             int topologyRevision,
-            BoardBounds boardBounds,
-            TerrainData terrainData)
+            BoardBounds boardBounds)
         {
             return new WorldSnapshot(
                 entitiesById,
                 CreateReadonlySnapshotOwnedCellIndex(stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell))),
                 solidOccupancy,
-                projectileOccupancy,
                 tileFeaturesById,
                 CreateReadonlySnapshotOwnedCellIndex(tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell))),
                 enemyActionStatesByEntityId,
@@ -331,15 +322,13 @@ namespace Game.Feature.Gameplay.BoardState
                 unitContinuousLocomotionStatesByEntityId,
                 topology,
                 topologyRevision,
-                boardBounds,
-                terrainData);
+                boardBounds);
         }
 
         private WorldSnapshot(
             Dictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             Dictionary<SurfaceCell, int> solidOccupancy,
-            Dictionary<SurfaceCell, int> projectileOccupancy,
             Dictionary<int, TileFeatureState> tileFeaturesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> tileFeatureIdsByCell,
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
@@ -362,13 +351,11 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, UnitContinuousLocomotionState> unitContinuousLocomotionStatesByEntityId,
             CubeTopologyState topology,
             int topologyRevision,
-            BoardBounds boardBounds,
-            TerrainData terrainData)
+            BoardBounds boardBounds)
         {
             _entitiesById = new ReadOnlyDictionary<int, EntityState>(entitiesById ?? throw new ArgumentNullException(nameof(entitiesById)));
             _stackedUnitsByCell = stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell));
             _solidOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(solidOccupancy ?? throw new ArgumentNullException(nameof(solidOccupancy)));
-            _projectileOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(projectileOccupancy ?? throw new ArgumentNullException(nameof(projectileOccupancy)));
             _tileFeaturesById = new ReadOnlyDictionary<int, TileFeatureState>(tileFeaturesById ?? throw new ArgumentNullException(nameof(tileFeaturesById)));
             _tileFeatureIdsByCell = tileFeatureIdsByCell ?? throw new ArgumentNullException(nameof(tileFeatureIdsByCell));
             _enemyActionStatesByEntityId = new ReadOnlyDictionary<int, EnemyActionRuntimeState>(enemyActionStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyActionStatesByEntityId)));
@@ -392,7 +379,6 @@ namespace Game.Feature.Gameplay.BoardState
             _topology = topology;
             _topologyRevision = topologyRevision;
             _boardBounds = boardBounds;
-            _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
         }
 
         public BoardBounds BoardBounds => _boardBounds;
@@ -400,8 +386,6 @@ namespace Game.Feature.Gameplay.BoardState
         public CubeTopologyState Topology => _topology;
 
         public int TopologyRevision => _topologyRevision;
-
-        internal TerrainData TerrainData => _terrainData;
 
         internal IReadOnlyDictionary<int, EntityState> EntitiesById => _entitiesById;
 
@@ -422,11 +406,6 @@ namespace Game.Feature.Gameplay.BoardState
         internal void CopySolidOccupancyTo(Dictionary<SurfaceCell, int> target)
         {
             CopyDictionaryTo(_solidOccupancy, target);
-        }
-
-        internal void CopyProjectileOccupancyTo(Dictionary<SurfaceCell, int> target)
-        {
-            CopyDictionaryTo(_projectileOccupancy, target);
         }
 
         internal void CopyTileFeaturesByIdTo(Dictionary<int, TileFeatureState> target)
@@ -897,16 +876,6 @@ namespace Game.Feature.Gameplay.BoardState
             return TryPickHostileUnitImpactTargetAt(CreateDefaultQueryCell(cell), sourceTeamId, out entity);
         }
 
-        public bool TryGetProjectileAt(SurfaceCell cell, out EntityState entity)
-        {
-            return TryGetProjectileAt(_topology, cell, out entity);
-        }
-
-        public bool TryGetProjectileAt(Vector2Int cell, out EntityState entity)
-        {
-            return TryGetProjectileAt(CreateDefaultQueryCell(cell), out entity);
-        }
-
         public bool IsInsideBoard(SurfaceCell cell)
         {
             return _boardBounds.Contains(cell.PlanarPosition);
@@ -915,26 +884,6 @@ namespace Game.Feature.Gameplay.BoardState
         public bool IsInsideBoard(Vector2Int cell)
         {
             return _boardBounds.Contains(cell);
-        }
-
-        public bool IsTerrainBlockedForUnit(SurfaceCell cell)
-        {
-            return SnapshotReadQueries.IsTerrainBlockedForUnit(_topology, _terrainData, cell);
-        }
-
-        public bool IsTerrainBlockedForUnit(Vector2Int cell)
-        {
-            return IsTerrainBlockedForUnit(CreateDefaultQueryCell(cell));
-        }
-
-        public bool TryGetTerrain(SurfaceCell cell, out TerrainCellState terrainCell)
-        {
-            return SnapshotReadQueries.TryGetTerrain(_terrainData, cell, out terrainCell);
-        }
-
-        public bool TryGetTerrain(Vector2Int cell, out TerrainCellState terrainCell)
-        {
-            return TryGetTerrain(CreateDefaultQueryCell(cell), out terrainCell);
         }
 
         public bool TryGetTileFeature(int tileId, out TileFeatureState tileFeature)
@@ -1020,10 +969,8 @@ namespace Game.Feature.Gameplay.BoardState
                 _enemyGlideStatesByEntityId,
                 _phasedStatesByEntityId,
                 _solidOccupancy,
-                _projectileOccupancy,
                 topology,
                 _boardBounds,
-                _terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -1051,10 +998,8 @@ namespace Game.Feature.Gameplay.BoardState
                 _enemyGlideStatesByEntityId,
                 _phasedStatesByEntityId,
                 _solidOccupancy,
-                _projectileOccupancy,
                 topology,
                 _boardBounds,
-                _terrainData,
                 cell,
                 out blocker);
         }
@@ -1072,9 +1017,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _enemyGlideStatesByEntityId,
                 _phasedStatesByEntityId,
                 _solidOccupancy,
-                _projectileOccupancy,
                 _boardBounds,
-                _terrainData,
                 entityType,
                 cell,
                 ignoredEntityId,
@@ -1185,7 +1128,6 @@ namespace Game.Feature.Gameplay.BoardState
                 _solidOccupancy,
                 topology,
                 _boardBounds,
-                _terrainData,
                 origin,
                 delta,
                 out destination,
@@ -1244,7 +1186,6 @@ namespace Game.Feature.Gameplay.BoardState
                 _solidOccupancy,
                 topology,
                 _boardBounds,
-                _terrainData,
                 cell,
                 out blocker);
         }
@@ -1252,16 +1193,6 @@ namespace Game.Feature.Gameplay.BoardState
         internal bool TryGetUnitBlocker(Vector2Int cell, out SlideStopper blocker)
         {
             return TryGetUnitBlocker(CreateDefaultQueryCell(cell), out blocker);
-        }
-
-        internal void EnumerateTerrainBlockedCellsOrdered(List<Vector2Int> buffer)
-        {
-            SnapshotReadQueries.EnumerateTerrainBlockedCellsOrdered(_terrainData, buffer);
-        }
-
-        internal void EnumerateTerrainCellsOrdered(List<TerrainCellState> buffer)
-        {
-            SnapshotReadQueries.EnumerateTerrainCellsOrdered(_terrainData, buffer);
         }
 
         internal void EnumerateUnitOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)
@@ -1630,11 +1561,6 @@ namespace Game.Feature.Gameplay.BoardState
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
         }
 
-        internal void EnumerateProjectileOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)
-        {
-            SnapshotReadQueries.EnumerateOccupancyOrdered(_entitiesById, _projectileOccupancy, _topology, buffer);
-        }
-
         internal bool HasAnyUnitAt(CubeTopologyState topology, SurfaceCell cell)
         {
             return SnapshotReadQueries.HasAnyUnitAt(
@@ -1774,18 +1700,6 @@ namespace Game.Feature.Gameplay.BoardState
                 sourceTeamId,
                 skipActiveGlideTargets: true,
                 allowGlideTargetsOverSolid: true,
-                out entity);
-        }
-
-        internal bool TryGetProjectileAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
-        {
-            return SnapshotReadQueries.TryGetEntityAt(
-                _entitiesById,
-                _projectileOccupancy,
-                _enemyJumpStatesByEntityId,
-                _phasedStatesByEntityId,
-                topology,
-                cell,
                 out entity);
         }
 

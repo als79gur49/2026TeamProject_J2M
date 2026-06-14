@@ -585,17 +585,6 @@ namespace Game.Feature.Gameplay.Entities
                     jumpState.landingTick == tickIndex);
         }
 
-        private bool ShouldSuppressCombatAttackForJump(WorldSnapshot snapshot)
-        {
-            if (!TryGetJumpState(snapshot, out var jumpState))
-            {
-                return false;
-            }
-
-            return jumpState.phase == EnemyJumpPhase.Windup ||
-                   jumpState.phase == EnemyJumpPhase.Airborne;
-        }
-
         private bool ShouldSuppressAutonomousMovementAndFacing(
             WorldSnapshot snapshot,
             in EntityState source,
@@ -1033,20 +1022,6 @@ namespace Game.Feature.Gameplay.Entities
                     chargeState.phase == EnemyChargePhase.Recover);
         }
 
-        private static bool TryResolveSolidBoundGlideKinematicTerminal(
-            WorldSnapshot snapshot,
-            int entityId,
-            in EnemyGlideRuntimeState glideState,
-            out SurfaceCell terminalCell)
-        {
-            if (!TryResolveUnsettledGlideKinematicTerminal(snapshot, entityId, glideState, out terminalCell))
-            {
-                return false;
-            }
-
-            return snapshot.TryGetSolidSemanticAt(terminalCell, out _);
-        }
-
         private static bool TryResolveUnsettledGlideKinematicTerminal(
             WorldSnapshot snapshot,
             int entityId,
@@ -1478,60 +1453,17 @@ namespace Game.Feature.Gameplay.Entities
                     continue;
                 }
 
-                if (effectRuntime.Kind == EnemyUtilityEffectKind.LockNearbyBoxes &&
-                    effectRuntime.LockNearbyBoxes.ActivationDelayTicks > 0)
+                if (nextEffectState.cooldownTicksRemaining > 0)
                 {
-                    if (nextEffectState.phase == EnemyUtilityEffectPhase.Windup)
-                    {
-                        if (input.TickIndex >= nextEffectState.windupEndTick)
-                        {
-                            triggered = true;
-                            EmitEnemyUtilityTriggerIntent(writeContext, effectIndex, effectRuntime, input.TickIndex);
-
-                            EnterUtilityRecoverOrClear(effectRuntime, input.TickIndex, ref nextEffectState);
-                            updates.Add(
-                                $"EnemyUtilityWindupCommitted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Tick={input.TickIndex}");
-                        }
-                    }
-                    else
-                    {
-                        if (nextEffectState.cooldownTicksRemaining > 0)
-                        {
-                            nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
-                        }
-
-                        if (nextEffectState.cooldownTicksRemaining == 0)
-                        {
-                            nextEffectState.phase = EnemyUtilityEffectPhase.Windup;
-                            nextEffectState.windupStartTick = input.TickIndex;
-                            nextEffectState.windupEndTick = input.TickIndex + effectRuntime.LockNearbyBoxes.ActivationDelayTicks;
-                            nextEffectState.recoverStartTick = 0;
-                            nextEffectState.recoverEndTickExclusive = 0;
-                            nextEffectState.activationSequence = Math.Max(0, nextEffectState.activationSequence) + 1;
-                            if (effectRuntime.LockNearbyBoxes.SuppressMovementDuringWindup)
-                            {
-                                nextEffectState.movementSuppressionUntilTickInclusive = nextEffectState.windupEndTick;
-                            }
-
-                            updates.Add(
-                                $"EnemyUtilityWindupStarted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Start={nextEffectState.windupStartTick}|End={nextEffectState.windupEndTick}");
-                        }
-                    }
+                    nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
                 }
-                else
+
+                triggered = nextEffectState.cooldownTicksRemaining == 0;
+                if (triggered)
                 {
-                    if (nextEffectState.cooldownTicksRemaining > 0)
-                    {
-                        nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
-                    }
+                    EmitEnemyUtilityTriggerIntent(writeContext, effectIndex, effectRuntime, input.TickIndex);
 
-                    triggered = nextEffectState.cooldownTicksRemaining == 0;
-                    if (triggered)
-                    {
-                        EmitEnemyUtilityTriggerIntent(writeContext, effectIndex, effectRuntime, input.TickIndex);
-
-                        EnterUtilityRecoverOrClear(effectRuntime, input.TickIndex, ref nextEffectState);
-                    }
+                    EnterUtilityRecoverOrClear(effectRuntime, input.TickIndex, ref nextEffectState);
                 }
 
                 nextEffectStates[effectIndex] = nextEffectState;
@@ -1783,7 +1715,6 @@ namespace Game.Feature.Gameplay.Entities
             return effectRuntime.Kind switch
             {
                 EnemyUtilityEffectKind.SummonMinion => effectRuntime.Summon.RecoveryTicks,
-                EnemyUtilityEffectKind.LockNearbyBoxes => effectRuntime.LockNearbyBoxes.RecoveryTicks,
                 EnemyUtilityEffectKind.GravityFieldAura => effectRuntime.GravityFieldAura.RecoveryTicks,
                 _ => 0,
             };
@@ -1825,7 +1756,6 @@ namespace Game.Feature.Gameplay.Entities
             return effectRuntime.Kind switch
             {
                 EnemyUtilityEffectKind.SummonMinion => effectRuntime.Summon.SuppressMovementDuringWindup,
-                EnemyUtilityEffectKind.LockNearbyBoxes => effectRuntime.LockNearbyBoxes.SuppressMovementDuringWindup,
                 EnemyUtilityEffectKind.GravityFieldAura => effectRuntime.GravityFieldAura.SuppressMovementDuringWindup,
                 _ => false,
             };
@@ -1836,7 +1766,6 @@ namespace Game.Feature.Gameplay.Entities
             return effectRuntime.Kind switch
             {
                 EnemyUtilityEffectKind.SummonMinion => effectRuntime.Summon.SuppressMovementDuringRecover,
-                EnemyUtilityEffectKind.LockNearbyBoxes => effectRuntime.LockNearbyBoxes.SuppressMovementDuringRecover,
                 EnemyUtilityEffectKind.GravityFieldAura => effectRuntime.GravityFieldAura.SuppressMovementDuringRecover,
                 _ => false,
             };
@@ -1847,7 +1776,6 @@ namespace Game.Feature.Gameplay.Entities
             return effectRuntime.Kind switch
             {
                 EnemyUtilityEffectKind.SummonMinion => true,
-                EnemyUtilityEffectKind.LockNearbyBoxes => effectRuntime.LockNearbyBoxes.ActivationDelayTicks > 0,
                 EnemyUtilityEffectKind.GravityFieldAura => true,
                 _ => throw new ArgumentOutOfRangeException(
                     nameof(effectRuntime.Kind),
@@ -2358,7 +2286,7 @@ namespace Game.Feature.Gameplay.Entities
                         return default;
                     }
 
-                    if (ShouldHoldWindupMeleeMovementForAttackerTransition(snapshot, source, chaseTarget))
+                    if (ShouldHoldWindupProjectileMovementForAttackerTransition(snapshot, source, chaseTarget))
                     {
                         return default;
                     }
@@ -2376,7 +2304,7 @@ namespace Game.Feature.Gameplay.Entities
                         return CreateGroundLocomotionResolution(snapshot, source, chaseIntent);
                     }
 
-                    if (TryBuildWindupMeleeSimulationApproachIntent(
+                    if (TryBuildWindupProjectileSimulationApproachIntent(
                             snapshot,
                             source,
                             chaseTarget,
@@ -2452,7 +2380,7 @@ namespace Game.Feature.Gameplay.Entities
                 out intent);
         }
 
-        private bool TryBuildWindupMeleeSimulationApproachIntent(
+        private bool TryBuildWindupProjectileSimulationApproachIntent(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,
@@ -2514,7 +2442,7 @@ namespace Game.Feature.Gameplay.Entities
                    glideState.Phase == EnemyGlidePhase.Active;
         }
 
-        private bool ShouldHoldWindupMeleeMovementForAttackerTransition(
+        private bool ShouldHoldWindupProjectileMovementForAttackerTransition(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target)
@@ -2525,11 +2453,11 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var startQuery = QueryCombatWindupStart(snapshot, source, target, _combatCapability, _tileFeatureDefinitions);
-            return startQuery.BlockReason == WindupMeleeStartBlockReason.SevereTransition &&
-                   WindupMeleeCombatPoseQueries.IsInSevereCombatOriginTransition(snapshot, source);
+            return startQuery.BlockReason == CombatWindupStartBlockReason.SevereTransition &&
+                   CombatWindupPoseQueries.IsInSevereCombatOriginTransition(snapshot, source);
         }
 
-        private static WindupMeleeStartQueryResult QueryCombatWindupStart(
+        private static CombatWindupStartQueryResult QueryCombatWindupStart(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,
@@ -2538,7 +2466,7 @@ namespace Game.Feature.Gameplay.Entities
         {
             if (combatCapability.Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile)
             {
-                return WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+                return CombatWindupPoseQueries.QueryStartWindupForwardCellProjectile(
                     snapshot,
                     source,
                     target,
@@ -2549,7 +2477,7 @@ namespace Game.Feature.Gameplay.Entities
                     out _);
             }
 
-            return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.TargetInvalid);
+            return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.TargetInvalid);
         }
 
         private bool TryResolveScheduledJumpStart(
@@ -3210,7 +3138,7 @@ namespace Game.Feature.Gameplay.Entities
             if (combatCapability != null &&
                 combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
             {
-                var startQuery = WindupMeleeCombatPoseQueries.QueryShortRangeWindupStart(
+                var startQuery = CombatWindupPoseQueries.QueryShortRangeWindupStart(
                     snapshot,
                     source,
                     target,
@@ -3219,7 +3147,7 @@ namespace Game.Feature.Gameplay.Entities
                     out _);
                 if (startQuery.CanStart &&
                     source.position.Equals(target.position) &&
-                    WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
+                    CombatWindupPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
                 {
                     return new EnemyAiTransitionDecision(
                         EnemyAiMode.Chase,
@@ -3596,7 +3524,7 @@ namespace Game.Feature.Gameplay.Entities
             if (combatCapability != null &&
                 combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
             {
-                var startQuery = WindupMeleeCombatPoseQueries.QueryShortRangeWindupStart(
+                var startQuery = CombatWindupPoseQueries.QueryShortRangeWindupStart(
                     snapshot,
                     source,
                     target,
@@ -3605,7 +3533,7 @@ namespace Game.Feature.Gameplay.Entities
                     out _);
                 if (startQuery.CanStart &&
                     source.position.Equals(target.position) &&
-                    WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
+                    CombatWindupPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
                 {
                     return new EnemyAiTransitionDecision(
                         EnemyAiMode.Chase,
@@ -3735,7 +3663,7 @@ namespace Game.Feature.Gameplay.Entities
             if (combatCapability != null &&
                 combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
             {
-                var startQuery = WindupMeleeCombatPoseQueries.QueryShortRangeWindupStart(
+                var startQuery = CombatWindupPoseQueries.QueryShortRangeWindupStart(
                     snapshot,
                     source,
                     target,
@@ -3744,7 +3672,7 @@ namespace Game.Feature.Gameplay.Entities
                     out _);
                 if (startQuery.CanStart &&
                     source.position.Equals(target.position) &&
-                    WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
+                    CombatWindupPoseQueries.IsMoveLockStartedThisTick(snapshot, source.entityId, tickIndex))
                 {
                     return new EnemyAiTransitionDecision(
                         EnemyAiMode.Chase,

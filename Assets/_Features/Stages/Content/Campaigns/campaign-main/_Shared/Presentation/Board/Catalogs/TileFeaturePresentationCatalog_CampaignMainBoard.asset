@@ -17,130 +17,77 @@ MonoBehaviour:
     displayName: Button Default
     kind: 4
     visualPrefab: {fileID: 3177974194902382058, guid: 41113be6d25bc00458e4dbe6c4bac8e6, type: 3}
-    placementMode: 1
-    icon: {fileID: 0}
     isDefaultForKind: 1
-    directionHint: 0
     vfxStyleKey:
       value: Green
   - presentationKey: button.moon-only
     displayName: Moon Button
     kind: 4
     visualPrefab: {fileID: 3575170892940413393, guid: 8c57c88bfd13b5149a307600186bc22e, type: 3}
-    placementMode: 1
-    icon: {fileID: 0}
     isDefaultForKind: 0
-    directionHint: 0
     vfxStyleKey:
       value: Yellow
   - presentationKey: destroy.bottom
     displayName: Destroy Bottom
     kind: 2
     visualPrefab: {fileID: 8989521553511816573, guid: 48735843b6acafa47822af253750e2c7, type: 3}
-    placementMode: 1
-    icon: {fileID: 0}
     isDefaultForKind: 1
-    directionHint: 0
     vfxStyleKey:
       value: Blue
   - presentationKey: destroy.front
     displayName: Destroy Front
     kind: 2
     visualPrefab: {fileID: 8989521553511816573, guid: 4644dfb2af612484fbddc63a85574b98, type: 3}
-    placementMode: 1
-    icon: {fileID: 0}
     isDefaultForKind: 0
-    directionHint: 0
     vfxStyleKey:
       value: Red
   - presentationKey: destroy.active
     displayName: Destroy Active Face
     kind: 2
     visualPrefab: {fileID: 8989521553511816573, guid: 48735843b6acafa47822af253750e2c7, type: 3}
-    placementMode: 1
-    icon: {fileID: 0}
     isDefaultForKind: 0
-    directionHint: 0
   - presentationKey: destroy.inactive
     displayName: Destroy Inactive Face
     kind: 2
     visualPrefab: {fileID: 8989521553511816573, guid: 4644dfb2af612484fbddc63a85574b98, type: 3}
-    placementMode: 1
-    icon: {fileID: 0}
     isDefaultForKind: 0
-    directionHint: 0
   - presentationKey: slide.up
     displayName: Slide Up
     kind: 1
     visualPrefab: {fileID: 2666720464963727994, guid: 1298edd5902d46341868da14d236bbce, type: 3}
-    placementMode: 1
-    icon: {fileID: 0}
     isDefaultForKind: 0
-    directionHint: 1
   - presentationKey: slide.right
     displayName: Slide Right
     kind: 1
     visualPrefab: {fileID: 3372218950872268447, guid: 2b8bbd2103b142c4990a80bd10bcc472, type: 3}
-    placementMode: 1
-    icon: {fileID: 0}
     isDefaultForKind: 0
-    directionHint: 2
   - presentationKey: slide.down
     displayName: Slide Down
     kind: 1
     visualPrefab: {fileID: 2042845922330102480, guid: 2f48d7c6d9ac5ae4989947a79f024f19, type: 3}
-    placementMode: 1
-    icon: {fileID: 0}
     isDefaultForKind: 0
-    directionHint: 3
   - presentationKey: slide.left
     displayName: Slide Left
     kind: 1
     visualPrefab: {fileID: 6090248127819323847, guid: 0ab66ac8e92de5843adca7aba8363830, type: 3}
-    placementMode: 1
-    icon: {fileID: 0}
     isDefaultForKind: 0
-    directionHint: 4
   - presentationKey: barricade.default
     displayName: Barricade Default
     kind: 3
     visualPrefab: {fileID: 2954340495404665059, guid: f3a8614e31fc604428a03a4e26853030, type: 3}
-    placementMode: 1
-    icon: {fileID: 0}
     isDefaultForKind: 1
-    directionHint: 0
   - presentationKey: exit.default
     displayName: Exit Default
     kind: 6
     visualPrefab: {fileID: 2666720464963727994, guid: 8020b60ef7299dd4f8f28b1575124d07, type: 3}
-    placementMode: 1
-    footprintMode: 1
-    icon: {fileID: 0}
     isDefaultForKind: 1
-    directionHint: 0
-  - presentationKey: exit.1x1
-    displayName: Exit 1x1
-    kind: 6
-    visualPrefab: {fileID: 752876420291739325, guid: d8ed1c37679c24942a3a63bdd0d7e10a, type: 3}
-    placementMode: 1
-    footprintMode: 0
-    icon: {fileID: 0}
-    isDefaultForKind: 0
-    directionHint: 0
   - presentationKey: entrance.default
     displayName: Entrance Default
     kind: 7
     visualPrefab: {fileID: 752876420291739325, guid: 7fd78ca1815e4c0aa7c5d70373a3df45, type: 3}
-    placementMode: 1
-    footprintMode: 0
-    icon: {fileID: 0}
     isDefaultForKind: 1
-    directionHint: 0
   - presentationKey: moon-generator.default
     displayName: Moon Generator Default
     kind: 5
     visualPrefab: {fileID: 4481319356736171375, guid: fd5ca9e4c3597dc4aa3ce78a3d263db8, type: 3}
-    placementMode: 1
-    icon: {fileID: 0}
     isDefaultForKind: 1
-    directionHint: 0

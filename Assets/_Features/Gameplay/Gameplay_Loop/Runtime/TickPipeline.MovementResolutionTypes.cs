@@ -77,7 +77,6 @@ namespace Game.Feature.Gameplay.Loop
         Push = 1,
         Flip = 2,
         BoxImpact = 3,
-        ProjectileImpact = 4,
         Stop = 5,
         Item = 6,
     }

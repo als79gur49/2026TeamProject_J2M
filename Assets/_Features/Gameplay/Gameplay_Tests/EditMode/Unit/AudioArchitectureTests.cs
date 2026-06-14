@@ -412,7 +412,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(runtimeSource, Does.Not.Contain(nameof(EnemyAudioCue)));
             Assert.That(runtimeSource, Does.Not.Contain(nameof(EnemyAudioCue.ChargeActiveLoop)));
-            Assert.That(runtimeSource, Does.Not.Contain(nameof(EnemyAudioCue.ProjectileImpact)));
+            Assert.That(runtimeSource, Does.Not.Contain(nameof(EnemyAudioCue.ForwardCellImpact)));
             Assert.That(runtimeSource, Does.Not.Contain(nameof(EnemyAudioCue.StationaryActive)));
             Assert.That(runtimeSource, Does.Not.Contain(nameof(EnemyAudioCue.PassiveContact)));
         }

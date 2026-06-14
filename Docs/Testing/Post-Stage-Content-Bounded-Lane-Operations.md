@@ -10,7 +10,7 @@
 - broad backlog는 stage-content canonical path 변경으로 회복하지 않는다.
 - editor direct-play adoption은 운영 정착 lane이며 structure rollback lane이 아니다.
 - support tree relocation은 decision record를 먼저 닫고 후행 판단으로 남긴다.
-- audio/BGM과 terrain/occupancy는 stage-content와 분리된 전문 lane이다.
+- audio/BGM과 occupancy/reservation/topology/TileFeature legality는 stage-content와 분리된 전문 lane이다.
 
 ## Lane A Recovery Streams
 
@@ -123,7 +123,7 @@
 - `owner surface`는 `first wrong oracle`가 불명확할 때만 보조 기준으로 사용한다.
 - `A2` vs `Lane C/D/E` boundary:
   - host/view/bootstrap miswire, presenter glue, installer wiring, scene composition, launcher-smoke-adjacent UX glue가 first wrong oracle면 `A2`
-  - support tree relocation, persistent BGM ownership/registry/continuity, terrain/occupancy legality/query/reservation semantics가 root cause면 handoff
+  - support tree relocation, persistent BGM ownership/registry/continuity, occupancy legality/query/reservation/topology/TileFeature semantics가 root cause면 handoff
   - 증상이 host/view/bootstrap에 보여도 해결에 `Lane C/D/E` decision이 필요하면 `A2`가 아니라 handoff
 - historical continuation row라도 current revision에서 failure shape가 달라졌다면 `A4`로 carry하지 않는다.
 - 이런 row는 `shape-changed-from-historical` 태그와 함께 `A1 provisional`로 잠그고 bounded recheck 뒤에 lane을 확정한다.
@@ -149,10 +149,10 @@
   - `scene.*residue`
   - direct-play catalog coverage blocker
 - handoff destination:
-  - direct-play launcher, catalog coverage, plain Play unsupported, onboarding/menu mismatch -> `Lane B`
+  - direct-play launcher, catalog coverage, plain Play unsupported, stage-0-1/menu mismatch -> `Lane B`
   - support tree 위치, relocation 필요성, consumed asset complete 여부 -> `Lane C`
   - persistent BGM owner, registry, same-root audio flow, cross-scene continuity -> `Lane D`
-  - occupancy claim, terrain query, legality, reservation, modifier, traversal/settlement semantics -> `Lane E`
+  - occupancy claim, legality, reservation, modifier, traversal/settlement/topology/TileFeature semantics -> `Lane E`
   - wording drift, close note, doc test, CI claim, artifact scope 혼합 -> `Lane F`
 
 ## Handoff Row Schema
@@ -242,7 +242,7 @@
 ### Step 2. Direct-Play Soft Adoption
 
 - align:
-  - onboarding
+  - stage-0-1
   - menu path
   - smoke checklist
   - warning text

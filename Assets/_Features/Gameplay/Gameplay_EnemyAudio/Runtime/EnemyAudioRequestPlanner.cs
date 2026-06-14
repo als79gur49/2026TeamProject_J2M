@@ -29,7 +29,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
             BuildJumpRequests(result.PresentationData, requests);
             BuildGlideRequests(result.PresentationData, requests);
             BuildChargeRequests(result.PresentationData, requests);
-            BuildProjectileImpactRequests(result.PresentationData, requests);
+            BuildForwardCellImpactRequests(result.PresentationData, requests);
             BuildDeathRequests(result.PresentationData, timingProfile, requests);
             BuildStationaryActiveRequests(result.FinalEntities, motionFactEntityIds, requests);
             return requests;
@@ -195,14 +195,12 @@ namespace Game.Feature.Gameplay.EnemyAudio
                     signal.EntityId,
                     EnemyAudioCue.Windup,
                     signal.Phase == EnemyUtilityPresentationPhase.WindupStarted &&
-                    (signal.Kind == EnemyUtilityPresentationKind.LockNearbyBoxes ||
-                     signal.Kind == EnemyUtilityPresentationKind.GravityFieldAura),
+                    signal.Kind == EnemyUtilityPresentationKind.GravityFieldAura,
                     requests);
                 AddRequestIf(
                     signal.EntityId,
                     EnemyAudioCue.Recover,
-                    (signal.Kind == EnemyUtilityPresentationKind.LockNearbyBoxes ||
-                     signal.Kind == EnemyUtilityPresentationKind.GravityFieldAura) &&
+                    signal.Kind == EnemyUtilityPresentationKind.GravityFieldAura &&
                     signal.Phase == EnemyUtilityPresentationPhase.RecoverStarted,
                     requests);
                 AddRequestIf(
@@ -321,7 +319,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
             }
         }
 
-        private static void BuildProjectileImpactRequests(
+        private static void BuildForwardCellImpactRequests(
             TickPresentationData presentationData,
             ICollection<EnemyAudioRequest> requests)
         {
@@ -330,22 +328,22 @@ namespace Game.Feature.Gameplay.EnemyAudio
             for (var i = 0; i < arrivalSignals.Count; i++)
             {
                 var signal = arrivalSignals[i];
-                var identity = CreateProjectileImpactIdentity(signal);
-                var reason = ResolveProjectileImpactPlanReason(signal, emittedIdentities);
+                var identity = CreateForwardCellImpactIdentity(signal);
+                var reason = ResolveForwardCellImpactPlanReason(signal, emittedIdentities);
                 var requestCreated = reason == "ArrivalSignal";
                 if (requestCreated)
                 {
                     emittedIdentities.Add(identity);
                     AddRequest(
                         signal.SourceEnemyId,
-                        EnemyAudioCue.ProjectileImpact,
+                        EnemyAudioCue.ForwardCellImpact,
                         requests,
                         identity: identity);
                 }
             }
         }
 
-        private static EnemyAudioRequestIdentity CreateProjectileImpactIdentity(
+        private static EnemyAudioRequestIdentity CreateForwardCellImpactIdentity(
             in TickForwardCellProjectileArrivalPresentationSignal signal)
         {
             return new EnemyAudioRequestIdentity(
@@ -357,7 +355,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 signal.PresentationKey);
         }
 
-        private static string ResolveProjectileImpactPlanReason(
+        private static string ResolveForwardCellImpactPlanReason(
             in TickForwardCellProjectileArrivalPresentationSignal signal,
             ISet<EnemyAudioRequestIdentity> emittedIdentities)
         {
@@ -371,7 +369,7 @@ namespace Game.Feature.Gameplay.EnemyAudio
                 return "InvalidArrival";
             }
 
-            if (emittedIdentities.Contains(CreateProjectileImpactIdentity(signal)))
+            if (emittedIdentities.Contains(CreateForwardCellImpactIdentity(signal)))
             {
                 return "DuplicateArrival";
             }

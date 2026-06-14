@@ -19,27 +19,3 @@ MonoBehaviour:
     tilePrefab: {fileID: 4483286260842146095, guid: 80ad8bd596477764398e7080760f2985, type: 3}
     materialFallback: {fileID: 2100000, guid: d084d50e479159746bc61b3e0a702427, type: 2}
     isDefaultForRole: 1
-  - presentationKey: board.active.bottom
-    displayName: Active Bottom
-    role: 1
-    tilePrefab: {fileID: 4483286260842146095, guid: 80ad8bd596477764398e7080760f2985, type: 3}
-    materialFallback: {fileID: 2100000, guid: d084d50e479159746bc61b3e0a702427, type: 2}
-    isDefaultForRole: 1
-  - presentationKey: board.active.front
-    displayName: Active Front
-    role: 2
-    tilePrefab: {fileID: 4483286260842146095, guid: 80ad8bd596477764398e7080760f2985, type: 3}
-    materialFallback: {fileID: 2100000, guid: d084d50e479159746bc61b3e0a702427, type: 2}
-    isDefaultForRole: 1
-  - presentationKey: board.decorative.top
-    displayName: Decorative Top
-    role: 3
-    tilePrefab: {fileID: 4483286260842146095, guid: 80ad8bd596477764398e7080760f2985, type: 3}
-    materialFallback: {fileID: 2100000, guid: d084d50e479159746bc61b3e0a702427, type: 2}
-    isDefaultForRole: 1
-  - presentationKey: board.decorative.back
-    displayName: Decorative Back
-    role: 4
-    tilePrefab: {fileID: 4483286260842146095, guid: 80ad8bd596477764398e7080760f2985, type: 3}
-    materialFallback: {fileID: 2100000, guid: d084d50e479159746bc61b3e0a702427, type: 2}
-    isDefaultForRole: 1

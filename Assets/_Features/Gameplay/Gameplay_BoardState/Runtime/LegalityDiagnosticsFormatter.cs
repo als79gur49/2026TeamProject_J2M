@@ -21,10 +21,7 @@ namespace Game.Feature.Gameplay.BoardState
             return blocker.Kind switch
             {
                 LegalityBlockerKind.BoardEdge => "SpawnDestinationOutsideBoard",
-                LegalityBlockerKind.Terrain => "SpawnDestinationBlockedByTerrain",
-                LegalityBlockerKind.Solid => blocker.EntityType == EntityType.Projectile
-                    ? "SpawnDestinationBlockedByProjectile"
-                    : "SpawnDestinationBlockedByEntity",
+                LegalityBlockerKind.Solid => "SpawnDestinationBlockedByEntity",
                 LegalityBlockerKind.Unit => "SpawnDestinationBlockedByEntity",
                 LegalityBlockerKind.Reservation => "SpawnDestinationBlockedByReservation",
                 LegalityBlockerKind.TileFeature => "SpawnDestinationBlockedByTileFeature",
@@ -49,7 +46,6 @@ namespace Game.Feature.Gameplay.BoardState
             var reason = blocker.Kind switch
             {
                 LegalityBlockerKind.BoardEdge => "BoardEdge",
-                LegalityBlockerKind.Terrain => "Terrain",
                 LegalityBlockerKind.Unit => "Entity",
                 LegalityBlockerKind.Solid => "Entity",
                 LegalityBlockerKind.Reservation => "Reservation",

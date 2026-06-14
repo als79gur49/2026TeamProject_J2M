@@ -31,14 +31,14 @@ namespace Game.Feature.Gameplay.Entities
     }
 
     [Serializable]
-    public struct WindupMeleeSettings
+    public struct ProjectileWindupSettings
     {
         public const float DefaultVisualRangeSlackCells = 0.10f;
         public const float MaxVisualRangeSlackCells = 0.15f;
 
         [SerializeField] private float visualRangeSlackCells;
 
-        public WindupMeleeSettings(float visualRangeSlackCells)
+        public ProjectileWindupSettings(float visualRangeSlackCells)
         {
             this.visualRangeSlackCells = visualRangeSlackCells;
         }
@@ -54,14 +54,14 @@ namespace Game.Feature.Gameplay.Entities
                 visualRangeSlackCells > MaxVisualRangeSlackCells)
             {
                 throw new ArgumentException(
-                    $"WindupMelee visual range slack must be between 0 and {MaxVisualRangeSlackCells} cells.",
+                    $"ProjectileWindup visual range slack must be between 0 and {MaxVisualRangeSlackCells} cells.",
                     paramName);
             }
         }
 
-        public static WindupMeleeSettings CreateDefault()
+        public static ProjectileWindupSettings CreateDefault()
         {
-            return new WindupMeleeSettings(DefaultVisualRangeSlackCells);
+            return new ProjectileWindupSettings(DefaultVisualRangeSlackCells);
         }
     }
 
@@ -108,7 +108,7 @@ namespace Game.Feature.Gameplay.Entities
         public float VisualStartSlackCells => visualStartSlackCells;
 
         public int VisualStartSlackUnits =>
-            Mathf.RoundToInt(Mathf.Clamp(visualStartSlackCells, 0f, WindupMeleeSettings.MaxVisualRangeSlackCells) * KinematicFixed.UnitsPerCell);
+            Mathf.RoundToInt(Mathf.Clamp(visualStartSlackCells, 0f, ProjectileWindupSettings.MaxVisualRangeSlackCells) * KinematicFixed.UnitsPerCell);
 
         public int ImpactDelayTicks => impactDelayTicks;
 
@@ -128,9 +128,9 @@ namespace Game.Feature.Gameplay.Entities
 
         public bool ShowDangerMarkerOnWindupStart => showDangerMarkerOnWindupStart;
 
-        public WindupMeleeSettings ToWindupStartSettings()
+        public ProjectileWindupSettings ToWindupStartSettings()
         {
-            return new WindupMeleeSettings(visualStartSlackCells);
+            return new ProjectileWindupSettings(visualStartSlackCells);
         }
 
         public int ResolveImpactDelayTicks(int distanceCells)
@@ -146,10 +146,10 @@ namespace Game.Feature.Gameplay.Entities
         public void Validate(string paramName)
         {
             if (visualStartSlackCells < 0f ||
-                visualStartSlackCells > WindupMeleeSettings.MaxVisualRangeSlackCells)
+                visualStartSlackCells > ProjectileWindupSettings.MaxVisualRangeSlackCells)
             {
                 throw new ArgumentException(
-                    $"WindupForwardCellProjectile visual start slack must be between 0 and {WindupMeleeSettings.MaxVisualRangeSlackCells} cells.",
+                    $"WindupForwardCellProjectile visual start slack must be between 0 and {ProjectileWindupSettings.MaxVisualRangeSlackCells} cells.",
                     paramName);
             }
 
@@ -182,7 +182,7 @@ namespace Game.Feature.Gameplay.Entities
         public static WindupForwardCellProjectileSettings CreateDefault()
         {
             return new WindupForwardCellProjectileSettings(
-                WindupMeleeSettings.DefaultVisualRangeSlackCells,
+                ProjectileWindupSettings.DefaultVisualRangeSlackCells,
                 impactDelayTicks: 1,
                 damage: 1,
                 activePendingImpactLimitPerOwner: 1);

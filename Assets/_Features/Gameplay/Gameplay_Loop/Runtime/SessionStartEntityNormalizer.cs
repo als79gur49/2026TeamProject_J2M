@@ -26,15 +26,6 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var normalizedEntity = entity;
 
-                if (normalizedEntity.type == EntityType.Projectile &&
-                    normalizedEntity.spawnTick == 0 &&
-                    normalizedEntity.stateTimer == 0 &&
-                    normalizedEntity.hp > 0 &&
-                    !normalizedEntity.markedForDeath)
-                {
-                    normalizedEntity.stateTimer = timingProfile.ProjectileStepIntervalTicks;
-                }
-
                 if (normalizedEntity.type == EntityType.Box &&
                     normalizedEntity.boxArchetype == BoxArchetype.GravityField)
                 {

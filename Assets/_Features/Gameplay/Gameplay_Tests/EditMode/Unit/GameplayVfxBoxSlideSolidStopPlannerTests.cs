@@ -71,7 +71,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [TestCase(BoxSlideStopperKind.Terrain)]
         [TestCase(BoxSlideStopperKind.BoardEdge)]
         [TestCase(BoxSlideStopperKind.RetiredShield)]
         [TestCase(BoxSlideStopperKind.None)]
