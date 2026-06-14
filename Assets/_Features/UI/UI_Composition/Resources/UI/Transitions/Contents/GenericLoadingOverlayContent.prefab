@@ -65,12 +65,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.GenericLoadingOverlayContentView
   _rootGroup: {fileID: 196550348840182990}
-  _titleText: {fileID: 0}
-  _messageText: {fileID: 0}
-  _progressRoot: {fileID: 0}
-  _progressFill: {fileID: 0}
   _progressText: {fileID: 3489250244111849092}
-  _animator: {fileID: 0}
 --- !u!1001 &1203209197136732588
 PrefabInstance:
   m_ObjectHideFlags: 0

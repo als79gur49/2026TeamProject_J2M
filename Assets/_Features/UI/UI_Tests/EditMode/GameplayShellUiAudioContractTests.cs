@@ -225,7 +225,6 @@ namespace Game.Feature.UI.Tests
                 AssertSceneContainsNoSerializedComponent<StageResultScreenView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<PausePopupView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<ConfirmPopupView>(rootObjects);
-                AssertSceneContainsNoSerializedComponent<TooltipPopupView>(rootObjects);
             }
             finally
             {

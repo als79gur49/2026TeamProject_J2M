@@ -22,7 +22,6 @@ This file is the external current-structure source for the completed UI cleanup 
   - `None`
   - `Pause`
   - `Confirm`
-  - `Tooltip`
   - `DemoStageControl`
 
 - Current HUD members:
@@ -46,9 +45,11 @@ This file is the external current-structure source for the completed UI cleanup 
 - `DemoStageControl` is a build-included tester/demo/showcase assist feature for tester assist clear, hard-section bypass, showcase navigation, and stage browsing.
 - `DemoStageControl` is not a deletion candidate and is not a dev-only compile exclusion target.
 - Future public-release hiding or disabling for `DemoStageControl` requires a separate product/build configuration decision.
-- `Reward` remains protected legacy/residue UI. Stage clear routes through
-  `MinimalStageCompletionReadModel -> StageResult`, not Reward popup.
-- `StageResult` carries continue/navigation UI only. `ResultTitle`, `ResultSummaryText`, `ResultDetailText`, and StageResult title/detail label paths are removed product-decision residue. `ResultContinueLabel` remains the authored continue button label path.
+- `TooltipPopup` was retired from the current popup vocabulary after PR-TT1 found no production caller. Settings display hover hint remains as a local inline pointer-hover affordance and does not use `PopupId.Tooltip`.
+- Reward popup is not current popup vocabulary. Stage reward/progression vocabulary remains stage-owned content/system vocabulary, not a UI popup route.
+- Stage clear routes through `MinimalStageCompletionReadModel -> StageResult`.
+- `StageResult` is a minimal stage-completion navigation endpoint. It no longer carries or displays title/summary/detail result text; continue, retry, and next-stage paths remain `StageNavigationRequest` intent boundaries.
+- `GameClear` is a result-only terminal screen with title and main label bindings only; retired authored restart/detail compatibility objects are not current contract.
 
 - `ActionBar` is removed retired HUD proof residue. It is not a current HUD member.
 - `ActionBarView` and `ActionBarPresenter` are not current display components.
@@ -69,6 +70,11 @@ This file is the external current-structure source for the completed UI cleanup 
 - Settings/rebind setup fails fast when required action paths or Push/Flip keyboard bindings are missing; Flip remains keyboard-only and no gamepad binding is added.
 - Settings tooltip on/off and large text on/off accessibility toggles are removed residue. `AccessibilitySettingsStore` is not a current runtime composition dependency.
 - Scene transition UI uses only `SceneTransitionOverlayShell` plus `SceneTransitionOverlayContentCatalog`.
+- Scene transition semantic ids are preserved, but semantic ids and physical content prefab files are not one-to-one.
+- `GenericLoading`, `LevelFailedRestart`, `MainMenuReturn`, `ManualRestart`, and `StageClear` share the physical `GenericLoadingOverlayContent` prefab.
+- `ChanceLost` keeps the dedicated `ChanceLostOverlayContent` prefab because it owns slot/effect-driven chance-loss visuals and does not expose dynamic previous/current/total/death chance text bindings; its current authored slots use explicit inspector-bound slot roots, and `ChanceSlotView*` name fallback exists only as a safety net.
+- Scene transition content base views expose only root group and progress text as required inspector bindings; title/message/progress bar/animator base bindings are not current contract.
+- `LevelFailedRestart` has no current dedicated message/text content contract; the old LevelFailed-only transition message field was removed as stale residue.
 - `SceneTransitionOverlayView`, `UI/SceneTransitionOverlayView`, generated fallback, and legacy overlay fallback are not current paths.
 - `UiNavigationInputRouter` is a resolver-only input router initialized through `IUiNavigationTargetResolver`.
 - `UiNavigationInputRouter` must not regain `PopupController`, `PopupLayerView`, or `MainMenuScreenView` direct legacy overloads.
@@ -78,7 +84,7 @@ This file is the external current-structure source for the completed UI cleanup 
 - Do not modify runtime code for this source regeneration.
 - Do not modify prefabs or catalogs for this source regeneration.
 - Do not change `DemoStageControl` runtime behavior.
-- Do not simplify or reroute StageResult, Reward residue, Confirm, settings, audio, display, or UI bridge paths.
+- Do not simplify or reroute StageResult, Pause/Confirm popup, settings, audio, display, or UI bridge paths.
 - Do not restore StageResult result title/summary/detail schema or title/detail labels without a new product decision.
 - Do not restore Settings tooltip on/off or large text on/off toggles without a separate product decision.
 - Do not revive `ActionBar`, diagnostics runtime UI, or `SceneTransitionOverlayView`.

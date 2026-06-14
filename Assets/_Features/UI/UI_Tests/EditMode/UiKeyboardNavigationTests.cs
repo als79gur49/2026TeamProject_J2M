@@ -613,13 +613,13 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UiNavigationInputRouter_NonBlockingTooltip_FallthroughPolicyIsExplicit()
+        public void UiNavigationInputRouter_NonBlockingPopup_FallthroughPolicyIsExplicit()
         {
             var target = new TrackingNavigationTarget();
             using var screenController = new ScreenController(new NavigationScreenRuntimeFactory(target));
             using var popupController = new PopupController(new PolicyOnlyPopupRuntimeFactory(
                 new PopupPolicy(
-                    PopupPolicyClass.AnchoredEphemeral,
+                    PopupPolicyClass.NonModalInformational,
                     PopupLifetimeScope.CurrentScreen,
                     PopupBackAction.Close,
                     PopupBackdropMode.None,
@@ -627,11 +627,11 @@ namespace Game.Feature.UI.Tests
                     blocksLowerLayers: false)));
             screenController.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayRootPayload.Default));
             popupController.Push(new PopupRequest(
-                    PopupId.Tooltip,
-                    new TooltipPopupPayload("Tip", "Body", TooltipPopupAnchorPreset.Center)),
+                    PopupId.Pause,
+                    PausePopupPayload.Default),
                 out _);
 
-            var routerObject = new GameObject(nameof(UiNavigationInputRouter_NonBlockingTooltip_FallthroughPolicyIsExplicit));
+            var routerObject = new GameObject(nameof(UiNavigationInputRouter_NonBlockingPopup_FallthroughPolicyIsExplicit));
             try
             {
                 var router = routerObject.AddComponent<UiNavigationInputRouter>();

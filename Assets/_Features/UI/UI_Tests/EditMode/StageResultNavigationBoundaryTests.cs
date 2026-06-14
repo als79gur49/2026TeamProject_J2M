@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Stages;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
@@ -13,6 +14,7 @@ namespace Game.Feature.UI.Tests
     {
         private static readonly string[] StageResultSourcePaths =
         {
+            "Assets/_Features/UI/UI_Application/Runtime/StageResult/StageResultScreenPresenters.cs",
             "Assets/_Features/UI/UI_Application/Runtime/StageCompletionPayloadMappers.cs",
             "Assets/_Features/UI/UI_Composition/Runtime/GameplayScreenRuntimeFactory.cs",
             "Assets/_Features/UI/UI_Composition/Runtime/SettingsScreenRuntimeBuilder.cs",
@@ -44,7 +46,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void StageResultAndRewardPopup_ArePresentationEndpoints_NotGameplayAuthority()
+        public void StageResult_IsPresentationEndpoint_NotGameplayAuthority()
         {
             AssertStageResultSourcesDoNotContain(new[]
             {
@@ -130,7 +132,7 @@ namespace Game.Feature.UI.Tests
                     Assert.That(
                         source,
                         Does.Not.Contain(token),
-                        $"{sourcePath}: StageResult/Reward popup are UI presentation/navigation endpoints; stage reward/progression commit lane remains stage-owned.");
+                        $"{sourcePath}: StageResult is a UI presentation/navigation endpoint; stage reward/progression commit lane remains stage-owned.");
                 }
             }
         }

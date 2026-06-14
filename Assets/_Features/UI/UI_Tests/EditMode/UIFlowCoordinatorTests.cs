@@ -63,8 +63,8 @@ namespace Game.Feature.UI.Tests
             coordinator.Initialize();
 
             var completions = new List<PopupCompletion>();
-            Assert.That(coordinator.RequestTooltipPopup(
-                new TooltipPopupPayload("Tip", "Body"),
+            Assert.That(coordinator.RequestConfirmPopup(
+                new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false),
                 completions.Add), Is.True);
 
             Assert.That(coordinator.OpenSettingsScreen(), Is.True);
@@ -114,7 +114,8 @@ namespace Game.Feature.UI.Tests
                 out _);
 
             coordinator.Initialize();
-            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.True);
+            Assert.That(coordinator.RequestConfirmPopup(
+                new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)), Is.True);
             Assert.That(popupController.PopupCount, Is.EqualTo(1));
 
             coordinator.HandleScreenActionRequested(ScreenAction.Push(
@@ -347,36 +348,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UIFlowCoordinator_TopmostTooltipRequest_IsSuppressedAcrossCoordinatorAndScreenActions()
-        {
-            var pauseService = new FakeGameplayPauseService();
-            var popupRuntimeFactory = new FakePopupRuntimeFactory();
-            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
-            using var coordinator = CreateCoordinator(
-                pauseService,
-                popupRuntimeFactory,
-                screenRuntimeFactory,
-                new ManualGameplayUiPresentationSource(),
-                out _,
-                out var popupController,
-                out _);
-
-            coordinator.Initialize();
-
-            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.True);
-            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.False);
-            Assert.That(popupController.PopupCount, Is.EqualTo(1));
-
-            coordinator.HandleScreenActionRequested(ScreenAction.Popup(
-                new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Body"))));
-
-            Assert.That(popupController.PopupCount, Is.EqualTo(1));
-            Assert.That(popupController.TopPopup.HasValue, Is.True);
-            Assert.That(popupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Tooltip));
-        }
-
-        [Test]
-        public void UIFlowCoordinator_DuplicateTooltipOpen_AndConsumePaths_RemainSilent()
+        public void UIFlowCoordinator_BackdropConsumePath_RemainsSilent()
         {
             var pauseService = new FakeGameplayPauseService();
             var popupRuntimeFactory = new FakePopupRuntimeFactory();
@@ -388,13 +360,6 @@ namespace Game.Feature.UI.Tests
                 out var uiAudioPort);
 
             coordinator.Initialize();
-
-            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.True);
-            uiAudioPort.Clear();
-
-            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.False);
-            Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
-            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.Silent));
 
             Assert.That(coordinator.RequestConfirmPopup(new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)), Is.True);
             uiAudioPort.Clear();
@@ -519,7 +484,8 @@ namespace Game.Feature.UI.Tests
                 out var uiAudioPort);
 
             coordinator.Initialize();
-            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.True);
+            Assert.That(coordinator.RequestConfirmPopup(
+                new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)), Is.True);
             uiAudioPort.Clear();
 
             Assert.That(coordinator.OpenSettingsScreen(), Is.True);
@@ -662,7 +628,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UIFlowCoordinator_FinalStageClearedAutoOpensTerminalGameClear_WithoutRewardPopup()
+        public void UIFlowCoordinator_FinalStageClearedAutoOpensTerminalGameClear_ResultOnly()
         {
             var pauseService = new FakeGameplayPauseService();
             var popupRuntimeFactory = new FakePopupRuntimeFactory();
@@ -698,7 +664,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(gameClearPayload.TitleText, Is.EqualTo("Game Clear"));
             Assert.That(gameClearPayload.MainLabel, Is.EqualTo("Main"));
             Assert.That(popupController.TopPopup.HasValue, Is.False);
-            Assert.That(popupController.PopupCount, Is.EqualTo(0), "Final-stage terminal screen selection bypasses Reward popup in current flow; do not extract or change this policy in PR-1.");
+            Assert.That(popupController.PopupCount, Is.EqualTo(0), "Final-stage terminal screen selection remains result-screen-only; do not extract or change this policy in PR-1.");
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.StageResult), Is.Empty);
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.GameClear), Has.Count.EqualTo(1));
             Assert.That(coordinator.HandleBackRequested(), Is.True);

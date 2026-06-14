@@ -91,15 +91,6 @@ namespace Game.Feature.UI.Flow
                 () => RequestConfirmPopupCore(payload, completionCallback));
         }
 
-        public bool RequestTooltipPopup(
-            TooltipPopupPayload payload,
-            Action<PopupCompletion> completionCallback = null)
-        {
-            return ExecuteIntent(
-                UiFlowAudioIntentKind.OpenForward,
-                () => RequestTooltipPopupCore(payload, completionCallback));
-        }
-
         public bool RequestDemoStageControlPopup(IPopupPayload payload)
         {
             return ExecuteIntent(
@@ -449,27 +440,8 @@ namespace Game.Feature.UI.Flow
                 out _);
         }
 
-        private bool RequestTooltipPopupCore(
-            TooltipPopupPayload payload,
-            Action<PopupCompletion> completionCallback)
-        {
-            if (payload == null)
-            {
-                return false;
-            }
-
-            return TryPushPopupRequestCore(new PopupRequest(PopupId.Tooltip, payload, completionCallback));
-        }
-
         private bool TryPushPopupRequestCore(PopupRequest request)
         {
-            if (request.PopupId == PopupId.Tooltip &&
-                _popupController.TopPopup.HasValue &&
-                _popupController.TopPopup.Value.PopupId == PopupId.Tooltip)
-            {
-                return false;
-            }
-
             return _popupController.Push(request, out _);
         }
 
@@ -656,14 +628,6 @@ namespace Game.Feature.UI.Flow
                         PopupCompletionKind.MainMenuRequested => UiFlowAudioIntentKind.Back,
                         PopupCompletionKind.Resumed => UiFlowAudioIntentKind.Confirm,
                         PopupCompletionKind.Closed => UiFlowAudioIntentKind.Back,
-                        _ => UiFlowAudioIntentKind.None,
-                    };
-
-                case PopupId.Tooltip:
-                    return completion.CompletionKind switch
-                    {
-                        PopupCompletionKind.Closed => UiFlowAudioIntentKind.Back,
-                        PopupCompletionKind.Acknowledged => UiFlowAudioIntentKind.Back,
                         _ => UiFlowAudioIntentKind.None,
                     };
 

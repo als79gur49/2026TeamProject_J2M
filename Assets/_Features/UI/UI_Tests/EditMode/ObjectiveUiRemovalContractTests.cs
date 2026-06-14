@@ -14,6 +14,7 @@ namespace Game.Feature.UI.Tests
     {
         private static readonly string ObjectiveStatusPrefabGuid = string.Concat("ba1034f4e0daecc4", "28ca3e9371be547f");
         private static readonly string ObjectiveInfoPrefabGuid = string.Concat("fc48a7db19d86374", "ba6a432dfd699dad");
+        private static readonly string RewardPopupPrefabGuid = string.Concat("5f4bf5ee49ba6b14", "795abf377afba43a");
 
         private static readonly string[] RemovedRuntimeTokens =
         {
@@ -32,6 +33,14 @@ namespace Game.Feature.UI.Tests
             "ObjectiveInfoPopupPresenter",
             "PausePopup.ObjectiveRequested",
             "ObjectiveRequested",
+            "PopupId.Reward",
+            "RequestRewardPopup",
+            "OpenRewardPopup",
+            "RewardPopupView",
+            "RewardPopupPayload",
+            "RewardPopupViewModel",
+            "RewardPopupPresenter",
+            "RewardPopupPayloadMapper",
         };
 
         [Test]
@@ -39,6 +48,7 @@ namespace Game.Feature.UI.Tests
         {
             Assert.That(Enum.GetNames(typeof(ScreenId)), Does.Not.Contain("ObjectiveStatus"));
             Assert.That(Enum.GetNames(typeof(PopupId)), Does.Not.Contain("ObjectiveInfo"));
+            Assert.That(Enum.GetNames(typeof(PopupId)), Does.Not.Contain("Reward"));
             Assert.That(Enum.GetNames(typeof(PopupCompletionKind)), Does.Not.Contain("ObjectiveRequested"));
             Assert.That(GetMemberNames(typeof(PausePopupPayload)), Has.No.Member("ObjectiveLabel"));
             Assert.That(GetMemberNames(typeof(PausePopupViewModel)), Has.No.Member("ObjectiveLabel"));
@@ -54,9 +64,13 @@ namespace Game.Feature.UI.Tests
             var popupCatalogMembers = GetMemberNames(typeof(PopupPrefabCatalog));
             Assert.That(popupCatalogMembers, Has.No.Member("_objectiveInfoPrefab"));
             Assert.That(popupCatalogMembers, Has.No.Member("ObjectiveInfoPrefab"));
+            Assert.That(popupCatalogMembers, Has.No.Member("_rewardPrefab"));
+            Assert.That(popupCatalogMembers, Has.No.Member("RewardPrefab"));
 
             Assert.That(ReadRepoFile(UiTestPrefabAssetUtility.ScreenCatalogPath), Does.Not.Contain(ObjectiveStatusPrefabGuid));
             Assert.That(ReadRepoFile(UiTestPrefabAssetUtility.PopupCatalogPath), Does.Not.Contain(ObjectiveInfoPrefabGuid));
+            Assert.That(ReadRepoFile(UiTestPrefabAssetUtility.PopupCatalogPath), Does.Not.Contain(RewardPopupPrefabGuid));
+            Assert.That(ReadRepoFile(UiTestPrefabAssetUtility.PopupCatalogPath), Does.Not.Contain("RewardPopup"));
         }
 
         [Test]
@@ -64,12 +78,22 @@ namespace Game.Feature.UI.Tests
         {
             Assert.That(File.Exists(GetRepoPath("Assets/_Features/UI/UI_Screens/Prefabs/ObjectiveStatusScreen.prefab")), Is.False);
             Assert.That(File.Exists(GetRepoPath("Assets/_Features/UI/UI_Popups/Prefabs/ObjectiveInfoPopup.prefab")), Is.False);
+            Assert.That(File.Exists(GetRepoPath("Assets/_Features/UI/UI_Popups/Prefabs/RewardPopup.prefab")), Is.False);
+            Assert.That(File.Exists(GetRepoPath("Assets/_Features/UI/UI_Popups/Prefabs/RewardPopup.prefab.meta")), Is.False);
 
             foreach (var assetPath in EnumerateUiAssetFiles())
             {
                 var text = File.ReadAllText(assetPath);
                 Assert.That(text, Does.Not.Contain(ObjectiveStatusPrefabGuid), assetPath);
                 Assert.That(text, Does.Not.Contain(ObjectiveInfoPrefabGuid), assetPath);
+                Assert.That(text, Does.Not.Contain(RewardPopupPrefabGuid), assetPath);
+                Assert.That(text, Does.Not.Contain("RewardPopup"), assetPath);
+            }
+
+            foreach (var docPath in EnumerateCurrentUiStructureDocs())
+            {
+                var text = File.ReadAllText(docPath);
+                Assert.That(text, Does.Not.Contain(RewardPopupPrefabGuid), docPath);
             }
         }
 
@@ -109,8 +133,23 @@ namespace Game.Feature.UI.Tests
                 .Where(path =>
                     path.EndsWith(".asset", StringComparison.Ordinal) ||
                     path.EndsWith(".prefab", StringComparison.Ordinal) ||
+                    path.EndsWith(".meta", StringComparison.Ordinal) ||
                     path.EndsWith(".unity", StringComparison.Ordinal))
                 .OrderBy(path => path);
+        }
+
+        private static IEnumerable<string> EnumerateCurrentUiStructureDocs()
+        {
+            return new[]
+            {
+                "UI-Current-Structure-Source.md",
+                "Docs/Architecture/UI-Architecture-Guidelines.md",
+                "Docs/Architecture/Audio-Architecture-Guidelines.md",
+                "Docs/Testing/UI-EditMode-Baseline-2026-04-15.md",
+                "Docs/Testing/Gameplay-Test-Automation-Guide.md",
+            }
+            .Select(GetRepoPath)
+            .OrderBy(path => path);
         }
 
         private static string ReadRepoFile(string relativePath)

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Stages;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;

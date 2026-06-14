@@ -8,8 +8,6 @@ namespace Game.Feature.UI.Popups
         private const float ModalPopupEnterDurationSeconds = 0.20f;
         private const float ModalPopupEnterStartScaleMultiplier = 0.96f;
         private const Ease ModalPopupEnterEase = Ease.OutCubic;
-        private const float TooltipPopupEnterDurationSeconds = 0.12f;
-        private const Ease TooltipPopupEnterEase = Ease.OutQuad;
         private const bool PopupEnterUseUnscaledTime = true;
 
         internal static void Kill(ref Tween tween)
@@ -83,20 +81,5 @@ namespace Game.Feature.UI.Popups
             return sequence;
         }
 
-        internal static Tween PlayTooltipEnter(CanvasGroup canvasGroup, out float restAlpha)
-        {
-            restAlpha = 1f;
-            if (canvasGroup == null)
-            {
-                return null;
-            }
-
-            restAlpha = canvasGroup.alpha;
-            canvasGroup.alpha = 0f;
-            return canvasGroup
-                .DOFade(restAlpha, TooltipPopupEnterDurationSeconds)
-                .SetEase(TooltipPopupEnterEase)
-                .SetUpdate(PopupEnterUseUnscaledTime);
-        }
     }
 }

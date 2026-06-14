@@ -18,19 +18,19 @@ MonoBehaviour:
     _contentPrefab: {fileID: 8332816523643839566, guid: efa90a454bcf66644990174e9a2b35fb, type: 3}
   - _transitionKind: 2
     _fallbackOverlayKind: 5
-    _contentPrefab: {fileID: 6759306800276537226, guid: e53afcd578e311b4f91209518d25e637, type: 3}
+    _contentPrefab: {fileID: 8332816523643839566, guid: efa90a454bcf66644990174e9a2b35fb, type: 3}
   - _transitionKind: 3
     _fallbackOverlayKind: 3
-    _contentPrefab: {fileID: 6002873149131329305, guid: d1e542b89be2719489c78a72f68f4d3d, type: 3}
+    _contentPrefab: {fileID: 8332816523643839566, guid: efa90a454bcf66644990174e9a2b35fb, type: 3}
   - _transitionKind: 4
     _fallbackOverlayKind: 4
-    _contentPrefab: {fileID: 2721618819427316573, guid: a287560d78e3fd7448af54f2859fb663, type: 3}
+    _contentPrefab: {fileID: 8332816523643839566, guid: efa90a454bcf66644990174e9a2b35fb, type: 3}
   - _transitionKind: 5
     _fallbackOverlayKind: 2
     _contentPrefab: {fileID: 7930234351575085631, guid: 61913cd1fdc828e4fb146d52ccc2d390, type: 3}
   - _transitionKind: 6
     _fallbackOverlayKind: 4
-    _contentPrefab: {fileID: 4703396745058631701, guid: bb9944100587cc84f9524c34a1745c93, type: 3}
+    _contentPrefab: {fileID: 8332816523643839566, guid: efa90a454bcf66644990174e9a2b35fb, type: 3}
   - _transitionKind: 0
     _fallbackOverlayKind: 1
     _contentPrefab: {fileID: 8332816523643839566, guid: efa90a454bcf66644990174e9a2b35fb, type: 3}
