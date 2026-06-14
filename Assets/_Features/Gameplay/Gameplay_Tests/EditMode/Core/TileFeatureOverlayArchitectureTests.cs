@@ -481,8 +481,9 @@ namespace Game.Feature.Gameplay.Tests.Core
 
             var visualRegistrySource = File.ReadAllText(GetAbsolutePath(
                 "Assets/_Features/Gameplay/Gameplay_Host/Runtime/ITileFeatureVisualRegistry.cs"));
-            Assert.That(visualRegistrySource, Does.Contain("IMoonBlockGeneratedVisualTarget"));
-            Assert.That(visualRegistrySource, Does.Contain("IMoonBlockGeneratorBlockedVisualTarget"));
+            Assert.That(visualRegistrySource, Does.Not.Contain("IMoonBlockGeneratedVisualTarget"));
+            Assert.That(visualRegistrySource, Does.Not.Contain("IMoonBlockGeneratorBlockedVisualTarget"));
+            Assert.That(visualRegistrySource, Does.Contain("ITileFeatureVisualTarget"));
 
             var requestPlannerSource = File.ReadAllText(GetAbsolutePath(TilePresentationRequestPlannerPath));
             Assert.That(requestPlannerSource, Does.Contain("MoonBlockGenerated"));

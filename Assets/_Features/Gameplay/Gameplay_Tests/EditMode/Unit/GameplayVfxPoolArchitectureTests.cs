@@ -11,7 +11,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class GameplayVfxPoolArchitectureTests
     {
         private const string VfxHostRuntimePath = "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime";
-        private const string VfxHostPoolPath = "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Pool";
+        private const string VfxHostPoolPath = "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/Pool";
         private const string VfxHostRuntimeAsmdefPath = "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Gameplay.Vfx.Host.asmdef";
 
         private static readonly string[] ProductionBoundaryPaths =
@@ -37,7 +37,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void HostPoolSource_DoesNotReferenceGameplayAuthority()
         {
-            var source = ReadCombinedSource(VfxHostPoolPath);
+            var source = ReadCombinedSourceIncludingNested(VfxHostPoolPath);
 
             Assert.That(source, Does.Not.Contain("WorldState"));
             Assert.That(source, Does.Not.Contain("WorldSnapshot"));
@@ -49,7 +49,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void HostRuntimeAssembly_DoesNotReferenceAuthoringStageOrLoop()
         {
-            var references = typeof(GameplayVfxGameObjectPool).Assembly
+            var references = typeof(GameplayVfxHostAnchorResolver).Assembly
                 .GetReferencedAssemblies()
                 .Select(reference => reference.Name)
                 .ToArray();
@@ -119,6 +119,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "\n",
                 Directory.GetFiles(Path.GetFullPath(relativeDirectory), "*.cs", SearchOption.AllDirectories)
                     .Where(path => !IsNestedProductionRuntimeSource(path))
+                    .OrderBy(path => path, StringComparer.Ordinal)
+                    .Select(path => File.ReadAllText(path).Replace("\r\n", "\n")));
+        }
+
+        private static string ReadCombinedSourceIncludingNested(string relativeDirectory)
+        {
+            return string.Join(
+                "\n",
+                Directory.GetFiles(Path.GetFullPath(relativeDirectory), "*.cs", SearchOption.AllDirectories)
                     .OrderBy(path => path, StringComparer.Ordinal)
                     .Select(path => File.ReadAllText(path).Replace("\r\n", "\n")));
         }

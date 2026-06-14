@@ -42,6 +42,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5613779574986769829}
   - component: {fileID: 3880425983662414594}
+  - component: {fileID: 9201000000000000007}
   m_Layer: 0
   m_Name: TileFeature_Slide_Left
   m_TagString: Untagged
@@ -75,7 +76,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0d4188397f39405b8cef1259ab54d190, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.TileFeatureVisualTargetView
   tileId: 0
   cell:
@@ -83,102 +84,31 @@ MonoBehaviour:
     x: 0
     y: 0
   presentationRoot: {fileID: 0}
-  animator: {fileID: 0}
-  buttonActivatedTriggerName: ButtonActivated
-  destroyTileTriggeredTriggerName: DestroyTileTriggered
-  destroyTileActivatedTriggerName: DestroyTileActivated
-  destroyTileDeactivatedTriggerName: DestroyTileDeactivated
-  destroyTileActiveBoolName: DestroyTileActive
-  destroyTileActiveStateName: DestroyTileActiveIdle
-  destroyTileInactiveStateName: DestroyTileInactiveIdle
-  slideTileRedirectedTriggerName: SlideTileRedirected
-  barricadeBlockedTriggerName: BarricadeBlocked
-  barricadeCrushedTriggerName: BarricadeCrushed
-  barricadeActivatedTriggerName: BarricadeActivated
-  barricadeDeactivatedTriggerName: BarricadeDeactivated
-  barricadeActiveBoolName: BarricadeActive
-  barricadeRaisedStateName: RaisedIdle
-  barricadeLoweredStateName: LoweredIdle
-  exitOpenedTriggerName: ExitOpened
-  exitEnteredTriggerName: ExitEntered
-  exitOpenBoolName: ExitOpen
-  exitOpenedStateName: ExitOpenedIdle
-  exitClosedStateName: ExitClosedIdle
-  moonBlockGeneratedTriggerName: MoonBlockGenerated
-  moonBlockGeneratorBlockedTriggerName: MoonBlockGeneratorBlocked
-  moonBlockGeneratorBlockedUnitTriggerName: 
-  moonBlockGeneratorBlockedWallLikeSolidTriggerName: 
-  moonBlockGeneratorBlockedPlacementTriggerName: 
-  destroyTileInactiveMaterialTargets: []
-  slideTileInactiveMaterialTargets:
-  - Renderer: {fileID: 6919220867324244726}
-    MaterialIndex: 0
-    InactiveColor: {r: 0.4745098, g: 0.48235294, b: 0.5019608, a: 1}
-    InactiveMetallic: 1
-  - Renderer: {fileID: 7604368002371067106}
-    MaterialIndex: 1
-    InactiveColor: {r: 0.7411765, g: 0.75294125, b: 0.7725491, a: 1}
-    InactiveMetallic: 1
-  buttonActivatedParticles: {fileID: 0}
-  destroyTileTriggeredParticles: {fileID: 0}
-  slideTileRedirectedParticles: {fileID: 0}
-  barricadeBlockedParticles: {fileID: 0}
-  barricadeCrushedParticles: {fileID: 0}
-  exitOpenedParticles: {fileID: 0}
-  exitEnteredParticles: {fileID: 0}
-  moonBlockGeneratedParticles: {fileID: 0}
-  moonBlockGeneratorBlockedParticles: {fileID: 0}
-  moonBlockGeneratorBlockedUnitParticles: {fileID: 0}
-  moonBlockGeneratorBlockedWallLikeSolidParticles: {fileID: 0}
-  moonBlockGeneratorBlockedPlacementParticles: {fileID: 0}
-  buttonActivatedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  destroyTileTriggeredPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  destroyTileActivatedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  destroyTileDeactivatedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  slideTileRedirectedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  barricadeBlockedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  barricadeCrushedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  barricadeActivatedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  barricadeDeactivatedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  exitOpenedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  exitEnteredPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  moonBlockGeneratedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  moonBlockGeneratorBlockedPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  moonBlockGeneratorBlockedUnitPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  moonBlockGeneratorBlockedWallLikeSolidPlayed:
-    m_PersistentCalls:
-      m_Calls: []
-  moonBlockGeneratorBlockedPlacementPlayed:
-    m_PersistentCalls:
-      m_Calls: []
+  visualRoot: {fileID: 0}
+  primaryRenderer: {fileID: 0}
+  iconRoot: {fileID: 0}
+  labelRoot: {fileID: 0}
+  authoredBindings:
+  - SlotId: 100
+    Transform: {fileID: 0}
+    Renderer: {fileID: 6919220867324244726}
+  - SlotId: 101
+    Transform: {fileID: 0}
+    Renderer: {fileID: 7604368002371067106}
+--- !u!114 &9201000000000000007
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6090248127819323847}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ccfcd3b3c9094270bfe4a1ad1a503f52, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.TileFeatureVisualProfileProvider
+  profiles:
+  - {fileID: 11400000, guid: 9d492210fab04e1e8b77ac960c9470c7, type: 2}
 --- !u!1001 &9100000000000000102
 PrefabInstance:
   m_ObjectHideFlags: 0

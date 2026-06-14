@@ -640,6 +640,12 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(targetView, Is.Not.Null);
             Assert.That(animator, Is.Not.Null);
             Assert.That(targetView.DebugAnimator, Is.SameAs(animator));
+            var provider = prefab.GetComponent<TileFeatureVisualProfileProvider>();
+            Assert.That(provider, Is.Not.Null, prefabPath);
+            var profile = ResolveTileFeatureProfile(provider, TileFeatureKind.Barricade);
+            Assert.That(profile, Is.Not.Null, prefabPath);
+            var diagnostics = TileFeatureVisualBindingDiagnostics.ForProfile(profile, targetView);
+            Assert.That(diagnostics.IsValid, Is.True, string.Join("\n", diagnostics.Messages));
 
             var controller = animator.runtimeAnimatorController as AnimatorController;
             Assert.That(controller, Is.Not.Null);
@@ -655,52 +661,55 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(
                 stateNames,
                 Is.SupersetOf(new[] { "LoweredIdle", "Raise", "RaisedIdle", "Lower", "BlockedPulse", "CrushImpact" }));
+
+            AssertCueAnimatorBinding(
+                profile,
+                TileFeatureVisualCueId.BarricadeBlocked,
+                TileFeatureAnimatorBindingKind.Trigger,
+                "BarricadeBlocked",
+                controller,
+                AnimatorControllerParameterType.Trigger);
+            AssertCueAnimatorBinding(
+                profile,
+                TileFeatureVisualCueId.BarricadeCrushed,
+                TileFeatureAnimatorBindingKind.Trigger,
+                "BarricadeCrushed",
+                controller,
+                AnimatorControllerParameterType.Trigger);
+            AssertCueAnimatorBinding(
+                profile,
+                TileFeatureVisualCueId.BarricadeActiveState,
+                TileFeatureAnimatorBindingKind.Bool,
+                "BarricadeActive",
+                controller,
+                AnimatorControllerParameterType.Bool);
+            AssertBarricadeActiveStateBindings(profile, stateNames);
+
+            var serializedTargetView = new SerializedObject(targetView);
+            Assert.That(serializedTargetView.FindProperty("barricadeBlockedTriggerName"), Is.Null);
+            Assert.That(serializedTargetView.FindProperty("barricadeCrushedTriggerName"), Is.Null);
+            Assert.That(serializedTargetView.FindProperty("barricadeActiveBoolName"), Is.Null);
+            Assert.That(serializedTargetView.FindProperty("barricadeRaisedStateName"), Is.Null);
+            Assert.That(serializedTargetView.FindProperty("barricadeLoweredStateName"), Is.Null);
         }
 
         [Test]
-        public void TileFeatureSlidePrefabs_ConfigureSlideInactiveVisualOverrides()
+        public void TileFeatureDestroyAndSlidePrefabs_ConfigurePersistentInactiveMaterialProfiles()
         {
-            var prefabPaths = new[]
+            var prefabPaths = new (string Path, TileFeatureKind Kind)[]
             {
-                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Up.prefab",
-                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Right.prefab",
-                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Down.prefab",
-                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Left.prefab",
-                "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Right_DirectVariant.prefab",
+                ("Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Destroy_Bottom.prefab", TileFeatureKind.Destroy),
+                ("Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Destroy_Front.prefab", TileFeatureKind.Destroy),
+                ("Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Up.prefab", TileFeatureKind.Slide),
+                ("Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Right.prefab", TileFeatureKind.Slide),
+                ("Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Down.prefab", TileFeatureKind.Slide),
+                ("Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Left.prefab", TileFeatureKind.Slide),
+                ("Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Slide_Right_DirectVariant.prefab", TileFeatureKind.Slide),
             };
 
             for (var i = 0; i < prefabPaths.Length; i++)
             {
-                var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPaths[i]);
-                Assert.That(prefab, Is.Not.Null, prefabPaths[i]);
-                var targetView = prefab.GetComponent<TileFeatureVisualTargetView>();
-                Assert.That(targetView, Is.Not.Null, prefabPaths[i]);
-
-                var serialized = new SerializedObject(targetView);
-                var targets = serialized.FindProperty("slideTileInactiveMaterialTargets");
-
-                Assert.That(targets, Is.Not.Null, prefabPaths[i]);
-                Assert.That(targets.arraySize, Is.GreaterThan(0), prefabPaths[i]);
-                for (var targetIndex = 0; targetIndex < targets.arraySize; targetIndex++)
-                {
-                    var target = targets.GetArrayElementAtIndex(targetIndex);
-                    Assert.That(
-                        target.FindPropertyRelative("Renderer").objectReferenceValue,
-                        Is.Not.Null,
-                        prefabPaths[i]);
-                    Assert.That(
-                        target.FindPropertyRelative("MaterialIndex").intValue,
-                        Is.GreaterThanOrEqualTo(0),
-                        prefabPaths[i]);
-                    Assert.That(
-                        target.FindPropertyRelative("InactiveColor").colorValue,
-                        Is.Not.EqualTo(Color.white),
-                        prefabPaths[i]);
-                    Assert.That(
-                        target.FindPropertyRelative("InactiveMetallic").floatValue,
-                        Is.EqualTo(1f),
-                        prefabPaths[i]);
-                }
+                AssertTileFeaturePrefabHasPersistentInactiveMaterialProfile(prefabPaths[i].Path, prefabPaths[i].Kind);
             }
         }
 
@@ -1345,6 +1354,124 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(entry.VisualPrefab, Is.SameAs(prefab), presentationKey);
         }
 
+        private static TileFeatureVisualProfile ResolveTileFeatureProfile(
+            TileFeatureVisualProfileProvider provider,
+            TileFeatureKind expectedKind)
+        {
+            var serializedProvider = new SerializedObject(provider);
+            var profiles = serializedProvider.FindProperty("profiles");
+            Assert.That(profiles, Is.Not.Null);
+            for (var i = 0; i < profiles.arraySize; i++)
+            {
+                if (profiles.GetArrayElementAtIndex(i).objectReferenceValue is TileFeatureVisualProfile profile &&
+                    profile.FeatureKind == expectedKind)
+                {
+                    return profile;
+                }
+            }
+
+            return null;
+        }
+
+        private static void AssertCueAnimatorBinding(
+            TileFeatureVisualProfile profile,
+            TileFeatureVisualCueId cueId,
+            TileFeatureAnimatorBindingKind expectedBindingKind,
+            string expectedParameterName,
+            AnimatorController controller,
+            AnimatorControllerParameterType expectedParameterType)
+        {
+            Assert.That(profile.TryGetCueBinding(cueId, out var binding), Is.True, $"{profile.name}:{cueId}");
+            Assert.That(binding.AnimatorBinding.CueId, Is.EqualTo(cueId));
+            Assert.That(binding.AnimatorBinding.Kind, Is.EqualTo(expectedBindingKind));
+            Assert.That(binding.AnimatorBinding.ParameterOrStateName, Is.EqualTo(expectedParameterName));
+            Assert.That(binding.AnimatorBinding.Hash, Is.Not.Zero);
+            AssertAnimatorParameter(controller, expectedParameterName, expectedParameterType);
+        }
+
+        private static void AssertBarricadeActiveStateBindings(
+            TileFeatureVisualProfile profile,
+            string[] stateNames)
+        {
+            Assert.That(
+                profile.TryGetCueBinding(TileFeatureVisualCueId.BarricadeActiveState, out var binding),
+                Is.True,
+                profile.name);
+            Assert.That(binding.ActiveStateAnimatorBinding.CueId, Is.EqualTo(TileFeatureVisualCueId.BarricadeActiveState));
+            Assert.That(binding.ActiveStateAnimatorBinding.Kind, Is.EqualTo(TileFeatureAnimatorBindingKind.State));
+            Assert.That(binding.ActiveStateAnimatorBinding.ParameterOrStateName, Is.EqualTo("RaisedIdle"));
+            Assert.That(binding.ActiveStateAnimatorBinding.Hash, Is.Not.Zero);
+            Assert.That(binding.InactiveStateAnimatorBinding.CueId, Is.EqualTo(TileFeatureVisualCueId.BarricadeActiveState));
+            Assert.That(binding.InactiveStateAnimatorBinding.Kind, Is.EqualTo(TileFeatureAnimatorBindingKind.State));
+            Assert.That(binding.InactiveStateAnimatorBinding.ParameterOrStateName, Is.EqualTo("LoweredIdle"));
+            Assert.That(binding.InactiveStateAnimatorBinding.Hash, Is.Not.Zero);
+            Assert.That(stateNames, Does.Contain("RaisedIdle"));
+            Assert.That(stateNames, Does.Contain("LoweredIdle"));
+        }
+
+        private static void AssertTileFeaturePrefabHasPersistentInactiveMaterialProfile(
+            string prefabPath,
+            TileFeatureKind expectedKind)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            Assert.That(prefab, Is.Not.Null, prefabPath);
+            var targetView = prefab.GetComponent<TileFeatureVisualTargetView>();
+            Assert.That(targetView, Is.Not.Null, prefabPath);
+            var provider = prefab.GetComponent<TileFeatureVisualProfileProvider>();
+            Assert.That(provider, Is.Not.Null, prefabPath);
+
+            var serializedProvider = new SerializedObject(provider);
+            var profiles = serializedProvider.FindProperty("profiles");
+            Assert.That(profiles, Is.Not.Null, prefabPath);
+            Assert.That(profiles.arraySize, Is.GreaterThan(0), prefabPath);
+
+            TileFeatureVisualProfile profile = null;
+            for (var i = 0; i < profiles.arraySize; i++)
+            {
+                if (profiles.GetArrayElementAtIndex(i).objectReferenceValue is TileFeatureVisualProfile candidate &&
+                    candidate.FeatureKind == expectedKind)
+                {
+                    profile = candidate;
+                    break;
+                }
+            }
+
+            Assert.That(profile, Is.Not.Null, $"{prefabPath}:{expectedKind}");
+            var diagnostics = TileFeatureVisualBindingDiagnostics.ForProfile(profile, targetView);
+            Assert.That(diagnostics.IsValid, Is.True, string.Join("\n", diagnostics.Messages));
+
+            var serializedProfile = new SerializedObject(profile);
+            var targets = serializedProfile.FindProperty("inactiveMaterialTargets");
+            Assert.That(targets, Is.Not.Null, prefabPath);
+            Assert.That(targets.arraySize, Is.GreaterThan(0), prefabPath);
+            for (var targetIndex = 0; targetIndex < targets.arraySize; targetIndex++)
+            {
+                var target = targets.GetArrayElementAtIndex(targetIndex);
+                var renderer = target.FindPropertyRelative("Renderer").objectReferenceValue as Renderer;
+                var slotId = (TileFeatureVisualSlotId)target.FindPropertyRelative("SlotId").intValue;
+                if (renderer == null)
+                {
+                    Assert.That(
+                        targetView.TryGetRenderer(slotId, out renderer),
+                        Is.True,
+                        $"{prefabPath}:target {targetIndex}:{slotId}");
+                }
+
+                var materialIndex = target.FindPropertyRelative("MaterialIndex").intValue;
+                Assert.That(renderer, Is.Not.Null, $"{prefabPath}:target {targetIndex}");
+                Assert.That(materialIndex, Is.InRange(0, renderer.sharedMaterials.Length - 1), $"{prefabPath}:target {targetIndex}");
+                Assert.That(renderer.sharedMaterials[materialIndex], Is.Not.Null, $"{prefabPath}:target {targetIndex}");
+                Assert.That(
+                    target.FindPropertyRelative("InactiveColor").colorValue,
+                    Is.Not.EqualTo(Color.white),
+                    $"{prefabPath}:target {targetIndex}");
+                Assert.That(
+                    target.FindPropertyRelative("InactiveMetallic").floatValue,
+                    Is.EqualTo(1f),
+                    $"{prefabPath}:target {targetIndex}");
+            }
+        }
+
         private static void InvokeStageTileFeatureVisualInstantiation(
             System.Collections.Generic.IReadOnlyList<TileFeaturePresentationResolvedBinding> bindings,
             System.Collections.Generic.IReadOnlyList<TileFeatureState> initialTileFeatures,
@@ -1365,6 +1492,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     new CubeTopologyState(FaceId.Floor),
                     parent,
                     registry,
+                    null,
                     null,
                     null,
                     null,

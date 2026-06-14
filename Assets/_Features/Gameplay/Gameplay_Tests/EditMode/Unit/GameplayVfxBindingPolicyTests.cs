@@ -761,7 +761,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
                 .Single(candidate =>
                     candidate.Name == "FilterByPlanningVisibility" &&
-                    candidate.GetParameters().Length == 4);
+                    candidate.GetParameters().Length == 6);
             Assert.That(method, Is.Not.Null);
             return (GameplayVfxRequestPlan)method.Invoke(
                 null,
@@ -772,6 +772,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     default(GameplayVfxVisibilityContext),
                     new Action<GameplayVfxRequest, GameplayVfxResolvedVisibilityPolicy>(
                         (_, resolvedPolicy) => capturedPolicies.Add(resolvedPolicy)),
+                    false,
+                    null,
                 });
         }
 
@@ -786,7 +788,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .GetMethods(BindingFlags.Static | BindingFlags.NonPublic)
                 .Single(candidate =>
                     candidate.Name == "FilterByPlanningVisibility" &&
-                    candidate.GetParameters().Length == 4);
+                    candidate.GetParameters().Length == 6);
             Assert.That(method, Is.Not.Null);
             return (GameplayVfxRequestPlan)method.Invoke(
                 null,
@@ -806,6 +808,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                 capturedDiagnostics.Add(diagnostic);
                             }
                         }),
+                    false,
+                    null,
                 });
         }
 

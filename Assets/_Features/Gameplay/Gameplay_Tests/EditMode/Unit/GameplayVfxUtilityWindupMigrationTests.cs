@@ -195,9 +195,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void Coordinator_FlagOff_DoesNotUseLegacyFallback()
         {
             var scenario = CreateCoordinatorScenario("UtilityWindupLegacyFlagOff");
+            VfxCueMapAsset cueMap = null;
             try
             {
+                cueMap = CreateCueMap();
                 var runtime = scenario.Root.AddComponent<GameplayVfxProductionRuntime>();
+                runtime.ConfigureHostDefaultMap(cueMap);
                 scenario.Presenter.AttachPresentationExtension(runtime);
                 scenario.Presenter.PresentInitial(new[] { CreateEnemyUnit(40, scenario.SourceCell) }, scenario.Topology);
 
@@ -214,6 +217,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                Destroy(cueMap);
                 scenario.Destroy();
             }
         }

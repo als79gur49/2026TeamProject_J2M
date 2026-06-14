@@ -2916,7 +2916,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return presenter;
         }
 
-        private static TileFeatureVisualTargetView AttachTileVisualTarget(
+        private static RecordingButtonTileFeatureVisualTarget AttachTileVisualTarget(
             GameObject rootObject,
             GameplayTickViewPresenter presenter,
             int tileId,
@@ -2926,11 +2926,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 rootObject.AddComponent<TileFeatureVisualRegistry>();
             var targetObject = new GameObject($"TileFeatureVisualTarget_{tileId}");
             targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
-            var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+            var target = targetObject.AddComponent<RecordingButtonTileFeatureVisualTarget>();
             target.Configure(tileId, cell);
             registry.ConfigureSearchRoot(rootObject.transform);
             presenter.AttachTileFeatureVisualRegistry(registry);
             return target;
+        }
+
+        private sealed class RecordingButtonTileFeatureVisualTarget : MonoBehaviour, ITileFeatureVisualTarget
+        {
+            public int TileId { get; private set; }
+
+            public SurfaceCell Cell { get; private set; }
+
+            public int DebugPlayButtonActivatedCount { get; private set; }
+
+            public void Configure(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public void PlayButtonActivated()
+            {
+                DebugPlayButtonActivatedCount++;
+            }
         }
 
         private static StageZoneDefinition CreateZone(

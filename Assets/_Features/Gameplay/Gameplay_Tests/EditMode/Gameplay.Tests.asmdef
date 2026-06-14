@@ -5,6 +5,7 @@
     "Game.Feature.Gameplay",
     "Game.Feature.Gameplay.AudioPolicy",
     "Game.Feature.Gameplay.EnemyPresentation",
+    "Game.Feature.Gameplay.PresentationVfx.Contracts",
     "Game.Feature.Gameplay.Vfx",
     "Game.Feature.Gameplay.Vfx.Host",
     "Game.Feature.Gameplay.Vfx.ProductionRuntime",

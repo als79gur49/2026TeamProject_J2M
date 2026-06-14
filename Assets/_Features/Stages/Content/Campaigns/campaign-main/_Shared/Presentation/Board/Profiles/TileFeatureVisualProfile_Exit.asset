@@ -1,0 +1,68 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 066ee7e5bb984d639a42a9b195a498ad, type: 3}
+  m_Name: TileFeatureVisualProfile_Exit
+  m_EditorClassIdentifier:
+  featureKind: 6
+  cueBindings:
+  - CueId: 80
+    TargetSlot: 0
+    AnimatorBinding:
+      CueId: 80
+      Kind: 0
+      ParameterOrStateName: ExitOpened
+    ActiveStateAnimatorBinding:
+      CueId: 0
+      Kind: 0
+      ParameterOrStateName:
+    InactiveStateAnimatorBinding:
+      CueId: 0
+      Kind: 0
+      ParameterOrStateName:
+    GameplayVfxCue: 0
+    SendGameplayVfx: 0
+    Persistent: 0
+  - CueId: 81
+    TargetSlot: 0
+    AnimatorBinding:
+      CueId: 81
+      Kind: 0
+      ParameterOrStateName: ExitEntered
+    ActiveStateAnimatorBinding:
+      CueId: 0
+      Kind: 0
+      ParameterOrStateName:
+    InactiveStateAnimatorBinding:
+      CueId: 0
+      Kind: 0
+      ParameterOrStateName:
+    GameplayVfxCue: 0
+    SendGameplayVfx: 0
+    Persistent: 0
+  - CueId: 82
+    TargetSlot: 0
+    AnimatorBinding:
+      CueId: 82
+      Kind: 1
+      ParameterOrStateName: ExitOpen
+    ActiveStateAnimatorBinding:
+      CueId: 82
+      Kind: 2
+      ParameterOrStateName: ExitOpenedIdle
+    InactiveStateAnimatorBinding:
+      CueId: 82
+      Kind: 2
+      ParameterOrStateName: ExitClosedIdle
+    GameplayVfxCue: 0
+    SendGameplayVfx: 0
+    Persistent: 0
+  inactiveMaterialTargets: []

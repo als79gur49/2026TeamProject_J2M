@@ -66,6 +66,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private EnemyPresentationVfxProfileProvider enemyPresentationVfxProfileProvider;
         private bool hasConfiguredEnemyPresentationProfiles;
         private VfxCueMapAsset hostDefaultCueMap;
+        private bool hostDefaultCueMapHasBindings;
         private int flipDestroySelfMotionMissingBindingCount;
         private int flipImpactStayTrailMissingBindingCount;
         private int flipImpactStayTrailMissingOwnerViewCount;
@@ -426,6 +427,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public bool IsHostDefaultMapConfigured => hostDefaultCueMap != null;
 
+        private bool ShouldSuppressMissingBindingRequests =>
+            IsHostDefaultMapConfigured && !hostDefaultCueMapHasBindings;
+
         public int MapNotConfiguredCount => mapNotConfiguredCount;
 
         public int InitialRequestSkippedBecauseMapNotConfiguredCount =>
@@ -730,7 +734,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 FilterByEnabledCues(planBuilder.Build()),
                 bindingResolver,
                 visibilityContext,
-                RecordPlanningVisibilityPolicy);
+                RecordPlanningVisibilityPolicy,
+                suppressMissingBindingRequests: ShouldSuppressMissingBindingRequests,
+                shouldSuppressMissingBindingRequest: ShouldSuppressMissingBindingRequest);
             var shouldPlayFlipDestroySelfMotion =
                 HasDestroySelfFlipImpactSignal(context.Result.PresentationData);
             var shouldPlayBoxSlideSolidStop =
@@ -860,7 +866,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 enabledPlan,
                 bindingResolver,
                 visibilityContext,
-                RecordPlanningVisibilityPolicy);
+                RecordPlanningVisibilityPolicy,
+                suppressMissingBindingRequests: ShouldSuppressMissingBindingRequests,
+                shouldSuppressMissingBindingRequest: ShouldSuppressMissingBindingRequest);
             var plan = AddTopologyTransitionSoftSpawnDelay(FilterPersistentOnly(visibilityFilteredPlan));
             if (plan.Requests.Count == 0 && controller == null)
             {
@@ -1115,6 +1123,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
             bindingResolver = profileProvider != null && profileProvider.Count > 0
                 ? new ProfileAwareVfxBindingResolver(profileProvider, composition.Resolver)
                 : composition.Resolver;
+            hostDefaultCueMapHasBindings = composition.HostDefaultMap != null &&
+                                           composition.HostDefaultMap.Count > 0;
             prefabProvider = new AuthoringPrefabProvider(
                 profileProvider,
                 hostDefaultCueMap,
@@ -1489,7 +1499,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             GameplayVfxRequestPlan plan,
             IVfxBindingResolver bindingResolver,
             in GameplayVfxVisibilityContext visibilityContext,
-            Action<GameplayVfxRequest, GameplayVfxResolvedVisibilityPolicy> recordResolvedPolicy)
+            Action<GameplayVfxRequest, GameplayVfxResolvedVisibilityPolicy> recordResolvedPolicy,
+            bool suppressMissingBindingRequests = false,
+            Func<GameplayVfxRequest, bool> shouldSuppressMissingBindingRequest = null)
         {
             if (plan == null || plan.Requests.Count == 0)
             {
@@ -1503,6 +1515,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 var policy = default(VfxBindingRuntimePolicy);
                 var hasBindingPolicy = bindingResolver != null &&
                                        bindingResolver.TryResolve(request, out policy);
+                if (!hasBindingPolicy &&
+                    (suppressMissingBindingRequests ||
+                     (shouldSuppressMissingBindingRequest != null &&
+                      shouldSuppressMissingBindingRequest(request))))
+                {
+                    continue;
+                }
+
                 var resolvedPolicy = GameplayVfxVisibilityPolicy.ResolveFinalPolicy(
                     request,
                     hasBindingPolicy,
@@ -1601,6 +1621,22 @@ namespace Game.Feature.Gameplay.Vfx.Host
                    (enableEnemyJumpLandingDustVfx && cueId == GameplayVfxCueId.From(EnemyVfxCue.JumperLandingDust));
         }
 
+        private bool ShouldSuppressMissingBindingRequest(GameplayVfxRequest request)
+        {
+            if (!IsHostDefaultMapConfigured)
+            {
+                return false;
+            }
+
+            if (!hostDefaultCueMapHasBindings)
+            {
+                return true;
+            }
+
+            return request.CueId == GameplayVfxCueId.From(BoxVfxCue.DestroySmoke) ||
+                   request.CueId == GameplayVfxCueId.From(BoxVfxCue.DestroyShrink);
+        }
+
         private static bool IsCanonicalMigratedCue(GameplayVfxCueId cueId)
         {
             return cueId == GameplayVfxCueId.From(PlayerVfxCue.Damage) ||
@@ -1693,16 +1729,23 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
-                plannedCommandCount++;
                 var key = ImpactTransientBreakInstanceKey.Create(context.Result.TickIndex, command);
                 if (playedImpactTransientBreakKeys.Contains(key))
                 {
                     continue;
                 }
 
-                if (TryPlayImpactTransientBreakCommand(context.Result.TickIndex, signal, command))
+                if (TryPlayImpactTransientBreakCommand(
+                        context.Result.TickIndex,
+                        signal,
+                        command,
+                        out var played))
                 {
-                    playedImpactTransientBreakKeys.Add(key);
+                    plannedCommandCount++;
+                    if (played)
+                    {
+                        playedImpactTransientBreakKeys.Add(key);
+                    }
                 }
             }
 
@@ -1712,8 +1755,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private bool TryPlayImpactTransientBreakCommand(
             int tickIndex,
             in TickImpactTransientPresentationSignal signal,
-            in ParameterizedMotionVfxCommand command)
+            in ParameterizedMotionVfxCommand command,
+            out bool played)
         {
+            played = false;
             var cueId = GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak);
             var request = new GameplayVfxRequest(
                 tickIndex: tickIndex,
@@ -1731,7 +1776,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             if (!bindingResolver.TryResolve(request, out var policy))
             {
-                impactTransientBreakMissingBindingCount++;
+                if (!ShouldSuppressMissingBindingRequests)
+                {
+                    impactTransientBreakMissingBindingCount++;
+                    return true;
+                }
+
                 return false;
             }
 
@@ -1748,7 +1798,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 command.SourceLocalPosition,
                 command.SourceLocalRotation);
             var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
-            return pool.PlayParameterizedMotion(playbackCommand, command) != null;
+            played = pool.PlayParameterizedMotion(playbackCommand, command) != null;
+            return true;
         }
 
         private int PlayOutOfBoundsExitCommands(in GameplayTickPresentationExtensionContext context)
@@ -1785,16 +1836,24 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
-                plannedCommandCount++;
                 var key = OutOfBoundsExitInstanceKey.Create(context.Result.TickIndex, command);
                 if (playedOutOfBoundsExitKeys.Contains(key))
                 {
                     continue;
                 }
 
-                if (TryPlayOutOfBoundsExitCommand(context.Result.TickIndex, signal, cueId, command))
+                if (TryPlayOutOfBoundsExitCommand(
+                        context.Result.TickIndex,
+                        signal,
+                        cueId,
+                        command,
+                        out var played))
                 {
-                    playedOutOfBoundsExitKeys.Add(key);
+                    plannedCommandCount++;
+                    if (played)
+                    {
+                        playedOutOfBoundsExitKeys.Add(key);
+                    }
                 }
             }
 
@@ -1805,8 +1864,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             int tickIndex,
             in TickEntityExitPresentationSignal signal,
             GameplayVfxCueId cueId,
-            in ParameterizedMotionVfxCommand command)
+            in ParameterizedMotionVfxCommand command,
+            out bool played)
         {
+            played = false;
             var request = new GameplayVfxRequest(
                 tickIndex: tickIndex,
                 sequenceId: command.SequenceId,
@@ -1823,7 +1884,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             if (!bindingResolver.TryResolve(request, out var policy))
             {
-                outOfBoundsExitMissingBindingCount++;
+                if (!ShouldSuppressMissingBindingRequests)
+                {
+                    outOfBoundsExitMissingBindingCount++;
+                    return true;
+                }
+
                 return false;
             }
 
@@ -1840,7 +1906,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 command.SourceLocalPosition,
                 command.SourceLocalRotation);
             var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
-            return pool.PlayParameterizedMotion(playbackCommand, command) != null;
+            played = pool.PlayParameterizedMotion(playbackCommand, command) != null;
+            return true;
         }
 
         private int PlayEnemyDeathMotionCommands(in GameplayTickPresentationExtensionContext context)
@@ -1895,8 +1962,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
-                plannedCommandCount++;
-                TryPlayEnemyDeathMotionCommand(context.Result.TickIndex, command);
+                if (TryPlayEnemyDeathMotionCommand(context.Result.TickIndex, command))
+                {
+                    plannedCommandCount++;
+                }
             }
 
             return plannedCommandCount;
@@ -2031,7 +2100,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             if (!bindingResolver.TryResolve(request, out var policy))
             {
-                enemyDeathMotionMissingBindingCount++;
+                if (!ShouldSuppressMissingBindingRequests)
+                {
+                    enemyDeathMotionMissingBindingCount++;
+                    return true;
+                }
+
                 return false;
             }
 
@@ -2048,10 +2122,11 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 command.SourceLocalPosition,
                 command.SourceLocalRotation);
             var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
-            return pool.PlayParameterizedMotion(
+            pool.PlayParameterizedMotion(
                 playbackCommand,
                 parameterizedCommand,
-                sourceVisualSnapshot) != null;
+                sourceVisualSnapshot);
+            return true;
         }
 
         private int PlayBoxSlideSolidStopCommands(in GameplayTickPresentationExtensionContext context)
@@ -2184,8 +2259,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
-                plannedCommandCount++;
-                TryPlayBoxDestroyShrinkCommand(context.Result.TickIndex, signal, command);
+                if (TryPlayBoxDestroyShrinkCommand(context.Result.TickIndex, signal, command))
+                {
+                    plannedCommandCount++;
+                }
             }
 
             return plannedCommandCount;
@@ -2486,7 +2563,6 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             if (!bindingResolver.TryResolve(request, out var policy))
             {
-                boxDestroyShrinkMissingBindingCount++;
                 return false;
             }
 
@@ -2509,7 +2585,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             {
                 SetDestroyShrinkState(key, DestroyShrinkVfxSequenceState.Failed);
                 activeDestroyShrinkRemainingSeconds.Remove(key);
-                return false;
+                return true;
             }
 
             SetDestroyShrinkState(key, DestroyShrinkVfxSequenceState.SourceCloneCaptured);
@@ -2544,16 +2620,22 @@ namespace Game.Feature.Gameplay.Vfx.Host
                     continue;
                 }
 
-                plannedCommandCount++;
                 var key = FlipDestroySelfMotionInstanceKey.Create(command, context.Result.TickIndex);
                 if (playedFlipDestroySelfMotionKeys.Contains(key))
                 {
                     continue;
                 }
 
-                if (TryPlayFlipDestroySelfMotionCommand(context.Result.TickIndex, command))
+                if (TryPlayFlipDestroySelfMotionCommand(
+                        context.Result.TickIndex,
+                        command,
+                        out var played))
                 {
-                    playedFlipDestroySelfMotionKeys.Add(key);
+                    plannedCommandCount++;
+                    if (played)
+                    {
+                        playedFlipDestroySelfMotionKeys.Add(key);
+                    }
                 }
             }
 
@@ -2562,8 +2644,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         private bool TryPlayFlipDestroySelfMotionCommand(
             int tickIndex,
-            in FlipDestroySelfMotionVfxCommand command)
+            in FlipDestroySelfMotionVfxCommand command,
+            out bool played)
         {
+            played = false;
             var cueId = GameplayVfxCueId.From(BoxVfxCue.FlipDestroySelfMotion);
             var request = new GameplayVfxRequest(
                 tickIndex: tickIndex,
@@ -2581,7 +2665,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
             if (!bindingResolver.TryResolve(request, out var policy))
             {
-                flipDestroySelfMotionMissingBindingCount++;
+                if (!ShouldSuppressMissingBindingRequests)
+                {
+                    flipDestroySelfMotionMissingBindingCount++;
+                    return true;
+                }
+
                 return false;
             }
 
@@ -2598,7 +2687,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 command.SourceLocalPosition,
                 command.SourceLocalRotation);
             var playbackCommand = new ResolvedVfxPlaybackCommand(request, policy, anchor);
-            return pool.PlayParameterizedMotion(playbackCommand, command.ToParameterizedMotionVfxCommand()) != null;
+            played = pool.PlayParameterizedMotion(playbackCommand, command.ToParameterizedMotionVfxCommand()) != null;
+            return true;
         }
 
         private static bool HasDestroySelfFlipImpactSignal(TickPresentationData presentationData)

@@ -17,6 +17,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -27,6 +28,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private const string MoonGeneratorDoorOpenClipPath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Animations/MoonBlockGenerator_DoorOpen.anim";
+        private const string MoonGeneratorProfilePath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Profiles/TileFeatureVisualProfile_MoonGenerator.asset";
         private const string EnemyJumpAnimatorControllerPath =
             "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAnimator_Jump.controller";
         private const string GravityFieldLockableShaderName = "Game/Presentation/GravityFieldLockableBoxLit";
@@ -453,32 +456,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 registry.SetPresentationPaused(false);
                 Assert.That(particles.isPlaying, Is.True);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void TileFeatureVisual_GameplayPause_DoesNotAdvanceOrEmit()
-        {
-            var rootObject = new GameObject(nameof(TileFeatureVisual_GameplayPause_DoesNotAdvanceOrEmit));
-
-            try
-            {
-                var target = rootObject.AddComponent<TileFeatureVisualTargetView>();
-                var particles = rootObject.AddComponent<ParticleSystem>();
-                SetPrivateField(target, "buttonActivatedParticles", particles);
-                var registry = new GameplayPresentationPauseRegistry();
-                registry.RegisterRoot(rootObject);
-                registry.SetPresentationPaused(true);
-
-                target.PlayButtonActivated();
-
-                Assert.That(particles.isPaused, Is.True);
-                Assert.That(particles.particleCount, Is.Zero);
             }
             finally
             {
@@ -2221,7 +2198,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     topology,
                     CreateTilePresentationData(CreateMoonBlockGeneratedTileEvent(100, cell, moonBlockEntityId: 20, spawnTick: 1))));
 
-                Assert.That(target.DebugPlayMoonBlockGeneratedCount, Is.EqualTo(1));
+                Assert.That(target.DebugMoonBlockGeneratedCount, Is.EqualTo(1));
                 Assert.That(target.DebugLastMoonBlockGeneratedEntityId, Is.EqualTo(20));
                 Assert.That(presenter.CurrentTilePresentationRequests, Has.Count.EqualTo(1));
                 Assert.That(presenter.CurrentTilePresentationRequests[0].RequestKind, Is.EqualTo(TilePresentationRequestKind.MoonBlockGenerated));
@@ -2242,15 +2219,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(prefab, Is.Not.Null);
 
             var target = prefab.GetComponent<TileFeatureVisualTargetView>();
+            var provider = prefab.GetComponent<TileFeatureVisualProfileProvider>();
+            var animator = prefab.GetComponent<Animator>();
             Assert.That(target, Is.Not.Null);
-            Assert.That(target.DebugAnimator, Is.Not.Null);
-            Assert.That(target.DebugAnimator.runtimeAnimatorController, Is.Not.Null);
-            Assert.That(target.DebugAnimator.runtimeAnimatorController.name, Is.EqualTo("TileFeature_MoonGenerator_Default"));
+            Assert.That(provider, Is.Not.Null);
+            Assert.That(animator, Is.Not.Null);
+            Assert.That(animator.runtimeAnimatorController, Is.Not.Null);
+            Assert.That(animator.runtimeAnimatorController.name, Is.EqualTo("TileFeature_MoonGenerator_Default"));
 
             var monoBehaviours = prefab.GetComponentsInChildren<MonoBehaviour>(includeInactive: true);
             Assert.That(
                 monoBehaviours.Select(component => component != null ? component.GetType().Name : string.Empty),
                 Does.Not.Contain("MoonBlockGeneratorDoorPresentationDriver"));
+
+            var profile = AssetDatabase.LoadAssetAtPath<TileFeatureVisualProfile>(MoonGeneratorProfilePath);
+            Assert.That(profile, Is.Not.Null);
+            Assert.That(profile.FeatureKind, Is.EqualTo(TileFeatureKind.MoonBlockGenerator));
+            Assert.That(provider.TryGetProfile(TileFeatureKind.MoonBlockGenerator, out var providerProfile), Is.True);
+            Assert.That(providerProfile, Is.SameAs(profile));
+            Assert.That(profile.TryGetCueBinding(TileFeatureVisualCueId.MoonBlockGenerated, out var generatedBinding), Is.True);
+            Assert.That(generatedBinding.AnimatorBinding.ParameterOrStateName, Is.EqualTo("MoonBlockGenerated"));
 
             var controller = target.DebugAnimator.runtimeAnimatorController as AnimatorController;
             Assert.That(controller, Is.Not.Null);
@@ -10586,7 +10574,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ?.Invoke(target, args);
         }
 
-        private static TileFeatureVisualTargetView AttachTileVisualTarget(
+        private static RecordingTileFeatureVisualTarget AttachTileVisualTarget(
             GameObject rootObject,
             GameplayTickViewPresenter presenter,
             int tileId,
@@ -10596,7 +10584,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 rootObject.AddComponent<TileFeatureVisualRegistry>();
             var targetObject = new GameObject($"TileFeatureVisualTarget_{tileId}");
             targetObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
-            var target = targetObject.AddComponent<TileFeatureVisualTargetView>();
+            var target = targetObject.AddComponent<RecordingTileFeatureVisualTarget>();
             target.Configure(tileId, cell);
             registry.ConfigureSearchRoot(rootObject.transform);
             presenter.AttachTileFeatureVisualRegistry(registry);
@@ -11696,7 +11684,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return renderers;
         }
 
-        private sealed class ActiveStateRecordingTileFeatureTarget : MonoBehaviour, ITileFeatureVisualTarget
+        private sealed class ActiveStateRecordingTileFeatureTarget :
+            MonoBehaviour,
+            ITileFeatureVisualTarget,
+            ITileFeatureVisualCueSink
         {
             public int TileId { get; private set; }
 
@@ -11712,10 +11703,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Cell = cell;
             }
 
-            public void PlayButtonActivated()
+            public bool TryHandle(in TileFeatureVisualRequest request)
             {
+                if (request.CueId != TileFeatureVisualCueId.ButtonActivated)
+                {
+                    return false;
+                }
+
                 PlayButtonActivatedCount++;
                 WasActiveInHierarchyWhenButtonActivated = gameObject.activeInHierarchy;
+                return true;
+            }
+        }
+
+        private sealed class RecordingTileFeatureVisualTarget :
+            MonoBehaviour,
+            ITileFeatureVisualTarget,
+            ITileFeatureVisualCueSink
+        {
+            public int TileId { get; private set; }
+
+            public SurfaceCell Cell { get; private set; }
+
+            public int DebugPlayButtonActivatedCount { get; private set; }
+
+            public int DebugPlayDestroyTileTriggeredCount { get; private set; }
+
+            public int DebugMoonBlockGeneratedCount { get; private set; }
+
+            public int DebugLastMoonBlockGeneratedEntityId { get; private set; }
+
+            public void Configure(int tileId, SurfaceCell cell)
+            {
+                TileId = tileId;
+                Cell = cell;
+            }
+
+            public bool TryHandle(in TileFeatureVisualRequest request)
+            {
+                switch (request.CueId)
+                {
+                    case TileFeatureVisualCueId.ButtonActivated:
+                        DebugPlayButtonActivatedCount++;
+                        return true;
+                    case TileFeatureVisualCueId.DestroyTileTriggered:
+                        DebugPlayDestroyTileTriggeredCount++;
+                        return true;
+                    case TileFeatureVisualCueId.MoonBlockGenerated:
+                        DebugMoonBlockGeneratedCount++;
+                        DebugLastMoonBlockGeneratedEntityId = request.TargetEntityId;
+                        return true;
+                    default:
+                        return false;
+                }
             }
         }
 

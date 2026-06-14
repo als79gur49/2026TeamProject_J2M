@@ -1100,6 +1100,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void ButtonProductionVfxLoops_StartStopAndCleanupByCatalogStyle()
+        {
+            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
+            var greenButtonBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ButtonActiveLoop_Green_Binding.asset");
+            var yellowButtonBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ButtonActiveLoop_Yellow_Binding.asset");
+            var greenButtonVisibleBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ButtonVisibleLoop_Green_Binding.asset");
+            var yellowButtonVisibleBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_ButtonVisibleLoop_Yellow_Binding.asset");
+
+            Assert.That(cueMap, Is.Not.Null);
+            AssertButtonActiveLoopBinding(greenButtonBinding);
+            AssertButtonActiveLoopBinding(yellowButtonBinding);
+            AssertButtonActiveLoopBinding(greenButtonVisibleBinding);
+            AssertButtonActiveLoopBinding(yellowButtonVisibleBinding);
+
+            var runtimeMap = cueMap.BuildRuntimeMap();
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Green, out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Yellow, out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonActiveLoop), VfxStyleKey.Default, out _), Is.False);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonVisibleLoop), VfxStyleKey.Green, out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonVisibleLoop), VfxStyleKey.Yellow, out _), Is.True);
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.ButtonVisibleLoop), VfxStyleKey.Default, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BarricadeActiveLoop_UnboundCue_IsExplicitNoOpWithoutMissingBindingSpam()
+        {
+            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
+            var barricadeBinding = AssetDatabase.LoadAssetAtPath<VfxBindingDefinitionAsset>(
+                "Assets/_Features/Gameplay/Gameplay_Vfx/Authoring/Bindings/TileFeature_BarricadeActiveLoop_Binding.asset");
+
+            Assert.That(cueMap, Is.Not.Null);
+            Assert.That(barricadeBinding, Is.Null);
+            var runtimeMap = cueMap.BuildRuntimeMap();
+            Assert.That(runtimeMap.TryResolve(GameplayVfxCueId.From(TileFeatureVfxCue.BarricadeActiveLoop), out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayVfxTileFeatureGravityField_DefaultCueMap_ContainsExitSliderAndRemainingGravityBindings()
         {
             var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
@@ -1190,8 +1233,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var moonButtonPrefab = ReadRepoFile(
                 "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Button_MoonOnly.prefab");
 
-            Assert.That(defaultButtonPrefab, Does.Contain("buttonActivatedParticles: {fileID: 0}"));
-            Assert.That(moonButtonPrefab, Does.Contain("buttonActivatedParticles: {fileID: 0}"));
+            Assert.That(defaultButtonPrefab, Does.Not.Contain("buttonActivatedParticles"));
+            Assert.That(moonButtonPrefab, Does.Not.Contain("buttonActivatedParticles"));
             Assert.That(defaultButtonPrefab, Does.Not.Contain("guid: 751080a0ee13c914f9b17bd4ab9d198b"));
             Assert.That(moonButtonPrefab, Does.Not.Contain("guid: d7184659b8b2d0740a0898761e0bde6b"));
         }

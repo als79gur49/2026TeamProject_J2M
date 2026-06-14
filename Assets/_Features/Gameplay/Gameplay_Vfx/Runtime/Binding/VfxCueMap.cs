@@ -41,6 +41,8 @@ namespace Game.Feature.Gameplay.Vfx
             return policies.TryGetValue(new VfxBindingKey(cueId, styleKey), out policy);
         }
 
+        public int Count => policies.Count;
+
         public VfxBindingRuntimePolicy ResolveOrThrow(GameplayVfxCueId cueId)
         {
             return ResolveOrThrow(cueId, VfxStyleKey.Default);

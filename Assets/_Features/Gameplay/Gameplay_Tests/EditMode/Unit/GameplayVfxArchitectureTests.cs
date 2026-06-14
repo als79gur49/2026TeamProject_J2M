@@ -19,7 +19,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string GovernancePath = "Docs/Architecture/Gameplay-VFX-Governance.md";
         private const string VfxRuntimePath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime";
         private const string VfxPlanningPath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxPlanning.cs";
-        private const string VfxEnumsPath = "Assets/_Features/Gameplay/Gameplay_Vfx/Runtime/GameplayVfxEnums.cs";
+        private const string VfxEnumsPath =
+            "Assets/_Features/Gameplay/Gameplay_VfxContracts/Runtime/GameplayVfxEnums.cs";
         private const string VfxHostDiagnosticsPath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Diagnostics";
         private const string PresentationMotionTrackPath =
@@ -39,11 +40,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string PresentationMotionFollowingVfxControllerPath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/PresentationMotionFollowingVfxController.cs";
         private const string GameplayVfxGameObjectPoolPath =
-            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Pool/GameplayVfxGameObjectPool.cs";
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/Pool/GameplayVfxGameObjectPool.cs";
         private const string GameplayVfxPlaybackHandlePath =
-            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Pool/GameplayVfxPlaybackHandle.cs";
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/Pool/GameplayVfxPlaybackHandle.cs";
         private const string ParameterizedMotionVfxCommandPath =
-            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/ParameterizedMotion/ParameterizedMotionVfxCommand.cs";
+            "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/ParameterizedMotion/ParameterizedMotionVfxCommand.cs";
         private const string FlipImpactBurstVfxRequestPlannerPath =
             "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/FlipImpactBurstVfxRequestPlanner.cs";
         private const string FlipDestroySelfMotionVfxCommandBuilderPath =
@@ -399,7 +400,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyPresentationAssembly_ReferencesGameplayAndVfxAuthoringButNotStagesOrHost()
+        public void EnemyPresentationAssembly_ReferencesGameplayVfxContractsAndAuthoringButNotStagesHostOrVfxCore()
         {
             var references = typeof(EnemyPresentationCatalog).Assembly
                 .GetReferencedAssemblies()
@@ -407,10 +408,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .ToArray();
 
             Assert.That(references, Does.Contain("Game.Feature.Gameplay"));
-            Assert.That(references, Does.Contain("Game.Feature.Gameplay.Vfx"));
+            Assert.That(references, Does.Contain("Game.Feature.Gameplay.PresentationVfx.Contracts"));
             Assert.That(references, Does.Contain("Game.Feature.Gameplay.Vfx.Authoring"));
             Assert.That(references, Does.Not.Contain("Game.Feature.Stages"));
             Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Host"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.Vfx"));
         }
 
         [Test]
@@ -527,7 +529,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(coreSource, Does.Not.Contain("IGameplayVfxCloneSourceProvider"));
             Assert.That(coreSource, Does.Not.Contain("GameplayVfxCloneSource"));
-            Assert.That(typeof(IGameplayVfxCloneSourceProvider).Assembly.GetName().Name, Is.EqualTo("Game.Feature.Gameplay.Vfx.Host"));
+            Assert.That(
+                typeof(IGameplayVfxCloneSourceProvider).Assembly.GetName().Name,
+                Is.EqualTo("Game.Feature.Gameplay.Vfx.ProductionRuntime"));
         }
 
         [Test]
