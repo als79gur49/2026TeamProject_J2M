@@ -21,6 +21,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
         private static readonly int EmissionColorPropertyId = Shader.PropertyToID("_EmissionColor");
         private static readonly int MetallicPropertyId = Shader.PropertyToID("_Metallic");
+        private const string BarricadeProductionPrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Board/Prefabs/TileFeature_Barricade_Default.prefab";
 
         [Test]
         [Category("Extended")]
@@ -285,6 +287,152 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(target.ActivatedPlayCount, Is.EqualTo(1));
             Assert.That(target.ImmediateSyncCount, Is.EqualTo(1));
             Assert.That(target.LastImmediateActive, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TileFeatureVisualProfileCueSink_ResolveSameTargetProvider_DoesNotResetHandlerState()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var instance = InstantiateProductionBarricadeVisual(
+                nameof(TileFeatureVisualProfileCueSink_ResolveSameTargetProvider_DoesNotResetHandlerState),
+                100,
+                cell,
+                out var target,
+                out var animator);
+
+            try
+            {
+                var sink = TileFeatureVisualCueSinkResolver.Resolve(target, TileFeatureKind.Barricade);
+                Assert.That(sink, Is.TypeOf<TileFeatureVisualProfileCueSink>());
+                Assert.That(TryHandleBarricadeActiveState(sink, target, active: true), Is.True);
+
+                Assert.That(sink.TryHandle(new TileFeatureVisualRequest(
+                    TileFeatureVisualCueId.BarricadeBlocked,
+                    target.TileId,
+                    target.Cell,
+                    TileFeatureKind.Barricade,
+                    targetEntityId: 20,
+                    direction: Direction.Right,
+                    active: true)), Is.True);
+                animator.Update(0f);
+                AssertCurrentAnimatorState(animator, "BlockedPulse");
+
+                var resolvedAgain = TileFeatureVisualCueSinkResolver.Resolve(target, TileFeatureKind.Barricade);
+                Assert.That(resolvedAgain, Is.SameAs(sink));
+                Assert.That(TryHandleBarricadeActiveState(resolvedAgain, target, active: true), Is.True);
+
+                AssertCurrentAnimatorState(animator, "BlockedPulse");
+                Assert.That(animator.GetBool("BarricadeActive"), Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BarricadeBlocked_WithActiveStateRefresh_DoesNotReplayRaisedIdle_ProductionProfilePath()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var instance = InstantiateProductionBarricadeVisual(
+                nameof(BarricadeBlocked_WithActiveStateRefresh_DoesNotReplayRaisedIdle_ProductionProfilePath),
+                100,
+                cell,
+                out var target,
+                out var animator);
+
+            try
+            {
+                var diagnostics = new List<string>();
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(new RecordingRegistry(target));
+                controller.SetDiagnosticSink(diagnostics.Add);
+
+                controller.PlayRequests(new[] { CreateBarricadeBlockedRequest(100, cell, Direction.Right, targetEntityId: 20) });
+                animator.Update(0f);
+                AssertCurrentAnimatorState(animator, "BlockedPulse");
+
+                controller.RefreshContinuousStates(new[] { CreateBarricadeActiveState(100, cell, active: true) });
+
+                Assert.That(diagnostics, Is.Empty);
+                AssertCurrentAnimatorState(animator, "BlockedPulse");
+                Assert.That(animator.GetBool("BarricadeActive"), Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BarricadeBoxSlideCollision_ProductionProfileSink_KeepsBlockedPulseAfterActiveRefresh()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 2, 0);
+            var instance = InstantiateProductionBarricadeVisual(
+                nameof(BarricadeBoxSlideCollision_ProductionProfileSink_KeepsBlockedPulseAfterActiveRefresh),
+                100,
+                cell,
+                out var target,
+                out var animator);
+
+            try
+            {
+                var diagnostics = new List<string>();
+                var controller = new TileFeatureVisualPresentationController();
+                controller.AttachRegistry(new RecordingRegistry(target));
+                controller.SetDiagnosticSink(diagnostics.Add);
+
+                controller.PlayRequests(new[] { CreateBarricadeBlockedRequest(100, cell, Direction.Up, targetEntityId: 20) });
+                animator.Update(0f);
+                AssertCurrentAnimatorState(animator, "BlockedPulse");
+
+                controller.RefreshContinuousStates(new[] { CreateBarricadeActiveState(100, cell, active: true) });
+
+                Assert.That(diagnostics, Is.Empty);
+                AssertCurrentAnimatorState(animator, "BlockedPulse");
+                Assert.That(animator.GetBool("BarricadeActive"), Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BarricadeActiveState_ChangedState_StillPlaysBoundIdleState()
+        {
+            var cell = new SurfaceCell(FaceId.Front, 1, 1);
+            var instance = InstantiateProductionBarricadeVisual(
+                nameof(BarricadeActiveState_ChangedState_StillPlaysBoundIdleState),
+                100,
+                cell,
+                out var target,
+                out var animator);
+
+            try
+            {
+                var sink = TileFeatureVisualCueSinkResolver.Resolve(target, TileFeatureKind.Barricade);
+
+                Assert.That(TryHandleBarricadeActiveState(sink, target, active: true), Is.True);
+                AssertCurrentAnimatorState(animator, "RaisedIdle");
+                Assert.That(animator.GetBool("BarricadeActive"), Is.True);
+
+                Assert.That(TryHandleBarricadeActiveState(sink, target, active: false), Is.True);
+                AssertCurrentAnimatorState(animator, "LoweredIdle");
+                Assert.That(animator.GetBool("BarricadeActive"), Is.False);
+
+                Assert.That(TryHandleBarricadeActiveState(sink, target, active: true), Is.True);
+                AssertCurrentAnimatorState(animator, "RaisedIdle");
+                Assert.That(animator.GetBool("BarricadeActive"), Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(instance);
+            }
         }
 
         [Test]
@@ -1932,6 +2080,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return animator;
         }
 
+        private static GameObject InstantiateProductionBarricadeVisual(
+            string instanceName,
+            int tileId,
+            SurfaceCell cell,
+            out TileFeatureVisualTargetView target,
+            out Animator animator)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(BarricadeProductionPrefabPath);
+            Assert.That(prefab, Is.Not.Null, BarricadeProductionPrefabPath);
+
+            var instance = Object.Instantiate(prefab);
+            instance.name = instanceName;
+            target = instance.GetComponentInChildren<TileFeatureVisualTargetView>(includeInactive: true);
+            Assert.That(target, Is.Not.Null, BarricadeProductionPrefabPath);
+            target.Configure(tileId, cell);
+
+            var provider = TileFeatureVisualCueSinkResolver.ResolveProfileProvider(target, target);
+            Assert.That(provider, Is.Not.Null, BarricadeProductionPrefabPath);
+            Assert.That(provider.TryGetProfile(TileFeatureKind.Barricade, out var profile), Is.True, BarricadeProductionPrefabPath);
+            Assert.That(profile, Is.Not.Null, BarricadeProductionPrefabPath);
+
+            animator = target.GetComponentInChildren<Animator>(includeInactive: true);
+            Assert.That(animator, Is.Not.Null, BarricadeProductionPrefabPath);
+            Assert.That(animator.runtimeAnimatorController, Is.Not.Null, BarricadeProductionPrefabPath);
+            AssertNoMissingScriptResidue(instance, BarricadeProductionPrefabPath);
+            return instance;
+        }
+
+        private static bool TryHandleBarricadeActiveState(
+            ITileFeatureVisualCueSink sink,
+            TileFeatureVisualTargetView target,
+            bool active)
+        {
+            return sink != null &&
+                   sink.TryHandle(new TileFeatureVisualRequest(
+                       TileFeatureVisualCueId.BarricadeActiveState,
+                       target.TileId,
+                       target.Cell,
+                       TileFeatureKind.Barricade,
+                       active: active));
+        }
+
+        private static void AssertCurrentAnimatorState(Animator animator, string expectedStateName)
+        {
+            Assert.That(
+                animator.GetCurrentAnimatorStateInfo(0).shortNameHash,
+                Is.EqualTo(Animator.StringToHash(expectedStateName)),
+                expectedStateName);
+        }
+
         private static AnimatorController CreateBarricadeAnimatorController(string name)
         {
             var stateMachine = new AnimatorStateMachine
@@ -2087,6 +2285,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ownerEntityId: tileId + 2,
                 teamId: tileId + 3,
                 targetEntityId: targetEntityId);
+        }
+
+        private static TileFeatureVisualState CreateBarricadeActiveState(
+            int tileId,
+            SurfaceCell cell,
+            bool active)
+        {
+            return new TileFeatureVisualState(
+                tileId,
+                cell,
+                TileFeatureKind.Barricade,
+                isActive: active,
+                sourceEntityId: 0,
+                ownerEntityId: 0,
+                teamId: 0);
         }
 
         private static TilePresentationRequest CreateExitOpenedRequest(int tileId, SurfaceCell cell)

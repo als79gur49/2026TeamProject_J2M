@@ -24,12 +24,23 @@ namespace Game.Feature.Gameplay.Host
             TileFeatureVisualTargetView target,
             TileFeatureVisualProfileProvider provider)
         {
+            var sameBinding = ReferenceEquals(targetView, target) &&
+                              ReferenceEquals(profileProvider, provider);
             targetView = target;
             profileProvider = provider;
+            RefreshCachedReferences(target);
+
+            if (!sameBinding)
+            {
+                ResetHandlerState();
+            }
+        }
+
+        private void RefreshCachedReferences(TileFeatureVisualTargetView target)
+        {
             animator = target != null
                 ? target.GetComponentInChildren<Animator>(includeInactive: true)
                 : GetComponentInChildren<Animator>(includeInactive: true);
-            ResetHandlerState();
         }
 
         public void AttachGameplayVfxPlaybackPort(IGameplayVfxPlaybackPort playbackPort)
