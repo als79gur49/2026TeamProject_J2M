@@ -15,9 +15,10 @@
 - Current PR-A Objective UI removal baseline rerun: green on 2026-06-11 KST
 - Current PR-T3 transition content base contract rerun: green on 2026-06-12 KST
 - Current PR-T5 ChanceLost slot root explicit binding rerun: green on 2026-06-12 KST
+- Current StageResult result text schema cleanup rerun: green on 2026-06-12 KST
 - Current Windows build result: `dotnet build Game.Feature.UI.Tests.csproj -c Debug` passed with `0` errors
-- Current Unity UI EditMode: `698 total / 0 failed`
-- Baseline test result: command `./run_tests.sh ui`, result `698 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
+- Current Unity UI EditMode: `697 total / 0 failed`
+- Baseline test result: command `./run_tests.sh ui`, result `697 total / 0 failed`, failed tests `none`, failure category `none`, PR change pre-existing failure `no`
 - Prior 2차 UI canonical correction report red reason: Windows `dotnet build` missing compile symbols `SurfaceBeltButtonBadgeStyleProfile`, `SurfaceBeltButtonBadgeGroupView`, `EnemyTargetEligibilityResult`, `PendingEnemyBlockedReaction`
 - Current interpretation: the prior red reason was not reproduced by the 2026-06-06 KST rerun; retired HUD proof residue was removed after product option B was selected
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
@@ -49,10 +50,11 @@
   - external structure-source regeneration guard proving root `UI-Current-Structure-Source.md` mirrors the current 3-layer shell, identity lists, DemoStageControl classification, retired ActionBar status, removed diagnostics status, canonical transition path, and resolver-only navigation state
   - PR-1 stage completion guards proving StageResult + Continue, final-stage GameClear, retry payload, next-stage/no-next-stage mapping, terminal back consume, Reward popup absence, and screen/popup/HUD separation before UI refactor scaffolding begins
   - PR-A Objective UI removal guards proving `ObjectiveStatus` screen, `ObjectiveInfo` popup, pause objective action semantics, deleted prefab files, and deleted prefab GUID references are absent from production UI vocabulary
+  - StageResult result text schema cleanup guards proving `ResultTitle`, `ResultSummaryText`, `ResultDetailText`, `ResultContinueLabel`, StageResult text payload members, hidden title/detail prefab labels, and production YAML residue are absent
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `698 total / 0 failed`
-  - delta: `+634` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical gameplay shell adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, canonical navigation resolver-only enforcement, current-structure source regeneration, PR-1 stage completion protection, PR-A Objective UI removal protection, PR-T3 transition content base contract cleanup, and PR-T5 ChanceLost explicit slot root binding
+  - current rerun: `697 total / 0 failed`
+  - delta: `+633` tests, targeted at seam hardening, removed diagnostics overlay absence, governance evidence, canonical gameplay shell adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, transition overlay shell/catalog closure, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, manual smoke-plan governance, canonical navigation resolver-only enforcement, current-structure source regeneration, PR-1 stage completion protection, PR-A Objective UI removal protection, PR-T3 transition content base contract cleanup, PR-T5 ChanceLost explicit slot root binding, and StageResult result text/continue label schema cleanup protection
 - Removed tests:
   - ActionBar presenter behavior tests were removed with the retired proof residue presenter.
   - The inactive product-decision prefab guard was replaced by a proof-residue absence and missing-script guard.
@@ -177,8 +179,8 @@
 ## Companion Smoke Check
 - Command: `./run_tests.sh core`
 - Status: green
-- Core EditMode: `13 total / 0 failed`
-- Core PlayMode: `2 total / 0 failed`
+- Core EditMode: `184 total / 0 failed`
+- Core PlayMode: `34 total / 0 failed`
 - Interpretation:
   - this remains a companion smoke lane, not a replacement for `./run_tests.sh ui`
   - Stage 9 evidence is incomplete if the UI lane passes on a worktree where the companion core lane is not rerun

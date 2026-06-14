@@ -1,7 +1,6 @@
 using System;
 using DG.Tweening;
 using Game.Feature.UI.ViewShared;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,7 +10,6 @@ namespace Game.Feature.UI.Screens
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private Button _continueButton;
-        [SerializeField] private TMP_Text _continueButtonLabel;
         [SerializeField] private UiSelectableButtonGroup _navigationGroup = new();
 
         private StageResultScreenViewModel _viewModel;
@@ -116,7 +114,6 @@ namespace Game.Feature.UI.Screens
         {
             ValidateSerializedReference(_root, nameof(_root));
             ValidateSerializedReference(_continueButton, nameof(_continueButton));
-            ValidateSerializedReference(_continueButtonLabel, nameof(_continueButtonLabel));
         }
 #endif
 
@@ -141,11 +138,6 @@ namespace Game.Feature.UI.Screens
             if (_viewModel == null)
             {
                 return;
-            }
-
-            if (_continueButtonLabel != null)
-            {
-                _continueButtonLabel.text = _viewModel.ContinueLabel;
             }
 
             if (_continueButton != null)

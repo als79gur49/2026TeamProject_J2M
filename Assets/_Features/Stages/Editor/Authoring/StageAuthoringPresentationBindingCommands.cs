@@ -45,74 +45,6 @@ namespace Game.Feature.Stages.Editor
         public string Message { get; }
     }
 
-    internal enum BoardTilePresentationOverrideStatusKind
-    {
-        NoPresentationDefinition,
-        CatalogMissing,
-        MissingOverride,
-        Resolved,
-        MissingKey,
-        DuplicateOverride,
-        InvalidCell,
-        OutsideBounds,
-    }
-
-    internal readonly struct BoardTilePresentationOverrideStatus
-    {
-        public BoardTilePresentationOverrideStatus(
-            BoardTilePresentationOverrideStatusKind kind,
-            SurfaceCell cell,
-            string presentationKey,
-            BoardTilePresentationCatalogEntry catalogEntry,
-            int overrideCount,
-            string message,
-            int suppressingTileId = 0)
-        {
-            Kind = kind;
-            Cell = cell;
-            PresentationKey = presentationKey ?? string.Empty;
-            CatalogEntry = catalogEntry;
-            OverrideCount = overrideCount;
-            Message = message ?? string.Empty;
-            SuppressingTileId = suppressingTileId;
-        }
-
-        public BoardTilePresentationOverrideStatusKind Kind { get; }
-
-        public SurfaceCell Cell { get; }
-
-        public string PresentationKey { get; }
-
-        public BoardTilePresentationCatalogEntry CatalogEntry { get; }
-
-        public int OverrideCount { get; }
-
-        public string Message { get; }
-
-        public int SuppressingTileId { get; }
-
-        public bool IsBaseTileSuppressed => SuppressingTileId > 0;
-    }
-
-    internal readonly struct BoardTilePresentationCatalogOption
-    {
-        public BoardTilePresentationCatalogOption(
-            string presentationKey,
-            string label,
-            BoardTilePresentationCatalogEntry entry)
-        {
-            PresentationKey = presentationKey ?? string.Empty;
-            Label = label ?? string.Empty;
-            Entry = entry;
-        }
-
-        public string PresentationKey { get; }
-
-        public string Label { get; }
-
-        public BoardTilePresentationCatalogEntry Entry { get; }
-    }
-
     internal enum BoardTilePaintOverrideStatusKind
     {
         NoPresentationDefinition,
@@ -175,104 +107,8 @@ namespace Game.Feature.Stages.Editor
         public BoardTileStyleCatalogEntry Entry { get; }
     }
 
-    internal enum BoardTileOverlayCellStatusKind
-    {
-        NoPresentationDefinition,
-        CatalogMissing,
-        MissingOverrides,
-        Resolved,
-        MissingKey,
-        DuplicateOverride,
-        InvalidCell,
-        OutsideBounds,
-    }
-
-    internal readonly struct BoardTileOverlayCellStatusItem
-    {
-        public BoardTileOverlayCellStatusItem(
-            string overlayKey,
-            BoardTileOverlayCatalogEntry catalogEntry,
-            int overrideCount,
-            string message)
-        {
-            OverlayKey = overlayKey ?? string.Empty;
-            CatalogEntry = catalogEntry;
-            OverrideCount = overrideCount;
-            Message = message ?? string.Empty;
-        }
-
-        public string OverlayKey { get; }
-
-        public BoardTileOverlayCatalogEntry CatalogEntry { get; }
-
-        public int OverrideCount { get; }
-
-        public string Message { get; }
-    }
-
-    internal readonly struct BoardTileOverlayCellStatus
-    {
-        public BoardTileOverlayCellStatus(
-            BoardTileOverlayCellStatusKind kind,
-            SurfaceCell cell,
-            BoardTileOverlayCellStatusItem[] items,
-            string message)
-        {
-            Kind = kind;
-            Cell = cell;
-            Items = items ?? Array.Empty<BoardTileOverlayCellStatusItem>();
-            Message = message ?? string.Empty;
-        }
-
-        public BoardTileOverlayCellStatusKind Kind { get; }
-
-        public SurfaceCell Cell { get; }
-
-        public IReadOnlyList<BoardTileOverlayCellStatusItem> Items { get; }
-
-        public string Message { get; }
-    }
-
-    internal readonly struct BoardTileOverlayCatalogOption
-    {
-        public BoardTileOverlayCatalogOption(
-            string overlayKey,
-            string label,
-            BoardTileOverlayCatalogEntry entry)
-        {
-            OverlayKey = overlayKey ?? string.Empty;
-            Label = label ?? string.Empty;
-            Entry = entry;
-        }
-
-        public string OverlayKey { get; }
-
-        public string Label { get; }
-
-        public BoardTileOverlayCatalogEntry Entry { get; }
-    }
-
     internal static class StageAuthoringPresentationBindingCommands
     {
-        public static BoardTilePresentationCatalogOption[] BuildBoardTilePresentationOptions(
-            StagePresentationDefinition presentation)
-        {
-            var catalog = presentation != null ? presentation.BoardTilePresentationCatalog : null;
-            if (catalog == null)
-            {
-                return Array.Empty<BoardTilePresentationCatalogOption>();
-            }
-
-            return catalog.Entries
-                .Where(entry => entry != null && !string.IsNullOrEmpty(entry.PresentationKey))
-                .Select(entry => new BoardTilePresentationCatalogOption(
-                    entry.PresentationKey,
-                    FormatBoardTileCatalogOption(entry),
-                    entry))
-                .OrderBy(option => option.Label, StringComparer.Ordinal)
-                .ToArray();
-        }
-
         public static BoardTileStyleCatalogOption[] BuildBoardTileStyleOptions(
             StagePresentationDefinition presentation)
         {
@@ -290,109 +126,6 @@ namespace Game.Feature.Stages.Editor
                     entry))
                 .OrderBy(option => option.Label, StringComparer.Ordinal)
                 .ToArray();
-        }
-
-        public static BoardTileOverlayCatalogOption[] BuildBoardTileOverlayOptions(
-            StagePresentationDefinition presentation)
-        {
-            var catalog = presentation != null ? presentation.BoardTileOverlayCatalog : null;
-            if (catalog == null)
-            {
-                return Array.Empty<BoardTileOverlayCatalogOption>();
-            }
-
-            return catalog.Entries
-                .Where(entry => entry != null && !string.IsNullOrEmpty(entry.OverlayKey))
-                .Select(entry => new BoardTileOverlayCatalogOption(
-                    entry.OverlayKey,
-                    FormatBoardTileOverlayCatalogOption(entry),
-                    entry))
-                .OrderBy(option => option.Label, StringComparer.Ordinal)
-                .ToArray();
-        }
-
-        public static bool TrySetBoardTilePresentationOverride(
-            StagePresentationDefinition presentation,
-            StageAuthoringDefinition authoring,
-            SurfaceCell cell,
-            string presentationKey,
-            out string error)
-        {
-            error = string.Empty;
-            if (!ValidateBoardTileOverrideTarget(presentation, authoring, cell, out error))
-            {
-                return false;
-            }
-
-            var normalizedKey = BoardTilePresentationCatalog.NormalizePresentationKey(presentationKey);
-            if (string.IsNullOrEmpty(normalizedKey))
-            {
-                error = "Board tile presentation override requires a non-empty PresentationKey.";
-                return false;
-            }
-
-            var catalog = presentation.BoardTilePresentationCatalog;
-            if (catalog == null)
-            {
-                error = "Board tile presentation override requires a BoardTilePresentationCatalog.";
-                return false;
-            }
-
-            if (!catalog.TryGetEntry(normalizedKey, out _))
-            {
-                error = $"Board tile PresentationKey '{normalizedKey}' was not found in BoardTilePresentationCatalog '{catalog.name}'.";
-                return false;
-            }
-
-            var next = presentation.BoardTilePresentationOverrides
-                .Where(entry => entry != null && !entry.Cell.Equals(cell))
-                .Select(entry => new BoardTilePresentationOverride(entry.Cell, entry.PresentationKey))
-                .ToList();
-            next.Add(new BoardTilePresentationOverride(cell, normalizedKey));
-            WriteBoardTileOverrides(presentation, next, "Set Board Tile Presentation Override");
-            return true;
-        }
-
-        public static bool TryClearBoardTilePresentationOverride(
-            StagePresentationDefinition presentation,
-            StageAuthoringDefinition authoring,
-            SurfaceCell cell,
-            out string error)
-        {
-            error = string.Empty;
-            if (!ValidateBoardTileOverrideTarget(presentation, authoring, cell, out error, requireCatalog: false))
-            {
-                return false;
-            }
-
-            var removedCount = 0;
-            var next = new List<BoardTilePresentationOverride>();
-            var overrides = presentation.BoardTilePresentationOverrides;
-            for (var i = 0; i < overrides.Count; i++)
-            {
-                var entry = overrides[i];
-                if (entry == null)
-                {
-                    continue;
-                }
-
-                if (entry.Cell.Equals(cell))
-                {
-                    removedCount++;
-                    continue;
-                }
-
-                next.Add(new BoardTilePresentationOverride(entry.Cell, entry.PresentationKey));
-            }
-
-            if (removedCount <= 0)
-            {
-                error = $"Board tile presentation override for cell {cell} was not found.";
-                return false;
-            }
-
-            WriteBoardTileOverrides(presentation, next, "Clear Board Tile Presentation Override");
-            return true;
         }
 
         public static bool TrySetBoardTilePaintOverride(
@@ -476,345 +209,6 @@ namespace Game.Feature.Stages.Editor
             }
 
             WriteBoardTilePaintOverrides(presentation, next, "Clear Board Tile Paint Override");
-            return true;
-        }
-
-        public static bool TryAddBoardTileOverlayOverride(
-            StagePresentationDefinition presentation,
-            StageAuthoringDefinition authoring,
-            SurfaceCell cell,
-            string overlayKey,
-            out string error)
-        {
-            error = string.Empty;
-            if (!ValidateBoardTileOverlayTarget(presentation, authoring, cell, out error))
-            {
-                return false;
-            }
-
-            var normalizedKey = BoardTileOverlayCatalog.NormalizeOverlayKey(overlayKey);
-            if (string.IsNullOrEmpty(normalizedKey))
-            {
-                error = "Board tile overlay override requires a non-empty OverlayKey.";
-                return false;
-            }
-
-            var catalog = presentation.BoardTileOverlayCatalog;
-            if (catalog == null)
-            {
-                error = "Board tile overlay override requires a BoardTileOverlayCatalog.";
-                return false;
-            }
-
-            if (!catalog.TryGetEntry(normalizedKey, out _))
-            {
-                error = $"Board tile OverlayKey '{normalizedKey}' was not found in BoardTileOverlayCatalog '{catalog.name}'.";
-                return false;
-            }
-
-            var next = new List<BoardTileOverlayOverride>();
-            var hasDuplicate = false;
-            var overrides = presentation.BoardTileOverlayOverrides;
-            for (var i = 0; i < overrides.Count; i++)
-            {
-                var entry = overrides[i];
-                if (entry == null)
-                {
-                    continue;
-                }
-
-                if (entry.Cell.Equals(cell) &&
-                    string.Equals(entry.OverlayKey, normalizedKey, StringComparison.Ordinal))
-                {
-                    hasDuplicate = true;
-                }
-
-                next.Add(new BoardTileOverlayOverride(entry.Cell, entry.OverlayKey));
-            }
-
-            if (hasDuplicate)
-            {
-                return true;
-            }
-
-            next.Add(new BoardTileOverlayOverride(cell, normalizedKey));
-            WriteBoardTileOverlayOverrides(presentation, next, "Add Board Tile Overlay Override");
-            return true;
-        }
-
-        public static bool TryRemoveBoardTileOverlayOverride(
-            StagePresentationDefinition presentation,
-            StageAuthoringDefinition authoring,
-            SurfaceCell cell,
-            string overlayKey,
-            out string error)
-        {
-            error = string.Empty;
-            if (!ValidateBoardTileOverlayTarget(presentation, authoring, cell, out error, requireCatalog: false))
-            {
-                return false;
-            }
-
-            var normalizedKey = BoardTileOverlayCatalog.NormalizeOverlayKey(overlayKey);
-            if (string.IsNullOrEmpty(normalizedKey))
-            {
-                error = "Board tile overlay removal requires a non-empty OverlayKey.";
-                return false;
-            }
-
-            var removedCount = 0;
-            var next = new List<BoardTileOverlayOverride>();
-            var overrides = presentation.BoardTileOverlayOverrides;
-            for (var i = 0; i < overrides.Count; i++)
-            {
-                var entry = overrides[i];
-                if (entry == null)
-                {
-                    continue;
-                }
-
-                if (entry.Cell.Equals(cell) &&
-                    string.Equals(entry.OverlayKey, normalizedKey, StringComparison.Ordinal))
-                {
-                    removedCount++;
-                    continue;
-                }
-
-                next.Add(new BoardTileOverlayOverride(entry.Cell, entry.OverlayKey));
-            }
-
-            if (removedCount <= 0)
-            {
-                error = $"Board tile overlay override for cell {cell} and key '{normalizedKey}' was not found.";
-                return false;
-            }
-
-            WriteBoardTileOverlayOverrides(presentation, next, "Remove Board Tile Overlay Override");
-            return true;
-        }
-
-        public static bool TryClearBoardTileOverlayOverrides(
-            StagePresentationDefinition presentation,
-            StageAuthoringDefinition authoring,
-            SurfaceCell cell,
-            out string error)
-        {
-            error = string.Empty;
-            if (!ValidateBoardTileOverlayTarget(presentation, authoring, cell, out error, requireCatalog: false))
-            {
-                return false;
-            }
-
-            var removedCount = 0;
-            var next = new List<BoardTileOverlayOverride>();
-            var overrides = presentation.BoardTileOverlayOverrides;
-            for (var i = 0; i < overrides.Count; i++)
-            {
-                var entry = overrides[i];
-                if (entry == null)
-                {
-                    continue;
-                }
-
-                if (entry.Cell.Equals(cell))
-                {
-                    removedCount++;
-                    continue;
-                }
-
-                next.Add(new BoardTileOverlayOverride(entry.Cell, entry.OverlayKey));
-            }
-
-            if (removedCount <= 0)
-            {
-                error = $"Board tile overlay overrides for cell {cell} were not found.";
-                return false;
-            }
-
-            WriteBoardTileOverlayOverrides(presentation, next, "Clear Board Tile Overlay Overrides");
-            return true;
-        }
-
-        public static bool TryClearBoardTileOverlayOverridesByLayer(
-            StagePresentationDefinition presentation,
-            StageAuthoringDefinition authoring,
-            SurfaceCell cell,
-            BoardTileOverlayLayer layer,
-            out string error)
-        {
-            error = string.Empty;
-            if (!ValidateBoardTileOverlayTarget(presentation, authoring, cell, out error))
-            {
-                return false;
-            }
-
-            if (!Enum.IsDefined(typeof(BoardTileOverlayLayer), layer))
-            {
-                error = $"Board tile overlay layer value {(int)layer} is invalid.";
-                return false;
-            }
-
-            var catalog = presentation.BoardTileOverlayCatalog;
-            if (catalog == null)
-            {
-                error = "Board tile overlay layer clear requires a BoardTileOverlayCatalog.";
-                return false;
-            }
-
-            var removedCount = 0;
-            var next = new List<BoardTileOverlayOverride>();
-            var overrides = presentation.BoardTileOverlayOverrides;
-            for (var i = 0; i < overrides.Count; i++)
-            {
-                var entry = overrides[i];
-                if (entry == null)
-                {
-                    continue;
-                }
-
-                if (entry.Cell.Equals(cell) &&
-                    catalog.TryGetEntry(entry.OverlayKey, out var catalogEntry) &&
-                    catalogEntry.Layer == layer)
-                {
-                    removedCount++;
-                    continue;
-                }
-
-                next.Add(new BoardTileOverlayOverride(entry.Cell, entry.OverlayKey));
-            }
-
-            if (removedCount <= 0)
-            {
-                error = $"Board tile overlay overrides for cell {cell} and layer {layer} were not found.";
-                return false;
-            }
-
-            WriteBoardTileOverlayOverrides(presentation, next, "Clear Board Tile Overlay Overrides By Layer");
-            return true;
-        }
-
-        public static bool TryGetBoardTilePresentationOverrideStatus(
-            StagePresentationDefinition presentation,
-            StageAuthoringDefinition authoring,
-            SurfaceCell cell,
-            out BoardTilePresentationOverrideStatus status)
-        {
-            if (presentation == null)
-            {
-                status = WithBaseTileSuppression(
-                    new BoardTilePresentationOverrideStatus(
-                        BoardTilePresentationOverrideStatusKind.NoPresentationDefinition,
-                        cell,
-                        string.Empty,
-                        null,
-                        0,
-                        "No StagePresentationDefinition assigned; board tile override editing disabled."),
-                    presentation,
-                    authoring,
-                    cell);
-                return false;
-            }
-
-            if (!IsValidBoardTileCell(authoring, cell, out var cellError))
-            {
-                status = WithBaseTileSuppression(
-                    new BoardTilePresentationOverrideStatus(
-                        cellError == InvalidBoardTileCellReason.InvalidFace
-                            ? BoardTilePresentationOverrideStatusKind.InvalidCell
-                            : BoardTilePresentationOverrideStatusKind.OutsideBounds,
-                        cell,
-                        string.Empty,
-                        null,
-                        0,
-                        cellError == InvalidBoardTileCellReason.InvalidFace
-                            ? $"Board tile override cell {cell} has an invalid face value."
-                            : $"Board tile override cell {cell} is outside board bounds."),
-                    presentation,
-                    authoring,
-                    cell);
-                return false;
-            }
-
-            var matches = presentation.BoardTilePresentationOverrides
-                .Where(entry => entry != null && entry.Cell.Equals(cell))
-                .ToArray();
-            var catalog = presentation.BoardTilePresentationCatalog;
-            if (catalog == null)
-            {
-                status = WithBaseTileSuppression(
-                    new BoardTilePresentationOverrideStatus(
-                        BoardTilePresentationOverrideStatusKind.CatalogMissing,
-                        cell,
-                        matches.Length > 0 ? matches[0].PresentationKey : string.Empty,
-                        null,
-                        matches.Length,
-                        "No BoardTilePresentationCatalog assigned; board tile override editing disabled."),
-                    presentation,
-                    authoring,
-                    cell);
-                return false;
-            }
-
-            if (matches.Length == 0)
-            {
-                status = WithBaseTileSuppression(
-                    new BoardTilePresentationOverrideStatus(
-                        BoardTilePresentationOverrideStatusKind.MissingOverride,
-                        cell,
-                        string.Empty,
-                        null,
-                        0,
-                        "No board tile presentation override is set for this cell."),
-                    presentation,
-                    authoring,
-                    cell);
-                return true;
-            }
-
-            var key = matches[0].PresentationKey;
-            if (matches.Length > 1)
-            {
-                status = WithBaseTileSuppression(
-                    new BoardTilePresentationOverrideStatus(
-                        BoardTilePresentationOverrideStatusKind.DuplicateOverride,
-                        cell,
-                        key,
-                        null,
-                        matches.Length,
-                        $"Board tile presentation override is duplicated for {cell} ({matches.Length})."),
-                    presentation,
-                    authoring,
-                    cell);
-                return true;
-            }
-
-            if (!catalog.TryGetEntry(key, out var entry))
-            {
-                status = WithBaseTileSuppression(
-                    new BoardTilePresentationOverrideStatus(
-                        BoardTilePresentationOverrideStatusKind.MissingKey,
-                        cell,
-                        key,
-                        null,
-                        1,
-                        $"Board tile PresentationKey '{key}' is missing from BoardTilePresentationCatalog '{catalog.name}'."),
-                    presentation,
-                    authoring,
-                    cell);
-                return true;
-            }
-
-            status = WithBaseTileSuppression(
-                new BoardTilePresentationOverrideStatus(
-                    BoardTilePresentationOverrideStatusKind.Resolved,
-                    cell,
-                    key,
-                    entry,
-                    1,
-                    $"Resolved: {FormatBoardTileCatalogOption(entry)}"),
-                presentation,
-                authoring,
-                cell);
             return true;
         }
 
@@ -915,86 +309,6 @@ namespace Game.Feature.Stages.Editor
             return true;
         }
 
-        public static bool TryGetBoardTileOverlayCellStatus(
-            StagePresentationDefinition presentation,
-            StageAuthoringDefinition authoring,
-            SurfaceCell cell,
-            out BoardTileOverlayCellStatus status)
-        {
-            if (presentation == null)
-            {
-                status = new BoardTileOverlayCellStatus(
-                    BoardTileOverlayCellStatusKind.NoPresentationDefinition,
-                    cell,
-                    Array.Empty<BoardTileOverlayCellStatusItem>(),
-                    "No StagePresentationDefinition assigned; board tile overlay editing disabled.");
-                return false;
-            }
-
-            if (!IsValidBoardTileCell(authoring, cell, out var cellError))
-            {
-                status = new BoardTileOverlayCellStatus(
-                    cellError == InvalidBoardTileCellReason.InvalidFace
-                        ? BoardTileOverlayCellStatusKind.InvalidCell
-                        : BoardTileOverlayCellStatusKind.OutsideBounds,
-                    cell,
-                    Array.Empty<BoardTileOverlayCellStatusItem>(),
-                    cellError == InvalidBoardTileCellReason.InvalidFace
-                        ? $"Board tile overlay cell {cell} has an invalid face value."
-                        : $"Board tile overlay cell {cell} is outside board bounds.");
-                return false;
-            }
-
-            var matches = presentation.BoardTileOverlayOverrides
-                .Where(entry => entry != null && entry.Cell.Equals(cell))
-                .ToArray();
-            var catalog = presentation.BoardTileOverlayCatalog;
-            if (catalog == null)
-            {
-                status = new BoardTileOverlayCellStatus(
-                    BoardTileOverlayCellStatusKind.CatalogMissing,
-                    cell,
-                    BuildOverlayStatusItems(matches, null),
-                    "No BoardPresentationProfile/BoardTileOverlayCatalog assigned; board tile overlay editing disabled.");
-                return false;
-            }
-
-            if (matches.Length == 0)
-            {
-                status = new BoardTileOverlayCellStatus(
-                    BoardTileOverlayCellStatusKind.MissingOverrides,
-                    cell,
-                    Array.Empty<BoardTileOverlayCellStatusItem>(),
-                    "No board tile overlay overrides are set for this cell.");
-                return true;
-            }
-
-            var items = BuildOverlayStatusItems(matches, catalog);
-            var kind = BoardTileOverlayCellStatusKind.Resolved;
-            for (var i = 0; i < items.Length; i++)
-            {
-                if (items[i].OverrideCount > 1)
-                {
-                    kind = BoardTileOverlayCellStatusKind.DuplicateOverride;
-                    break;
-                }
-
-                if (items[i].CatalogEntry == null)
-                {
-                    kind = BoardTileOverlayCellStatusKind.MissingKey;
-                }
-            }
-
-            status = new BoardTileOverlayCellStatus(
-                kind,
-                cell,
-                items,
-                kind == BoardTileOverlayCellStatusKind.Resolved
-                    ? $"Resolved {items.Length} board tile overlay override(s)."
-                    : "One or more board tile overlay overrides need attention.");
-            return true;
-        }
-
         public static bool TryResolveBaseTileSuppressionForCell(
             StagePresentationDefinition presentation,
             StageAuthoringDefinition authoring,
@@ -1011,8 +325,8 @@ namespace Game.Feature.Stages.Editor
             for (var i = 0; i < features.Count; i++)
             {
                 var feature = features[i];
-                if (ResolvesReplaceBaseTileWithVisual(presentation, feature, out var footprintMode) &&
-                    ContainsSuppressedBaseTileCell(feature, footprintMode, authoring.Board, cell))
+                if (ResolvesReplaceBaseTileWithVisual(presentation, feature, out var resolvedKind) &&
+                    ContainsSuppressedBaseTileCell(feature, resolvedKind, authoring.Board, cell))
                 {
                     tileId = feature.TileId;
                     return true;
@@ -1037,14 +351,21 @@ namespace Game.Feature.Stages.Editor
             for (var i = 0; i < features.Count; i++)
             {
                 var feature = features[i];
-                if (ResolvesReplaceBaseTileWithVisual(presentation, feature, out var footprintMode) &&
-                    ContainsSuppressedBaseTileCell(feature, footprintMode, authoring.Board, cell))
+                if (ResolvesReplaceBaseTileWithVisual(presentation, feature, out var resolvedKind) &&
+                    ContainsSuppressedBaseTileCell(feature, resolvedKind, authoring.Board, cell))
                 {
                     count++;
                 }
             }
 
             return count;
+        }
+
+        public static bool ResolvesTileFeatureVisual(
+            StagePresentationDefinition presentation,
+            StageTileFeatureDefinition feature)
+        {
+            return ResolvesReplaceBaseTileWithVisual(presentation, feature, out _);
         }
 
         public static bool TrySetTileFeatureVisualBinding(
@@ -1232,34 +553,12 @@ namespace Game.Feature.Stages.Editor
             return false;
         }
 
-        private static BoardTilePresentationOverrideStatus WithBaseTileSuppression(
-            BoardTilePresentationOverrideStatus status,
-            StagePresentationDefinition presentation,
-            StageAuthoringDefinition authoring,
-            SurfaceCell cell)
-        {
-            if (!TryResolveBaseTileSuppressionForCell(presentation, authoring, cell, out var tileId))
-            {
-                return status;
-            }
-
-            var message = $"{status.Message} Base tile suppressed by TileFeature: TileId {tileId}; board tile overrides will not be visible while suppressed.";
-            return new BoardTilePresentationOverrideStatus(
-                status.Kind,
-                status.Cell,
-                status.PresentationKey,
-                status.CatalogEntry,
-                status.OverrideCount,
-                message,
-                tileId);
-        }
-
         private static bool ResolvesReplaceBaseTileWithVisual(
             StagePresentationDefinition presentation,
             StageTileFeatureDefinition feature,
-            out TileFeatureVisualFootprintMode footprintMode)
+            out TileFeatureKind resolvedKind)
         {
-            footprintMode = TileFeatureVisualFootprintMode.SingleCell;
+            resolvedKind = TileFeatureKind.Unknown;
             if (feature.TileId <= 0)
             {
                 return false;
@@ -1268,22 +567,24 @@ namespace Game.Feature.Stages.Editor
             var directBinding = FindDirectTileFeatureBinding(presentation, feature.TileId);
             if (directBinding != null)
             {
-                return directBinding.VisualPrefab != null &&
-                       TryResolveCatalogKeyPresentationModes(
-                           presentation,
-                           feature.PresentationKey,
-                           out var directPlacementMode,
-                           out footprintMode) &&
-                       directPlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile;
+                if (directBinding.VisualPrefab == null)
+                {
+                    return false;
+                }
+
+                TryResolveCatalogKeyKind(
+                    presentation,
+                    feature.PresentationKey,
+                    out resolvedKind);
+                return true;
             }
 
             return TryResolveCatalogEntryForFeature(
                        presentation,
                        feature,
                        out var entry) &&
-                   entry.PlacementMode == TileFeatureVisualPlacementMode.ReplaceBaseTile &&
                    entry.VisualPrefab != null &&
-                   TrySetFootprintMode(entry, out footprintMode);
+                   TrySetResolvedKind(entry, out resolvedKind);
         }
 
         private static TileFeaturePresentationBinding FindDirectTileFeatureBinding(
@@ -1309,19 +610,19 @@ namespace Game.Feature.Stages.Editor
             return null;
         }
 
-        private static bool TrySetFootprintMode(
+        private static bool TrySetResolvedKind(
             TileFeaturePresentationCatalogEntry entry,
-            out TileFeatureVisualFootprintMode footprintMode)
+            out TileFeatureKind resolvedKind)
         {
-            footprintMode = entry != null
-                ? entry.FootprintMode
-                : TileFeatureVisualFootprintMode.SingleCell;
+            resolvedKind = entry != null
+                ? entry.Kind
+                : TileFeatureKind.Unknown;
             return entry != null;
         }
 
         private static bool ContainsSuppressedBaseTileCell(
             StageTileFeatureDefinition feature,
-            TileFeatureVisualFootprintMode footprintMode,
+            TileFeatureKind resolvedKind,
             StageBoardDefinition board,
             SurfaceCell cell)
         {
@@ -1340,25 +641,26 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            switch (footprintMode)
+            if (RequiresThreeByThreeBaseTileSuppression(resolvedKind))
             {
-                case TileFeatureVisualFootprintMode.ThreeByThreeSameFace:
-                    return Math.Abs(cell.x - feature.Cell.x) <= 1 &&
-                           Math.Abs(cell.y - feature.Cell.y) <= 1;
-                case TileFeatureVisualFootprintMode.SingleCell:
-                default:
-                    return feature.Cell.Equals(cell);
+                return Math.Abs(cell.x - feature.Cell.x) <= 1 &&
+                       Math.Abs(cell.y - feature.Cell.y) <= 1;
             }
+
+            return feature.Cell.Equals(cell);
         }
 
-        private static bool TryResolveCatalogKeyPresentationModes(
+        private static bool RequiresThreeByThreeBaseTileSuppression(TileFeatureKind kind)
+        {
+            return kind == TileFeatureKind.Exit;
+        }
+
+        private static bool TryResolveCatalogKeyKind(
             StagePresentationDefinition presentation,
             string presentationKey,
-            out TileFeatureVisualPlacementMode placementMode,
-            out TileFeatureVisualFootprintMode footprintMode)
+            out TileFeatureKind kind)
         {
-            placementMode = TileFeatureVisualPlacementMode.Overlay;
-            footprintMode = TileFeatureVisualFootprintMode.SingleCell;
+            kind = TileFeatureKind.Unknown;
             var normalizedKey = TileFeaturePresentationCatalog.NormalizePresentationKey(presentationKey);
             var catalog = presentation != null ? presentation.TileFeaturePresentationCatalog : null;
             if (catalog == null ||
@@ -1368,8 +670,7 @@ namespace Game.Feature.Stages.Editor
                 return false;
             }
 
-            placementMode = entry.PlacementMode;
-            footprintMode = entry.FootprintMode;
+            kind = entry.Kind;
             return true;
         }
 
@@ -1481,37 +782,6 @@ namespace Game.Feature.Stages.Editor
             EditorUtility.SetDirty(presentation);
         }
 
-        private static bool ValidateBoardTileOverrideTarget(
-            StagePresentationDefinition presentation,
-            StageAuthoringDefinition authoring,
-            SurfaceCell cell,
-            out string error,
-            bool requireCatalog = true)
-        {
-            error = string.Empty;
-            if (presentation == null)
-            {
-                error = "StagePresentationDefinition is missing.";
-                return false;
-            }
-
-            if (requireCatalog && presentation.BoardTilePresentationCatalog == null)
-            {
-                error = "BoardTilePresentationCatalog is missing.";
-                return false;
-            }
-
-            if (!IsValidBoardTileCell(authoring, cell, out var reason))
-            {
-                error = reason == InvalidBoardTileCellReason.InvalidFace
-                    ? $"Board tile override cell {cell} has an invalid face value."
-                    : $"Board tile override cell {cell} is outside board bounds.";
-                return false;
-            }
-
-            return true;
-        }
-
         private static bool ValidateBoardTilePaintTarget(
             StagePresentationDefinition presentation,
             StageAuthoringDefinition authoring,
@@ -1537,37 +807,6 @@ namespace Game.Feature.Stages.Editor
                 error = reason == InvalidBoardTileCellReason.InvalidFace
                     ? $"Board tile paint cell {cell} has an invalid face value."
                     : $"Board tile paint cell {cell} is outside board bounds.";
-                return false;
-            }
-
-            return true;
-        }
-
-        private static bool ValidateBoardTileOverlayTarget(
-            StagePresentationDefinition presentation,
-            StageAuthoringDefinition authoring,
-            SurfaceCell cell,
-            out string error,
-            bool requireCatalog = true)
-        {
-            error = string.Empty;
-            if (presentation == null)
-            {
-                error = "StagePresentationDefinition is missing.";
-                return false;
-            }
-
-            if (requireCatalog && presentation.BoardTileOverlayCatalog == null)
-            {
-                error = "BoardTileOverlayCatalog is missing.";
-                return false;
-            }
-
-            if (!IsValidBoardTileCell(authoring, cell, out var reason))
-            {
-                error = reason == InvalidBoardTileCellReason.InvalidFace
-                    ? $"Board tile overlay cell {cell} has an invalid face value."
-                    : $"Board tile overlay cell {cell} is outside board bounds.";
                 return false;
             }
 
@@ -1602,32 +841,6 @@ namespace Game.Feature.Stages.Editor
             return true;
         }
 
-        private static void WriteBoardTileOverrides(
-            StagePresentationDefinition presentation,
-            IReadOnlyList<BoardTilePresentationOverride> overrides,
-            string undoName)
-        {
-            Undo.RecordObject(presentation, undoName);
-            var ordered = overrides
-                .Where(entry => entry != null)
-                .OrderBy(entry => (int)entry.Cell.face)
-                .ThenBy(entry => entry.Cell.x)
-                .ThenBy(entry => entry.Cell.y)
-                .ToArray();
-            var serializedObject = new SerializedObject(presentation);
-            var property = serializedObject.FindProperty("boardTilePresentationOverrides");
-            property.arraySize = ordered.Length;
-            for (var i = 0; i < ordered.Length; i++)
-            {
-                var element = property.GetArrayElementAtIndex(i);
-                SetSurfaceCell(element.FindPropertyRelative("cell"), ordered[i].Cell);
-                element.FindPropertyRelative("presentationKey").stringValue = ordered[i].PresentationKey;
-            }
-
-            serializedObject.ApplyModifiedPropertiesWithoutUndo();
-            EditorUtility.SetDirty(presentation);
-        }
-
         private static void WriteBoardTilePaintOverrides(
             StagePresentationDefinition presentation,
             IReadOnlyList<BoardTilePaintOverride> overrides,
@@ -1654,51 +867,11 @@ namespace Game.Feature.Stages.Editor
             EditorUtility.SetDirty(presentation);
         }
 
-        private static void WriteBoardTileOverlayOverrides(
-            StagePresentationDefinition presentation,
-            IReadOnlyList<BoardTileOverlayOverride> overrides,
-            string undoName)
-        {
-            Undo.RecordObject(presentation, undoName);
-            var ordered = overrides
-                .Where(entry => entry != null)
-                .OrderBy(entry => (int)entry.Cell.face)
-                .ThenBy(entry => entry.Cell.x)
-                .ThenBy(entry => entry.Cell.y)
-                .ThenBy(entry => entry.OverlayKey, StringComparer.Ordinal)
-                .ToArray();
-            var serializedObject = new SerializedObject(presentation);
-            var property = serializedObject.FindProperty("boardTileOverlayOverrides");
-            property.arraySize = ordered.Length;
-            for (var i = 0; i < ordered.Length; i++)
-            {
-                var element = property.GetArrayElementAtIndex(i);
-                SetSurfaceCell(element.FindPropertyRelative("cell"), ordered[i].Cell);
-                element.FindPropertyRelative("overlayKey").stringValue = ordered[i].OverlayKey;
-            }
-
-            serializedObject.ApplyModifiedPropertiesWithoutUndo();
-            EditorUtility.SetDirty(presentation);
-        }
-
         private static void SetSurfaceCell(SerializedProperty property, SurfaceCell cell)
         {
             property.FindPropertyRelative("face").intValue = (int)cell.face;
             property.FindPropertyRelative("x").intValue = cell.x;
             property.FindPropertyRelative("y").intValue = cell.y;
-        }
-
-        private static string FormatBoardTileCatalogOption(BoardTilePresentationCatalogEntry entry)
-        {
-            if (entry == null)
-            {
-                return "(Missing)";
-            }
-
-            var displayName = string.IsNullOrWhiteSpace(entry.DisplayName)
-                ? entry.PresentationKey
-                : entry.DisplayName;
-            return $"{entry.Role} / {displayName} ({entry.PresentationKey})";
         }
 
         private static string FormatBoardTileStyleCatalogOption(BoardTileStyleCatalogEntry entry)
@@ -1712,46 +885,6 @@ namespace Game.Feature.Stages.Editor
                 ? entry.StyleKey
                 : entry.DisplayName;
             return $"{displayName} ({entry.StyleKey})";
-        }
-
-        private static string FormatBoardTileOverlayCatalogOption(BoardTileOverlayCatalogEntry entry)
-        {
-            if (entry == null)
-            {
-                return "(Missing)";
-            }
-
-            var displayName = string.IsNullOrWhiteSpace(entry.DisplayName)
-                ? entry.OverlayKey
-                : entry.DisplayName;
-            return $"{entry.Layer} / {displayName} ({entry.OverlayKey})";
-        }
-
-        private static BoardTileOverlayCellStatusItem[] BuildOverlayStatusItems(
-            IReadOnlyList<BoardTileOverlayOverride> matches,
-            BoardTileOverlayCatalog catalog)
-        {
-            return matches
-                .Where(entry => entry != null)
-                .GroupBy(entry => entry.OverlayKey, StringComparer.Ordinal)
-                .OrderBy(group => group.Key, StringComparer.Ordinal)
-                .Select(group =>
-                {
-                    BoardTileOverlayCatalogEntry catalogEntry = null;
-                    var hasEntry = catalog != null && catalog.TryGetEntry(group.Key, out catalogEntry);
-                    var count = group.Count();
-                    var message = count > 1
-                        ? $"Duplicate overlay override for key '{group.Key}' ({count})."
-                        : hasEntry
-                            ? FormatBoardTileOverlayCatalogOption(catalogEntry)
-                            : $"OverlayKey '{group.Key}' is missing from BoardTileOverlayCatalog.";
-                    return new BoardTileOverlayCellStatusItem(
-                        group.Key,
-                        hasEntry ? catalogEntry : null,
-                        count,
-                        message);
-                })
-                .ToArray();
         }
 
         private enum InvalidBoardTileCellReason

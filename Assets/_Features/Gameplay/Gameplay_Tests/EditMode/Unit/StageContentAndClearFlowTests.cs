@@ -48,10 +48,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void StageCatalogResolver_ResolveOrThrow_ByCanonicalStageId_ReturnsEntry()
         {
-            var entry = CreateEntry("mechanics-showcase");
+            var entry = CreateEntry("catalog-stage-a");
             var resolver = new StageCatalogResolver(new TestStageCatalogProvider(new[] { entry }, aliasTable: null));
 
-            var resolved = resolver.ResolveOrThrow(StageId.CreateOrThrow("mechanics-showcase"));
+            var resolved = resolver.ResolveOrThrow(StageId.CreateOrThrow("catalog-stage-a"));
 
             Assert.That(resolved, Is.SameAs(entry));
         }
@@ -62,17 +62,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StageLaunchContextStore.Clear();
             try
             {
-                var tutorialEntry = CreateEntry("onboarding");
-                var provider = CreateCatalogProvider(new[] { CreateEntry("mechanics-showcase"), tutorialEntry }, aliasTable: null);
+                var selectedEntry = CreateEntry("catalog-stage-b");
+                var provider = CreateCatalogProvider(new[] { CreateEntry("catalog-stage-a"), selectedEntry }, aliasTable: null);
                 var resolver = new StageRuntimeContentResolver();
-                StageLaunchContextStore.SetCurrent(tutorialEntry.StageId);
+                StageLaunchContextStore.SetCurrent(selectedEntry.StageId);
 
                 var resolved = resolver.Resolve(
                     StageLoadRequest.CreateLaunchContextOnly(
                         provider,
                         sceneName: "StageRuntimeContentResolverTests"));
 
-                Assert.That(resolved.Entry, Is.SameAs(tutorialEntry));
+                Assert.That(resolved.Entry, Is.SameAs(selectedEntry));
                 Assert.That(resolved.UsedLaunchContext, Is.True);
             }
             finally
@@ -85,7 +85,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void StageRuntimeContentResolver_CatalogMode_ThrowsWhenLaunchContextIsMissing()
         {
             StageLaunchContextStore.Clear();
-            var entry = CreateEntry("onboarding");
+            var entry = CreateEntry("catalog-stage-a");
             var provider = CreateCatalogProvider(new[] { entry }, aliasTable: null);
             var resolver = new StageRuntimeContentResolver();
 

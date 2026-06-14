@@ -4000,60 +4000,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_CompilesLockNearbyBoxesEffectAndTicks()
+        public void EnemyUtilityEffectKind_RetiredLockNearbyBoxes_PreservesCompatibilitySlot()
         {
-            var profile = CreateUtilitySummonerProfile(
-                CreateLockNearbyBoxesUtilityEffect(
-                    initialDelaySeconds: 0.2f,
-                    cooldownSeconds: 0.5f,
-                    radius: 2,
-                    durationSeconds: 0.3f,
-                    activationDelaySeconds: 0.4f,
-                    blocksPush: true,
-                    blocksFlip: false,
-                    includeSourceCell: true,
-                    targetPattern: BoxLockTargetPattern.OrthogonalAdjacent4));
-
-            try
-            {
-                var definition = profile.CreateRuntimeDefinition(10);
-
-                Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True);
-                Assert.That(utility.Effects, Has.Count.EqualTo(1));
-                Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.LockNearbyBoxes));
-                Assert.That(utility.Effects[0].InitialDelayTicks, Is.EqualTo(2));
-                Assert.That(utility.Effects[0].CooldownTicks, Is.EqualTo(5));
-                Assert.That(utility.Effects[0].LockNearbyBoxes.Radius, Is.EqualTo(2));
-                Assert.That(utility.Effects[0].LockNearbyBoxes.DurationTicks, Is.EqualTo(3));
-                Assert.That(utility.Effects[0].LockNearbyBoxes.ActivationDelayTicks, Is.EqualTo(4));
-                Assert.That(utility.Effects[0].LockNearbyBoxes.BlocksPush, Is.True);
-                Assert.That(utility.Effects[0].LockNearbyBoxes.BlocksFlip, Is.False);
-                Assert.That(utility.Effects[0].LockNearbyBoxes.IncludeSourceCell, Is.True);
-                Assert.That(utility.Effects[0].LockNearbyBoxes.TargetPattern, Is.EqualTo(BoxLockTargetPattern.OrthogonalAdjacent4));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
+            Assert.That((int)EnemyUtilityEffectKind.RetiredLockNearbyBoxes, Is.EqualTo(1));
+            Assert.That((int)EnemyUtilityEffectKind.GravityFieldAura, Is.EqualTo(2));
         }
 
         [Test]
         [Category("Core")]
-        public void EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_LockNearbyBoxes_DefaultActivationDelayIsImmediate()
+        public void EnemyUtilityEffectRuntime_RetiredLockNearbyBoxes_Throws()
         {
-            var profile = CreateUtilitySummonerProfile(CreateLockNearbyBoxesUtilityEffect());
+            var exception = Assert.Throws<ArgumentException>(
+                () => new EnemyUtilityEffectRuntime(
+                    EnemyUtilityEffectKind.RetiredLockNearbyBoxes,
+                    initialDelayTicks: 0,
+                    cooldownTicks: 1));
 
-            try
-            {
-                var definition = profile.CreateRuntimeDefinition(10);
-
-                Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True);
-                Assert.That(utility.Effects[0].LockNearbyBoxes.ActivationDelayTicks, Is.Zero);
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
+            Assert.That(exception.Message, Does.Contain("retired"));
         }
 
         [Test]
@@ -4086,118 +4049,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_NullPayload_Throws()
+        public void EnemyAiProfileCompiler_UtilityCapability_RetiredLockNearbyBoxes_Throws()
         {
             var effect = new EnemyUtilityEffectAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.LockNearbyBoxes);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.RetiredLockNearbyBoxes);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", 0f);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", 1f);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "lockNearbyBoxes", null);
             var profile = CreateUtilitySummonerProfile(effect);
 
             try
             {
-                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
 
-        [Test]
-        [Category("Core")]
-        public void EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_NonPositiveRadius_Throws()
-        {
-            var profile = CreateUtilitySummonerProfile(
-                CreateLockNearbyBoxesUtilityEffect(radius: 0));
-
-            try
-            {
-                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_NonPositiveDuration_Throws()
-        {
-            var profile = CreateUtilitySummonerProfile(
-                CreateLockNearbyBoxesUtilityEffect(durationSeconds: 0f));
-
-            try
-            {
-                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_NegativeActivationDelay_Throws()
-        {
-            var profile = CreateUtilitySummonerProfile(
-                CreateLockNearbyBoxesUtilityEffect(activationDelaySeconds: -0.1f));
-
-            try
-            {
-                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_MustBlockPushOrFlip()
-        {
-            var profile = CreateUtilitySummonerProfile(
-                CreateLockNearbyBoxesUtilityEffect(blocksPush: false, blocksFlip: false));
-
-            try
-            {
-                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_CompilesSummonAndLockNearbyBoxesTogether()
-        {
-            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
-            {
-                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                DetectionStrategyKind = DetectionStrategyKind.None,
-                PatrolStrategyKind = PatrolStrategyKind.Stationary,
-                UtilityEffects = new[]
-                {
-                    CreateSummonUtilityEffect(cooldownSeconds: 2f),
-                    CreateLockNearbyBoxesUtilityEffect(initialDelaySeconds: 0.1f, cooldownSeconds: 0.4f, radius: 1, durationSeconds: 0.2f),
-                },
-            });
-
-            try
-            {
-                var definition = profile.CreateRuntimeDefinition(10);
-
-                Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True);
-                Assert.That(utility.Effects, Has.Count.EqualTo(2));
-                Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion));
-                Assert.That(utility.Effects[1].Kind, Is.EqualTo(EnemyUtilityEffectKind.LockNearbyBoxes));
-                Assert.That(utility.Effects[1].LockNearbyBoxes.DurationTicks, Is.EqualTo(2));
+                Assert.That(exception.Message, Does.Contain("retired"));
             }
             finally
             {
@@ -6962,34 +6826,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiProfileTestFactory.SetSerializedField(boxed, "initialAiMode", initialAiMode);
             EnemyAiProfileTestFactory.SetSerializedField(boxed, "unitMobilityKind", unitMobilityKind);
             return (EnemyUnitSpawnDefaults)boxed;
-        }
-
-        private static EnemyUtilityEffectAuthoring CreateLockNearbyBoxesUtilityEffect(
-            float initialDelaySeconds = 0f,
-            float cooldownSeconds = 1f,
-            int radius = 1,
-            float durationSeconds = 2f,
-            bool blocksPush = true,
-            bool blocksFlip = true,
-            bool includeSourceCell = false,
-            BoxLockTargetPattern targetPattern = BoxLockTargetPattern.ManhattanRadius,
-            float activationDelaySeconds = 0f)
-        {
-            var lockNearbyBoxes = new LockNearbyBoxesAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "radius", radius);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "durationSeconds", durationSeconds);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "activationDelaySeconds", activationDelaySeconds);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "blocksPush", blocksPush);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "blocksFlip", blocksFlip);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "includeSourceCell", includeSourceCell);
-            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "targetPattern", targetPattern);
-
-            var effect = new EnemyUtilityEffectAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.LockNearbyBoxes);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", initialDelaySeconds);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", cooldownSeconds);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "lockNearbyBoxes", lockNearbyBoxes);
-            return effect;
         }
 
         private static float TicksToSeconds(int ticks)

@@ -16,8 +16,6 @@
 
 | stage id | exact menu path | executor | execution date/time | launch result | observed warning/fail-fast | plain Play attempted | notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `mechanics-showcase` | `Tools/Stages/Direct Play/Launch Stage...` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
-| `onboarding` | `Tools/Stages/Direct Play/Launch Stage...` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
 | `stage-0-1` | `Tools/Stages/Direct Play/Launch Stage...` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
 | `stage-1-1` | `Tools/Stages/Direct Play/Launch Stage...` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |
 | `<stage id>` | `Tools/Stages/Direct Play/Replay Last Stage` | `<executor>` | `<YYYY-MM-DD HH:MM KST>` | `Pass/Fail/Inconclusive` | `<warning or None>` | `No / Yes-unsupported reference only` | `<notes>` |

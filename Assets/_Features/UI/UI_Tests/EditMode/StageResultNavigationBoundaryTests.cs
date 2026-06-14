@@ -80,12 +80,40 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void StageResult_DoesNotExposeInvisibleTitleOrDetailTextPath()
+        {
+            AssertNoDeclaredMembersNamed(
+                typeof(StageResultScreenPayload),
+                "TitleText",
+                "DetailText",
+                "ContinueLabel");
+            AssertNoDeclaredMembersNamed(
+                typeof(StageResultScreenViewModel),
+                "TitleText",
+                "DetailText",
+                "ContinueLabel");
+            AssertNoDeclaredMembersNamed(
+                typeof(StageResultScreenView),
+                "_titleLabel",
+                "_detailLabel",
+                "_continueButtonLabel");
+
+            var prefab = File.ReadAllText(UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
+            Assert.That(prefab, Does.Not.Contain("_titleLabel"));
+            Assert.That(prefab, Does.Not.Contain("_detailLabel"));
+            Assert.That(prefab, Does.Not.Contain("_continueButtonLabel"));
+            Assert.That(prefab, Does.Not.Contain("m_Name: Title"));
+            Assert.That(prefab, Does.Not.Contain("m_Name: Detail"));
+            Assert.That(prefab, Does.Contain("_continueButton:"));
+            Assert.That(prefab, Does.Contain("m_text: Continue"));
+        }
+
+        [Test]
         public void NavigationRequests_AreStageIdBased()
         {
             var stageId = StageId.CreateOrThrow("stage-result-boundary");
             var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "boundary-test");
             var payload = new StageResultScreenPayload(
-                "Continue",
                 request,
                 StageNavigationRequest.None,
                 StageNavigationRequest.None);
@@ -106,6 +134,18 @@ namespace Game.Feature.UI.Tests
                         Does.Not.Contain(token),
                         $"{sourcePath}: StageResult is a UI presentation/navigation endpoint; stage reward/progression commit lane remains stage-owned.");
                 }
+            }
+        }
+
+        private static void AssertNoDeclaredMembersNamed(Type type, params string[] forbiddenNames)
+        {
+            var memberNames = type
+                .GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(member => member.Name)
+                .ToArray();
+            foreach (var forbiddenName in forbiddenNames)
+            {
+                Assert.That(memberNames, Does.Not.Contain(forbiddenName), type.FullName);
             }
         }
     }

@@ -45,17 +45,15 @@
   - plain Play 재현은 unsupported reference case로만 기록한다.
 - `warning consistency`
   - plain Play warning과 fail-fast message는 같은 menu path `Tools/Stages/Direct Play/Launch Stage...`를 안내해야 한다.
-- `onboarding parity`
-  - onboarding 문서, smoke checklist, menu entry, supported stage list는 같은 stage 세트와 같은 용어를 사용해야 한다.
+- `supported stage parity`
+  - direct-play 문서, smoke checklist, menu entry, supported stage list는 같은 stage 세트와 같은 용어를 사용해야 한다.
 
 ## Supported Stage Ids
 
-- `mechanics-showcase`
-- `onboarding`
 - `stage-0-1`
 - `stage-1-1`
 
-위 exact stage ids는 onboarding parity와 smoke note에 그대로 사용한다.
+위 exact stage ids는 supported stage parity와 smoke note에 그대로 사용한다.
 
 ## Soft Adoption
 
@@ -63,13 +61,13 @@
   - launcher-only contract를 팀 기본 workflow로 정착시킨다.
 - 완료 기준:
   - catalog coverage `100%`
-  - onboarding 문서와 menu entry 일치
+  - direct-play 문서와 menu entry 일치
   - smoke checklist가 launcher-only workflow를 명시
   - plain Play unsupported 경고 문구가 고정
 - 허용 friction 완화책:
   - menu shortcut discoverability
   - `Replay Last Stage`
-  - onboarding examples
+  - supported stage examples
   - smoke checklist 개선
 
 ## Hard Enforcement

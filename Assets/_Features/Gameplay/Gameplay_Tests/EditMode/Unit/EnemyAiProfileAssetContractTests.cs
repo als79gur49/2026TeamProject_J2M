@@ -137,6 +137,98 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyUtilityLockNearbyBoxesRetirement_DeletedActiveSymbolsDoNotRemain()
+        {
+            var projectRoot = Directory.GetParent(Application.dataPath)?.FullName;
+            Assert.That(projectRoot, Is.Not.Null.And.Not.Empty, "Unable to resolve Unity project root from Application.dataPath.");
+
+            var forbiddenTokens = new[]
+            {
+                "EnemyUtilityEffectKind." + "LockNearbyBoxes",
+                "EnemyUtilityPresentationKind." + "LockNearbyBoxes",
+                "LockNearbyBoxes" + "Authoring",
+                "LockNearbyBoxes" + "Runtime",
+                "Resolve" + "LockNearbyBoxes",
+                "lock" + "NearbyBoxes",
+            };
+            var scanRoots = new[]
+            {
+                Path.Combine(projectRoot, "Assets/_Features/Gameplay"),
+                Path.Combine(projectRoot, "Assets/_Features/Stages"),
+            };
+            var violations = new List<string>();
+
+            foreach (var filePath in scanRoots.SelectMany(root => Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories)))
+            {
+                var relativePath = filePath.Substring(projectRoot.Length + 1).Replace('\\', '/');
+                var text = File.ReadAllText(filePath);
+                foreach (var token in forbiddenTokens)
+                {
+                    if (text.Contains(token))
+                    {
+                        violations.Add($"{relativePath} contains retired active utility token '{token}'.");
+                    }
+                }
+            }
+
+            Assert.That(
+                violations,
+                Is.Empty,
+                "Retired LockNearbyBoxes active symbol inventory violations:\n" + string.Join("\n", violations));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilityCapabilityAssets_DoNotAuthorRetiredLockNearbyBoxes_AndKeepGravityFieldAura()
+        {
+            var assetPaths = AssetDatabase.FindAssets("t:EnemyUtilityCapabilityAsset", new[] { StageContentPaths.CampaignRoot })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .OrderBy(path => path, System.StringComparer.Ordinal)
+                .ToArray();
+            var violations = new List<string>();
+            var foundGravityFieldAuraCapability = false;
+
+            Assert.That(assetPaths, Is.Not.Empty, "Campaign scan returned no EnemyUtilityCapabilityAsset assets.");
+
+            foreach (var assetPath in assetPaths)
+            {
+                var asset = AssetDatabase.LoadAssetAtPath<EnemyUtilityCapabilityAsset>(assetPath);
+                if (asset == null)
+                {
+                    violations.Add($"{assetPath} did not load as {nameof(EnemyUtilityCapabilityAsset)}.");
+                    continue;
+                }
+
+                var yaml = File.ReadAllText(GetAbsoluteAssetPath(assetPath));
+                if (yaml.Contains("lock" + "NearbyBoxes:"))
+                {
+                    violations.Add($"{assetPath} still contains inactive retired utility serialized residue.");
+                }
+
+                for (var effectIndex = 0; effectIndex < asset.Effects.Count; effectIndex++)
+                {
+                    var effect = asset.Effects[effectIndex];
+                    if (effect.Kind == EnemyUtilityEffectKind.RetiredLockNearbyBoxes)
+                    {
+                        violations.Add($"{assetPath} effects[{effectIndex}] authors retired utility kind 1.");
+                    }
+
+                    if (effect.Kind == EnemyUtilityEffectKind.GravityFieldAura)
+                    {
+                        foundGravityFieldAuraCapability = true;
+                    }
+                }
+            }
+
+            Assert.That(foundGravityFieldAuraCapability, Is.True, "Campaign utility assets must preserve active GravityFieldAura kind 2.");
+            Assert.That(
+                violations,
+                Is.Empty,
+                "Enemy utility capability asset retirement violations:\n" + string.Join("\n", violations));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyPatrolAssets_ForwardAsset_StillResolvesForwardKind_AndSettingsContract()
         {
             const string forwardAssetPath = StageContentPaths.SharedEnemyAiRoot + "/Brain/Enemy_Common/EnemyPatrol_Forward.asset";
@@ -276,25 +368,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void CombinedGameplay_AstretonBinding_UsesJumpChaserMovementSkillProfile()
+        public void AdvancedCampaignStage_AstretonBindings_UseJumpChaserMovementSkillProfile()
         {
-            var binding = GetSingleStageBinding(MechanicsShowcaseStagePath, "astreton");
+            var bindings = FindStageEnemyPresentationProfileBindings(AdvancedCampaignStagePath, "astreton");
 
-            Assert.That(binding.EntityId, Is.EqualTo(61));
-            Assert.That(binding.ProfilePath, Is.EqualTo(JumpChaserProfilePath));
-            AssertJumpChaserProfile(binding.ProfilePath);
+            Assert.That(bindings, Is.Not.Empty);
+            Assert.That(
+                bindings.Select(binding => binding.ProfilePath).Distinct().ToArray(),
+                Is.EquivalentTo(new[] { JumpChaserProfilePath }));
+            AssertJumpChaserProfile(JumpChaserProfilePath);
             AssertCatalogEntryUsesPrefab("astreton", "EnemyView_Astreton.prefab");
         }
 
         [Test]
         [Category("Extended")]
-        public void CombinedGameplay_JPeterBinding_UsesArchetypeSummonerUtilityProfile()
+        public void AdvancedCampaignStage_JPeterBindings_UseArchetypeSummonerUtilityProfile()
         {
-            var binding = GetSingleStageBinding(MechanicsShowcaseStagePath, "j_peter");
+            var bindings = FindStageEnemyPresentationProfileBindings(AdvancedCampaignStagePath, "j_peter");
 
-            Assert.That(binding.EntityId, Is.EqualTo(59));
-            Assert.That(binding.ProfilePath, Is.EqualTo(ArchetypeSummonerProfilePath));
-            AssertArchetypeSummonerProfile(binding.ProfilePath);
+            Assert.That(bindings, Is.Not.Empty);
+            Assert.That(
+                bindings.Select(binding => binding.ProfilePath).Distinct().ToArray(),
+                Is.EquivalentTo(new[] { ArchetypeSummonerProfilePath }));
+            AssertArchetypeSummonerProfile(ArchetypeSummonerProfilePath);
             AssertCatalogEntryUsesPrefab("j_peter", "EnemyView_JPeter.prefab");
         }
 
@@ -309,7 +405,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 bindings.Select(binding => binding.ProfilePath).Distinct().ToArray(),
                 Is.EquivalentTo(new[] { JumpChaserProfilePath }),
                 "Astreton is a presentation id; every campaign spawn using it must bind the JumpChaser gameplay profile.");
-            Assert.That(bindings.Select(binding => binding.EntityId), Has.Member(61));
+            Assert.That(bindings.Select(binding => binding.EntityId), Is.Not.Empty);
             AssertJumpChaserProfile(JumpChaserProfilePath);
             AssertCatalogEntryUsesPrefab("astreton", "EnemyView_Astreton.prefab");
         }
@@ -390,8 +486,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string ArchetypeSummonerProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_UtilitySummoner/EnemyAi_ArchetypeSummoner.asset";
 
-        private const string MechanicsShowcaseStagePath =
-            StageContentPaths.CampaignLevel01StagesRoot + "/mechanics-showcase/mechanics-showcase.asset";
+        private const string AdvancedCampaignStagePath =
+            StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-2/stage-4-2.asset";
 
         private const string CampaignEnemyPresentationCatalogPath =
             StageContentPaths.CampaignRoot + "/_Shared/Presentation/Enemy/Catalogs/EnemyPresentationCatalog_CampaignMain.asset";

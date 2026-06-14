@@ -88,7 +88,7 @@ No migration required for:
 - `Assets/Scenes/CombinedGameplayShowcase.unity`: absent in this worktree.
 - `Assets/Scenes/TutorialScene.unity`: absent in this worktree.
 
-Stage entries named `combined-gameplay-showcase` and `tutorial-scene` exist under stage content, but those are content assets, not scene YAML roots. Their `*_Audio.asset` companions are BGM metadata and must not be folded into `GameplayPresentationAudioConfig`.
+Stage entries named `stage-4-2` and `stage-0-1` exist under stage content, but those are content assets, not scene YAML roots. Their `*_Audio.asset` companions are BGM metadata and must not be folded into `GameplayPresentationAudioConfig`.
 
 ## Removal Order
 

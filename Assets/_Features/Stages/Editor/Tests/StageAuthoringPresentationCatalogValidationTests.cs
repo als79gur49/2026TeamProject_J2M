@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -319,6 +320,81 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void CampaignMainBoardTilePresentationCatalog_UsesSingleGenericDefaultPrefab()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<BoardTilePresentationCatalog>(
+                StageContentPaths.SharedBoardPresentationRoot + "/Catalogs/BoardTilePresentationCatalog_CampaignMainBoard.asset");
+            Assert.That(catalog, Is.Not.Null);
+
+            Assert.That(catalog.Entries.Count, Is.EqualTo(1));
+            var entry = catalog.Entries[0];
+            Assert.That(entry.PresentationKey, Is.EqualTo("board.generic.default"));
+            Assert.That(entry.Role, Is.EqualTo(BoardTileVisualRole.GenericDefault));
+            Assert.That(entry.IsDefaultForRole, Is.True);
+            Assert.That(entry.TilePrefab, Is.Not.Null);
+            Assert.That(
+                AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(entry.TilePrefab)),
+                Is.EqualTo("80ad8bd596477764398e7080760f2985"));
+        }
+
+        [Test]
+        public void CampaignMainBoardTileStyleCatalog_OnlyKeepsLevelPaintStyles()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<BoardTileStyleCatalog>(
+                StageContentPaths.SharedBoardPresentationRoot + "/Catalogs/BoardTileStyleCatalog_CampaignMainBoard.asset");
+            Assert.That(catalog, Is.Not.Null);
+
+            Assert.That(
+                catalog.Entries.Select(entry => entry.StyleKey).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    "board.paint.level1",
+                    "board.paint.level2",
+                    "board.paint.level3",
+                }));
+        }
+
+        [Test]
+        public void CampaignMainBoardPresentationContent_DoesNotReferenceRetiredKeys()
+        {
+            var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(
+                StageContentPaths.StageCatalogProviderAssetPath);
+            Assert.That(
+                provider,
+                Is.Not.Null,
+                $"Missing stage catalog provider at '{StageContentPaths.StageCatalogProviderAssetPath}'.");
+
+            var retiredStyleKeys = new[]
+            {
+                "board.paint.neutral",
+                "board.paint.path-base",
+                "board.paint.objective-base",
+                "board.paint.warning-base",
+                "board.paint.level4",
+            };
+
+            var entries = provider.LoadEntries();
+            var retiredTileFeaturePresentationReferences = entries
+                .Where(entry => entry != null && entry.GameplayDefinition != null)
+                .SelectMany(entry => entry.GameplayDefinition.TileFeatures)
+                .Where(tileFeature =>
+                    string.Equals(tileFeature.PresentationKey, "exit.1x1", StringComparison.Ordinal))
+                .Select(tileFeature => $"TileId {tileFeature.TileId}: {tileFeature.PresentationKey}")
+                .ToArray();
+            var retiredStyleReferences = entries
+                .Where(entry => entry != null && entry.PresentationDefinition != null)
+                .SelectMany(entry => entry.PresentationDefinition.BoardTilePaintOverrides)
+                .Where(paintOverride =>
+                    paintOverride != null &&
+                    retiredStyleKeys.Contains(paintOverride.StyleKey, StringComparer.Ordinal))
+                .Select(paintOverride => $"{paintOverride.Cell}: {paintOverride.StyleKey}")
+                .ToArray();
+
+            Assert.That(retiredTileFeaturePresentationReferences, Is.Empty);
+            Assert.That(retiredStyleReferences, Is.Empty);
+        }
+
+        [Test]
         public void SpawnPresentationId_IsNotCanonicalPresentationBindingSource()
         {
             using var fixture = PresentationCatalogFixture.CreateBindingOnly(
@@ -416,7 +492,6 @@ namespace Game.Feature.Stages.Editor.Tests
             try
             {
                 SetString(fixture.Presentation, "displayName", "Edited Display");
-                SetString(fixture.Presentation, "resultTitle", "Edited Result");
 
                 var report = fixture.Validate();
                 Assert.That(report.Issues.Any(IsPresentationIntegrityIssue), Is.False, FormatIssues(report));
@@ -425,6 +500,32 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 fixture.Destroy();
             }
+        }
+
+        [Test]
+        public void ProductionPresentationAssets_DoNotContainRemovedStageResultTextSchema()
+        {
+            var presentationAssets = Directory.GetFiles(
+                "Assets/_Features/Stages/Content",
+                "*_Presentation.asset",
+                SearchOption.AllDirectories);
+            Assert.That(presentationAssets, Is.Not.Empty);
+
+            var obsoleteResidue = presentationAssets
+                .Select(path => new
+                {
+                    Path = path,
+                    Text = File.ReadAllText(path),
+                })
+                .Where(asset =>
+                    asset.Text.Contains("resultTitle:", StringComparison.Ordinal) ||
+                    asset.Text.Contains("resultSummaryText:", StringComparison.Ordinal) ||
+                    asset.Text.Contains("resultDetailText:", StringComparison.Ordinal) ||
+                    asset.Text.Contains("resultContinueLabel:", StringComparison.Ordinal))
+                .Select(asset => asset.Path)
+                .ToArray();
+
+            Assert.That(obsoleteResidue, Is.Empty);
         }
 
         [Test]

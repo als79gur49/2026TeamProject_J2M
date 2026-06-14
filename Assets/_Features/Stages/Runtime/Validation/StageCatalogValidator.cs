@@ -1113,11 +1113,8 @@ namespace Game.Feature.Stages
             if (entry.PresentationDefinition != null)
             {
                 ValidateBoardTilePresentationCatalog(entry, options, report);
-                ValidateBoardTilePresentationOverrides(entry, options, report);
                 ValidateBoardTileStyleCatalog(entry, options, report);
                 ValidateBoardTilePaintOverrides(entry, options, report);
-                ValidateBoardTileOverlayCatalog(entry, options, report);
-                ValidateBoardTileOverlayOverrides(entry, options, report);
                 ValidateTileFeaturePresentationCatalog(entry, options, report);
                 ValidateTileFeaturePresentationBindings(entry, options, report);
                 ValidateWorldGuideInstructions(entry, options, report);
@@ -1252,148 +1249,25 @@ namespace Game.Feature.Stages
                 }
             }
 
-            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.ActiveBottom, out _))
+            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.GenericDefault, out var genericDefaultEntry))
             {
                 report.Add(
-                    StageValidationSeverity.Warning,
-                    "presentation.board-tile.catalog.default-active-bottom-missing",
-                    $"BoardTilePresentationCatalog '{catalog.name}' has no default entry for {BoardTileVisualRole.ActiveBottom}.",
+                    StageValidationSeverity.Error,
+                    "presentation.board-tile.catalog.default-generic-missing",
+                    $"BoardTilePresentationCatalog '{catalog.name}' has no default entry for {BoardTileVisualRole.GenericDefault}.",
                     catalog,
                     catalogPath,
                     options.Timing);
             }
-
-            if (!catalog.TryGetDefaultEntry(BoardTileVisualRole.ActiveFront, out _))
+            else if (genericDefaultEntry.TilePrefab == null)
             {
                 report.Add(
-                    StageValidationSeverity.Warning,
-                    "presentation.board-tile.catalog.default-active-front-missing",
-                    $"BoardTilePresentationCatalog '{catalog.name}' has no default entry for {BoardTileVisualRole.ActiveFront}.",
+                    StageValidationSeverity.Error,
+                    "presentation.board-tile.catalog.default-generic-prefab-missing",
+                    $"BoardTilePresentationCatalog '{catalog.name}' generic default entry must assign a tile prefab.",
                     catalog,
                     catalogPath,
                     options.Timing);
-            }
-        }
-
-        private static void ValidateBoardTilePresentationOverrides(
-            StageContentEntry entry,
-            StageCatalogValidationOptions options,
-            StageValidationReport report)
-        {
-            var presentation = entry.PresentationDefinition;
-            if (presentation == null)
-            {
-                return;
-            }
-
-            var overrides = presentation.BoardTilePresentationOverrides;
-            if (overrides.Count == 0)
-            {
-                return;
-            }
-
-            var catalog = presentation.BoardTilePresentationCatalog;
-            var presentationPath = GetAssetPath(presentation, options);
-            var boardBoundsValid = TryGetBoardBounds(entry.GameplayDefinition, out var boardBounds);
-            var cells = new HashSet<SurfaceCell>();
-            for (var i = 0; i < overrides.Count; i++)
-            {
-                var boardOverride = overrides[i];
-                var fieldPrefix = $"BoardTilePresentationOverrides[{i}]";
-                if (boardOverride == null)
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-null",
-                        $"StagePresentationDefinition '{presentation.name}' board tile presentation override[{i}] is null.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                    continue;
-                }
-
-                var cell = boardOverride.Cell;
-                if (!Enum.IsDefined(typeof(FaceId), cell.face))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-cell-face-invalid",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} has invalid SurfaceCell face value {(int)cell.face}.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
-
-                if (boardBoundsValid && !boardBounds.Contains(cell.PlanarPosition))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-cell-outside-bounds",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} cell {cell} is outside board bounds.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
-
-                if (!cells.Add(cell))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-cell-duplicate",
-                        $"StagePresentationDefinition '{presentation.name}' contains duplicate board tile presentation override for cell {cell}.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
-
-                var presentationKey = boardOverride.PresentationKey;
-                if (string.IsNullOrEmpty(presentationKey))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-key-empty",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} must declare a non-empty PresentationKey.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                    continue;
-                }
-
-                if (catalog == null)
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-catalog-missing",
-                        $"StagePresentationDefinition '{presentation.name}' has board tile override key '{presentationKey}' but no BoardTilePresentationCatalog.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                    continue;
-                }
-
-                if (!catalog.TryGetEntry(presentationKey, out var catalogEntry))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-key-missing",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} PresentationKey '{presentationKey}' is missing from BoardTilePresentationCatalog '{catalog.name}'.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                    continue;
-                }
-
-                if (catalogEntry.TilePrefab == null &&
-                    catalogEntry.MaterialFallback != null)
-                {
-                    report.Add(
-                        StageValidationSeverity.Warning,
-                        "presentation.board-tile.override-material-only",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} PresentationKey '{presentationKey}' resolves to a material-only board tile entry.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
             }
         }
 
@@ -1561,193 +1435,6 @@ namespace Game.Feature.Stages
             }
         }
 
-        private static void ValidateBoardTileOverlayCatalog(
-            StageContentEntry entry,
-            StageCatalogValidationOptions options,
-            StageValidationReport report)
-        {
-            var presentation = entry.PresentationDefinition;
-            var catalog = presentation != null ? presentation.BoardTileOverlayCatalog : null;
-            if (catalog == null)
-            {
-                return;
-            }
-
-            var catalogPath = GetAssetPath(catalog, options);
-            var entries = catalog.Entries;
-            var seenKeys = new HashSet<string>(StringComparer.Ordinal);
-            for (var i = 0; i < entries.Count; i++)
-            {
-                var catalogEntry = entries[i];
-                var fieldPrefix = $"BoardTileOverlayCatalog.Entries[{i}]";
-                if (catalogEntry == null)
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile-overlay.catalog.entry-null",
-                        $"BoardTileOverlayCatalog '{catalog.name}' entry[{i}] is null.",
-                        catalog,
-                        catalogPath,
-                        options.Timing);
-                    continue;
-                }
-
-                var overlayKey = catalogEntry.OverlayKey;
-                if (string.IsNullOrEmpty(overlayKey))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile-overlay.catalog.key-empty",
-                        $"BoardTileOverlayCatalog '{catalog.name}' {fieldPrefix} must declare a non-empty OverlayKey.",
-                        catalog,
-                        catalogPath,
-                        options.Timing);
-                }
-                else if (!seenKeys.Add(overlayKey))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile-overlay.catalog.key-duplicate",
-                        $"BoardTileOverlayCatalog '{catalog.name}' contains duplicate OverlayKey '{overlayKey}'.",
-                        catalog,
-                        catalogPath,
-                        options.Timing);
-                }
-
-                if (!Enum.IsDefined(typeof(BoardTileOverlayLayer), catalogEntry.Layer))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile-overlay.catalog.layer-invalid",
-                        $"BoardTileOverlayCatalog '{catalog.name}' {fieldPrefix} has invalid Layer value {(int)catalogEntry.Layer}.",
-                        catalog,
-                        catalogPath,
-                        options.Timing);
-                }
-
-                if (catalogEntry.Alpha < 0f || catalogEntry.Alpha > 1f)
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile-overlay.catalog.alpha-out-of-range",
-                        $"BoardTileOverlayCatalog '{catalog.name}' {fieldPrefix} Alpha must be between 0 and 1.",
-                        catalog,
-                        catalogPath,
-                        options.Timing);
-                }
-            }
-        }
-
-        private static void ValidateBoardTileOverlayOverrides(
-            StageContentEntry entry,
-            StageCatalogValidationOptions options,
-            StageValidationReport report)
-        {
-            var presentation = entry.PresentationDefinition;
-            if (presentation == null)
-            {
-                return;
-            }
-
-            var overrides = presentation.BoardTileOverlayOverrides;
-            if (overrides.Count == 0)
-            {
-                return;
-            }
-
-            var catalog = presentation.BoardTileOverlayCatalog;
-            var presentationPath = GetAssetPath(presentation, options);
-            var boardBoundsValid = TryGetBoardBounds(entry.GameplayDefinition, out var boardBounds);
-            var cellsAndKeys = new HashSet<string>(StringComparer.Ordinal);
-            for (var i = 0; i < overrides.Count; i++)
-            {
-                var overlayOverride = overrides[i];
-                var fieldPrefix = $"BoardTileOverlayOverrides[{i}]";
-                if (overlayOverride == null)
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile-overlay.override-null",
-                        $"StagePresentationDefinition '{presentation.name}' board tile overlay override[{i}] is null.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                    continue;
-                }
-
-                var cell = overlayOverride.Cell;
-                if (!Enum.IsDefined(typeof(FaceId), cell.face))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile-overlay.override-cell-face-invalid",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} has invalid SurfaceCell face value {(int)cell.face}.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
-
-                if (boardBoundsValid && !boardBounds.Contains(cell.PlanarPosition))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile-overlay.override-cell-outside-bounds",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} cell {cell} is outside board bounds.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
-
-                var overlayKey = overlayOverride.OverlayKey;
-                if (string.IsNullOrEmpty(overlayKey))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile-overlay.override-key-empty",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} must declare a non-empty OverlayKey.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                    continue;
-                }
-
-                var duplicateKey = $"{(int)cell.face}:{cell.x}:{cell.y}:{overlayKey}";
-                if (!cellsAndKeys.Add(duplicateKey))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile-overlay.override-cell-key-duplicate",
-                        $"StagePresentationDefinition '{presentation.name}' contains duplicate board tile overlay override for cell {cell} and key '{overlayKey}'.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
-
-                if (catalog == null)
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile-overlay.override-catalog-missing",
-                        $"StagePresentationDefinition '{presentation.name}' has board tile overlay override key '{overlayKey}' but no BoardTileOverlayCatalog.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                    continue;
-                }
-
-                if (!catalog.TryGetEntry(overlayKey, out _))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile-overlay.override-key-missing",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} OverlayKey '{overlayKey}' is missing from BoardTileOverlayCatalog '{catalog.name}'.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
-            }
-        }
-
         private static void ValidateTileFeaturePresentationCatalog(
             StageContentEntry entry,
             StageCatalogValidationOptions options,
@@ -1811,28 +1498,6 @@ namespace Game.Feature.Stages
                         StageValidationSeverity.Error,
                         "presentation.tile-feature.catalog.kind-invalid",
                         $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} must use a known TileFeatureKind.",
-                        catalog,
-                        catalogPath,
-                        options.Timing);
-                }
-
-                if (!Enum.IsDefined(typeof(TileFeatureVisualPlacementMode), catalogEntry.PlacementMode))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.tile-feature.catalog.placement-mode-invalid",
-                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} has invalid TileFeatureVisualPlacementMode value {(int)catalogEntry.PlacementMode}.",
-                        catalog,
-                        catalogPath,
-                        options.Timing);
-                }
-
-                if (!Enum.IsDefined(typeof(TileFeatureVisualFootprintMode), catalogEntry.FootprintMode))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.tile-feature.catalog.footprint-mode-invalid",
-                        $"TileFeaturePresentationCatalog '{catalog.name}' {fieldPrefix} has invalid TileFeatureVisualFootprintMode value {(int)catalogEntry.FootprintMode}.",
                         catalog,
                         catalogPath,
                         options.Timing);
@@ -1976,18 +1641,6 @@ namespace Game.Feature.Stages
                         options.Timing);
                 }
 
-                if (catalogEntry.DirectionHint != Direction2D.None &&
-                    tileFeature.Kind == TileFeatureKind.Slide &&
-                    catalogEntry.DirectionHint != tileFeature.Direction)
-                {
-                    report.Add(
-                        StageValidationSeverity.Warning,
-                        "presentation.tile-feature.catalog-direction-mismatch",
-                        $"TileFeature TileId {tileFeature.TileId} Slide direction {tileFeature.Direction} does not match catalog PresentationKey '{presentationKey}' hint {catalogEntry.DirectionHint}.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
             }
         }
 
@@ -2019,8 +1672,7 @@ namespace Game.Feature.Stages
             StageValidationReport report)
         {
             if (entry.GameplayDefinition == null ||
-                entry.PresentationDefinition == null ||
-                entry.PresentationDefinition.TileFeaturePresentationCatalog == null)
+                entry.PresentationDefinition == null)
             {
                 return;
             }
@@ -2043,14 +1695,8 @@ namespace Game.Feature.Stages
                         presentation.TileFeaturePresentationCatalog,
                         directBindings,
                         tileFeature,
-                        out var placementMode,
-                        out var footprintMode,
+                        out var resolvedKind,
                         out var visualPrefab))
-                {
-                    continue;
-                }
-
-                if (placementMode != TileFeatureVisualPlacementMode.ReplaceBaseTile)
                 {
                     continue;
                 }
@@ -2071,7 +1717,7 @@ namespace Game.Feature.Stages
                 if (hasBoardBounds &&
                     !TryBuildReplaceBaseTileSuppressedCells(
                         tileFeature,
-                        footprintMode,
+                        resolvedKind,
                         boardBounds,
                         out suppressedCells,
                         out var invalidCell))
@@ -2079,7 +1725,7 @@ namespace Game.Feature.Stages
                     report.Add(
                         StageValidationSeverity.Error,
                         "presentation.tile-feature.replace-base-tile.footprint-out-of-bounds",
-                        $"TileFeature TileId {tileFeature.TileId} ReplaceBaseTile footprint {footprintMode} includes out-of-bounds cell {invalidCell}.",
+                        $"TileFeature TileId {tileFeature.TileId} ReplaceBaseTile policy for {resolvedKind} includes out-of-bounds cell {invalidCell}.",
                         presentation,
                         presentationPath,
                         options.Timing);
@@ -2123,50 +1769,53 @@ namespace Game.Feature.Stages
 
         private static bool TryBuildReplaceBaseTileSuppressedCells(
             StageTileFeatureDefinition tileFeature,
-            TileFeatureVisualFootprintMode footprintMode,
+            TileFeatureKind resolvedKind,
             BoardBounds boardBounds,
             out IReadOnlyList<SurfaceCell> cells,
             out SurfaceCell invalidCell)
         {
             var result = new List<SurfaceCell>();
             invalidCell = default;
-            switch (footprintMode)
+            if (RequiresThreeByThreeBaseTileSuppression(resolvedKind))
             {
-                case TileFeatureVisualFootprintMode.ThreeByThreeSameFace:
-                    for (var yOffset = -1; yOffset <= 1; yOffset++)
+                for (var yOffset = -1; yOffset <= 1; yOffset++)
+                {
+                    for (var xOffset = -1; xOffset <= 1; xOffset++)
                     {
-                        for (var xOffset = -1; xOffset <= 1; xOffset++)
+                        var candidate = new SurfaceCell(
+                            tileFeature.Cell.face,
+                            tileFeature.Cell.x + xOffset,
+                            tileFeature.Cell.y + yOffset);
+                        if (!boardBounds.Contains(candidate.PlanarPosition))
                         {
-                            var candidate = new SurfaceCell(
-                                tileFeature.Cell.face,
-                                tileFeature.Cell.x + xOffset,
-                                tileFeature.Cell.y + yOffset);
-                            if (!boardBounds.Contains(candidate.PlanarPosition))
-                            {
-                                cells = Array.Empty<SurfaceCell>();
-                                invalidCell = candidate;
-                                return false;
-                            }
-
-                            result.Add(candidate);
+                            cells = Array.Empty<SurfaceCell>();
+                            invalidCell = candidate;
+                            return false;
                         }
-                    }
 
-                    cells = result;
-                    return true;
-                case TileFeatureVisualFootprintMode.SingleCell:
-                default:
-                    if (!boardBounds.Contains(tileFeature.Cell.PlanarPosition))
-                    {
-                        cells = Array.Empty<SurfaceCell>();
-                        invalidCell = tileFeature.Cell;
-                        return false;
+                        result.Add(candidate);
                     }
+                }
 
-                    result.Add(tileFeature.Cell);
-                    cells = result;
-                    return true;
+                cells = result;
+                return true;
             }
+
+            if (!boardBounds.Contains(tileFeature.Cell.PlanarPosition))
+            {
+                cells = Array.Empty<SurfaceCell>();
+                invalidCell = tileFeature.Cell;
+                return false;
+            }
+
+            result.Add(tileFeature.Cell);
+            cells = result;
+            return true;
+        }
+
+        private static bool RequiresThreeByThreeBaseTileSuppression(TileFeatureKind kind)
+        {
+            return kind == TileFeatureKind.Exit;
         }
 
         private static Dictionary<int, TileFeaturePresentationBinding> BuildDirectTileFeatureBindingsById(
@@ -2199,12 +1848,10 @@ namespace Game.Feature.Stages
             TileFeaturePresentationCatalog catalog,
             IReadOnlyDictionary<int, TileFeaturePresentationBinding> directBindings,
             StageTileFeatureDefinition tileFeature,
-            out TileFeatureVisualPlacementMode placementMode,
-            out TileFeatureVisualFootprintMode footprintMode,
+            out TileFeatureKind resolvedKind,
             out GameObject visualPrefab)
         {
-            placementMode = TileFeatureVisualPlacementMode.Overlay;
-            footprintMode = TileFeatureVisualFootprintMode.SingleCell;
+            resolvedKind = TileFeatureKind.Unknown;
             visualPrefab = null;
             if (directBindings != null &&
                 directBindings.TryGetValue(tileFeature.TileId, out var directBinding))
@@ -2215,8 +1862,7 @@ namespace Game.Feature.Stages
                     !string.IsNullOrEmpty(presentationKey) &&
                     catalog.TryGetEntry(presentationKey, out var keyedEntry))
                 {
-                    placementMode = keyedEntry.PlacementMode;
-                    footprintMode = keyedEntry.FootprintMode;
+                    resolvedKind = keyedEntry.Kind;
                 }
 
                 return true;
@@ -2231,16 +1877,14 @@ namespace Game.Feature.Stages
             if (!string.IsNullOrEmpty(key) &&
                 catalog.TryGetEntry(key, out var keyedCatalogEntry))
             {
-                placementMode = keyedCatalogEntry.PlacementMode;
-                footprintMode = keyedCatalogEntry.FootprintMode;
+                resolvedKind = keyedCatalogEntry.Kind;
                 visualPrefab = keyedCatalogEntry.VisualPrefab;
                 return true;
             }
 
             if (catalog.TryGetDefaultEntry(tileFeature.Kind, out var defaultEntry))
             {
-                placementMode = defaultEntry.PlacementMode;
-                footprintMode = defaultEntry.FootprintMode;
+                resolvedKind = defaultEntry.Kind;
                 visualPrefab = defaultEntry.VisualPrefab;
                 return true;
             }

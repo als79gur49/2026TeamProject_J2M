@@ -41,25 +41,25 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator ActualSceneBootstrap_UIAudioSceneMechanicsShowcaseStage_FirstFiveTicks_NoException()
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage0_1_FirstFiveTicks_NoException()
         {
             yield return AssertSceneBootstrapFirstFiveTicks(
                 UIAudioScenePath,
-                StageId.CreateOrThrow("mechanics-showcase"));
+                StageId.CreateOrThrow("stage-0-1"));
         }
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator ActualSceneBootstrap_UIAudioSceneOnboardingStage_FirstFiveTicks_NoException()
+        public IEnumerator ActualSceneBootstrap_UIAudioSceneStage1_1_FirstFiveTicks_NoException()
         {
             yield return AssertSceneBootstrapFirstFiveTicks(
                 UIAudioScenePath,
-                StageId.CreateOrThrow("onboarding"));
+                StageId.CreateOrThrow("stage-1-1"));
         }
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator ActualSceneBootstrap_UIAudioScene_ResolvesOnboardingStageAndInstallsUiAudio()
+        public IEnumerator ActualSceneBootstrap_UIAudioScene_ResolvesFirstStageAndInstallsUiAudio()
         {
             yield return AssertSceneBootstrapFirstFiveTicks(
                 UIAudioScenePath,
@@ -185,8 +185,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             Assert.That(stageId.Value, Is.EqualTo("stage-1-1"), "This evidence smoke is scoped to stage-1-1.");
             Assert.That(scenePath, Is.EqualTo(UIAudioScenePath));
-            Assert.That(stageId.Value, Is.Not.EqualTo("mechanics-showcase"));
-            Assert.That(stageId.Value, Is.Not.EqualTo("onboarding"));
             Assert.That(stageId.Value, Is.Not.EqualTo("legacy-stage-5-1"));
             Assert.That(StageLaunchContextStore.CurrentStageId, Is.EqualTo(stageId), "requested id must be stage-1-1.");
 

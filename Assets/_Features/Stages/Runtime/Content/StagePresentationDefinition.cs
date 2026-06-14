@@ -13,62 +13,36 @@ namespace Game.Feature.Stages
         public GameObject VisualPrefab;
     }
 
-    [Serializable]
-    public sealed class BoardTilePresentationOverride
-    {
-        [SerializeField] private SurfaceCell cell;
-        [SerializeField] private string presentationKey = string.Empty;
-
-        public BoardTilePresentationOverride()
-        {
-        }
-
-        public BoardTilePresentationOverride(SurfaceCell cell, string presentationKey)
-        {
-            this.cell = cell;
-            this.presentationKey = presentationKey ?? string.Empty;
-        }
-
-        public SurfaceCell Cell => cell;
-
-        public string PresentationKey => BoardTilePresentationCatalog.NormalizePresentationKey(presentationKey);
-    }
-
     [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Presentation Definition", fileName = "stage-presentation")]
     public sealed class StagePresentationDefinition : StageCompanionDefinitionBase
     {
+        [Header("Stage Identity / Scene")]
         [SerializeField] private string displayName = string.Empty;
-        [SerializeField] private string summaryText = string.Empty;
-        [SerializeField] private Sprite previewSprite;
         [SerializeField] private GameObject backgroundPrefab;
+
+        [Header("Entity Presentation")]
         [SerializeField] private EnemyPresentationCatalog enemyPresentationCatalog;
         [SerializeField] private EnemyPresentationArchetypeCatalog enemyPresentationArchetypeCatalog;
         [SerializeField] private EnemyPresentationBinding[] enemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         [SerializeField] private StaticEntityPresentationCatalog staticEntityPresentationCatalog;
         [SerializeField] private StaticEntityPresentationBinding[] staticEntityPresentationBindings = Array.Empty<StaticEntityPresentationBinding>();
+
+        [Header("Board Presentation")]
         [SerializeField] private BoardPresentationProfile boardPresentationProfile;
         [SerializeField] private BoardTilePresentationCatalog boardTilePresentationCatalog;
-        [SerializeField] private BoardTilePresentationOverride[] boardTilePresentationOverrides =
-            Array.Empty<BoardTilePresentationOverride>();
         [SerializeField] private BoardTilePaintOverride[] boardTilePaintOverrides =
             Array.Empty<BoardTilePaintOverride>();
-        [SerializeField] private BoardTileOverlayOverride[] boardTileOverlayOverrides =
-            Array.Empty<BoardTileOverlayOverride>();
+
+        [Header("Tile Feature Presentation")]
         [SerializeField] private TileFeaturePresentationCatalog tileFeaturePresentationCatalog;
         [SerializeField] private TileFeaturePresentationBinding[] tileFeaturePresentationBindings = Array.Empty<TileFeaturePresentationBinding>();
+
+        [Header("World Guide")]
         [SerializeField] private StageWorldGuideCatalog worldGuideCatalog;
         [SerializeField] private StageWorldGuideInstruction[] worldGuideInstructions =
             Array.Empty<StageWorldGuideInstruction>();
-        [SerializeField] private string resultTitle = "Stage Cleared";
-        [SerializeField] private string resultSummaryText = string.Empty;
-        [SerializeField] private string resultDetailText = string.Empty;
-        [SerializeField] private string resultContinueLabel = "Continue";
 
         public string DisplayName => displayName ?? string.Empty;
-
-        public string SummaryText => summaryText ?? string.Empty;
-
-        public Sprite PreviewSprite => previewSprite;
 
         public GameObject BackgroundPrefab => backgroundPrefab;
 
@@ -90,17 +64,8 @@ namespace Game.Feature.Stages
         public BoardTileStyleCatalog BoardTileStyleCatalog =>
             boardPresentationProfile != null ? boardPresentationProfile.DefaultBoardTileStyleCatalog : null;
 
-        public BoardTileOverlayCatalog BoardTileOverlayCatalog =>
-            boardPresentationProfile != null ? boardPresentationProfile.DefaultBoardTileOverlayCatalog : null;
-
-        public IReadOnlyList<BoardTilePresentationOverride> BoardTilePresentationOverrides =>
-            boardTilePresentationOverrides ?? Array.Empty<BoardTilePresentationOverride>();
-
         public IReadOnlyList<BoardTilePaintOverride> BoardTilePaintOverrides =>
             boardTilePaintOverrides ?? Array.Empty<BoardTilePaintOverride>();
-
-        public IReadOnlyList<BoardTileOverlayOverride> BoardTileOverlayOverrides =>
-            boardTileOverlayOverrides ?? Array.Empty<BoardTileOverlayOverride>();
 
         public TileFeaturePresentationCatalog TileFeaturePresentationCatalog => tileFeaturePresentationCatalog;
 
@@ -112,20 +77,10 @@ namespace Game.Feature.Stages
         public IReadOnlyList<StageWorldGuideInstruction> WorldGuideInstructions =>
             worldGuideInstructions ?? Array.Empty<StageWorldGuideInstruction>();
 
-        public string ResultTitle => resultTitle ?? string.Empty;
-
-        public string ResultSummaryText => resultSummaryText ?? string.Empty;
-
-        public string ResultDetailText => resultDetailText ?? string.Empty;
-
-        public string ResultContinueLabel => resultContinueLabel ?? string.Empty;
-
         public void ApplyResolvedData(StagePresentationResolvedData value)
         {
             var resolvedData = value ?? StagePresentationAssembler.EmptyResolvedData;
             displayName = resolvedData.DisplayName;
-            summaryText = resolvedData.SummaryText;
-            previewSprite = resolvedData.PreviewSprite;
             backgroundPrefab = resolvedData.BackgroundPrefab;
             enemyPresentationCatalog = resolvedData.EnemyPresentationCatalog;
             enemyPresentationArchetypeCatalog = resolvedData.EnemyPresentationArchetypeCatalog;
@@ -135,15 +90,9 @@ namespace Game.Feature.Stages
                 resolvedData.StaticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
             boardPresentationProfile = resolvedData.BoardPresentationProfile;
             boardTilePresentationCatalog = resolvedData.BoardTilePresentationCatalog;
-            boardTilePresentationOverrides =
-                StagePresentationAssembler.ToAuthoringBoardTilePresentationOverrides(
-                    resolvedData.BoardTilePresentationOverrides);
             boardTilePaintOverrides =
                 StagePresentationAssembler.ToAuthoringBoardTilePaintOverrides(
                     resolvedData.BoardTilePaintOverrides);
-            boardTileOverlayOverrides =
-                StagePresentationAssembler.ToAuthoringBoardTileOverlayOverrides(
-                    resolvedData.BoardTileOverlayOverrides);
             tileFeaturePresentationCatalog = resolvedData.TileFeaturePresentationCatalog;
             tileFeaturePresentationBindings =
                 StagePresentationAssembler.ToAuthoringBindings(resolvedData.TileFeatureBindings);
@@ -151,10 +100,6 @@ namespace Game.Feature.Stages
             worldGuideInstructions =
                 StagePresentationAssembler.ToAuthoringWorldGuideInstructions(
                     resolvedData.WorldGuideInstructions);
-            resultTitle = resolvedData.ResultTitle;
-            resultSummaryText = resolvedData.ResultSummaryText;
-            resultDetailText = resolvedData.ResultDetailText;
-            resultContinueLabel = resolvedData.ResultContinueLabel;
         }
     }
 }

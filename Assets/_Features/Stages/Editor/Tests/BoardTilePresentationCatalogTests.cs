@@ -71,6 +71,74 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void StageCatalogValidator_AllowsSingleGenericDefaultWithoutRoleDefaults()
+        {
+            var prefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            prefab.name = "GenericDefaultTilePrefab";
+            var catalog = CreateCatalog(
+                Entry("board.generic.default", BoardTileVisualRole.GenericDefault, prefab, null, isDefault: true));
+            var stageEntry = CreateStageEntry(CreatePresentation(catalog));
+
+            try
+            {
+                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
+
+                AssertNoBoardTileCatalogIssues(report);
+            }
+            finally
+            {
+                DestroyObjects(stageEntry.PresentationDefinition, stageEntry, catalog, prefab);
+            }
+        }
+
+        [Test]
+        public void StageCatalogValidator_RejectsMissingGenericDefault()
+        {
+            var prefab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            prefab.name = "RoleDefaultOnlyTilePrefab";
+            var catalog = CreateCatalog(
+                Entry("bottom", BoardTileVisualRole.ActiveBottom, prefab, null, isDefault: true));
+            var stageEntry = CreateStageEntry(CreatePresentation(catalog));
+
+            try
+            {
+                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
+
+                AssertHasCode(report, "presentation.board-tile.catalog.default-generic-missing");
+                Assert.That(
+                    report.Issues.Any(issue =>
+                        issue.Code == "presentation.board-tile.catalog.default-active-bottom-missing" ||
+                        issue.Code == "presentation.board-tile.catalog.default-active-front-missing"),
+                    Is.False,
+                    FormatIssues(report));
+            }
+            finally
+            {
+                DestroyObjects(stageEntry.PresentationDefinition, stageEntry, catalog, prefab);
+            }
+        }
+
+        [Test]
+        public void StageCatalogValidator_RejectsGenericDefaultWithoutPrefab()
+        {
+            var material = CreateMaterial("GenericDefaultMaterialOnly");
+            var catalog = CreateCatalog(
+                Entry("board.generic.default", BoardTileVisualRole.GenericDefault, null, material, isDefault: true));
+            var stageEntry = CreateStageEntry(CreatePresentation(catalog));
+
+            try
+            {
+                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
+
+                AssertHasCode(report, "presentation.board-tile.catalog.default-generic-prefab-missing");
+            }
+            finally
+            {
+                DestroyObjects(stageEntry.PresentationDefinition, stageEntry, catalog, material);
+            }
+        }
+
+        [Test]
         public void BoardTilePresentationCatalog_TryGetDefaultEntry_UsesRole()
         {
             var material = CreateMaterial("RoleDefaultMaterial");
@@ -139,66 +207,6 @@ namespace Game.Feature.Stages.Editor.Tests
             finally
             {
                 DestroyObjects(presentation, catalog);
-            }
-        }
-
-        [Test]
-        public void StagePresentationDefinition_BoardTileOverrides_DefaultsToEmpty()
-        {
-            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-
-            try
-            {
-                Assert.That(presentation.BoardTilePresentationOverrides, Is.Empty);
-            }
-            finally
-            {
-                DestroyObjects(presentation);
-            }
-        }
-
-        [Test]
-        public void StagePresentationAssembler_PreservesBoardTileOverrides()
-        {
-            var catalog = CreateCatalog();
-            var source = CreatePresentation(
-                catalog,
-                new BoardTilePresentationOverride(new SurfaceCell(FaceId.Floor, 0, 0), "cell-key"));
-
-            try
-            {
-                var resolved = StagePresentationAssembler.Resolve(source);
-
-                Assert.That(resolved.BoardTilePresentationOverrides.Count, Is.EqualTo(1));
-                Assert.That(resolved.BoardTilePresentationOverrides[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-                Assert.That(resolved.BoardTilePresentationOverrides[0].PresentationKey, Is.EqualTo("cell-key"));
-            }
-            finally
-            {
-                DestroyObjects(source, catalog);
-            }
-        }
-
-        [Test]
-        public void StagePresentationDefinition_ApplyResolvedData_PreservesBoardTileOverrides()
-        {
-            var catalog = CreateCatalog();
-            var source = CreatePresentation(
-                catalog,
-                new BoardTilePresentationOverride(new SurfaceCell(FaceId.Front, 1, 0), "front-key"));
-            var copy = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-
-            try
-            {
-                copy.ApplyResolvedData(StagePresentationAssembler.Resolve(source));
-
-                Assert.That(copy.BoardTilePresentationOverrides.Count, Is.EqualTo(1));
-                Assert.That(copy.BoardTilePresentationOverrides[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
-                Assert.That(copy.BoardTilePresentationOverrides[0].PresentationKey, Is.EqualTo("front-key"));
-            }
-            finally
-            {
-                DestroyObjects(source, copy, catalog);
             }
         }
 
@@ -378,315 +386,6 @@ namespace Game.Feature.Stages.Editor.Tests
             }
         }
 
-        [Test]
-        public void StageCatalogValidator_ReportsDuplicateBoardTileOverrideCell()
-        {
-            var material = CreateMaterial("DuplicateOverrideMaterial");
-            var catalog = CreateCatalog(Entry("cell-key", BoardTileVisualRole.ActiveBottom, null, material));
-            var presentation = CreatePresentation(
-                catalog,
-                new BoardTilePresentationOverride(new SurfaceCell(FaceId.Floor, 0, 0), "cell-key"),
-                new BoardTilePresentationOverride(new SurfaceCell(FaceId.Floor, 0, 0), "cell-key"));
-            var stageEntry = CreateStageEntry(presentation, CreateStageDefinition());
-
-            try
-            {
-                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
-
-                AssertHasCode(report, "presentation.board-tile.override-cell-duplicate");
-            }
-            finally
-            {
-                DestroyObjects(stageEntry.GameplayDefinition, presentation, stageEntry, catalog, material);
-            }
-        }
-
-        [Test]
-        public void StageCatalogValidator_ReportsBoardTileOverrideOutsideBounds()
-        {
-            var material = CreateMaterial("OutsideBoundsOverrideMaterial");
-            var catalog = CreateCatalog(Entry("cell-key", BoardTileVisualRole.ActiveBottom, null, material));
-            var presentation = CreatePresentation(
-                catalog,
-                new BoardTilePresentationOverride(new SurfaceCell(FaceId.Floor, 2, 0), "cell-key"));
-            var stageEntry = CreateStageEntry(presentation, CreateStageDefinition());
-
-            try
-            {
-                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
-
-                AssertHasCode(report, "presentation.board-tile.override-cell-outside-bounds");
-            }
-            finally
-            {
-                DestroyObjects(stageEntry.GameplayDefinition, presentation, stageEntry, catalog, material);
-            }
-        }
-
-        [Test]
-        public void StageCatalogValidator_ReportsBoardTileOverrideMissingCatalog()
-        {
-            var presentation = CreatePresentation(
-                null,
-                new BoardTilePresentationOverride(new SurfaceCell(FaceId.Floor, 0, 0), "cell-key"));
-            var stageEntry = CreateStageEntry(presentation, CreateStageDefinition());
-
-            try
-            {
-                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
-
-                AssertHasCode(report, "presentation.board-tile.override-catalog-missing");
-            }
-            finally
-            {
-                DestroyObjects(stageEntry.GameplayDefinition, presentation, stageEntry);
-            }
-        }
-
-        [Test]
-        public void StageCatalogValidator_ReportsBoardTileOverrideMissingKey()
-        {
-            var material = CreateMaterial("MissingKeyOverrideMaterial");
-            var catalog = CreateCatalog(Entry("known-key", BoardTileVisualRole.ActiveBottom, null, material));
-            var presentation = CreatePresentation(
-                catalog,
-                new BoardTilePresentationOverride(new SurfaceCell(FaceId.Floor, 0, 0), "missing-key"));
-            var stageEntry = CreateStageEntry(presentation, CreateStageDefinition());
-
-            try
-            {
-                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
-
-                AssertHasCode(report, "presentation.board-tile.override-key-missing");
-            }
-            finally
-            {
-                DestroyObjects(stageEntry.GameplayDefinition, presentation, stageEntry, catalog, material);
-            }
-        }
-
-        [Test]
-        public void StageCatalogValidator_AllowsBoardTileOverrideWithValidCatalogEntry()
-        {
-            var material = CreateMaterial("ValidOverrideMaterial");
-            var catalog = CreateCatalog(Entry("cell-key", BoardTileVisualRole.ActiveBottom, null, material));
-            var presentation = CreatePresentation(
-                catalog,
-                new BoardTilePresentationOverride(new SurfaceCell(FaceId.Floor, 0, 0), "cell-key"));
-            var stageEntry = CreateStageEntry(presentation, CreateStageDefinition());
-
-            try
-            {
-                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
-
-                AssertNoBoardTileOverrideErrors(report);
-            }
-            finally
-            {
-                DestroyObjects(stageEntry.GameplayDefinition, presentation, stageEntry, catalog, material);
-            }
-        }
-
-        [Test]
-        public void BoardTileOverlayCatalog_TryGetEntry_UsesNormalizedKey()
-        {
-            var catalog = CreateOverlayCatalog(
-                OverlayEntry(" guide ", BoardTileOverlayLayer.Guide, Color.yellow, 0.4f, 10));
-
-            try
-            {
-                Assert.That(catalog.TryGetEntry("guide", out var entry), Is.True);
-                Assert.That(entry.OverlayKey, Is.EqualTo("guide"));
-                Assert.That(entry.Layer, Is.EqualTo(BoardTileOverlayLayer.Guide));
-                Assert.That(entry.Order, Is.EqualTo(10));
-            }
-            finally
-            {
-                DestroyObjects(catalog);
-            }
-        }
-
-        [Test]
-        public void StagePresentationDefinition_BoardTileOverlayOverrides_DefaultsToEmpty()
-        {
-            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-
-            try
-            {
-                Assert.That(presentation.BoardTileOverlayCatalog, Is.Null);
-                Assert.That(presentation.BoardTileOverlayOverrides, Is.Empty);
-            }
-            finally
-            {
-                DestroyObjects(presentation);
-            }
-        }
-
-        [Test]
-        public void StagePresentationAssembler_PreservesBoardTileOverlayCatalogAndOverrides()
-        {
-            var catalog = CreateOverlayCatalog(
-                OverlayEntry("guide", BoardTileOverlayLayer.Guide, Color.yellow, 0.4f, 10));
-            var profile = CreateBoardPresentationProfile(catalog);
-            var source = CreateOverlayPresentation(
-                profile,
-                new BoardTileOverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "guide"));
-
-            try
-            {
-                var resolved = StagePresentationAssembler.Resolve(source);
-
-                Assert.That(resolved.BoardTileOverlayCatalog, Is.SameAs(catalog));
-                Assert.That(resolved.BoardTileOverlayOverrides.Count, Is.EqualTo(1));
-                Assert.That(resolved.BoardTileOverlayOverrides[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-                Assert.That(resolved.BoardTileOverlayOverrides[0].OverlayKey, Is.EqualTo("guide"));
-            }
-            finally
-            {
-                DestroyObjects(source, profile, catalog);
-            }
-        }
-
-        [Test]
-        public void StagePresentationDefinition_ApplyResolvedData_PreservesBoardTileOverlayOverrides()
-        {
-            var catalog = CreateOverlayCatalog(
-                OverlayEntry("danger", BoardTileOverlayLayer.Danger, Color.red, 0.7f, 5));
-            var profile = CreateBoardPresentationProfile(catalog);
-            var source = CreateOverlayPresentation(
-                profile,
-                new BoardTileOverlayOverride(new SurfaceCell(FaceId.Front, 1, 0), "danger"));
-            var copy = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-
-            try
-            {
-                copy.ApplyResolvedData(StagePresentationAssembler.Resolve(source));
-
-                Assert.That(copy.BoardPresentationProfile, Is.SameAs(profile));
-                Assert.That(copy.BoardTileOverlayCatalog, Is.SameAs(catalog));
-                Assert.That(copy.BoardTileOverlayOverrides.Count, Is.EqualTo(1));
-                Assert.That(copy.BoardTileOverlayOverrides[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
-                Assert.That(copy.BoardTileOverlayOverrides[0].OverlayKey, Is.EqualTo("danger"));
-            }
-            finally
-            {
-                DestroyObjects(source, copy, profile, catalog);
-            }
-        }
-
-        [Test]
-        public void GameplaySceneHostConfiguration_CarriesBoardTileOverlayData()
-        {
-            var catalog = CreateOverlayCatalog();
-            var overlayOverride = new BoardTileOverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "guide");
-            var configuration = new GameplaySceneHostConfiguration
-            {
-                BoardTileOverlayCatalog = catalog,
-                BoardTileOverlayOverrides = new[] { overlayOverride },
-            };
-
-            try
-            {
-                Assert.That(configuration.BoardTileOverlayCatalog, Is.SameAs(catalog));
-                Assert.That(configuration.BoardTileOverlayOverrides.Count, Is.EqualTo(1));
-                Assert.That(configuration.BoardTileOverlayOverrides[0], Is.SameAs(overlayOverride));
-            }
-            finally
-            {
-                DestroyObjects(catalog);
-            }
-        }
-
-        [Test]
-        public void StageCatalogValidator_ReportsDuplicateBoardTileOverlayCellAndKey()
-        {
-            var catalog = CreateOverlayCatalog(
-                OverlayEntry("guide", BoardTileOverlayLayer.Guide, Color.yellow, 0.4f, 10));
-            var profile = CreateBoardPresentationProfile(catalog);
-            var presentation = CreateOverlayPresentation(
-                profile,
-                new BoardTileOverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "guide"),
-                new BoardTileOverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), " guide "));
-            var stageEntry = CreateStageEntry(presentation, CreateStageDefinition());
-
-            try
-            {
-                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
-
-                AssertHasCode(report, "presentation.board-tile-overlay.override-cell-key-duplicate");
-            }
-            finally
-            {
-                DestroyObjects(stageEntry.GameplayDefinition, presentation, stageEntry, profile, catalog);
-            }
-        }
-
-        [Test]
-        public void StageCatalogValidator_AllowsDifferentBoardTileOverlayKeysOnSameCell()
-        {
-            var catalog = CreateOverlayCatalog(
-                OverlayEntry("guide", BoardTileOverlayLayer.Guide, Color.yellow, 0.4f, 10),
-                OverlayEntry("danger", BoardTileOverlayLayer.Danger, Color.red, 0.7f, 5));
-            var profile = CreateBoardPresentationProfile(catalog);
-            var presentation = CreateOverlayPresentation(
-                profile,
-                new BoardTileOverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "guide"),
-                new BoardTileOverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "danger"));
-            var stageEntry = CreateStageEntry(presentation, CreateStageDefinition());
-
-            try
-            {
-                var report = new StageCatalogValidator().ValidateEntries(new[] { stageEntry }, null);
-
-                AssertNoBoardTileOverlayErrors(report);
-            }
-            finally
-            {
-                DestroyObjects(stageEntry.GameplayDefinition, presentation, stageEntry, profile, catalog);
-            }
-        }
-
-        [Test]
-        public void StageCatalogValidator_ReportsBoardTileOverlayMissingCatalogAndKey()
-        {
-            var missingCatalogPresentation = CreateOverlayPresentation(
-                null,
-                new BoardTileOverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "guide"));
-            var missingCatalogEntry = CreateStageEntry(missingCatalogPresentation, CreateStageDefinition());
-            var catalog = CreateOverlayCatalog(
-                OverlayEntry("known", BoardTileOverlayLayer.Guide, Color.yellow, 0.4f, 10));
-            var profile = CreateBoardPresentationProfile(catalog);
-            var missingKeyPresentation = CreateOverlayPresentation(
-                profile,
-                new BoardTileOverlayOverride(new SurfaceCell(FaceId.Floor, 0, 0), "missing"));
-            var missingKeyEntry = CreateStageEntry(missingKeyPresentation, CreateStageDefinition());
-
-            try
-            {
-                var missingCatalogReport = new StageCatalogValidator().ValidateEntries(
-                    new[] { missingCatalogEntry },
-                    null);
-                var missingKeyReport = new StageCatalogValidator().ValidateEntries(
-                    new[] { missingKeyEntry },
-                    null);
-
-                AssertHasCode(missingCatalogReport, "presentation.board-tile-overlay.override-catalog-missing");
-                AssertHasCode(missingKeyReport, "presentation.board-tile-overlay.override-key-missing");
-            }
-            finally
-            {
-                DestroyObjects(
-                    missingCatalogEntry.GameplayDefinition,
-                    missingKeyEntry.GameplayDefinition,
-                    missingCatalogPresentation,
-                    missingKeyPresentation,
-                    missingCatalogEntry,
-                    missingKeyEntry,
-                    profile,
-                    catalog);
-            }
-        }
-
         private static BoardTilePresentationCatalogEntry Entry(
             string presentationKey,
             BoardTileVisualRole role,
@@ -713,25 +412,11 @@ namespace Game.Feature.Stages.Editor.Tests
             return catalog;
         }
 
-        private static StagePresentationDefinition CreatePresentation(
-            BoardTilePresentationCatalog catalog,
-            params BoardTilePresentationOverride[] overrides)
+        private static StagePresentationDefinition CreatePresentation(BoardTilePresentationCatalog catalog)
         {
             var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
             presentation.name = "BoardTileCatalogPresentation";
             SetPrivateField(presentation, "boardTilePresentationCatalog", catalog);
-            SetPrivateField(presentation, "boardTilePresentationOverrides", overrides ?? Array.Empty<BoardTilePresentationOverride>());
-            return presentation;
-        }
-
-        private static StagePresentationDefinition CreateOverlayPresentation(
-            BoardPresentationProfile profile,
-            params BoardTileOverlayOverride[] overrides)
-        {
-            var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-            presentation.name = "BoardTileOverlayPresentation";
-            SetPrivateField(presentation, "boardPresentationProfile", profile);
-            SetPrivateField(presentation, "boardTileOverlayOverrides", overrides ?? Array.Empty<BoardTileOverlayOverride>());
             return presentation;
         }
 
@@ -760,40 +445,6 @@ namespace Game.Feature.Stages.Editor.Tests
             var catalog = ScriptableObject.CreateInstance<StageWorldGuideCatalog>();
             catalog.name = "WorldGuideCatalogTests";
             SetPrivateField(catalog, "entries", entries ?? Array.Empty<StageWorldGuideCatalogEntry>());
-            return catalog;
-        }
-
-        private static BoardPresentationProfile CreateBoardPresentationProfile(BoardTileOverlayCatalog overlayCatalog)
-        {
-            var profile = ScriptableObject.CreateInstance<BoardPresentationProfile>();
-            profile.name = "BoardTileOverlayProfile";
-            SetPrivateField(profile, "defaultBoardTileOverlayCatalog", overlayCatalog);
-            return profile;
-        }
-
-        private static BoardTileOverlayCatalogEntry OverlayEntry(
-            string overlayKey,
-            BoardTileOverlayLayer layer,
-            Color tint,
-            float alpha,
-            int order)
-        {
-            var entry = new BoardTileOverlayCatalogEntry();
-            SetPrivateField(entry, "overlayKey", overlayKey);
-            SetPrivateField(entry, "displayName", overlayKey);
-            SetPrivateField(entry, "layer", layer);
-            SetPrivateField(entry, "tint", tint);
-            SetPrivateField(entry, "alpha", alpha);
-            SetPrivateField(entry, "order", order);
-            return entry;
-        }
-
-        private static BoardTileOverlayCatalog CreateOverlayCatalog(
-            params BoardTileOverlayCatalogEntry[] entries)
-        {
-            var catalog = ScriptableObject.CreateInstance<BoardTileOverlayCatalog>();
-            catalog.name = "BoardTileOverlayCatalogTests";
-            SetPrivateField(catalog, "entries", entries ?? Array.Empty<BoardTileOverlayCatalogEntry>());
             return catalog;
         }
 
@@ -833,31 +484,24 @@ namespace Game.Feature.Stages.Editor.Tests
 
         private static void AssertHasCode(StageValidationReport report, string code)
         {
-            Assert.That(report.Issues.Any(issue => issue.Code == code), Is.True, $"Expected issue code '{code}'.");
+            Assert.That(report.Issues.Any(issue => issue.Code == code), Is.True, $"Expected issue code '{code}'.{Environment.NewLine}{FormatIssues(report)}");
         }
 
-        private static void AssertNoBoardTileOverrideErrors(StageValidationReport report)
+        private static void AssertNoBoardTileCatalogIssues(StageValidationReport report)
         {
-            var boardTileOverrideErrors = report.Issues
-                .Where(issue =>
-                    issue.Severity == StageValidationSeverity.Error &&
-                    issue.Code.StartsWith("presentation.board-tile.override-", StringComparison.Ordinal))
+            var boardTileCatalogIssues = report.Issues
+                .Where(issue => issue.Code.StartsWith("presentation.board-tile.catalog.", StringComparison.Ordinal))
                 .Select(issue => $"{issue.Code}: {issue.Message}")
                 .ToArray();
 
-            Assert.That(boardTileOverrideErrors, Is.Empty);
+            Assert.That(boardTileCatalogIssues, Is.Empty);
         }
 
-        private static void AssertNoBoardTileOverlayErrors(StageValidationReport report)
+        private static string FormatIssues(StageValidationReport report)
         {
-            var boardTileOverlayErrors = report.Issues
-                .Where(issue =>
-                    issue.Severity == StageValidationSeverity.Error &&
-                    issue.Code.StartsWith("presentation.board-tile-overlay.", StringComparison.Ordinal))
-                .Select(issue => $"{issue.Code}: {issue.Message}")
-                .ToArray();
-
-            Assert.That(boardTileOverlayErrors, Is.Empty);
+            return string.Join(
+                Environment.NewLine,
+                report.Issues.Select(issue => $"[{issue.Severity}] {issue.Code}: {issue.Message}"));
         }
 
         private static void SetPrivateField(object target, string fieldName, object value)

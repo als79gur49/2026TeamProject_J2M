@@ -99,13 +99,10 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.PresentationData.BoardPresentationProfile,
                 compositionData.PresentationData.BoardTilePresentationCatalog,
                 compositionData.PresentationData.BoardTileStyleCatalog,
-                compositionData.PresentationData.BoardTileOverlayCatalog,
                 compositionData.PresentationData.TileFeatureBindings,
                 compositionData.PresentationData.WorldGuideCatalog,
                 compositionData.PresentationData.WorldGuideInstructions,
-                compositionData.PresentationData.BoardTilePresentationOverrides,
                 compositionData.PresentationData.BoardTilePaintOverrides,
-                compositionData.PresentationData.BoardTileOverlayOverrides,
                 compositionData.PresentationData.SuppressedBaseTileCells);
         }
 

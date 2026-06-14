@@ -6709,8 +6709,6 @@ Marker;MedianMs;MeanMs;LowerQuartileMs;UpperQuartileMs;MaxMs;Count;CountPerFrame
 "Game.Feature.Stages.dll!Game.Feature.Stages::BoardPresentationProfile.get_DefaultBoardTileOverlayCatalog()";0.0005;0.00044;0.0003;0.0006;0.0006;113;7.0625;15;16
 "Game.Feature.Stages.dll!Game.Feature.Stages::StagePresentationDefinition.get_BoardTilePresentationOverrides()";0.0005;0.000467;0.0004;0.0005;0.0006;113;7.0625;15;16
 "Game.Feature.Stages.dll!Game.Feature.Stages::StagePresentationDefinition.get_BoardTileOverlayOverrides()";0.0005;0.00048;0.0004;0.0006;0.0008;113;7.0625;15;16
-"Game.Feature.Stages.dll!Game.Feature.Stages::StagePresentationDefinition.get_ResultTitle()";0.0005;0.00048;0.0004;0.0006;0.0007;113;7.0625;15;16
-"Game.Feature.Stages.dll!Game.Feature.Stages::StagePresentationDefinition.get_ResultDetailText()";0.0005;0.000433;0.0003;0.0005;0.0007;113;7.0625;15;16
 "Game.Feature.Gameplay.dll!Game.Feature.Gameplay.Objectives::StageObjectiveRuntimeDefinition.get_DisplayMetadata()";0.0005;0.000453;0.0004;0.0006;0.0007;113;7.0625;15;16
 "Game.Feature.Gameplay.dll!Game.Feature.Gameplay.Objectives::StageObjectiveDisplayMetadata.get_ObjectiveTitle()";0.0005;0.00044;0.0004;0.0005;0.0006;113;7.0625;15;16
 "mscorlib.dll!System::UIntPtr..ctor()";0.0005;0.000431;0.0003;0.0005;0.0007;129;8.0625;16;16
@@ -6987,8 +6985,6 @@ Marker;MedianMs;MeanMs;LowerQuartileMs;UpperQuartileMs;MaxMs;Count;CountPerFrame
 "Game.Feature.Stages.dll!Game.Feature.Stages::BoardPresentationProfile.get_DefaultBoardTileStyleCatalog()";0.0004;0.000347;0.0002;0.0004;0.0006;113;7.0625;15;16
 "Game.Feature.Stages.dll!Game.Feature.Stages::StagePresentationDefinition.get_TileFeaturePresentationCatalog()";0.0004;0.0004;0.0003;0.0005;0.0007;113;7.0625;15;16
 "Game.Feature.Stages.dll!Game.Feature.Stages::StagePresentationDefinition.get_TileFeaturePresentationBindings()";0.0004;0.000407;0.0002;0.0006;0.0007;113;7.0625;15;16
-"Game.Feature.Stages.dll!Game.Feature.Stages::StagePresentationDefinition.get_ResultSummaryText()";0.0004;0.000393;0.0003;0.0005;0.0007;113;7.0625;15;16
-"Game.Feature.Stages.dll!Game.Feature.Stages::StagePresentationDefinition.get_ResultContinueLabel()";0.0004;0.00044;0.0003;0.0005;0.0008;113;7.0625;15;16
 "Game.Feature.Gameplay.UIAccess.dll!Game.Feature.Gameplay.UIAccess.Queries::GameplayQueryFacade.get_Objectives()";0.0004;0.000393;0.0003;0.0004;0.0008;113;7.0625;15;16
 "Game.Feature.Gameplay.dll!Game.Feature.Gameplay.Objectives::StageObjectiveDisplayMetadata.get_ObjectiveSummary()";0.0004;0.000453;0.0003;0.0006;0.0007;113;7.0625;15;16
 "Game.Feature.Gameplay.dll!Game.Feature.Gameplay.Objectives::StageObjectiveDisplayMetadata.get_ConditionEntries()";0.0004;0.0004;0.0003;0.0005;0.0008;113;7.0625;15;16

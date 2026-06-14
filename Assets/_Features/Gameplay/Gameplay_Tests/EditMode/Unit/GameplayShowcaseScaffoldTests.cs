@@ -1072,11 +1072,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<EnemyPresentationBinding>(),
                     InitialStaticEntityPresentationCatalogOverride,
                     Array.Empty<StaticEntityPresentationBinding>(),
-                    null,
-                    null,
-                    null,
-                    null,
-                    Array.Empty<TileFeaturePresentationResolvedBinding>());
+                    boardPresentationProfile: null,
+                    boardTilePresentationCatalog: null,
+                    boardTileStyleCatalog: null,
+                    tileFeaturePresentationBindings: Array.Empty<TileFeaturePresentationResolvedBinding>());
             }
 
         }

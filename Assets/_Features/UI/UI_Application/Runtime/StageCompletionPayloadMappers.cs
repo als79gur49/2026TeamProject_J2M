@@ -14,7 +14,6 @@ namespace Game.Feature.UI.Application
             }
 
             return new StageResultScreenPayload(
-                string.IsNullOrWhiteSpace(readModel.ContinueLabel) ? "Continue" : readModel.ContinueLabel,
                 readModel.ContinueRequest,
                 readModel.RetryRequest,
                 readModel.NextStageRequest);

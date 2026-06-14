@@ -12,7 +12,7 @@ The highest-value residual candidates are:
 - `P1/P3`: `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` is now the canonical removed-fallback diagnostics field, not a Push/Flip runtime feature.
 - `P2`: the gameplay UI Push/Flip action command injection route was not wired to any production UI button/surface and is removed by current product policy. Settings/rebind Push/Flip UI remains active.
 - `P2`: Flip is keyboard-only by current product input policy; the existing Push controller binding remains authored.
-- `P2`: low-usage box capability combos exist only in `combined-gameplay-showcase`.
+- `P2`: low-usage box capability combos exist only in `stage-4-2`.
 - `P2`: `PlayerFlipInteractionDriver.cs` and `PlayerFlipInteractionDriver.cs.meta` had no production prefab/scene/asset GUID reference and are removed.
 - `P2`: removed action-audio moment names remain as documentation/governance residue only.
 
@@ -94,9 +94,9 @@ Box capability counts from `Assets/_Features/Stages/Content` authoring assets, f
 | `5` | Push+Item | 1 | showcase only |
 | `6` | Flip+Item | 1 | showcase only |
 | `7` | Push+Flip+Item | 1 | showcase only |
-| `9` | Push+Destroy | 30 | tutorial-scene 28, showcase 2 |
+| `9` | Push+Destroy | 30 | stage-0-1 28, showcase 2 |
 | `10` | Flip+Destroy | 0 | unused combo |
-| `11` | Push+Flip+Destroy | 6 | tutorial-scene 4, showcase 2 |
+| `11` | Push+Flip+Destroy | 6 | stage-0-1 4, showcase 2 |
 | `27` | Push+Flip+Destroy+JumpCrushable | 708 | broad campaign content |
 
 Low-usage combos are all showcase-only: `Flip`, `Push+Flip`, `Item`, `Push+Item`, `Flip+Item`, `Push+Flip+Item`. They should be product/content decisions before deleting rules. `Flip+Destroy` is a true zero-content combo and can be used to simplify docs/tests if no runtime branch explicitly depends on that exact combo.

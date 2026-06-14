@@ -437,7 +437,7 @@ namespace Game.Feature.Gameplay.Loop
             NoCandidateCell = 2,
         }
 
-        private enum LockNearbyBoxesSkipReason
+        private enum BoxInteractionLockSkipReason
         {
             SourceInvalid = 0,
             NoTargetBoxes = 1,
@@ -465,17 +465,6 @@ namespace Game.Feature.Gameplay.Loop
             for (var intentIndex = 0; intentIndex < triggerIntents.Count; intentIndex++)
             {
                 var triggerIntent = triggerIntents[intentIndex];
-                if (triggerIntent.EffectKind == EnemyUtilityEffectKind.LockNearbyBoxes)
-                {
-                    ResolveLockNearbyBoxes(
-                        projectedSnapshot,
-                        triggerIntent,
-                        tickIndex,
-                        plannedStatesByBoxEntityId,
-                        eventLogEntries);
-                    continue;
-                }
-
                 if (triggerIntent.EffectKind == EnemyUtilityEffectKind.GravityFieldAura)
                 {
                     ResolveGravityFieldAura(
@@ -591,63 +580,6 @@ namespace Game.Feature.Gameplay.Loop
             return new EnemyUtilityResolveResult(batch, eventLogEntries);
         }
 
-        private static void ResolveLockNearbyBoxes(
-            WorldSnapshot snapshot,
-            in EnemyUtilityTriggerIntent triggerIntent,
-            int tickIndex,
-            IDictionary<int, BoxInteractionLockState> plannedStatesByBoxEntityId,
-            List<string> eventLogEntries)
-        {
-            if (!TryGetValidSource(snapshot, triggerIntent.SourceEntityId, out var source))
-            {
-                AppendLockSkipEvent(eventLogEntries, triggerIntent, LockNearbyBoxesSkipReason.SourceInvalid, tickIndex);
-                return;
-            }
-
-            var targetEntityIds = new HashSet<int>();
-            var targetCellOffsets = BuildTargetOffsets(source.facing, triggerIntent.EffectRuntime.LockNearbyBoxes);
-            for (var offsetIndex = 0; offsetIndex < targetCellOffsets.Count; offsetIndex++)
-            {
-                var candidateCell = source.position + targetCellOffsets[offsetIndex];
-                if (!snapshot.IsInsideBoard(candidateCell) ||
-                    !TryResolveLockTargetBox(snapshot, candidateCell, out var box))
-                {
-                    continue;
-                }
-
-                targetEntityIds.Add(box.entityId);
-            }
-
-            if (targetEntityIds.Count == 0)
-            {
-                AppendLockSkipEvent(eventLogEntries, triggerIntent, LockNearbyBoxesSkipReason.NoTargetBoxes, tickIndex);
-                return;
-            }
-
-            var newExpiresTickExclusive = tickIndex + triggerIntent.EffectRuntime.LockNearbyBoxes.DurationTicks;
-            var newState = new BoxInteractionLockState(
-                triggerIntent.SourceEntityId,
-                triggerIntent.EffectIndex,
-                newExpiresTickExclusive,
-                triggerIntent.EffectRuntime.LockNearbyBoxes.BlocksPush,
-                triggerIntent.EffectRuntime.LockNearbyBoxes.BlocksFlip);
-            var orderedTargetEntityIds = new List<int>(targetEntityIds);
-            orderedTargetEntityIds.Sort();
-
-            for (var targetIndex = 0; targetIndex < orderedTargetEntityIds.Count; targetIndex++)
-            {
-                var boxEntityId = orderedTargetEntityIds[targetIndex];
-                var hasExistingPlannedState = plannedStatesByBoxEntityId.TryGetValue(boxEntityId, out var plannedState);
-                var hasExistingSnapshotState = snapshot.TryGetActiveBoxInteractionLockState(boxEntityId, tickIndex, out var existingState);
-                var mergedState = !hasExistingPlannedState && !hasExistingSnapshotState
-                    ? newState
-                    : MergeBoxInteractionLockStates(
-                        hasExistingPlannedState ? plannedState : existingState,
-                        newState);
-                plannedStatesByBoxEntityId[boxEntityId] = mergedState;
-            }
-        }
-
         private static void ResolveGravityFieldAura(
             WorldSnapshot snapshot,
             in EnemyUtilityTriggerIntent triggerIntent,
@@ -658,7 +590,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             if (!TryGetValidSource(snapshot, triggerIntent.SourceEntityId, out var source))
             {
-                AppendLockSkipEvent(eventLogEntries, triggerIntent, LockNearbyBoxesSkipReason.SourceInvalid, tickIndex);
+                AppendLockSkipEvent(eventLogEntries, triggerIntent, BoxInteractionLockSkipReason.SourceInvalid, tickIndex);
                 return;
             }
 
@@ -682,7 +614,7 @@ namespace Game.Feature.Gameplay.Loop
 
             if (targetEntityIds.Count == 0)
             {
-                AppendLockSkipEvent(eventLogEntries, triggerIntent, LockNearbyBoxesSkipReason.NoTargetBoxes, tickIndex);
+                AppendLockSkipEvent(eventLogEntries, triggerIntent, BoxInteractionLockSkipReason.NoTargetBoxes, tickIndex);
                 return;
             }
 
@@ -1043,62 +975,6 @@ namespace Game.Feature.Gameplay.Loop
             };
         }
 
-        private static List<Vector2Int> BuildTargetOffsets(
-            Direction facing,
-            in LockNearbyBoxesRuntime lockRuntime)
-        {
-            switch (lockRuntime.TargetPattern)
-            {
-                case BoxLockTargetPattern.OrthogonalAdjacent4:
-                    return BuildCandidateOffsets(facing);
-
-                case BoxLockTargetPattern.ManhattanRadius:
-                    return BuildManhattanOffsets(lockRuntime.Radius, lockRuntime.IncludeSourceCell);
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(lockRuntime), lockRuntime.TargetPattern, "Unsupported lock nearby boxes target pattern.");
-            }
-        }
-
-        private static List<Vector2Int> BuildManhattanOffsets(int radius, bool includeSourceCell)
-        {
-            var offsets = new List<Vector2Int>();
-            for (var dx = -radius; dx <= radius; dx++)
-            {
-                for (var dy = -radius; dy <= radius; dy++)
-                {
-                    var distance = Mathf.Abs(dx) + Mathf.Abs(dy);
-                    if (distance > radius ||
-                        (!includeSourceCell && dx == 0 && dy == 0))
-                    {
-                        continue;
-                    }
-
-                    offsets.Add(new Vector2Int(dx, dy));
-                }
-            }
-
-            offsets.Sort(CompareManhattanOffsets);
-            return offsets;
-        }
-
-        private static int CompareManhattanOffsets(Vector2Int left, Vector2Int right)
-        {
-            var distanceComparison = (Mathf.Abs(left.x) + Mathf.Abs(left.y)).CompareTo(Mathf.Abs(right.x) + Mathf.Abs(right.y));
-            if (distanceComparison != 0)
-            {
-                return distanceComparison;
-            }
-
-            var yComparison = right.y.CompareTo(left.y);
-            if (yComparison != 0)
-            {
-                return yComparison;
-            }
-
-            return left.x.CompareTo(right.x);
-        }
-
         private static List<Vector2Int> BuildSquareOffsets(int radius)
         {
             var offsets = new List<Vector2Int>();
@@ -1292,7 +1168,7 @@ namespace Game.Feature.Gameplay.Loop
         private static void AppendLockSkipEvent(
             List<string> eventLogEntries,
             in EnemyUtilityTriggerIntent triggerIntent,
-            LockNearbyBoxesSkipReason reason,
+            BoxInteractionLockSkipReason reason,
             int tickIndex)
         {
             eventLogEntries.Add(

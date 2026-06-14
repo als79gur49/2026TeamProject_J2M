@@ -362,14 +362,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
             SeedActiveCharge(chargeWorld, remainingActiveSteps: 2);
 
-            var baselineHash = GameplayCompositionRoot.CreateTickPipeline(baselineWorld, Array.Empty<IEntityLogic>())
+            var profile = LoadRocketFaceProfile();
+            var baselineHash = CreatePipeline(baselineWorld, profile)
                 .RunTick(new TickInput(1))
                 .DeterminismHash;
-            var chargeHash = GameplayCompositionRoot.CreateTickPipeline(chargeWorld, Array.Empty<IEntityLogic>())
+            var chargeHash = CreatePipeline(chargeWorld, profile)
                 .RunTick(new TickInput(1))
                 .DeterminismHash;
 
-            Assert.That(LoadRocketFaceProfile().CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond).Brain.StateResolver.Kind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
+            Assert.That(profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond).Brain.StateResolver.Kind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
             Assert.That(baselineHash, Is.Not.Empty);
             Assert.That(chargeHash, Is.Not.Empty);
             Assert.That(chargeHash, Is.Not.EqualTo(baselineHash));

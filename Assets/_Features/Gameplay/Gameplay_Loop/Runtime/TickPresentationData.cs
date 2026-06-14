@@ -1914,7 +1914,7 @@ namespace Game.Feature.Gameplay.Loop
     public enum EnemyUtilityPresentationKind
     {
         None = 0,
-        LockNearbyBoxes = 1,
+        RetiredLockNearbyBoxes = 1,
         GravityFieldAura = 2,
         SummonMinion = 3,
     }

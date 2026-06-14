@@ -261,10 +261,6 @@ namespace Game.Feature.UI.Tests
 
             presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
             SetPrivateField(presentationDefinition, "displayName", "UI Flow Clear");
-            SetPrivateField(presentationDefinition, "resultTitle", "Clear Confirmed");
-            SetPrivateField(presentationDefinition, "resultSummaryText", "Mapped from minimal stage completion.");
-            SetPrivateField(presentationDefinition, "resultDetailText", "Stage result uses the minimal completion pipeline.");
-            SetPrivateField(presentationDefinition, "resultContinueLabel", "Continue");
 
             entry.AssignPresentationDefinition(presentationDefinition);
             return entry;

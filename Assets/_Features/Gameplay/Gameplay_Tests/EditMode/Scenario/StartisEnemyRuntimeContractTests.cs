@@ -474,12 +474,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
 
-            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
-                new IEntityLogic[]
-                {
-                    new EnemyLogic(EnemyId, profile),
-                },
+                Array.Empty<IEntityLogic>(),
                 timingProfile,
                 playerTiming,
                 tileFeatureDefinitions: tileFeatureDefinitions);

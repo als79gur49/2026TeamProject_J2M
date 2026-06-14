@@ -85,6 +85,7 @@ This file is the external current-structure source for the completed UI cleanup 
 - Do not modify prefabs or catalogs for this source regeneration.
 - Do not change `DemoStageControl` runtime behavior.
 - Do not simplify or reroute StageResult, Pause/Confirm popup, settings, audio, display, or UI bridge paths.
+- Do not restore StageResult result title/summary/detail schema or title/detail labels without a new product decision.
 - Do not restore Settings tooltip on/off or large text on/off toggles without a separate product decision.
 - Do not revive `ActionBar`, diagnostics runtime UI, or `SceneTransitionOverlayView`.
 - Do not restore `Help` or `Inventory` as current gameplay screens.

@@ -512,8 +512,7 @@ namespace Game.Feature.Gameplay.Host
 
         private static bool SupportsUtilityWindupAnimationTrack(EnemyUtilityPresentationKind kind)
         {
-            return kind == EnemyUtilityPresentationKind.LockNearbyBoxes ||
-                   kind == EnemyUtilityPresentationKind.GravityFieldAura;
+            return kind == EnemyUtilityPresentationKind.GravityFieldAura;
         }
 
         private static bool ContainsEntityId(IReadOnlyCollection<int> entityIds, int entityId)
