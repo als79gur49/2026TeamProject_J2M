@@ -1,7 +1,6 @@
 #if UNITY_EDITOR
 using System.IO;
 using Game.Feature.Stages;
-using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -23,33 +22,11 @@ namespace Game.Feature.UI.Composition
             Directory.CreateDirectory(TransitionRoot);
             Directory.CreateDirectory(ContentsRoot);
 
-            var generic = CreateContentPrefab<GenericLoadingOverlayContentView>(
-                "GenericLoadingOverlayContent",
-                "Loading",
-                "Preparing the scene.");
-            var chanceLost = CreateContentPrefab<ChanceLostOverlayContentView>(
-                "ChanceLostOverlayContent",
-                "Chance Lost",
-                "Retrying from your current stage.");
-            var stageClear = CreateContentPrefab<StageClearOverlayContentView>(
-                "StageClearOverlayContent",
-                "Loading Next Stage",
-                "Preparing the next stage.");
-            var manualRestart = CreateContentPrefab<ManualRestartOverlayContentView>(
-                "ManualRestartOverlayContent",
-                "Retrying Stage",
-                "Restarting the current stage.");
-            var levelFailedRestart = CreateContentPrefab<LevelFailedRestartOverlayContentView>(
-                "LevelFailedRestartOverlayContent",
-                "Restarting Level",
-                "Returning to the first stage in this level.");
-            var mainMenuReturn = CreateContentPrefab<MainMenuReturnOverlayContentView>(
-                "MainMenuReturnOverlayContent",
-                "Returning to Main",
-                "Preparing the main menu.");
+            var generic = CreateContentPrefab<GenericLoadingOverlayContentView>("GenericLoadingOverlayContent");
+            var chanceLost = CreateContentPrefab<ChanceLostOverlayContentView>("ChanceLostOverlayContent");
 
             CreateShellPrefab();
-            CreateCatalog(generic, chanceLost, stageClear, manualRestart, levelFailedRestart, mainMenuReturn);
+            CreateCatalog(generic, chanceLost);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -111,7 +88,7 @@ namespace Game.Feature.UI.Composition
             }
         }
 
-        private static T CreateContentPrefab<T>(string name, string title, string message)
+        private static T CreateContentPrefab<T>(string name)
             where T : SceneTransitionOverlayContentView
         {
             var root = new GameObject(name, typeof(RectTransform), typeof(CanvasGroup));
@@ -130,61 +107,15 @@ namespace Game.Feature.UI.Composition
                     Vector2.zero);
                 panel.GetComponent<Image>().color = new Color(0.08f, 0.10f, 0.13f, 0.96f);
 
-                var titleText = UiCanvasElementFactory.CreateLabel("TitleText_TMP", panel, new Vector2(40f, -30f), new Vector2(620f, 44f), TextAnchor.MiddleCenter, 28);
-                titleText.text = title;
-                var messageText = UiCanvasElementFactory.CreateLabel("MessageText_TMP", panel, new Vector2(40f, -82f), new Vector2(620f, 58f), TextAnchor.MiddleCenter, 17);
-                messageText.text = message;
-
-                var progressRoot = new GameObject("ProgressRoot", typeof(RectTransform));
-                progressRoot.transform.SetParent(panel, false);
-                var progressRootRect = progressRoot.GetComponent<RectTransform>();
-                progressRootRect.anchorMin = new Vector2(0.5f, 0f);
-                progressRootRect.anchorMax = new Vector2(0.5f, 0f);
-                progressRootRect.pivot = new Vector2(0.5f, 0f);
-                progressRootRect.sizeDelta = new Vector2(560f, 42f);
-                progressRootRect.anchoredPosition = new Vector2(0f, 34f);
-
-                var progressBack = new GameObject("ProgressBack", typeof(RectTransform), typeof(Image));
-                progressBack.transform.SetParent(progressRoot.transform, false);
-                var progressBackRect = progressBack.GetComponent<RectTransform>();
-                progressBackRect.anchorMin = new Vector2(0f, 0.5f);
-                progressBackRect.anchorMax = new Vector2(1f, 0.5f);
-                progressBackRect.pivot = new Vector2(0.5f, 0.5f);
-                progressBackRect.sizeDelta = new Vector2(0f, 12f);
-                progressBackRect.anchoredPosition = new Vector2(0f, 8f);
-                progressBack.GetComponent<Image>().color = new Color(0.21f, 0.24f, 0.29f, 1f);
-
-                var progressFillObject = new GameObject("ProgressFill", typeof(RectTransform), typeof(Image));
-                progressFillObject.transform.SetParent(progressBack.transform, false);
-                var progressFill = progressFillObject.GetComponent<RectTransform>();
-                progressFill.anchorMin = Vector2.zero;
-                progressFill.anchorMax = new Vector2(0f, 1f);
-                progressFill.pivot = new Vector2(0f, 0.5f);
-                progressFill.sizeDelta = Vector2.zero;
-                progressFill.anchoredPosition = Vector2.zero;
-                progressFillObject.GetComponent<Image>().color = new Color(0.66f, 0.86f, 0.95f, 1f);
-
-                var progressText = UiCanvasElementFactory.CreateLabel("ProgressText_TMP", progressRootRect, new Vector2(0f, -14f), new Vector2(560f, 22f), TextAnchor.MiddleCenter, 14);
+                var progressText = UiCanvasElementFactory.CreateLabel("ProgressText_TMP", panel, new Vector2(40f, -132f), new Vector2(620f, 24f), TextAnchor.MiddleCenter, 14);
 
                 var serialized = new SerializedObject(view);
                 serialized.FindProperty("_rootGroup").objectReferenceValue = root.GetComponent<CanvasGroup>();
-                serialized.FindProperty("_titleText").objectReferenceValue = titleText;
-                serialized.FindProperty("_messageText").objectReferenceValue = messageText;
-                serialized.FindProperty("_progressRoot").objectReferenceValue = progressRoot;
-                serialized.FindProperty("_progressFill").objectReferenceValue = progressFill;
                 serialized.FindProperty("_progressText").objectReferenceValue = progressText;
 
                 if (view is ChanceLostOverlayContentView)
                 {
-                    var previous = UiCanvasElementFactory.CreateLabel("PreviousChanceText_TMP", panel, new Vector2(140f, -152f), new Vector2(100f, 36f), TextAnchor.MiddleCenter, 24);
-                    var current = UiCanvasElementFactory.CreateLabel("CurrentChanceText_TMP", panel, new Vector2(300f, -152f), new Vector2(100f, 36f), TextAnchor.MiddleCenter, 24);
-                    var total = UiCanvasElementFactory.CreateLabel("TotalChanceText_TMP", panel, new Vector2(400f, -152f), new Vector2(100f, 36f), TextAnchor.MiddleCenter, 18);
-                    var deaths = UiCanvasElementFactory.CreateLabel("DeathCountText_TMP", panel, new Vector2(40f, -190f), new Vector2(620f, 28f), TextAnchor.MiddleCenter, 16);
                     var chanceSlots = CreateChanceSlotRoots(panel);
-                    serialized.FindProperty("_previousChanceText").objectReferenceValue = previous;
-                    serialized.FindProperty("_currentChanceText").objectReferenceValue = current;
-                    serialized.FindProperty("_totalChanceText").objectReferenceValue = total;
-                    serialized.FindProperty("_deathCountText").objectReferenceValue = deaths;
                     var chanceSlotRoots = serialized.FindProperty("_chanceSlotRoots");
                     chanceSlotRoots.arraySize = chanceSlots.Length;
                     for (var i = 0; i < chanceSlots.Length; i++)
@@ -194,13 +125,6 @@ namespace Game.Feature.UI.Composition
 
                     serialized.FindProperty("_allIn1EffectMaterialTemplate").objectReferenceValue =
                         AssetDatabase.LoadAssetAtPath<Material>(AllIn1UiStencilMaterialPath);
-                }
-
-                if (view is LevelFailedRestartOverlayContentView)
-                {
-                    var levelMessage = UiCanvasElementFactory.CreateLabel("LevelRestartMessageText_TMP", panel, new Vector2(40f, -152f), new Vector2(620f, 34f), TextAnchor.MiddleCenter, 16);
-                    levelMessage.text = "Returning to the first stage in this level.";
-                    serialized.FindProperty("_levelRestartMessageText").objectReferenceValue = levelMessage;
                 }
 
                 serialized.ApplyModifiedPropertiesWithoutUndo();
@@ -264,11 +188,7 @@ namespace Game.Feature.UI.Composition
 
         private static void CreateCatalog(
             SceneTransitionOverlayContentView generic,
-            SceneTransitionOverlayContentView chanceLost,
-            SceneTransitionOverlayContentView stageClear,
-            SceneTransitionOverlayContentView manualRestart,
-            SceneTransitionOverlayContentView levelFailedRestart,
-            SceneTransitionOverlayContentView mainMenuReturn)
+            SceneTransitionOverlayContentView chanceLost)
         {
             var catalog = AssetDatabase.LoadAssetAtPath<SceneTransitionOverlayContentCatalog>(CatalogPath);
             if (catalog == null)
@@ -282,11 +202,11 @@ namespace Game.Feature.UI.Composition
             var entries = serialized.FindProperty("_entries");
             entries.arraySize = 7;
             SetEntry(entries.GetArrayElementAtIndex(0), StageTransitionKind.MainToGameplay, TransitionOverlayKind.GenericLoading, generic);
-            SetEntry(entries.GetArrayElementAtIndex(1), StageTransitionKind.GameplayToMain, TransitionOverlayKind.MainMenuReturn, mainMenuReturn);
-            SetEntry(entries.GetArrayElementAtIndex(2), StageTransitionKind.StageClearNext, TransitionOverlayKind.StageClear, stageClear);
-            SetEntry(entries.GetArrayElementAtIndex(3), StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart, manualRestart);
+            SetEntry(entries.GetArrayElementAtIndex(1), StageTransitionKind.GameplayToMain, TransitionOverlayKind.MainMenuReturn, generic);
+            SetEntry(entries.GetArrayElementAtIndex(2), StageTransitionKind.StageClearNext, TransitionOverlayKind.StageClear, generic);
+            SetEntry(entries.GetArrayElementAtIndex(3), StageTransitionKind.StageRetryManual, TransitionOverlayKind.Restart, generic);
             SetEntry(entries.GetArrayElementAtIndex(4), StageTransitionKind.DeathRetryChanceLost, TransitionOverlayKind.ChanceLost, chanceLost);
-            SetEntry(entries.GetArrayElementAtIndex(5), StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart, levelFailedRestart);
+            SetEntry(entries.GetArrayElementAtIndex(5), StageTransitionKind.LevelFailedRestart, TransitionOverlayKind.Restart, generic);
             SetEntry(entries.GetArrayElementAtIndex(6), StageTransitionKind.Unknown, TransitionOverlayKind.GenericLoading, generic);
             serialized.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(catalog);

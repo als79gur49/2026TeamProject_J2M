@@ -101,7 +101,6 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.PresentationData.TileFeatureBindings,
                 compositionData.PresentationData.WorldGuideCatalog,
                 compositionData.PresentationData.WorldGuideInstructions,
-                compositionData.PresentationData.BoardTilePresentationOverrides,
                 compositionData.PresentationData.BoardTilePaintOverrides,
                 compositionData.PresentationData.SuppressedBaseTileCells);
         }

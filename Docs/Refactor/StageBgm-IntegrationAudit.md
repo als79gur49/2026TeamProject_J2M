@@ -49,8 +49,8 @@ Current direct profile reuse:
 
 | Stage | Gameplay BGM |
 |---|---|
-| `combined-gameplay-showcase` | explicit none |
-| `tutorial-scene` | explicit none |
+| `stage-4-2` | explicit none |
+| `stage-0-1` | explicit none |
 | `stage-0-1` | `Stage0-1_BgmProfile` |
 | `stage-0-2` | `Stage0-1_BgmProfile` |
 | `stage-1-1` | `Stage1-1_BgmProfile` |

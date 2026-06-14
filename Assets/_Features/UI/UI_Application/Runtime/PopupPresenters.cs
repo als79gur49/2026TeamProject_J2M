@@ -55,24 +55,4 @@ namespace Game.Feature.UI.Application
         }
     }
 
-    public sealed class TooltipPopupPresenter
-    {
-        public TooltipPopupPresenter()
-        {
-            ViewModel = new TooltipPopupViewModel();
-        }
-
-        public TooltipPopupViewModel ViewModel { get; }
-
-        public void Apply(TooltipPopupPayload payload)
-        {
-            if (payload == null)
-            {
-                throw new ArgumentNullException(nameof(payload));
-            }
-
-            ViewModel.SetContent(payload.TitleText, payload.BodyText, payload.AnchorPreset);
-        }
-    }
-
 }

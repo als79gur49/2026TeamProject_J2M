@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -363,13 +364,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 Is.Not.Null,
                 $"Missing stage catalog provider at '{StageContentPaths.StageCatalogProviderAssetPath}'.");
 
-            var retiredPresentationKeys = new[]
-            {
-                "board.active.bottom",
-                "board.active.front",
-                "board.decorative.top",
-                "board.decorative.back",
-            };
             var retiredStyleKeys = new[]
             {
                 "board.paint.neutral",
@@ -380,14 +374,6 @@ namespace Game.Feature.Stages.Editor.Tests
             };
 
             var entries = provider.LoadEntries();
-            var retiredPresentationReferences = entries
-                .Where(entry => entry != null && entry.PresentationDefinition != null)
-                .SelectMany(entry => entry.PresentationDefinition.BoardTilePresentationOverrides)
-                .Where(boardOverride =>
-                    boardOverride != null &&
-                    retiredPresentationKeys.Contains(boardOverride.PresentationKey, StringComparer.Ordinal))
-                .Select(boardOverride => $"{boardOverride.Cell}: {boardOverride.PresentationKey}")
-                .ToArray();
             var retiredTileFeaturePresentationReferences = entries
                 .Where(entry => entry != null && entry.GameplayDefinition != null)
                 .SelectMany(entry => entry.GameplayDefinition.TileFeatures)
@@ -404,7 +390,6 @@ namespace Game.Feature.Stages.Editor.Tests
                 .Select(paintOverride => $"{paintOverride.Cell}: {paintOverride.StyleKey}")
                 .ToArray();
 
-            Assert.That(retiredPresentationReferences, Is.Empty);
             Assert.That(retiredTileFeaturePresentationReferences, Is.Empty);
             Assert.That(retiredStyleReferences, Is.Empty);
         }
@@ -507,7 +492,6 @@ namespace Game.Feature.Stages.Editor.Tests
             try
             {
                 SetString(fixture.Presentation, "displayName", "Edited Display");
-                SetString(fixture.Presentation, "resultTitle", "Edited Result");
 
                 var report = fixture.Validate();
                 Assert.That(report.Issues.Any(IsPresentationIntegrityIssue), Is.False, FormatIssues(report));
@@ -516,6 +500,32 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 fixture.Destroy();
             }
+        }
+
+        [Test]
+        public void ProductionPresentationAssets_DoNotContainRemovedStageResultTextSchema()
+        {
+            var presentationAssets = Directory.GetFiles(
+                "Assets/_Features/Stages/Content",
+                "*_Presentation.asset",
+                SearchOption.AllDirectories);
+            Assert.That(presentationAssets, Is.Not.Empty);
+
+            var obsoleteResidue = presentationAssets
+                .Select(path => new
+                {
+                    Path = path,
+                    Text = File.ReadAllText(path),
+                })
+                .Where(asset =>
+                    asset.Text.Contains("resultTitle:", StringComparison.Ordinal) ||
+                    asset.Text.Contains("resultSummaryText:", StringComparison.Ordinal) ||
+                    asset.Text.Contains("resultDetailText:", StringComparison.Ordinal) ||
+                    asset.Text.Contains("resultContinueLabel:", StringComparison.Ordinal))
+                .Select(asset => asset.Path)
+                .ToArray();
+
+            Assert.That(obsoleteResidue, Is.Empty);
         }
 
         [Test]

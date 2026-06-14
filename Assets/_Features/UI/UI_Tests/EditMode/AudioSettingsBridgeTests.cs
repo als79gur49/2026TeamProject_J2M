@@ -26,6 +26,15 @@ namespace Game.Feature.UI.Tests
             Assert.That(UIAudioChannelMapper.Map(AudioSettingsChannel.Sfx), Is.EqualTo(AudioChannel.Sfx));
         }
 
+        [Test]
+        public void UiSettingsBridgeAssembly_RemainsInternalCompositionHelper()
+        {
+            var helperType = typeof(UiSettingsBridgeAssembly);
+
+            Assert.That(helperType.Namespace, Is.EqualTo("Game.Feature.UI.Composition"));
+            Assert.That(helperType.IsNotPublic, Is.True);
+        }
+
         [TestCase(AudioSettingsChannel.Main, AudioChannel.Master)]
         [TestCase(AudioSettingsChannel.Bgm, AudioChannel.Bgm)]
         [TestCase(AudioSettingsChannel.Sfx, AudioChannel.Sfx)]

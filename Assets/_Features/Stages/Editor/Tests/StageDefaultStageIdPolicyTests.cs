@@ -20,7 +20,7 @@ namespace Game.Feature.Stages.Editor.Tests
             entry = ScriptableObject.CreateInstance<StageContentEntry>();
             resolver = new StageRuntimeContentResolver();
 
-            Assert.That(StageId.TryCreate("mechanics-showcase", out var stageId), Is.True);
+            Assert.That(StageId.TryCreate("stage-0-1", out var stageId), Is.True);
             entry.AssignStageId(stageId);
             catalog.SetEntries(new[] { entry });
             provider.AssignCatalog(catalog);
@@ -87,13 +87,9 @@ namespace Game.Feature.Stages.Editor.Tests
                 catalogAsset.SupportedStages.Select(entry => entry.StageId.Value).ToArray(),
                 Is.EqualTo(new[]
                 {
-                    "mechanics-showcase",
-                    "onboarding",
                     "stage-0-1",
                     "stage-1-1",
                 }));
-            Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("mechanics-showcase")), Is.True);
-            Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("onboarding")), Is.True);
             Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("stage-0-1")), Is.True);
             Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("stage-1-1")), Is.True);
             Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("legacy-stage-5-1")), Is.False);
@@ -102,7 +98,7 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void Launcher_PrimesPendingStageIdForSupportedStage()
         {
-            var stageId = StageId.CreateOrThrow("onboarding");
+            var stageId = StageId.CreateOrThrow("stage-0-1");
 
             StageEditorDirectPlayLauncher.PrimeNonCampaignForTests(stageId);
 
@@ -112,29 +108,29 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void PlayerCaptureLaunchOptions_NormalizesOnboardingStageArgument()
+        public void PlayerCaptureLaunchOptions_NormalizesStageArgument()
         {
             var parsed = PlayerCaptureLaunchOptions.TryParse(
-                new[] { "Game.exe", "--capture-stage", "Onboarding" },
+                new[] { "Game.exe", "--capture-stage", "Stage_0/1" },
                 out var options,
                 out var error);
 
             Assert.That(parsed, Is.True, error);
             Assert.That(options.HasCaptureStage, Is.True);
-            Assert.That(options.StageId.Value, Is.EqualTo("onboarding"));
+            Assert.That(options.StageId.Value, Is.EqualTo("stage-0-1"));
         }
 
         [Test]
-        public void PlayerCaptureBootstrap_PrimesOnboardingStageIdBeforeSceneLoad()
+        public void PlayerCaptureBootstrap_PrimesStageIdBeforeSceneLoad()
         {
             var primed = PlayerCaptureLaunchBootstrap.TryPrimeFromArguments(
-                new[] { "Game.exe", "--capture-stage=onboarding" },
+                new[] { "Game.exe", "--capture-stage=stage-0-1" },
                 logErrors: false,
                 out var error);
 
             Assert.That(primed, Is.True, error);
             Assert.That(StageLaunchContextStore.TryGetCurrent(out var current), Is.True);
-            Assert.That(current.Value, Is.EqualTo("onboarding"));
+            Assert.That(current.Value, Is.EqualTo("stage-0-1"));
             Assert.That(EditorDirectPlayContextStore.GetCurrentOrNone().SuppressCampaignFlow, Is.True);
         }
 
@@ -145,7 +141,7 @@ namespace Game.Feature.Stages.Editor.Tests
             {
                 "Unity.exe",
                 "-captureStage",
-                "onboarding",
+                "stage-0-1",
             });
 
             Assert.That(scenes, Is.EqualTo(new[] { "Assets/Scenes/UIAudioScene.unity" }));

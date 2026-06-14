@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Stages;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
@@ -105,9 +106,9 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiFlowInstaller_ComposesTooltipAndRewardPolicies()
+        public void GameplayUiFlowInstaller_ComposesConfirmPolicyWithScreenTransitions()
         {
-            var hostObject = new GameObject("GameplayUiFlowInstaller_ComposesTooltipAndRewardPolicies");
+            var hostObject = new GameObject("GameplayUiFlowInstaller_ComposesConfirmPolicyWithScreenTransitions");
 
             try
             {
@@ -121,30 +122,31 @@ namespace Game.Feature.UI.Tests
                 UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(host);
 
-                var tooltipCompletions = new List<PopupCompletion>();
-                Assert.That(installer.Coordinator.RequestTooltipPopup(
-                    new TooltipPopupPayload("Tip", "Tooltip body"),
-                    tooltipCompletions.Add), Is.True);
-                Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Tooltip));
-                Assert.That(installer.PopupLayerView.IsDimVisible, Is.False);
-                Assert.That(installer.Coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.False);
+                var confirmCompletions = new List<PopupCompletion>();
+                Assert.That(installer.Coordinator.RequestConfirmPopup(
+                    new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false),
+                    confirmCompletions.Add), Is.True);
+                Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Confirm));
+                Assert.That(installer.PopupLayerView.IsDimVisible, Is.True);
+                Assert.That(installer.Coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.True);
 
                 Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
-                Assert.That(tooltipCompletions, Has.Count.EqualTo(1));
-                Assert.That(tooltipCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.Back));
+                Assert.That(confirmCompletions, Has.Count.EqualTo(1));
+                Assert.That(confirmCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.Back));
+                Assert.That(confirmCompletions[0].CompletionKind, Is.EqualTo(PopupCompletionKind.Cancelled));
 
-                var gameplayTooltipCompletions = new List<PopupCompletion>();
-                Assert.That(installer.Coordinator.RequestTooltipPopup(
-                    new TooltipPopupPayload("Gameplay Tip", "Tooltip body"),
-                    gameplayTooltipCompletions.Add), Is.True);
+                var transitionConfirmCompletions = new List<PopupCompletion>();
+                Assert.That(installer.Coordinator.RequestConfirmPopup(
+                    new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false),
+                    transitionConfirmCompletions.Add), Is.True);
 
                 Assert.That(installer.Coordinator.OpenSettingsScreen(), Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
-                Assert.That(gameplayTooltipCompletions, Has.Count.EqualTo(1));
-                Assert.That(gameplayTooltipCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.ScreenTransition));
+                Assert.That(transitionConfirmCompletions, Has.Count.EqualTo(1));
+                Assert.That(transitionConfirmCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.ScreenTransition));
 
             }
             finally
@@ -259,10 +261,6 @@ namespace Game.Feature.UI.Tests
 
             presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
             SetPrivateField(presentationDefinition, "displayName", "UI Flow Clear");
-            SetPrivateField(presentationDefinition, "resultTitle", "Clear Confirmed");
-            SetPrivateField(presentationDefinition, "resultSummaryText", "Mapped from minimal stage completion.");
-            SetPrivateField(presentationDefinition, "resultDetailText", "Stage result uses the minimal completion pipeline.");
-            SetPrivateField(presentationDefinition, "resultContinueLabel", "Continue");
 
             entry.AssignPresentationDefinition(presentationDefinition);
             return entry;

@@ -448,10 +448,6 @@ namespace Game.Feature.UI.Flow
                 case PopupId.Pause:
                     return completionKind == PopupCompletionKind.Closed;
 
-                case PopupId.Tooltip:
-                    return completionKind == PopupCompletionKind.Closed ||
-                           completionKind == PopupCompletionKind.Acknowledged;
-
                 default:
                     return false;
             }

@@ -123,7 +123,7 @@
 - 새 pilot AI profile을 추가한다.
   - retired random-walk pilot profile asset
 - pilot profile은 baseline `coreAuthoring`와 capability assets를 재사용한다.
-- live rollout은 `mechanics-showcase.asset`의 entity `54` 한 슬롯만 pilot profile로 opt-in 한다.
+- live rollout은 `stage-4-2.asset`의 entity `54` 한 슬롯만 pilot profile로 opt-in 한다.
 - `Forward fallback untouched`가 authoring contract다.
 
 ## 9. 테스트 / 검증 계획

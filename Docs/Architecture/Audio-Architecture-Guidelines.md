@@ -459,7 +459,7 @@ future extension note:
 | `Display Revert` | Silent | no cue |
 | inventory row/actions/search/filter/sort | Local only | local `Select` only |
 | objective tab changes | Local only | local `Select` only |
-| popup confirm/resume/reward acknowledge | Flow only | one `Confirm` |
+| popup confirm/resume | Flow only | one `Confirm` |
 | popup cancel/back-cancel | Flow only | one `Cancel` |
 | `Stage clear -> StageResult` | Flow only | one `StageClear` |
 | `Final stage clear -> GameClear` | Flow only | one `GameClear` |

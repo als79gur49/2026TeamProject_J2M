@@ -17,6 +17,9 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class UiRepositoryPrefabCatalogSmokeTests
     {
+        private const string TransitionContentCatalogPath =
+            "Assets/_Features/UI/UI_Composition/Resources/UI/Transitions/SceneTransitionOverlayContentCatalog.asset";
+
         [Test]
         public void ScreenPrefabCatalog_RepositoryAsset_AllScreenIdsHaveValidPrefab()
         {
@@ -40,6 +43,14 @@ namespace Game.Feature.UI.Tests
                         settings.AudioView.ValidateAuthoredControlsOrThrow();
                         settings.DisplayView.ValidateAuthoredControlsOrThrow();
                         settings.InputView.ValidateAuthoredControlsOrThrow();
+                    }
+                    else if (prefab is StageResultScreenView stageResult)
+                    {
+                        AssertStageResultMinimalNavigationEndpointPrefab(stageResult);
+                    }
+                    else if (prefab is GameClearScreenView gameClear)
+                    {
+                        AssertGameClearResultOnlyPrefab(gameClear);
                     }
                 }
                 catch (Exception exception)
@@ -68,6 +79,13 @@ namespace Game.Feature.UI.Tests
                     var prefab = ResolvePopupPrefab(catalog, popupId);
                     Assert.That(prefab, Is.Not.Null, popupId.ToString());
                     Assert.That(prefab.GetComponent<IPopupView>(), Is.Not.Null, popupId.ToString());
+                    if (prefab is PausePopupView pausePopup)
+                    {
+                        AssertPausePopupButtonHasSingleHoverScaleEffect(pausePopup, "ResumeButton");
+                        AssertPausePopupButtonHasSingleHoverScaleEffect(pausePopup, "SettingsButton");
+                        AssertPausePopupButtonHasSingleHoverScaleEffect(pausePopup, "RetryButton");
+                        AssertPausePopupButtonHasSingleHoverScaleEffect(pausePopup, "MainMenuButton");
+                    }
                 }
                 catch (Exception exception)
                 {
@@ -76,6 +94,43 @@ namespace Game.Feature.UI.Tests
             }
 
             Assert.That(failures, Is.Empty, "Popup prefab catalog repository smoke failures:\n" + string.Join("\n", failures));
+        }
+
+        [Test]
+        public void SceneTransitionContentCatalog_RepositoryAsset_ContentPrefabsValidate()
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<SceneTransitionOverlayContentCatalog>(TransitionContentCatalogPath);
+            Assert.That(catalog, Is.Not.Null, TransitionContentCatalogPath);
+
+            var contentPrefabs = new HashSet<SceneTransitionOverlayContentView>();
+            if (catalog.GenericFallbackPrefab != null)
+            {
+                contentPrefabs.Add(catalog.GenericFallbackPrefab);
+            }
+
+            foreach (var entry in catalog.Entries)
+            {
+                if (entry?.ContentPrefab != null)
+                {
+                    contentPrefabs.Add(entry.ContentPrefab);
+                }
+            }
+
+            var failures = new List<string>();
+            foreach (var prefab in contentPrefabs.OrderBy(AssetDatabase.GetAssetPath, StringComparer.Ordinal))
+            {
+                try
+                {
+                    Assert.That(prefab.CollectValidationIssues(), Is.Empty, Describe(prefab));
+                    Assert.That(CountMissingScripts(prefab.gameObject), Is.EqualTo(0), Describe(prefab));
+                }
+                catch (Exception exception)
+                {
+                    failures.Add($"{Describe(prefab)}: {exception.GetType().Name}: {exception.Message}");
+                }
+            }
+
+            Assert.That(failures, Is.Empty, "Scene transition content catalog repository smoke failures:\n" + string.Join("\n", failures));
         }
 
         [Test]
@@ -122,6 +177,9 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(FindChildByName(instance.transform, "PauseButton"), Is.Not.Null);
                 Assert.That(FindChildByName(instance.transform, "Label_StageName"), Is.Not.Null);
+                Assert.That(FindChildByName(instance.transform, "CenterArrow"), Is.Not.Null);
+                Assert.That(FindChildByName(instance.transform, "LegacyTopologyDebugText"), Is.Null);
+                Assert.That(FindChildByName(instance.transform, "LegacyCenterArrow"), Is.Null);
                 Assert.That(FindChildByName(instance.transform, "Action" + "Bar"), Is.Null);
                 Assert.That(CountMissingScripts(instance.gameObject), Is.EqualTo(0));
             }
@@ -173,6 +231,14 @@ namespace Game.Feature.UI.Tests
                 instance.AudioView.ValidateAuthoredControlsOrThrow();
                 instance.DisplayView.ValidateAuthoredControlsOrThrow();
                 instance.InputView.ValidateAuthoredControlsOrThrow();
+
+                Assert.That(FindChildByName(instance.transform, "ResetInput_Legacy"), Is.Null);
+                Assert.That(FindChildByName(instance.transform, "DisplayApplyButton"), Is.Null);
+                Assert.That(FindChildByName(instance.transform, "DisplayRevertButton"), Is.Null);
+                Assert.That(FindChildByName(instance.transform, "DisplayReveryButton_New"), Is.Null);
+                Assert.That(FindChildByName(instance.transform, "ResetInput_New"), Is.Not.Null);
+                Assert.That(FindChildByName(instance.transform, "DisplayApplyButton_New"), Is.Not.Null);
+                Assert.That(FindChildByName(instance.transform, "DisplayRevertButton_New"), Is.Not.Null);
             }
             finally
             {
@@ -187,7 +253,6 @@ namespace Game.Feature.UI.Tests
 
             var payload = StageResultPayloadMapper.Map(readModel);
 
-            Assert.That(payload.TitleText, Is.Not.Empty);
             Assert.That(payload.ContinueStageRequest.IsValid, Is.True);
             Assert.That(payload.RetryStageRequest.IsValid, Is.True);
             Assert.That(payload.NextStageRequest.IsValid, Is.True);
@@ -213,7 +278,6 @@ namespace Game.Feature.UI.Tests
             {
                 PopupId.Pause => catalog.PausePrefab,
                 PopupId.Confirm => catalog.ConfirmPrefab,
-                PopupId.Tooltip => catalog.TooltipPrefab,
                 _ => throw new ArgumentOutOfRangeException(nameof(popupId), popupId, null),
             };
         }
@@ -261,6 +325,65 @@ namespace Game.Feature.UI.Tests
         {
             return root.GetComponentsInChildren<Transform>(true)
                 .FirstOrDefault(child => string.Equals(child.name, childName, StringComparison.Ordinal));
+        }
+
+        private static void AssertGameClearResultOnlyPrefab(GameClearScreenView gameClear)
+        {
+            var serialized = new SerializedObject(gameClear);
+            AssertRequiredObjectReference(serialized, "_titleLabel", nameof(GameClearScreenView));
+            AssertRequiredObjectReference(serialized, "_mainButton", nameof(GameClearScreenView));
+            AssertRequiredObjectReference(serialized, "_mainButtonLabel", nameof(GameClearScreenView));
+            Assert.That(serialized.FindProperty("_detailLabel"), Is.Null);
+            Assert.That(serialized.FindProperty("_restartLevelButton"), Is.Null);
+            Assert.That(serialized.FindProperty("_restartLevelButtonLabel"), Is.Null);
+
+            Assert.That(FindChildByName(gameClear.transform, "Title"), Is.Not.Null);
+            Assert.That(FindChildByName(gameClear.transform, "ResultDetail"), Is.Null);
+            Assert.That(FindChildByName(gameClear.transform, "Detail"), Is.Null);
+            Assert.That(FindChildByName(gameClear.transform, "RestartLevelButton"), Is.Null);
+
+            var mainButton = FindChildByName(gameClear.transform, "MainButton");
+            Assert.That(mainButton, Is.Not.Null);
+            Assert.That(FindChildByName(mainButton, "SelectionFrame"), Is.Not.Null);
+        }
+
+        private static void AssertStageResultMinimalNavigationEndpointPrefab(StageResultScreenView stageResult)
+        {
+            var serialized = new SerializedObject(stageResult);
+            Assert.That(serialized.FindProperty("_titleLabel"), Is.Null);
+            Assert.That(serialized.FindProperty("_summaryLabel"), Is.Null);
+            Assert.That(serialized.FindProperty("_detailLabel"), Is.Null);
+            AssertRequiredObjectReference(serialized, "_continueButton", nameof(StageResultScreenView));
+            Assert.That(serialized.FindProperty("_continueButtonLabel"), Is.Null);
+
+            Assert.That(FindChildByName(stageResult.transform, "Title"), Is.Null);
+            Assert.That(FindChildByName(stageResult.transform, "ResultSummary"), Is.Null);
+            Assert.That(FindChildByName(stageResult.transform, "Summary"), Is.Null);
+            Assert.That(FindChildByName(stageResult.transform, "ResultDetail"), Is.Null);
+            Assert.That(FindChildByName(stageResult.transform, "Detail"), Is.Null);
+            Assert.That(FindChildByName(stageResult.transform, "ContinueButton (1)"), Is.Null);
+
+            var continueButton = FindChildByName(stageResult.transform, "ContinueButton");
+            Assert.That(continueButton, Is.Not.Null);
+            Assert.That(FindChildByName(continueButton, "SelectionFrame"), Is.Not.Null);
+        }
+
+        private static void AssertRequiredObjectReference(
+            SerializedObject serializedObject,
+            string propertyName,
+            string ownerName)
+        {
+            var property = serializedObject.FindProperty(propertyName);
+            Assert.That(property, Is.Not.Null, $"{ownerName}.{propertyName}");
+            Assert.That(property.objectReferenceValue, Is.Not.Null, $"{ownerName}.{propertyName}");
+        }
+
+        private static void AssertPausePopupButtonHasSingleHoverScaleEffect(PausePopupView pausePopup, string buttonName)
+        {
+            var button = FindChildByName(pausePopup.transform, buttonName);
+            Assert.That(button, Is.Not.Null, buttonName);
+            Assert.That(button.GetComponents<UiHoverScaleEffect>().Length, Is.EqualTo(1), buttonName);
+            Assert.That(FindChildByName(button, "SelectionFrame"), Is.Not.Null, buttonName);
         }
 
         private static int CountMissingScripts(GameObject root)

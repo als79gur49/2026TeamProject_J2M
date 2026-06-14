@@ -118,15 +118,26 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void TooltipPopup_IsNotTreatedAsAccessibilityToggleResidue()
+        public void RuntimeTooltipPopupContract_IsRetiredSeparatelyFromSettingsAccessibilityResidue()
         {
-            Assert.That(Enum.GetNames(typeof(PopupId)), Does.Contain(nameof(PopupId.Tooltip)));
-            Assert.That(typeof(TooltipPopupView), Is.Not.Null);
+            Assert.That(Enum.GetNames(typeof(PopupId)), Does.Not.Contain("Tooltip"));
+            Assert.That(FindLoadedType("TooltipPopupView"), Is.Null);
+            Assert.That(FindLoadedType("TooltipPopupPayload"), Is.Null);
+            Assert.That(FindLoadedType("TooltipPopupPresenter"), Is.Null);
+            Assert.That(FindLoadedType("TooltipPopupViewModel"), Is.Null);
 
             var popupFactorySource = ReadRepoFile(
                 "Assets/_Features/UI/UI_Composition/Runtime/GameplayPopupRuntimeFactory.cs");
-            Assert.That(popupFactorySource, Does.Contain("case PopupId.Tooltip:"));
-            Assert.That(popupFactorySource, Does.Contain("CreateTooltipPopup"));
+            Assert.That(popupFactorySource, Does.Not.Contain("PopupId.Tooltip"));
+            Assert.That(popupFactorySource, Does.Not.Contain("CreateTooltipPopup"));
+
+            var popupCatalogSource = ReadRepoFile(
+                "Assets/_Features/UI/UI_Composition/Runtime/PopupPrefabCatalog.cs");
+            Assert.That(popupCatalogSource, Does.Not.Contain("TooltipPrefab"));
+
+            var popupCatalogAsset = ReadRepoFile(UiTestPrefabAssetUtility.PopupCatalogPath);
+            Assert.That(popupCatalogAsset, Does.Not.Contain("_tooltipPrefab"));
+            Assert.That(popupCatalogAsset, Does.Not.Contain("74c4ec6a23ac43149b8072802f83a2e0"));
         }
 
         private static void AssertProductionUiSourcesDoNotContain(string[] forbiddenTokens)

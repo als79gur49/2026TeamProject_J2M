@@ -5,7 +5,6 @@ namespace Game.Feature.UI.Flow
         None = 0,
         Pause = 1,
         Confirm = 3,
-        Tooltip = 4,
         DemoStageControl = 7,
     }
 }

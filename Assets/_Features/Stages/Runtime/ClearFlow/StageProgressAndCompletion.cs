@@ -48,10 +48,6 @@ namespace Game.Feature.Stages
             StageId stageId,
             string displayName,
             MinimalStageCompletionResult result,
-            string presentationTitle,
-            string presentationSummary,
-            string presentationDetail,
-            string continueLabel,
             StageNavigationRequest continueRequest,
             StageNavigationRequest retryRequest,
             StageNavigationRequest nextStageRequest)
@@ -59,10 +55,6 @@ namespace Game.Feature.Stages
             StageId = stageId;
             DisplayName = displayName ?? string.Empty;
             Result = result ?? throw new ArgumentNullException(nameof(result));
-            PresentationTitle = presentationTitle ?? string.Empty;
-            PresentationSummary = presentationSummary ?? string.Empty;
-            PresentationDetail = presentationDetail ?? string.Empty;
-            ContinueLabel = continueLabel ?? string.Empty;
             ContinueRequest = continueRequest;
             RetryRequest = retryRequest;
             NextStageRequest = nextStageRequest;
@@ -73,14 +65,6 @@ namespace Game.Feature.Stages
         public string DisplayName { get; }
 
         public MinimalStageCompletionResult Result { get; }
-
-        public string PresentationTitle { get; }
-
-        public string PresentationSummary { get; }
-
-        public string PresentationDetail { get; }
-
-        public string ContinueLabel { get; }
 
         public StageNavigationRequest ContinueRequest { get; }
 
@@ -136,10 +120,6 @@ namespace Game.Feature.Stages
                 stageId,
                 presentation.DisplayName,
                 result,
-                string.IsNullOrWhiteSpace(presentation.ResultTitle) ? "Stage Cleared" : presentation.ResultTitle,
-                presentation.ResultSummaryText,
-                presentation.ResultDetailText,
-                string.IsNullOrWhiteSpace(presentation.ResultContinueLabel) ? "Continue" : presentation.ResultContinueLabel,
                 continueRequest,
                 retryRequest,
                 nextStageRequest.IsValid

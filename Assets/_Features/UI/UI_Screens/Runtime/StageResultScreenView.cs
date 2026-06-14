@@ -1,7 +1,6 @@
 using System;
 using DG.Tweening;
 using Game.Feature.UI.ViewShared;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,11 +9,7 @@ namespace Game.Feature.UI.Screens
     public sealed class StageResultScreenView : MonoBehaviour, IScreenView, IUiNavigationTarget
     {
         [SerializeField] private GameObject _root;
-        [SerializeField] private TMP_Text _titleLabel;
-        [SerializeField] private TMP_Text _summaryLabel;
-        [SerializeField] private TMP_Text _detailLabel;
         [SerializeField] private Button _continueButton;
-        [SerializeField] private TMP_Text _continueButtonLabel;
         [SerializeField] private UiSelectableButtonGroup _navigationGroup = new();
 
         private StageResultScreenViewModel _viewModel;
@@ -118,11 +113,7 @@ namespace Game.Feature.UI.Screens
         private void OnValidate()
         {
             ValidateSerializedReference(_root, nameof(_root));
-            ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
-            ValidateSerializedReference(_summaryLabel, nameof(_summaryLabel));
-            ValidateSerializedReference(_detailLabel, nameof(_detailLabel));
             ValidateSerializedReference(_continueButton, nameof(_continueButton));
-            ValidateSerializedReference(_continueButtonLabel, nameof(_continueButtonLabel));
         }
 #endif
 
@@ -147,26 +138,6 @@ namespace Game.Feature.UI.Screens
             if (_viewModel == null)
             {
                 return;
-            }
-
-            if (_titleLabel != null)
-            {
-                _titleLabel.text = _viewModel.TitleText;
-            }
-
-            if (_summaryLabel != null)
-            {
-                _summaryLabel.text = _viewModel.SummaryText;
-            }
-
-            if (_detailLabel != null)
-            {
-                _detailLabel.text = _viewModel.DetailText;
-            }
-
-            if (_continueButtonLabel != null)
-            {
-                _continueButtonLabel.text = _viewModel.ContinueLabel;
             }
 
             if (_continueButton != null)

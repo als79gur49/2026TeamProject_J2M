@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Stages;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
@@ -13,6 +14,7 @@ namespace Game.Feature.UI.Tests
     {
         private static readonly string[] StageResultSourcePaths =
         {
+            "Assets/_Features/UI/UI_Application/Runtime/StageResult/StageResultScreenPresenters.cs",
             "Assets/_Features/UI/UI_Application/Runtime/StageCompletionPayloadMappers.cs",
             "Assets/_Features/UI/UI_Composition/Runtime/GameplayScreenRuntimeFactory.cs",
             "Assets/_Features/UI/UI_Composition/Runtime/SettingsScreenRuntimeBuilder.cs",
@@ -44,7 +46,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void StageResultAndRewardPopup_ArePresentationEndpoints_NotGameplayAuthority()
+        public void StageResult_IsPresentationEndpoint_NotGameplayAuthority()
         {
             AssertStageResultSourcesDoNotContain(new[]
             {
@@ -78,15 +80,40 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void StageResult_DoesNotExposeInvisibleTitleOrDetailTextPath()
+        {
+            AssertNoDeclaredMembersNamed(
+                typeof(StageResultScreenPayload),
+                "TitleText",
+                "DetailText",
+                "ContinueLabel");
+            AssertNoDeclaredMembersNamed(
+                typeof(StageResultScreenViewModel),
+                "TitleText",
+                "DetailText",
+                "ContinueLabel");
+            AssertNoDeclaredMembersNamed(
+                typeof(StageResultScreenView),
+                "_titleLabel",
+                "_detailLabel",
+                "_continueButtonLabel");
+
+            var prefab = File.ReadAllText(UiTestPrefabAssetUtility.StageResultScreenPrefabPath);
+            Assert.That(prefab, Does.Not.Contain("_titleLabel"));
+            Assert.That(prefab, Does.Not.Contain("_detailLabel"));
+            Assert.That(prefab, Does.Not.Contain("_continueButtonLabel"));
+            Assert.That(prefab, Does.Not.Contain("m_Name: Title"));
+            Assert.That(prefab, Does.Not.Contain("m_Name: Detail"));
+            Assert.That(prefab, Does.Contain("_continueButton:"));
+            Assert.That(prefab, Does.Contain("m_text: Continue"));
+        }
+
+        [Test]
         public void NavigationRequests_AreStageIdBased()
         {
             var stageId = StageId.CreateOrThrow("stage-result-boundary");
             var request = new StageNavigationRequest(stageId, StageNavigationKind.Continue, "boundary-test");
             var payload = new StageResultScreenPayload(
-                "Title",
-                "Summary",
-                "Detail",
-                "Continue",
                 request,
                 StageNavigationRequest.None,
                 StageNavigationRequest.None);
@@ -105,8 +132,20 @@ namespace Game.Feature.UI.Tests
                     Assert.That(
                         source,
                         Does.Not.Contain(token),
-                        $"{sourcePath}: StageResult/Reward popup are UI presentation/navigation endpoints; stage reward/progression commit lane remains stage-owned.");
+                        $"{sourcePath}: StageResult is a UI presentation/navigation endpoint; stage reward/progression commit lane remains stage-owned.");
                 }
+            }
+        }
+
+        private static void AssertNoDeclaredMembersNamed(Type type, params string[] forbiddenNames)
+        {
+            var memberNames = type
+                .GetMembers(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(member => member.Name)
+                .ToArray();
+            foreach (var forbiddenName in forbiddenNames)
+            {
+                Assert.That(memberNames, Does.Not.Contain(forbiddenName), type.FullName);
             }
         }
     }

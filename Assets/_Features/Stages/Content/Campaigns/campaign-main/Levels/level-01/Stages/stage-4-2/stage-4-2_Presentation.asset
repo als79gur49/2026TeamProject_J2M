@@ -15,8 +15,6 @@ MonoBehaviour:
   ownerEntry: {fileID: 11400000, guid: 5beccaff3bbffec65f12586ee511ce33, type: 2}
   ownerEntryGuid: 5beccaff3bbffec65f12586ee511ce33
   displayName: Morgue-02
-  summaryText: 
-  previewSprite: {fileID: 0}
   backgroundPrefab: {fileID: 8961267106798357042, guid: ed5d5a37c3e1cb44a8f765fb7ac45862, type: 3}
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
@@ -323,11 +321,6 @@ MonoBehaviour:
     PresentationId: box_metal
   boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
-  boardTilePresentationOverrides: []
   boardTilePaintOverrides: []
   tileFeaturePresentationCatalog: {fileID: 11400000, guid: 330cdf4f24595b940afbf3438be36226, type: 2}
   tileFeaturePresentationBindings: []
-  resultTitle: Stage Cleared
-  resultSummaryText: 
-  resultDetailText: 
-  resultContinueLabel: Continue

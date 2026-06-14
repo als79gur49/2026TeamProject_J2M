@@ -149,7 +149,7 @@
   - `scene.*residue`
   - direct-play catalog coverage blocker
 - handoff destination:
-  - direct-play launcher, catalog coverage, plain Play unsupported, onboarding/menu mismatch -> `Lane B`
+  - direct-play launcher, catalog coverage, plain Play unsupported, stage-0-1/menu mismatch -> `Lane B`
   - support tree 위치, relocation 필요성, consumed asset complete 여부 -> `Lane C`
   - persistent BGM owner, registry, same-root audio flow, cross-scene continuity -> `Lane D`
   - occupancy claim, legality, reservation, modifier, traversal/settlement/topology/TileFeature semantics -> `Lane E`
@@ -242,7 +242,7 @@
 ### Step 2. Direct-Play Soft Adoption
 
 - align:
-  - onboarding
+  - stage-0-1
   - menu path
   - smoke checklist
   - warning text

@@ -15,8 +15,6 @@ MonoBehaviour:
   ownerEntry: {fileID: 11400000, guid: dedb1c0cfceeadf585ec253ebd3bd3a0, type: 2}
   ownerEntryGuid: dedb1c0cfceeadf585ec253ebd3bd3a0
   displayName: Ward[B]-02
-  summaryText: 
-  previewSprite: {fileID: 0}
   backgroundPrefab: {fileID: 4032346886678373965, guid: 04021a85b7c037c4a8f1aede4dba9a82, type: 3}
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
   enemyPresentationArchetypeCatalog: {fileID: 11400000, guid: dd4f6d4763f54f89830e7ab92c7d9953, type: 2}
@@ -333,7 +331,6 @@ MonoBehaviour:
     PresentationId: box_tutorial
   boardPresentationProfile: {fileID: 11400000, guid: 738335d986474047b666523fb30b41b4, type: 2}
   boardTilePresentationCatalog: {fileID: 11400000, guid: c4f2b2fcde2012242a1f89c7615a23aa, type: 2}
-  boardTilePresentationOverrides: []
   boardTilePaintOverrides:
   - cell:
       face: 0
@@ -729,7 +726,3 @@ MonoBehaviour:
   tileFeaturePresentationBindings: []
   worldGuideCatalog: {fileID: 0}
   worldGuideInstructions: []
-  resultTitle: Stage Cleared
-  resultSummaryText: 
-  resultDetailText: 
-  resultContinueLabel: Continue

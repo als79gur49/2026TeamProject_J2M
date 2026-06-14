@@ -754,7 +754,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var source = File.ReadAllText(Path.Combine(
                 Application.dataPath,
-                "_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"));
+                "_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.RespawnProcessor.cs"));
             var gateIndex = source.IndexOf("if (!allowRespawn)", StringComparison.Ordinal);
             var spawnIndex = source.IndexOf("writeContext.SpawnEntity(respawnEntity)", StringComparison.Ordinal);
 
@@ -2119,10 +2119,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 stageId,
                 "Campaign Test Stage",
                 result,
-                "Stage Clear",
-                string.Empty,
-                string.Empty,
-                "Continue",
                 new StageNavigationRequest(stageId, StageNavigationKind.Continue, "campaign-test-continue"),
                 new StageNavigationRequest(stageId, StageNavigationKind.Retry, "campaign-test-retry"),
                 StageNavigationRequest.None);

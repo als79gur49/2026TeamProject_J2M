@@ -26,13 +26,6 @@ namespace Game.Feature.UI.Popups
         Consume = 2,
     }
 
-    public enum TooltipPopupAnchorPreset
-    {
-        Center = 0,
-        UpperRight = 1,
-        LowerLeft = 2,
-    }
-
     public interface IPopupView
     {
         event Action<PopupCompletionKind> CompletionRequested;
@@ -108,25 +101,6 @@ namespace Game.Feature.UI.Popups
         public bool IsConfirmDestructive { get; }
     }
 
-    public sealed class TooltipPopupPayload : IPopupPayload
-    {
-        public TooltipPopupPayload(
-            string titleText,
-            string bodyText,
-            TooltipPopupAnchorPreset anchorPreset = TooltipPopupAnchorPreset.Center)
-        {
-            TitleText = titleText ?? string.Empty;
-            BodyText = bodyText ?? string.Empty;
-            AnchorPreset = anchorPreset;
-        }
-
-        public string TitleText { get; }
-
-        public string BodyText { get; }
-
-        public TooltipPopupAnchorPreset AnchorPreset { get; }
-    }
-
     public sealed class PausePopupViewModel
     {
         public event Action Changed;
@@ -187,28 +161,6 @@ namespace Game.Feature.UI.Popups
             ConfirmLabel = confirmLabel ?? string.Empty;
             CancelLabel = cancelLabel ?? string.Empty;
             IsConfirmDestructive = isConfirmDestructive;
-            Changed?.Invoke();
-        }
-    }
-
-    public sealed class TooltipPopupViewModel
-    {
-        public event Action Changed;
-
-        public string TitleText { get; private set; } = string.Empty;
-
-        public string BodyText { get; private set; } = string.Empty;
-
-        public TooltipPopupAnchorPreset AnchorPreset { get; private set; }
-
-        public void SetContent(
-            string titleText,
-            string bodyText,
-            TooltipPopupAnchorPreset anchorPreset)
-        {
-            TitleText = titleText ?? string.Empty;
-            BodyText = bodyText ?? string.Empty;
-            AnchorPreset = anchorPreset;
             Changed?.Invoke();
         }
     }

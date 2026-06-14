@@ -78,36 +78,6 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void Evaluate_TooltipPopup_KeepsDimAndLowerLayerBlockingOff()
-        {
-            var policy = new UIBlockPolicy();
-
-            var snapshot = policy.Evaluate(
-                new UIFlowStateSnapshot(
-                    GameplayRootEntry,
-                    new PopupEntry(
-                        new PopupInstanceId(2),
-                        PopupId.Tooltip,
-                        new TooltipPopupPayload("Tip", "Body"),
-                        new PopupPolicy(
-                            PopupPolicyClass.AnchoredEphemeral,
-                            PopupLifetimeScope.CurrentScreen,
-                            PopupBackAction.Close,
-                            PopupBackdropMode.None,
-                            showsDim: false,
-                            blocksLowerLayers: false),
-                        completionCallback: null),
-                    popupCount: 1));
-
-            Assert.That(snapshot.BlocksHudInteraction, Is.False);
-            Assert.That(snapshot.BlocksScreenInteraction, Is.False);
-            Assert.That(snapshot.BlocksUiGameplayInput, Is.False);
-            Assert.That(snapshot.ShowsPopupDim, Is.False);
-            Assert.That(snapshot.BlocksLowerLayerPointer, Is.False);
-            Assert.That(snapshot.PopupBackdropMode, Is.EqualTo(PopupBackdropMode.None));
-        }
-
-        [Test]
         public void Evaluate_NonModalBackdropClose_BlocksPointerWithoutBlockingScreenOwnership()
         {
             var policy = new UIBlockPolicy();
@@ -117,10 +87,10 @@ namespace Game.Feature.UI.Tests
                     GameplayRootEntry,
                     new PopupEntry(
                         new PopupInstanceId(3),
-                        PopupId.Tooltip,
-                        new TooltipPopupPayload("Tip", "Body"),
+                        PopupId.Pause,
+                        PausePopupPayload.Default,
                         new PopupPolicy(
-                            PopupPolicyClass.AnchoredEphemeral,
+                            PopupPolicyClass.NonModalInformational,
                             PopupLifetimeScope.CurrentScreen,
                             PopupBackAction.Close,
                             PopupBackdropMode.CloseTop,

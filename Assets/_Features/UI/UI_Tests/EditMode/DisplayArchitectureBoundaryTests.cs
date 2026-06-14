@@ -132,12 +132,14 @@ namespace Game.Feature.UI.Tests
         public void GameplayUiFlowInstaller_Source_RequiresSameRootDisplayInstaller_WithoutSceneGlobalFallback()
         {
             var installerSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs");
+            var bridgeSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/UiSettingsBridgeAssembly.cs");
 
-            Assert.That(installerSource, Does.Contain("GetComponent<DisplayRuntimeInstaller>()"));
+            Assert.That(installerSource, Does.Contain("UiSettingsBridgeAssembly.CreateDisplaySettingsPort"));
             Assert.That(installerSource, Does.Contain("GameplayUiFlowInstaller requires a co-located DisplayRuntimeInstaller on the canonical bootstrap root for SettingsScreen display controls."));
-            Assert.That(installerSource, Does.Not.Contain("FindObjectOfType<DisplayRuntimeInstaller>"));
-            Assert.That(installerSource, Does.Not.Contain("FindFirstObjectByType<DisplayRuntimeInstaller>"));
-            Assert.That(installerSource, Does.Not.Contain("FindAnyObjectByType<DisplayRuntimeInstaller>"));
+            Assert.That(bridgeSource, Does.Contain("GetComponent<DisplayRuntimeInstaller>()"));
+            Assert.That(installerSource + bridgeSource, Does.Not.Contain("FindObjectOfType<DisplayRuntimeInstaller>"));
+            Assert.That(installerSource + bridgeSource, Does.Not.Contain("FindFirstObjectByType<DisplayRuntimeInstaller>"));
+            Assert.That(installerSource + bridgeSource, Does.Not.Contain("FindAnyObjectByType<DisplayRuntimeInstaller>"));
         }
 
         [Test]

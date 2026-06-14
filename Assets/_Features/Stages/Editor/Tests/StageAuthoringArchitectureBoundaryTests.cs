@@ -411,14 +411,14 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void BoardTileOverride_RemainsPresentationOwned()
+        public void BoardTilePresentationOverride_IsRemovedFromPresentationSchema()
         {
             var stagePresentationDefinitionSource =
                 File.ReadAllText("Assets/_Features/Stages/Runtime/Content/StagePresentationDefinition.cs");
             var tileFeatureCatalogSource =
                 File.ReadAllText("Assets/_Features/Stages/Runtime/Content/TileFeaturePresentationCatalog.cs");
 
-            Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePresentationOverride"));
+            Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("BoardTilePresentationOverride"));
             Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePresentationCatalog"));
             Assert.That(stagePresentationDefinitionSource, Does.Contain("BoardTilePaintOverride"));
             Assert.That(stagePresentationDefinitionSource, Does.Not.Contain("BoardTileOverlayOverride"));

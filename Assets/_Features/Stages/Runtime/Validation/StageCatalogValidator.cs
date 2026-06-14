@@ -1113,7 +1113,6 @@ namespace Game.Feature.Stages
             if (entry.PresentationDefinition != null)
             {
                 ValidateBoardTilePresentationCatalog(entry, options, report);
-                ValidateBoardTilePresentationOverrides(entry, options, report);
                 ValidateBoardTileStyleCatalog(entry, options, report);
                 ValidateBoardTilePaintOverrides(entry, options, report);
                 ValidateTileFeaturePresentationCatalog(entry, options, report);
@@ -1269,128 +1268,6 @@ namespace Game.Feature.Stages
                     catalog,
                     catalogPath,
                     options.Timing);
-            }
-        }
-
-        private static void ValidateBoardTilePresentationOverrides(
-            StageContentEntry entry,
-            StageCatalogValidationOptions options,
-            StageValidationReport report)
-        {
-            var presentation = entry.PresentationDefinition;
-            if (presentation == null)
-            {
-                return;
-            }
-
-            var overrides = presentation.BoardTilePresentationOverrides;
-            if (overrides.Count == 0)
-            {
-                return;
-            }
-
-            var catalog = presentation.BoardTilePresentationCatalog;
-            var presentationPath = GetAssetPath(presentation, options);
-            var boardBoundsValid = TryGetBoardBounds(entry.GameplayDefinition, out var boardBounds);
-            var cells = new HashSet<SurfaceCell>();
-            for (var i = 0; i < overrides.Count; i++)
-            {
-                var boardOverride = overrides[i];
-                var fieldPrefix = $"BoardTilePresentationOverrides[{i}]";
-                if (boardOverride == null)
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-null",
-                        $"StagePresentationDefinition '{presentation.name}' board tile presentation override[{i}] is null.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                    continue;
-                }
-
-                var cell = boardOverride.Cell;
-                if (!Enum.IsDefined(typeof(FaceId), cell.face))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-cell-face-invalid",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} has invalid SurfaceCell face value {(int)cell.face}.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
-
-                if (boardBoundsValid && !boardBounds.Contains(cell.PlanarPosition))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-cell-outside-bounds",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} cell {cell} is outside board bounds.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
-
-                if (!cells.Add(cell))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-cell-duplicate",
-                        $"StagePresentationDefinition '{presentation.name}' contains duplicate board tile presentation override for cell {cell}.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
-
-                var presentationKey = boardOverride.PresentationKey;
-                if (string.IsNullOrEmpty(presentationKey))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-key-empty",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} must declare a non-empty PresentationKey.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                    continue;
-                }
-
-                if (catalog == null)
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-catalog-missing",
-                        $"StagePresentationDefinition '{presentation.name}' has board tile override key '{presentationKey}' but no BoardTilePresentationCatalog.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                    continue;
-                }
-
-                if (!catalog.TryGetEntry(presentationKey, out var catalogEntry))
-                {
-                    report.Add(
-                        StageValidationSeverity.Error,
-                        "presentation.board-tile.override-key-missing",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} PresentationKey '{presentationKey}' is missing from BoardTilePresentationCatalog '{catalog.name}'.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                    continue;
-                }
-
-                if (catalogEntry.TilePrefab == null &&
-                    catalogEntry.MaterialFallback != null)
-                {
-                    report.Add(
-                        StageValidationSeverity.Warning,
-                        "presentation.board-tile.override-material-only",
-                        $"StagePresentationDefinition '{presentation.name}' {fieldPrefix} PresentationKey '{presentationKey}' resolves to a material-only board tile entry.",
-                        presentation,
-                        presentationPath,
-                        options.Timing);
-                }
             }
         }
 

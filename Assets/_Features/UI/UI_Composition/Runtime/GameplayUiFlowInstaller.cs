@@ -10,7 +10,6 @@ using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Shared.Audio;
-using Game.Shared.Display;
 using Game.Shared.Input;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -93,8 +92,6 @@ namespace Game.Feature.UI.Composition
 
         public ConfirmPopupView ConfirmPopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<ConfirmPopupView>() : null;
 
-        public TooltipPopupView TooltipPopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<TooltipPopupView>() : null;
-
         public bool TryCreateStageLaunchRouter(string currentSceneName, out IStageLaunchRouter router)
         {
             router = new CurrentSceneStageLaunchRouter(currentSceneName);
@@ -170,10 +167,14 @@ namespace Game.Feature.UI.Composition
             EnsureScreenPrefabCatalog();
             EnsurePopupPrefabCatalog();
             PresentationSource = Ports.PresentationSource;
-            var audioSettingsPort = CreateAudioSettingsPort();
-            var displaySettingsPort = CreateDisplaySettingsPort();
+            var audioSettingsPort = UiSettingsBridgeAssembly.CreateAudioSettingsPort(gameObject, MissingAudioInstallerMessage);
+            var displaySettingsPort = UiSettingsBridgeAssembly.CreateDisplaySettingsPort(gameObject, MissingDisplayInstallerMessage);
             _keyboardBindingSettingsPort = CreateKeyboardBindingSettingsPort();
-            _uiAudioPort = CreateUiAudioPort();
+            _uiAudioPort = UiSettingsBridgeAssembly.CreateUiAudioPort(
+                gameObject,
+                _uiAudioCueMap,
+                MissingAudioInstallerMessage,
+                MissingUiAudioCueMapMessage);
             var uiAudioPort = _uiAudioPort;
             var audioPauseService = CreateAudioPlaybackPauseService();
             if (UnityEngine.Application.isPlaying)
@@ -181,7 +182,7 @@ namespace Game.Feature.UI.Composition
                 SceneTransitionCoordinator.BindUiAudioPortForCurrentScene(uiAudioPort);
             }
 
-            EnsureAudioSettingsLifecycleRelay(audioSettingsPort);
+            _audioSettingsLifecycleRelay = UiSettingsBridgeAssembly.EnsureAudioSettingsLifecycleRelay(gameObject, audioSettingsPort);
             EnsureDisplayPreviewTimeoutRelay();
             EnsureDisplaySettingsLifecycleRelay();
 
@@ -342,38 +343,10 @@ namespace Game.Feature.UI.Composition
                 "or widening composition into a generic asset registry.");
         }
 
-        private IAudioSettingsPort CreateAudioSettingsPort()
-        {
-            var audioRuntimeInstaller = GetRequiredAudioRuntimeInstaller();
-            audioRuntimeInstaller.Install();
-            if (audioRuntimeInstaller.AudioSettingsService == null)
-            {
-                throw new InvalidOperationException(MissingAudioInstallerMessage);
-            }
-
-            return new AudioSettingsPortAdapter(audioRuntimeInstaller.AudioSettingsService);
-        }
-
-        private IUiAudioPort CreateUiAudioPort()
-        {
-            if (_uiAudioCueMap == null)
-            {
-                throw new InvalidOperationException(MissingUiAudioCueMapMessage);
-            }
-
-            var audioRuntimeInstaller = GetRequiredAudioRuntimeInstaller();
-            audioRuntimeInstaller.Install();
-            if (audioRuntimeInstaller.AudioService == null)
-            {
-                throw new InvalidOperationException(MissingAudioInstallerMessage);
-            }
-
-            return new UiAudioPortAdapter(audioRuntimeInstaller.AudioService, _uiAudioCueMap);
-        }
-
         private IAudioPlaybackPauseService CreateAudioPlaybackPauseService()
         {
-            var audioRuntimeInstaller = GetRequiredAudioRuntimeInstaller();
+            var audioRuntimeInstaller =
+                UiSettingsBridgeAssembly.GetRequiredAudioRuntimeInstaller(gameObject, MissingAudioInstallerMessage);
             audioRuntimeInstaller.Install();
             if (audioRuntimeInstaller.AudioPlaybackPauseService == null)
             {
@@ -381,23 +354,6 @@ namespace Game.Feature.UI.Composition
             }
 
             return audioRuntimeInstaller.AudioPlaybackPauseService;
-        }
-
-        private IDisplaySettingsPort CreateDisplaySettingsPort()
-        {
-            var displayRuntimeInstaller = GetComponent<DisplayRuntimeInstaller>();
-            if (displayRuntimeInstaller == null)
-            {
-                throw new InvalidOperationException(MissingDisplayInstallerMessage);
-            }
-
-            displayRuntimeInstaller.Install();
-            if (displayRuntimeInstaller.DisplaySettingsService == null)
-            {
-                throw new InvalidOperationException(MissingDisplayInstallerMessage);
-            }
-
-            return new DisplaySettingsPortAdapter(displayRuntimeInstaller.DisplaySettingsService);
         }
 
         private IKeyboardBindingSettingsPort CreateKeyboardBindingSettingsPort()
@@ -411,17 +367,6 @@ namespace Game.Feature.UI.Composition
             }
 
             return new KeyboardBindingSettingsPortAdapter(new KeyboardBindingSettingsService(actions));
-        }
-
-        private AudioRuntimeInstaller GetRequiredAudioRuntimeInstaller()
-        {
-            var audioRuntimeInstaller = GetComponent<AudioRuntimeInstaller>();
-            if (audioRuntimeInstaller == null)
-            {
-                throw new InvalidOperationException(MissingAudioInstallerMessage);
-            }
-
-            return audioRuntimeInstaller;
         }
 
         private IMainMenuReturnRouter CreateMainMenuReturnRouter()
@@ -468,17 +413,6 @@ namespace Game.Feature.UI.Composition
                 overlay,
                 audioFocus);
             return _cinematicFlowCoordinator;
-        }
-
-        private void EnsureAudioSettingsLifecycleRelay(IAudioSettingsPort audioSettingsPort)
-        {
-            _audioSettingsLifecycleRelay = GetComponent<AudioSettingsLifecycleRelay>();
-            if (_audioSettingsLifecycleRelay == null)
-            {
-                _audioSettingsLifecycleRelay = gameObject.AddComponent<AudioSettingsLifecycleRelay>();
-            }
-
-            _audioSettingsLifecycleRelay.Initialize(audioSettingsPort);
         }
 
         private void EnsureDisplayPreviewTimeoutRelay()
