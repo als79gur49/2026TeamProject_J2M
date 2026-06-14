@@ -738,7 +738,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 boardBounds,
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                 timingProfile);
         }
 

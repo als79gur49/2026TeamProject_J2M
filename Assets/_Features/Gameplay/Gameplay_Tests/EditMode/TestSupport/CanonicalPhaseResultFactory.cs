@@ -324,7 +324,6 @@ namespace Game.Feature.Gameplay.Tests
                 ActionGroupKind.Push => ResolvedActionSemanticKind.Push,
                 ActionGroupKind.Flip => ResolvedActionSemanticKind.Flip,
                 ActionGroupKind.BoxImpact => ResolvedActionSemanticKind.Impact,
-                ActionGroupKind.ProjectileImpact => ResolvedActionSemanticKind.Impact,
                 ActionGroupKind.Stop => ResolvedActionSemanticKind.Stop,
                 _ => ResolvedActionSemanticKind.Move,
             };
@@ -349,7 +348,6 @@ namespace Game.Feature.Gameplay.Tests
             {
                 ActionGroupKind.Item => TickEntityExitCause.ItemConsume,
                 ActionGroupKind.BoxImpact => TickEntityExitCause.DestroyedByImpact,
-                ActionGroupKind.ProjectileImpact => TickEntityExitCause.DestroyedByImpact,
                 _ => TickEntityExitCause.None,
             };
         }
@@ -449,7 +447,7 @@ namespace Game.Feature.Gameplay.Tests
                 ResolvedActionSemanticKind.Slide => MovementSemanticKind.Slide,
                 ResolvedActionSemanticKind.Impact => MovementSemanticKind.Impact,
                 ResolvedActionSemanticKind.JumpLanding => MovementSemanticKind.JumpLanding,
-                ResolvedActionSemanticKind.ProjectileMove => MovementSemanticKind.ProjectileMove,
+                ResolvedActionSemanticKind.ForwardCellMove => MovementSemanticKind.ForwardCellMove,
                 ResolvedActionSemanticKind.Item => MovementSemanticKind.Item,
                 ResolvedActionSemanticKind.Stop => MovementSemanticKind.Stop,
                 _ => MovementSemanticKind.None,

@@ -237,7 +237,7 @@ namespace Game.Feature.Gameplay.Entities
                 out var lockedTargetCell);
             if (!startQuery.CanStart)
             {
-                if (startQuery.BlockReason != WindupMeleeStartBlockReason.OutsideSimulationStartRange)
+                if (startQuery.BlockReason != CombatWindupStartBlockReason.OutsideSimulationStartRange)
                 {
                     ApplyCancelFallback(snapshot, source, writeContext);
                 }
@@ -262,7 +262,7 @@ namespace Game.Feature.Gameplay.Entities
             return nextAction;
         }
 
-        private WindupMeleeStartQueryResult QueryCombatWindupStart(
+        private CombatWindupStartQueryResult QueryCombatWindupStart(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,
@@ -271,7 +271,7 @@ namespace Game.Feature.Gameplay.Entities
             lockedTargetCell = null;
             if (_combatCapability.Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile)
             {
-                var result = WindupMeleeCombatPoseQueries.QueryStartWindupForwardCellProjectile(
+                var result = CombatWindupPoseQueries.QueryStartWindupForwardCellProjectile(
                     snapshot,
                     source,
                     target,
@@ -288,7 +288,7 @@ namespace Game.Feature.Gameplay.Entities
                 return result;
             }
 
-            return WindupMeleeStartQueryResult.Block(WindupMeleeStartBlockReason.TargetInvalid);
+            return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.TargetInvalid);
         }
 
         private EnemyActionRuntimeState CommitForwardCellProjectileRelease(
@@ -310,7 +310,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var settings = _combatCapability.WindupForwardCellProjectileSettings;
-            var impactDelayTicks = ResolveForwardCellProjectileImpactDelayTicks(action, settings);
+            var impactDelayTicks = ResolveForwardCellImpactDelayTicks(action, settings);
             var impact = new PendingCellImpact(
                 AllocatePendingCellImpactId(_entityId, action.sequence),
                 _entityId,
@@ -343,7 +343,7 @@ namespace Game.Feature.Gameplay.Entities
             return checked((ownerId * 100000) + Math.Max(1, actionSequence));
         }
 
-        private static int ResolveForwardCellProjectileImpactDelayTicks(
+        private static int ResolveForwardCellImpactDelayTicks(
             in EnemyActionRuntimeState action,
             in WindupForwardCellProjectileSettings settings)
         {
@@ -483,7 +483,7 @@ namespace Game.Feature.Gameplay.Entities
             if (_combatCapability != null &&
                 _combatCapability.AttackTimingSettings.WindupTicks > 0 &&
                 source.aiMode != EnemyAiMode.Attack &&
-                WindupMeleeCombatPoseQueries.IsMoveLockStartedThisTick(snapshot, _entityId, tickIndex))
+                CombatWindupPoseQueries.IsMoveLockStartedThisTick(snapshot, _entityId, tickIndex))
             {
                 return false;
             }

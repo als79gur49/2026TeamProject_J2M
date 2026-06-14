@@ -10,7 +10,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
@@ -237,19 +236,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Player_Free2D_TerrainClamp()
+        public void Player_Free2D_SolidClamp()
         {
-            var terrain = new GameplayTerrainData(
-                new[]
-                {
-                    new TerrainCellState(
-                        new SurfaceCell(FaceId.Floor, 1, 0),
-                        TerrainKind.Generic,
-                        TerrainFlags.BlocksGroundTraversal),
-                });
             var worldState = CreateWorldState(
-                new[] { CreatePlayer(10) },
-                terrain);
+                CreatePlayer(10),
+                CreateWall(20, new SurfaceCell(FaceId.Floor, 1, 0)));
             var pipeline = CreatePipeline(worldState);
 
             for (var tick = 1; tick <= 10; tick++)
@@ -274,7 +265,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             var pipeline = CreateDefaultGameplayPipeline(worldState);
 
@@ -306,7 +296,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             var pipeline = CreateDefaultGameplayPipeline(worldState);
 
@@ -340,7 +329,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(worldState, 0, -DefaultFree2DSpeedUnitsPerTick());
             var pipeline = CreateDefaultGameplayPipeline(worldState);
@@ -368,7 +356,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
             var pipeline = CreateDefaultGameplayPipeline(worldState);
@@ -406,7 +393,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(worldState, 256, KinematicFixed.MaxPositiveLocalOffset, speed);
             var pipeline = CreateDefaultGameplayPipeline(worldState);
@@ -447,7 +433,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             var speed = DefaultFree2DSpeedUnitsPerTick();
             SetPlayerContinuousLocalOffset(worldState, 256, KinematicFixed.MaxPositiveLocalOffset, speed);
@@ -511,7 +496,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(
                 worldState,
@@ -540,7 +524,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(
                 worldState,
@@ -573,7 +556,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(worldState, 512, sourceThresholdY - speed, speed);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, radiusCells);
@@ -620,7 +602,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(20, new SurfaceCell(FaceId.Front, 0, 0)),
                 },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(worldState, 256, KinematicFixed.MaxPositiveLocalOffset, DefaultFree2DSpeedUnitsPerTick());
             var pipeline = CreateNativeTopologyPipeline(worldState);
@@ -653,7 +634,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(20, new SurfaceCell(FaceId.Back, 0, 1)),
                 },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MinLocalOffset, DefaultFree2DSpeedUnitsPerTick());
             var pipeline = CreateNativeTopologyPipeline(worldState);
@@ -685,7 +665,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(20, new SurfaceCell(FaceId.Floor, 0, 1)),
                 },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Front));
             SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MinLocalOffset, DefaultFree2DSpeedUnitsPerTick());
             var pipeline = CreateNativeTopologyPipeline(worldState);
@@ -707,21 +686,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Free2DTopology_BottomToBackTargetFaceTerrain_EmitsTopologyBlockedSignal()
+        public void Free2DTopology_BottomToBackTargetFaceSolid_EmitsTopologyBlockedSignal()
         {
             var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
             var targetCell = new SurfaceCell(FaceId.Back, 0, 1);
-            var terrain = new GameplayTerrainData(new[]
-            {
-                new TerrainCellState(
-                    targetCell,
-                    TerrainKind.Generic,
-                    TerrainFlags.BlocksGroundTraversal),
-            });
             var worldState = CreateWorldState(
-                new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) },
+                new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)), CreateWall(20, targetCell) },
                 boardBounds,
-                terrain,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MinLocalOffset, DefaultFree2DSpeedUnitsPerTick());
             var pipeline = CreateNativeTopologyPipeline(worldState);
@@ -730,7 +701,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(entry =>
                     entry.Contains("Free2DTopologyNativeRejected") &&
-                    entry.Contains("TargetFaceBlockedByTerrain")),
+                    entry.Contains("TargetFaceBlockedBySolid")),
                 Is.True,
                 string.Join(";", result.MovementPhaseResult.RejectedReasons));
             AssertBottomToBackBlockedSignal(
@@ -738,7 +709,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 FaceId.Floor,
                 new SurfaceCell(FaceId.Floor, 0, 0),
                 targetCell,
-                TickTraversalBlockerKind.Terrain);
+                TickTraversalBlockerKind.Solid);
         }
 
         [Test]
@@ -756,7 +727,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(worldState, KinematicFixed.HalfCellUnits - radius + 1, sourceThresholdY - speed, speed);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, radiusCells);
@@ -798,7 +768,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(20, new SurfaceCell(FaceId.Front, 1, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(worldState, KinematicFixed.HalfCellUnits - radius, sourceThresholdY - speed, speed);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, radiusCells);
@@ -829,7 +798,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(worldState, KinematicFixed.HalfCellUnits - radius, sourceThresholdY - speed, speed);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, radiusCells);
@@ -867,7 +835,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateWall(20, footprintNeighbor),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetBoundaryFootprintPose(worldState, exactMaxContactX, radius);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, BoundaryFootprintRadiusCells());
@@ -898,7 +865,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateWall(20, new SurfaceCell(FaceId.Front, 1, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetBoundaryFootprintPose(worldState, oneInsideX, radius);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, BoundaryFootprintRadiusCells());
@@ -927,7 +893,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateWall(20, new SurfaceCell(FaceId.Front, 1, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetBoundaryFootprintPose(worldState, oneBeyondX, radius);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, BoundaryFootprintRadiusCells());
@@ -960,7 +925,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(21, targetFootprintNeighbor),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetBoundaryFootprintPose(worldState, oneBeyondX, radius);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, BoundaryFootprintRadiusCells());
@@ -1012,7 +976,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(20, targetFootprintNeighbor),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateBarricade(100, sourceContactCell) });
             SetBoundaryFootprintPose(worldState, oneBeyondX, radius);
@@ -1047,7 +1010,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateWall(21, new SurfaceCell(FaceId.Floor, 1, 1)),
                 },
                 new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetBoundaryFootprintPose(worldState, exactMaxContactX, radius);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, BoundaryFootprintRadiusCells());
@@ -1075,7 +1037,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateWall(20, new SurfaceCell(FaceId.Back, 1, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetBoundaryFootprintPose(worldState, exactMaxContactX, radius);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, BoundaryFootprintRadiusCells());
@@ -1099,7 +1060,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateBarricade(100, new SurfaceCell(FaceId.Front, 1, 0)) });
             SetBoundaryFootprintPose(worldState, exactMaxContactX, radius);
@@ -1128,7 +1088,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, sourceCell) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateBarricade(100, new SurfaceCell(FaceId.Front, 1, 0)) });
             SetBoundaryFootprintPose(worldState, oneBeyondX, radius);
@@ -1180,7 +1139,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateBarricade(100, barricadeCell) });
             SetPlayerContinuousLocalOffset(worldState, expectedClampX - speed, 0, speed);
@@ -1221,7 +1179,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateBarricade(100, barricadeCell) });
             SetPlayerContinuousLocalOffset(worldState, KinematicFixed.MaxPositiveLocalOffset, 0, speed);
@@ -1260,7 +1217,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[]
                 {
@@ -1325,7 +1281,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, sourceCell) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { createTileFeature(100, targetCell) });
             SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
@@ -1366,7 +1321,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, destroyCell) });
             SetPlayerContinuousLocalOffset(worldState, expectedClampX - speed, 0, speed);
@@ -1413,7 +1367,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var largeRadiusWorldState = CreateWorldState(
                 new[] { CreatePlayer(10, sourceCell) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, destroyCell) });
             SetPlayerContinuousLocalOffset(largeRadiusWorldState, largeRadiusClampX - speed, 0, speed);
@@ -1433,7 +1386,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var smallRadiusWorldState = CreateWorldState(
                 new[] { CreatePlayer(10, sourceCell) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, destroyCell) });
             SetPlayerContinuousLocalOffset(smallRadiusWorldState, smallRadiusClampX - speed, 0, speed);
@@ -1462,7 +1414,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, sourceCell, unitMobilityKind: UnitMobilityKind.Air) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, destroyCell) });
             SetPlayerContinuousLocalOffset(worldState, KinematicFixed.MaxPositiveLocalOffset, 0, speed);
@@ -1498,7 +1449,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, destroyCell) });
             SetPlayerContinuousLocalOffset(worldState, KinematicFixed.MaxPositiveLocalOffset, 0, speed);
@@ -1532,7 +1482,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var moveAwayWorldState = CreateWorldState(
                 new[] { CreatePlayer(10) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, destroyCell) });
             SetPlayerContinuousLocalOffset(moveAwayWorldState, speed, 0, speed);
@@ -1555,7 +1504,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var parallelWorldState = CreateWorldState(
                 new[] { CreatePlayer(10) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, destroyCell) });
             SetPlayerContinuousLocalOffset(parallelWorldState, 0, 0, speed);
@@ -1606,7 +1554,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, sourceCell) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, targetCell) });
             SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MinLocalOffset, speed);
@@ -1640,7 +1587,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, sourceCell, unitMobilityKind: UnitMobilityKind.Air) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, targetCell) });
             SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
@@ -1682,7 +1628,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, sourceCell) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[]
                 {
@@ -1743,7 +1688,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, sourceCell) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateBarricade(100, new SurfaceCell(FaceId.Front, 1, 0)) });
             SetPlayerContinuousLocalOffset(worldState, KinematicFixed.HalfCellUnits - radius + 1, sourceThresholdY - speed, speed);
@@ -1782,7 +1726,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, sourceCell) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { createTileFeature(100, footprintNeighbor) });
             SetPlayerContinuousLocalOffset(worldState, KinematicFixed.HalfCellUnits - radius + 1, sourceThresholdY - speed, speed);
@@ -1853,19 +1796,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Player_Free2D_RadiusApproachTerrain_ClampsBeforeBoundary()
+        public void Player_Free2D_RadiusApproachSolid_ClampsBeforeBoundary()
         {
-            var terrain = new GameplayTerrainData(
-                new[]
-                {
-                    new TerrainCellState(
-                        new SurfaceCell(FaceId.Floor, 1, 0),
-                        TerrainKind.Generic,
-                        TerrainFlags.BlocksGroundTraversal),
-                });
             var worldState = CreateWorldState(
-                new[] { CreatePlayer(10) },
-                terrain);
+                CreatePlayer(10),
+                CreateWall(20, new SurfaceCell(FaceId.Floor, 1, 0)));
             var pipeline = CreatePipelineWithCollisionRadius(worldState, collisionRadiusCells: 0.1875f);
 
             for (var tick = 1; tick <= 10; tick++)
@@ -1889,7 +1824,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             var pipeline = CreatePipelineWithCollisionRadius(worldState, collisionRadiusCells: 0.1875f);
 
@@ -1914,7 +1848,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(worldState, 0, 1280);
             var pipeline = CreatePipelineWithCollisionRadius(worldState, collisionRadiusCells: 0.1875f);
@@ -2628,7 +2561,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetPlayerContinuousLocalOffset(worldState, 0, 512);
             worldState.CreateWriteContext().SetPlayerControlState(
@@ -3437,7 +3369,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(20, targetFootprintNeighbor),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { createTileFeature(100, sourceContactCell) });
             SetBoundaryFootprintPose(worldState, oneBeyondX, radius);
@@ -3577,31 +3508,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayWorldStateTestFactory.CreateBounded(entities);
         }
 
-        private static WorldState CreateWorldState(IEnumerable<EntityState> entities, GameplayTerrainData terrainData)
-        {
-            return GameplayWorldStateTestFactory.CreateBounded(entities, terrainData);
-        }
-
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> entities,
             BoardBounds boardBounds,
-            GameplayTerrainData terrainData,
             CubeTopologyState topology)
         {
-            return GameplayWorldStateTestFactory.CreateBounded(entities, boardBounds, terrainData, topology);
+            return GameplayWorldStateTestFactory.CreateBounded(entities, boardBounds, topology);
         }
 
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> entities,
             BoardBounds boardBounds,
-            GameplayTerrainData terrainData,
             CubeTopologyState topology,
             IEnumerable<TileFeatureState> tileFeatures)
         {
             return GameplayWorldStateTestFactory.CreateBounded(
                 entities,
                 boardBounds,
-                terrainData,
                 topology,
                 GameplayTimingProfile.CreateDefault(),
                 tileFeatures);

@@ -82,7 +82,7 @@ namespace Game.Feature.Gameplay.Loop
         Slide = 4,
         Impact = 5,
         Item = 6,
-        ProjectileMove = 7,
+        ForwardCellMove = 7,
         Attack = 8,
         Stop = 9,
         JumpLanding = 10,
@@ -97,7 +97,7 @@ namespace Game.Feature.Gameplay.Loop
         Slide = 4,
         Impact = 5,
         JumpLanding = 6,
-        ProjectileMove = 7,
+        ForwardCellMove = 7,
         Item = 8,
         Stop = 9,
     }

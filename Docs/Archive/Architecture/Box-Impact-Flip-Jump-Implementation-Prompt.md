@@ -53,13 +53,13 @@
 
 ## 구현 전략
 
-`projectile impact`와 동일한 철학을 사용하라.
+`removed entity impact`와 동일한 철학을 사용하라.
 
 - movement phase가 synthetic impact reservation을 생성
 - attack phase가 synthetic impact를 damage action으로 확장
 - cleanup phase가 죽은 entity를 제거
 
-단, projectile 전용 하드코딩을 그대로 복붙하지 말고, box impact를 병렬 지원하도록 구조를 확장하라.
+단, removed entity 전용 하드코딩을 그대로 복붙하지 말고, box impact를 병렬 지원하도록 구조를 확장하라.
 
 권장 구현 순서는 아래와 같다.
 
@@ -105,7 +105,7 @@
 
 ### 2. hostile-only unit impact target query 추가
 
-현재 `TryPickImpactTargetAt`는 hostile fallback 규칙이 projectile 용도에 맞춰져 있다.
+현재 `TryPickImpactTargetAt`는 hostile fallback 규칙이 removed entity 용도에 맞춰져 있다.
 box impact에서는 `hostile unit only`를 명시적으로 고르도록 query를 분리하라.
 
 새 query 요구사항:
@@ -144,7 +144,7 @@ box impact에서는 `hostile unit only`를 명시적으로 고르도록 query를
 - `ActionGroupKind.BoxImpact` 추가
 - `ActionGroup`에 generic impact target assignment를 추가하거나 box impact target 저장 API를 추가
 - `MovementCommitter`가 `BoxImpact` group을 만나면 transient impact reservation을 생성
-- `ProjectileImpact`와 달리 `BoxImpact`는 state changes를 계속 commit할 수 있게 할 것
+- `ForwardCellImpact`와 달리 `BoxImpact`는 state changes를 계속 commit할 수 있게 할 것
 
 실제 행동 결과는 아래 셋 중 하나로 정규화하라.
 
@@ -168,16 +168,16 @@ impact reservation source는 `box entity`를 사용하라.
 의도:
 
 - sliding chain에서도 같은 hostile 기준이 유지된다.
-- projectile처럼 source entity가 제거되어야 하는 구조가 아니므로, box impact는 source self-damage를 만들지 않는다.
+- removed entity처럼 source entity가 제거되어야 하는 구조가 아니므로, box impact는 source self-damage를 만들지 않는다.
 
-damage amount는 1로 시작하되, 상수는 projectile과 분리하라.
+damage amount는 1로 시작하되, 상수는 removed entity과 분리하라.
 
 예:
 
-- `ProjectileImpactDamageAmount = 1`
+- `ForwardCellImpactDamageAmount = 1`
 - `BoxImpactDamageAmount = 1`
 
-box impact는 projectile과 달리 source self-damage를 만들지 않는다.
+box impact는 removed entity과 달리 source self-damage를 만들지 않는다.
 
 ### 5. push / flip 성공 시 kinetic context 기록
 

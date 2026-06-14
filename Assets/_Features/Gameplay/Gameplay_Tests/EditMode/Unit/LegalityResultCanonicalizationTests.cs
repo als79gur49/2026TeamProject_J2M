@@ -4,7 +4,6 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Tests;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -14,37 +13,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void RuntimePlacementValidityPolicy_EvaluateGameplayPlacement_InactiveFaceTerrainBlockedAuthoritativeOnly_PreservesCanonicalFields()
+        public void RuntimePlacementValidityPolicy_EvaluateGameplayPlacement_InactiveFaceInBoundsCell_PreservesCanonicalFields()
         {
-            var blockedCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var destinationCell = new SurfaceCell(FaceId.Front, 1, 0);
             var snapshot = GameplayWorldStateTestFactory.CreateBounded(
                     new List<EntityState>(),
                     new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                    new GameplayTerrainData(new[] { blockedCell.PlanarPosition }),
                     new CubeTopologyState(FaceId.Back))
                 .CreateSnapshot();
 
             var gameplayLegality = RuntimePlacementValidityPolicy.EvaluateGameplayPlacement(
                 snapshot,
                 EntityType.Unit,
-                blockedCell,
+                destinationCell,
                 ignoredEntityId: 0);
             var authoritativeLegality = RuntimePlacementValidityPolicy.EvaluateAuthoritativePlacement(
                 snapshot,
                 EntityType.Unit,
-                blockedCell,
+                destinationCell,
                 ignoredEntityId: 0);
 
             Assert.That(gameplayLegality.Domain, Is.EqualTo(LegalityDomain.Placement));
             Assert.That(gameplayLegality.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
-            Assert.That(gameplayLegality.Cell, Is.EqualTo(blockedCell));
+            Assert.That(gameplayLegality.Cell, Is.EqualTo(destinationCell));
             Assert.That(gameplayLegality.Topology, Is.EqualTo(snapshot.Topology));
             Assert.That(gameplayLegality.Reservation, Is.EqualTo(ReservationStatus.None));
             Assert.That(gameplayLegality.TransitionRequirement.Kind, Is.EqualTo(TransitionRequirementKind.None));
             Assert.That(gameplayLegality.Blockers, Is.Empty);
-            Assert.That(authoritativeLegality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
-            Assert.That(authoritativeLegality.Blockers.Count, Is.EqualTo(1));
-            Assert.That(authoritativeLegality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Terrain));
+            Assert.That(authoritativeLegality.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
+            Assert.That(authoritativeLegality.Blockers, Is.Empty);
         }
 
         [Test]
@@ -76,22 +73,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void RuntimeTraversalLegalityPolicy_EvaluateDestination_TopologyTransitionTerrainBlocked_PreservesRequirementAndBlocker()
+        public void RuntimeTraversalLegalityPolicy_EvaluateDestination_TopologyTransitionSolidBlocked_PreservesRequirementAndBlocker()
         {
             var originCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var destinationCell = new SurfaceCell(FaceId.Back, 0, 1);
             var unit = CreateUnit(10, originCell);
             var updatedTopology = new CubeTopologyState(FaceId.Back);
             var snapshot = GameplayWorldStateTestFactory.CreateBounded(
-                    new[] { unit },
+                    new[] { unit, CreateBox(20, destinationCell) },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    new GameplayTerrainData(new[]
-                    {
-                        new TerrainCellState(
-                            destinationCell,
-                            TerrainKind.Generic,
-                            TerrainFlags.BlocksGroundTraversal),
-                    }),
                     new CubeTopologyState(FaceId.Floor))
                 .CreateSnapshot();
 
@@ -109,7 +99,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(legality.TransitionRequirement.RotationKind, Is.EqualTo(CubeRotationKind.Backward));
             Assert.That(legality.TransitionRequirement.UpdatedTopology, Is.EqualTo(updatedTopology));
             Assert.That(legality.Blockers.Count, Is.EqualTo(1));
-            Assert.That(legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Terrain));
+            Assert.That(legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Solid));
         }
 
         [Test]
@@ -127,7 +117,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = GameplayWorldStateTestFactory.CreateBounded(
                     new[] { unit },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                    GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Floor),
                     GameplayTimingProfile.CreateDefault(),
                     new[] { barricade })
@@ -165,7 +154,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = GameplayWorldStateTestFactory.CreateBounded(
                     new[] { unit },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                    GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Floor),
                     GameplayTimingProfile.CreateDefault(),
                     new[] { barricade })
@@ -195,7 +183,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = GameplayWorldStateTestFactory.CreateBounded(
                     new[] { unit },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(3, 2)),
-                    GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Floor),
                     GameplayTimingProfile.CreateDefault(),
                     new[] { CreateTileFeature(100, destinationCell, TileFeatureKind.Barricade) })
@@ -224,7 +211,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = GameplayWorldStateTestFactory.CreateBounded(
                     new[] { unit },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                    GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Floor),
                     GameplayTimingProfile.CreateDefault(),
                     new[] { CreateTileFeature(100, cell, TileFeatureKind.Barricade) })
@@ -252,7 +238,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = GameplayWorldStateTestFactory.CreateBounded(
                     new[] { existingUnit, entrant },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                    GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Floor),
                     GameplayTimingProfile.CreateDefault(),
                     new[] { CreateTileFeature(100, cell, TileFeatureKind.Barricade) })
@@ -323,7 +308,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         CreateUnit(30, destinationCell),
                     },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(3, 2)),
-                    GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Floor),
                     GameplayTimingProfile.CreateDefault(),
                     new[] { CreateTileFeature(100, destinationCell, TileFeatureKind.Barricade) })
@@ -368,7 +352,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         CreateUnit(30, destinationCell),
                     },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(3, 2)),
-                    GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Floor),
                     GameplayTimingProfile.CreateDefault(),
                     new[] { CreateTileFeature(100, destinationCell, TileFeatureKind.Barricade) })
@@ -396,11 +379,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void LegalityDiagnosticsFormatter_FormatStableSummary_ExportsStableFieldsOnly()
         {
+            var blockerEntity = CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0));
             var legality = LegalityResult.Blocked(
                 LegalityDomain.Traversal,
                 new SurfaceCell(FaceId.Floor, 1, 0),
                 new CubeTopologyState(FaceId.Floor),
-                RuntimeLegalityBlockerFactory.CreateTerrain(TerrainFlags.BlocksGroundTraversal),
+                RuntimeLegalityBlockerFactory.Create(
+                    new Dictionary<int, EntityState> { [20] = blockerEntity },
+                    SlideStopper.CreateEntity(blockerEntity)),
                 ReservationStatus.None,
                 TransitionRequirement.None);
 
@@ -409,7 +395,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(formatted, Does.Contain("LegalityDomain=Traversal"));
             Assert.That(formatted, Does.Contain("LegalityVerdict=Blocked"));
             Assert.That(formatted, Does.Contain("ReservationStatus=None"));
-            Assert.That(formatted, Does.Contain("LegalityBlockerKinds=Terrain"));
+            Assert.That(formatted, Does.Contain("LegalityBlockerKinds=Solid"));
             Assert.That(formatted, Does.Not.Contain("CapabilityFlags"));
             Assert.That(formatted, Does.Not.Contain("ModifierFlags"));
         }

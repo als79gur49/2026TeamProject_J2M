@@ -10,7 +10,7 @@
 
 ## 1. 후속 수정 목표 요약
 - 이번 문서의 목적은 phase 5를 다시 설계하는 것이 아니라 `WindupMelee RandomWalk pilot` 하나의 runtime parity red 묶음을 bounded fix로 닫는 것이다.
-- retired `EnemyAi_WindupMelee.asset` profile은 current repository inventory가 아니다. `EnemyBrain_WindupMelee.asset` shared brain은 Stage-reachable WindupProjectile path가 사용하므로 유지한다.
+- retired `EnemyAi_WindupMelee.asset` profile은 current repository inventory가 아니다. Historical `EnemyBrain_WindupMelee.asset` shared brain 경로는 current taxonomy에서 Stage-reachable `EnemyBrain_WindupProjectile.asset` path로 정리됐다.
 - `Forward` fallback/oracle, `NonAttacking` pilot, `JumpChaser`, `Charge`, `WallFollow`, `TutorialPassiveContact` 기본 patrol 정책은 이번 수정 범위가 아니다.
 
 ## 2. 현재 상태와 close 불가 이유
@@ -137,7 +137,7 @@
 - `AttackCommitted`, `Recover`, `LockedTargetLost` 중 하나라도 exact / bounded contract를 못 맞추면 close 불가다.
 - baseline untouched / fallback/oracle 유지 / other archetype no-drift를 same revision에서 입증하지 못하면 close 불가다.
 - final no-touch:
-  - retired `EnemyAi_WindupMelee.asset` profile 재도입 금지, `EnemyBrain_WindupMelee.asset` destructive overwrite 금지
+  - retired `EnemyAi_WindupMelee.asset` profile 재도입 금지, current `EnemyBrain_WindupProjectile.asset` destructive overwrite 금지
   - `Forward` fallback/oracle 제거 금지
   - `NonAttacking` pilot 회귀 금지
   - `JumpChaser`, `Charge`, `WallFollow`, `TutorialPassiveContact` 기본 patrol 정책 변경 금지

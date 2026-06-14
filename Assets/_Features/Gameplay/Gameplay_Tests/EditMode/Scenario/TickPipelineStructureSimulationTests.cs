@@ -16,7 +16,6 @@ using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -92,8 +91,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
             var entityLogics = new IEntityLogic[]
             {
-                new StubEntityLogic(new RawMovementIntent(20, 10, new Vector2Int(3, 0)), RawAttackIntent.CreateFireProjectile(20, 10)),
-                new StubEntityLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0)), RawAttackIntent.CreateFireProjectile(10, 5)),
+                new StubEntityLogic(new RawMovementIntent(20, 10, new Vector2Int(3, 0)), new RawAttackIntent(20, 10, 10)),
+                new StubEntityLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0)), new RawAttackIntent(10, 5, 20)),
             };
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, entityLogics);
 
@@ -110,8 +109,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 20, Priority: 10, Command: AttackCommandKind.FireProjectile),
-                    (SourceId: 10, Priority: 5, Command: AttackCommandKind.FireProjectile),
+                    (SourceId: 20, Priority: 10, Command: AttackCommandKind.Attack),
+                    (SourceId: 10, Priority: 5, Command: AttackCommandKind.Attack),
                 },
                 result.AttackPhaseResult.RawIntents
                     .Select(intent => (intent.SourceId, intent.Priority, intent.CommandKind))
@@ -146,9 +145,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
             var entityLogics = new IEntityLogic[]
             {
-                new StubEntityLogic(null, RawAttackIntent.CreateFireProjectile(20, 10)),
-                new StubEntityLogic(null, RawAttackIntent.CreateFireProjectile(10, 5)),
-                new StubEntityLogic(null, RawAttackIntent.CreateFireProjectile(30, 1)),
+                new StubEntityLogic(null, new RawAttackIntent(20, 10, 10)),
+                new StubEntityLogic(null, new RawAttackIntent(10, 5, 20)),
+                new StubEntityLogic(null, new RawAttackIntent(30, 1, 10)),
             };
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, entityLogics);
 
@@ -157,7 +156,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, Priority: 5, Command: AttackCommandKind.FireProjectile),
+                    (SourceId: 10, Priority: 5, Command: AttackCommandKind.Attack),
                 },
                 result.AttackPhaseResult.RawIntents
                     .Select(intent => (intent.SourceId, intent.Priority, intent.CommandKind))
@@ -243,51 +242,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void GameplayCompositionRoot_CreateTickRunner_UsesDefaultProviderWithProjectileCadence()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                new EntityState
-                {
-                    entityId = 10,
-                    position = new Vector2Int(0, 0),
-                    hp = 1,
-                    maxHp = 1,
-                    teamId = 1,
-                    type = EntityType.Projectile,
-                    facing = Direction.Right,
-                },
-            });
-            var runner = GameplayCompositionRoot.CreateTickRunner(worldState, new TickInputBuffer());
-            var timingProfile = GameplayTimingProfile.CreateDefault();
-
-            var firstResult = runner.RunNextTick();
-
-            Assert.That(firstResult.MovementPhaseResult.SortedIntents, Is.Empty);
-            Assert.That(firstResult.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-
-            for (var tick = 2; tick <= timingProfile.ProjectileStepIntervalTicks; tick++)
-            {
-                runner.RunNextTick();
-            }
-
-            var moveResult = runner.RunNextTick();
-
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 10, Destination: new Vector2Int(1, 0)),
-                },
-                moveResult.MovementPhaseResult
-                    .SortedIntents
-                    .Select(intent => (intent.SourceId, intent.Destination))
-                    .ToArray());
-            Assert.That(moveResult.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
-            Assert.That(runner.NextTickIndex, Is.EqualTo(timingProfile.ProjectileStepIntervalTicks + 2));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void RunTick_OffBottomEnemy_DoesNotEmitMovementOrAttackTrace()
         {
             var player = CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Front, 1, 0), Direction.Left);
@@ -299,7 +253,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     enemy,
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
 
@@ -327,7 +280,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     enemy,
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             worldState.CreateWriteContext().SetEnemyActionState(
                 40,
@@ -358,97 +310,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=AfterAttack|E=40"));
         }
 
-        [Test]
-        [Category("Extended")]
-        public void GameplayBootstrapper_CreateTickRunner_PreservesPreExistingProjectileCadence()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                new EntityState
-                {
-                    entityId = 20,
-                    position = new Vector2Int(2, 1),
-                    hp = 1,
-                    maxHp = 1,
-                    teamId = 2,
-                    type = EntityType.Projectile,
-                    facing = Direction.Left,
-                },
-            });
-            var bootstrapper = GameplayCompositionRoot.CreateDefaultBootstrapper();
-            var inputBuffer = new TickInputBuffer();
-            var timingProfile = GameplayTimingProfile.CreateDefault();
-
-            inputBuffer.Record(new TickInput(7));
-
-            var runner = bootstrapper.CreateTickRunner(
-                worldState,
-                Array.Empty<IEntityLogic>(),
-                inputBuffer,
-                startTickIndex: 7);
-            var firstResult = runner.RunNextTick();
-
-            Assert.That(firstResult.MovementPhaseResult.SortedIntents, Is.Empty);
-            Assert.That(firstResult.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 1)));
-
-            for (var tick = 8; tick <= (7 + timingProfile.ProjectileStepIntervalTicks - 1); tick++)
-            {
-                runner.RunNextTick();
-            }
-
-            var moveResult = runner.RunNextTick();
-
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 20, Destination: new Vector2Int(1, 1)),
-                },
-                moveResult.MovementPhaseResult
-                    .SortedIntents
-                    .Select(intent => (intent.SourceId, intent.Destination))
-                    .ToArray());
-            Assert.That(moveResult.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
-            Assert.That(runner.NextTickIndex, Is.EqualTo(7 + timingProfile.ProjectileStepIntervalTicks + 1));
-            Assert.That(inputBuffer.HasBufferedInput(7), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void RunTick_UsesAuthoritativeProjectileStateTimerWithoutSessionStartMutation()
-        {
-            var worldState = GameplayCompositionRoot.CreateWorldState(
-                new[]
-                {
-                    new EntityState
-                    {
-                        entityId = 10,
-                        position = new Vector2Int(0, 0),
-                        hp = 1,
-                        maxHp = 1,
-                        teamId = 1,
-                        type = EntityType.Projectile,
-                        facing = Direction.Right,
-                    },
-                },
-                new BoardBounds(new Vector2Int(-32, -32), new Vector2Int(32, 32)),
-                GameplayTerrainData.Empty);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
-                worldState,
-                Array.Empty<IEntityLogic>(),
-                GameplayTimingProfile.CreateDefault(),
-                CreateDefaultPlayerControlTimingSnapshot());
-
-            var result = pipeline.RunTick(new TickInput(1));
-
-            CollectionAssert.AreEqual(
-                new[] { (SourceId: 10, IntentId: 1, Destination: new Vector2Int(1, 0)) },
-                result.MovementPhaseResult
-                    .SortedIntents
-                    .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination))
-                    .ToArray());
-            Assert.That(result.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
-        }
-
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -465,18 +326,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds,
-            GameplayTerrainData terrainData)
-        {
-            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
-        }
-
-        private static WorldState CreateWorldState(
-            IEnumerable<EntityState> initialEntities,
-            BoardBounds boardBounds,
-            GameplayTerrainData terrainData,
             CubeTopologyState topology)
         {
-            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData, topology);
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, topology);
         }
 
         private static EnemyActionRuntimeState CreateEnemyActionState(
@@ -641,7 +493,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1)),
                 },
                 DefaultBoardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 timingProfile);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -703,7 +554,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { player },
                 DefaultBoardBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 timingProfile);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(

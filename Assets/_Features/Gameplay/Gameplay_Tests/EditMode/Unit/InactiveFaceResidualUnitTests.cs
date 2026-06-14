@@ -5,7 +5,6 @@ using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Tests;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -15,19 +14,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void RespawnProcessor_InactiveFaceTerrainAtSpawn_DefersUntilTopologyReset()
+        public void RespawnProcessor_InactiveFaceSolidAtSpawn_DefersUntilTopologyReset()
         {
             var spawnCell = new SurfaceCell(FaceId.Front, 1, 0);
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                Array.Empty<EntityState>(),
+                new[] { CreateWall(entityId: 90, position: spawnCell) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                new GameplayTerrainData(new[] { new Vector2Int(1, 0) }),
                 new CubeTopologyState(FaceId.Back));
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetPlacementBlocker(EntityType.Unit, spawnCell, ignoredEntityId: 0, out _), Is.False);
             Assert.That(snapshot.TryGetAuthoritativePlacementBlocker(EntityType.Unit, spawnCell, ignoredEntityId: 0, out var blocker), Is.True);
-            Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Terrain));
+            Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
 
             var processor = new RespawnProcessor();
             RespawnPhaseResult result = null;
@@ -57,20 +55,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void RespawnProcessor_ActiveFrontFaceTerrainAtSpawn_DefersUntilBottomFace()
+        public void RespawnProcessor_ActiveFrontFaceSolidAtSpawn_DefersUntilBottomFace()
         {
             var spawnCell = new SurfaceCell(FaceId.Front, 1, 0);
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                Array.Empty<EntityState>(),
+                new[] { CreateWall(entityId: 90, position: spawnCell) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                new GameplayTerrainData(new[] { new Vector2Int(1, 0) }),
                 new CubeTopologyState(FaceId.Floor));
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.Topology.IsFaceActive(spawnCell.face), Is.True);
             Assert.That(snapshot.Topology.BottomFace, Is.Not.EqualTo(spawnCell.face));
             Assert.That(snapshot.TryGetAuthoritativePlacementBlocker(EntityType.Unit, spawnCell, ignoredEntityId: 0, out var blocker), Is.True);
-            Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Terrain));
+            Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
 
             var processor = new RespawnProcessor();
             RespawnPhaseResult result = null;
@@ -107,7 +104,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 Array.Empty<EntityState>(),
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             var snapshot = worldState.CreateSnapshot();
             var processor = new RespawnProcessor();
@@ -141,7 +137,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 Array.Empty<EntityState>(),
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             var snapshot = worldState.CreateSnapshot();
             var processor = new RespawnProcessor();
@@ -248,7 +243,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             boardPresence: EntityBoardPresence.Detached),
                     },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(4, 2)),
-                    GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Back))
                 .CreateSnapshot();
 
@@ -286,7 +280,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void ProjectedWorld_JumpLandingBatch_MoveIntoInactiveFaceTerrain_RemainsRepresentable_ButAuthoritativePlacementStaysBlocked()
         {
-            var baseSnapshot = CreateInactiveFaceJumpSnapshot("terrain");
+            var baseSnapshot = CreateInactiveFaceJumpSnapshot("solid");
             var batch = new FinalizationBatch();
             var targetCell = new SurfaceCell(FaceId.Front, 2, 1);
             batch.MoveEntity(40, targetCell);
@@ -307,30 +301,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     ignoredEntityId: 40,
                     out var blocker),
                 Is.True);
-            Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Terrain));
+            Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
         }
 
         private static WorldSnapshot CreateInactiveFaceJumpSnapshot(string blockerKind)
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var targetCell = new SurfaceCell(FaceId.Front, 2, 1);
-            var initialEntities = blockerKind == "solid"
-                ? new[]
-                {
-                    CreateEnemyUnit(entityId: 40, position: sourceCell, boardPresence: EntityBoardPresence.Detached),
-                    CreateWall(entityId: 90, position: targetCell),
-                }
-                : new[]
-                {
-                    CreateEnemyUnit(entityId: 40, position: sourceCell, boardPresence: EntityBoardPresence.Detached),
-                };
-            var terrainData = blockerKind == "terrain"
-                ? new GameplayTerrainData(new[] { targetCell.PlanarPosition })
-                : GameplayTerrainData.Empty;
+            var initialEntities = new[]
+            {
+                CreateEnemyUnit(entityId: 40, position: sourceCell, boardPresence: EntityBoardPresence.Detached),
+                CreateWall(entityId: 90, position: targetCell),
+            };
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 new BoardBounds(Vector2Int.zero, new Vector2Int(4, 2)),
-                terrainData,
                 new CubeTopologyState(FaceId.Back));
 
             return worldState.CreateSnapshot();

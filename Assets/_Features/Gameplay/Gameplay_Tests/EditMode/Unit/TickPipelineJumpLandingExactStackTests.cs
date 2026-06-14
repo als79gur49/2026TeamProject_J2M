@@ -8,7 +8,6 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -432,28 +431,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void JumpLanding_StillBlocksTerrainOrBounds()
+        public void JumpLanding_StillBlocksSolidOrBounds()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
-            var terrainCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var solidCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var outOfBoundsCell = new SurfaceCell(FaceId.Floor, 2, 0);
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
+                    CreateWall(10, solidCell),
                     CreateUnit(40, sourceCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
-                new GameplayTerrainData(new[]
-                {
-                    new TerrainCellState(terrainCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                }));
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)));
             var snapshot = worldState.CreateSnapshot();
             var actor = StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit);
 
             Assert.That(
                 RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
-                    new SettlementContext(snapshot, actor, terrainCell, snapshot.Topology, SpatialState.Anchored),
-                    new JumpLandingEvidence(snapshot, terrainCell)).Verdict,
+                    new SettlementContext(snapshot, actor, solidCell, snapshot.Topology, SpatialState.Anchored),
+                    new JumpLandingEvidence(snapshot, solidCell)).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(
                 RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
@@ -514,29 +510,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PhasedLandingPlacement_StillBlocksSolidTerrainBoundsOrReservation()
+        public void PhasedLandingPlacement_StillBlocksSolidBoundsOrReservation()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var solidCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var terrainCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var secondSolidCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var outOfBoundsCell = new SurfaceCell(FaceId.Floor, 2, 0);
             var reservedCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
                     CreateWall(10, solidCell),
+                    CreateWall(11, secondSolidCell),
                     CreateUnit(40, sourceCell, teamId: 2),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                new GameplayTerrainData(new[]
-                {
-                    new TerrainCellState(terrainCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                }));
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             var snapshot = worldState.CreateSnapshot();
             var actor = StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit);
 
             Assert.That(EvaluatePhasedSettlement(snapshot, actor, solidCell).Verdict, Is.EqualTo(LegalityVerdict.Blocked));
-            Assert.That(EvaluatePhasedSettlement(snapshot, actor, terrainCell).Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(EvaluatePhasedSettlement(snapshot, actor, secondSolidCell).Verdict, Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(EvaluatePhasedSettlement(snapshot, actor, outOfBoundsCell).Verdict, Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(
                 EvaluatePhasedSettlement(snapshot, actor, reservedCell, ReservationStatus.Conflicted).Verdict,

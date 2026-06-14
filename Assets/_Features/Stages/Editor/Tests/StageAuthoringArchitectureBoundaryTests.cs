@@ -500,20 +500,23 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void TerrainFlags_DoNotGainBoardVisualSemantics()
+        public void StageAuthoringSchema_DoesNotReintroduceTerrainTruth()
         {
             var allSources = Directory.GetFiles("Assets", "*.cs", SearchOption.AllDirectories);
-            var terrainFlags = "Terrain" + "Flags";
-            var boardTile = "Board" + "Tile";
+            var terrainTruthType = "Terrain" + "Data";
+            var initialTerrain = "Initial" + "Terrain";
+            var blocksGroundTraversal = "Blocks" + "GroundTraversal";
             foreach (var sourcePath in allSources)
             {
+                if (!sourcePath.Contains("Stages") && !sourcePath.Contains("Gameplay_Host"))
+                {
+                    continue;
+                }
+
                 var source = File.ReadAllText(sourcePath);
-                Assert.That(source, Does.Not.Contain(terrainFlags + ".Visual"), sourcePath);
-                Assert.That(source, Does.Not.Contain(terrainFlags + ".Board"), sourcePath);
-                Assert.That(source, Does.Not.Contain(terrainFlags + ".Tile"), sourcePath);
-                Assert.That(source, Does.Not.Contain(terrainFlags + ".Presentation"), sourcePath);
-                Assert.That(source, Does.Not.Contain(boardTile + terrainFlags), sourcePath);
-                Assert.That(source, Does.Not.Contain(terrainFlags + boardTile), sourcePath);
+                Assert.That(source, Does.Not.Contain(terrainTruthType), sourcePath);
+                Assert.That(source, Does.Not.Contain(initialTerrain), sourcePath);
+                Assert.That(source, Does.Not.Contain(blocksGroundTraversal), sourcePath);
             }
         }
 

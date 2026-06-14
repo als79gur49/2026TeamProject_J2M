@@ -308,9 +308,6 @@ namespace Game.Feature.Gameplay.Host
                 case EntityType.Box:
                     return _boxMaterial;
 
-                case EntityType.Projectile:
-                    return _projectileMaterial;
-
                 case EntityType.None:
                     return _wallMaterial;
 

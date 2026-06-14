@@ -108,7 +108,6 @@ namespace Game.Feature.Gameplay.Debug
         {
             AppendSection(builder, $"{label}.Topology", new[] { snapshot.Topology.ToString() }, FormatString);
             AppendSection(builder, $"{label}.BoardBounds", new[] { FormatBoardBounds(snapshot.BoardBounds) }, FormatString);
-            AppendSection(builder, $"{label}.Terrain", GetTerrainEntries(snapshot), FormatString);
             AppendSection(
                 builder,
                 $"{label}.Entities",
@@ -153,10 +152,6 @@ namespace Game.Feature.Gameplay.Debug
             var unitEntries = new List<SnapshotOccupancyEntry>();
             snapshot.EnumerateUnitOccupancyOrdered(unitEntries);
             AddOccupancyEntries(occupancyEntries, "Unit", unitEntries);
-
-            var projectileEntries = new List<SnapshotOccupancyEntry>();
-            snapshot.EnumerateProjectileOccupancyOrdered(projectileEntries);
-            AddOccupancyEntries(occupancyEntries, "Projectile", projectileEntries);
 
             occupancyEntries.Sort(TraceOccupancyEntryComparer.Instance);
 
@@ -387,21 +382,6 @@ namespace Game.Feature.Gameplay.Debug
             }
 
             return lines;
-        }
-
-        private static List<string> GetTerrainEntries(WorldSnapshot snapshot)
-        {
-            var terrainLines = new List<string>();
-            var terrainCells = new List<TerrainCellState>();
-            snapshot.EnumerateTerrainCellsOrdered(terrainCells);
-
-            for (var i = 0; i < terrainCells.Count; i++)
-            {
-                terrainLines.Add(
-                    $"Cell={terrainCells[i].Cell}|Kind={terrainCells[i].Kind}|Flags={terrainCells[i].Flags}");
-            }
-
-            return terrainLines;
         }
 
         private static void AddOccupancyEntries(

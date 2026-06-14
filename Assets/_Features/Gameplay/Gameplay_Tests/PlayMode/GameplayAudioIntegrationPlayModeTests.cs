@@ -21,7 +21,6 @@ using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.PlayMode
 {
@@ -220,7 +219,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 AutoCreateViews = true,
                 InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
                 InitialEntities = new[] { playerEntity },
-                InitialTerrain = GameplayTerrainData.Empty,
                 InitialTopology = new CubeTopologyState(FaceId.Floor),
                 GameplayPresentationAudioConfig = mapBundle.Config,
                 TopologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault(),
@@ -239,7 +237,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 AutoCreateViews = false,
                 InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
                 InitialEntities = Array.Empty<EntityState>(),
-                InitialTerrain = GameplayTerrainData.Empty,
                 InitialTopology = new CubeTopologyState(FaceId.Floor),
                 GameplayPresentationAudioConfig = audioConfig,
                 TopologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault(),

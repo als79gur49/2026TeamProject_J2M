@@ -378,7 +378,7 @@ namespace Game.Feature.Gameplay.Entities
             AttackDecisionSettings attackDecisionSettings,
             EnemyAttackTimingSettings attackTimingSettings,
             IAttackDecisionStrategy attackDecisionStrategy,
-            WindupMeleeSettings? windupMeleeSettings = null,
+            ProjectileWindupSettings? projectileWindupSettings = null,
             WindupForwardCellProjectileSettings? windupForwardCellProjectileSettings = null)
         {
             if (kind == AttackDecisionStrategyKind.None)
@@ -403,7 +403,7 @@ namespace Game.Feature.Gameplay.Entities
             Kind = kind;
             AttackDecisionSettings = attackDecisionSettings;
             AttackTimingSettings = attackTimingSettings;
-            WindupMeleeSettings = windupMeleeSettings ?? global::Game.Feature.Gameplay.Entities.WindupMeleeSettings.CreateDefault();
+            ProjectileWindupSettings = projectileWindupSettings ?? global::Game.Feature.Gameplay.Entities.ProjectileWindupSettings.CreateDefault();
             WindupForwardCellProjectileSettings = windupForwardCellProjectileSettings ??
                                                   global::Game.Feature.Gameplay.Entities.WindupForwardCellProjectileSettings.CreateDefault();
             AttackDecisionStrategy = attackDecisionStrategy ?? throw new ArgumentNullException(nameof(attackDecisionStrategy));
@@ -418,7 +418,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyAttackTimingSettings AttackTimingSettings { get; }
 
-        public WindupMeleeSettings WindupMeleeSettings { get; }
+        public ProjectileWindupSettings ProjectileWindupSettings { get; }
 
         public WindupForwardCellProjectileSettings WindupForwardCellProjectileSettings { get; }
 
@@ -465,7 +465,7 @@ namespace Game.Feature.Gameplay.Entities
 
             AttackDecisionSettings.Validate(paramName);
             AttackTimingSettings.Validate(paramName);
-            WindupMeleeSettings.Validate(paramName);
+            ProjectileWindupSettings.Validate(paramName);
             if (Kind == AttackDecisionStrategyKind.WindupForwardCellProjectile)
             {
                 WindupForwardCellProjectileSettings.Validate(paramName);

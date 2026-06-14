@@ -1410,7 +1410,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var snapshot = GameplayCompositionRoot.CreateWorldState(
                         buildResult.InitialEntities,
                         buildResult.BoardBounds,
-                        buildResult.InitialTerrain,
                         buildResult.InitialTopology)
                     .CreateSnapshot();
                 var units = new System.Collections.Generic.List<EntityState>();
@@ -1527,7 +1526,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(buildResult.InitialTopology.BottomFace, Is.EqualTo(FaceId.Floor));
             var playerSpawn = stage.PlayerSpawns.Single();
             Assert.That(buildResult.PlayerEntityId, Is.EqualTo(playerSpawn.EntityId));
-            Assert.That(buildResult.InitialTerrain, Is.SameAs(Game.Feature.Gameplay.BoardState.TerrainData.Empty));
             Assert.That(buildResult.InitialTileFeatures.Length, Is.EqualTo(stage.TileFeatures.Length));
             Assert.That(buildResult.TileFeatureDefinitions.Length, Is.EqualTo(stage.TileFeatures.Length));
             Assert.That(
@@ -1549,7 +1547,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = GameplayCompositionRoot.CreateWorldState(
                     buildResult.InitialEntities,
                     buildResult.BoardBounds,
-                    buildResult.InitialTerrain,
                     buildResult.InitialTopology)
                 .CreateSnapshot();
             Assert.That(snapshot.TryGetUnitTraversalBlocker(wall.position, out var wallBlocker), Is.True);
@@ -1744,7 +1741,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayCompositionRoot.CreateWorldState(
                 buildResult.InitialEntities,
                 buildResult.BoardBounds,
-                buildResult.InitialTerrain,
                 buildResult.InitialTopology,
                 buildResult.InitialTileFeatures);
             var snapshot = worldState.CreateSnapshot();
@@ -2213,7 +2209,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actual.BoardBounds.MaxInclusive, Is.EqualTo(expected.BoardBounds.MaxInclusive));
             Assert.That(actual.InitialTopology, Is.EqualTo(expected.InitialTopology));
             CollectionAssert.AreEqual(expected.InitialEntities, actual.InitialEntities);
-            Assert.That(actual.InitialTerrain, Is.SameAs(expected.InitialTerrain));
             CollectionAssert.AreEqual(expected.InitialTileFeatures, actual.InitialTileFeatures);
             CollectionAssert.AreEqual(expected.TileFeatureDefinitions, actual.TileFeatureDefinitions);
             CollectionAssert.AreEqual(expected.MoonBlockRespawnDefinitions, actual.MoonBlockRespawnDefinitions);

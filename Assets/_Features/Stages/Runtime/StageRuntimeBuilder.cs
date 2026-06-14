@@ -27,7 +27,6 @@ namespace Game.Feature.Stages
                 validated.BoardBounds,
                 validated.InitialTopology,
                 initialEntities,
-                TerrainData.Empty,
                 initialTileFeatures,
                 tileFeatureDefinitions,
                 moonBlockRespawnDefinitions,

@@ -7,7 +7,6 @@ using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Core
 {
@@ -160,17 +159,6 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void FlipLandingTerrain_RejectsAtStartAsBoxFlipHardBlocker()
-        {
-            var terrain = new GameplayTerrainData(new[]
-            {
-                new TerrainCellState(LandingCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-            });
-            AssertStartRejectedByLandingBlocker(CreateStandardWorld(terrainData: terrain), expectBlockedAttempt: true);
-        }
-
-        [Test]
-        [Category("Core")]
         public void FlipLandingBoardEdge_RejectsAtLocalGeometryBeforeLandingPolicy()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -181,8 +169,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                     CreatePlayer(10, playerCell),
                     CreateBox(20, targetCell, BoxCapabilities.Flip),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
 
             AssertStartRejectedByLandingBlocker(worldState, playerCell, Direction.Right, expectBlockedAttempt: false);
         }
@@ -268,8 +255,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                     CreatePlayer(10, playerCell),
                     CreateBox(20, targetCell, BoxCapabilities.Flip),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(5, 5)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(5, 5)));
 
             AssertStartRejectedByLandingBlocker(worldState, playerCell, Direction.Left, expectBlockedAttempt: false);
         }
@@ -314,8 +300,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         }
 
         private static WorldState CreateStandardWorld(
-            IEnumerable<EntityState> landingEntities = null,
-            GameplayTerrainData terrainData = null)
+            IEnumerable<EntityState> landingEntities = null)
         {
             var entities = new List<EntityState>
             {
@@ -329,19 +314,16 @@ namespace Game.Feature.Gameplay.Tests.Core
 
             return CreateWorldState(
                 entities,
-                new BoardBounds(Vector2Int.zero, new Vector2Int(5, 5)),
-                terrainData ?? GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(5, 5)));
         }
 
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> entities,
-            BoardBounds boardBounds,
-            GameplayTerrainData terrainData)
+            BoardBounds boardBounds)
         {
             return GameplayCompositionRoot.CreateWorldState(
                 entities,
                 boardBounds,
-                terrainData,
                 new CubeTopologyState(FaceId.Floor));
         }
 

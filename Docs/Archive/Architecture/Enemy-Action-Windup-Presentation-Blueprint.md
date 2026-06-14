@@ -125,7 +125,7 @@
 
 - cleanup semantics와 충돌한다.
 - execute tick을 별도 필드 없이 정확히 표현하기 어렵다.
-- 적 공격 timing과 projectile/slide 같은 generic phase timer가 같은 계층에 섞인다.
+- 적 공격 timing과 removed entity/slide 같은 generic phase timer가 같은 계층에 섞인다.
 
 따라서 이 문서는 `EntityPhaseState` 단독 사용을 최종안으로 채택하지 않는다.
 

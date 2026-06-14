@@ -592,7 +592,7 @@ namespace Game.Feature.Gameplay.Tests
             FaceId sourceBottomFace = FaceId.Floor,
             FaceId requiredBottomFace = FaceId.Back,
             CubeRotationKind rotationKind = CubeRotationKind.Backward,
-            TickTraversalBlockerKind primaryBlockerKind = TickTraversalBlockerKind.Terrain)
+            TickTraversalBlockerKind primaryBlockerKind = TickTraversalBlockerKind.Solid)
         {
             return new TickPlayerTopologyTransitionBlockedSignal(
                 entityId: 10,

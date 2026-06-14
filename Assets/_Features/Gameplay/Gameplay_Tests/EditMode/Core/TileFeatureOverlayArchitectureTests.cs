@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using NUnit.Framework;
@@ -89,13 +90,13 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void TileFeatureOverlayGate_ForbidsOccupancyAndTerrainReuse()
+        public void TileFeatureOverlayGate_ForbidsOccupancyReuseAndDocumentsTerrainRemoval()
         {
             var document = File.ReadAllText(GetAbsolutePath(TileFeatureOverlayAdrPath));
 
             Assert.That(document, Does.Contain("TileFeature is a `SurfaceCell`-based gameplay overlay layer."));
-            Assert.That(document, Does.Contain("TileFeature is not Unit/Solid/Projectile occupancy."));
-            Assert.That(document, Does.Contain("Blocking Terrain remains owned by `TerrainData` and `TerrainFlags`"));
+            Assert.That(document, Does.Contain("TileFeature is not Unit/Solid occupancy"));
+            Assert.That(document, Does.Contain("Gameplay Terrain truth has been removed"));
             Assert.That(document, Does.Contain("Box + TileFeature is allowed."));
             Assert.That(document, Does.Contain("TileFeature overlay names are not interpreted uniformly as blockers."));
             Assert.That(document, Does.Contain("All checks are `SurfaceCell(face,x,y)`-aware and must not flatten same-planar coordinates across faces."));
@@ -191,7 +192,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "MoonBlockGenerator activation rule is `BottomFaceOnly`.",
                 "Generator-bound initial MoonBlock spawn is the stable id/template source.",
                 "Unit/player/enemy at the generator cell causes defer; no kill or eject occurs.",
-                "Projectile is not a blocker and is not destroyed.",
+                "PendingCellImpact and ForwardCell presentation signals are not blockers and are not destroyed.",
                 "Normal/non-Moon Box at the generator cell is detached/marked destroy before MoonBlock spawn.",
                 "`TickPipeline` does not execute visual/audio/UI.",
                 "DestroyTile v1 targets Box and Unit through movement-derived `TileEffectEntityContact`, and valid same-cell Box or lethal Ground Unit occupants through explicit `FeatureActivatedUnderOccupant` activation-transition facts, not final snapshot scanning.",
@@ -229,7 +230,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 "Barricade remains a TileFeature overlay, not occupancy, terrain, or an entity type.",
                 "Active Barricade blocks Unit ground traversal, placement, and settlement, including player, enemy, and future NPC/friendly units.",
                 "Active Barricade blocks Jpeter summon placement and Astreton jump landing settlement through TileFeature legality blockers such as `LegalityBlockerKind.TileFeature`.",
-                "Barricade does not occupy Unit, Solid, or Projectile layer.",
+                "Barricade does not occupy Unit or Solid lanes.",
                 "Barricade does not invalidate existing Unit occupancy.",
                 "`ActiveBlocking` Barricade blocks Push start, Sliding Push continuation, and Flip landing before hostile unit impact on the blocked cell.",
                 "`ActiveSuppressedByUnit` allows incoming Push start, Sliding Push continuation, Bottom-to-Front Sliding Push continuation, and Flip landing boxes to create occupant impact before Barricade blocking.",
@@ -313,29 +314,26 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void TerrainFlags_DoNotContainTileFeatureOrEffectSemantics()
+        public void RuntimeSources_DoNotReintroduceTerrainTruthVocabulary()
         {
-            var flagNames = Enum.GetNames(typeof(TerrainFlags));
-            for (var i = 0; i < flagNames.Length; i++)
+            var runtimeSources = Directory.GetFiles("Assets/_Features/Gameplay", "*.cs", SearchOption.AllDirectories)
+                .Where(path => path.Contains("/Runtime/"))
+                .ToArray();
+            var forbiddenTokens = new[]
             {
-                var flagName = flagNames[i];
-                for (var tokenIndex = 0; tokenIndex < ForbiddenTerrainFlagTokens.Length; tokenIndex++)
-                {
-                    Assert.That(
-                        flagName,
-                        Does.Not.Contain(ForbiddenTerrainFlagTokens[tokenIndex]),
-                        $"TerrainFlags value '{flagName}' must not encode TileFeature or effect semantics.");
-                }
+                "Terrain" + "Data",
+                "Terrain" + "Flags",
+                "Blocks" + "GroundTraversal",
+                "LegalityBlockerKind." + "Terrain",
+            };
 
-                if (flagName == nameof(TerrainFlags.None))
+            foreach (var sourcePath in runtimeSources)
+            {
+                var source = File.ReadAllText(sourcePath);
+                for (var i = 0; i < forbiddenTokens.Length; i++)
                 {
-                    continue;
+                    Assert.That(source, Does.Not.Contain(forbiddenTokens[i]), sourcePath);
                 }
-
-                Assert.That(
-                    flagName.StartsWith("Blocks", StringComparison.Ordinal),
-                    Is.True,
-                    $"New TerrainFlags value '{flagName}' is not obviously blocker terrain vocabulary. Update ADR-004/ADR-006 and this test before adding non-blocker terrain semantics.");
             }
         }
 

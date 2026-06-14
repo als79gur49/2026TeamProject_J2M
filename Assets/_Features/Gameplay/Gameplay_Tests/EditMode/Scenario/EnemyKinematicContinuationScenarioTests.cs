@@ -10,7 +10,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
@@ -501,8 +500,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             return GameplayWorldStateTestFactory.CreateBounded(
                 entities,
-                boardBounds,
-                GameplayTerrainData.Empty);
+                boardBounds);
         }
 
         private static EntityState CreatePlayer(int entityId, SurfaceCell position)

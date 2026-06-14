@@ -9,7 +9,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
@@ -34,14 +33,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(action.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
             Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
             Assert.That(startTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-            Assert.That(startTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.Zero);
 
             if (action.executeTick > 2)
             {
                 var windupTick = pipeline.RunTick(new TickInput(2));
                 Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
                 Assert.That(windupTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-                Assert.That(windupTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.Zero);
             }
         }
 
@@ -68,7 +65,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(pendingImpact.ReleaseTick, Is.EqualTo(action.executeTick));
             Assert.That(pendingImpact.TargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 0)));
             Assert.That(executeTick.AttackPhaseResult.DamageResolutions, Is.Empty, "WindupForwardCellProjectile release schedules PendingCellImpact; direct damage is not same-tick.");
-            Assert.That(executeTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.Zero);
             Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Is.EqualTo(occupancyBeforeExecute));
         }
 
@@ -244,7 +240,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(startedAction.lockedTargetCell, Is.EqualTo(lockedCell));
 
             InvalidatePlayerDuringWindup(worldState, invalidationKind);
-            var projectileCountAfterInvalidation = CountProjectiles(worldState.CreateSnapshot());
 
             var executeTick = pipeline.RunTick(new TickInput(startedAction.executeTick));
             var impact = GetSinglePendingImpact(worldState);
@@ -253,10 +248,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(impact.TargetCell, Is.EqualTo(startedAction.lockedTargetCell));
             Assert.That(impact.ReleaseTick, Is.EqualTo(startedAction.executeTick));
             Assert.That(executeTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-            Assert.That(executeTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.Zero);
             Assert.That(executeTick.PresentationData.ForwardCellProjectileReleaseSignals, Has.Count.EqualTo(1));
             Assert.That(executeTick.PresentationData.ForwardCellProjectileReleaseSignals.Single().TargetCell, Is.EqualTo(lockedCell));
-            Assert.That(CountProjectiles(worldState.CreateSnapshot()), Is.EqualTo(projectileCountAfterInvalidation));
 
             var actionAfterRelease = GetEnemyActionState(worldState);
             Assert.That(actionAfterRelease.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
@@ -386,27 +379,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_BlockerPolicy_TerrainBlocked_CurrentContract()
-        {
-            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
-            var terrainData = new GameplayTerrainData(
-                new[]
-                {
-                    new TerrainCellState(targetCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                });
-            var worldState = CreateCombatWorld(targetCell, terrainData: terrainData);
-
-            Assert.That(worldState.CreateSnapshot().IsTerrainBlockedForUnit(targetCell), Is.True);
-
-            var observation = ReleaseForwardCellProjectile(worldState);
-
-            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals.Single().TargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void BlackEye_ForwardCellProjectile_NonSettledOwner_DoesNotStartWindup()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
@@ -461,7 +433,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
             var snapshot = worldState.CreateSnapshot();
 
-            var resolved = WindupMeleeCombatPoseQueries.TryResolveForwardTargetCell(
+            var resolved = CombatWindupPoseQueries.TryResolveForwardTargetCell(
                 snapshot,
                 new SurfaceCell(FaceId.Floor, 4, 0),
                 Direction.Right,
@@ -472,21 +444,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_BlockerPolicy_ProjectileOccupied_CurrentContract()
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_SolidOccupied_CurrentContract()
         {
-            var projectileCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var solidCell = new SurfaceCell(FaceId.Floor, 2, 0);
             var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
             var worldState = CreateCombatWorld(
                 targetCell,
-                extraEntities: new[] { CreateProjectile(70, projectileCell) });
+                extraEntities: new[] { CreateBox(70, solidCell) });
+            var before = DumpOccupancy(worldState.CreateSnapshot());
 
-            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Does.Contain($"Projectile:70@{projectileCell};"));
+            var tick = CreatePipeline(worldState).RunTick(new TickInput(1));
 
-            var observation = ReleaseForwardCellProjectile(worldState);
-
-            Assert.That(observation.Action.lockedTargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
+            AssertNoForwardCellProjectileStarted(worldState);
+            Assert.That(worldState.CreateSnapshot().CountPendingCellImpactsForOwner(EnemyId), Is.Zero);
+            Assert.That(tick.PresentationData.ForwardCellProjectileReleaseSignals, Is.Empty);
+            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Is.EqualTo(before));
         }
 
         [Test]
@@ -499,7 +471,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 targetCell,
                 extraEntities: new[] { CreateUnit(50, 2, occupiedCell, EnemyAiMode.None, Direction.Left, UnitRole.Enemy) });
 
-            Assert.That(DumpOccupancy(worldState.CreateSnapshot()), Does.Contain($"Unit:40@{new SurfaceCell(FaceId.Floor, 0, 0)};50@{occupiedCell};"));
+            Assert.That(worldState.CreateSnapshot().TryGetPrimaryUnitAt(occupiedCell, out var unitOccupant), Is.True);
+            Assert.That(unitOccupant.entityId, Is.EqualTo(50));
 
             var observation = ReleaseForwardCellProjectile(worldState);
 
@@ -601,30 +574,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_BlockerPolicy_DoesNotFlattenAcrossFaces_CurrentContract()
+        public void BlackEye_ForwardCellProjectile_BlockerPolicy_DoesNotFlattenOccupancyAcrossFaces_CurrentContract()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
-            var frontTerrainCell = new SurfaceCell(FaceId.Front, 4, 0);
             var frontSolidCell = new SurfaceCell(FaceId.Front, 2, 0);
-            var frontProjectileCell = new SurfaceCell(FaceId.Front, 3, 0);
             var frontUnitCell = new SurfaceCell(FaceId.Front, 1, 0);
-            var terrainData = new GameplayTerrainData(
-                new[]
-                {
-                    new TerrainCellState(frontTerrainCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                });
             var worldState = CreateCombatWorld(
                 targetCell,
                 extraEntities: new[]
                 {
                     CreateUnit(50, 2, frontUnitCell, EnemyAiMode.None, Direction.Left, UnitRole.Enemy),
                     CreateBox(60, frontSolidCell),
-                    CreateProjectile(70, frontProjectileCell),
-                },
-                terrainData: terrainData);
-
-            Assert.That(worldState.CreateSnapshot().IsTerrainBlockedForUnit(frontTerrainCell), Is.True);
-            Assert.That(worldState.CreateSnapshot().IsTerrainBlockedForUnit(targetCell), Is.False);
+                });
 
             var observation = ReleaseForwardCellProjectile(worldState);
 
@@ -638,25 +599,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void BlackEye_ForwardCellProjectile_BlockerPolicy_DoesNotMutateOccupancy_CurrentContract()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
-            var terrainData = new GameplayTerrainData(
-                new[]
-                {
-                    new TerrainCellState(targetCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                });
             var worldState = CreateCombatWorld(
                 targetCell,
                 extraEntities: new EntityState[]
                 {
                     CreateUnit(50, 2, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.None, Direction.Left, UnitRole.Enemy),
-                    CreateProjectile(70, new SurfaceCell(FaceId.Floor, 3, 0)),
-                },
-                terrainData: terrainData);
+                });
 
             var observation = ReleaseForwardCellProjectile(worldState);
 
             Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
             Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
-            Assert.That(observation.ReleaseTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.EqualTo(1));
         }
 
         [Test]
@@ -760,7 +713,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(observation.Impact.TargetCell, Is.EqualTo(lockedCell));
             Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals, Has.Count.EqualTo(1));
             Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals.Single().TargetCell, Is.EqualTo(lockedCell));
-            Assert.That(observation.ReleaseTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.Zero);
         }
 
         [Test]
@@ -809,26 +761,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(observation.TargetAfterMove.position.face, Is.Not.EqualTo(lockedCell.face));
             Assert.That(observation.TargetAfterMove.position.PlanarPosition, Is.EqualTo(lockedCell.PlanarPosition));
             AssertReleasedAtLockedCell(observation, lockedCell, movedCell);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void BlackEye_ForwardCellProjectile_TerrainBlockedTarget_ReleasesCellImpact_StrongContract()
-        {
-            var targetCell = new SurfaceCell(FaceId.Floor, 4, 0);
-            var terrainData = new GameplayTerrainData(
-                new[]
-                {
-                    new TerrainCellState(targetCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                });
-            var worldState = CreateCombatWorld(targetCell, terrainData: terrainData);
-
-            var observation = ReleaseForwardCellProjectile(worldState);
-
-            Assert.That(worldState.CreateSnapshot().IsTerrainBlockedForUnit(targetCell), Is.True);
-            Assert.That(observation.Impact.TargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.ReleaseTick.PresentationData.ForwardCellProjectileReleaseSignals.Single().TargetCell, Is.EqualTo(targetCell));
-            Assert.That(observation.AfterOccupancy, Is.EqualTo(observation.BeforeOccupancy));
         }
 
         [Test]
@@ -932,7 +864,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WorldState CreateCombatWorld(
             SurfaceCell playerCell,
             IEnumerable<EntityState> extraEntities = null,
-            GameplayTerrainData terrainData = null,
             BoardBounds? boardBounds = null,
             CubeTopologyState? topology = null,
             IEnumerable<TileFeatureState> initialTileFeatures = null)
@@ -950,7 +881,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayWorldStateTestFactory.CreateBounded(
                 entities,
                 boardBounds ?? new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(4, 4)),
-                terrainData ?? GameplayTerrainData.Empty,
                 topology ?? new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 initialTileFeatures);
@@ -1004,25 +934,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             };
         }
 
-        private static EntityState CreateProjectile(int entityId, SurfaceCell cell)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = cell,
-                hp = 1,
-                maxHp = 1,
-                teamId = 0,
-                type = EntityType.Projectile,
-                unitRole = UnitRole.None,
-                state = EntityPhaseState.Idle,
-                facing = Direction.None,
-                boardPresence = EntityBoardPresence.Occupying,
-                markedForDeath = false,
-                spawnTick = 0,
-            };
-        }
-
         private static EntityState GetEntity(WorldState worldState, int entityId)
         {
             Assert.That(worldState.CreateSnapshot().TryGetEntity(entityId, out var entity), Is.True);
@@ -1058,7 +969,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var afterOccupancy = DumpOccupancy(worldState.CreateSnapshot());
 
             Assert.That(releaseTick.AttackPhaseResult.DamageResolutions, Is.Empty);
-            Assert.That(releaseTick.FinalEntities.Count(entity => entity.type == EntityType.Projectile), Is.EqualTo(CountProjectiles(worldState.CreateSnapshot())));
 
             return new ForwardCellProjectileReleaseObservation(
                 action,
@@ -1152,7 +1062,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var startTick = pipeline.RunTick(new TickInput(1));
             var startedAction = GetEnemyActionState(worldState);
             var beforeMoveOccupancy = DumpOccupancy(worldState.CreateSnapshot());
-            var projectileCountBeforeMove = CountProjectiles(worldState.CreateSnapshot());
 
             Assert.That(startedAction.kind, Is.EqualTo(EnemyActionKind.ForwardCellProjectile));
             Assert.That(startedAction.lockedTargetEntityId, Is.EqualTo(PlayerId));
@@ -1174,7 +1083,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var releaseTick = pipeline.RunTick(new TickInput(startedAction.executeTick));
             var afterReleaseOccupancy = DumpOccupancy(worldState.CreateSnapshot());
-            var projectileCountAfterRelease = CountProjectiles(worldState.CreateSnapshot());
             var impacts = new List<PendingCellImpactSnapshotEntry>();
             worldState.CreateSnapshot().EnumeratePendingCellImpactsOrdered(impacts);
             var hasActionAfterRelease = worldState.CreateSnapshot().TryGetEnemyActionState(EnemyId, out var actionAfterRelease);
@@ -1193,8 +1101,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 beforeMoveOccupancy,
                 afterMoveOccupancy,
                 afterReleaseOccupancy,
-                projectileCountBeforeMove,
-                projectileCountAfterRelease);
+                0,
+                0);
         }
 
         private static IReadOnlyList<TargetMoveReplayFrame> RunTargetMoveDuringWindupReplay(
@@ -1230,13 +1138,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 DumpPendingImpacts(snapshot),
                 DumpReleaseSignals(result),
                 DumpOccupancy(snapshot));
-        }
-
-        private static int CountProjectiles(WorldSnapshot snapshot)
-        {
-            var entities = new List<EntityState>();
-            snapshot.EnumerateEntitiesOrdered(entities);
-            return entities.Count(entity => entity.type == EntityType.Projectile);
         }
 
         private static void AssertReleasedAtLockedCell(
@@ -1385,7 +1286,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var builder = new StringBuilder();
             AppendOccupancy(builder, "Unit", snapshot, (source, buffer) => source.EnumerateUnitOccupancyOrdered(buffer));
             AppendOccupancy(builder, "Solid", snapshot, (source, buffer) => source.EnumerateSolidOccupancyOrdered(buffer));
-            AppendOccupancy(builder, "Projectile", snapshot, (source, buffer) => source.EnumerateProjectileOccupancyOrdered(buffer));
             return builder.ToString();
         }
 

@@ -10,7 +10,6 @@ using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Core
 {
@@ -226,7 +225,6 @@ namespace Game.Feature.Gameplay.Tests.Core
             return GameplayCompositionRoot.CreateWorldState(
                 initialEntities,
                 TestBounds,
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 initialTileFeatures);
         }

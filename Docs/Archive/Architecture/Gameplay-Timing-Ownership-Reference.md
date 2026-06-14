@@ -69,7 +69,7 @@ logic execute 시점을 바꾸면 안 된다.
 | `InitialMoveDelaySeconds` | `GameplayTimingProfile` | logic | `GameplayTimingProfile` | 입력 시작 지연 |
 | `RepeatedMoveIntervalSeconds` | `GameplayTimingProfile` | logic | `GameplayTimingProfile` | 공통 repeated move cadence |
 | `BoxSlideStepIntervalSeconds` | `GameplayTimingProfile` | logic | `GameplayTimingProfile` | 박스 authoritative slide cadence |
-| `ProjectileStepIntervalSeconds` | `GameplayTimingProfile` | logic | `GameplayTimingProfile` | projectile authoritative cadence |
+| `RemovedEntityStepIntervalSeconds` | `GameplayTimingProfile` | logic | `GameplayTimingProfile` | removed entity authoritative cadence |
 | `MoveMotionDurationSeconds` | `GameplayTimingProfile` | motion | `GameplayTimingProfile` | 공통 move 보간 기본값 |
 | `PushMotionDurationSeconds` | `GameplayTimingProfile` | motion | `GameplayTimingProfile` | 공통 push 보간 기본값 |
 | `TopologyMotionDurationSeconds` | `GameplayTimingProfile` | motion | `GameplayTimingProfile` | 공통 topology 전환 기본값 |
@@ -95,7 +95,7 @@ logic execute 시점을 바꾸면 안 된다.
 | `InitialMoveDelaySeconds` | logic | `GameplayTimingProfile` | scene explicit global override로 유지 가능 |
 | `RepeatedMoveIntervalSeconds` | logic | `GameplayTimingProfile` | scene explicit global override로 유지 가능 |
 | `BoxSlideStepIntervalSeconds` | logic | `GameplayTimingProfile` | scene explicit global override로 유지 가능 |
-| `ProjectileStepIntervalSeconds` | logic | `GameplayTimingProfile` | scene explicit global override로 유지 가능 |
+| `RemovedEntityStepIntervalSeconds` | logic | `GameplayTimingProfile` | scene explicit global override로 유지 가능 |
 | `MoveMotionDurationSeconds` | motion | `GameplayTimingProfile` | scene explicit global override로 유지 가능 |
 | `PushMotionDurationSeconds` | motion | `GameplayTimingProfile` | scene explicit global override로 유지 가능 |
 | `TopologyMotionDurationSeconds` | motion | `GameplayTimingProfile` | scene explicit global override로 유지 가능 |

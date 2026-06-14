@@ -89,7 +89,6 @@ namespace Game.Feature.Gameplay.Tests.Core
             var worldState = GameplayCompositionRoot.CreateWorldState(
                 build.InitialEntities,
                 build.BoardBounds,
-                build.InitialTerrain,
                 build.InitialTopology,
                 build.InitialTileFeatures);
             var configuration = CreateHostConfiguration(entry, build);

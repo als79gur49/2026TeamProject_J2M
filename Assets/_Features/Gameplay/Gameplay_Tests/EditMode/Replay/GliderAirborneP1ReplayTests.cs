@@ -8,7 +8,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Replay
 {
@@ -141,8 +140,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateWall(30, solidCell),
                     CreateEnemy(40, SurfaceCell.FromPlanar(Vector2Int.zero)),
                 },
-                new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(6, 6)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(6, 6)));
             var writeContext = worldState.CreateWriteContext();
             writeContext.SetEnemyGlideState(
                 40,

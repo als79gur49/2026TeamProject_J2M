@@ -39,10 +39,10 @@ ADR-006 now records TileFeature as a `SurfaceCell` overlay layer, not occupancy,
 - Reason values are `UnitOccupant`, `WallLikeSolid`, and `PlacementBlocked`.
 - Reason-specific visual and audio feedback is payload-driven and falls back to generic blocked feedback.
 - Inactive generator, live MoonBlock no-op, and repeated same-key defer emit no blocked event/request/audio/visual.
-- Normal/non-Moon Box conflict destroy plus spawn success and projectile coexist spawn success emit `MoonBlockGenerated`, not blocked.
+- Normal/non-Moon Box conflict destroy plus spawn success and non-blocking coexist spawn success emit `MoonBlockGenerated`, not blocked.
 - Debounce memory is transient processor state only; it is not `WorldState`, snapshot, `StageRuntimeBuildResult`, or determinism hash input.
 - Payload is presentation-only and is not gameplay authority or determinism hash input.
-- No UI/HUD notification, spatial audio/Play3D, Unit kill/eject, Projectile destroy, or wall-like solid destroy is introduced.
+- No UI/HUD notification, spatial audio/Play3D, Unit kill/eject, ForwardCell signal destroy, or wall-like solid destroy is introduced.
 
 ## F. Added Architecture Guards
 
@@ -115,7 +115,7 @@ Current MoonBlockGeneratorBlocked payload pass:
 
 ## J. Kept Unimplemented
 
-GravityField, new TileFeature effects, UI/HUD notifications, StageResult/ObjectiveStatus changes, spatial audio/Play3D, StagePresentationDefinition TileFeature audio binding, generator-only MoonBlock templates, multiple generators/MoonBlocks, Unit kill/eject, Projectile destroy, wall-like solid destroy, TerrainFlags effect semantics, TileFeature/MoonBlock/Barricade/Exit EntityTypes, `BoxCapabilities.Moon`, public WorldState TileFeature mutation API, and TickPipeline direct prefab/audio/UI execution remain closed.
+GravityField, new TileFeature effects, UI/HUD notifications, StageResult/ObjectiveStatus changes, spatial audio/Play3D, StagePresentationDefinition TileFeature audio binding, generator-only MoonBlock templates, multiple generators/MoonBlocks, Unit kill/eject, ForwardCell signal destroy, wall-like solid destroy, TerrainFlags effect semantics, TileFeature/MoonBlock/Barricade/Exit EntityTypes, `BoxCapabilities.Moon`, public WorldState TileFeature mutation API, and TickPipeline direct prefab/audio/UI execution remain closed.
 
 ## K. GravityField Readiness
 

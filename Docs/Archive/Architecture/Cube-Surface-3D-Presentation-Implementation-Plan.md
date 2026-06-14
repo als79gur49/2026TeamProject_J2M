@@ -312,7 +312,7 @@ GameplaySceneHost
 - entity type별 scale profile 적용
   - unit
   - box
-  - projectile
+  - removed entity
   - wall entity
 - facing과 model 축 정렬이 어긋나면 `ModelRoot` child를 추가해 보정
 - material/color 정책 유지 또는 role별 세분화
@@ -332,9 +332,9 @@ GameplaySceneHost
 
 - `DefaultGameplayEntityViewFactory`에서 `PrimitiveType.Quad`를 제거하고, root view 아래 `ModelRoot -> Cube primitive` 구조를 생성하도록 전환했다.
 - `GameplayEntityView`에 `ModelRoot`와 `ConfigureModelRoot(...)`를 추가해 presenter가 적용하는 board-local pose와 모델 자체의 보정/오프셋을 분리했다.
-- 신규 `GameplayEntityVisualProfile`을 추가해 `Unit / Box / Projectile / Wall(EntityType.None)`별 cube scale과 depth profile을 고정했다.
+- 신규 `GameplayEntityVisualProfile`을 추가해 `Unit / Box / RemovedEntity / Wall(EntityType.None)`별 cube scale과 depth profile을 고정했다.
 - entity projection anchor는 face plane 바깥이 아니라 cube 내부 방향 offset을 사용하고, box/wall 포함 모든 model center는 추가로 반 두께만큼 내부로 이동시켜 shell 바깥으로 새지 않게 한다.
-- visual primitive는 모두 collider를 제거한 `Cube`로 생성되며, player/unit/box/projectile/wall role별 color 정책은 유지했다.
+- visual primitive는 모두 collider를 제거한 `Cube`로 생성되며, player/unit/box/removed entity/wall role별 color 정책은 유지했다.
 - edit mode guard test에 `GameplayEntityView_ConfigureModelRoot_CreatesDedicatedModelPivot`, `DefaultGameplayEntityViewFactory_CreatesCubeEntityVisualProfilesWithoutColliders`, `GameplayEntityVisualProfile_BoxVisualRecedesIntoFaceInterior`, `GameplayEntityVisualProfile_WallVisualRecedesIntoFaceInterior`를 추가해 model pivot, cube primitive, collider 제거, interior mount 계약을 고정했다.
 
 ### 5-7. 6단계: Board Surface Renderer 추가
@@ -527,10 +527,10 @@ GameplaySceneHost
 - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs`
   - `GameplaySceneHost_Initialize_UnboundedBoard_Throws`
   - `GameplayCompositionRoot_CreateWorldState_RejectsUnboundedBoard`
-  - `GameplaySceneHost_Initialize_NormalizesPreExistingProjectileCadence`
+  - `GameplaySceneHost_Initialize_NormalizesPreExistingRemovedEntityCadence`
   - `GameplayCompositionRoot_DeclaresOnlyBoundedWorldFactory`
   - detach/remove visibility sequencing test
-  - move/push/projectile/flip interpolation test
+  - move/push/removed entity/flip interpolation test
   - committed world query vs presented motion 분리 test
 - `Assets/_Features/Gameplay/Gameplay_Tests/PlayMode/PlayerMovementPlayModeTests.cs`
   - move/push/flip input priority 시나리오
@@ -589,7 +589,7 @@ GameplaySceneHost
 4. inactive face shell이 기본 화면에 노출되지 않는가
 5. box와 wall이 cube 외부가 아니라 내부 공간 쪽에 정상적으로 mount되는가
 6. 카메라가 front wall과 floor를 동시에 보여 주면서도 회전 중 플레이 영역을 잃지 않는가
-7. showcase scene에서 입력, push, flip, projectile이 모두 기존 규칙대로 동작하는가
+7. showcase scene에서 입력, push, flip, removed entity이 모두 기존 규칙대로 동작하는가
 
 ## 9. 리스크 관리
 

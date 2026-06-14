@@ -6,8 +6,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
         None = 0,
         BoardEdge = 1,
-        Terrain = 2,
-        Entity = 3,
+        Entity = 2,
     }
 
     public readonly struct SlideStopper
@@ -40,16 +39,6 @@ namespace Game.Feature.Gameplay.BoardState
         public static SlideStopper CreateBoardEdge(Vector2Int cell)
         {
             return CreateBoardEdge(SurfaceCell.FromPlanar(cell));
-        }
-
-        public static SlideStopper CreateTerrain(SurfaceCell cell)
-        {
-            return new SlideStopper(SlideStopperKind.Terrain, cell, entityId: 0, EntityType.None);
-        }
-
-        public static SlideStopper CreateTerrain(Vector2Int cell)
-        {
-            return CreateTerrain(SurfaceCell.FromPlanar(cell));
         }
 
         public static SlideStopper CreateEntity(EntityState entity)

@@ -19,7 +19,6 @@ using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -608,7 +607,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AutoCreateViews = false,
                 InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
                 InitialEntities = Array.Empty<EntityState>(),
-                InitialTerrain = GameplayTerrainData.Empty,
                 InitialTopology = new CubeTopologyState(FaceId.Floor),
                 GameplayPresentationAudioConfig = audioConfig,
             };

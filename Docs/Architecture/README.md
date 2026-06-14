@@ -44,6 +44,8 @@
   - current supporting truth for presentation-only Gameplay VFX lane boundaries, family-specific planners, lifecycle vocabulary, persistent desired state, and existing presenter migration guardrails
 - [Enemy-FrontFaceInactive-Visual-Policy.md](./Enemy-FrontFaceInactive-Visual-Policy.md)
   - current supporting truth for campaign enemy inactive-compatible material duplicates, shader contract, bridge shaders, and authoring validation
+- [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md)
+  - current supporting truth for ownership-based Enemy AI profile/core/brain/capability/view/animator/presentation naming
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
   - current supporting truth for persistent BGM ownership, scene request-source boundaries, request-based BGM playback, FadeOutIn support, and reserved Crossfade governance
 - [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)
@@ -51,9 +53,11 @@
 - [ADR/ADR-003-Persistent-Bgm-Ownership-Implementation-Gate.md](./ADR/ADR-003-Persistent-Bgm-Ownership-Implementation-Gate.md)
   - active decision record for persistent BGM ownership matrix, unsupported path, and implementation gate
 - [ADR/ADR-004-Terrain-Occupancy-Implementation-Gate.md](./ADR/ADR-004-Terrain-Occupancy-Implementation-Gate.md)
-  - active decision record for terrain/occupancy vocabulary closure, boundary gate, and slice implementation gate
+  - historical decision record superseded by ADR-007; occupancy lane ownership remains active
+- [ADR/ADR-007-Runtime-Terrain-Truth-Removal.md](./ADR/ADR-007-Runtime-Terrain-Truth-Removal.md)
+  - active decision record for runtime terrain truth removal, terrain-free in-bounds cells, and remaining blocker vocabulary
 - [ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md](./ADR/ADR-006-TileFeature-Overlay-Layer-Gate.md)
-  - active decision record for SurfaceCell-based TileFeature overlay ownership, occupancy/terrain separation, lazy TileEffect snapshot rules, and presentation-only VFX boundaries
+  - active decision record for SurfaceCell-based TileFeature overlay ownership, terrain-free boundary, lazy TileEffect snapshot rules, and presentation-only VFX boundaries
 - [Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md](./Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md)
   - supporting truth for `EnemyLogic` patrol owner surface, `RandomWalk` special-case boundary, `Forward` readiness, and `WallFollow` out-of-scope note
 - [Gameplay-EnemyPatrol-Decision-Proposal-Contract.md](./Gameplay-EnemyPatrol-Decision-Proposal-Contract.md)

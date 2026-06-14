@@ -43,8 +43,8 @@
 
 ## Query Layer
 - Canonical query boundary는 다음 순서를 따른다.
-  - `Storage Query`: raw occupancy, raw terrain, deterministic ordered enumeration
-  - `Semantic Query`: `TryGetSolidSemanticAt(...)`, `IsWallAt(...)`, `IsBoxAt(...)`, `TryGetTerrain(...)`, `IsTerrainBlockedForUnit(...)`
+  - `Storage Query`: raw occupancy, TileFeature state, deterministic ordered enumeration
+  - `Semantic Query`: `TryGetSolidSemanticAt(...)`, `IsWallAt(...)`, `IsBoxAt(...)`
   - `State Query`: `ResolvedSpatialState` base fact, occupancy claim, gameplay visibility, precompiled actor capability fact
   - `Modifier Query`: legality domain/evidence 기준 override만 제공하는 narrow read seam
   - `Reservation Query`: frozen reservation export를 legality read seam으로 번역하는 adapter
@@ -73,18 +73,19 @@
 - `TickPipeline`은 orchestration-only owner다. legality owner가 아니며 `SpatialState` source aggregation owner도 아니다.
 
 ## Blocker Vocabulary
-- current canonical blocker kind는 정확히 다섯 개다.
+- current canonical blocker kind는 gameplay source 기준으로 다음 vocabulary만 사용한다.
   - `BoardEdge`
-  - `Terrain`
   - `Solid`
   - `Unit`
   - `Reservation`
+  - `TileFeature`
+  - topology transition reject reasons
 - extension rule:
-  - 새 top-level blocker kind는 현재 다섯 source 어디에도 속하지 않는 새 world-source가 실제로 생길 때만 허용한다.
+  - 새 top-level blocker kind는 현재 source 어디에도 속하지 않는 새 world-source가 실제로 생길 때만 허용한다.
   - 기존 source 상세화는 top-level kind를 늘리지 않고 sub-facet으로만 확장한다.
 - future slot reservation:
   - `host/socket/attachment`: 실제 host relation이 독립 blocker source가 될 때만 새 top-level kind 검토
-  - `field/aura`: terrain/entity/reservation이 아닌 독립 field source가 생길 때만 새 top-level kind 검토
+  - `field/aura`: occupancy/reservation/TileFeature/topology가 아닌 독립 field source가 생길 때만 새 top-level kind 검토
   - `targetability-only suppression`: blocker vocabulary가 아니라 `ModifierQuery` 축으로 유지
   - `reservation detail`: `Reservation` top-level kind 유지, future `cell/edge/entity/payload/topology-exclusive` facet은 `ReservationQuery`/central factory에서만 확장
 - governance rule:
@@ -259,26 +260,26 @@
 - `Flip DestroySelf`에서 shared contact normalized time은 final impact-pose arrival time이 아니라 break/release onset threshold다. destroy transient root flight는 일반 flip duration 전체를 사용하고, break/fade는 그 threshold부터 overlap된다.
 
 ## Occupancy And Queries
-- 현재 authoritative occupancy storage는 `WorldState`의 세 레이어다.
+- 현재 authoritative occupancy storage는 `WorldState`의 두 레이어다.
   - `_stackedUnitsByCell`
   - `_solidOccupancy`
-  - `_projectileOccupancy`
-- terrain canonical storage는 `TerrainData`의 `SurfaceCell -> TerrainCellState`다.
+- `removed entity enum slot` is a unused serialized enum value. Runtime entity creation, placement, movement, and occupancy for that type are not supported.
+- `WindupForwardCellProjectile` is not a projectile entity or occupancy lane. It uses `PendingCellImpact` plus presentation/audio arrival carriers.
+- There is no runtime gameplay terrain canonical storage. Every in-bounds `SurfaceCell` is terrain-free for legality.
 - Canonical query vocabulary는 `WorldSnapshot`의 layered API를 기준으로 한다.
   - `EnumerateUnitsAt(...)`
   - `TryGetSolidSemanticAt(...)`
   - `IsWallAt(...)`
   - `IsBoxAt(...)`
-  - `TryGetTerrain(...)`
-  - `IsTerrainBlockedForUnit(...)`
   - `TryPickImpactTargetAt(...)`
   - `TryGetUnitTraversalBlocker(...)`
+- Determinism and trace occupancy export includes `SolidOccupancy`, `StackedUnitOccupancy`, and `Layer=Solid` / `Layer=Unit` only. It does not emit an empty projectile section.
 - Legacy compatibility API는 canonical vocabulary가 아니다.
   - `TryGetUnitAt(...)`
   - `TryGetSolidOccupantAt(...)`
   - `IsBlockedForUnit(...)`
   - `BlocksMovement(...)`
-- `TryGetBoxAt(...)`, `CreateDefaultQueryCell(...)`, `SurfaceCell.FromPlanar(...)`, terrain `Vector2Int` overload는 compatibility helper다. 새 gameplay core path는 사용하지 않는다.
+- `TryGetBoxAt(...)`, `CreateDefaultQueryCell(...)`, `SurfaceCell.FromPlanar(...)` 같은 legacy convenience helper는 canonical vocabulary가 아니다. 새 gameplay core path는 `SurfaceCell`-aware API를 사용한다.
 - `TryGetPrimaryUnitAt(...)`는 helper/convenience API로만 취급한다. stacked-unit 모델의 대표 vocabulary로 쓰지 않으며, gameplay core에서는 post-legality 대표값 조회 외에 승격하지 않는다.
 - query interpretation rule:
   - occupancy truth와 `SpatialState` truth는 다르다.
@@ -289,12 +290,10 @@
 ## Layer Rules
 - Unit layer는 stacked 허용이다.
 - Solid layer는 `Box`와 `Wall`이 점유한다.
-- Projectile layer는 unit과 분리된다.
 - Canonical rule set:
   - `Unit + Unit` 허용
   - `Unit + Box/Wall` 금지
   - `Box + Box` 금지
-  - `Projectile + Unit` 허용
 
 ## Validity Taxonomy
 - `RepresentableState`: storage invariant를 깨지 않는 상태
@@ -319,7 +318,7 @@
 - Attack:
   - raw attack input, `ImpactReservation`, delayed effect handoff를 소비한다.
   - reservation을 attack damage로 전개한다.
-  - `PendingCellImpact` due tick과 topology transition이 같은 tick에 발생하면 movement/topology commit 이후의 attack snapshot을 기준으로 no-arrival 정책을 판정한다. `ForwardCellProjectile` pending impact는 already-fired projectile이므로 release 이후 source current cell, source facing, source alive/occupying/current Bottom participant state, target occupant, player anchor, presentation anchor representability는 arrival를 무효화하지 않는다. 이 값들은 diagnostics, hit/damage resolution, 또는 presentation fallback에만 쓰인다.
+  - `PendingCellImpact` due tick과 topology transition이 같은 tick에 발생하면 movement/topology commit 이후의 attack snapshot을 기준으로 no-arrival 정책을 판정한다. `ForwardCellProjectile` pending impact는 already-fired ForwardCell impact이므로 release 이후 source current cell, source facing, source alive/occupying/current Bottom participant state, target occupant, player anchor, presentation anchor representability는 arrival를 무효화하지 않는다. 이 값들은 diagnostics, hit/damage resolution, 또는 presentation fallback에만 쓰인다.
   - Current no-arrival policy for `PendingCellImpact` is limited to explicit cancel/expire records, topology policy expiration, or structurally invalid target policy. The current implementation records topology policy expiration at due-time with `LaunchTopology != CurrentTopology -> ExpiredTopologyInvalid`, and records structurally invalid target policy with inactive target face -> `CancelledTargetInvalid`; both create no arrival, VFX, or SFX. Future work may move topology expiration recording to the topology transition commit point.
   - resolve는 current Push/Flip impact-disposition plan에서 `Stay / FollowThrough / DestroySelf` 중 하나를 닫는다.
 - Cleanup:

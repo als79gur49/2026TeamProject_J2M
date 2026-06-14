@@ -114,7 +114,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                     EnemyAudioCue.Landing,
                     EnemyAudioCue.Active,
                     EnemyAudioCue.Recover,
-                    EnemyAudioCue.ProjectileImpact,
+                    EnemyAudioCue.ForwardCellImpact,
                     EnemyAudioCue.ChargeActiveLoop,
                     EnemyAudioCue.StationaryActive,
                     EnemyAudioCue.PassiveContact,

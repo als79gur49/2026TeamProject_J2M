@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private const string SunWheelPresentationId = "sunwheel";
         private const string RocketFacePresentationId = "rocket_face";
         private const string SunWheelProfileName = "EnemyAi_WallFollower";
-        private const string RocketFaceProfileName = "EnemyAi_Charge";
+        private const string RocketFaceProfileName = "EnemyAi_Charger";
 
         [Test]
         [Category("Core")]

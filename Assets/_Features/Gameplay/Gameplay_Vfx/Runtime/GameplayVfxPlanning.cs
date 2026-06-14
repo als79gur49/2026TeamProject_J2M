@@ -1795,9 +1795,9 @@ namespace Game.Feature.Gameplay.Vfx
         }
     }
 
-    public sealed class TerrainVfxRequestPlanner : IGameplayVfxFamilyRequestPlanner
+    public sealed class EnvironmentVfxRequestPlanner : IGameplayVfxFamilyRequestPlanner
     {
-        public GameplayVfxFamily Family => GameplayVfxFamily.Terrain;
+        public GameplayVfxFamily Family => GameplayVfxFamily.Environment;
 
         public void Plan(GameplayVfxPlanningContext context, GameplayVfxRequestPlanBuilder builder)
         {

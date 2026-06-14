@@ -10,7 +10,6 @@ using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Replay
 {
@@ -23,7 +22,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         private const string JumpChaserProfilePath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset";
         private const string ArchetypeSummonerProfilePath =
-            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_UtilitySummoner/EnemyAi_ArchetypeSummoner.asset";
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_ArchetypeSummoner/EnemyAi_ArchetypeSummoner.asset";
         private const string CombinedArchetypeCatalogPath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Catalogs/EnemyUnitArchetypeCatalog_CampaignMainEnemy.asset";
 
@@ -213,7 +212,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(4, 4)),
-                GameplayTerrainData.Empty,
                 topology);
         }
 

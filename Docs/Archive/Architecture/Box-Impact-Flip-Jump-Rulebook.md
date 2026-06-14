@@ -171,7 +171,7 @@ presentation에서는 아래 outcome을 render-only metadata로 해석할 수 �
 
 ## 7. 데이터 및 소유권 규칙
 
-box impact는 projectile impact와 동일한 철학으로 다룬다.
+box impact는 removed entity impact와 동일한 철학으로 다룬다.
 
 - movement phase가 synthetic impact reservation을 만든다.
 - attack phase가 damage를 적용한다.

@@ -12,7 +12,6 @@ using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
@@ -902,13 +901,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
             CubeTopologyState? topology = null,
-            GameplayTerrainData terrainData = null,
             IEnumerable<TileFeatureState> initialTileFeatures = null)
         {
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(6, 6)),
-                terrainData ?? GameplayTerrainData.Empty,
                 topology ?? new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 initialTileFeatures);

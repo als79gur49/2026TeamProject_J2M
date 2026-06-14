@@ -12,7 +12,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -432,8 +431,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     CreateUnit(40, teamId: 2, sourceCell, EnemyAiMode.Patrol),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(5, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(5, 1)));
             var writeContext = worldState.CreateWriteContext();
             writeContext.SetEnemyPatrolState(
                 40,
@@ -717,7 +715,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(40, teamId: 2, SurfaceCell.FromPlanar(Vector2Int.zero), EnemyAiMode.Patrol),
                 },
                 new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(4, 4)),
-                GameplayTerrainData.Empty,
                 new[] { CreateTileFeature(100, destination, TileFeatureKind.Barricade, TileFeatureFlags.Activated) });
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
@@ -1055,16 +1052,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Glider_Active_UnitOverlap_UsesExistingPassiveContactDamage()
+        public void Glider_Active_UnitOverlap_UsesExistingPassiveContact()
         {
-            AssertGliderPassiveContactDamage(includeSolidUnderGlider: false);
+            AssertGliderPassiveContact(includeSolidUnderGlider: false);
         }
 
         [Test]
         [Category("Extended")]
-        public void Glider_Active_OnSolidAndPlayerSameCell_ContactDamageStillFires()
+        public void Glider_Active_OnSolidAndPlayerSameCell_PassiveContactStillFires()
         {
-            AssertGliderPassiveContactDamage(includeSolidUnderGlider: true);
+            AssertGliderPassiveContact(includeSolidUnderGlider: true);
         }
 
         [Test]
@@ -1331,13 +1328,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     CreateWall(30, wallCell),
+                    CreateWall(31, terrainCell),
                     CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Chase),
                 },
-                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(1, 1)),
-                new GameplayTerrainData(new[]
-                {
-                    new TerrainCellState(terrainCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                }));
+                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(1, 1)));
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateActiveGlide(activeUntilTickExclusive: 5, durationTicks: 3, cooldownTicks: 1));
@@ -1688,11 +1682,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 CreateUnit(10, teamId: 1, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.None),
                 enemy,
-            },
-                new GameplayTerrainData(new[]
-                {
-                    new TerrainCellState(new SurfaceCell(FaceId.Floor, 1, 0), TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                }));
+                CreateWall(30, new SurfaceCell(FaceId.Floor, 1, 0)),
+            });
             var writeContext = worldState.CreateWriteContext();
             writeContext.SetEnemyGlideState(
                 40,
@@ -1727,8 +1718,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 2, 0), EnemyAiMode.Patrol),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 4)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 4)));
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateActiveGlide(
@@ -1770,8 +1760,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 1, 1), EnemyAiMode.Patrol),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 1)));
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateActiveGlide(
@@ -2537,7 +2526,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = CreateWorldState(
                 entities,
                 new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(4, 4)),
-                GameplayTerrainData.Empty,
                 tileFeatures);
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
@@ -2572,8 +2560,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var worldState = CreateWorldState(
                 entities,
-                new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(8, 8)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(8, 8)));
             if (phase != EnemyGlidePhase.Cooldown)
             {
                 worldState.CreateWriteContext().SetEnemyGlideState(
@@ -2608,7 +2595,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private static void AssertGliderPassiveContactDamage(bool includeSolidUnderGlider)
+        private static void AssertGliderPassiveContact(bool includeSolidUnderGlider)
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var gliderCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -2644,7 +2631,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             ((IPreMovementStateCommitContext)writeContext).SetFacing(40, Direction.Left);
-            var profile = EnemyAiProfileTestFactory.CreateContactDamage();
+            var profile = EnemyAiProfileTestFactory.CreatePassiveContact();
             try
             {
                 var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
@@ -2733,13 +2720,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> entities,
             BoardBounds boardBounds,
-            GameplayTerrainData terrainData,
             IEnumerable<TileFeatureState> tileFeatures)
         {
             return GameplayWorldStateTestFactory.CreateBounded(
                 entities,
                 boardBounds,
-                terrainData,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 tileFeatures);
@@ -2824,7 +2809,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var worldState = GlideOverSolidTests.CreateWorldState(
                     entities,
                     new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(4, 4)),
-                    GameplayTerrainData.Empty,
                     _tileFeatures);
                 _seed?.Invoke(worldState);
                 return worldState;
@@ -2900,8 +2884,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 };
             var worldState = CreateWorldState(
                 entities,
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 8)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 8)));
             var writeContext = worldState.CreateWriteContext();
             writeContext.SetEnemyGlideState(
                 241,
@@ -2938,8 +2921,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateWall(238, wall238Cell),
                     CreateUnit(241, teamId: 2, gliderCell, EnemyAiMode.Chase),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 8)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 8)));
         }
 
         private static bool HasMoveEntity(TickResult tick, int entityId, SurfaceCell destination)
@@ -3151,23 +3133,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> entities)
         {
-            return CreateWorldState(entities, GameplayTerrainData.Empty);
-        }
-
-        private static WorldState CreateWorldState(IEnumerable<EntityState> entities, GameplayTerrainData terrainData)
-        {
             return GameplayWorldStateTestFactory.CreateBounded(
                 entities,
-                new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(4, 4)),
-                terrainData);
+                new BoardBounds(new Vector2Int(-4, -4), new Vector2Int(4, 4)));
         }
 
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> entities,
-            BoardBounds boardBounds,
-            GameplayTerrainData terrainData)
+            BoardBounds boardBounds)
         {
-            return GameplayWorldStateTestFactory.CreateBounded(entities, boardBounds, terrainData);
+            return GameplayWorldStateTestFactory.CreateBounded(entities, boardBounds);
         }
 
         private static EntityState CreateUnit(int entityId, int teamId, Vector2Int position, EnemyAiMode aiMode, int hp = 3)

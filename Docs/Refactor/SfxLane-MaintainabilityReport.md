@@ -92,7 +92,7 @@ Vocabulary:
 - `Landing`
 - `Active`
 - `Recover`
-- `ProjectileImpact`
+- `ForwardCellImpact`
 - `ChargeActiveLoop`
 - `StationaryActive`
 - `PassiveContact`

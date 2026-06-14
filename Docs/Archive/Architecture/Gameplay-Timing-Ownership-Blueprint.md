@@ -121,7 +121,7 @@
 - `InitialMoveDelaySeconds`
 - `RepeatedMoveIntervalSeconds`
 - `BoxSlideStepIntervalSeconds`
-- `ProjectileStepIntervalSeconds`
+- `RemovedEntityStepIntervalSeconds`
 - `MoveMotionDurationSeconds`
 - `PushMotionDurationSeconds`
 - `FlipMotionDurationSeconds`

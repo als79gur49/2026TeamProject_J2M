@@ -20,7 +20,7 @@ When enabled, player ordinary movement uses `UnitContinuousLocomotionState` befo
 - `PlayerContinuousLocomotionSettings.ActionAssistSettleWindowCells` is the near-settled input leniency window for Action Assist. The project default is `0.125f`, converted to `512` fixed units.
 - Anchor normalization writes must apply `MoveEntity` first and `SetUnitContinuousLocomotionState(normalized state)` second in the same `FinalizationBatch`; this preserves the normalized pose after `MoveEntity` purges transient unit locomotion state.
 - `MoveEntity` anchor normalization is classified as a grid transaction primitive, not legacy ordinary Unit movement. It must not emit legacy `TickEntityMotionKind.Move`; presentation remains `TickContinuousLocomotionTrack`.
-- Collision is grid-authoritative: wall, terrain, box, solid, and board edge approaches block; topology-edge approaches may zero-settle only when the retained topology transition is the blocker, and unit overlap remains allowed.
+- Collision is grid-authoritative: wall, box, solid, reservation, TileFeature, topology, and board edge approaches block; topology-edge approaches may zero-settle only when the retained topology transition is the blocker, and unit overlap remains allowed.
 - Passive contact remains anchor-cell based. Visual overlap before anchor normalization does not trigger neighbor contact.
 - Contact can begin only after anchor normalization commits the new `EntityState.position`.
 - Push, flip, and action preview require local-zero settled pose; local-nonzero idle and moving continuous pose reject settled probes.

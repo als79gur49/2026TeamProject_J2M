@@ -9,7 +9,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
@@ -20,7 +19,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Startis_AppliesPassiveContactDamage_OnSameSurfaceCell()
+        public void Startis_AppliesPassiveContact_OnSameSurfaceCell()
         {
             var profile = EnemyAiProfileTestFactory.CreateNonAttacking(includePassiveContact: true);
             try
@@ -158,51 +157,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Startis_RespectsFaceAwareTerrainBlocker()
-        {
-            var floorDestination = new SurfaceCell(FaceId.Floor, 1, 0);
-            var frontSamePlanar = new SurfaceCell(FaceId.Front, 1, 0);
-            var floorBlockedWorld = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(PlayerId, 1, new SurfaceCell(FaceId.Floor, 2, 0), UnitRole.Player),
-                    CreateUnit(EnemyId, 2, new SurfaceCell(FaceId.Floor, 0, 0), UnitRole.Enemy, EnemyAiMode.Chase),
-                },
-                terrainData: new GameplayTerrainData(
-                    new[]
-                    {
-                        new TerrainCellState(floorDestination, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                    }));
-            Assert.That(floorBlockedWorld.CreateSnapshot().IsTerrainBlockedForUnit(floorDestination), Is.True);
-            Assert.That(floorBlockedWorld.CreateSnapshot().IsTerrainBlockedForUnit(frontSamePlanar), Is.False);
-
-            var frontBlockedWorld = CreateWorldState(
-                new[]
-                {
-                    CreateUnit(PlayerId, 1, new SurfaceCell(FaceId.Floor, 2, 0), UnitRole.Player),
-                    CreateUnit(EnemyId, 2, new SurfaceCell(FaceId.Floor, 0, 0), UnitRole.Enemy, EnemyAiMode.Chase),
-                },
-                terrainData: new GameplayTerrainData(
-                    new[]
-                    {
-                        new TerrainCellState(frontSamePlanar, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                    }));
-            Assert.That(frontBlockedWorld.CreateSnapshot().IsTerrainBlockedForUnit(floorDestination), Is.False);
-            Assert.That(frontBlockedWorld.CreateSnapshot().IsTerrainBlockedForUnit(frontSamePlanar), Is.True);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void Startis_DoesNotFlattenTerrainOrOccupancyAcrossFaces()
+        public void Startis_DoesNotFlattenOccupancyAcrossFaces()
         {
             var profile = CreateForwardPassiveContactProfile();
             try
             {
-                var terrain = new GameplayTerrainData(
-                    new[]
-                    {
-                        new TerrainCellState(new SurfaceCell(FaceId.Front, 1, 0), TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                    });
                 var worldState = CreateWorldState(
                     new[]
                     {
@@ -210,12 +169,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         CreateUnit(EnemyId, 2, new SurfaceCell(FaceId.Floor, 0, 0), UnitRole.Enemy, EnemyAiMode.Chase),
                         CreateUnit(50, 1, new SurfaceCell(FaceId.Front, 1, 0), UnitRole.Player),
                         CreateUnit(60, 0, new SurfaceCell(FaceId.Front, 2, 0), UnitRole.None, type: EntityType.Box),
-                        CreateUnit(70, 1, new SurfaceCell(FaceId.Front, 3, 0), UnitRole.None, type: EntityType.Projectile),
-                    },
-                    terrainData: terrain);
+                        CreateUnit(70, 1, new SurfaceCell(FaceId.Front, 3, 0), UnitRole.None, type: EntityType.Box),
+                    });
                 var floorDestination = new SurfaceCell(FaceId.Floor, 1, 0);
                 var snapshot = worldState.CreateSnapshot();
-                Assert.That(snapshot.IsTerrainBlockedForUnit(floorDestination), Is.False);
                 Assert.That(snapshot.TryGetPlacementBlocker(EntityType.Unit, floorDestination, ignoredEntityId: EnemyId, out _), Is.False);
 
                 CreatePipeline(worldState, profile).RunTick(new TickInput(1));
@@ -492,14 +449,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static WorldState CreateWorldState(
             EntityState[] initialEntities,
-            GameplayTerrainData terrainData = null,
             CubeTopologyState? topology = null,
             IEnumerable<TileFeatureState> initialTileFeatures = null)
         {
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(4, 4)),
-                terrainData ?? GameplayTerrainData.Empty,
                 topology ?? new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 initialTileFeatures);

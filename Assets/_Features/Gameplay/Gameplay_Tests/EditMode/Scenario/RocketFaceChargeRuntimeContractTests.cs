@@ -10,7 +10,6 @@ using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
@@ -19,7 +18,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private const int PlayerId = 10;
         private const int EnemyId = 40;
         private const string RocketFaceProfilePath =
-            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Charge/EnemyAi_Charge.asset";
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Charger/EnemyAi_Charger.asset";
 
         [Test]
         [Category("Extended")]
@@ -115,10 +114,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [TestCase("BoardEdge")]
-        [TestCase("Terrain")]
         [TestCase("Solid")]
         [Category("Extended")]
-        public void EnemyCharge_RocketFaceProfile_ActiveStopsOnBoardEdgeOrTerrainOrSolidAndThenRecovers(string blockerKind)
+        public void EnemyCharge_RocketFaceProfile_ActiveStopsOnBoardEdgeOrSolidAndThenRecovers(string blockerKind)
         {
             var worldState = CreateBlockedActiveChargeWorld(blockerKind);
             var pipeline = CreatePipeline(worldState, LoadRocketFaceProfile());
@@ -396,7 +394,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static WorldState CreateBlockedActiveChargeWorld(string blockerKind)
         {
-            var terrain = GameplayTerrainData.Empty;
             var entities = new List<EntityState>
             {
                 CreateEnemy(new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right, EnemyAiMode.Charge),
@@ -409,20 +406,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             else
             {
                 entities.Insert(0, CreatePlayer(new SurfaceCell(FaceId.Floor, 4, 0), hp: 5));
-                if (blockerKind == "Terrain")
-                {
-                    terrain = new GameplayTerrainData(new[]
-                    {
-                        new TerrainCellState(new SurfaceCell(FaceId.Floor, 1, 0), TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-                    });
-                }
-                else if (blockerKind == "Solid")
+                if (blockerKind == "Solid")
                 {
                     entities.Add(CreateBox(50, new SurfaceCell(FaceId.Floor, 1, 0), BoxArchetype.Normal));
                 }
             }
 
-            var worldState = CreateWorldState(entities, boardBounds: bounds, terrainData: terrain);
+            var worldState = CreateWorldState(entities, boardBounds: bounds);
             SeedActiveCharge(worldState, remainingActiveSteps: 2);
             return worldState;
         }
@@ -510,14 +500,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
             BoardBounds? boardBounds = null,
-            GameplayTerrainData terrainData = null,
             CubeTopologyState? topology = null,
             IEnumerable<TileFeatureState> initialTileFeatures = null)
         {
             return GameplayWorldStateTestFactory.CreateBounded(
                 initialEntities,
                 boardBounds ?? new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 6)),
-                terrainData ?? GameplayTerrainData.Empty,
                 topology ?? new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 initialTileFeatures);

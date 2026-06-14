@@ -1058,7 +1058,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     DefaultBoardBounds,
                     new CubeTopologyState(FaceId.Floor),
                     Array.Empty<EntityState>(),
-                    Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                     Array.Empty<TileFeatureState>(),
                     Array.Empty<TileFeatureRuntimeDefinition>(),
                     Array.Empty<MoonBlockRespawnDefinition>(),

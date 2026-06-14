@@ -1,11 +1,14 @@
 # ADR-004 Terrain And Occupancy Implementation Gate
 
-- Status: Accepted
+- Status: Superseded by [ADR-007 Runtime Terrain Truth Removal](./ADR-007-Runtime-Terrain-Truth-Removal.md)
 - Date: 2026-04-22
+- Superseded: 2026-06-13
 
 ## Context
 
 terrain / occupancy semantics는 stage-content와 분리된 dedicated gameplay semantics lane이다. authoring, query, legality, validation vocabulary를 먼저 닫고, 그다음 bounded slice implementation만 허용한다.
+
+This gate is historical. Runtime gameplay terrain truth was removed by ADR-007. Occupancy lanes, board bounds, topology, reservations, and TileFeature blockers remain authoritative gameplay seams.
 
 ## Phase Split
 

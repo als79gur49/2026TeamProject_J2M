@@ -21,26 +21,22 @@ namespace Game.Feature.Gameplay.Loop
 
         public static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
-            BoardBounds boardBounds,
-            TerrainData terrainData)
+            BoardBounds boardBounds)
         {
             return CreateWorldState(
                 initialEntities,
                 boardBounds,
-                terrainData,
                 new CubeTopologyState(FaceId.Floor));
         }
 
         public static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             CubeTopologyState topology)
         {
             return CreateWorldState(
                 initialEntities,
                 boardBounds,
-                terrainData,
                 topology,
                 initialTileFeatures: null);
         }
@@ -48,7 +44,6 @@ namespace Game.Feature.Gameplay.Loop
         public static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds,
-            TerrainData terrainData,
             CubeTopologyState topology,
             IEnumerable<TileFeatureState> initialTileFeatures)
         {
@@ -66,7 +61,6 @@ namespace Game.Feature.Gameplay.Loop
             return new WorldState(
                 initialEntities,
                 boardBounds,
-                terrainData ?? throw new ArgumentNullException(nameof(terrainData)),
                 topology,
                 initialTileFeatures);
         }

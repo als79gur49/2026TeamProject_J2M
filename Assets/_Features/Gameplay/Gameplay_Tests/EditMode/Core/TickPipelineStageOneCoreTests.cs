@@ -342,7 +342,6 @@ namespace Game.Feature.Gameplay.Tests.Core
             return GameplayCompositionRoot.CreateWorldState(
                 initialEntities,
                 new BoardBounds(UnityEngine.Vector2Int.zero, new UnityEngine.Vector2Int(4, 4)),
-                TerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 initialTileFeatures);
         }

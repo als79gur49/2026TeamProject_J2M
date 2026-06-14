@@ -1574,7 +1574,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new SurfaceCell(FaceId.Floor, 1, 0),
                 new SurfaceCell(FaceId.Floor, 2, 0),
                 Direction.Right,
-                BoxSlideStopperKind.Terrain,
+                BoxSlideStopperKind.BoardEdge,
                 0,
                 SolidKind.Wall,
                 new CubeTopologyState(FaceId.Floor),

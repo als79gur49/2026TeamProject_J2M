@@ -146,12 +146,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
                 ValidateSingleStepMove(entity.position.PlanarPosition, intent.Destination, intent.SourceId);
 
-                if (entity.type == EntityType.Projectile)
-                {
-                    ExpandProjectileMove(snapshot, entity, intent, buffer, rejectedReasons);
-                    continue;
-                }
-
                 switch (intent.CommandKind)
                 {
                     case MovementCommandKind.Push:
@@ -376,7 +370,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     rejectedReasons.Add(
                         $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetNotBox|Cell={FormatCell(destinationCell)}|Target={solidOccupant.entityId}|Type={solidOccupant.type}");
                 }
-                else if (TryGetNonProjectileOccupantForDiagnostics(snapshot, movementTopology, destinationCell, out var target))
+                else if (TryGetOccupantForDiagnostics(snapshot, movementTopology, destinationCell, out var target))
                 {
                     rejectedReasons.Add(
                         $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetNotBox|Cell={FormatCell(destinationCell)}|Target={target.entityId}|Type={target.type}");
@@ -526,7 +520,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             return blockerKind switch
             {
                 LegalityBlockerKind.BoardEdge => TickTraversalBlockerKind.BoardEdge,
-                LegalityBlockerKind.Terrain => TickTraversalBlockerKind.Terrain,
                 LegalityBlockerKind.Solid => TickTraversalBlockerKind.Solid,
                 LegalityBlockerKind.Unit => TickTraversalBlockerKind.Unit,
                 LegalityBlockerKind.Reservation => TickTraversalBlockerKind.Reservation,
@@ -561,7 +554,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 !HasBoxCapability(targetSemantic.Entity, BoxCapabilities.Flip))
             {
                 EntityState diagnosticTarget;
-                TryGetNonProjectileOccupantForDiagnostics(snapshot, snapshot.Topology, targetCell, out diagnosticTarget);
+                TryGetOccupantForDiagnostics(snapshot, snapshot.Topology, targetCell, out diagnosticTarget);
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipTargetNotFlippableBox|Cell={FormatCell(targetCell)}|Target={diagnosticTarget.entityId}|Type={diagnosticTarget.type}|Capabilities={diagnosticTarget.boxCapabilities}");
                 return;
@@ -630,69 +623,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     target.position,
                     landingCell,
                     ResolveCardinalFacing(-delta, "Flip landing requires an orthogonal adjacent interaction direction.")));
-            buffer.Add(actionGroup);
-        }
-
-        private void ExpandProjectileMove(
-            WorldSnapshot snapshot,
-            EntityState entity,
-            MoveIntent intent,
-            List<ActionGroup> buffer,
-            List<string> rejectedReasons)
-        {
-            if (intent.CommandKind != MovementCommandKind.Move)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=UnsupportedCommand|Command={intent.CommandKind}");
-                return;
-            }
-
-            var delta = ResolveIntentDelta(entity.position, intent.Destination);
-            var destinationCell = entity.position + delta;
-
-            if (TryExpandProjectileImpact(snapshot, intent, entity.teamId, destinationCell, buffer, rejectedReasons))
-            {
-                return;
-            }
-
-            if (snapshot.TryGetProjectileAt(destinationCell, out _))
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=ProjectileDestinationBlocked|Cell={FormatCell(destinationCell)}");
-                return;
-            }
-
-            var projectileContext = CreateTraverseContext(
-                snapshot,
-                entity,
-                destinationCell,
-                snapshot.Topology,
-                CubeRotationKind.None,
-                snapshot.Topology);
-            var projectileLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(projectileContext);
-            if (projectileLegality.Verdict == LegalityVerdict.Blocked)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(projectileLegality.Cell)}|{LegalityDiagnosticsFormatter.FormatStableSummary(projectileLegality, projectileContext.Actor.SpatialState)}");
-                return;
-            }
-
-            var actionGroup = new ActionGroup(
-                intent.IntentId,
-                intent.SourceId,
-                intent.Priority,
-                ActionGroupKind.Move);
-            actionGroup.StateChanges.Add(
-                new StateChangeAction(
-                    entity.entityId,
-                    entity.state,
-                    _projectileStateTimerTicks));
-            actionGroup.Moves.Add(
-                new MoveAction(
-                    intent.SourceId,
-                    entity.position,
-                    destinationCell,
-                    ResolveCardinalFacing(delta, "Projectile movement requires an orthogonal single-cell direction.")));
             buffer.Add(actionGroup);
         }
 
@@ -1391,9 +1321,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 case SlideStopperKind.BoardEdge:
                     return $"StopperKind=BoardEdge|Cell={FormatCell(stopper.Cell)}";
 
-                case SlideStopperKind.Terrain:
-                    return $"StopperKind=Terrain|Cell={FormatCell(stopper.Cell)}";
-
                 case SlideStopperKind.Entity:
                     return $"StopperKind=Entity|Stopper={stopper.EntityId}|StopperType={stopper.EntityType}|Cell={FormatCell(stopper.Cell)}";
 
@@ -1443,37 +1370,14 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             return StateQuery.BuildActorRef(snapshot, actor);
         }
 
-        private static bool TryExpandProjectileImpact(
-            WorldSnapshot snapshot,
-            MoveIntent intent,
-            int sourceTeamId,
-            SurfaceCell destinationCell,
-            List<ActionGroup> buffer,
-            List<string> rejectedReasons)
+        private static bool IsGameplayImpactBlocker(WorldSnapshot snapshot, int entityId)
         {
-            if (!snapshot.TryPickImpactTargetAt(destinationCell, sourceTeamId, out var target))
-            {
-                return false;
-            }
-
-            if (!IsGameplayImpactBlocker(snapshot, target.entityId))
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=ImpactTargetNotBlocking|Target={target.entityId}|Cell={FormatCell(destinationCell)}");
-                return true;
-            }
-
-            var actionGroup = new ActionGroup(
-                intent.IntentId,
-                intent.SourceId,
-                intent.Priority,
-                ActionGroupKind.ProjectileImpact);
-            actionGroup.AssignProjectileImpactTarget(target.entityId);
-            buffer.Add(actionGroup);
-            return true;
+            return snapshot.TryGetEntity(entityId, out var entity) &&
+                   snapshot.TryGetResolvedSpatialState(entityId, out var spatialState) &&
+                   GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(spatialState);
         }
 
-        private static bool TryGetNonProjectileOccupantForDiagnostics(
+        private static bool TryGetOccupantForDiagnostics(
             WorldSnapshot snapshot,
             CubeTopologyState topology,
             SurfaceCell cell,
@@ -1495,14 +1399,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
             entity = default;
             return false;
-        }
-
-        private static bool IsGameplayImpactBlocker(WorldSnapshot snapshot, int entityId)
-        {
-            return snapshot.TryGetEntity(entityId, out var entity) &&
-                   entity.type != EntityType.Projectile &&
-                   snapshot.TryGetResolvedSpatialState(entityId, out var spatialState) &&
-                   GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(spatialState);
         }
 
         private static Vector2Int ResolveIntentDelta(SurfaceCell source, Vector2Int destination)

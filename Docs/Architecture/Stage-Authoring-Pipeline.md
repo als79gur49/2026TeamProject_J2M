@@ -38,6 +38,8 @@ syncs entity-id based enemy/static presentation bindings while preserving displa
 metadata, preview/background, catalogs, and result text.
 Presentation metadata preservation is a pipeline invariant, not a generate
 option.
+Enemy visual presentation IDs and prefabs should follow the visual identity
+rules in [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md).
 
 `StageAudioDefinition` remains the stage audio companion. StageAudioDefinition v1
 supports only gameplay BGM through `gameplayBgm` and direct authored `BgmProfile`

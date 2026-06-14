@@ -3,7 +3,6 @@ using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Tests;
-using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -21,8 +20,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 1, 1)),
                     CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Ceiling, 1, 1)),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
             var snapshot = CreateSnapshot(worldState);
             var activeUnits = new List<EntityState>();
             var inactiveUnits = new List<EntityState>();
@@ -52,8 +50,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(entityId: 30, position: inactiveUnitCell),
                     CreateBox(entityId: 40, position: boxCell),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
             var snapshot = CreateSnapshot(worldState);
             var units = new List<EntityState>();
 
@@ -90,7 +87,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var normalBoxCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var moonBoxCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var unitCell = new SurfaceCell(FaceId.Floor, 2, 0);
-            var projectileCell = new SurfaceCell(FaceId.Floor, 3, 0);
+            var emptyCell = new SurfaceCell(FaceId.Floor, 3, 0);
             var wallCell = new SurfaceCell(FaceId.Floor, 4, 0);
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
@@ -98,11 +95,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateBox(20, normalBoxCell),
                     CreateBox(21, moonBoxCell, BoxArchetype.Moon),
                     CreateUnit(30, unitCell),
-                    CreateProjectile(40, projectileCell),
                     CreateWall(50, wallCell),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 1)));
             var snapshot = CreateSnapshot(worldState);
 
             Assert.That(snapshot.TryGetBoxArchetypeAt(normalBoxCell, out var normalArchetype), Is.True);
@@ -110,7 +105,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetBoxArchetypeAt(moonBoxCell, out var moonArchetype), Is.True);
             Assert.That(moonArchetype, Is.EqualTo(BoxArchetype.Moon));
             Assert.That(snapshot.TryGetBoxArchetypeAt(unitCell, out _), Is.False);
-            Assert.That(snapshot.TryGetBoxArchetypeAt(projectileCell, out _), Is.False);
+            Assert.That(snapshot.TryGetBoxArchetypeAt(emptyCell, out _), Is.False);
             Assert.That(snapshot.TryGetBoxArchetypeAt(wallCell, out _), Is.False);
         }
 
@@ -126,8 +121,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateBox(entityId: 40, position: boxCell),
                     CreateWall(entityId: 50, position: wallCell),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
             var snapshot = CreateSnapshot(worldState);
 
             Assert.That(snapshot.TryGetSolidSemanticAt(boxCell, out var boxSemantic), Is.True);
@@ -140,38 +134,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.IsWallAt(wallCell), Is.True);
             Assert.That(snapshot.IsBoxAt(wallCell), Is.False);
             Assert.That(snapshot.TryGetBoxAt(wallCell, out _), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void WorldSnapshot_TerrainQueries_AreFaceAwareWhileLegacyPlanarTerrainRemainsExpanded()
-        {
-            var floorCell = new SurfaceCell(FaceId.Floor, 1, 0);
-            var frontCell = new SurfaceCell(FaceId.Front, 1, 0);
-            var faceAwareTerrain = new GameplayTerrainData(new[]
-            {
-                new TerrainCellState(floorCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
-            });
-            var faceAwareSnapshot = CreateSnapshot(
-                GameplayWorldStateTestFactory.CreateBounded(
-                    System.Array.Empty<EntityState>(),
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    faceAwareTerrain));
-
-            Assert.That(faceAwareSnapshot.TryGetTerrain(floorCell, out var floorTerrain), Is.True);
-            Assert.That(floorTerrain.Cell, Is.EqualTo(floorCell));
-            Assert.That(faceAwareSnapshot.TryGetTerrain(frontCell, out _), Is.False);
-            Assert.That(faceAwareSnapshot.IsTerrainBlockedForUnit(floorCell), Is.True);
-            Assert.That(faceAwareSnapshot.IsTerrainBlockedForUnit(frontCell), Is.False);
-
-            var legacySnapshot = CreateSnapshot(
-                GameplayWorldStateTestFactory.CreateBounded(
-                    System.Array.Empty<EntityState>(),
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    new GameplayTerrainData(new[] { floorCell.PlanarPosition })));
-
-            Assert.That(legacySnapshot.IsTerrainBlockedForUnit(floorCell), Is.True);
-            Assert.That(legacySnapshot.IsTerrainBlockedForUnit(frontCell), Is.True);
         }
 
         [Test]
@@ -191,8 +153,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(entityId: 50, position: friendlyOnlyCell, teamId: 1),
                     CreateUnit(entityId: 60, position: friendlyOnlyCell, teamId: 1),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)));
             var snapshot = CreateSnapshot(worldState);
 
             Assert.That(snapshot.TryPickImpactTargetAt(hostileCell, sourceTeamId: 1, out var hostileTarget), Is.True);
@@ -223,8 +184,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(entityId: 50, position: friendlyOnlyCell, teamId: 1),
                     CreateUnit(entityId: 60, position: friendlyOnlyCell, teamId: 1),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)));
             var snapshot = CreateSnapshot(worldState);
 
             Assert.That(snapshot.TryPickHostileUnitImpactTargetAt(contestedCell, sourceTeamId: 1, out var hostileTarget), Is.True);
@@ -246,8 +206,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(entityId: 10, position: contestedCell, teamId: 1),
                     CreateUnit(entityId: 20, position: contestedCell, teamId: 2),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)));
             var snapshot = CreateSnapshot(worldState);
             var targets = new List<EntityState>();
 
@@ -263,8 +222,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))));
 
             var resolved = snapshot.TryResolvePlayerStep(
                 new SurfaceCell(FaceId.Floor, 1, 0),
@@ -286,8 +244,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                GameplayTerrainData.Empty));
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))));
 
             Assert.That(snapshot.Topology.BottomFace, Is.EqualTo(FaceId.Floor));
             var resolved = snapshot.TryResolvePlayerStep(
@@ -311,8 +268,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                GameplayTerrainData.Empty));
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))));
 
             Assert.That(snapshot.Topology.BottomFace, Is.EqualTo(FaceId.Floor));
             var resolved = snapshot.TryResolvePlayerStep(
@@ -336,8 +292,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))));
 
             var resolved = snapshot.TryResolvePlayerStep(
                 new SurfaceCell(FaceId.Floor, 1, 1),
@@ -363,8 +318,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 1, 1)),
                         CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Front, 1, 0), teamId: 2),
                     },
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))));
             var wallSnapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new[]
@@ -372,8 +326,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 1, 1)),
                         CreateWall(entityId: 30, position: new SurfaceCell(FaceId.Front, 1, 0)),
                     },
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))));
 
             Assert.That(
                 unitOnlySnapshot.TryResolvePlayerStep(
@@ -411,8 +364,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))));
 
             var frontMoveResolved = snapshot.TryResolvePlayerStep(
                 new SurfaceCell(FaceId.Front, 1, 0),
@@ -446,8 +398,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))));
 
             var resolved = snapshot.TryResolvePlayerStep(
                 new SurfaceCell(FaceId.Floor, 2, 0),
@@ -469,8 +420,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))));
 
             var resolved = snapshot.TryResolvePlayerStep(
                 new SurfaceCell(FaceId.Floor, 0, 0),
@@ -492,8 +442,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))));
 
             var resolved = snapshot.TryResolvePlayerStep(
                 new SurfaceCell(FaceId.Front, 1, 0),
@@ -515,8 +464,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))));
 
             var resolved = snapshot.TryResolveUnitStep(
                 new SurfaceCell(FaceId.Floor, 1, 1),
@@ -538,8 +486,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))));
 
             var resolved = snapshot.TryResolveUnitStep(
                 new SurfaceCell(FaceId.Floor, 1, 0),
@@ -561,8 +508,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1))));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Floor, 0, 0),
@@ -582,8 +528,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1))));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Floor, 0, 1),
@@ -603,8 +548,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1))));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Front, 0, 0),
@@ -627,8 +571,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         CreateWall(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0)),
                     },
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1))));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Floor, 0, 1),
@@ -653,8 +596,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                     },
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1))));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Front, 0, 0),
@@ -676,8 +618,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1))));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Front, 0, 1),
@@ -704,8 +645,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             position: new SurfaceCell(FaceId.Front, 1, 0),
                             boardPresence: EntityBoardPresence.Detached),
                     },
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1))));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Floor, 1, 1),
@@ -734,8 +674,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             position: new SurfaceCell(FaceId.Front, 1, 1),
                             teamId: 2),
                     },
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1))));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Front, 1, 0),
@@ -763,8 +702,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             position: new SurfaceCell(FaceId.Floor, 1, 0),
                             boardPresence: EntityBoardPresence.Detached),
                     },
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                        GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1))));
             var units = new List<EntityState>();
 
             Assert.That(snapshot.TryGetEntity(20, out var detachedEntity), Is.True);
@@ -794,7 +732,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             markedForDeath: true),
                     },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Floor)));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
@@ -817,8 +754,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 new WorldState(
                     new EntityState[0],
-                    BoardBounds.Unbounded,
-                    GameplayTerrainData.Empty));
+                    BoardBounds.Unbounded));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Floor, 1, 0),
@@ -838,8 +774,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 1))));
 
             var resolved = snapshot.TryResolveLocalFlipCells(
                 new SurfaceCell(FaceId.Floor, 0, 0),
@@ -859,8 +794,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1))));
 
             var resolved = snapshot.TryResolveLocalFlipCells(
                 new SurfaceCell(FaceId.Floor, 0, 1),
@@ -880,8 +814,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
-                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1))));
 
             var resolved = snapshot.TryResolveLocalFlipCells(
                 new SurfaceCell(FaceId.Floor, 0, 0),
@@ -1035,8 +968,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
                     CreateUnit(20, new SurfaceCell(FaceId.Front, 0, 0), teamId: 2),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             SetContinuousPoseAtForwardSeam(worldState, 10);
 
             var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
@@ -1063,8 +995,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
                     CreateWall(20, new SurfaceCell(FaceId.Front, 0, 0)),
                 },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty);
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
             SetContinuousPoseAtForwardSeam(worldState, 10);
 
             var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
@@ -1088,7 +1019,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 new[] { CreateTileFeature(100, targetCell, TileFeatureKind.Destroy) });
@@ -1111,7 +1041,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 new[] { CreateTileFeature(100, targetCell, TileFeatureKind.Barricade) });
@@ -1134,7 +1063,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 new[]
@@ -1201,7 +1129,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var unrelatedWorldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { CreateUnit(20, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 new[] { CreateTileFeature(101, new SurfaceCell(FaceId.Front, 1, 0), TileFeatureKind.Barricade) });
@@ -1271,7 +1198,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateWall(20, contactCell),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(10, out var actor), Is.True);
@@ -1304,7 +1230,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { CreateUnit(10, sourceCell) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(10, out var actor), Is.True);
@@ -1359,7 +1284,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateWall(20, sourceContactCell),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetContinuousPoseAtForwardSeam(
                 worldState,
@@ -1420,7 +1344,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateWall(20, new SurfaceCell(FaceId.Back, 1, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetContinuousPoseAtForwardSeam(
                 worldState,
@@ -1452,7 +1375,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 new[] { CreateTileFeature(100, targetCell, tileFeatureKind) });
@@ -1577,7 +1499,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateWall(20, footprintNeighbor),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor));
             SetContinuousPoseAtForwardSeam(
                 worldState,
@@ -1607,7 +1528,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { CreateUnit(10, sourceCell) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                GameplayTerrainData.Empty,
                 new CubeTopologyState(FaceId.Floor),
                 GameplayTimingProfile.CreateDefault(),
                 new[] { CreateTileFeature(100, featureCell, featureKind) });
@@ -1674,25 +1594,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 spawnTick = 0,
                 boxCapabilities = BoxCapabilities.None,
                 boxArchetype = boxArchetype,
-            };
-        }
-
-        private static EntityState CreateProjectile(int entityId, SurfaceCell position)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 1,
-                type = EntityType.Projectile,
-                state = EntityPhaseState.Idle,
-                stateTimer = 0,
-                facing = Direction.Right,
-                boardPresence = EntityBoardPresence.Occupying,
-                markedForDeath = false,
-                spawnTick = 0,
             };
         }
 

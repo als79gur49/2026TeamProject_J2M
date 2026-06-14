@@ -23,7 +23,7 @@ namespace Game.Feature.Gameplay.Tests
         public AttackDecisionStrategyKind AttackDecisionStrategyKind = AttackDecisionStrategyKind.None;
         public AttackDecisionSettings AttackDecisionSettings = AttackDecisionSettings.CreateAdjacentRange();
         public EnemyAttackTimingAuthoringSettings AttackTimingSettings = EnemyAttackTimingAuthoringSettings.CreateImmediate();
-        public WindupMeleeSettings WindupMeleeSettings = WindupMeleeSettings.CreateDefault();
+        public ProjectileWindupSettings ProjectileWindupSettings = ProjectileWindupSettings.CreateDefault();
         public WindupForwardCellProjectileSettings WindupForwardCellProjectileSettings =
             WindupForwardCellProjectileSettings.CreateDefault();
         public bool IncludePassiveContact;
@@ -87,7 +87,7 @@ namespace Game.Feature.Gameplay.Tests
                 AttackDecisionSettings = new AttackDecisionSettings(attackRange),
                 AttackTimingSettings = ToAuthoring(new EnemyAttackTimingSettings(windupTicks)),
                 WindupForwardCellProjectileSettings = new WindupForwardCellProjectileSettings(
-                    WindupMeleeSettings.DefaultVisualRangeSlackCells,
+                    ProjectileWindupSettings.DefaultVisualRangeSlackCells,
                     impactDelayTicks,
                     damage,
                     activePendingImpactLimitPerOwner: 1,
@@ -231,7 +231,7 @@ namespace Game.Feature.Gameplay.Tests
             });
         }
 
-        public static EnemyAiProfile CreateContactDamage(int moveCooldownTicks = 0, int recoverTicks = 1)
+        public static EnemyAiProfile CreatePassiveContact(int moveCooldownTicks = 0, int recoverTicks = 1)
         {
             return Create(new EnemyAiTestProfileSpec
             {

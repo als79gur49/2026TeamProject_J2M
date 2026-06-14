@@ -494,93 +494,6 @@ namespace Game.Feature.Gameplay.BoardState
                    state.IsActive;
         }
 
-        // Legacy non-projectile lookup keeps solid-first resolution so existing box/wall callers stay stable.
-        // Prefer explicit unit/solid/box/impact queries in new code.
-        public static bool TryGetPrimaryNonProjectileOccupantAt(
-            IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
-            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            CubeTopologyState topology,
-            SurfaceCell cell,
-            out EntityState entity)
-        {
-            return TryGetPrimaryNonProjectileOccupantAt(
-                entitiesById,
-                stackedUnitsByCell,
-                solidOccupancyByCell,
-                enemyJumpStatesByEntityId: null,
-                phasedStatesByEntityId: null,
-                topology,
-                cell,
-                out entity);
-        }
-
-        public static bool TryGetPrimaryNonProjectileOccupantAt(
-            IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
-            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
-            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
-            CubeTopologyState topology,
-            SurfaceCell cell,
-            out EntityState entity)
-        {
-            ValidateQueryDictionaries(entitiesById, stackedUnitsByCell, solidOccupancyByCell);
-
-            entity = default;
-
-            if (!topology.IsFaceActive(cell.face))
-            {
-                return false;
-            }
-
-            if (TryGetStoredOccupant(entitiesById, solidOccupancyByCell, cell, out entity) &&
-                GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
-                    ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology)))
-            {
-                return true;
-            }
-
-            return TryGetStoredStackedUnit(
-                entitiesById,
-                stackedUnitsByCell,
-                enemyJumpStatesByEntityId,
-                phasedStatesByEntityId,
-                topology,
-                cell,
-                requireGameplayVisibility: true,
-                ignoredEntityId: 0,
-                out entity);
-        }
-
-        public static bool IsTerrainBlockedForUnit(
-            CubeTopologyState topology,
-            TerrainData terrainData,
-            SurfaceCell cell)
-        {
-            if (terrainData == null)
-            {
-                throw new ArgumentNullException(nameof(terrainData));
-            }
-
-            return topology.IsFaceActive(cell.face) &&
-                   TryGetTerrain(terrainData, cell, out var terrainCell) &&
-                   (terrainCell.Flags & TerrainFlags.BlocksGroundTraversal) != 0;
-        }
-
-        public static bool TryGetTerrain(
-            TerrainData terrainData,
-            SurfaceCell cell,
-            out TerrainCellState terrainCell)
-        {
-            if (terrainData == null)
-            {
-                throw new ArgumentNullException(nameof(terrainData));
-            }
-
-            return terrainData.TryGetTerrain(cell, out terrainCell);
-        }
-
         public static bool BlocksMovement(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             CubeTopologyState topology,
@@ -602,7 +515,6 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             return entitiesById.TryGetValue(entityId, out var entity) &&
-                   entity.type != EntityType.Projectile &&
                    GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
                        ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology));
         }
@@ -846,52 +758,6 @@ namespace Game.Feature.Gameplay.BoardState
 
                     buffer.Add(new SnapshotOccupancyEntry(pair.Key, entity.entityId));
                 }
-            }
-        }
-
-        public static void EnumerateTerrainCellsOrdered(
-            TerrainData terrainData,
-            List<TerrainCellState> buffer)
-        {
-            if (terrainData == null)
-            {
-                throw new ArgumentNullException(nameof(terrainData));
-            }
-
-            if (buffer == null)
-            {
-                throw new ArgumentNullException(nameof(buffer));
-            }
-
-            buffer.Clear();
-
-            var orderedCells = terrainData.OrderedTerrainCells;
-            for (var i = 0; i < orderedCells.Count; i++)
-            {
-                buffer.Add(orderedCells[i]);
-            }
-        }
-
-        public static void EnumerateTerrainBlockedCellsOrdered(
-            TerrainData terrainData,
-            List<Vector2Int> buffer)
-        {
-            if (terrainData == null)
-            {
-                throw new ArgumentNullException(nameof(terrainData));
-            }
-
-            if (buffer == null)
-            {
-                throw new ArgumentNullException(nameof(buffer));
-            }
-
-            buffer.Clear();
-
-            var orderedCells = terrainData.OrderedUnitBlockingCells;
-            for (var i = 0; i < orderedCells.Count; i++)
-            {
-                buffer.Add(orderedCells[i]);
             }
         }
 

@@ -604,18 +604,6 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_ProjectileImpactScenario_ProducesSamePerTickHashTraceAndEventLog",
-      "category": "Core",
-      "contracts": [
-        "determinism",
-        "damage_affects_movement",
-        "spawn_destroy_delayed_ordering",
-        "tick_replay_determinism_contract"
-      ],
-      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
-      "locked": true
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxBoardEdgeScenario_ProducesSameHashTraceAndEventLog",
       "category": "Core",
       "contracts": [
@@ -638,7 +626,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxTerrainStopperScenario_ProducesSameHashTraceAndEventLog",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxSolidStopperScenario_ProducesSameHashTraceAndEventLog",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -795,24 +783,6 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_FireProjectileIntent_AllowsSpawnIntoOccupiedUnitCell",
-      "category": "Core",
-      "contracts": [
-        "attack_phase_scenario_contract"
-      ],
-      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_FireProjectileIntent_SpawnsProjectileDuringCommit",
-      "category": "Core",
-      "contracts": [
-        "attack_phase_scenario_contract"
-      ],
-      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
-      "locked": true
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_ImpactReservation_CanStillExpandToFixedSameTickActions",
       "category": "Core",
       "contracts": [
@@ -919,7 +889,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.ContactDamage_PlayerOwnedCooldown_RejectsStackedHitUntilReceiverGateExpires",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.PassiveContact_PlayerOwnedCooldown_RejectsStackedHitUntilReceiverGateExpires",
       "category": "Core",
       "contracts": [
         "attack_phase_scenario_contract"
@@ -928,7 +898,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.ContactDamage_SameTickMultipleSources_OnlyFirstDeterministicResolutionIsAccepted",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.PassiveContact_SameTickMultipleSources_OnlyFirstDeterministicResolutionIsAccepted",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -1204,7 +1174,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_Charge_CurrentPresentationAndContactContract",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_Charger_CurrentPresentationAndContactContract",
       "category": "Core",
       "contracts": [
         "enemy_charge_kinematic_locomotion",
@@ -3301,23 +3271,23 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.BlackEyeProjectile_PlayerHit_EmitsProjectileImpactRequest",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.BlackEyeProjectile_PlayerHit_EmitsForwardCellImpactRequest",
       "category": "Core",
       "contracts": [
         "gameplay_audio_overlap_refactor",
         "enemy_audio_projectile_impact_active_policy"
       ],
-      "reason": "Locked Core coverage that BlackEye projectile player-hit impact ticks emit ProjectileImpact without impact-derived Active.",
+      "reason": "Locked Core coverage that BlackEye projectile player-hit impact ticks emit ForwardCellImpact without impact-derived Active.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.EnemyAudioRequestPlanner_DoesNotSuppressActualActiveWhenProjectileImpactExists",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyAudioRuntimeTests.EnemyAudioRequestPlanner_DoesNotSuppressActualActiveWhenForwardCellImpactExists",
       "category": "Core",
       "contracts": [
         "gameplay_audio_overlap_refactor",
         "enemy_audio_projectile_impact_active_policy"
       ],
-      "reason": "Locked Core coverage that actual combat Active remains allowed when a ProjectileImpact exists in the same tick.",
+      "reason": "Locked Core coverage that actual combat Active remains allowed when a ForwardCellImpact exists in the same tick.",
       "locked": true
     },
     {
@@ -3327,7 +3297,7 @@
         "gameplay_audio_overlap_refactor",
         "enemy_audio_projectile_impact_active_policy"
       ],
-      "reason": "Locked Core coverage that BlackEye projectile player-hit final playback keeps the plasma ProjectileImpact cue.",
+      "reason": "Locked Core coverage that BlackEye projectile player-hit final playback keeps the plasma ForwardCellImpact cue.",
       "locked": true
     },
     {

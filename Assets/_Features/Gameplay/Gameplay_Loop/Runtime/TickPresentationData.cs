@@ -13,7 +13,7 @@ namespace Game.Feature.Gameplay.Loop
         Move = 1,
         Push = 2,
         Flip = 3,
-        ProjectileMove = 4,
+        ForwardCellMove = 4,
         BoxSlide = 5,
     }
 
@@ -57,7 +57,6 @@ namespace Game.Feature.Gameplay.Loop
         Player = 1,
         Enemy = 2,
         Box = 3,
-        Projectile = 4,
     }
 
     public enum EntitySpawnPresentationReason
@@ -67,7 +66,6 @@ namespace Game.Feature.Gameplay.Loop
         PlayerRespawn = 2,
         EnemySpawn = 3,
         EnemySummon = 4,
-        ProjectileSpawn = 5,
         BoxSpawn = 6,
         StageInitialPlacement = 7,
         ScriptedSpawn = 8,
@@ -456,7 +454,7 @@ namespace Game.Feature.Gameplay.Loop
                     return profile.MoveMotionDurationSeconds;
                 case MovementSemanticKind.Slide:
                     return profile.BoxSlideStepIntervalSeconds;
-                case MovementSemanticKind.ProjectileMove:
+                case MovementSemanticKind.ForwardCellMove:
                     return profile.ProjectileStepIntervalSeconds;
                 default:
                     return 0f;
@@ -1185,11 +1183,10 @@ namespace Game.Feature.Gameplay.Loop
     {
         None = 0,
         BoardEdge = 1,
-        Terrain = 2,
-        Solid = 3,
-        Unit = 4,
-        Reservation = 5,
-        TileFeature = 6,
+        Solid = 2,
+        Unit = 3,
+        Reservation = 4,
+        TileFeature = 5,
     }
 
     public readonly struct TickPlayerTopologyTransitionBlockedSignal
