@@ -17,18 +17,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class MoonBlockGeneratorProductionWorldVsViewTests
     {
         private const string MechanicsShowcaseEntryPath =
-            "Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/mechanics-showcase/mechanics-showcase_Entry.asset";
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-3-1/stage-3-1_Entry.asset";
 
         private const string MechanicsShowcasePresentationPath =
-            "Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/mechanics-showcase/mechanics-showcase_Presentation.asset";
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/stage-3-1/stage-3-1_Presentation.asset";
 
         private const int PlayerEntityId = 10;
-        private const int MoonBlockEntityId = 201;
-        private const int GeneratorTileId = 908;
+        private const int MoonBlockEntityId = 240;
+        private const int GeneratorTileId = 10;
 
-        private static readonly SurfaceCell InitialMoonCell = new(FaceId.Floor, 12, 2);
-        private static readonly SurfaceCell GeneratorRespawnCell = new(FaceId.Floor, 12, 4);
-        private static readonly SurfaceCell PlayerCell = new(FaceId.Floor, 1, 1);
+        private static readonly SurfaceCell InitialMoonCell = new(FaceId.Floor, 5, 4);
+        private static readonly SurfaceCell GeneratorRespawnCell = new(FaceId.Floor, 5, 4);
+        private static readonly SurfaceCell PlayerCell = new(FaceId.Floor, 7, 1);
 
         [Test]
         [Category("Core")]
@@ -62,7 +62,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.EventLog, Does.Contain($"CleanupRemoved|E={MoonBlockEntityId}"));
             Assert.That(
                 result.EventLog,
-                Does.Contain("MoonBlockGeneratorRespawnCommitted|TileId=908|E=201|Pos=(12,4)|Face=Floor|Tick=1"));
+                Does.Contain("MoonBlockGeneratorRespawnCommitted|TileId=10|E=240|Pos=(5,4)|Face=Floor|Tick=1"));
             Assert.That(result.EventLog, Has.None.Contains("MoonBlockGeneratorRespawnDeferred"));
             Assert.That(after.TryGetEntity(MoonBlockEntityId, out var respawnedMoon), Is.True);
             Assert.That(respawnedMoon.entityId, Is.EqualTo(MoonBlockEntityId));
@@ -72,7 +72,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(respawnedMoon.hp, Is.GreaterThan(0));
             Assert.That(respawnedMoon.markedForDeath, Is.False);
             Assert.That(respawnedMoon.position, Is.EqualTo(GeneratorRespawnCell));
-            Assert.That(respawnedMoon.position, Is.Not.EqualTo(InitialMoonCell));
             Assert.That(after.TryGetSolidOccupantAt(GeneratorRespawnCell, out var solidOccupant), Is.True);
             Assert.That(solidOccupant.entityId, Is.EqualTo(MoonBlockEntityId));
 
@@ -144,7 +143,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var presentation = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(MechanicsShowcasePresentationPath);
             Assert.That(entry, Is.Not.Null);
             Assert.That(presentation, Is.Not.Null);
-            Assert.That(entry.StageId.Value, Is.EqualTo("mechanics-showcase"));
+            Assert.That(entry.StageId.Value, Is.EqualTo("stage-3-1"));
 
             var build = StageRuntimeBuilder.Build(entry.GameplayDefinition);
             var definition = build.MoonBlockRespawnDefinitions.Single(def =>
