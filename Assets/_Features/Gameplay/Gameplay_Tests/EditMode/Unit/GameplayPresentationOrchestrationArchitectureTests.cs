@@ -30,8 +30,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_PresentationPlayback/Runtime";
         private const string RuntimeDirectory =
             "Assets/_Features/Gameplay/Gameplay_PresentationRuntime/Runtime";
+        private const string HostRuntimeDirectory =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime";
         private const string CoordinatorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
+        private const string TopologyExecutorPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs";
 
         [Test]
         [Category("Core")]
@@ -187,9 +191,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Contain("_topologyTransitionController.RefreshBoardSurfaceTransition"));
             Assert.That(coordinatorSource, Does.Contain("public bool IsTopologyTransitionActive => CurrentPresentationPhase == GameplayPresentationPhase.TopologyTransition;"));
             Assert.That(coordinatorSource, Does.Contain("_topologyTransitionController.HasActiveBoardRotationTween"));
+            Assert.That(coordinatorSource, Does.Not.Contain("TopologyPresentationExecutor"));
+            Assert.That(coordinatorSource, Does.Not.Contain("ITopologyTransitionPlaybackPort"));
             Assert.That(inputHostSource, Does.Contain("HasBlockingPresentation"));
             Assert.That(inputHostSource, Does.Not.Contain("PresentationPlaybackPlan"));
             Assert.That(inputHostSource, Does.Not.Contain("GameplayPresentationPipeline"));
+            Assert.That(inputHostSource, Does.Not.Contain("PresentationPlaybackScheduler"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecutorBoundary_StaysHostOnlyAndDoesNotBecomeDefaultRuntimeOwner()
+        {
+            var contractsPlanningPlaybackSource = ReadDirectorySource(ContractsDirectory) + "\n" +
+                                                  ReadDirectorySource(PlanningDirectory) + "\n" +
+                                                  ReadDirectorySource(PlaybackDirectory);
+            var runtimeSource = ReadDirectorySource(RuntimeDirectory);
+            var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
+            var topologyExecutorSource = ReadRepoFile(TopologyExecutorPath);
+            var coordinatorSource = ReadRepoFile(CoordinatorPath);
+
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayTopologyTransitionController"));
+            Assert.That(runtimeSource, Does.Not.Contain("GameplayTopologyTransitionController"));
+            Assert.That(runtimeSource, Does.Not.Contain("TopologyPresentationExecutor"));
+            Assert.That(coordinatorSource, Does.Not.Contain("TopologyPresentationExecutor"));
+            Assert.That(coordinatorSource, Does.Not.Contain("ITopologyTransitionPlaybackPort"));
+            Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutor"));
+            Assert.That(hostRuntimeSource, Does.Contain("ITopologyTransitionPlaybackPort"));
+            Assert.That(topologyExecutorSource, Does.Contain("GameplayTopologyTransitionPlaybackPort"));
+            Assert.That(topologyExecutorSource, Does.Contain("GameplayTopologyTransitionController controller"));
+            Assert.That(topologyExecutorSource, Does.Not.Contain("FindObjectOfType"));
+            Assert.That(topologyExecutorSource, Does.Not.Contain("FindObjectsByType"));
+            Assert.That(topologyExecutorSource, Does.Not.Contain("new GameObject"));
         }
 
         [Test]
@@ -380,6 +413,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TopologyExecutor_IsolatedRouting_PreservesTickResultAuthoritativeOutputs()
+        {
+            var result = CreateDiagnosticTickResult();
+            var initialHash = result.DeterminismHash;
+            var initialEntities = result.FinalEntities.ToArray();
+            var initialEventLog = result.EventLog.ToArray();
+            var initialObjective = result.ObjectiveResult;
+            var pipeline = GameplayPresentationPipelineInstaller.CreateDiagnosticsOnly();
+            var port = new RecordingTopologyTransitionPlaybackPort();
+            var executor = new TopologyPresentationExecutor(
+                port,
+                TopologyPresentationExecutorMode.EnabledForTests);
+
+            pipeline.Present(result);
+            executor.Play(pipeline.LastPlaybackPlan);
+
+            Assert.That(port.BeginOrRefreshCallCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.RouteCount, Is.EqualTo(1));
+            Assert.That(result.DeterminismHash, Is.EqualTo(initialHash));
+            Assert.That(result.FinalEntities, Is.EqualTo(initialEntities));
+            Assert.That(result.EventLog, Is.EqualTo(initialEventLog));
+            Assert.That(result.ObjectiveResult, Is.SameAs(initialObjective));
+            Assert.That(pipeline.HasBlockingPresentation, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void Coordinator_DiagnosticsPipeline_IsDisabledByDefault()
         {
             var coordinator = new GameplayTickPresentationCoordinator();
@@ -483,6 +543,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     clearedThisTick: true,
                     isCleared: true,
                     conditionStatuses: Array.Empty<StageConditionStatus>()));
+        }
+
+        private sealed class RecordingTopologyTransitionPlaybackPort : ITopologyTransitionPlaybackPort
+        {
+            public int BeginOrRefreshCallCount { get; private set; }
+
+            public bool IsTransitionActive { get; private set; }
+
+            public void BeginOrRefreshTopologyTransition(TopologyTransitionPlaybackRequest request)
+            {
+                BeginOrRefreshCallCount++;
+            }
+
+            public void UpdatePresentation(float deltaTime)
+            {
+            }
+
+            public void ResetSession()
+            {
+                IsTransitionActive = false;
+            }
+
+            public void HardCleanup()
+            {
+                IsTransitionActive = false;
+            }
         }
 
         private static string[] GetReferenceNames(Assembly assembly)
