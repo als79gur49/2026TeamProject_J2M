@@ -702,6 +702,59 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void EnemyUtilitySummon_MultipleSpawns_ReserveCellsAndAllocateIdsInMaterializationOrder()
+        {
+            var profile = CreateUtilitySummonProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 5,
+                spawnCountPerTrigger: 2,
+                maxAliveChildren: 3,
+                windupTicks: 1);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+                pipeline.RunTick(new TickInput(1));
+                var committedTick = pipeline.RunTick(new TickInput(2));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(41, out var firstChild), Is.True);
+                Assert.That(snapshot.TryGetEntity(42, out var secondChild), Is.True);
+                Assert.That(firstChild.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+                Assert.That(secondChild.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, -1)));
+                Assert.That(firstChild.spawnTick, Is.EqualTo(2));
+                Assert.That(secondChild.spawnTick, Is.EqualTo(2));
+
+                var eventLogDump = string.Join("\n", committedTick.EventLog);
+                var firstCommitIndex = eventLogDump.IndexOf(
+                    "SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41|Pos=(1,0)|Archetype=BasicMinion|Tick=2",
+                    StringComparison.Ordinal);
+                var secondCommitIndex = eventLogDump.IndexOf(
+                    "SummonCommitted|Source=40|Effect=0|SpawnIndex=1|Spawned=42|Pos=(0,-1)|Archetype=BasicMinion|Tick=2",
+                    StringComparison.Ordinal);
+                Assert.That(firstCommitIndex, Is.GreaterThanOrEqualTo(0), eventLogDump);
+                Assert.That(secondCommitIndex, Is.GreaterThanOrEqualTo(0), eventLogDump);
+                Assert.That(firstCommitIndex, Is.LessThan(secondCommitIndex), eventLogDump);
+
+                AssertSummonedChildMetadata(snapshot, 41);
+                AssertSummonedChildMetadata(snapshot, 42);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyUtilitySummon_AirArchetype_ActivatedDestroyTileCandidateIsNeutral()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -758,6 +811,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 DestroyProfile(defaultProfile);
                 DestroyProfile(profile);
             }
+        }
+
+        private static void AssertSummonedChildMetadata(WorldSnapshot snapshot, int entityId)
+        {
+            Assert.That(snapshot.TryGetSummonedEntityState(entityId, out var summonedState), Is.True);
+            Assert.That(summonedState.SourceEntityId, Is.EqualTo(40));
+            Assert.That(summonedState.SourceEffectIndex, Is.EqualTo(0));
+            Assert.That(snapshot.TryGetEnemyDefinitionBindingState(entityId, out var bindingState), Is.True);
+            Assert.That(bindingState.ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
         }
 
         [Test]
