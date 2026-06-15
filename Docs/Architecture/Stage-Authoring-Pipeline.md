@@ -15,9 +15,11 @@ Catalog grouping and ordering metadata lives directly on `StageContentEntry`
 as world id, chapter id, sort order, and initial availability. It is not a
 progression or unlock-rule graph.
 
-`StageContentEntry` owns authoring, gameplay, presentation, audio, and catalog
-metadata companions. Stage completion no longer carries scoring, award, or
-unlock-rule companion assets as canonical stage content.
+`StageContentEntry` owns the active Authoring, Gameplay, Presentation, and Audio
+companion references plus catalog metadata. Reward, Progression, and
+ClearEvaluation companions are retired/absent by contract; stage completion no
+longer carries scoring, award, or unlock-rule companion assets as canonical
+stage content.
 
 This pipeline does not create one Unity scene per stage. Production scene
 GameObjects are not authoritative stage layout data, and stage content must not
@@ -26,8 +28,8 @@ be described as a one-to-one scene mapping.
 ## Authoring Source And Outputs
 
 `StageAuthoringDefinition` is the editor-facing source asset. It stores the board,
-face-aware `SurfaceCell` placements, zones, objective data, presentation ids, and
-stable authoring identity.
+face-aware `SurfaceCell` placements, zones, objective data, presentation-only
+binding keys (`PresentationId`), and stable authoring identity.
 
 `StageDefinition` remains the gameplay output. It is still the runtime build seed
 and does not receive prefab references, view bindings, UI text ownership, or audio
@@ -96,6 +98,8 @@ runtime fields consumed by `StageDefinitionValidator` and `StageRuntimeBuilder`:
 board, initial bottom face, entity spawns, zones, and objective entries.
 Generated spawn array order is normalized. Presentation identity is checked
 through `StagePresentationDefinition` bindings, not through gameplay spawn fields.
+`PresentationId` is an active presentation compatibility key and not gameplay
+authority; any rename or removal requires a serialized migration plan first.
 `StageCatalogValidator` closes this path through
 `StageAuthoringProjection` and `StageAuthoringDriftComparer`; previous coarse
 generated-output comparison helpers are not part of the validation contract.

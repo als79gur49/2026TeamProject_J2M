@@ -66,7 +66,7 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StageContentEntryCreation_DoesNotCreateRewardProgressionClearEvaluationAssets()
+        public void StageContentEntryCreation_GuardsRetiredRewardProgressionClearEvaluationAssetsRemainAbsent()
         {
             using var fixture = TempCampaignStageAssetFixture.Create();
             var gameplay = ScriptableObject.CreateInstance<StageDefinition>();

@@ -155,7 +155,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("StageResult screen is a stage completion presentation endpoint"));
             Assert.That(baseline, Does.Contain("emits intent-only `StageNavigationRequest` values for continue, retry, and next-stage paths"));
             Assert.That(baseline, Does.Contain("Reward residue is not a stage-clear presentation endpoint or reward commit owner"));
-            Assert.That(baseline, Does.Contain("Reward/progression commit remains owned by the stage subsystem"));
+            Assert.That(baseline, Does.Contain("Reward/Progression/ClearEvaluation companions are retired/absent"));
             Assert.That(baseline, Does.Contain("UI remains non-authoritative"));
             Assert.That(baseline, Does.Contain("does not mutate `WorldState`"));
             Assert.That(baseline, Does.Contain("does not receive raw `TickResult` or raw gameplay frames in views"));

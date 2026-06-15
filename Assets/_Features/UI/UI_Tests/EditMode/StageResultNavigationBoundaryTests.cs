@@ -20,7 +20,7 @@ namespace Game.Feature.UI.Tests
         };
 
         [Test]
-        public void StageResult_DoesNotReferenceProgressionCommitTypes()
+        public void StageResult_GuardsRetiredProgressionRuntimeTokensRemainAbsent()
         {
             AssertStageResultSourcesDoNotContain(new[]
             {
@@ -32,7 +32,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void StageResult_DoesNotReferenceRewardCommitTypes()
+        public void StageResult_GuardsRetiredRewardRuntimeTokensRemainAbsent()
         {
             AssertStageResultSourcesDoNotContain(new[]
             {
@@ -44,7 +44,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void StageResultAndRewardPopup_ArePresentationEndpoints_NotGameplayAuthority()
+        public void StageResult_IsPresentationNavigationEndpoint_NotGameplayAuthority()
         {
             AssertStageResultSourcesDoNotContain(new[]
             {
@@ -71,7 +71,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 payloadNavigationTypes,
                 Is.EqualTo(new[] { typeof(StageNavigationRequest) }),
-                "StageResult screen actions stay intent-only; continue/retry/next-stage are StageNavigationRequest values, not direct stage reward/progression commits.");
+                "StageResult screen actions stay intent-only; continue/retry/next-stage are StageNavigationRequest values, not retired reward/progression runtime commits.");
             Assert.That(
                 payloadNavigationProperties.Select(property => property.Name).ToArray(),
                 Is.EqualTo(new[] { "ContinueStageRequest", "NextStageRequest", "RetryStageRequest" }));
@@ -105,7 +105,7 @@ namespace Game.Feature.UI.Tests
                     Assert.That(
                         source,
                         Does.Not.Contain(token),
-                        $"{sourcePath}: StageResult/Reward popup are UI presentation/navigation endpoints; stage reward/progression commit lane remains stage-owned.");
+                        $"{sourcePath}: StageResult is the current UI presentation/navigation endpoint; retired Reward/Progression runtime tokens remain absent.");
                 }
             }
         }

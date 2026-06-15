@@ -666,7 +666,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UIFlowCoordinator_FinalStageClearedAutoOpensTerminalGameClear_WithoutRewardPopup()
+        public void UIFlowCoordinator_FinalStageClearUsesGameClearAndBypassesRemovedRewardPopup()
         {
             var pauseService = new FakeGameplayPauseService();
             var popupRuntimeFactory = new FakePopupRuntimeFactory();
@@ -702,7 +702,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(gameClearPayload.TitleText, Is.EqualTo("Game Clear"));
             Assert.That(gameClearPayload.MainLabel, Is.EqualTo("Main"));
             Assert.That(popupController.TopPopup.HasValue, Is.False);
-            Assert.That(popupController.PopupCount, Is.EqualTo(0), "Final-stage terminal screen selection bypasses Reward popup in current flow; do not extract or change this policy in PR-1.");
+            Assert.That(popupController.PopupCount, Is.EqualTo(0), "Final-stage terminal screen selection bypasses the removed Reward popup path; do not extract or change this policy in PR-1.");
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.StageResult), Is.Empty);
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.GameClear), Has.Count.EqualTo(1));
             Assert.That(coordinator.HandleBackRequested(), Is.True);

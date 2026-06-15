@@ -142,7 +142,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void StageContentEntry_DoesNotExposeRewardProgressionClearEvaluationCompanions()
+        public void StageContentEntry_GuardsRetiredRewardProgressionClearEvaluationCompanionsRemainAbsent()
         {
             var memberNames = typeof(StageContentEntry)
                 .GetMembers(BindingFlags.Instance | BindingFlags.Public)

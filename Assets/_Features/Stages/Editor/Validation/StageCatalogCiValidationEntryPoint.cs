@@ -240,7 +240,7 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine();
             WriteLines(writer, "Duplicate Legacy Gameplay Assets", auditReport.DuplicateLegacyGameplayAssetPaths);
             WriteLines(writer, "Prunable Alias Candidates", auditReport.PrunableAliasIds);
-            WriteLines(writer, "Build Scene Residues", auditReport.BuildSceneResiduePaths);
+            WriteLines(writer, "Build Scene Retired-Path Guard Residues", auditReport.BuildSceneResiduePaths);
             WriteLines(writer, "Build Scene Direct-Play Catalog Coverage Gaps", auditReport.BuildSceneCoverageGapPaths);
             WriteAliasUsageLines(writer, auditReport.AliasUsage.Hits);
         }

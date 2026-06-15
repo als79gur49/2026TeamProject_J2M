@@ -149,7 +149,7 @@
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path through `MinimalStageCompletionReadModel`; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
 - current canonical `PopupId` values are `None`, `Pause`, `Confirm`, `Tooltip`, and `DemoStageControl`
 - StageResult screen is a stage completion presentation endpoint. It consumes `MinimalStageCompletionReadModel`-derived payloads and emits intent-only `StageNavigationRequest` values for continue, retry, and next-stage paths.
-- Reward residue is not a stage-clear presentation endpoint or reward commit owner. Reward/progression commit remains owned by the stage subsystem before UI consumes the read model.
+- Reward residue is not a stage-clear presentation endpoint or reward commit owner. Reward/Progression/ClearEvaluation companions are retired/absent, and removed-behavior guard tests keep those endpoints from re-entering the UI clear flow.
 - UI remains non-authoritative: it does not mutate `WorldState`, does not receive raw `TickResult` or raw gameplay frames in views, and consumes snapshots/viewmodels/read models instead.
 - Stage completion back handling is fixed as current behavior: terminal result screens consume back, and screen/popup/HUD remain separate stacks/layers with input blocking derived from `UIBlockPolicy`.
 - Final-stage clear currently selects `GameClear` instead of the regular StageResult next-stage flow. This is protected as current behavior, not extracted into a new policy in PR-1.

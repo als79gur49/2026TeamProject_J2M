@@ -28,7 +28,7 @@ Verified removed or current status:
 - `RemovedLegacyFallbackDiagnosticsEnabled`: still present in `GameplayRuntimeFeatureFlags` and tests as canonical diagnostic routing.
 - `GroupId`: active internal action-group vocabulary remains. The public `DamageResolutionRecord.GroupId` / `DestroyResolutionRecord.GroupId` compatibility alias pattern was not found.
 - `SourceActionGroupId`: not found as active compatibility alias. `SourceActionPlanId` remains active presentation/VFX/audio correlation vocabulary.
-- `StageSpawnDefinition.PresentationId`: generated gameplay assets have no `PresentationId` rows. Authoring placements and presentation bindings still use `PresentationId` for active editor/content presentation selection.
+- `StageSpawnDefinition.PresentationId`: generated gameplay assets have no `PresentationId` rows. Authoring placements and presentation bindings still use `PresentationId` as an active presentation-only binding key, not gameplay authority.
 - `[Obsolete]`: no active C# `[Obsolete]` attribute was found; only docs discuss potential obsolete windows.
 
 ## Current Alive Map
@@ -61,7 +61,7 @@ Verified removed or current status:
 - `GameplayInputHost` subscribes Flip to both `started` and `performed`; Push subscribes only `started`. Since both Flip callbacks set the same bool buffer, this is potentially duplicate edge handling. It is still behavior-affecting for Input System interaction differences, so classify as `NEEDS_PRODUCT_DECISION`, not immediate deletion.
 - `RemovedLegacyFallbackDiagnosticsEnabled` is the canonical removed-fallback diagnostic routing field. It must not be described as fallback authorization.
 - `SourceActionPlanId` and `IntentId` are active correlation/determinism fields. They are not deletion candidates.
-- `PresentationId` in authoring placements is active editor/content presentation selection. Generated gameplay spawn-side rows are absent, so no generated migration miss was found.
+- `PresentationId` in authoring placements is an active presentation-only binding key. Generated gameplay spawn-side rows are absent, so no generated migration miss was found; rename/removal still requires a serialized migration plan.
 
 ## Tests-Only Findings
 

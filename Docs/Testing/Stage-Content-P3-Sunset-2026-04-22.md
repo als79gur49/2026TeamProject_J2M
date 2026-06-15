@@ -20,7 +20,7 @@ StageCatalogCiValidationEntryPoint.Run
 - `LegacyStagePresentationEditorBridge`
 - `StageCatalogEditorSeamValidator`
 - runtime placeholder `LegacyStagePresentationBridge.cs`
-- runtime `defaultStageId` fallback surface
+- removed runtime `defaultStageId` fallback detector/surface
 - grandfather gameplay asset registry
 - `gameplay.name-drift` exact known-warning rows
 - StageId alias rows
