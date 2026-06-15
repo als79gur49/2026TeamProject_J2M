@@ -46,6 +46,12 @@
   - current supporting truth for campaign enemy inactive-compatible material duplicates, shader contract, bridge shaders, and authoring validation
 - [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md)
   - current supporting truth for ownership-based Enemy AI profile/core/brain/capability/view/animator/presentation naming
+- [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)
+  - current supporting truth for Phase 1 Enemy AI profile root, runtime definition lanes, Charge BehaviorModule ownership, and Phase 2 trigger boundaries
+- [Enemy-AI-Phase1-Merge-Gate.md](./Enemy-AI-Phase1-Merge-Gate.md)
+  - current supporting truth for Phase 1 merge checklist, validation evidence wording, reviewer focus, and forbidden follow-up pattern scans
+- [Enemy-AI-Shield-Summon-Utility-Audit.md](./Enemy-AI-Shield-Summon-Utility-Audit.md)
+  - current supporting truth for Shield pre-design, Summon/Utility audit boundaries, and Phase 2 trigger classification
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
   - current supporting truth for persistent BGM ownership, scene request-source boundaries, request-based BGM playback, FadeOutIn support, and reserved Crossfade governance
 - [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)
