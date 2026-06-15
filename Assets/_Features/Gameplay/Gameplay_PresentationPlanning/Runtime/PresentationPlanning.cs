@@ -19,6 +19,13 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         Transition = 1,
     }
 
+    public enum PresentationVfxCueKey
+    {
+        None = 0,
+        DamageHit = 1,
+        EnemyDeath = 2,
+    }
+
     public readonly struct PresentationCueKey : IEquatable<PresentationCueKey>
     {
         public PresentationCueKey(PresentationDomain domain, int localKey, int variantKey = 0)
@@ -35,6 +42,25 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         public int VariantKey { get; }
 
         public bool IsValid => Domain != PresentationDomain.None && LocalKey > 0;
+
+        public static PresentationCueKey ForVfx(PresentationVfxCueKey key)
+        {
+            return new PresentationCueKey(PresentationDomain.Vfx, (int)key);
+        }
+
+        public bool TryGetVfxCueKey(out PresentationVfxCueKey key)
+        {
+            if (Domain == PresentationDomain.Vfx &&
+                Enum.IsDefined(typeof(PresentationVfxCueKey), LocalKey) &&
+                LocalKey != (int)PresentationVfxCueKey.None)
+            {
+                key = (PresentationVfxCueKey)LocalKey;
+                return true;
+            }
+
+            key = PresentationVfxCueKey.None;
+            return false;
+        }
 
         public bool Equals(PresentationCueKey other)
         {
@@ -89,6 +115,14 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         public static PresentationPlaybackPolicyHint OneShot()
         {
             return new PresentationPlaybackPolicyHint(PresentationPlaybackPolicyHintKind.OneShot);
+        }
+
+        public static PresentationPlaybackPolicyHint OneShot(int dedupeKey)
+        {
+            return new PresentationPlaybackPolicyHint(
+                PresentationPlaybackPolicyHintKind.OneShot,
+                blocking: false,
+                dedupeKey: dedupeKey);
         }
 
         public static PresentationPlaybackPolicyHint Track(bool blocking = false)
@@ -318,6 +352,115 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                     PresentationPlaybackPolicyHint.Track(blocking: true),
                     fact.TopologyPayload));
             }
+        }
+    }
+
+    public sealed class VfxCuePlanner : IPresentationCuePlanner
+    {
+        public void Plan(in PresentationFactFrame facts, PresentationCueFrameBuilder builder)
+        {
+            if (facts == null)
+            {
+                throw new ArgumentNullException(nameof(facts));
+            }
+
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            var enemyDeathEntityIds = BuildEnemyDeathEntityIds(facts);
+            for (var i = 0; i < facts.Facts.Count; i++)
+            {
+                var fact = facts.Facts[i];
+                if (TryPlanDamageHit(fact, enemyDeathEntityIds, out var damageCue) ||
+                    TryPlanEnemyDeath(fact, out damageCue))
+                {
+                    builder.Add(damageCue);
+                }
+            }
+        }
+
+        private static bool TryPlanDamageHit(
+            PresentationFact fact,
+            ISet<int> enemyDeathEntityIds,
+            out PresentationCue cue)
+        {
+            if (fact.Kind != PresentationFactKind.Combat ||
+                fact.Source.SemanticSource != PresentationSemanticSource.EnemyDamage ||
+                fact.Target.Kind != PresentationTargetKind.Entity ||
+                fact.Target.EntityId <= 0 ||
+                enemyDeathEntityIds.Contains(fact.Target.EntityId))
+            {
+                cue = default;
+                return false;
+            }
+
+            var key = PresentationCueKey.ForVfx(PresentationVfxCueKey.DamageHit);
+            cue = new PresentationCue(
+                PresentationDomain.Vfx,
+                key,
+                fact.Source,
+                fact.Target,
+                PresentationAnchor.ForEntityCenter(fact.Target.EntityId),
+                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)));
+            return true;
+        }
+
+        private static bool TryPlanEnemyDeath(PresentationFact fact, out PresentationCue cue)
+        {
+            if (fact.Kind != PresentationFactKind.EntityLifecycle ||
+                fact.Source.SemanticSource != PresentationSemanticSource.EntityExit ||
+                fact.Target.Kind != PresentationTargetKind.Entity ||
+                fact.Target.EntityId <= 0 ||
+                fact.Payload.PrimaryValue != 3)
+            {
+                cue = default;
+                return false;
+            }
+
+            var key = PresentationCueKey.ForVfx(PresentationVfxCueKey.EnemyDeath);
+            cue = new PresentationCue(
+                PresentationDomain.Vfx,
+                key,
+                fact.Source,
+                fact.Target,
+                PresentationAnchor.ForEntityCenter(fact.Target.EntityId),
+                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)));
+            return true;
+        }
+
+        private static int ComputeDedupeKey(PresentationFact fact, PresentationCueKey key)
+        {
+            unchecked
+            {
+                var hash = 17;
+                hash = (hash * 397) ^ fact.Source.TickIndex;
+                hash = (hash * 397) ^ (int)fact.Source.SemanticSource;
+                hash = (hash * 397) ^ fact.Source.SourceEntityId;
+                hash = (hash * 397) ^ fact.Target.EntityId;
+                hash = (hash * 397) ^ key.GetHashCode();
+                return hash & int.MaxValue;
+            }
+        }
+
+        private static ISet<int> BuildEnemyDeathEntityIds(PresentationFactFrame facts)
+        {
+            var entityIds = new HashSet<int>();
+            for (var i = 0; i < facts.Facts.Count; i++)
+            {
+                var fact = facts.Facts[i];
+                if (fact.Kind == PresentationFactKind.EntityLifecycle &&
+                    fact.Source.SemanticSource == PresentationSemanticSource.EntityExit &&
+                    fact.Target.Kind == PresentationTargetKind.Entity &&
+                    fact.Target.EntityId > 0 &&
+                    fact.Payload.PrimaryValue == 3)
+                {
+                    entityIds.Add(fact.Target.EntityId);
+                }
+            }
+
+            return entityIds;
         }
     }
 

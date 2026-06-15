@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
@@ -169,6 +170,10 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                 tickIndex,
                 presentationData.EntityExitSignals.Count,
                 PresentationSemanticSource.EntityExit);
+            lifecycleCount += AddEnemyDeathEntityExitFacts(
+                facts,
+                tickIndex,
+                presentationData.EntityExitSignals);
 
             for (var i = 0; i < presentationData.TileEvents.Count; i++)
             {
@@ -257,6 +262,49 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     new PresentationSource(tickIndex, semanticSource, sourceSequence: i + 1),
                     PresentationTarget.Global(),
                     new PresentationFactPayload(primaryValue: count, secondaryValue: i + 1)));
+            }
+
+            return count;
+        }
+
+        private static int AddEnemyDeathEntityExitFacts(
+            List<PresentationFact> facts,
+            int tickIndex,
+            IReadOnlyList<TickEntityExitPresentationSignal> signals)
+        {
+            if (signals == null || signals.Count == 0)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityType != EntityType.Unit ||
+                    signal.ExitedEntityId <= 0 ||
+                    (signal.ExitCause != TickEntityExitCause.EnemyDeath &&
+                     signal.ExitCause != TickEntityExitCause.Killed))
+                {
+                    continue;
+                }
+
+                facts.Add(new PresentationFact(
+                    PresentationFactKind.EntityLifecycle,
+                    new PresentationSource(
+                        tickIndex,
+                        PresentationSemanticSource.EntityExit,
+                        signal.ExitedEntityId,
+                        (int)signal.ExitCause,
+                        signal.PresentationSeed),
+                    PresentationTarget.Entity(signal.ExitedEntityId),
+                    new PresentationFactPayload(
+                        primaryValue: (int)signal.ExitCause,
+                        secondaryValue: (int)signal.EntityType,
+                        tertiaryValue: signal.SourceActorEntityId ?? 0,
+                        primaryCell: signal.SourceCell,
+                        hasPrimaryCell: true)));
+                count++;
             }
 
             return count;
@@ -378,6 +426,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
                 {
                     new TopologyCuePlanner(),
+                    new VfxCuePlanner(),
                 }),
                 new PresentationPlaybackPlanner(),
                 new PresentationPlaybackScheduler());

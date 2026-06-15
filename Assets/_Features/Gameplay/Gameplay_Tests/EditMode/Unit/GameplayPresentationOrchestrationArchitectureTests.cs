@@ -15,6 +15,7 @@ using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
 using Game.Feature.Gameplay.PresentationPlayback;
 using Game.Feature.Gameplay.PresentationRuntime;
+using Game.Feature.Gameplay.Vfx;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -536,9 +537,246 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Not.Contain("HasBlockingPresentation => TopologyExecutionPipelineBlockingSnapshot"));
         }
 
+        [Test]
+        [Category("Core")]
+        public void VfxFactExtraction_ObservesDamageAndEnemyDeathAsSemanticFacts()
+        {
+            var frame = new TickPresentationFactExtractor().Extract(
+                CreateDiagnosticTickResult(includeEnemyDeathExit: true));
+
+            var enemyDamageFact = frame.Facts.Single(fact =>
+                fact.Kind == PresentationFactKind.Combat &&
+                fact.Source.SemanticSource == PresentationSemanticSource.EnemyDamage);
+            var enemyDeathFact = frame.Facts.Single(fact =>
+                fact.Kind == PresentationFactKind.EntityLifecycle &&
+                fact.Source.SemanticSource == PresentationSemanticSource.EntityExit &&
+                fact.Target.Kind == PresentationTargetKind.Entity &&
+                fact.Target.EntityId == 30);
+
+            Assert.That(enemyDamageFact.Source.TickIndex, Is.EqualTo(7));
+            Assert.That(enemyDamageFact.Source.SourceEntityId, Is.EqualTo(20));
+            Assert.That(enemyDamageFact.Target.Kind, Is.EqualTo(PresentationTargetKind.Entity));
+            Assert.That(enemyDamageFact.Target.EntityId, Is.EqualTo(20));
+            Assert.That(enemyDamageFact.Payload.PrimaryValue, Is.EqualTo(2));
+            Assert.That(enemyDeathFact.Source.TickIndex, Is.EqualTo(7));
+            Assert.That(enemyDeathFact.Source.SourceEntityId, Is.EqualTo(30));
+            Assert.That(enemyDeathFact.Source.SourceActionKind, Is.EqualTo((int)TickEntityExitCause.Killed));
+            Assert.That(enemyDeathFact.Payload.PrimaryValue, Is.EqualTo((int)TickEntityExitCause.Killed));
+            Assert.That(enemyDeathFact.Payload.SecondaryValue, Is.EqualTo((int)EntityType.Unit));
+            Assert.That(enemyDeathFact.Payload.HasPrimaryCell, Is.True);
+            Assert.That(frame.Diagnostics.CombatFactCount, Is.GreaterThanOrEqualTo(1));
+            Assert.That(frame.Diagnostics.LifecycleFactCount, Is.GreaterThanOrEqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VfxCuePlanner_UsesTypedLocalKeysAndSymbolicAnchors()
+        {
+            var cueFrame = CreateVfxCueFrame(includeEnemyDeathExit: true);
+
+            var damageCue = cueFrame.Cues.Single(cue =>
+                cue.Domain == PresentationDomain.Vfx &&
+                cue.Key.TryGetVfxCueKey(out var key) &&
+                key == PresentationVfxCueKey.DamageHit);
+            var deathCue = cueFrame.Cues.Single(cue =>
+                cue.Domain == PresentationDomain.Vfx &&
+                cue.Key.TryGetVfxCueKey(out var key) &&
+                key == PresentationVfxCueKey.EnemyDeath);
+
+            Assert.That(damageCue.Key.Domain, Is.EqualTo(PresentationDomain.Vfx));
+            Assert.That(damageCue.Target.Kind, Is.EqualTo(PresentationTargetKind.Entity));
+            Assert.That(damageCue.Target.EntityId, Is.EqualTo(20));
+            Assert.That(damageCue.Anchor.Kind, Is.EqualTo(PresentationAnchorKind.EntityCenter));
+            Assert.That(damageCue.PolicyHint.Kind, Is.EqualTo(PresentationPlaybackPolicyHintKind.OneShot));
+            Assert.That(damageCue.PolicyHint.Blocking, Is.False);
+            Assert.That(damageCue.PolicyHint.DedupeKey, Is.GreaterThan(0));
+
+            Assert.That(deathCue.Key.Domain, Is.EqualTo(PresentationDomain.Vfx));
+            Assert.That(deathCue.Target.Kind, Is.EqualTo(PresentationTargetKind.Entity));
+            Assert.That(deathCue.Target.EntityId, Is.EqualTo(30));
+            Assert.That(deathCue.Anchor.Kind, Is.EqualTo(PresentationAnchorKind.EntityCenter));
+            Assert.That(deathCue.PolicyHint.Kind, Is.EqualTo(PresentationPlaybackPolicyHintKind.OneShot));
+            Assert.That(deathCue.PolicyHint.Blocking, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VfxPlaybackPlanner_CreatesNonBlockingOneShotCues()
+        {
+            var plan = new PresentationPlaybackPlanner().Plan(CreateVfxCueFrame(includeEnemyDeathExit: true));
+
+            Assert.That(
+                plan.Cues.Count(cue => cue.Cue.Domain == PresentationDomain.Vfx),
+                Is.EqualTo(2));
+            Assert.That(plan.Tracks.Any(track => track.Cue.Domain == PresentationDomain.Vfx), Is.False);
+            Assert.That(plan.Barriers.Any(barrier => barrier.OwnerDomain == PresentationDomain.Vfx), Is.False);
+            Assert.That(plan.Cues.All(cue => !cue.Policy.Blocking), Is.True);
+            Assert.That(plan.Cues.All(cue => cue.Policy.UnitKind == PresentationPlaybackUnitKind.OneShot), Is.True);
+            Assert.That(plan.Diagnostics.BlockingBarrierCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VfxExecutor_DefaultLegacyMode_DoesNotCallPlaybackPort()
+        {
+            var plan = new PresentationPlaybackPlanner().Plan(CreateVfxCueFrame(includeEnemyDeathExit: true));
+            var port = new RecordingGameplayVfxPlaybackPort();
+            var executor = new GameplayVfxPresentationExecutor(port);
+
+            executor.Play(plan);
+
+            Assert.That(port.TryPlayCallCount, Is.Zero);
+            Assert.That(executor.Diagnostics.ObservedCueCount, Is.EqualTo(2));
+            Assert.That(executor.Diagnostics.LegacyOwnerNoOpCount, Is.EqualTo(2));
+            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.Zero);
+            Assert.That(executor.Diagnostics.DuplicateSuppressedCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VfxExecutor_OrchestrationMode_RoutesOneCueToPlaybackPort()
+        {
+            var plan = new PresentationPlaybackPlanner().Plan(CreateVfxCueFrame(includeEnemyDeathExit: false));
+            var port = new RecordingGameplayVfxPlaybackPort();
+            var guard = new DamageDeathVfxExecutionGuard(DamageDeathVfxExecutionMode.OrchestrationExecutor);
+            var executor = new GameplayVfxPresentationExecutor(
+                port,
+                DamageDeathVfxExecutionMode.OrchestrationExecutor,
+                guard);
+
+            executor.Play(plan);
+
+            Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+            Assert.That(port.LastRequest.CueKey, Is.EqualTo(PresentationVfxCueKey.DamageHit));
+            Assert.That(port.LastRequest.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.Damage)));
+            Assert.That(port.LastRequest.TickIndex, Is.EqualTo(7));
+            Assert.That(port.LastRequest.SourceEntityId, Is.EqualTo(20));
+            Assert.That(port.LastRequest.Target.EntityId, Is.EqualTo(20));
+            Assert.That(port.LastRequest.PresentationAnchor.Kind, Is.EqualTo(PresentationAnchorKind.EntityCenter));
+            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.PlaybackSucceededCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VfxExecutionGuard_BlocksDuplicateOwnerAttemptForSameDamageDeathKey()
+        {
+            var key = new DamageDeathVfxPlaybackKey(
+                7,
+                PresentationSemanticSource.EnemyDamage,
+                20,
+                20,
+                PresentationVfxCueKey.DamageHit);
+            var guard = new DamageDeathVfxExecutionGuard(DamageDeathVfxExecutionMode.OrchestrationExecutor);
+
+            Assert.That(
+                guard.TryBeginExecution(DamageDeathVfxExecutionOwner.OrchestrationExecutor, key),
+                Is.True);
+            Assert.That(
+                guard.TryBeginExecution(DamageDeathVfxExecutionOwner.LegacyExtension, key),
+                Is.False);
+
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VfxExecutor_DistinguishesMissingTargetAnchorAndBinding()
+        {
+            var validCue = CreateVfxCueFrame(includeEnemyDeathExit: false).Cues.Single();
+            var targetMissingCue = new PresentationCue(
+                PresentationDomain.Vfx,
+                PresentationCueKey.ForVfx(PresentationVfxCueKey.DamageHit),
+                validCue.Source,
+                PresentationTarget.None(),
+                validCue.Anchor,
+                validCue.PolicyHint);
+            var anchorMissingCue = new PresentationCue(
+                PresentationDomain.Vfx,
+                PresentationCueKey.ForVfx(PresentationVfxCueKey.DamageHit),
+                new PresentationSource(8, PresentationSemanticSource.EnemyDamage, 21),
+                PresentationTarget.Entity(21),
+                PresentationAnchor.None(),
+                PresentationPlaybackPolicyHint.OneShot(222));
+            var frame = new PresentationCueFrame(
+                8,
+                new[] { targetMissingCue, anchorMissingCue, validCue },
+                new PresentationCueFrameDiagnostics(3, 3, 1));
+            var plan = new PresentationPlaybackPlanner().Plan(frame);
+            var port = new RecordingGameplayVfxPlaybackPort(GameplayVfxPlaybackResultKind.BindingMissing);
+            var executor = new GameplayVfxPresentationExecutor(
+                port,
+                DamageDeathVfxExecutionMode.OrchestrationExecutor,
+                new DamageDeathVfxExecutionGuard(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+
+            executor.Play(plan);
+
+            Assert.That(executor.Diagnostics.TargetMissingCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.AnchorMissingCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.BindingMissingCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.EqualTo(1));
+            Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VfxExecutor_ResetSessionAndHardCleanup_ClearDiagnosticsAndPortState()
+        {
+            var plan = new PresentationPlaybackPlanner().Plan(CreateVfxCueFrame(includeEnemyDeathExit: false));
+            var port = new RecordingGameplayVfxPlaybackPort();
+            var executor = new GameplayVfxPresentationExecutor(
+                port,
+                DamageDeathVfxExecutionMode.OrchestrationExecutor,
+                new DamageDeathVfxExecutionGuard(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+
+            executor.Play(plan);
+            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.EqualTo(1));
+
+            executor.ResetSession();
+            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.Zero);
+            Assert.That(port.ResetSessionCallCount, Is.EqualTo(1));
+
+            executor.Play(plan);
+            executor.HardCleanup();
+            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.Zero);
+            Assert.That(port.HardCleanupCallCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VfxOrchestrationRoute_DoesNotMutateAuthoritativeTickResult()
+        {
+            var result = CreateDiagnosticTickResult(includeEnemyDeathExit: true);
+            var determinismHash = result.DeterminismHash;
+            var finalEntities = result.FinalEntities.ToArray();
+            var eventLog = result.EventLog.ToArray();
+            var objectiveResult = result.ObjectiveResult;
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new VfxCuePlanner(),
+            }).Plan(factFrame);
+            var playbackPlan = new PresentationPlaybackPlanner().Plan(cueFrame);
+            var executor = new GameplayVfxPresentationExecutor(
+                new RecordingGameplayVfxPlaybackPort(),
+                DamageDeathVfxExecutionMode.OrchestrationExecutor,
+                new DamageDeathVfxExecutionGuard(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+
+            executor.Play(playbackPlan);
+
+            Assert.That(result.DeterminismHash, Is.EqualTo(determinismHash));
+            Assert.That(result.FinalEntities, Is.EqualTo(finalEntities));
+            Assert.That(result.EventLog, Is.EqualTo(eventLog));
+            Assert.That(result.ObjectiveResult, Is.SameAs(objectiveResult));
+        }
+
         private static TickResult CreateDiagnosticTickResult(
             TickTopologyMotion? topologyMotion = null,
-            bool includeTopologyMotion = true)
+            bool includeTopologyMotion = true,
+            bool includeEnemyDeathExit = false)
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var destinationTopology = new CubeTopologyState(FaceId.Front);
@@ -547,6 +785,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var resolvedTopologyMotion = includeTopologyMotion
                 ? topologyMotion ?? new TickTopologyMotion(topology, destinationTopology, CubeRotationKind.Forward)
                 : (TickTopologyMotion?)null;
+            var entityExitSignals = includeEnemyDeathExit
+                ? new[]
+                {
+                    new TickEntityExitPresentationSignal(
+                        exitedEntityId: 30,
+                        TickEntityExitCause.Killed,
+                        cell,
+                        topology,
+                        Direction.Right,
+                        EntityType.Unit,
+                        sourceActorEntityId: 10,
+                        presentationSeed: 3030),
+                }
+                : new[]
+                {
+                    new TickEntityExitPresentationSignal(
+                        exitedEntityId: 30,
+                        TickEntityExitCause.BoxDestroy,
+                        cell,
+                        topology,
+                        Direction.Right,
+                        EntityType.Box),
+                };
             var presentationData = new TickPresentationData(
                 new[]
                 {
@@ -582,16 +843,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 },
                 Array.Empty<TickEnemyActionPresentationSignal>(),
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
-                new[]
-                {
-                    new TickEntityExitPresentationSignal(
-                        exitedEntityId: 30,
-                        TickEntityExitCause.BoxDestroy,
-                        cell,
-                        topology,
-                        Direction.Right,
-                        EntityType.Box),
-                },
+                entityExitSignals,
                 Array.Empty<FlipImpactPresentationSignal>(),
                 tileEvents: new[]
                 {
@@ -633,6 +885,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     conditionStatuses: Array.Empty<StageConditionStatus>()));
         }
 
+        private static PresentationCueFrame CreateVfxCueFrame(bool includeEnemyDeathExit)
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(
+                CreateDiagnosticTickResult(
+                    includeTopologyMotion: false,
+                    includeEnemyDeathExit: includeEnemyDeathExit));
+            return new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new VfxCuePlanner(),
+            }).Plan(factFrame);
+        }
+
         private sealed class RecordingTopologyTransitionPlaybackPort : ITopologyTransitionPlaybackPort
         {
             public int BeginOrRefreshCallCount { get; private set; }
@@ -656,6 +920,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void HardCleanup()
             {
                 IsTransitionActive = false;
+            }
+        }
+
+        private sealed class RecordingGameplayVfxPlaybackPort : IDamageDeathVfxPlaybackPort
+        {
+            private readonly GameplayVfxPlaybackResultKind _resultKind;
+
+            public RecordingGameplayVfxPlaybackPort(
+                GameplayVfxPlaybackResultKind resultKind = GameplayVfxPlaybackResultKind.Succeeded)
+            {
+                _resultKind = resultKind;
+            }
+
+            public int TryPlayCallCount { get; private set; }
+
+            public int ResetSessionCallCount { get; private set; }
+
+            public int HardCleanupCallCount { get; private set; }
+
+            public GameplayVfxPlaybackRequest LastRequest { get; private set; }
+
+            public bool TryPlayDamageDeathVfx(
+                in GameplayVfxPlaybackRequest request,
+                out GameplayVfxPlaybackResult result)
+            {
+                TryPlayCallCount++;
+                LastRequest = request;
+                result = new GameplayVfxPlaybackResult(_resultKind);
+                return _resultKind == GameplayVfxPlaybackResultKind.Succeeded;
+            }
+
+            public void UpdatePresentation(float deltaTime)
+            {
+            }
+
+            public void ResetSession()
+            {
+                ResetSessionCallCount++;
+                TryPlayCallCount = 0;
+                LastRequest = default;
+            }
+
+            public void HardCleanup()
+            {
+                HardCleanupCallCount++;
+                TryPlayCallCount = 0;
+                LastRequest = default;
             }
         }
 

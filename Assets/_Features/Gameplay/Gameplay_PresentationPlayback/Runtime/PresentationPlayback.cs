@@ -510,6 +510,20 @@ namespace Game.Feature.Gameplay.PresentationPlayback
                     continue;
                 }
 
+                if (IsVfxCue(cue))
+                {
+                    cues.Add(new PresentationPlaybackCue(
+                        cue,
+                        new PresentationPlaybackPolicy(
+                            PresentationPlaybackUnitKind.OneShot,
+                            blocking: false,
+                            cue.PolicyHint.DedupeKey,
+                            cue.PolicyHint.CancellationKey,
+                            cue.PolicyHint.CooldownKey,
+                            PresentationPlaybackInterruptMode.AllowOverlap)));
+                    continue;
+                }
+
                 if (policy.UnitKind == PresentationPlaybackUnitKind.Track)
                 {
                     tracks.Add(new PresentationPlaybackTrack(cue, policy));
@@ -562,6 +576,13 @@ namespace Game.Feature.Gameplay.PresentationPlayback
             return cue.Domain == PresentationDomain.Topology &&
                    cue.Key.Domain == PresentationDomain.Topology &&
                    cue.Key.LocalKey == (int)PresentationTopologyCueKey.Transition;
+        }
+
+        private static bool IsVfxCue(PresentationCue cue)
+        {
+            return cue.Domain == PresentationDomain.Vfx &&
+                   cue.Key.Domain == PresentationDomain.Vfx &&
+                   cue.Key.LocalKey > 0;
         }
     }
 
