@@ -14,6 +14,8 @@ namespace Game.Feature.Gameplay.Tests
         public EnemyAiCommonAuthoringSettings CommonSettings = EnemyAiCommonAuthoringSettings.CreateStandard();
         public EnemyLocomotionTimingAuthoringSettings LocomotionTimingSettings = EnemyLocomotionTimingAuthoringSettings.CreateImmediate();
         public EnemyChargeTimingAuthoringSettings ChargeTimingSettings = EnemyChargeTimingAuthoringSettings.CreateDefault();
+        public bool IncludeChargeBehaviorModule;
+        public bool OmitRequiredChargeBehaviorModule;
         public EnemyAiStateResolverKind StateResolverKind = EnemyAiStateResolverKind.Default;
         public PatrolStrategyKind PatrolStrategyKind = PatrolStrategyKind.Forward;
         public PatrolSettings PatrolSettings = PatrolSettings.CreateDefault();
@@ -52,10 +54,10 @@ namespace Game.Feature.Gameplay.Tests
             var detection = CreateDetection(spec.DetectionStrategyKind, spec.DetectionSettings);
             var chase = CreateChase(spec.ChaseSettings);
             var capabilities = CreateCapabilities(spec).Cast<EnemyCapabilityAsset>().ToList();
+            var behaviorModules = CreateBehaviorModules(spec).Cast<EnemyBehaviorModuleAsset>().ToList();
 
             SetSerializedField(core, "commonSettings", spec.CommonSettings);
             SetSerializedField(core, "locomotionTimingSettings", spec.LocomotionTimingSettings);
-            SetSerializedField(core, "chargeTimingSettings", spec.ChargeTimingSettings);
             SetSerializedField(brain, "stateResolver", stateResolver);
             SetSerializedField(brain, "patrolStrategy", patrol);
             SetSerializedField(brain, "detectionStrategy", detection);
@@ -63,6 +65,7 @@ namespace Game.Feature.Gameplay.Tests
             SetSerializedField(profile, "coreAuthoring", core);
             SetSerializedField(profile, "brainAuthoring", brain);
             SetSerializedField(profile, "capabilityAssets", capabilities);
+            SetSerializedField(profile, "behaviorModuleAssets", behaviorModules);
 
             return profile;
         }
@@ -290,6 +293,25 @@ namespace Game.Feature.Gameplay.Tests
                 }
             }
 
+            var behaviorModules = GetSerializedField<List<EnemyBehaviorModuleAsset>>(profile, "behaviorModuleAssets");
+            if (behaviorModules != null)
+            {
+                for (var i = 0; i < behaviorModules.Count; i++)
+                {
+                    var behaviorModule = behaviorModules[i];
+                    Collect(assets, seenInstanceIds, behaviorModule);
+                    if (behaviorModule is EnemyChargeBehaviorModuleAsset)
+                    {
+                        Collect(
+                            assets,
+                            seenInstanceIds,
+                            GetSerializedField<EnemyChargeExecutionProfile>(
+                                behaviorModule,
+                                "chargeExecutionProfile"));
+                    }
+                }
+            }
+
             for (var i = assets.Count - 1; i >= 0; i--)
             {
                 if (assets[i] != null)
@@ -408,6 +430,25 @@ namespace Game.Feature.Gameplay.Tests
             SetSerializedField(chase, "trySecondaryAxisWhenBlocked", settings.TrySecondaryAxisWhenBlocked);
             SetSerializedField(chase, "desiredChaseDistance", settings.DesiredChaseDistance);
             return chase;
+        }
+
+        private static IEnumerable<EnemyBehaviorModuleAsset> CreateBehaviorModules(EnemyAiTestProfileSpec spec)
+        {
+            var shouldCreateCharge =
+                spec.IncludeChargeBehaviorModule ||
+                (spec.StateResolverKind == EnemyAiStateResolverKind.Charge &&
+                 !spec.OmitRequiredChargeBehaviorModule);
+            if (!shouldCreateCharge)
+            {
+                yield break;
+            }
+
+            var executionProfile = CreateHiddenAsset<EnemyChargeExecutionProfile>("Test_EnemyChargeExecutionProfile");
+            SetSerializedField(executionProfile, "timing", spec.ChargeTimingSettings);
+
+            var chargeModule = CreateHiddenAsset<EnemyChargeBehaviorModuleAsset>("Test_EnemyChargeBehaviorModule");
+            SetSerializedField(chargeModule, "chargeExecutionProfile", executionProfile);
+            yield return chargeModule;
         }
 
         private static IEnumerable<EnemyCapabilityAsset> CreateCapabilities(EnemyAiTestProfileSpec spec)

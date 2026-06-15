@@ -225,7 +225,6 @@ namespace Game.Feature.Gameplay.Tests.Core
 
             SetSerializedField(core, "commonSettings", EnemyAiCommonAuthoringSettings.CreateStandard());
             SetSerializedField(core, "locomotionTimingSettings", EnemyLocomotionTimingAuthoringSettings.CreateImmediate());
-            SetSerializedField(core, "chargeTimingSettings", EnemyChargeTimingAuthoringSettings.CreateDefault());
             SetSerializedField(brain, "stateResolver", stateResolver);
             SetSerializedField(brain, "patrolStrategy", patrol);
             SetSerializedField(brain, "detectionStrategy", detection);
@@ -233,6 +232,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             SetSerializedField(profile, "coreAuthoring", core);
             SetSerializedField(profile, "brainAuthoring", brain);
             SetSerializedField(profile, "capabilityAssets", new List<EnemyCapabilityAsset>(capabilities ?? Array.Empty<EnemyCapabilityAsset>()));
+            SetSerializedField(profile, "behaviorModuleAssets", new List<EnemyBehaviorModuleAsset>());
 
             return profile;
         }

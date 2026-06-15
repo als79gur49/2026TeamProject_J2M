@@ -59,6 +59,8 @@ namespace Game.Feature.Gameplay.Entities
     {
         public abstract EnemyAiStateResolverKind Kind { get; }
 
+        public virtual bool RequiresChargeBehavior => false;
+
         internal EnemyStateResolverRuntime Compile()
         {
             return new EnemyStateResolverRuntime(Kind, ResolveResolver());
@@ -114,6 +116,13 @@ namespace Game.Feature.Gameplay.Entities
         public abstract EnemyCapabilityFamily Family { get; }
 
         internal abstract EnemyCapabilityRuntime Compile(int simulationTicksPerSecond);
+    }
+
+    public abstract class EnemyBehaviorModuleAsset : ScriptableObject
+    {
+        public abstract EnemyBehaviorModuleKey Key { get; }
+
+        internal abstract EnemyBehaviorModuleRuntime Compile(in EnemyBehaviorModuleCompileContext context);
     }
 
     public abstract class EnemyCombatCapabilityAsset : EnemyCapabilityAsset

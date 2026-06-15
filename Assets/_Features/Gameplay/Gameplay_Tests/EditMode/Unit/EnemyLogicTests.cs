@@ -3816,6 +3816,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(definition.Capabilities.TryGetCombat(out _), Is.False);
                 Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
                 Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
+                Assert.That(definition.TryGetChargeBehavior(out _), Is.True);
             }
             finally
             {
@@ -3871,6 +3872,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(profile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
                 Assert.That(definition.Capabilities.TryGetCombat(out _), Is.False);
                 Assert.That(definition.Capabilities.TryGetPassiveContact(out _), Is.False);
+                Assert.That(definition.TryGetChargeBehavior(out _), Is.True);
             }
             finally
             {
@@ -4926,6 +4928,68 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyAiProfileCompiler_DuplicateBehaviorModuleKey_ThrowsClearException()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                IncludeChargeBehaviorModule = true,
+            });
+            var duplicateExecutionProfile = ScriptableObject.CreateInstance<EnemyChargeExecutionProfile>();
+            var duplicateModule = ScriptableObject.CreateInstance<EnemyChargeBehaviorModuleAsset>();
+            SetSerializedField(
+                duplicateExecutionProfile,
+                "timing",
+                EnemyChargeTimingAuthoringSettings.CreateDefault());
+            SetSerializedField(duplicateModule, "chargeExecutionProfile", duplicateExecutionProfile);
+
+            var behaviorModules = EnemyAiProfileTestFactory.GetSerializedField<List<EnemyBehaviorModuleAsset>>(
+                profile,
+                "behaviorModuleAssets");
+            behaviorModules.Add(duplicateModule);
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                Assert.That(exception.Message, Does.Contain("multiple behavior modules"));
+                Assert.That(exception.Message, Does.Contain("Charge"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAiProfileCompiler_ChargeBehaviorWithoutExecutionProfile_ThrowsClearException()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                StateResolverKind = EnemyAiStateResolverKind.Charge,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                OmitRequiredChargeBehaviorModule = true,
+            });
+            var moduleWithoutProfile = ScriptableObject.CreateInstance<EnemyChargeBehaviorModuleAsset>();
+            SetSerializedField(
+                profile,
+                "behaviorModuleAssets",
+                new List<EnemyBehaviorModuleAsset> { moduleWithoutProfile });
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                Assert.That(exception.Message, Does.Contain("requires a charge execution profile"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAiProfileCompiler_HybridAuthoring_DuplicateMovementSkillCapabilities_ThrowsClearException()
         {
             var profile = CreateHybridAuthoringProfile(includeCombat: false, includeJump: true, out var createdAssets);
@@ -5285,9 +5349,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var definition = profile.CreateRuntimeDefinition(60);
 
-                Assert.That(definition.ChargeTimingSettings.WindupTicks, Is.EqualTo(2));
-                Assert.That(definition.ChargeTimingSettings.ActiveStepCooldownTicks, Is.EqualTo(3));
-                Assert.That(definition.ChargeTimingSettings.RecoverTicks, Is.EqualTo(4));
+                Assert.That(definition.TryGetChargeBehavior(out var charge), Is.True);
+                Assert.That(charge.Timing.WindupTicks, Is.EqualTo(2));
+                Assert.That(charge.Timing.ActiveStepCooldownTicks, Is.EqualTo(3));
+                Assert.That(charge.Timing.RecoverTicks, Is.EqualTo(4));
                 Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(5));
             }
             finally
@@ -5334,6 +5399,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
 
                 Assert.That(exception.ParamName, Is.EqualTo("EnemyLocomotionTimingAuthoringSettings"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAiProfileCompiler_ChargeResolverWithoutChargeBehaviorModule_ThrowsArgumentException()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                StateResolverKind = EnemyAiStateResolverKind.Charge,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                OmitRequiredChargeBehaviorModule = true,
+            });
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                Assert.That(exception.Message, Does.Contain("charge resolver"));
+                Assert.That(exception.Message, Does.Contain("Charge"));
             }
             finally
             {

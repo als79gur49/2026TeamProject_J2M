@@ -20,9 +20,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private static readonly string[] ExpectedPublicSerializedFields =
         {
+            "behaviorModuleAssets",
             "brainAuthoring",
             "capabilityAssets",
             "coreAuthoring",
+        };
+
+        private static readonly string[] ExpectedCoreSerializedFields =
+        {
+            "commonSettings",
+            "locomotionTimingSettings",
         };
 
         private static readonly string[] LegacyInlineKeys =
@@ -133,6 +140,112 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 violations,
                 Is.Empty,
                 "EnemyAiProfile asset contract violations:\n" + string.Join("\n", violations));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyCoreAuthoringAssets_RepositoryCores_HaveOnlyCommonAndLocomotion()
+        {
+            var assetPaths = AssetDatabase.FindAssets("t:EnemyCoreAuthoring")
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .OrderBy(path => path, System.StringComparer.Ordinal)
+                .ToArray();
+            var violations = new List<string>();
+
+            Assert.That(assetPaths, Is.Not.Empty, "AssetDatabase.FindAssets(\"t:EnemyCoreAuthoring\") returned no assets.");
+
+            foreach (var assetPath in assetPaths)
+            {
+                var core = AssetDatabase.LoadAssetAtPath<EnemyCoreAuthoring>(assetPath);
+                if (core == null)
+                {
+                    violations.Add($"{assetPath} could not be loaded as {nameof(EnemyCoreAuthoring)}.");
+                    continue;
+                }
+
+                var fields = GetVisibleSerializedFieldNames(core);
+                var unexpectedFields = fields
+                    .Except(ExpectedCoreSerializedFields, System.StringComparer.Ordinal)
+                    .ToArray();
+                var missingFields = ExpectedCoreSerializedFields
+                    .Except(fields, System.StringComparer.Ordinal)
+                    .ToArray();
+                if (unexpectedFields.Length > 0 || missingFields.Length > 0)
+                {
+                    violations.Add(
+                        $"{assetPath} fields [{string.Join(", ", fields)}] do not match [{string.Join(", ", ExpectedCoreSerializedFields)}].");
+                }
+
+                var yaml = File.ReadAllText(GetAbsoluteAssetPath(assetPath));
+                if (yaml.Contains("chargeTimingSettings:"))
+                {
+                    violations.Add($"{assetPath} still contains chargeTimingSettings YAML.");
+                }
+            }
+
+            Assert.That(
+                violations,
+                Is.Empty,
+                "EnemyCoreAuthoring asset contract violations:\n" + string.Join("\n", violations));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAiProfileAssets_ChargeBehaviorModules_MatchChargeResolverUsage()
+        {
+            var assetPaths = AssetDatabase.FindAssets("t:EnemyAiProfile")
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .OrderBy(path => path, System.StringComparer.Ordinal)
+                .ToArray();
+            var violations = new List<string>();
+
+            Assert.That(assetPaths, Is.Not.Empty, "AssetDatabase.FindAssets(\"t:EnemyAiProfile\") returned no EnemyAiProfile assets.");
+
+            foreach (var assetPath in assetPaths)
+            {
+                var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(assetPath);
+                if (profile == null)
+                {
+                    violations.Add($"{assetPath} could not be loaded as {nameof(EnemyAiProfile)}.");
+                    continue;
+                }
+
+                EnemyAiRuntimeDefinition definition;
+                try
+                {
+                    definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                }
+                catch (System.Exception exception)
+                {
+                    violations.Add($"{assetPath} failed compile: {exception.GetType().Name}: {exception.Message}");
+                    continue;
+                }
+
+                var hasChargeResolver = profile.StateResolverKind == EnemyAiStateResolverKind.Charge;
+                var hasChargeBehavior = definition.TryGetChargeBehavior(out var charge);
+
+                if (hasChargeResolver && !hasChargeBehavior)
+                {
+                    violations.Add($"{assetPath} uses Charge resolver but has no Charge behavior module.");
+                }
+
+                if (!hasChargeResolver && hasChargeBehavior)
+                {
+                    violations.Add($"{assetPath} declares unused Charge behavior module.");
+                }
+
+                if (hasChargeBehavior)
+                {
+                    Assert.That(charge.Timing.WindupTicks, Is.GreaterThanOrEqualTo(0), assetPath);
+                    Assert.That(charge.Timing.ActiveStepCooldownTicks, Is.GreaterThanOrEqualTo(0), assetPath);
+                    Assert.That(charge.Timing.RecoverTicks, Is.GreaterThanOrEqualTo(0), assetPath);
+                }
+            }
+
+            Assert.That(
+                violations,
+                Is.Empty,
+                "EnemyAiProfile Charge behavior module contract violations:\n" + string.Join("\n", violations));
         }
 
         [Test]
@@ -426,9 +539,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertCatalogEntryUsesPrefab("j_peter", "EnemyView_JPeter.prefab");
         }
 
-        private static string[] GetVisibleSerializedFieldNames(EnemyAiProfile profile)
+        private static string[] GetVisibleSerializedFieldNames(UnityEngine.Object asset)
         {
-            var serializedObject = new SerializedObject(profile);
+            var serializedObject = new SerializedObject(asset);
             var iterator = serializedObject.GetIterator();
             var fieldNames = new List<string>();
             var enterChildren = true;

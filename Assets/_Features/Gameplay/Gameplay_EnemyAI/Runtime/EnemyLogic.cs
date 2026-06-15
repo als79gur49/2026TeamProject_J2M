@@ -59,7 +59,7 @@ namespace Game.Feature.Gameplay.Entities
         private readonly DetectionSettings _detectionSettings;
         private readonly ChaseSettings _chaseSettings;
         private readonly EnemyLocomotionTimingSettings _locomotionTimingSettings;
-        private readonly EnemyChargeTimingSettings _chargeTimingSettings;
+        private readonly EnemyChargeBehaviorRuntime _chargeBehavior;
         private readonly PatrolStrategyKind _patrolStrategyKind;
         private readonly IPatrolStrategy _patrolStrategy;
         private readonly IDetectionStrategy _detectionStrategy;
@@ -104,13 +104,20 @@ namespace Game.Feature.Gameplay.Entities
             _detectionSettings = aiDefinition.DetectionSettings;
             _chaseSettings = aiDefinition.ChaseSettings;
             _locomotionTimingSettings = aiDefinition.LocomotionTimingSettings;
-            _chargeTimingSettings = aiDefinition.ChargeTimingSettings;
             _patrolStrategyKind = aiDefinition.Brain.Patrol.Kind;
             _patrolStrategy = aiDefinition.PatrolStrategy;
             _detectionStrategy = aiDefinition.DetectionStrategy;
             _chaseStrategy = aiDefinition.ChaseStrategy;
             _stateResolver = aiDefinition.StateResolver;
             _usesChargeStateResolver = aiDefinition.Brain.StateResolver.Kind == EnemyAiStateResolverKind.Charge;
+            EnemyChargeBehaviorRuntime chargeBehavior = null;
+            if (_usesChargeStateResolver &&
+                !aiDefinition.TryGetChargeBehavior(out chargeBehavior))
+            {
+                throw new InvalidOperationException("Charge enemy logic requires a charge behavior runtime.");
+            }
+
+            _chargeBehavior = chargeBehavior;
             aiDefinition.Capabilities.TryGetCombat(out _combatCapability);
             aiDefinition.Capabilities.TryGetMovementSkill(out _movementSkillCapability);
             aiDefinition.Capabilities.TryGetPassiveContact(out _passiveContactCapability);
@@ -118,6 +125,9 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         public int ControlledEntityId => _entityId;
+
+        private EnemyChargeTimingSettings ChargeTimingSettings =>
+            _chargeBehavior?.Timing ?? EnemyChargeTimingSettings.CreateDefault();
 
         public void BindTileFeatureDefinitions(IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
@@ -173,7 +183,7 @@ namespace Game.Feature.Gameplay.Entities
                 _passiveContactCapability,
                 _movementSkillCapability,
                 _commonSettings,
-                _chargeTimingSettings,
+                ChargeTimingSettings,
                 _detectionSettings,
                 _tileFeatureDefinitions);
 
@@ -2047,7 +2057,7 @@ namespace Game.Feature.Gameplay.Entities
                     else if (hasPreviousState &&
                              previousState.phase != EnemyChargePhase.None)
                     {
-                        nextState = EnemyChargeQueries.EnterRecover(previousState, _chargeTimingSettings.RecoverTicks);
+                        nextState = EnemyChargeQueries.EnterRecover(previousState, ChargeTimingSettings.RecoverTicks);
                         AppendChargeUpdate(updates, _entityId, "EnterRecover", nextState);
                     }
                     break;
@@ -2092,7 +2102,7 @@ namespace Game.Feature.Gameplay.Entities
                 previousState,
                 lockedDirection,
                 input.TickIndex,
-                _chargeTimingSettings,
+                ChargeTimingSettings,
                 reachableSteps);
             return true;
         }
@@ -2330,7 +2340,7 @@ namespace Game.Feature.Gameplay.Entities
                         return new GroundLocomotionResolution(
                             hasIntent: true,
                             chargeIntent,
-                            _chargeTimingSettings.ActiveStepCooldownTicks,
+                            ChargeTimingSettings.ActiveStepCooldownTicks,
                             ordinaryKinematicMoveTicks: 0);
                     }
 

@@ -31,6 +31,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(profile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
             Assert.That(profile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.None));
             Assert.That(runtime.Brain.StateResolver.Kind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
+            Assert.That(runtime.TryGetChargeBehavior(out var charge), Is.True);
+            Assert.That(charge.Timing.WindupTicks, Is.GreaterThanOrEqualTo(0));
             Assert.That(runtime.Capabilities.TryGetPassiveContact(out _), Is.True);
             Assert.That(runtime.Capabilities.TryGetCombat(out _), Is.False);
             Assert.That(runtime.Capabilities.TryGetMovementSkill(out _), Is.False);

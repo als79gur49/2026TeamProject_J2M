@@ -16,4 +16,6 @@ MonoBehaviour:
   brainAuthoring: {fileID: 11400000, guid: 410b7b170bde4ce09ad62e48cd79cfd7, type: 2}
   capabilityAssets:
   - {fileID: 11400000, guid: bf094ca1fd8f4a378e18159ddaf0d4f0, type: 2}
+  behaviorModuleAssets:
+  - {fileID: 11400000, guid: f8155d18593f47c3824b26ad87c65cb1, type: 2}
   serializedVersion: 5

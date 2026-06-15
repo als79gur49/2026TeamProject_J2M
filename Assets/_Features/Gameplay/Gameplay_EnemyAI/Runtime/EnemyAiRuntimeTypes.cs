@@ -83,6 +83,11 @@ namespace Game.Feature.Gameplay.Entities
         RetiredFrontFaceSupport = 4,
     }
 
+    public enum EnemyBehaviorModuleKey
+    {
+        Charge = 1,
+    }
+
     public enum EnemyUtilityEffectKind
     {
         SummonMinion = 0,
@@ -107,21 +112,9 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyCoreRuntime(
             EnemyAiCommonSettings commonSettings,
             EnemyLocomotionTimingSettings locomotionTimingSettings)
-            : this(
-                commonSettings,
-                locomotionTimingSettings,
-                EnemyChargeTimingSettings.CreateDefault())
-        {
-        }
-
-        public EnemyCoreRuntime(
-            EnemyAiCommonSettings commonSettings,
-            EnemyLocomotionTimingSettings locomotionTimingSettings,
-            EnemyChargeTimingSettings chargeTimingSettings)
         {
             CommonSettings = commonSettings;
             LocomotionTimingSettings = locomotionTimingSettings;
-            ChargeTimingSettings = chargeTimingSettings;
             Validate(nameof(EnemyCoreRuntime));
         }
 
@@ -129,13 +122,10 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyLocomotionTimingSettings LocomotionTimingSettings { get; }
 
-        public EnemyChargeTimingSettings ChargeTimingSettings { get; }
-
         public void Validate(string paramName)
         {
             CommonSettings.Validate(paramName);
             LocomotionTimingSettings.Validate(paramName);
-            ChargeTimingSettings.Validate(paramName);
         }
     }
 
@@ -1038,6 +1028,92 @@ namespace Game.Feature.Gameplay.Entities
             MovementSkill?.Validate(paramName);
             PassiveContact?.Validate(paramName);
             Utility?.Validate(paramName);
+        }
+    }
+
+    public readonly struct EnemyBehaviorModuleCompileContext
+    {
+        public EnemyBehaviorModuleCompileContext(
+            string profileName,
+            int simulationTicksPerSecond)
+        {
+            ProfileName = profileName ?? string.Empty;
+            SimulationTicksPerSecond = simulationTicksPerSecond;
+            Validate(nameof(EnemyBehaviorModuleCompileContext));
+        }
+
+        public string ProfileName { get; }
+
+        public int SimulationTicksPerSecond { get; }
+
+        public void Validate(string paramName)
+        {
+            if (SimulationTicksPerSecond <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(SimulationTicksPerSecond),
+                    "Simulation tick rate must be greater than zero.");
+            }
+        }
+    }
+
+    public abstract class EnemyBehaviorModuleRuntime
+    {
+        protected EnemyBehaviorModuleRuntime(EnemyBehaviorModuleKey key)
+        {
+            Key = key;
+        }
+
+        public EnemyBehaviorModuleKey Key { get; }
+
+        public virtual void Validate(string paramName)
+        {
+            if (!Enum.IsDefined(typeof(EnemyBehaviorModuleKey), Key))
+            {
+                throw new ArgumentException("Enemy behavior module runtime requires a valid key.", paramName);
+            }
+        }
+    }
+
+    public sealed class EnemyChargeBehaviorRuntime : EnemyBehaviorModuleRuntime
+    {
+        public EnemyChargeBehaviorRuntime(EnemyChargeTimingSettings timing)
+            : base(EnemyBehaviorModuleKey.Charge)
+        {
+            Timing = timing;
+            Validate(nameof(EnemyChargeBehaviorRuntime));
+        }
+
+        public EnemyChargeTimingSettings Timing { get; }
+
+        public override void Validate(string paramName)
+        {
+            base.Validate(paramName);
+            Timing.Validate(paramName);
+        }
+    }
+
+    public readonly struct EnemyBehaviorRuntimeSet
+    {
+        public EnemyBehaviorRuntimeSet(EnemyChargeBehaviorRuntime charge)
+        {
+            Charge = charge;
+            Validate(nameof(EnemyBehaviorRuntimeSet));
+        }
+
+        public EnemyChargeBehaviorRuntime Charge { get; }
+
+        public bool HasCharge => Charge != null;
+
+        public bool TryGetCharge(out EnemyChargeBehaviorRuntime charge)
+        {
+            charge = Charge;
+            return charge != null;
+        }
+
+        public void Validate(string paramName)
+        {
+            Charge?.Validate(paramName);
         }
     }
 
