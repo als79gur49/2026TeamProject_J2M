@@ -123,6 +123,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "UnityEngine.MonoBehaviour",
                 "UnityEngine.Animator",
                 "UnityEngine.AudioSource",
+                "UnityEngine.Camera",
+                "UnityEngine.Rendering.Volume",
             };
 
             var leakedMembers = assemblies
@@ -230,6 +232,127 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TopologyFactExtraction_NormalizesTopologyMotionAsTypedSemanticFact()
+        {
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+            var extractor = new TickPresentationFactExtractor();
+
+            var emptyFrame = extractor.Extract(CreateDiagnosticTickResult(includeTopologyMotion: false));
+            var topologyFrame = extractor.Extract(CreateDiagnosticTickResult(
+                new TickTopologyMotion(sourceTopology, destinationTopology, CubeRotationKind.Forward)));
+
+            Assert.That(emptyFrame.Diagnostics.TopologyFactCount, Is.Zero);
+            Assert.That(emptyFrame.Facts.Any(fact => fact.Kind == PresentationFactKind.Topology), Is.False);
+
+            var topologyFacts = topologyFrame.Facts
+                .Where(fact => fact.Kind == PresentationFactKind.Topology)
+                .ToArray();
+            Assert.That(topologyFacts, Has.Length.EqualTo(1));
+            Assert.That(topologyFrame.Diagnostics.TopologyFactCount, Is.EqualTo(1));
+
+            var fact = topologyFacts[0];
+            Assert.That(fact.Source.TickIndex, Is.EqualTo(topologyFrame.TickIndex));
+            Assert.That(fact.Source.SemanticSource, Is.EqualTo(PresentationSemanticSource.TopologyMotion));
+            Assert.That(fact.Target.Kind, Is.EqualTo(PresentationTargetKind.Topology));
+            Assert.That(fact.TopologyPayload.SourceTopology, Is.EqualTo(sourceTopology));
+            Assert.That(fact.TopologyPayload.DestinationTopology, Is.EqualTo(destinationTopology));
+            Assert.That(fact.TopologyPayload.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(fact.TopologyPayload.SourceTickIndex, Is.EqualTo(topologyFrame.TickIndex));
+            Assert.That(fact.TopologyPayload.HasSourceMetadata, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyCuePlanner_UsesDomainLocalTypedCueKeyAndSymbolicTopologyAnchor()
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(CreateDiagnosticTickResult(
+                new TickTopologyMotion(
+                    new CubeTopologyState(FaceId.Floor),
+                    new CubeTopologyState(FaceId.Front),
+                    CubeRotationKind.Forward)));
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new TopologyCuePlanner(),
+            }).Plan(factFrame);
+
+            Assert.That(cueFrame.Cues, Has.Count.EqualTo(1));
+            var cue = cueFrame.Cues[0];
+            Assert.That(cue.Domain, Is.EqualTo(PresentationDomain.Topology));
+            Assert.That(cue.Key.Domain, Is.EqualTo(PresentationDomain.Topology));
+            Assert.That(cue.Key.LocalKey, Is.EqualTo((int)PresentationTopologyCueKey.Transition));
+            Assert.That(cue.Key.VariantKey, Is.Zero);
+            Assert.That(cue.Target.Kind, Is.EqualTo(PresentationTargetKind.Topology));
+            Assert.That(cue.Anchor.Kind, Is.EqualTo(PresentationAnchorKind.TopologyOrbit));
+            Assert.That(cue.PolicyHint.Kind, Is.EqualTo(PresentationPlaybackPolicyHintKind.Track));
+            Assert.That(cue.PolicyHint.Blocking, Is.True);
+            Assert.That(cue.TopologyPayload.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyPlaybackPlanner_CreatesBlockingTrackAndTopologyOwnedBarrier()
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(CreateDiagnosticTickResult(
+                new TickTopologyMotion(
+                    new CubeTopologyState(FaceId.Floor),
+                    new CubeTopologyState(FaceId.Front),
+                    CubeRotationKind.Forward)));
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new TopologyCuePlanner(),
+            }).Plan(factFrame);
+            var plan = new PresentationPlaybackPlanner().Plan(cueFrame);
+
+            Assert.That(plan.Tracks, Has.Count.EqualTo(1));
+            Assert.That(plan.Barriers, Has.Count.EqualTo(1));
+            Assert.That(plan.Cues, Is.Empty);
+            Assert.That(plan.Tracks[0].Cue.Domain, Is.EqualTo(PresentationDomain.Topology));
+            Assert.That(plan.Tracks[0].Policy.Blocking, Is.True);
+            Assert.That(plan.Tracks[0].Cue.TopologyPayload.SourceTopology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(plan.Tracks[0].Cue.TopologyPayload.DestinationTopology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(plan.Tracks[0].Cue.TopologyPayload.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(plan.Barriers[0].OwnerDomain, Is.EqualTo(PresentationDomain.Topology));
+            Assert.That(plan.Barriers[0].Blocking, Is.True);
+            Assert.That(plan.Barriers[0].BarrierKey, Is.EqualTo((int)PresentationTopologyCueKey.Transition));
+            Assert.That(plan.Diagnostics.TopologyCueCount, Is.EqualTo(1));
+            Assert.That(plan.Diagnostics.TopologyTrackCount, Is.EqualTo(1));
+            Assert.That(plan.Diagnostics.TopologyBarrierCount, Is.EqualTo(1));
+            Assert.That(plan.Diagnostics.BlockingBarrierCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologySchedulerDiagnostics_RemainNoOpAndDoNotOwnInputBlocking()
+        {
+            var pipeline = GameplayPresentationPipelineInstaller.CreateDiagnosticsOnly();
+            var result = CreateDiagnosticTickResult(new TickTopologyMotion(
+                new CubeTopologyState(FaceId.Floor),
+                new CubeTopologyState(FaceId.Front),
+                CubeRotationKind.Forward));
+
+            pipeline.Present(result);
+            pipeline.Update(0f);
+
+            Assert.That(pipeline.LastFactFrame.Diagnostics.TopologyFactCount, Is.EqualTo(1));
+            Assert.That(pipeline.LastCueFrame.Cues.Count(cue => cue.Domain == PresentationDomain.Topology), Is.EqualTo(1));
+            Assert.That(pipeline.LastPlaybackPlan.Tracks.Count(track => track.Cue.Domain == PresentationDomain.Topology), Is.EqualTo(1));
+            Assert.That(pipeline.LastPlaybackPlan.Barriers.Count(barrier => barrier.OwnerDomain == PresentationDomain.Topology), Is.EqualTo(1));
+            Assert.That(pipeline.CurrentDiagnostics.TopologyCueCount, Is.EqualTo(1));
+            Assert.That(pipeline.CurrentDiagnostics.TopologyTrackCount, Is.EqualTo(1));
+            Assert.That(pipeline.CurrentDiagnostics.TopologyBarrierCount, Is.EqualTo(1));
+            Assert.That(pipeline.CurrentDiagnostics.BlockingBarrierCount, Is.EqualTo(1));
+            Assert.That(pipeline.CurrentDiagnostics.NoOpSchedulerAcceptCount, Is.EqualTo(1));
+            Assert.That(pipeline.HasBlockingPresentation, Is.False);
+
+            pipeline.ResetSession();
+            Assert.That(pipeline.CurrentDiagnostics.NoOpSchedulerAcceptCount, Is.Zero);
+            pipeline.HardCleanup();
+            Assert.That(pipeline.HasBlockingPresentation, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void DiagnosticsOnlyPipeline_PreservesTickResultAuthoritativeOutputs()
         {
             var result = CreateDiagnosticTickResult();
@@ -247,9 +370,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.EventLog, Is.EqualTo(initialEventLog));
             Assert.That(result.ObjectiveResult, Is.SameAs(initialObjective));
             Assert.That(pipeline.CurrentDiagnostics.ExtractedFactCount, Is.GreaterThan(0));
-            Assert.That(pipeline.CurrentDiagnostics.PlannedCueCount, Is.Zero);
-            Assert.That(pipeline.CurrentDiagnostics.PlannedTrackCount, Is.Zero);
-            Assert.That(pipeline.CurrentDiagnostics.PlannedBarrierCount, Is.Zero);
+            Assert.That(pipeline.CurrentDiagnostics.TopologyCueCount, Is.EqualTo(1));
+            Assert.That(pipeline.CurrentDiagnostics.TopologyTrackCount, Is.EqualTo(1));
+            Assert.That(pipeline.CurrentDiagnostics.TopologyBarrierCount, Is.EqualTo(1));
+            Assert.That(pipeline.CurrentDiagnostics.BlockingBarrierCount, Is.EqualTo(1));
             Assert.That(pipeline.CurrentDiagnostics.NoOpSchedulerAcceptCount, Is.EqualTo(1));
             Assert.That(pipeline.HasBlockingPresentation, Is.False);
         }
@@ -264,12 +388,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinator.PresentationPipelineNoOpSchedulerAcceptCount, Is.Zero);
         }
 
-        private static TickResult CreateDiagnosticTickResult()
+        private static TickResult CreateDiagnosticTickResult(
+            TickTopologyMotion? topologyMotion = null,
+            bool includeTopologyMotion = true)
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var destinationTopology = new CubeTopologyState(FaceId.Front);
             var cell = new SurfaceCell(FaceId.Floor, 1, 1);
             var destinationCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var resolvedTopologyMotion = includeTopologyMotion
+                ? topologyMotion ?? new TickTopologyMotion(topology, destinationTopology, CubeRotationKind.Forward)
+                : (TickTopologyMotion?)null;
             var presentationData = new TickPresentationData(
                 new[]
                 {
@@ -279,7 +408,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         cell,
                         destinationCell),
                 },
-                new TickTopologyMotion(topology, destinationTopology, CubeRotationKind.Forward),
+                resolvedTopologyMotion,
                 Array.Empty<TickVisibilityChange>(),
                 Array.Empty<TickTransitionVisibilityChange>(),
                 Array.Empty<TickPlayerActionPresentationSignal>(),

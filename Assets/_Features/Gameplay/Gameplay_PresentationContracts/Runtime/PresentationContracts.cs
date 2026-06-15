@@ -357,18 +357,80 @@ namespace Game.Feature.Gameplay.PresentationContracts
         }
     }
 
+    public readonly struct PresentationTopologyTransitionPayload : IEquatable<PresentationTopologyTransitionPayload>
+    {
+        public PresentationTopologyTransitionPayload(
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            CubeRotationKind rotationKind,
+            int sourceTickIndex,
+            bool hasSourceMetadata = false,
+            int sourceMetadataKey = 0)
+        {
+            SourceTopology = sourceTopology;
+            DestinationTopology = destinationTopology;
+            RotationKind = rotationKind;
+            SourceTickIndex = sourceTickIndex;
+            HasSourceMetadata = hasSourceMetadata;
+            SourceMetadataKey = Math.Max(0, sourceMetadataKey);
+        }
+
+        public CubeTopologyState SourceTopology { get; }
+
+        public CubeTopologyState DestinationTopology { get; }
+
+        public CubeRotationKind RotationKind { get; }
+
+        public int SourceTickIndex { get; }
+
+        public bool HasSourceMetadata { get; }
+
+        public int SourceMetadataKey { get; }
+
+        public bool Equals(PresentationTopologyTransitionPayload other)
+        {
+            return SourceTopology.Equals(other.SourceTopology) &&
+                   DestinationTopology.Equals(other.DestinationTopology) &&
+                   RotationKind == other.RotationKind &&
+                   SourceTickIndex == other.SourceTickIndex &&
+                   HasSourceMetadata == other.HasSourceMetadata &&
+                   SourceMetadataKey == other.SourceMetadataKey;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationTopologyTransitionPayload other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = SourceTopology.GetHashCode();
+                hash = (hash * 397) ^ DestinationTopology.GetHashCode();
+                hash = (hash * 397) ^ (int)RotationKind;
+                hash = (hash * 397) ^ SourceTickIndex;
+                hash = (hash * 397) ^ HasSourceMetadata.GetHashCode();
+                hash = (hash * 397) ^ SourceMetadataKey;
+                return hash;
+            }
+        }
+    }
+
     public readonly struct PresentationFact : IEquatable<PresentationFact>
     {
         public PresentationFact(
             PresentationFactKind kind,
             PresentationSource source,
             PresentationTarget target,
-            PresentationFactPayload payload = default)
+            PresentationFactPayload payload = default,
+            PresentationTopologyTransitionPayload topologyPayload = default)
         {
             Kind = kind;
             Source = source;
             Target = target;
             Payload = payload;
+            TopologyPayload = topologyPayload;
         }
 
         public PresentationFactKind Kind { get; }
@@ -379,12 +441,15 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
         public PresentationFactPayload Payload { get; }
 
+        public PresentationTopologyTransitionPayload TopologyPayload { get; }
+
         public bool Equals(PresentationFact other)
         {
             return Kind == other.Kind &&
                    Source.Equals(other.Source) &&
                    Target.Equals(other.Target) &&
-                   Payload.Equals(other.Payload);
+                   Payload.Equals(other.Payload) &&
+                   TopologyPayload.Equals(other.TopologyPayload);
         }
 
         public override bool Equals(object obj)
@@ -400,6 +465,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
                 hash = (hash * 397) ^ Source.GetHashCode();
                 hash = (hash * 397) ^ Target.GetHashCode();
                 hash = (hash * 397) ^ Payload.GetHashCode();
+                hash = (hash * 397) ^ TopologyPayload.GetHashCode();
                 return hash;
             }
         }

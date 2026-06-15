@@ -170,16 +170,20 @@ namespace Game.Feature.Gameplay.PresentationPlayback
     public readonly struct PresentationPlaybackBarrier : IEquatable<PresentationPlaybackBarrier>
     {
         public PresentationPlaybackBarrier(
+            PresentationDomain ownerDomain,
             PresentationSource source,
             PresentationTarget target,
             int barrierKey,
             bool blocking)
         {
+            OwnerDomain = ownerDomain;
             Source = source;
             Target = target;
             BarrierKey = Math.Max(0, barrierKey);
             Blocking = blocking;
         }
+
+        public PresentationDomain OwnerDomain { get; }
 
         public PresentationSource Source { get; }
 
@@ -191,7 +195,8 @@ namespace Game.Feature.Gameplay.PresentationPlayback
 
         public bool Equals(PresentationPlaybackBarrier other)
         {
-            return Source.Equals(other.Source) &&
+            return OwnerDomain == other.OwnerDomain &&
+                   Source.Equals(other.Source) &&
                    Target.Equals(other.Target) &&
                    BarrierKey == other.BarrierKey &&
                    Blocking == other.Blocking;
@@ -206,7 +211,8 @@ namespace Game.Feature.Gameplay.PresentationPlayback
         {
             unchecked
             {
-                var hash = Source.GetHashCode();
+                var hash = (int)OwnerDomain;
+                hash = (hash * 397) ^ Source.GetHashCode();
                 hash = (hash * 397) ^ Target.GetHashCode();
                 hash = (hash * 397) ^ BarrierKey;
                 hash = (hash * 397) ^ Blocking.GetHashCode();
@@ -222,6 +228,10 @@ namespace Game.Feature.Gameplay.PresentationPlayback
             int plannedCueCount,
             int plannedTrackCount,
             int plannedBarrierCount,
+            int topologyCueCount,
+            int topologyTrackCount,
+            int topologyBarrierCount,
+            int blockingBarrierCount,
             int routeCount,
             int suppressedCount,
             int deferredCount,
@@ -233,6 +243,10 @@ namespace Game.Feature.Gameplay.PresentationPlayback
             PlannedCueCount = Math.Max(0, plannedCueCount);
             PlannedTrackCount = Math.Max(0, plannedTrackCount);
             PlannedBarrierCount = Math.Max(0, plannedBarrierCount);
+            TopologyCueCount = Math.Max(0, topologyCueCount);
+            TopologyTrackCount = Math.Max(0, topologyTrackCount);
+            TopologyBarrierCount = Math.Max(0, topologyBarrierCount);
+            BlockingBarrierCount = Math.Max(0, blockingBarrierCount);
             RouteCount = Math.Max(0, routeCount);
             SuppressedCount = Math.Max(0, suppressedCount);
             DeferredCount = Math.Max(0, deferredCount);
@@ -248,6 +262,14 @@ namespace Game.Feature.Gameplay.PresentationPlayback
         public int PlannedTrackCount { get; }
 
         public int PlannedBarrierCount { get; }
+
+        public int TopologyCueCount { get; }
+
+        public int TopologyTrackCount { get; }
+
+        public int TopologyBarrierCount { get; }
+
+        public int BlockingBarrierCount { get; }
 
         public int RouteCount { get; }
 
@@ -268,6 +290,10 @@ namespace Game.Feature.Gameplay.PresentationPlayback
                 PlannedCueCount,
                 PlannedTrackCount,
                 PlannedBarrierCount,
+                TopologyCueCount,
+                TopologyTrackCount,
+                TopologyBarrierCount,
+                BlockingBarrierCount,
                 RouteCount,
                 SuppressedCount,
                 DeferredCount,
@@ -324,7 +350,7 @@ namespace Game.Feature.Gameplay.PresentationPlayback
                 EmptyCues,
                 EmptyTracks,
                 EmptyBarriers,
-                new PresentationPlaybackDiagnostics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+                new PresentationPlaybackDiagnostics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
         }
     }
 
@@ -340,11 +366,31 @@ namespace Game.Feature.Gameplay.PresentationPlayback
             var cues = new List<PresentationPlaybackCue>();
             var tracks = new List<PresentationPlaybackTrack>();
             var barriers = new List<PresentationPlaybackBarrier>();
+            var topologyCueCount = 0;
+            var topologyTrackCount = 0;
+            var topologyBarrierCount = 0;
+            var blockingBarrierCount = 0;
 
             for (var i = 0; i < cueFrame.Cues.Count; i++)
             {
                 var cue = cueFrame.Cues[i];
                 var policy = PresentationPlaybackPolicy.FromHint(cue.PolicyHint);
+
+                if (IsTopologyTransitionCue(cue))
+                {
+                    tracks.Add(new PresentationPlaybackTrack(cue, policy));
+                    barriers.Add(new PresentationPlaybackBarrier(
+                        PresentationDomain.Topology,
+                        cue.Source,
+                        cue.Target,
+                        cue.Key.LocalKey,
+                        blocking: true));
+                    topologyCueCount++;
+                    topologyTrackCount++;
+                    topologyBarrierCount++;
+                    blockingBarrierCount++;
+                    continue;
+                }
 
                 if (policy.UnitKind == PresentationPlaybackUnitKind.Track)
                 {
@@ -359,10 +405,15 @@ namespace Game.Feature.Gameplay.PresentationPlayback
                     cue.PolicyHint.Blocking)
                 {
                     barriers.Add(new PresentationPlaybackBarrier(
+                        cue.Domain,
                         cue.Source,
                         cue.Target,
                         cue.PolicyHint.DedupeKey,
                         cue.PolicyHint.Blocking));
+                    if (cue.PolicyHint.Blocking)
+                    {
+                        blockingBarrierCount++;
+                    }
                 }
             }
 
@@ -376,12 +427,23 @@ namespace Game.Feature.Gameplay.PresentationPlayback
                     cues.Count,
                     tracks.Count,
                     barriers.Count,
+                    topologyCueCount,
+                    topologyTrackCount,
+                    topologyBarrierCount,
+                    blockingBarrierCount,
                     routeCount: 0,
                     suppressedCount: 0,
                     deferredCount: 0,
                     canceledCount: 0,
                     missingBindingCount: 0,
                     noOpSchedulerAcceptCount: 0));
+        }
+
+        private static bool IsTopologyTransitionCue(PresentationCue cue)
+        {
+            return cue.Domain == PresentationDomain.Topology &&
+                   cue.Key.Domain == PresentationDomain.Topology &&
+                   cue.Key.LocalKey == (int)PresentationTopologyCueKey.Transition;
         }
     }
 

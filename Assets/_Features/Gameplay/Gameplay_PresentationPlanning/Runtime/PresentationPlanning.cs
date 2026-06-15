@@ -13,6 +13,12 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         Barrier = 3,
     }
 
+    public enum PresentationTopologyCueKey
+    {
+        None = 0,
+        Transition = 1,
+    }
+
     public readonly struct PresentationCueKey : IEquatable<PresentationCueKey>
     {
         public PresentationCueKey(PresentationDomain domain, int localKey, int variantKey = 0)
@@ -126,7 +132,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             PresentationSource source,
             PresentationTarget target,
             PresentationAnchor anchor,
-            PresentationPlaybackPolicyHint policyHint = default)
+            PresentationPlaybackPolicyHint policyHint = default,
+            PresentationTopologyTransitionPayload topologyPayload = default)
         {
             Domain = domain;
             Key = key;
@@ -134,6 +141,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             Target = target;
             Anchor = anchor;
             PolicyHint = policyHint;
+            TopologyPayload = topologyPayload;
         }
 
         public PresentationDomain Domain { get; }
@@ -148,6 +156,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
 
         public PresentationPlaybackPolicyHint PolicyHint { get; }
 
+        public PresentationTopologyTransitionPayload TopologyPayload { get; }
+
         public bool Equals(PresentationCue other)
         {
             return Domain == other.Domain &&
@@ -155,7 +165,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                    Source.Equals(other.Source) &&
                    Target.Equals(other.Target) &&
                    Anchor.Equals(other.Anchor) &&
-                   PolicyHint.Equals(other.PolicyHint);
+                   PolicyHint.Equals(other.PolicyHint) &&
+                   TopologyPayload.Equals(other.TopologyPayload);
         }
 
         public override bool Equals(object obj)
@@ -173,6 +184,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 hash = (hash * 397) ^ Target.GetHashCode();
                 hash = (hash * 397) ^ Anchor.GetHashCode();
                 hash = (hash * 397) ^ PolicyHint.GetHashCode();
+                hash = (hash * 397) ^ TopologyPayload.GetHashCode();
                 return hash;
             }
         }
@@ -270,6 +282,43 @@ namespace Game.Feature.Gameplay.PresentationPlanning
     public interface IPresentationCuePlanner
     {
         void Plan(in PresentationFactFrame facts, PresentationCueFrameBuilder builder);
+    }
+
+    public sealed class TopologyCuePlanner : IPresentationCuePlanner
+    {
+        private static readonly PresentationCueKey TransitionCueKey =
+            new(PresentationDomain.Topology, (int)PresentationTopologyCueKey.Transition);
+
+        public void Plan(in PresentationFactFrame facts, PresentationCueFrameBuilder builder)
+        {
+            if (facts == null)
+            {
+                throw new ArgumentNullException(nameof(facts));
+            }
+
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            for (var i = 0; i < facts.Facts.Count; i++)
+            {
+                var fact = facts.Facts[i];
+                if (fact.Kind != PresentationFactKind.Topology)
+                {
+                    continue;
+                }
+
+                builder.Add(new PresentationCue(
+                    PresentationDomain.Topology,
+                    TransitionCueKey,
+                    fact.Source,
+                    PresentationTarget.Topology(),
+                    PresentationAnchor.ForTopologyOrbit(),
+                    PresentationPlaybackPolicyHint.Track(blocking: true),
+                    fact.TopologyPayload));
+            }
+        }
     }
 
     public sealed class PresentationCuePlannerSet

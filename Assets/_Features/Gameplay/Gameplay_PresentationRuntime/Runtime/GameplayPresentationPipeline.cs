@@ -51,7 +51,11 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     PresentationFactKind.Topology,
                     new PresentationSource(tickIndex, PresentationSemanticSource.TopologyMotion),
                     PresentationTarget.Topology(),
-                    new PresentationFactPayload(primaryValue: (int)topologyMotion.RotationKind)));
+                    topologyPayload: new PresentationTopologyTransitionPayload(
+                        topologyMotion.SourceTopology,
+                        topologyMotion.DestinationTopology,
+                        topologyMotion.RotationKind,
+                        tickIndex)));
                 topologyCount++;
             }
 
@@ -329,7 +333,10 @@ namespace Game.Feature.Gameplay.PresentationRuntime
         {
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
-                new PresentationCuePlannerSet(),
+                new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+                {
+                    new TopologyCuePlanner(),
+                }),
                 new PresentationPlaybackPlanner(),
                 new PresentationPlaybackScheduler());
         }
