@@ -303,6 +303,124 @@ namespace Game.Feature.Gameplay.PresentationPlayback
         }
     }
 
+    public enum PresentationBlockingSource
+    {
+        None = 0,
+        TopologyTransition = 1,
+        StageClearHold = 2,
+        PlayerDeathHold = 3,
+    }
+
+    public enum PresentationBlockingReason
+    {
+        None = 0,
+        TopologyTransitionPlanned = 1,
+        TopologyTransitionActive = 2,
+        StageClearHoldPlanned = 3,
+        PlayerDeathHoldPlanned = 4,
+    }
+
+    public readonly struct PresentationBlockingSourceState
+    {
+        public PresentationBlockingSourceState(
+            PresentationBlockingSource source,
+            PresentationDomain ownerDomain,
+            PresentationBlockingReason reason,
+            bool hasPlannedBlockingBarrier,
+            bool hasActiveBlockingPresentation,
+            int plannedBlockingBarrierCount,
+            int activeBlockingSourceCount,
+            int tickIndex)
+        {
+            Source = source;
+            OwnerDomain = ownerDomain;
+            Reason = reason;
+            HasPlannedBlockingBarrier = hasPlannedBlockingBarrier;
+            HasActiveBlockingPresentation = hasActiveBlockingPresentation;
+            PlannedBlockingBarrierCount = Math.Max(0, plannedBlockingBarrierCount);
+            ActiveBlockingSourceCount = Math.Max(0, activeBlockingSourceCount);
+            TickIndex = Math.Max(0, tickIndex);
+        }
+
+        public PresentationBlockingSource Source { get; }
+
+        public PresentationDomain OwnerDomain { get; }
+
+        public PresentationBlockingReason Reason { get; }
+
+        public bool HasPlannedBlockingBarrier { get; }
+
+        public bool HasActiveBlockingPresentation { get; }
+
+        public int PlannedBlockingBarrierCount { get; }
+
+        public int ActiveBlockingSourceCount { get; }
+
+        public int TickIndex { get; }
+    }
+
+    public readonly struct PresentationBlockingSnapshot
+    {
+        private static readonly IReadOnlyList<PresentationBlockingSourceState> EmptySources =
+            new ReadOnlyCollection<PresentationBlockingSourceState>(new List<PresentationBlockingSourceState>());
+
+        private readonly IReadOnlyList<PresentationBlockingSourceState> _sources;
+
+        public PresentationBlockingSnapshot(
+            int plannedBlockingBarrierCount,
+            int activeBlockingSourceCount,
+            int topologyPlannedBarrierCount,
+            int topologyActiveBlockingCount,
+            IReadOnlyList<PresentationBlockingSourceState> sources,
+            int lastTickIndex,
+            PresentationDomain lastOwnerDomain,
+            PresentationBlockingReason lastReason)
+        {
+            PlannedBlockingBarrierCount = Math.Max(0, plannedBlockingBarrierCount);
+            ActiveBlockingSourceCount = Math.Max(0, activeBlockingSourceCount);
+            TopologyPlannedBarrierCount = Math.Max(0, topologyPlannedBarrierCount);
+            TopologyActiveBlockingCount = Math.Max(0, topologyActiveBlockingCount);
+            _sources = sources == null || sources.Count == 0
+                ? EmptySources
+                : new ReadOnlyCollection<PresentationBlockingSourceState>(
+                    new List<PresentationBlockingSourceState>(sources));
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastOwnerDomain = lastOwnerDomain;
+            LastReason = lastReason;
+        }
+
+        public bool HasPlannedBlockingBarrier => PlannedBlockingBarrierCount > 0;
+
+        public bool HasActiveBlockingPresentation => ActiveBlockingSourceCount > 0;
+
+        public int PlannedBlockingBarrierCount { get; }
+
+        public int ActiveBlockingSourceCount { get; }
+
+        public int TopologyPlannedBarrierCount { get; }
+
+        public int TopologyActiveBlockingCount { get; }
+
+        public IReadOnlyList<PresentationBlockingSourceState> Sources => _sources ?? EmptySources;
+
+        public int LastTickIndex { get; }
+
+        public PresentationDomain LastOwnerDomain { get; }
+
+        public PresentationBlockingReason LastReason { get; }
+
+        public static PresentationBlockingSnapshot Empty { get; } =
+            new PresentationBlockingSnapshot(
+                0,
+                0,
+                0,
+                0,
+                EmptySources,
+                0,
+                PresentationDomain.None,
+                PresentationBlockingReason.None);
+    }
+
     public sealed class PresentationPlaybackPlan
     {
         private static readonly IReadOnlyList<PresentationPlaybackCue> EmptyCues =
@@ -450,10 +568,18 @@ namespace Game.Feature.Gameplay.PresentationPlayback
     public sealed class PresentationPlaybackScheduler
     {
         private int _acceptCount;
+        private int _plannedBlockingBarrierCount;
+        private int _topologyPlannedBarrierCount;
+        private int _plannedBlockingTickIndex;
+        private bool _hasActiveTopologyBlocking;
+        private int _activeTopologyBlockingTickIndex;
 
         public PresentationPlaybackDiagnostics CurrentDiagnostics { get; private set; }
 
-        public bool HasBlockingPresentation => false;
+        public PresentationBlockingSnapshot BlockingSnapshot { get; private set; } =
+            PresentationBlockingSnapshot.Empty;
+
+        public bool HasBlockingPresentation => BlockingSnapshot.HasActiveBlockingPresentation;
 
         public void Accept(PresentationPlaybackPlan plan)
         {
@@ -464,6 +590,25 @@ namespace Game.Feature.Gameplay.PresentationPlayback
 
             _acceptCount++;
             CurrentDiagnostics = plan.Diagnostics.WithNoOpSchedulerAcceptCount(_acceptCount);
+            _plannedBlockingBarrierCount = 0;
+            _topologyPlannedBarrierCount = 0;
+            _plannedBlockingTickIndex = plan.TickIndex;
+            for (var i = 0; i < plan.Barriers.Count; i++)
+            {
+                var barrier = plan.Barriers[i];
+                if (!barrier.Blocking)
+                {
+                    continue;
+                }
+
+                _plannedBlockingBarrierCount++;
+                if (barrier.OwnerDomain == PresentationDomain.Topology)
+                {
+                    _topologyPlannedBarrierCount++;
+                }
+            }
+
+            RefreshBlockingSnapshot();
         }
 
         public void Update(float deltaTime)
@@ -474,15 +619,98 @@ namespace Game.Feature.Gameplay.PresentationPlayback
             }
         }
 
+        public void ObserveActiveBlockingState(
+            PresentationBlockingSource source,
+            bool isActive,
+            int tickIndex)
+        {
+            if (source == PresentationBlockingSource.None)
+            {
+                throw new ArgumentOutOfRangeException(nameof(source), "Blocking source must be explicit.");
+            }
+
+            if (source != PresentationBlockingSource.TopologyTransition)
+            {
+                return;
+            }
+
+            _hasActiveTopologyBlocking = isActive;
+            _activeTopologyBlockingTickIndex = Math.Max(0, tickIndex);
+            RefreshBlockingSnapshot();
+        }
+
         public void ResetSession()
         {
             _acceptCount = 0;
             CurrentDiagnostics = default;
+            _plannedBlockingBarrierCount = 0;
+            _topologyPlannedBarrierCount = 0;
+            _plannedBlockingTickIndex = 0;
+            _hasActiveTopologyBlocking = false;
+            _activeTopologyBlockingTickIndex = 0;
+            BlockingSnapshot = PresentationBlockingSnapshot.Empty;
         }
 
         public void HardCleanup()
         {
             ResetSession();
+        }
+
+        private void RefreshBlockingSnapshot()
+        {
+            var sources = new List<PresentationBlockingSourceState>();
+            if (_topologyPlannedBarrierCount > 0)
+            {
+                sources.Add(new PresentationBlockingSourceState(
+                    PresentationBlockingSource.TopologyTransition,
+                    PresentationDomain.Topology,
+                    PresentationBlockingReason.TopologyTransitionPlanned,
+                    hasPlannedBlockingBarrier: true,
+                    hasActiveBlockingPresentation: false,
+                    plannedBlockingBarrierCount: _topologyPlannedBarrierCount,
+                    activeBlockingSourceCount: 0,
+                    tickIndex: _plannedBlockingTickIndex));
+            }
+
+            var topologyActiveBlockingCount = _hasActiveTopologyBlocking ? 1 : 0;
+            if (_hasActiveTopologyBlocking)
+            {
+                sources.Add(new PresentationBlockingSourceState(
+                    PresentationBlockingSource.TopologyTransition,
+                    PresentationDomain.Topology,
+                    PresentationBlockingReason.TopologyTransitionActive,
+                    hasPlannedBlockingBarrier: false,
+                    hasActiveBlockingPresentation: true,
+                    plannedBlockingBarrierCount: 0,
+                    activeBlockingSourceCount: topologyActiveBlockingCount,
+                    tickIndex: _activeTopologyBlockingTickIndex));
+            }
+
+            var lastReason = PresentationBlockingReason.None;
+            var lastOwnerDomain = PresentationDomain.None;
+            var lastTickIndex = 0;
+            if (_hasActiveTopologyBlocking)
+            {
+                lastReason = PresentationBlockingReason.TopologyTransitionActive;
+                lastOwnerDomain = PresentationDomain.Topology;
+                lastTickIndex = _activeTopologyBlockingTickIndex;
+            }
+            else if (_topologyPlannedBarrierCount > 0)
+            {
+                lastReason = PresentationBlockingReason.TopologyTransitionPlanned;
+                lastOwnerDomain = PresentationDomain.Topology;
+                lastTickIndex = _plannedBlockingTickIndex;
+            }
+
+            BlockingSnapshot = new PresentationBlockingSnapshot(
+                _plannedBlockingBarrierCount,
+                topologyActiveBlockingCount,
+                _topologyPlannedBarrierCount,
+                topologyActiveBlockingCount,
+                sources,
+                lastTickIndex,
+                lastOwnerDomain,
+                lastReason);
         }
     }
 

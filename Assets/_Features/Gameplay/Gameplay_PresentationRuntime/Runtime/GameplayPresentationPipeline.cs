@@ -300,9 +300,19 @@ namespace Game.Feature.Gameplay.PresentationRuntime
 
         public PresentationPlaybackDiagnostics CurrentDiagnostics => _scheduler.CurrentDiagnostics;
 
+        public PresentationBlockingSnapshot BlockingSnapshot => _scheduler.BlockingSnapshot;
+
         public int NoOpSchedulerAcceptCount => _scheduler.CurrentDiagnostics.NoOpSchedulerAcceptCount;
 
         public bool HasBlockingPresentation => _scheduler.HasBlockingPresentation;
+
+        public void ObserveTopologyActiveState(bool isActive, int tickIndex)
+        {
+            _scheduler.ObserveActiveBlockingState(
+                PresentationBlockingSource.TopologyTransition,
+                isActive,
+                tickIndex);
+        }
 
         public void Present(TickResult result)
         {

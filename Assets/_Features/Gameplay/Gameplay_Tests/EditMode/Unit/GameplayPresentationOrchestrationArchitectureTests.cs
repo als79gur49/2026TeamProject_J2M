@@ -159,6 +159,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(uiApplicationSource, Does.Not.Contain("PresentationCueFrame"));
             Assert.That(uiApplicationSource, Does.Not.Contain("PresentationPlaybackPlan"));
             Assert.That(uiApplicationSource, Does.Not.Contain("PresentationPlaybackScheduler"));
+            Assert.That(uiApplicationSource, Does.Not.Contain("PresentationBlockingSnapshot"));
             Assert.That(uiApplicationSource, Does.Not.Contain("TopologyPresentationOwnershipDiagnostics"));
             Assert.That(uiApplicationSource, Does.Not.Contain("TopologyPresentationExecutionMode"));
         }
@@ -203,6 +204,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(inputHostSource, Does.Not.Contain("PresentationPlaybackPlan"));
             Assert.That(inputHostSource, Does.Not.Contain("GameplayPresentationPipeline"));
             Assert.That(inputHostSource, Does.Not.Contain("PresentationPlaybackScheduler"));
+            Assert.That(inputHostSource, Does.Not.Contain("PresentationBlockingSnapshot"));
         }
 
         [Test]
@@ -275,6 +277,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(playbackPlan.Tracks, Is.Empty);
             Assert.That(playbackPlan.Barriers, Is.Empty);
             Assert.That(scheduler.HasBlockingPresentation, Is.False);
+            Assert.That(scheduler.BlockingSnapshot.HasPlannedBlockingBarrier, Is.False);
+            Assert.That(scheduler.BlockingSnapshot.HasActiveBlockingPresentation, Is.False);
         }
 
         [Test]
@@ -391,9 +395,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(pipeline.CurrentDiagnostics.BlockingBarrierCount, Is.EqualTo(1));
             Assert.That(pipeline.CurrentDiagnostics.NoOpSchedulerAcceptCount, Is.EqualTo(1));
             Assert.That(pipeline.HasBlockingPresentation, Is.False);
+            Assert.That(pipeline.BlockingSnapshot.HasPlannedBlockingBarrier, Is.True);
+            Assert.That(pipeline.BlockingSnapshot.HasActiveBlockingPresentation, Is.False);
+            Assert.That(pipeline.BlockingSnapshot.PlannedBlockingBarrierCount, Is.EqualTo(1));
+            Assert.That(pipeline.BlockingSnapshot.ActiveBlockingSourceCount, Is.Zero);
+            Assert.That(pipeline.BlockingSnapshot.TopologyPlannedBarrierCount, Is.EqualTo(1));
+            Assert.That(pipeline.BlockingSnapshot.TopologyActiveBlockingCount, Is.Zero);
+            Assert.That(
+                pipeline.BlockingSnapshot.LastReason,
+                Is.EqualTo(PresentationBlockingReason.TopologyTransitionPlanned));
+            Assert.That(pipeline.BlockingSnapshot.LastOwnerDomain, Is.EqualTo(PresentationDomain.Topology));
+            Assert.That(pipeline.BlockingSnapshot.Sources, Has.Count.EqualTo(1));
+            Assert.That(
+                pipeline.BlockingSnapshot.Sources[0].Source,
+                Is.EqualTo(PresentationBlockingSource.TopologyTransition));
 
             pipeline.ResetSession();
             Assert.That(pipeline.CurrentDiagnostics.NoOpSchedulerAcceptCount, Is.Zero);
+            Assert.That(pipeline.BlockingSnapshot.HasPlannedBlockingBarrier, Is.False);
+            Assert.That(pipeline.BlockingSnapshot.HasActiveBlockingPresentation, Is.False);
             pipeline.HardCleanup();
             Assert.That(pipeline.HasBlockingPresentation, Is.False);
         }
@@ -422,6 +442,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(pipeline.CurrentDiagnostics.TopologyBarrierCount, Is.EqualTo(1));
             Assert.That(pipeline.CurrentDiagnostics.BlockingBarrierCount, Is.EqualTo(1));
             Assert.That(pipeline.CurrentDiagnostics.NoOpSchedulerAcceptCount, Is.EqualTo(1));
+            Assert.That(pipeline.HasBlockingPresentation, Is.False);
+            Assert.That(pipeline.BlockingSnapshot.HasPlannedBlockingBarrier, Is.True);
+            Assert.That(pipeline.BlockingSnapshot.HasActiveBlockingPresentation, Is.False);
+
+            pipeline.ObserveTopologyActiveState(true, result.TickIndex);
+
+            Assert.That(result.DeterminismHash, Is.EqualTo(initialHash));
+            Assert.That(result.FinalEntities, Is.EqualTo(initialEntities));
+            Assert.That(result.EventLog, Is.EqualTo(initialEventLog));
+            Assert.That(result.ObjectiveResult, Is.SameAs(initialObjective));
+            Assert.That(pipeline.BlockingSnapshot.HasPlannedBlockingBarrier, Is.True);
+            Assert.That(pipeline.BlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+            Assert.That(pipeline.BlockingSnapshot.PlannedBlockingBarrierCount, Is.EqualTo(1));
+            Assert.That(pipeline.BlockingSnapshot.ActiveBlockingSourceCount, Is.EqualTo(1));
+            Assert.That(pipeline.BlockingSnapshot.TopologyPlannedBarrierCount, Is.EqualTo(1));
+            Assert.That(pipeline.BlockingSnapshot.TopologyActiveBlockingCount, Is.EqualTo(1));
+            Assert.That(
+                pipeline.BlockingSnapshot.LastReason,
+                Is.EqualTo(PresentationBlockingReason.TopologyTransitionActive));
+            Assert.That(pipeline.HasBlockingPresentation, Is.True);
+
+            pipeline.ObserveTopologyActiveState(false, result.TickIndex);
+
+            Assert.That(pipeline.BlockingSnapshot.HasPlannedBlockingBarrier, Is.True);
+            Assert.That(pipeline.BlockingSnapshot.HasActiveBlockingPresentation, Is.False);
             Assert.That(pipeline.HasBlockingPresentation, Is.False);
         }
 
@@ -482,10 +527,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(inputHostSource, Does.Not.Contain("GameplayPresentationPipeline"));
             Assert.That(inputHostSource, Does.Not.Contain("TopologyPresentationOwnershipDiagnostics"));
             Assert.That(inputHostSource, Does.Not.Contain("TopologyPresentationExecutionMode"));
+            Assert.That(inputHostSource, Does.Not.Contain("PresentationBlockingSnapshot"));
             Assert.That(presenterSource, Does.Contain("HasBlockingPresentation => _presentationCoordinator.HasBlockingPresentation"));
             Assert.That(coordinatorSource, Does.Contain("_topologyTransitionController.HasActiveBoardRotationTween"));
             Assert.That(coordinatorSource, Does.Not.Contain("HasBlockingPresentation => _presentationPipeline"));
             Assert.That(coordinatorSource, Does.Not.Contain("HasBlockingPresentation => _topologyExecutionPipeline"));
+            Assert.That(coordinatorSource, Does.Not.Contain("HasBlockingPresentation => PresentationPipelineBlockingSnapshot"));
+            Assert.That(coordinatorSource, Does.Not.Contain("HasBlockingPresentation => TopologyExecutionPipelineBlockingSnapshot"));
         }
 
         private static TickResult CreateDiagnosticTickResult(

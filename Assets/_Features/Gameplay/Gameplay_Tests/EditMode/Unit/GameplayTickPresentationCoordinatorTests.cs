@@ -12,6 +12,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
 using Game.Feature.Gameplay.PresentationPlayback;
 using Game.Feature.Gameplay.PresentationRuntime;
@@ -105,6 +106,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     TopologyPresentationExecutionMode.LegacyCoordinator,
                     port,
                     initialTopology);
+                coordinator.EnablePresentationPipelineDiagnostics();
                 var result = CreateTopologyTransitionResult(
                     tickIndex: 7,
                     initialTopology,
@@ -124,6 +126,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.LegacyCoordinator));
                 Assert.That(diagnostics.LastExecutionTickIndex, Is.EqualTo(7));
                 Assert.That(coordinator.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+                Assert.That(coordinator.HasBlockingPresentation, Is.True);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.True);
+                AssertTopologyBlockingSnapshotParity(
+                    coordinator.PresentationPipelineBlockingSnapshot,
+                    expectedPlanned: true,
+                    expectedActive: true,
+                    expectedTickIndex: 7);
             }
             finally
             {
@@ -212,6 +221,113 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
                 Assert.That(diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_ExecutorBridgeMode_BlockingMirrorMatchesControllerState()
+        {
+            var rootObject = new GameObject(nameof(TopologyExecution_ExecutorBridgeMode_BlockingMirrorMatchesControllerState));
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
+                var coordinator = CreateInitializedDefaultTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    initialTopology,
+                    timingProfile);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 11,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+
+                var diagnostics = coordinator.TopologyPresentationOwnershipDiagnostics;
+                Assert.That(diagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+                Assert.That(diagnostics.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+                Assert.That(diagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(coordinator.HasBlockingPresentation, Is.True);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.True);
+                AssertTopologyBlockingSnapshotParity(
+                    coordinator.TopologyExecutionPipelineBlockingSnapshot,
+                    expectedPlanned: true,
+                    expectedActive: true,
+                    expectedTickIndex: 11);
+
+                coordinator.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+
+                Assert.That(coordinator.HasBlockingPresentation, Is.False);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.False);
+                AssertTopologyBlockingSnapshotParity(
+                    coordinator.TopologyExecutionPipelineBlockingSnapshot,
+                    expectedPlanned: true,
+                    expectedActive: false,
+                    expectedTickIndex: 11);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_BlockingMirrorResetAndHardCleanup_ClearSnapshot()
+        {
+            var rootObject = new GameObject(nameof(TopologyExecution_BlockingMirrorResetAndHardCleanup_ClearSnapshot));
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
+                var coordinator = CreateInitializedDefaultTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    initialTopology,
+                    timingProfile);
+                coordinator.EnablePresentationPipelineDiagnostics();
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 12,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+
+                Assert.That(coordinator.PresentationPipelineBlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+                Assert.That(coordinator.TopologyExecutionPipelineBlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+
+                coordinator.PresentInitial(Array.Empty<EntityState>(), destinationTopology);
+
+                AssertBlockingSnapshotCleared(coordinator.PresentationPipelineBlockingSnapshot);
+                AssertBlockingSnapshotCleared(coordinator.TopologyExecutionPipelineBlockingSnapshot);
+
+                var secondResult = CreateTopologyTransitionResult(
+                    tickIndex: 13,
+                    destinationTopology,
+                    initialTopology,
+                    CubeRotationKind.Backward);
+                coordinator.Present(secondResult);
+                Assert.That(coordinator.PresentationPipelineBlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+                Assert.That(coordinator.TopologyExecutionPipelineBlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+
+                coordinator.HardCleanupPresentationExtensions();
+
+                AssertBlockingSnapshotCleared(coordinator.PresentationPipelineBlockingSnapshot);
+                AssertBlockingSnapshotCleared(coordinator.TopologyExecutionPipelineBlockingSnapshot);
             }
             finally
             {
@@ -10588,6 +10704,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return coordinator;
         }
 
+        private static GameplayTickPresentationCoordinator CreateInitializedDefaultTopologyCoordinator(
+            GameObject rootObject,
+            TopologyPresentationExecutionMode mode,
+            CubeTopologyState initialTopology,
+            GameplayTimingProfile timingProfile)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+            var coordinator = new GameplayTickPresentationCoordinator();
+
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                initialTopology,
+                1f,
+                timingProfile,
+                topologyPresentationExecutionMode: mode);
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
         private static GameplayTickViewPresenter CreateInitializedTopologyPresenter(
             GameObject rootObject,
             TopologyPresentationExecutionMode mode,
@@ -10670,6 +10807,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 Quaternion.Angle(actual.PresentedVisualRotation, expected.PresentedVisualRotation),
                 Is.LessThan(0.001f));
+        }
+
+        private static void AssertTopologyBlockingSnapshotParity(
+            PresentationBlockingSnapshot snapshot,
+            bool expectedPlanned,
+            bool expectedActive,
+            int expectedTickIndex)
+        {
+            Assert.That(snapshot.HasPlannedBlockingBarrier, Is.EqualTo(expectedPlanned));
+            Assert.That(snapshot.HasActiveBlockingPresentation, Is.EqualTo(expectedActive));
+            Assert.That(snapshot.PlannedBlockingBarrierCount, Is.EqualTo(expectedPlanned ? 1 : 0));
+            Assert.That(snapshot.ActiveBlockingSourceCount, Is.EqualTo(expectedActive ? 1 : 0));
+            Assert.That(snapshot.TopologyPlannedBarrierCount, Is.EqualTo(expectedPlanned ? 1 : 0));
+            Assert.That(snapshot.TopologyActiveBlockingCount, Is.EqualTo(expectedActive ? 1 : 0));
+            Assert.That(
+                snapshot.LastReason,
+                Is.EqualTo(expectedActive
+                    ? PresentationBlockingReason.TopologyTransitionActive
+                    : expectedPlanned
+                        ? PresentationBlockingReason.TopologyTransitionPlanned
+                        : PresentationBlockingReason.None));
+            Assert.That(
+                snapshot.LastOwnerDomain,
+                Is.EqualTo(expectedPlanned || expectedActive
+                    ? PresentationDomain.Topology
+                    : PresentationDomain.None));
+            Assert.That(snapshot.LastTickIndex, Is.EqualTo(expectedPlanned || expectedActive ? expectedTickIndex : 0));
+        }
+
+        private static void AssertBlockingSnapshotCleared(PresentationBlockingSnapshot snapshot)
+        {
+            Assert.That(snapshot.HasPlannedBlockingBarrier, Is.False);
+            Assert.That(snapshot.HasActiveBlockingPresentation, Is.False);
+            Assert.That(snapshot.PlannedBlockingBarrierCount, Is.Zero);
+            Assert.That(snapshot.ActiveBlockingSourceCount, Is.Zero);
+            Assert.That(snapshot.TopologyPlannedBarrierCount, Is.Zero);
+            Assert.That(snapshot.TopologyActiveBlockingCount, Is.Zero);
+            Assert.That(snapshot.Sources, Is.Empty);
+            Assert.That(snapshot.LastReason, Is.EqualTo(PresentationBlockingReason.None));
+            Assert.That(snapshot.LastOwnerDomain, Is.EqualTo(PresentationDomain.None));
+            Assert.That(snapshot.LastTickIndex, Is.Zero);
         }
 
         private static GameplayTimingProfile CreateTimingProfile(float topologyMotionDurationSeconds = 0.2f)

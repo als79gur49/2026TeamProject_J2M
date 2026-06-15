@@ -12,6 +12,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
+using Game.Feature.Gameplay.PresentationPlayback;
 using Game.Feature.Gameplay.PresentationRuntime;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.TopologyAudio;
@@ -231,6 +232,12 @@ namespace Game.Feature.Gameplay.Host
         internal int PresentationPipelineNoOpSchedulerAcceptCount =>
             _presentationPipeline?.NoOpSchedulerAcceptCount ?? 0;
 
+        internal PresentationBlockingSnapshot PresentationPipelineBlockingSnapshot =>
+            _presentationPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
+
+        internal PresentationBlockingSnapshot TopologyExecutionPipelineBlockingSnapshot =>
+            _topologyExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
+
         internal TopologyPresentationExecutionMode TopologyPresentationExecutionMode => _topologyExecutionMode;
 
         internal TopologyPresentationOwnershipDiagnostics TopologyPresentationOwnershipDiagnostics =>
@@ -424,6 +431,7 @@ namespace Game.Feature.Gameplay.Host
 
             _isInitialized = true;
             _topologyExecutionPipeline?.ResetSession();
+            ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             ResetPresentationPipelineDiagnosticsIfEnabled();
         }
 
@@ -559,6 +567,7 @@ namespace Game.Feature.Gameplay.Host
                 result,
                 _timingProfile.MoveMotionDurationSeconds);
             RefreshTopologyExecution(result);
+            ObserveTopologyActiveStateForPresentationPipelines(result.TickIndex);
             RefreshGameplayAudioPlaybackGate();
             _topologyAudioPresentationController.ReplacePendingPlan(
                 _topologyAudioRequestPlanner.BuildRequests(result));
@@ -744,6 +753,7 @@ namespace Game.Feature.Gameplay.Host
             _topologyTransitionController.Reset();
             _topologyExecutionGuard.ResetSession();
             _topologyExecutionPipeline?.ResetSession();
+            ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             _lastPresentedResult = null;
             _topologyTransitionEpoch = 0;
             ResetPresentationPipelineDiagnosticsIfEnabled();
@@ -786,6 +796,7 @@ namespace Game.Feature.Gameplay.Host
 
             var hadActiveBoardRotationTween = _topologyTransitionController.HasActiveBoardRotationTween;
             _topologyTransitionController.UpdatePresentation(deltaTime, _stateStore.CommittedTopology);
+            ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             RefreshGameplayAudioPlaybackGate();
             var gameplayAudioDeltaTime =
                 hadActiveBoardRotationTween || _topologyTransitionController.HasActiveBoardRotationTween
@@ -1229,6 +1240,7 @@ namespace Game.Feature.Gameplay.Host
 
             _presentationPipeline ??= GameplayPresentationPipelineInstaller.CreateDiagnosticsOnly();
             _presentationPipeline.Present(result);
+            ObserveTopologyActiveStateForPresentationPipelines(result.TickIndex);
         }
 
         private void UpdatePresentationPipelineDiagnosticsIfEnabled(float deltaTime)
@@ -1239,6 +1251,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _presentationPipeline?.Update(deltaTime);
+            ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
         }
 
         private void ResetPresentationPipelineDiagnosticsIfEnabled()
@@ -1249,6 +1262,18 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _presentationPipeline?.ResetSession();
+            ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
+        }
+
+        private void ObserveTopologyActiveStateForPresentationPipelines(int tickIndex)
+        {
+            var isTopologyActive = _topologyTransitionController.HasActiveBoardRotationTween;
+            if (_presentationPipelineDiagnosticsEnabled)
+            {
+                _presentationPipeline?.ObserveTopologyActiveState(isTopologyActive, tickIndex);
+            }
+
+            _topologyExecutionPipeline?.ObserveTopologyActiveState(isTopologyActive, tickIndex);
         }
 
         private void PresentExtensions(TickResult result)
