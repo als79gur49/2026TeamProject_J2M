@@ -36,6 +36,12 @@ Shield must be classified by these questions before implementation:
 Summon and Utility stay in the capability lane until a concrete migration trigger
 exists. Utility remains an active lane.
 
+Post-Option-C note: Summon spawn/entity creation materialization has been
+extracted behind the `EntitySpawnRequest` / `EntitySpawnMaterializer` seam, but
+Summon remains a Utility capability. Utility still owns trigger timing, effect
+state, cooldown, windup, recovery, max-alive checks, and source validation.
+Option C does not start SummonBehaviorModule migration.
+
 ## Investigation Questions
 
 - Does Summon couple to enemy AI mode or resolver decisions?

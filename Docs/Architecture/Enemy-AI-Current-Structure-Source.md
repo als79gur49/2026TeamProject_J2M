@@ -93,6 +93,14 @@ Summon remains in the Utility capability path. GravityFieldAura remains a
 Utility/board-modifier style capability. Phase 1 does not deprecate Utility and
 does not remove `capabilityAssets`.
 
+Utility Summon now uses the Option C spawn/entity creation seam documented in
+`Enemy-AI-Summon-Spawn-Seam-Implementation-Note.md`. The Utility lane still owns
+trigger timing, cooldown, windup, recovery, max-alive checks, and source
+validation; the extracted seam handles request materialization, placement, and
+entity id allocation after placement succeeds. This does not introduce a
+SummonBehaviorModule, does not add a Summon behavior key, and does not migrate
+Summon authoring assets. Option B remains future-only.
+
 ## BehaviorModule Boundary
 
 Behavior modules are for stateful or special behavior execution that is coupled
