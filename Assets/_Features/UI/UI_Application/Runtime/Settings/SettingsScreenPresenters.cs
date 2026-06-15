@@ -4,14 +4,6 @@ using Game.Feature.UI.Screens;
 
 namespace Game.Feature.UI.Application
 {
-    public readonly struct SettingsAudioPresenterInput
-    {
-    }
-
-    public readonly struct SettingsDisplayPresenterInput
-    {
-    }
-
     public sealed class SettingsAudioPresenter
     {
         private readonly IAudioSettingsPort _audioSettingsPort;
@@ -23,7 +15,7 @@ namespace Game.Feature.UI.Application
 
         public SettingsAudioViewModel ViewModel { get; } = new SettingsAudioViewModel();
 
-        public void Apply(SettingsAudioPresenterInput input)
+        public void Apply()
         {
             RefreshViewModel();
         }
@@ -165,7 +157,7 @@ namespace Game.Feature.UI.Application
 
         public SettingsDisplayViewModel ViewModel { get; } = new SettingsDisplayViewModel();
 
-        public void Apply(SettingsDisplayPresenterInput input, double previewTimeoutSeconds)
+        public void Apply(double previewTimeoutSeconds)
         {
             ClearPreviewCountdown();
             ResyncState(resetStagedToCommitted: true, previewTimeoutSeconds: previewTimeoutSeconds);
@@ -621,8 +613,8 @@ namespace Game.Feature.UI.Application
         public void Apply(SettingsScreenPayload payload, double previewTimeoutSeconds)
         {
             _payload = payload ?? throw new ArgumentNullException(nameof(payload));
-            AudioPresenter.Apply(default);
-            DisplayPresenter.Apply(default, previewTimeoutSeconds);
+            AudioPresenter.Apply();
+            DisplayPresenter.Apply(previewTimeoutSeconds);
             InputPresenter.Apply(new SettingsInputPresenterInput(
                 _payload.MovementLabel,
                 _payload.UseArrowKeysLabel,

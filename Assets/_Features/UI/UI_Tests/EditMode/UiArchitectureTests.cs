@@ -1035,7 +1035,7 @@ namespace Game.Feature.UI.Tests
                 GetPublicMethodSignatures(typeof(SettingsAudioPresenter)),
                 Is.EqualTo(new[]
                 {
-                    "Apply(SettingsAudioPresenterInput)",
+                    "Apply()",
                     "Flush()",
                     "SetMuted(AudioSettingsChannel, Boolean)",
                     "SetVolume(AudioSettingsChannel, Single)",
@@ -1049,7 +1049,7 @@ namespace Game.Feature.UI.Tests
                 GetPublicMethodSignatures(typeof(SettingsDisplayPresenter)),
                 Is.EqualTo(new[]
                 {
-                    "Apply(SettingsDisplayPresenterInput, Double)",
+                    "Apply(Double)",
                     "ApplyStagedSettings(Double)",
                     "CancelPreview()",
                     "ClearPreviewCountdown()",

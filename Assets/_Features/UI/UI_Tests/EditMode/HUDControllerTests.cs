@@ -450,7 +450,6 @@ namespace Game.Feature.UI.Tests
                 }
             }
 
-            Assert.That(hudPrefab.GetComponentsInChildren<SurfaceCubeMapView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<RawImage>(true), Is.Empty);
         }
 
@@ -2317,30 +2316,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(child, Is.Not.Null);
             Assert.That(owner, Is.Not.Null);
             Assert.That(child.IsChildOf(owner), Is.True, $"{child.name} should be under {owner.name}.");
-        }
-
-        private static void AssertCubeMapPreviewHasRenderableLayoutContract(SurfaceCubeMapView cubeMapView)
-        {
-            Assert.That(cubeMapView, Is.Not.Null);
-            Assert.That(cubeMapView.transform, Is.InstanceOf<RectTransform>());
-
-            var layoutElement = cubeMapView.GetComponent<LayoutElement>();
-            if (layoutElement != null)
-            {
-                Assert.That(layoutElement.enabled, Is.True);
-                Assert.That(layoutElement.ignoreLayout, Is.False);
-                Assert.That(
-                    layoutElement.preferredWidth > 0.0f || layoutElement.minWidth > 0.0f,
-                    Is.True);
-                Assert.That(
-                    layoutElement.preferredHeight > 0.0f || layoutElement.minHeight > 0.0f,
-                    Is.True);
-                return;
-            }
-
-            var rectTransform = (RectTransform)cubeMapView.transform;
-            Assert.That(rectTransform.sizeDelta.x, Is.GreaterThan(0.0f));
-            Assert.That(rectTransform.sizeDelta.y, Is.GreaterThan(0.0f));
         }
 
         private static void AssertNoOverlap(RectTransform first, RectTransform second)
