@@ -65,6 +65,17 @@ The current Charge pieces are:
 - `EnemyChargeRuntimeState`
   - authoritative mutable charge state
 
+The only current production Charge content is:
+
+- `EnemyChargeExecutionProfile_Standard`
+- `EnemyChargeBehaviorModule_Standard`
+
+Future Charge timing variants remain allowed through the reusable
+`EnemyChargeExecutionProfile` type and the
+`EnemyChargeBehaviorModuleAsset -> EnemyChargeExecutionProfile` reference, but
+variant assets must be created only when production content actually needs them.
+Do not keep unused timing-only placeholder assets as supported archetypes.
+
 The resolver decides mode-transition meaning. `EnemyLogic` combines resolver
 decisions with `EnemyChargeBehaviorRuntime` timing and commits authoritative
 charge state.

@@ -70,3 +70,6 @@ Do not enter Phase 2 until at least one trigger is real:
 - Do not add a generic world-state update behavior hook.
 - Do not create traversal/contact policy assets before actual Charge variation
   requires them.
+- Do not treat timing-only Charge variants as permission to mix traversal,
+  contact, or passive-contact policy into a Charge variation before a concrete
+  production requirement exists.

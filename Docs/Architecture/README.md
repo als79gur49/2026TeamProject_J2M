@@ -47,7 +47,7 @@
 - [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md)
   - current supporting truth for ownership-based Enemy AI profile/core/brain/capability/view/animator/presentation naming
 - [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)
-  - current supporting truth for Phase 1 Enemy AI profile root, runtime definition lanes, Charge BehaviorModule ownership, and Phase 2 trigger boundaries
+  - current supporting truth for Phase 1 Enemy AI profile root, runtime definition lanes, Standard-only Charge BehaviorModule production content, and Phase 2 trigger boundaries
 - [Enemy-AI-Phase1-Merge-Gate.md](./Enemy-AI-Phase1-Merge-Gate.md)
   - current supporting truth for Phase 1 merge checklist, validation evidence wording, reviewer focus, and forbidden follow-up pattern scans
 - [Enemy-AI-Shield-Summon-Utility-Audit.md](./Enemy-AI-Shield-Summon-Utility-Audit.md)

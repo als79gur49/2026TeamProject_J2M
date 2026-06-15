@@ -41,7 +41,7 @@ features and does not start Phase 2.
 - `EnemyAiRuntimeDefinition.Behaviors` and `TryGetChargeBehavior`
 - `EnemyLogic` charge resolver construction and charge runtime timing source
 - `EnemyAiProfileAssetContractTests` repository profile guards
-- Charge behavior module assets and paired `.meta` files
+- Standard Charge behavior module/profile assets and paired `.meta` files
 
 ## Evidence Template
 
@@ -49,7 +49,8 @@ Use this wording in merge reports:
 
 - Tests run: `./run_tests.sh core`
 - Tests not run: `./run_tests.sh ui` when UI did not change
-- Scan evidence: old API residue, YAML charge timing, and forbidden pattern scans
+- Scan evidence: old API residue, YAML charge timing, deleted Charge variant
+  GUID/path residue, and forbidden pattern scans
 - Known baseline: full lane is documented red unless rerun and proven otherwise
 
 Do not use broad claims such as project-wide green, full lane green, full

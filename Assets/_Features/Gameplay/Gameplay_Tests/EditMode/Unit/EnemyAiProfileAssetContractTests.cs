@@ -60,21 +60,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_ArchetypeSummoner/EnemyAi_ArchetypeSummoner.asset",
         };
 
-        private static readonly Dictionary<string, int[]> RequiredChargeExecutionProfileTicks = new()
-        {
-            [StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeExecutionProfile_Standard.asset"] = new[] { 24, 12, 24 },
-            [StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeExecutionProfile_Fast.asset"] = new[] { 12, 6, 12 },
-            [StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeExecutionProfile_Heavy.asset"] = new[] { 36, 18, 42 },
-            [StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeExecutionProfile_SlowWindup.asset"] = new[] { 48, 12, 24 },
-        };
+        private const string StandardChargeExecutionProfilePath =
+            StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeExecutionProfile_Standard.asset";
 
-        private static readonly string[] RequiredChargeBehaviorModulePaths =
-        {
-            StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeBehaviorModule_Standard.asset",
-            StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeBehaviorModule_Fast.asset",
-            StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeBehaviorModule_Heavy.asset",
-            StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeBehaviorModule_SlowWindup.asset",
-        };
+        private const string StandardChargeBehaviorModulePath =
+            StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeBehaviorModule_Standard.asset";
+
+        private const string ChargerProfilePath =
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Charger/EnemyAi_Charger.asset";
 
         [Test]
         [Category("Extended")]
@@ -266,32 +259,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyChargeExecutionProfileAssets_CompileTimingProfilesToExpectedTicks()
+        public void EnemyChargeExecutionProfileAssets_StandardProductionProfile_CompilesToExpectedTicks()
         {
-            foreach (var pair in RequiredChargeExecutionProfileTicks)
-            {
-                var profile = AssetDatabase.LoadAssetAtPath<EnemyChargeExecutionProfile>(pair.Key);
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyChargeExecutionProfile>(StandardChargeExecutionProfilePath);
 
-                Assert.That(profile, Is.Not.Null, pair.Key);
-                var timing = profile.Timing.ToRuntimeSettings(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-                Assert.That(timing.WindupTicks, Is.EqualTo(pair.Value[0]), pair.Key);
-                Assert.That(timing.ActiveStepCooldownTicks, Is.EqualTo(pair.Value[1]), pair.Key);
-                Assert.That(timing.RecoverTicks, Is.EqualTo(pair.Value[2]), pair.Key);
-            }
+            Assert.That(profile, Is.Not.Null, StandardChargeExecutionProfilePath);
+            Assert.That(
+                profile.Timing.WindupSeconds,
+                Is.EqualTo(0.4f).Within(0.0001f),
+                StandardChargeExecutionProfilePath);
+            Assert.That(
+                profile.Timing.ActiveStepCooldownSeconds,
+                Is.EqualTo(0.2f).Within(0.0001f),
+                StandardChargeExecutionProfilePath);
+            Assert.That(
+                profile.Timing.RecoverSeconds,
+                Is.EqualTo(0.4f).Within(0.0001f),
+                StandardChargeExecutionProfilePath);
+
+            var timing = profile.Timing.ToRuntimeSettings(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            Assert.That(timing.WindupTicks, Is.EqualTo(24), StandardChargeExecutionProfilePath);
+            Assert.That(timing.ActiveStepCooldownTicks, Is.EqualTo(12), StandardChargeExecutionProfilePath);
+            Assert.That(timing.RecoverTicks, Is.EqualTo(24), StandardChargeExecutionProfilePath);
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyChargeBehaviorModuleAssets_PointToChargeExecutionProfiles()
+        public void EnemyChargeBehaviorModuleAssets_StandardModule_PointsToStandardChargeExecutionProfile()
         {
-            foreach (var assetPath in RequiredChargeBehaviorModulePaths)
-            {
-                var module = AssetDatabase.LoadAssetAtPath<EnemyChargeBehaviorModuleAsset>(assetPath);
+            var module = AssetDatabase.LoadAssetAtPath<EnemyChargeBehaviorModuleAsset>(StandardChargeBehaviorModulePath);
 
-                Assert.That(module, Is.Not.Null, assetPath);
-                Assert.That(module.Key, Is.EqualTo(EnemyBehaviorModuleKey.Charge), assetPath);
-                Assert.That(module.ChargeExecutionProfile, Is.Not.Null, assetPath);
-            }
+            Assert.That(module, Is.Not.Null, StandardChargeBehaviorModulePath);
+            Assert.That(module.Key, Is.EqualTo(EnemyBehaviorModuleKey.Charge), StandardChargeBehaviorModulePath);
+            Assert.That(module.ChargeExecutionProfile, Is.Not.Null, StandardChargeBehaviorModulePath);
+            Assert.That(AssetDatabase.GetAssetPath(module.ChargeExecutionProfile), Is.EqualTo(StandardChargeExecutionProfilePath));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAiProfileAssets_ChargerProfile_PointsToStandardChargeBehaviorModule()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(ChargerProfilePath);
+            var module = AssetDatabase.LoadAssetAtPath<EnemyChargeBehaviorModuleAsset>(StandardChargeBehaviorModulePath);
+
+            Assert.That(profile, Is.Not.Null, ChargerProfilePath);
+            Assert.That(module, Is.Not.Null, StandardChargeBehaviorModulePath);
+            Assert.That(profile.BehaviorModuleAssets, Has.Count.EqualTo(1), ChargerProfilePath);
+            Assert.That(profile.BehaviorModuleAssets[0], Is.SameAs(module), ChargerProfilePath);
         }
 
         [Test]

@@ -96,6 +96,13 @@ Behavior module folders:
 - Prefer behavior semantic plus variant when the module is reusable:
   - `BehaviorModules/Enemy_Charge/`
 - Keep execution-profile variants beside the behavior modules they configure.
+- Current production Charge content uses only `EnemyChargeExecutionProfile_Standard`
+  and `EnemyChargeBehaviorModule_Standard`.
+- Create new Charge variation assets only when a production profile needs them.
+  Use `EnemyChargeExecutionProfile_<VariantName>` and
+  `EnemyChargeBehaviorModule_<VariantName>` for those real variants.
+- Naming examples are examples only; do not pre-create unused variation assets as
+  placeholder production content.
 - Do not use behavior modules for Utility, Summon, or Shield before their owner
   classification is complete.
 
