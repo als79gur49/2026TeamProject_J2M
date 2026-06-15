@@ -114,6 +114,30 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void DirectPlaySources_DoNotUseProductionFallbackOrDefaultStageIdFallbackVocabulary()
+        {
+            var sourcePaths = new[]
+            {
+                "Assets/_Features/Stages/Editor/StageEditorDirectPlayCatalog.cs",
+                "Assets/_Features/Stages/Editor/StageEditorDirectPlayLauncher.cs",
+                "Assets/_Features/Stages/Editor/StageEditorDirectPlayWindow.cs",
+                "Assets/_Features/Stages/Runtime/Load/StageLoadRequest.cs",
+                "Assets/_Features/Stages/Runtime/Load/StageRuntimeContentResolver.cs",
+            };
+
+            foreach (var sourcePath in sourcePaths)
+            {
+                var source = File.ReadAllText(sourcePath);
+                Assert.That(source, Does.Not.Contain("production " + "fallback"), sourcePath);
+                Assert.That(source, Does.Not.Contain("defaultStageId " + "fallback"), sourcePath);
+                Assert.That(source, Does.Not.Contain("defaultStageId runtime " + "fallback"), sourcePath);
+                Assert.That(source, Does.Not.Contain("runtime recovery " + "path"), sourcePath);
+                Assert.That(source, Does.Not.Contain("Direct StageDefinition " + "option"), sourcePath);
+                Assert.That(source, Does.Not.Contain("CatalogResolvedStageId"), sourcePath);
+            }
+        }
+
+        [Test]
         public void Launcher_PrimesPendingStageIdForSupportedStage()
         {
             var stageId = StageId.CreateOrThrow("onboarding");

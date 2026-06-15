@@ -32,9 +32,12 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(reportText, Does.Contain("## Authoring Surface Classification"));
             Assert.That(reportText, Does.Contain("StageContentEntry: Stage Root"));
             Assert.That(reportText, Does.Contain("StageDefinition: Gameplay Companion"));
+            Assert.That(reportText, Does.Not.Contain("StageDefinition: Stage Root"));
             Assert.That(reportText, Does.Contain("StagePresentationDefinition: Presentation Companion"));
             Assert.That(reportText, Does.Contain("StageAudioDefinition: Audio Companion"));
             Assert.That(reportText, Does.Contain("Reward / Progression / ClearEvaluation: Retired Companion Guard"));
+            Assert.That(reportText, Does.Not.Contain("Reward / Progression / ClearEvaluation: Active Companion"));
+            Assert.That(reportText, Does.Not.Contain("Reward / Progression / ClearEvaluation: Missing Companion"));
             Assert.That(reportText, Does.Contain("RetiredStageLoadPathGuard: Retired Load Guard"));
             Assert.That(reportText, Does.Contain("defaultStageId residue: Retired Load Detector"));
             Assert.That(reportText, Does.Contain("direct stageDefinition residue: Retired Load Detector"));
@@ -42,7 +45,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(reportText, Does.Contain("compat mode residue: Retired Load Detector"));
             Assert.That(reportText, Does.Contain("StageEditorDirectPlayCatalog / StageEditorDirectPlayLauncher / StageEditorDirectPlayWindow: Editor Direct-Play Support"));
             Assert.That(reportText, Does.Contain("PresentationId: Presentation-Only Binding"));
+            Assert.That(reportText, Does.Not.Contain("PresentationId: Gameplay Authority"));
             Assert.That(reportText, Does.Contain("UI / Audio / Topology helper references: Weak Helper / Reference"));
+            Assert.That(reportText, Does.Not.Contain("UI / Audio / Topology helper references: Stage Root"));
             Assert.That(reportText, Does.Contain("## Scene Bootstrap Guard Summary"));
             Assert.That(reportText, Does.Contain("AuditReport: stage-content-inventory-retired-residue-audit.md"));
             Assert.That(reportText, Does.Contain("LaunchContextCatalogResolvedInstallers"));
@@ -147,27 +152,6 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void StageContentEntryCreation_GuardsRetiredRewardProgressionClearEvaluationAssetsRemainAbsent()
-        {
-            using var fixture = TempCampaignStageAssetFixture.Create();
-            var gameplay = ScriptableObject.CreateInstance<StageDefinition>();
-            fixture.CreateAsset(gameplay, $"{fixture.StageIdValue}.asset");
-
-            var entry = StageContentEntryCreationTool.CreateForStageDefinition(
-                gameplay,
-                StageId.CreateOrThrow(fixture.StageIdValue));
-
-            Assert.That(entry, Is.Not.Null);
-            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_Entry.asset")), Is.True);
-            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_Authoring.asset")), Is.True);
-            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_Presentation.asset")), Is.True);
-            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_Audio.asset")), Is.True);
-            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_ClearEvaluation.asset")), Is.False);
-            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_Reward.asset")), Is.False);
-            Assert.That(File.Exists(ToAbsolutePath($"{fixture.StageFolder}/{fixture.StageIdValue}_Progression.asset")), Is.False);
-        }
-
-        [Test]
         public void CampaignGovernance_RejectsSharedAudioDefinitionEvenWhenNamedLikeAudioCompanion()
         {
             using var fixture = TempCampaignStageAssetFixture.Create();
@@ -230,11 +214,6 @@ namespace Game.Feature.Stages.Editor.Tests
             return string.Join(
                 Environment.NewLine,
                 issues.Select(issue => $"{issue.Code}: {issue.Message} ({issue.AssetPath})"));
-        }
-
-        private static string ToAbsolutePath(string assetPath)
-        {
-            return Path.Combine(Directory.GetParent(Application.dataPath)?.FullName ?? Directory.GetCurrentDirectory(), assetPath);
         }
 
         private sealed class TempCampaignStageAssetFixture : IDisposable

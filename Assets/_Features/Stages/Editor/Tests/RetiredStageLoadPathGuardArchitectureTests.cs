@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -8,6 +9,9 @@ namespace Game.Feature.Stages.Editor.Tests
 {
     public sealed class RetiredStageLoadPathGuardArchitectureTests
     {
+        private const string PreWorkbenchGuardDocPath =
+            "Docs/Testing/Stage-Authoring-Pre-Workbench-Acceptance-Guard-2026-06-16.md";
+
         [Test]
         public void RuntimeAssembly_DoesNotReferenceRemovedCompatLoadPaths()
         {
@@ -157,6 +161,44 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
+        public void PreWorkbenchAcceptanceGuardDocument_RecordsCurrentClassificationMatrix()
+        {
+            var document = File.ReadAllText(PreWorkbenchGuardDocPath);
+
+            Assert.That(document, Does.Contain("Acceptance Guard Matrix"));
+            Assert.That(document, Does.Contain("StageContentEntry"));
+            Assert.That(document, Does.Contain("Stage Root"));
+            Assert.That(document, Does.Contain("StageDefinition"));
+            Assert.That(document, Does.Contain("Gameplay Companion"));
+            Assert.That(document, Does.Contain("Reward / Progression / ClearEvaluation"));
+            Assert.That(document, Does.Contain("Retired Companion Guard"));
+            Assert.That(document, Does.Contain("RetiredStageLoadPathGuard"));
+            Assert.That(document, Does.Contain("Retired Load Guard"));
+            Assert.That(document, Does.Contain("defaultStageId"));
+            Assert.That(document, Does.Contain("direct `stageDefinition`"));
+            Assert.That(document, Does.Contain("Retired Load Detector"));
+            Assert.That(document, Does.Contain("StageEditorDirectPlayCatalog"));
+            Assert.That(document, Does.Contain("StageEditorDirectPlayLauncher"));
+            Assert.That(document, Does.Contain("StageEditorDirectPlayWindow"));
+            Assert.That(document, Does.Contain("Editor Direct-Play Support"));
+            Assert.That(document, Does.Contain("PresentationId"));
+            Assert.That(document, Does.Contain("Presentation-Only Binding"));
+            Assert.That(document, Does.Contain("Weak Helper / Reference"));
+            Assert.That(document, Does.Contain("StageAuthoringSurfaceKind"));
+            Assert.That(document, Does.Contain("StageAuthoringSurfaceClassificationLabels"));
+            Assert.That(document, Does.Contain("Forbidden Vocabulary Policy"));
+            Assert.That(document, Does.Contain("This is not a Workbench implementation"));
+        }
+
+        [Test]
+        public void PreWorkbenchForbiddenVocabulary_DoesNotReappearAsActiveContract()
+        {
+            var hits = FindActiveForbiddenVocabularyHits().ToArray();
+
+            Assert.That(hits, Is.Empty, string.Join(Environment.NewLine, hits));
+        }
+
+        [Test]
         public void AliasTableSetEntries_IsOnlyCalledFromGovernanceUpdater()
         {
             var stagesRoot = Path.GetFullPath(Path.Combine(Application.dataPath, "_Features/Stages"));
@@ -196,6 +238,119 @@ namespace Game.Feature.Stages.Editor.Tests
                 .ToArray();
 
             Assert.That(matches, Is.Empty);
+        }
+
+        private static IEnumerable<string> FindActiveForbiddenVocabularyHits()
+        {
+            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            var forbiddenVocabulary = new[]
+            {
+                "StageDefinition root",
+                "Create Stage Content Entry From Selected StageDefinition",
+                "Stage Compat Audit",
+                "CanonicalGameplayAssetCount",
+                "GameplayAssets as root",
+                "StageGameplayAssetInventoryItem",
+                "Scene Mode Summary",
+                "StageLoadSourceMode",
+                "CatalogResolvedStageId",
+                "defaultStageId fallback",
+                "defaultStageId runtime fallback",
+                "Direct StageDefinition option",
+                "production fallback",
+                "runtime recovery path",
+                "RewardAuthoring",
+                "ProgressionAuthoring",
+                "ClearEvaluationAuthoring",
+                "active missing companion",
+            };
+
+            foreach (var root in new[] { "Assets", "Docs", "Packages", "ProjectSettings" })
+            {
+                var absoluteRoot = Path.Combine(projectRoot, root);
+                if (!Directory.Exists(absoluteRoot))
+                {
+                    continue;
+                }
+
+                foreach (var file in Directory.GetFiles(absoluteRoot, "*", SearchOption.AllDirectories))
+                {
+                    if (ShouldSkipVocabularyScanPath(projectRoot, file))
+                    {
+                        continue;
+                    }
+
+                    var relativePath = Path.GetRelativePath(projectRoot, file).Replace('\\', '/');
+                    var lines = File.ReadAllLines(file);
+                    for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++)
+                    {
+                        var line = lines[lineIndex];
+                        if (IsAllowedForbiddenVocabularyContext(relativePath, line))
+                        {
+                            continue;
+                        }
+
+                        foreach (var token in forbiddenVocabulary)
+                        {
+                            if (line.Contains(token, StringComparison.Ordinal))
+                            {
+                                yield return $"{relativePath}:{lineIndex + 1}: {token}";
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private static bool ShouldSkipVocabularyScanPath(string projectRoot, string absoluteFilePath)
+        {
+            var relativePath = Path.GetRelativePath(projectRoot, absoluteFilePath).Replace('\\', '/');
+            var fileName = Path.GetFileName(relativePath);
+            if (relativePath == PreWorkbenchGuardDocPath ||
+                relativePath.EndsWith("RetiredStageLoadPathGuardArchitectureTests.cs", StringComparison.Ordinal) ||
+                fileName.StartsWith("InitTestScene", StringComparison.Ordinal) && fileName.EndsWith(".unity", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (relativePath.StartsWith("Docs/Archive/", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            var extension = Path.GetExtension(relativePath);
+            return extension.Equals(".meta", StringComparison.OrdinalIgnoreCase) ||
+                   extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+                   extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                   extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                   extension.Equals(".psd", StringComparison.OrdinalIgnoreCase) ||
+                   extension.Equals(".fbx", StringComparison.OrdinalIgnoreCase) ||
+                   extension.Equals(".wav", StringComparison.OrdinalIgnoreCase) ||
+                   extension.Equals(".mp3", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsAllowedForbiddenVocabularyContext(string relativePath, string line)
+        {
+            if (relativePath.Contains("/Tests/", StringComparison.Ordinal) &&
+                (line.Contains("Does.Not.Contain", StringComparison.Ordinal) ||
+                 line.Contains("AssertForbiddenVocabulary", StringComparison.Ordinal)))
+            {
+                return true;
+            }
+
+            if (line.Contains("Disallowed wording", StringComparison.Ordinal) ||
+                line.Contains("Forbidden", StringComparison.Ordinal) ||
+                line.Contains("forbidden", StringComparison.Ordinal) ||
+                line.Contains("금지", StringComparison.Ordinal) ||
+                line.Contains("must not", StringComparison.Ordinal) ||
+                line.Contains("should not", StringComparison.Ordinal) ||
+                line.Contains("retired", StringComparison.OrdinalIgnoreCase) ||
+                line.Contains("historical", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }
