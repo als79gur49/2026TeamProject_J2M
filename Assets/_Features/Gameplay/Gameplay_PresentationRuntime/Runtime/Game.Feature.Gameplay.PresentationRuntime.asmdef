@@ -1,0 +1,10 @@
+{
+  "name": "Game.Feature.Gameplay.PresentationRuntime",
+  "rootNamespace": "Game.Feature.Gameplay.PresentationRuntime",
+  "references": [
+    "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.PresentationContracts",
+    "Game.Feature.Gameplay.PresentationPlanning",
+    "Game.Feature.Gameplay.PresentationPlayback"
+  ]
+}

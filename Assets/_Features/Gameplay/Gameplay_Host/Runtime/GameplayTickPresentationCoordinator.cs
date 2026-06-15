@@ -12,6 +12,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
+using Game.Feature.Gameplay.PresentationRuntime;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.TopologyAudio;
 using UnityEngine;
@@ -71,7 +72,9 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplaySfxArbiter _gameplaySfxArbiter = new();
         private readonly List<IGameplayTickPresentationExtension> _presentationExtensions = new();
 
+        private GameplayPresentationPipeline _presentationPipeline;
         private bool _isInitialized;
+        private bool _presentationPipelineDiagnosticsEnabled;
         private GameplayCubeProjector _projector;
         private EnemyPresentationBinding[] _enemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         private EnemyPresentationCatalog _enemyPresentationCatalog;
@@ -210,6 +213,24 @@ namespace Game.Feature.Gameplay.Host
 
         internal EntityPresentationApplyDiagnostics DebugLastEntityPresentationApplyDiagnostics =>
             _stateStore.LastEntityPresentationApplyDiagnostics;
+
+        internal bool IsPresentationPipelineDiagnosticsEnabled => _presentationPipelineDiagnosticsEnabled;
+
+        internal int PresentationPipelineNoOpSchedulerAcceptCount =>
+            _presentationPipeline?.NoOpSchedulerAcceptCount ?? 0;
+
+        internal void EnablePresentationPipelineDiagnostics(GameplayPresentationPipeline pipeline = null)
+        {
+            _presentationPipeline = pipeline ?? GameplayPresentationPipelineInstaller.CreateDiagnosticsOnly();
+            _presentationPipeline.ResetSession();
+            _presentationPipelineDiagnosticsEnabled = true;
+        }
+
+        internal void DisablePresentationPipelineDiagnostics()
+        {
+            _presentationPipelineDiagnosticsEnabled = false;
+            _presentationPipeline?.ResetSession();
+        }
 
         internal GameplayEntityPresentationLifecycleDebugSnapshot DebugCaptureEntityPresentationLifecycle(
             int entityId,
@@ -376,6 +397,7 @@ namespace Game.Feature.Gameplay.Host
             _moonBlockEmergencePresentationController.ResetSession();
 
             _isInitialized = true;
+            ResetPresentationPipelineDiagnosticsIfEnabled();
         }
 
         public void AttachCameraRig(GameplayCameraRig viewCameraRig)
@@ -563,6 +585,7 @@ namespace Game.Feature.Gameplay.Host
             _summonedEnemyPresentationResolver.CleanupOwnedViews(result.FinalEntities);
             UpdatePresentation(0f);
             _moonBlockEmergencePresentationController.StartReadyRequests(result.TickIndex);
+            PresentDiagnosticsPipelineIfEnabled(result);
         }
 
         private void RetainTopologyMoonBlockGeneratedPoses(TickPresentationData presentationData)
@@ -653,6 +676,7 @@ namespace Game.Feature.Gameplay.Host
             _topologyTransitionController.Reset();
             _lastPresentedResult = null;
             _topologyTransitionEpoch = 0;
+            ResetPresentationPipelineDiagnosticsIfEnabled();
 
             _committedFrameBuilder.StoreCommittedFrame(
                 entities,
@@ -728,6 +752,7 @@ namespace Game.Feature.Gameplay.Host
                 _moonBlockEmergencePresentationController,
                 _lastPresentedTickIndex);
             _moonBlockEmergencePresentationController.StartReadyRequests(_lastPresentedTickIndex);
+            UpdatePresentationPipelineDiagnosticsIfEnabled(deltaTime);
         }
 
         public void SetPresentationPaused(bool paused)
@@ -1117,10 +1142,42 @@ namespace Game.Feature.Gameplay.Host
         {
             _moonBlockDestructionPresentationController.Dispose();
             _moonBlockEmergencePresentationController.Dispose();
+            _presentationPipeline?.HardCleanup();
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.HardCleanup();
             }
+        }
+
+        private void PresentDiagnosticsPipelineIfEnabled(TickResult result)
+        {
+            if (!_presentationPipelineDiagnosticsEnabled)
+            {
+                return;
+            }
+
+            _presentationPipeline ??= GameplayPresentationPipelineInstaller.CreateDiagnosticsOnly();
+            _presentationPipeline.Present(result);
+        }
+
+        private void UpdatePresentationPipelineDiagnosticsIfEnabled(float deltaTime)
+        {
+            if (!_presentationPipelineDiagnosticsEnabled)
+            {
+                return;
+            }
+
+            _presentationPipeline?.Update(deltaTime);
+        }
+
+        private void ResetPresentationPipelineDiagnosticsIfEnabled()
+        {
+            if (!_presentationPipelineDiagnosticsEnabled)
+            {
+                return;
+            }
+
+            _presentationPipeline?.ResetSession();
         }
 
         private void PresentExtensions(TickResult result)
