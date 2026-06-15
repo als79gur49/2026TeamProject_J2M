@@ -258,7 +258,7 @@ namespace Game.Feature.UI.HUD
 
         private void RefreshView()
         {
-            var isRootVisible = IsVisible && (_viewModel == null || _viewModel.IsVisible);
+            var isRootVisible = IsVisible;
             var targetShellAlpha = _viewModel != null && _viewModel.IsDimmed ? HudDimmedAlpha : HudNormalAlpha;
             var becameVisible = !_lastRootVisibleState && isRootVisible;
             var becameHidden = _lastRootVisibleState && !isRootVisible;
