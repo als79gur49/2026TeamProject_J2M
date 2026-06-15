@@ -42,12 +42,12 @@ namespace Game.Feature.Stages.Editor.Tests
         [Test]
         public void Audit_ReportsNoBuildSceneResidue_NoDuplicateLegacyAssets_AndNoAliasUsageHits()
         {
-            var report = new StageCompatUsageAuditor().Audit();
+            var report = new StageContentInventoryResidueAuditor().Audit();
 
-            Assert.That(report.Snapshot.CanonicalGameplayAssetGuids.Count, Is.GreaterThanOrEqualTo(1));
+            Assert.That(report.Snapshot.CanonicalGameplayCompanionAssetGuids.Count, Is.GreaterThanOrEqualTo(1));
             Assert.That(report.BuildSceneResiduePaths, Is.Empty);
             Assert.That(report.BuildSceneCoverageGapPaths, Is.Empty);
-            Assert.That(report.DuplicateLegacyGameplayAssetPaths, Is.Empty);
+            Assert.That(report.DuplicateLegacyGameplayCompanionAssetPaths, Is.Empty);
             Assert.That(report.AliasUsage.Hits, Is.Empty);
         }
 
@@ -236,7 +236,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(contract, Does.Contain("StageEditorDirectPlayCatalog"));
             Assert.That(contract, Does.Contain("StageEditorDirectPlayLauncher"));
             Assert.That(contract, Does.Contain("Launch Stage"));
-            Assert.That(contract, Does.Contain("`defaultStageId` runtime fallback는 제거됐다."));
+            Assert.That(contract, Does.Contain("`defaultStageId` active scene-local load path는 제거됐고 detector status로만 남는다."));
             Assert.That(contract, Does.Not.Contain("CreateEditorDirectPlayFallback"));
         }
 
@@ -254,7 +254,7 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(contract, Does.Contain("## Hard Enforcement"));
             Assert.That(contract, Does.Contain("## Evidence Format"));
             Assert.That(contract, Does.Contain("unsupported reference case"));
-            Assert.That(contract, Does.Contain("runtime fallback 추가가 아니라 warning, checklist, triage policy, close wording으로 고정한다."));
+            Assert.That(contract, Does.Contain("production load-path 추가가 아니라 warning, checklist, triage policy, close wording으로 고정한다."));
             Assert.That(contract, Does.Contain("checkpoint window"));
             Assert.That(contract, Does.Contain("Counter Summary"));
             Assert.That(contract, Does.Contain("same executor + governance reviewer co-sign"));

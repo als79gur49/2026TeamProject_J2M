@@ -17,14 +17,20 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             var result = StageCatalogCiValidationEntryPoint.Run();
             var reportPath = StageCatalogCiValidationEntryPoint.ReportPath;
+            var auditReportPath = Path.Combine(
+                Path.GetDirectoryName(reportPath) ?? string.Empty,
+                "stage-content-inventory-retired-residue-audit.md");
 
             Assert.That(result, Is.EqualTo(0));
             Assert.That(File.Exists(reportPath), Is.True);
+            Assert.That(File.Exists(auditReportPath), Is.True);
 
             var reportText = File.ReadAllText(reportPath);
+            var auditReportText = File.ReadAllText(auditReportPath);
             Assert.That(reportText, Does.Contain("## Authoring Sync Issues"));
             Assert.That(reportText, Does.Contain("## Presentation Catalog Issues"));
             Assert.That(reportText, Does.Contain("## Scene Bootstrap Guard Summary"));
+            Assert.That(reportText, Does.Contain("AuditReport: stage-content-inventory-retired-residue-audit.md"));
             Assert.That(reportText, Does.Contain("LaunchContextCatalogResolvedInstallers"));
             Assert.That(reportText, Does.Contain("RetiredSerializedStageContentEntryResidue"));
             Assert.That(reportText, Does.Contain("RetiredLegacyStageDefinitionResidue"));
@@ -35,6 +41,10 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(reportText, Does.Contain("## Known Warning Governance Issues"));
             Assert.That(reportText, Does.Contain("## Alias Governance Issues"));
             Assert.That(reportText, Does.Contain("## Alias Usage Issues"));
+            Assert.That(auditReportText, Does.Contain("# Stage Content Inventory / Retired Residue Audit"));
+            Assert.That(auditReportText, Does.Contain("CanonicalGameplayCompanionCount:"));
+            Assert.That(auditReportText, Does.Contain("DuplicateLegacyGameplayCompanionAssetCount:"));
+            Assert.That(auditReportText, Does.Contain("## Duplicate Legacy Gameplay Companion Assets"));
             Assert.That(reportText, Does.Not.Contain("## Scene Mode Summary"));
             Assert.That(reportText, Does.Not.Contain("CatalogResolvedStageId:"));
             Assert.That(reportText, Does.Not.Contain("SerializedStageContentEntry:"));
@@ -42,6 +52,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(reportText, Does.Not.Contain("DefaultStageId fallback"));
             Assert.That(reportText, Does.Not.Contain("Direct StageDefinition option"));
             Assert.That(reportText, Does.Not.Contain("FallbackStage option"));
+            Assert.That(reportText, Does.Not.Contain("stage-compat-audit.md"));
+            Assert.That(auditReportText, Does.Not.Contain("Stage Compat Audit"));
+            Assert.That(auditReportText, Does.Not.Contain("CanonicalGameplayAssetCount"));
         }
 
         [Test]

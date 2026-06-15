@@ -2,7 +2,7 @@
 
 This note classifies remaining stage bootstrap residue after legacy shell deletion.
 It keeps the launch-context-only runtime contract explicit and separates editor
-direct-play support from retired production fallback paths.
+direct-play support from retired production load paths.
 
 ## Current Contract
 
@@ -19,15 +19,15 @@ direct-play support from retired production fallback paths.
 | --- | --- | --- | --- |
 | Retired load mode shell | Legacy compatibility shell | Runtime enum had one value; current consumers inspect old serialized field names for residue/reporting through the guard | Removed after governance gate passed |
 | Catalog-resolved mode label | Report wording residue | CI report previously used the old enum value as a scene mode label | Use `LaunchContextCatalogResolvedInstallers` wording |
-| `defaultStageId` | Retired-path detector | Runtime fallback is absent; validators scan scene text for serialized residue | Keep as detector |
-| `DefaultStageId` | Test/doc guard vocabulary | Appears in direct-play policy tests/docs, not as active fallback | Keep guard tests; avoid active fallback wording |
+| `defaultStageId` | Retired-path detector | Active scene-local load path is absent; validators scan scene text for serialized residue | Keep as detector |
+| `DefaultStageId` | Test/doc guard vocabulary | Appears in direct-play policy tests/docs, not as active load-path wording | Keep guard tests; avoid active load-option wording |
 | direct `stageDefinition` scene field | Removed direct-load guard | Validator/audit detect serialized installer direct references | Keep detector |
 | `DirectStageDefinition` / `FallbackStage` | Search patterns only | No active code or YAML references found in the current audit | Keep in audit checklist |
 | `RetiredStageLoadPathGuard` | Editor governance guard | Centralizes retired load path residue detection for validator, audit, and CI vocabulary | Keep |
 | `StageEditorDirectPlayCatalog` | Editor direct-play mapping support | Asset declares canonical gameplay shell and supported stage ids | Keep |
 | `StageRuntimeContentResolver` launch-context path | Active runtime path | Throws when launch context is missing and resolves only through catalog entries | Keep |
 | `StageSceneBootstrapValidator` | Validator/audit detector | Reports `RetiredStageLoadPathGuard` findings as production bootstrap issues | Keep |
-| `RetiredStageLoadPathGuardArchitectureTests` | Removed-behavior guard | Prevents old load strategies/default fallback tokens in runtime and blocks active-mode report vocabulary | Keep |
+| `RetiredStageLoadPathGuardArchitectureTests` | Removed-behavior guard | Prevents old load strategies/default-stage load tokens in runtime and blocks active-mode report vocabulary | Keep |
 | `StageDefaultStageIdPolicyTests` | Editor support + removed-fallback guard | Covers pending editor direct-play and missing launch context failure | Keep |
 
 ## Serialized Reference Audit
@@ -60,7 +60,7 @@ The retired load mode shell can stay deleted only when all are true:
 
 `defaultStageId` detector can be deleted only when all are true:
 
-- Active fallback path is absent.
+- Active scene-local load path is absent.
 - Another architecture test blocks old field reintroduction.
 - Scene bootstrap validation is not weakened.
 - Tracked YAML residue is absent.

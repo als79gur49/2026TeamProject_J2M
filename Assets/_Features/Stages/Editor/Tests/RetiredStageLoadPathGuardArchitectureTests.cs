@@ -105,11 +105,16 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(ciEntryPointSource, Does.Contain("RemovedDefaultStageIdFallbackResidue"));
             Assert.That(ciEntryPointSource, Does.Contain("RemovedDirectStageDefinitionLoadResidue"));
             Assert.That(ciEntryPointSource, Does.Contain("EditorDirectPlayMappingSupport"));
+            Assert.That(ciEntryPointSource, Does.Contain("Stage Content Inventory / Retired Residue Audit"));
+            Assert.That(ciEntryPointSource, Does.Contain("CanonicalGameplayCompanionCount"));
             Assert.That(ciEntryPointSource, Does.Not.Contain("Scene Mode Summary"));
             Assert.That(ciEntryPointSource, Does.Not.Contain("Load Source Mode"));
             Assert.That(ciEntryPointSource, Does.Not.Contain("DefaultStageId fallback"));
             Assert.That(ciEntryPointSource, Does.Not.Contain("Direct StageDefinition option"));
             Assert.That(ciEntryPointSource, Does.Not.Contain("FallbackStage option"));
+            Assert.That(ciEntryPointSource, Does.Not.Contain("Stage Compat Audit"));
+            Assert.That(ciEntryPointSource, Does.Not.Contain("CanonicalGameplayAssetCount"));
+            Assert.That(ciEntryPointSource, Does.Not.Contain("stage-compat-audit.md"));
         }
 
         [Test]

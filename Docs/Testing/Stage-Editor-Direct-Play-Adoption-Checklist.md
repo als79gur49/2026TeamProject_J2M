@@ -1,6 +1,6 @@
 # Stage Editor Direct-Play Adoption Checklist
 
-이 문서는 stage-backed gameplay shell의 launcher-only direct-play 운영 정착 checklist다. runtime fallback을 부활시키지 않고, UX/tooling/documentation으로 friction을 완화하는 데만 사용한다.
+이 문서는 stage-backed gameplay shell의 launcher-only direct-play 운영 정착 checklist다. production load path를 추가하지 않고, UX/tooling/documentation으로 friction을 완화하는 데만 사용한다.
 
 ## Supported Menu Parity
 
@@ -97,7 +97,7 @@
   - `defaultStageId` 부활
   - scene-local default
   - plain Play supported 승격
-  - runtime fallback 추가
+  - production load path 추가
   를 요구하는 row 수
 
 ## Soft Adoption Evidence
@@ -152,7 +152,7 @@
   - onboarding examples
   - smoke checklist 개선
 - 금지:
-  - `defaultStageId` 성격의 fallback 부활
+  - `defaultStageId` 성격의 active load option 부활
   - scene-local default 값 대체
   - unsupported plain Play를 지원 workflow로 승격
   - adoption friction을 이유로 canonical runtime contract 변경

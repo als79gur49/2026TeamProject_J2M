@@ -33,7 +33,7 @@ namespace Game.Feature.Stages.Editor
                 AssetMetadataProvider = StageEditorAssetMetadataProvider.Instance,
             };
 
-            var auditor = new StageCompatUsageAuditor();
+            var auditor = new StageContentInventoryResidueAuditor();
             var auditReport = auditor.Audit(StageContentPaths.StageCatalogAssetPath);
             var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(StageContentPaths.StageCatalogAssetPath);
             var validator = new StageCatalogValidator();
@@ -52,7 +52,7 @@ namespace Game.Feature.Stages.Editor
 
             var reportDirectory = Path.Combine(GetProjectRoot(), ReportDirectory);
             Directory.CreateDirectory(reportDirectory);
-            WriteAuditReport(Path.Combine(reportDirectory, "stage-compat-audit.md"), auditReport);
+            WriteAuditReport(Path.Combine(reportDirectory, "stage-content-inventory-retired-residue-audit.md"), auditReport);
             WriteReport(
                 ReportPath,
                 catalogReport,
@@ -99,7 +99,7 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine();
             writer.WriteLine($"GeneratedAtUtc: {DateTime.UtcNow:O}");
             writer.WriteLine();
-            writer.WriteLine("AuditReport: stage-compat-audit.md");
+            writer.WriteLine("AuditReport: stage-content-inventory-retired-residue-audit.md");
             writer.WriteLine();
             WriteFullEditModeKnownFailureBaseline(writer);
             writer.WriteLine("## Scene Bootstrap Guard Summary");
@@ -228,16 +228,16 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine();
         }
 
-        private static void WriteAuditReport(string outputPath, StageCompatAuditReport auditReport)
+        private static void WriteAuditReport(string outputPath, StageContentInventoryResidueAuditReport auditReport)
         {
             using var writer = new StreamWriter(outputPath, append: false);
-            writer.WriteLine("# Stage Compat Audit");
+            writer.WriteLine("# Stage Content Inventory / Retired Residue Audit");
             writer.WriteLine();
             writer.WriteLine($"GeneratedAtUtc: {DateTime.UtcNow:O}");
             writer.WriteLine();
             writer.WriteLine("## Audit Snapshot");
-            writer.WriteLine($"CanonicalGameplayAssetCount: {auditReport.Snapshot.CanonicalGameplayAssetGuids.Count}");
-            writer.WriteLine($"DuplicateLegacyGameplayAssetCount: {auditReport.DuplicateLegacyGameplayAssetPaths.Count}");
+            writer.WriteLine($"CanonicalGameplayCompanionCount: {auditReport.Snapshot.CanonicalGameplayCompanionAssetGuids.Count}");
+            writer.WriteLine($"DuplicateLegacyGameplayCompanionAssetCount: {auditReport.DuplicateLegacyGameplayCompanionAssetPaths.Count}");
             writer.WriteLine($"BuildSceneResidueCount: {auditReport.BuildSceneResiduePaths.Count}");
             writer.WriteLine($"BuildSceneDirectPlayCatalogCoverageGapCount: {auditReport.BuildSceneCoverageGapPaths.Count}");
             writer.WriteLine($"AliasCount: {auditReport.Snapshot.AliasEntries.Count}");
@@ -246,7 +246,7 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine($"AliasSerializedAssetHitCount: {auditReport.AliasUsage.SerializedAssetHitCount}");
             writer.WriteLine($"AliasDocsOrExamplesHitCount: {auditReport.AliasUsage.DocsOrExamplesHitCount}");
             writer.WriteLine();
-            WriteLines(writer, "Duplicate Legacy Gameplay Assets", auditReport.DuplicateLegacyGameplayAssetPaths);
+            WriteLines(writer, "Duplicate Legacy Gameplay Companion Assets", auditReport.DuplicateLegacyGameplayCompanionAssetPaths);
             WriteLines(writer, "Prunable Alias Candidates", auditReport.PrunableAliasIds);
             WriteLines(writer, "Build Scene Retired-Path Guard Residues", auditReport.BuildSceneResiduePaths);
             WriteLines(writer, "Build Scene Direct-Play Catalog Coverage Gaps", auditReport.BuildSceneCoverageGapPaths);

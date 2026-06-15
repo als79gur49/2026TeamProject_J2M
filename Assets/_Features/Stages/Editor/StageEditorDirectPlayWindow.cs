@@ -39,7 +39,10 @@ namespace Game.Feature.Stages.Editor
             }
 
             _selectedStageIndex = EditorGUILayout.Popup("StageId", _selectedStageIndex, _stageLabels.ToArray());
-            _mode = (EditorDirectPlayMode)EditorGUILayout.EnumPopup("Mode", _mode);
+            _mode = (EditorDirectPlayMode)EditorGUILayout.EnumPopup("Editor Direct-Play Context", _mode);
+            EditorGUILayout.HelpBox(
+                "Editor-only direct-play mapping support. Injects launch context before editor play.",
+                MessageType.Info);
             _remainingChances = EditorGUILayout.IntPopup(
                 "Remaining Chances",
                 Mathf.Clamp(_remainingChances, 1, SaveSlotStore.DefaultRemainingChances),

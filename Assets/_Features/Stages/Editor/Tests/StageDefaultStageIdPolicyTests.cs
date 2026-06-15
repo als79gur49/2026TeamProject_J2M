@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
@@ -97,6 +98,18 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("stage-0-1")), Is.True);
             Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("stage-1-1")), Is.True);
             Assert.That(catalogAsset.HasSupportedStageId(StageId.CreateOrThrow("legacy-stage-5-1")), Is.False);
+        }
+
+        [Test]
+        public void DirectPlayWindow_UsesEditorLaunchContextVocabulary()
+        {
+            var source = File.ReadAllText("Assets/_Features/Stages/Editor/StageEditorDirectPlayWindow.cs");
+
+            Assert.That(source, Does.Contain("Editor Direct-Play Context"));
+            Assert.That(source, Does.Contain("Editor-only direct-play mapping support"));
+            Assert.That(source, Does.Contain("Injects launch context before editor play"));
+            Assert.That(source, Does.Not.Contain("EnumPopup(\"Mode\""));
+            Assert.That(source, Does.Not.Contain("production " + "fallback"));
         }
 
         [Test]

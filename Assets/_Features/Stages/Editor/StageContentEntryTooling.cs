@@ -12,7 +12,7 @@ namespace Game.Feature.Stages.Editor
     {
         private const string CanonicalContentRoot = StageContentPaths.CampaignLevel01StagesRoot;
 
-        [MenuItem("Assets/Create/Gameplay/Stages/Create Stage Content Entry From Selected StageDefinition", priority = 401)]
+        [MenuItem("Assets/Create/Gameplay/Stages/Create Stage Content Entry for Selected StageDefinition Gameplay Companion", priority = 401)]
         private static void CreateFromSelectedStageDefinition()
         {
             var stageDefinition = Selection.activeObject as StageDefinition;
@@ -24,7 +24,7 @@ namespace Game.Feature.Stages.Editor
             CreateForStageDefinition(stageDefinition);
         }
 
-        [MenuItem("Assets/Create/Gameplay/Stages/Create Stage Content Entry From Selected StageDefinition", validate = true)]
+        [MenuItem("Assets/Create/Gameplay/Stages/Create Stage Content Entry for Selected StageDefinition Gameplay Companion", validate = true)]
         private static bool ValidateCreateFromSelectedStageDefinition()
         {
             return Selection.activeObject is StageDefinition;

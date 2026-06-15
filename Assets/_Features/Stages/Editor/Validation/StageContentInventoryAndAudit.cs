@@ -11,27 +11,27 @@ using UnityEngine.SceneManagement;
 
 namespace Game.Feature.Stages.Editor
 {
-    public readonly struct StageGameplayAssetInventoryItem
+    public readonly struct StageGameplayCompanionInventoryItem
     {
-        public StageGameplayAssetInventoryItem(
+        public StageGameplayCompanionInventoryItem(
             string assetGuid,
             string assetPath,
-            bool isCanonicalCatalogGameplay,
-            bool isDuplicateLegacyGameplayAsset)
+            bool isCanonicalCatalogGameplayCompanion,
+            bool isDuplicateLegacyGameplayCompanionAsset)
         {
             AssetGuid = assetGuid ?? string.Empty;
             AssetPath = assetPath ?? string.Empty;
-            IsCanonicalCatalogGameplay = isCanonicalCatalogGameplay;
-            IsDuplicateLegacyGameplayAsset = isDuplicateLegacyGameplayAsset;
+            IsCanonicalCatalogGameplayCompanion = isCanonicalCatalogGameplayCompanion;
+            IsDuplicateLegacyGameplayCompanionAsset = isDuplicateLegacyGameplayCompanionAsset;
         }
 
         public string AssetGuid { get; }
 
         public string AssetPath { get; }
 
-        public bool IsCanonicalCatalogGameplay { get; }
+        public bool IsCanonicalCatalogGameplayCompanion { get; }
 
-        public bool IsDuplicateLegacyGameplayAsset { get; }
+        public bool IsDuplicateLegacyGameplayCompanionAsset { get; }
     }
 
     public readonly struct StageBuildSceneInventoryItem
@@ -91,23 +91,23 @@ namespace Game.Feature.Stages.Editor
     {
         public StageContentInventorySnapshot(
             string catalogAssetPath,
-            string[] canonicalGameplayAssetGuids,
-            StageGameplayAssetInventoryItem[] gameplayAssets,
+            string[] canonicalGameplayCompanionAssetGuids,
+            StageGameplayCompanionInventoryItem[] gameplayCompanionAssets,
             StageBuildSceneInventoryItem[] buildScenes,
             StageIdAliasEntry[] aliasEntries)
         {
             CatalogAssetPath = catalogAssetPath ?? string.Empty;
-            CanonicalGameplayAssetGuids = canonicalGameplayAssetGuids ?? Array.Empty<string>();
-            GameplayAssets = gameplayAssets ?? Array.Empty<StageGameplayAssetInventoryItem>();
+            CanonicalGameplayCompanionAssetGuids = canonicalGameplayCompanionAssetGuids ?? Array.Empty<string>();
+            GameplayCompanionAssets = gameplayCompanionAssets ?? Array.Empty<StageGameplayCompanionInventoryItem>();
             BuildScenes = buildScenes ?? Array.Empty<StageBuildSceneInventoryItem>();
             AliasEntries = aliasEntries ?? Array.Empty<StageIdAliasEntry>();
         }
 
         public string CatalogAssetPath { get; }
 
-        public IReadOnlyList<string> CanonicalGameplayAssetGuids { get; }
+        public IReadOnlyList<string> CanonicalGameplayCompanionAssetGuids { get; }
 
-        public IReadOnlyList<StageGameplayAssetInventoryItem> GameplayAssets { get; }
+        public IReadOnlyList<StageGameplayCompanionInventoryItem> GameplayCompanionAssets { get; }
 
         public IReadOnlyList<StageBuildSceneInventoryItem> BuildScenes { get; }
 
@@ -124,20 +124,20 @@ namespace Game.Feature.Stages.Editor
         {
             var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(catalogAssetPath);
             var directPlayCatalog = StageEditorDirectPlayCatalog.LoadDefault();
-            var canonicalGameplayAssetGuids = BuildCanonicalGameplayGuidSet(catalog);
-            var gameplayAssets = BuildGameplayAssetInventory(canonicalGameplayAssetGuids);
+            var canonicalGameplayCompanionAssetGuids = BuildCanonicalGameplayCompanionGuidSet(catalog);
+            var gameplayCompanionAssets = BuildGameplayCompanionAssetInventory(canonicalGameplayCompanionAssetGuids);
             var buildScenes = BuildEnabledBuildSceneInventory(directPlayCatalog);
             var aliasEntries = catalog?.StageIdAliasTable?.Entries?.ToArray() ?? Array.Empty<StageIdAliasEntry>();
 
             return new StageContentInventorySnapshot(
                 catalogAssetPath,
-                canonicalGameplayAssetGuids.OrderBy(value => value, StringComparer.Ordinal).ToArray(),
-                gameplayAssets,
+                canonicalGameplayCompanionAssetGuids.OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+                gameplayCompanionAssets,
                 buildScenes,
                 aliasEntries);
         }
 
-        private static HashSet<string> BuildCanonicalGameplayGuidSet(StageCatalog catalog)
+        private static HashSet<string> BuildCanonicalGameplayCompanionGuidSet(StageCatalog catalog)
         {
             var result = new HashSet<string>(StringComparer.Ordinal);
             if (catalog == null)
@@ -166,10 +166,10 @@ namespace Game.Feature.Stages.Editor
             return result;
         }
 
-        private static StageGameplayAssetInventoryItem[] BuildGameplayAssetInventory(ISet<string> canonicalGameplayAssetGuids)
+        private static StageGameplayCompanionInventoryItem[] BuildGameplayCompanionAssetInventory(ISet<string> canonicalGameplayCompanionAssetGuids)
         {
             var guids = AssetDatabase.FindAssets("t:StageDefinition", new[] { StagesRoot });
-            var items = new List<StageGameplayAssetInventoryItem>(guids.Length);
+            var items = new List<StageGameplayCompanionInventoryItem>(guids.Length);
             for (var i = 0; i < guids.Length; i++)
             {
                 var assetPath = AssetDatabase.GUIDToAssetPath(guids[i]);
@@ -179,11 +179,11 @@ namespace Game.Feature.Stages.Editor
                     continue;
                 }
 
-                items.Add(new StageGameplayAssetInventoryItem(
+                items.Add(new StageGameplayCompanionInventoryItem(
                     guids[i],
                     assetPath,
-                    canonicalGameplayAssetGuids.Contains(guids[i]),
-                    IsDuplicateLegacyGameplayAsset(assetPath)));
+                    canonicalGameplayCompanionAssetGuids.Contains(guids[i]),
+                    IsDuplicateLegacyGameplayCompanionAsset(assetPath)));
             }
 
             return items
@@ -191,7 +191,7 @@ namespace Game.Feature.Stages.Editor
                 .ToArray();
         }
 
-        private static bool IsDuplicateLegacyGameplayAsset(string assetPath)
+        private static bool IsDuplicateLegacyGameplayCompanionAsset(string assetPath)
         {
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(assetPath) ?? string.Empty;
             return TrailingCopyNumberRegex.IsMatch(fileNameWithoutExtension);
@@ -275,18 +275,18 @@ namespace Game.Feature.Stages.Editor
         }
     }
 
-    public sealed class StageCompatAuditReport
+    public sealed class StageContentInventoryResidueAuditReport
     {
-        public StageCompatAuditReport(
+        public StageContentInventoryResidueAuditReport(
             StageContentInventorySnapshot snapshot,
-            string[] duplicateLegacyGameplayAssetPaths,
+            string[] duplicateLegacyGameplayCompanionAssetPaths,
             string[] prunableAliasIds,
             string[] buildSceneResiduePaths,
             string[] buildSceneCoverageGapPaths,
             StageAliasUsageScanResult aliasUsage)
         {
             Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
-            DuplicateLegacyGameplayAssetPaths = duplicateLegacyGameplayAssetPaths ?? Array.Empty<string>();
+            DuplicateLegacyGameplayCompanionAssetPaths = duplicateLegacyGameplayCompanionAssetPaths ?? Array.Empty<string>();
             PrunableAliasIds = prunableAliasIds ?? Array.Empty<string>();
             BuildSceneResiduePaths = buildSceneResiduePaths ?? Array.Empty<string>();
             BuildSceneCoverageGapPaths = buildSceneCoverageGapPaths ?? Array.Empty<string>();
@@ -295,7 +295,7 @@ namespace Game.Feature.Stages.Editor
 
         public StageContentInventorySnapshot Snapshot { get; }
 
-        public IReadOnlyList<string> DuplicateLegacyGameplayAssetPaths { get; }
+        public IReadOnlyList<string> DuplicateLegacyGameplayCompanionAssetPaths { get; }
 
         public IReadOnlyList<string> PrunableAliasIds { get; }
 
@@ -306,13 +306,13 @@ namespace Game.Feature.Stages.Editor
         public StageAliasUsageScanResult AliasUsage { get; }
     }
 
-    public sealed class StageCompatUsageAuditor
+    public sealed class StageContentInventoryResidueAuditor
     {
         private static readonly Regex TrailingCopyNumberRegex = new(@"\s+\d+$", RegexOptions.Compiled);
         private readonly StageContentInventoryQuery inventoryQuery;
         private readonly StageAliasUsageScanner aliasUsageScanner;
 
-        public StageCompatUsageAuditor(
+        public StageContentInventoryResidueAuditor(
             StageContentInventoryQuery inventoryQuery = null,
             StageAliasUsageScanner aliasUsageScanner = null)
         {
@@ -320,20 +320,20 @@ namespace Game.Feature.Stages.Editor
             this.aliasUsageScanner = aliasUsageScanner ?? new StageAliasUsageScanner();
         }
 
-        public StageCompatAuditReport Audit(string catalogAssetPath = StageContentPaths.StageCatalogAssetPath)
+        public StageContentInventoryResidueAuditReport Audit(string catalogAssetPath = StageContentPaths.StageCatalogAssetPath)
         {
             return Audit(inventoryQuery.Capture(catalogAssetPath));
         }
 
-        public StageCompatAuditReport Audit(StageContentInventorySnapshot snapshot)
+        public StageContentInventoryResidueAuditReport Audit(StageContentInventorySnapshot snapshot)
         {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
-            var duplicateLegacyGameplayAssetPaths = snapshot.GameplayAssets
-                .Where(item => item.IsDuplicateLegacyGameplayAsset)
+            var duplicateLegacyGameplayCompanionAssetPaths = snapshot.GameplayCompanionAssets
+                .Where(item => item.IsDuplicateLegacyGameplayCompanionAsset)
                 .Select(item => item.AssetPath)
                 .OrderBy(path => path, StringComparer.Ordinal)
                 .ToArray();
@@ -356,9 +356,9 @@ namespace Game.Feature.Stages.Editor
                 .ToArray();
             var aliasUsage = aliasUsageScanner.Scan(StageAliasUsageScanner.P3HistoricalAliasIds);
 
-            return new StageCompatAuditReport(
+            return new StageContentInventoryResidueAuditReport(
                 snapshot,
-                duplicateLegacyGameplayAssetPaths,
+                duplicateLegacyGameplayCompanionAssetPaths,
                 prunableAliasIds,
                 buildSceneResiduePaths,
                 buildSceneCoverageGapPaths,

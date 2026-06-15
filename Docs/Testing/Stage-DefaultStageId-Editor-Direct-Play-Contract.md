@@ -1,12 +1,12 @@
 # Stage Editor Direct-Play Launcher Contract
 
-이 문서는 stage-backed scene의 editor direct-play를 `defaultStageId` fallback이 아니라 launcher-driven launch context 주입으로만 허용하는 계약을 고정한다.
+이 문서는 stage-backed scene의 editor direct-play를 `defaultStageId` retired-path detector가 아니라 launcher-driven launch context 주입으로만 허용하는 계약을 고정한다.
 
 ## Canonical Rule
 
 - canonical runtime path는 `StageLaunchContextStore`가 제공하는 `StageId`를 사용한다.
 - production runtime source-of-truth는 launch context다.
-- `defaultStageId` runtime fallback는 제거됐다.
+- `defaultStageId` active scene-local load path는 제거됐고 detector status로만 남는다.
 
 ## Supported Workflow
 
@@ -26,7 +26,7 @@
 ## Disallowed Interpretation
 
 - scene open 후 바로 Play 하는 workflow를 supported direct-play path로 취급하지 않는다.
-- `defaultStageId`를 다른 이름의 scene-local runtime fallback으로 치환하지 않는다.
+- `defaultStageId`를 다른 이름의 scene-local active load option으로 치환하지 않는다.
 - continue/retry의 canonical source를 `StageNavigationRequest` / `StageId`에서 scene-local default 값으로 되돌리지 않는다.
 
 ## Required Readiness
@@ -82,7 +82,7 @@
   - stage-backed manual smoke note가 모두 launcher path를 명시
   - validator/test/doc에서 plain Play unsupported 해석이 일치
 - enforcement 방식:
-  - runtime fallback 추가가 아니라 warning, checklist, triage policy, close wording으로 고정한다.
+  - production load-path 추가가 아니라 warning, checklist, triage policy, close wording으로 고정한다.
 
 ## Evidence Format
 
@@ -112,7 +112,7 @@
 
 - friction 완화는 구조 rollback이 아니라 UX/tooling/documentation으로만 해결한다.
 - 금지:
-  - `defaultStageId` 성격의 fallback 부활
+  - `defaultStageId` 성격의 active load option 부활
   - scene-local default 값 대체
   - unsupported plain Play를 지원 workflow로 승격
   - adoption friction을 이유로 canonical runtime contract 변경
@@ -125,4 +125,4 @@
 ## Reporting Rule
 
 - direct-play 관련 변경은 `editor direct-play launcher contract` 또는 `defaultStageId sunset`으로만 보고한다.
-- `runtime fallback support` 또는 `production recovery path` 같은 표현은 금지한다.
+- `active load option support` 같은 표현은 금지한다.
