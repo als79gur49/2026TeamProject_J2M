@@ -12,6 +12,7 @@ namespace Game.Feature.Stages.Editor.Tests
         public void RuntimeAssembly_DoesNotReferenceRemovedCompatLoadPaths()
         {
             var featuresRoot = Path.GetFullPath(Path.Combine(Application.dataPath, "_Features"));
+            var retiredLoadModeShellToken = "Stage" + "Load" + "Source" + "Mode";
             var matches = Directory
                 .GetFiles(featuresRoot, "*.cs", SearchOption.AllDirectories)
                 .Where(path => !path.EndsWith("RetiredStageLoadPathGuardArchitectureTests.cs", StringComparison.Ordinal))
@@ -22,6 +23,7 @@ namespace Game.Feature.Stages.Editor.Tests
                     var source = File.ReadAllText(path);
                     return source.Contains("SerializedStageContentEntry") ||
                            source.Contains("LegacyStageDefinition") ||
+                           source.Contains(retiredLoadModeShellToken) ||
                            source.Contains("StageLoadStrategyFactory") ||
                            source.Contains("IStageLoadStrategy");
                 })

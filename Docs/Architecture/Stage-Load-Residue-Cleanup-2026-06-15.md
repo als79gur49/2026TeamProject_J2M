@@ -1,6 +1,6 @@
 # Stage Load Residue Cleanup 2026-06-15
 
-This note classifies remaining stage bootstrap residue before any deletion work.
+This note classifies remaining stage bootstrap residue after legacy shell deletion.
 It keeps the launch-context-only runtime contract explicit and separates editor
 direct-play support from retired production fallback paths.
 
@@ -17,8 +17,8 @@ direct-play support from retired production fallback paths.
 
 | Candidate | Classification | Current evidence | Action |
 | --- | --- | --- | --- |
-| `StageLoadSourceMode` | Legacy compatibility shell | Runtime enum has one value, while current consumers mostly inspect old serialized field names for residue/reporting | Keep until governance removal gate passes |
-| `CatalogResolvedStageId` | Report wording residue | CI report used the old enum value as a scene mode label | Prefer `LaunchContextCatalogResolvedInstallers` wording |
+| Retired load mode shell | Legacy compatibility shell | Runtime enum had one value; current consumers inspect old serialized field names for residue/reporting through the guard | Removed after governance gate passed |
+| Catalog-resolved mode label | Report wording residue | CI report previously used the old enum value as a scene mode label | Use `LaunchContextCatalogResolvedInstallers` wording |
 | `defaultStageId` | Retired-path detector | Runtime fallback is absent; validators scan scene text for serialized residue | Keep as detector |
 | `DefaultStageId` | Test/doc guard vocabulary | Appears in direct-play policy tests/docs, not as active fallback | Keep guard tests; avoid active fallback wording |
 | direct `stageDefinition` scene field | Removed direct-load guard | Validator/audit detect serialized installer direct references | Keep detector |
@@ -47,7 +47,7 @@ must not be treated as tracked serialized production residue.
 
 ## Deletion Gates
 
-`StageLoadSourceMode` can be deleted only when all are true:
+The retired load mode shell can stay deleted only when all are true:
 
 - Runtime consumer is absent.
 - Editor direct-play consumer is absent.
@@ -79,13 +79,13 @@ If any gate item is uncertain, keep the related guard/detector.
 
 ## PR Order
 
-1. Guard extraction: keep `StageLoadSourceMode`, route validator/audit/CI
-   residue detection through `RetiredStageLoadPathGuard`, and separate active
+1. Guard extraction: route validator/audit/CI residue detection through
+   `RetiredStageLoadPathGuard`, and separate active
    `gameplayDefinition` refs from direct `stageDefinition` residue.
 2. Wording cleanup: use `launch-context/catalog-resolved runtime path`,
    `editor direct-play mapping support`, `retired-path guard`, and `removed
    direct-load guard`.
-3. Optional code cleanup: consider deleting shells only after every gate passes
-   and replacement guards are in place.
+3. Code cleanup: keep the retired shell removed only while every gate passes
+   and replacement guards remain in place.
 4. Authoring Tool preparation: show retired load residue as guard/detector
    status, not as active authoring or runtime options.

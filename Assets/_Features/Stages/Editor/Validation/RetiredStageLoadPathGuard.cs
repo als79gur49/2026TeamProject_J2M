@@ -9,18 +9,18 @@ namespace Game.Feature.Stages.Editor
     public readonly struct RetiredStageLoadPathInstallerResidue
     {
         public RetiredStageLoadPathInstallerResidue(
-            int stageLoadSourceModeValue,
+            int compatModeValue,
             bool hasDirectStageDefinitionResidue,
             bool hasSerializedStageContentEntryResidue)
         {
-            StageLoadSourceModeValue = stageLoadSourceModeValue;
+            CompatModeValue = compatModeValue;
             HasDirectStageDefinitionResidue = hasDirectStageDefinitionResidue;
             HasSerializedStageContentEntryResidue = hasSerializedStageContentEntryResidue;
         }
 
-        public int StageLoadSourceModeValue { get; }
+        public int CompatModeValue { get; }
 
-        public bool HasCompatModeResidue => StageLoadSourceModeValue != RetiredStageLoadPathGuard.LaunchContextCatalogResolvedModeValue;
+        public bool HasCompatModeResidue => CompatModeValue != RetiredStageLoadPathGuard.LaunchContextCatalogResolvedModeValue;
 
         public bool HasDirectStageDefinitionResidue { get; }
 
@@ -69,7 +69,7 @@ namespace Game.Feature.Stages.Editor
         public const int LaunchContextCatalogResolvedModeValue = 0;
         public const int RetiredSerializedStageContentEntryModeValue = 1;
 
-        public const string StageLoadSourceModePropertyName = "stageLoadSourceMode";
+        public const string CompatModePropertyName = "stageLoadSourceMode";
         public const string DirectStageDefinitionPropertyName = "stageDefinition";
         public const string SerializedStageContentEntryPropertyName = "stageContentEntry";
         public const string RemovedDefaultStageIdFallbackFieldToken = "\ndefaultStageId:";
@@ -92,7 +92,7 @@ namespace Game.Feature.Stages.Editor
                 return default;
             }
 
-            var modeProperty = serializedInstaller.FindProperty(StageLoadSourceModePropertyName);
+            var modeProperty = serializedInstaller.FindProperty(CompatModePropertyName);
             var stageDefinitionProperty = serializedInstaller.FindProperty(DirectStageDefinitionPropertyName);
             var stageContentEntryProperty = serializedInstaller.FindProperty(SerializedStageContentEntryPropertyName);
 

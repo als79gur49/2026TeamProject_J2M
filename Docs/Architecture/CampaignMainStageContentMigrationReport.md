@@ -197,7 +197,7 @@ Not allowed:
   - `StageContentAndClearFlowTests`
   - `StageDefaultStageIdPolicyTests`
   - `StageSceneBootstrapValidatorTests`
-  - `StageLoadSourceModeArchitectureTests`
+  - `RetiredStageLoadPathGuardArchitectureTests`
   - `GameplayUiFlowIntegrationTests`
   - `UiArchitectureTests`
   - `AudioArchitectureTests`

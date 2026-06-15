@@ -27,7 +27,7 @@ namespace Game.Feature.Stages.Editor
 
         public RetiredStageLoadPathGuardSummary GuardSummary { get; }
 
-        public int CatalogResolvedStageIdCount => GuardSummary.LaunchContextCatalogResolvedInstallers;
+        public int LaunchContextCatalogResolvedInstallerCount => GuardSummary.LaunchContextCatalogResolvedInstallers;
 
         public int SerializedStageContentEntryCount => GuardSummary.RetiredSerializedStageContentEntryResidue;
 
@@ -115,7 +115,7 @@ namespace Game.Feature.Stages.Editor
                             directStageDefinitionResidueCount++;
                         }
 
-                        switch (residue.StageLoadSourceModeValue)
+                        switch (residue.CompatModeValue)
                         {
                             case RetiredStageLoadPathGuard.LaunchContextCatalogResolvedModeValue:
                                 catalogResolvedCount++;
@@ -243,7 +243,7 @@ namespace Game.Feature.Stages.Editor
                     report,
                     ResolveProductionSceneContractSeverity(options),
                     "scene.compat-mode.production",
-                    $"Production scene '{scenePath}' uses compat stage load mode value '{retiredResidue.StageLoadSourceModeValue}'.",
+                    $"Production scene '{scenePath}' uses compat stage load mode value '{retiredResidue.CompatModeValue}'.",
                     installer,
                     scenePath,
                     options);
