@@ -38,8 +38,6 @@ namespace Game.Feature.UI.Flow
     public enum ScreenPolicyClass
     {
         GameplayRoot = 0,
-        InformationalOverlay = 1,
-        GameplayAdjacentOverlay = 2,
         Configuration = 3,
         TerminalResult = 4,
     }
@@ -61,7 +59,6 @@ namespace Game.Feature.UI.Flow
     {
         Visible = 0,
         Hidden = 1,
-        Dimmed = 2,
     }
 
     public readonly struct ScreenPolicy
@@ -213,19 +210,9 @@ namespace Game.Feature.UI.Flow
             return new ScreenAction(ScreenActionKind.BackRequested, default, default, StageNavigationRequest.None);
         }
 
-        public static ScreenAction Show(ScreenRequest request)
-        {
-            return new ScreenAction(ScreenActionKind.ShowScreen, request, default, StageNavigationRequest.None);
-        }
-
         public static ScreenAction Push(ScreenRequest request)
         {
             return new ScreenAction(ScreenActionKind.PushScreen, request, default, StageNavigationRequest.None);
-        }
-
-        public static ScreenAction Replace(ScreenRequest request)
-        {
-            return new ScreenAction(ScreenActionKind.ReplaceScreen, request, default, StageNavigationRequest.None);
         }
 
         public static ScreenAction Popup(PopupRequest request)

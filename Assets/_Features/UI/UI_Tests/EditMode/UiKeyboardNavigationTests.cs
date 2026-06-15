@@ -619,7 +619,7 @@ namespace Game.Feature.UI.Tests
             using var screenController = new ScreenController(new NavigationScreenRuntimeFactory(target));
             using var popupController = new PopupController(new PolicyOnlyPopupRuntimeFactory(
                 new PopupPolicy(
-                    PopupPolicyClass.NonModalInformational,
+                    PopupPolicyClass.ModalBlocking,
                     PopupLifetimeScope.CurrentScreen,
                     PopupBackAction.Close,
                     PopupBackdropMode.None,

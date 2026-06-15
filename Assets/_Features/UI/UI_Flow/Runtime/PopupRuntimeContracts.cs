@@ -36,13 +36,11 @@ namespace Game.Feature.UI.Flow
     public enum PopupPolicyClass
     {
         ModalBlocking = 0,
-        NonModalInformational = 1,
     }
 
     public enum PopupLifetimeScope
     {
         CurrentScreen = 0,
-        Application = 1,
     }
 
     public enum PopupBackAction
