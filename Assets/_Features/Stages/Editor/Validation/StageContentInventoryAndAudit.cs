@@ -240,15 +240,13 @@ namespace Game.Feature.Stages.Editor
 
                     installerCount++;
                     var serializedInstaller = new SerializedObject(installer);
-                    var modeProperty = serializedInstaller.FindProperty("stageLoadSourceMode");
-                    var stageDefinitionProperty = serializedInstaller.FindProperty("stageDefinition");
-                    var stageContentEntryProperty = serializedInstaller.FindProperty("stageContentEntry");
                     var enemyCatalogProperty = serializedInstaller.FindProperty("enemyPresentationCatalog");
                     var staticCatalogProperty = serializedInstaller.FindProperty("staticEntityPresentationCatalog");
+                    var retiredResidue = RetiredStageLoadPathGuard.InspectInstaller(serializedInstaller);
 
-                    hasCompatModeResidue |= modeProperty != null && modeProperty.enumValueIndex != 0;
-                    hasDirectStageDefinitionResidue |= stageDefinitionProperty?.objectReferenceValue != null;
-                    hasSerializedEntryResidue |= stageContentEntryProperty?.objectReferenceValue != null;
+                    hasCompatModeResidue |= retiredResidue.HasCompatModeResidue;
+                    hasDirectStageDefinitionResidue |= retiredResidue.HasDirectStageDefinitionResidue;
+                    hasSerializedEntryResidue |= retiredResidue.HasSerializedStageContentEntryResidue;
                     hasEnemyCatalogResidue |= enemyCatalogProperty?.objectReferenceValue != null;
                     hasStaticCatalogResidue |= staticCatalogProperty?.objectReferenceValue != null;
                 }
@@ -258,7 +256,9 @@ namespace Game.Feature.Stages.Editor
                 EditorSceneManager.CloseScene(scene, removeScene: true);
             }
 
-            var hasDefaultStageIdResidue = HasSerializedDefaultStageIdResidue(scenePath);
+            var hasDefaultStageIdResidue = RetiredStageLoadPathGuard
+                .InspectSceneText(scenePath)
+                .HasRemovedDefaultStageIdFallbackResidue;
             var hasDirectPlayCatalogCoverage = installerCount == 0 ||
                                                (directPlayCatalog != null && directPlayCatalog.IsCanonicalShellScenePath(scenePath));
 
@@ -273,20 +273,6 @@ namespace Game.Feature.Stages.Editor
                 hasDefaultStageIdResidue,
                 hasDirectPlayCatalogCoverage);
         }
-
-        private static bool HasSerializedDefaultStageIdResidue(string scenePath)
-        {
-            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-            var fullPath = Path.Combine(projectRoot, scenePath.Replace('/', Path.DirectorySeparatorChar));
-            if (!File.Exists(fullPath))
-            {
-                return false;
-            }
-
-            var sceneText = File.ReadAllText(fullPath);
-            return sceneText.Contains("\ndefaultStageId:", StringComparison.Ordinal);
-        }
-
     }
 
     public sealed class StageCompatAuditReport

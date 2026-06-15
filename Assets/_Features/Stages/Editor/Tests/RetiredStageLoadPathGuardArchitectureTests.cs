@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Game.Feature.Stages.Editor.Tests
 {
-    public sealed class StageLoadSourceModeArchitectureTests
+    public sealed class RetiredStageLoadPathGuardArchitectureTests
     {
         [Test]
         public void RuntimeAssembly_DoesNotReferenceRemovedCompatLoadPaths()
@@ -14,7 +14,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var featuresRoot = Path.GetFullPath(Path.Combine(Application.dataPath, "_Features"));
             var matches = Directory
                 .GetFiles(featuresRoot, "*.cs", SearchOption.AllDirectories)
-                .Where(path => !path.EndsWith("StageLoadSourceModeArchitectureTests.cs", StringComparison.Ordinal))
+                .Where(path => !path.EndsWith("RetiredStageLoadPathGuardArchitectureTests.cs", StringComparison.Ordinal))
                 .Where(path => !path.Contains("/Editor/", StringComparison.Ordinal) &&
                                !path.Contains("\\Editor\\", StringComparison.Ordinal))
                 .Where(path =>
@@ -24,6 +24,25 @@ namespace Game.Feature.Stages.Editor.Tests
                            source.Contains("LegacyStageDefinition") ||
                            source.Contains("StageLoadStrategyFactory") ||
                            source.Contains("IStageLoadStrategy");
+                })
+                .Select(path => path.Replace('\\', '/'))
+                .ToArray();
+
+            Assert.That(matches, Is.Empty);
+        }
+
+        [Test]
+        public void RetiredGuard_IsEditorGovernanceAndDoesNotMoveIntoRuntime()
+        {
+            var runtimeRoot = Path.GetFullPath(Path.Combine(Application.dataPath, "_Features/Stages/Runtime"));
+            var matches = Directory
+                .GetFiles(runtimeRoot, "*.cs", SearchOption.AllDirectories)
+                .Where(path =>
+                {
+                    var source = File.ReadAllText(path);
+                    return source.Contains("RetiredStageLoadPathGuard") ||
+                           source.Contains("RetiredStageLoadPathGuardSummary") ||
+                           source.Contains("RetiredStageLoadPathInstallerResidue");
                 })
                 .Select(path => path.Replace('\\', '/'))
                 .ToArray();
@@ -59,7 +78,7 @@ namespace Game.Feature.Stages.Editor.Tests
             var matches = Directory
                 .GetFiles(featuresRoot, "*.cs", SearchOption.AllDirectories)
                 .Where(path => !path.EndsWith("StageLoadRequest.cs", StringComparison.Ordinal))
-                .Where(path => !path.EndsWith("StageLoadSourceModeArchitectureTests.cs", StringComparison.Ordinal))
+                .Where(path => !path.EndsWith("RetiredStageLoadPathGuardArchitectureTests.cs", StringComparison.Ordinal))
                 .Where(path =>
                 {
                     var source = File.ReadAllText(path);
@@ -69,6 +88,26 @@ namespace Game.Feature.Stages.Editor.Tests
                 .ToArray();
 
             Assert.That(matches, Is.Empty);
+        }
+
+        [Test]
+        public void CiReportVocabulary_DoesNotExposeRetiredPathsAsLoadModes()
+        {
+            var ciEntryPointSource = File.ReadAllText(
+                "Assets/_Features/Stages/Editor/Validation/StageCatalogCiValidationEntryPoint.cs");
+
+            Assert.That(ciEntryPointSource, Does.Contain("Scene Bootstrap Guard Summary"));
+            Assert.That(ciEntryPointSource, Does.Contain("LaunchContextCatalogResolvedInstallers"));
+            Assert.That(ciEntryPointSource, Does.Contain("RetiredSerializedStageContentEntryResidue"));
+            Assert.That(ciEntryPointSource, Does.Contain("RetiredLegacyStageDefinitionResidue"));
+            Assert.That(ciEntryPointSource, Does.Contain("RemovedDefaultStageIdFallbackResidue"));
+            Assert.That(ciEntryPointSource, Does.Contain("RemovedDirectStageDefinitionLoadResidue"));
+            Assert.That(ciEntryPointSource, Does.Contain("EditorDirectPlayMappingSupport"));
+            Assert.That(ciEntryPointSource, Does.Not.Contain("Scene Mode Summary"));
+            Assert.That(ciEntryPointSource, Does.Not.Contain("Load Source Mode"));
+            Assert.That(ciEntryPointSource, Does.Not.Contain("DefaultStageId fallback"));
+            Assert.That(ciEntryPointSource, Does.Not.Contain("Direct StageDefinition option"));
+            Assert.That(ciEntryPointSource, Does.Not.Contain("FallbackStage option"));
         }
 
         [Test]

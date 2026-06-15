@@ -103,9 +103,17 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine();
             WriteFullEditModeKnownFailureBaseline(writer);
             writer.WriteLine("## Scene Bootstrap Guard Summary");
-            writer.WriteLine($"LaunchContextCatalogResolvedInstallers: {summary.CatalogResolvedStageIdCount}");
-            writer.WriteLine($"RetiredSerializedStageContentEntryResidue: {summary.SerializedStageContentEntryCount}");
-            writer.WriteLine($"RetiredLegacyStageDefinitionResidue: {summary.LegacyStageDefinitionCount}");
+            writer.WriteLine(
+                $"LaunchContextCatalogResolvedInstallers: {summary.GuardSummary.LaunchContextCatalogResolvedInstallers}");
+            writer.WriteLine(
+                $"RetiredSerializedStageContentEntryResidue: {summary.GuardSummary.RetiredSerializedStageContentEntryResidue}");
+            writer.WriteLine(
+                $"RetiredLegacyStageDefinitionResidue: {summary.GuardSummary.RetiredLegacyStageDefinitionResidue}");
+            writer.WriteLine(
+                $"RemovedDefaultStageIdFallbackResidue: {summary.GuardSummary.RemovedDefaultStageIdFallbackResidue}");
+            writer.WriteLine(
+                $"RemovedDirectStageDefinitionLoadResidue: {summary.GuardSummary.RemovedDirectStageDefinitionLoadResidue}");
+            writer.WriteLine("EditorDirectPlayMappingSupport: StageEditorDirectPlayCatalog");
             writer.WriteLine();
             WriteAuthoringIssues(writer, catalogReport);
             WritePresentationCatalogIssues(writer, catalogReport);

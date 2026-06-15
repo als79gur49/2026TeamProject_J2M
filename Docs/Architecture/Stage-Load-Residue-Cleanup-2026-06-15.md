@@ -23,10 +23,11 @@ direct-play support from retired production fallback paths.
 | `DefaultStageId` | Test/doc guard vocabulary | Appears in direct-play policy tests/docs, not as active fallback | Keep guard tests; avoid active fallback wording |
 | direct `stageDefinition` scene field | Removed direct-load guard | Validator/audit detect serialized installer direct references | Keep detector |
 | `DirectStageDefinition` / `FallbackStage` | Search patterns only | No active code or YAML references found in the current audit | Keep in audit checklist |
+| `RetiredStageLoadPathGuard` | Editor governance guard | Centralizes retired load path residue detection for validator, audit, and CI vocabulary | Keep |
 | `StageEditorDirectPlayCatalog` | Editor direct-play mapping support | Asset declares canonical gameplay shell and supported stage ids | Keep |
 | `StageRuntimeContentResolver` launch-context path | Active runtime path | Throws when launch context is missing and resolves only through catalog entries | Keep |
-| `StageSceneBootstrapValidator` | Validator/audit detector | Detects compat mode, direct `stageDefinition`, serialized entry, and `defaultStageId` residue | Keep |
-| `StageLoadSourceModeArchitectureTests` | Removed-behavior guard | Prevents old load strategies/default fallback tokens in runtime | Keep until replacement guard exists |
+| `StageSceneBootstrapValidator` | Validator/audit detector | Reports `RetiredStageLoadPathGuard` findings as production bootstrap issues | Keep |
+| `RetiredStageLoadPathGuardArchitectureTests` | Removed-behavior guard | Prevents old load strategies/default fallback tokens in runtime and blocks active-mode report vocabulary | Keep |
 | `StageDefaultStageIdPolicyTests` | Editor support + removed-fallback guard | Covers pending editor direct-play and missing launch context failure | Keep |
 
 ## Serialized Reference Audit
@@ -50,7 +51,7 @@ must not be treated as tracked serialized production residue.
 
 - Runtime consumer is absent.
 - Editor direct-play consumer is absent.
-- Validator/audit consumer is absent or has a replacement detector.
+- Validator/audit consumer has moved to `RetiredStageLoadPathGuard`.
 - Guard test consumer is absent or has a replacement guard.
 - Tracked YAML asset/prefab/scene/meta references are absent.
 - Docs do not describe it as an active contract.
@@ -78,11 +79,11 @@ If any gate item is uncertain, keep the related guard/detector.
 
 ## PR Order
 
-1. Classification-only cleanup: keep code paths, record residue status, and
-   separate active `gameplayDefinition` refs from direct `stageDefinition`
-   residue.
+1. Guard extraction: keep `StageLoadSourceMode`, route validator/audit/CI
+   residue detection through `RetiredStageLoadPathGuard`, and separate active
+   `gameplayDefinition` refs from direct `stageDefinition` residue.
 2. Wording cleanup: use `launch-context/catalog-resolved runtime path`,
-   `editor direct-play mapping support`, `retired-path detector`, and `removed
+   `editor direct-play mapping support`, `retired-path guard`, and `removed
    direct-load guard`.
 3. Optional code cleanup: consider deleting shells only after every gate passes
    and replacement guards are in place.

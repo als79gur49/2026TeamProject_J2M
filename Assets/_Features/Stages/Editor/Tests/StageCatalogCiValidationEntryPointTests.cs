@@ -28,6 +28,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(reportText, Does.Contain("LaunchContextCatalogResolvedInstallers"));
             Assert.That(reportText, Does.Contain("RetiredSerializedStageContentEntryResidue"));
             Assert.That(reportText, Does.Contain("RetiredLegacyStageDefinitionResidue"));
+            Assert.That(reportText, Does.Contain("RemovedDefaultStageIdFallbackResidue"));
+            Assert.That(reportText, Does.Contain("RemovedDirectStageDefinitionLoadResidue"));
+            Assert.That(reportText, Does.Contain("EditorDirectPlayMappingSupport"));
             Assert.That(reportText, Does.Contain("## Full EditMode Known Failure Baseline"));
             Assert.That(reportText, Does.Contain("## Known Warning Governance Issues"));
             Assert.That(reportText, Does.Contain("## Alias Governance Issues"));
@@ -36,6 +39,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(reportText, Does.Not.Contain("CatalogResolvedStageId:"));
             Assert.That(reportText, Does.Not.Contain("SerializedStageContentEntry:"));
             Assert.That(reportText, Does.Not.Contain("LegacyStageDefinition:"));
+            Assert.That(reportText, Does.Not.Contain("DefaultStageId fallback"));
+            Assert.That(reportText, Does.Not.Contain("Direct StageDefinition option"));
+            Assert.That(reportText, Does.Not.Contain("FallbackStage option"));
         }
 
         [Test]

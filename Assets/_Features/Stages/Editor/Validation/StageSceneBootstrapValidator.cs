@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using Game.Feature.Gameplay.Host;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -12,20 +11,31 @@ namespace Game.Feature.Stages.Editor
     public readonly struct StageSceneBootstrapUsageSummary
     {
         public StageSceneBootstrapUsageSummary(
-            int catalogResolvedStageIdCount,
-            int serializedStageContentEntryCount,
-            int legacyStageDefinitionCount)
+            int launchContextCatalogResolvedInstallers,
+            int retiredSerializedStageContentEntryResidue,
+            int retiredLegacyStageDefinitionResidue,
+            int removedDefaultStageIdFallbackResidue,
+            int removedDirectStageDefinitionLoadResidue)
         {
-            CatalogResolvedStageIdCount = catalogResolvedStageIdCount;
-            SerializedStageContentEntryCount = serializedStageContentEntryCount;
-            LegacyStageDefinitionCount = legacyStageDefinitionCount;
+            GuardSummary = RetiredStageLoadPathGuard.CreateSummary(
+                launchContextCatalogResolvedInstallers,
+                retiredSerializedStageContentEntryResidue,
+                retiredLegacyStageDefinitionResidue,
+                removedDefaultStageIdFallbackResidue,
+                removedDirectStageDefinitionLoadResidue);
         }
 
-        public int CatalogResolvedStageIdCount { get; }
+        public RetiredStageLoadPathGuardSummary GuardSummary { get; }
 
-        public int SerializedStageContentEntryCount { get; }
+        public int CatalogResolvedStageIdCount => GuardSummary.LaunchContextCatalogResolvedInstallers;
 
-        public int LegacyStageDefinitionCount { get; }
+        public int SerializedStageContentEntryCount => GuardSummary.RetiredSerializedStageContentEntryResidue;
+
+        public int LegacyStageDefinitionCount => GuardSummary.RetiredLegacyStageDefinitionResidue;
+
+        public int RemovedDefaultStageIdFallbackResidueCount => GuardSummary.RemovedDefaultStageIdFallbackResidue;
+
+        public int RemovedDirectStageDefinitionLoadResidueCount => GuardSummary.RemovedDirectStageDefinitionLoadResidue;
     }
 
     public sealed class StageSceneBootstrapValidator
@@ -76,6 +86,8 @@ namespace Game.Feature.Stages.Editor
             var catalogResolvedCount = 0;
             var serializedEntryCount = 0;
             var legacyDefinitionCount = 0;
+            var defaultStageIdResidueCount = 0;
+            var directStageDefinitionResidueCount = 0;
             var scenes = EditorBuildSettings.scenes;
             for (var i = 0; i < scenes.Length; i++)
             {
@@ -97,22 +109,32 @@ namespace Game.Feature.Stages.Editor
                             continue;
                         }
 
-                        var serializedInstaller = new SerializedObject(stageInstaller);
-                        var modeProperty = serializedInstaller.FindProperty("stageLoadSourceMode");
-                        var modeValue = modeProperty == null ? 0 : modeProperty.enumValueIndex;
-                        switch (modeValue)
+                        var residue = RetiredStageLoadPathGuard.InspectInstaller(stageInstaller);
+                        if (residue.HasDirectStageDefinitionResidue)
                         {
-                            case 0:
+                            directStageDefinitionResidueCount++;
+                        }
+
+                        switch (residue.StageLoadSourceModeValue)
+                        {
+                            case RetiredStageLoadPathGuard.LaunchContextCatalogResolvedModeValue:
                                 catalogResolvedCount++;
                                 break;
-                            case 1:
+                            case RetiredStageLoadPathGuard.RetiredSerializedStageContentEntryModeValue:
                                 serializedEntryCount++;
                                 break;
                             default:
                                 legacyDefinitionCount++;
                                 break;
+                            }
                         }
-                    }
+
+                        if (RetiredStageLoadPathGuard
+                            .InspectSceneText(scenes[i].path)
+                            .HasRemovedDefaultStageIdFallbackResidue)
+                        {
+                            defaultStageIdResidueCount++;
+                        }
                 }
                 finally
                 {
@@ -123,7 +145,9 @@ namespace Game.Feature.Stages.Editor
             return new StageSceneBootstrapUsageSummary(
                 catalogResolvedCount,
                 serializedEntryCount,
-                legacyDefinitionCount);
+                legacyDefinitionCount,
+                defaultStageIdResidueCount,
+                directStageDefinitionResidueCount);
         }
 
         private static void ValidateScene(
@@ -196,16 +220,12 @@ namespace Game.Feature.Stages.Editor
             StageValidationReport report)
         {
             var serializedInstaller = new SerializedObject(installer);
-            var modeProperty = serializedInstaller.FindProperty("stageLoadSourceMode");
             var providerProperty = serializedInstaller.FindProperty("stageCatalogProvider");
-            var stageDefinitionProperty = serializedInstaller.FindProperty("stageDefinition");
-            var stageContentEntryProperty = serializedInstaller.FindProperty("stageContentEntry");
             var enemyCatalogProperty = serializedInstaller.FindProperty("enemyPresentationCatalog");
             var staticCatalogProperty = serializedInstaller.FindProperty("staticEntityPresentationCatalog");
-            var hasCompatModeProperty = modeProperty != null;
-            var usesCompatMode = hasCompatModeProperty && modeProperty.enumValueIndex != 0;
+            var retiredResidue = RetiredStageLoadPathGuard.InspectInstaller(serializedInstaller);
 
-            if (stageDefinitionProperty != null && stageDefinitionProperty.objectReferenceValue != null)
+            if (retiredResidue.HasDirectStageDefinitionResidue)
             {
                 AddSceneIssue(
                     report,
@@ -217,13 +237,13 @@ namespace Game.Feature.Stages.Editor
                     options);
             }
 
-            if (usesCompatMode)
+            if (retiredResidue.HasCompatModeResidue)
             {
                 AddSceneIssue(
                     report,
                     ResolveProductionSceneContractSeverity(options),
                     "scene.compat-mode.production",
-                    $"Production scene '{scenePath}' uses compat stage load mode value '{modeProperty.enumValueIndex}'.",
+                    $"Production scene '{scenePath}' uses compat stage load mode value '{retiredResidue.StageLoadSourceModeValue}'.",
                     installer,
                     scenePath,
                     options);
@@ -240,7 +260,7 @@ namespace Game.Feature.Stages.Editor
                     options.Timing);
             }
 
-            if (stageContentEntryProperty?.objectReferenceValue != null)
+            if (retiredResidue.HasSerializedStageContentEntryResidue)
             {
                 AddSceneIssue(
                     report,
@@ -289,7 +309,9 @@ namespace Game.Feature.Stages.Editor
             StageCatalogValidationOptions options,
             StageValidationReport report)
         {
-            if (HasSerializedDefaultStageIdResidue(scenePath))
+            if (RetiredStageLoadPathGuard
+                .InspectSceneText(scenePath)
+                .HasRemovedDefaultStageIdFallbackResidue)
             {
                 report.Add(
                     ResolveProductionSceneContractSeverity(options),
@@ -320,19 +342,6 @@ namespace Game.Feature.Stages.Editor
                     StageEditorDirectPlayCatalog.DefaultAssetPath,
                     options.Timing);
             }
-        }
-
-        private static bool HasSerializedDefaultStageIdResidue(string scenePath)
-        {
-            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-            var fullPath = Path.Combine(projectRoot, scenePath.Replace('/', Path.DirectorySeparatorChar));
-            if (!File.Exists(fullPath))
-            {
-                return false;
-            }
-
-            var sceneText = File.ReadAllText(fullPath);
-            return sceneText.Contains("\ndefaultStageId:", StringComparison.Ordinal);
         }
 
         private static void ValidateCameraTopologyAuthoring(
