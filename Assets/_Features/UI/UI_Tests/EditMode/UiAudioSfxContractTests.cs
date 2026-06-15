@@ -41,6 +41,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UiAudioCueId_ReservedV1Slots_RemainStableAndMapped()
+        {
+            Assert.That((int)UiAudioCueId.ObjectiveComplete, Is.EqualTo(10));
+            Assert.That((int)UiAudioCueId.TopologyShift, Is.EqualTo(11));
+
+            var cueMap = UiTestPrefabAssetUtility.LoadUiAudioCueMap();
+
+            Assert.That(ResolveBinding(cueMap, UiAudioCueId.ObjectiveComplete), Is.Not.Null);
+            Assert.That(ResolveBinding(cueMap, UiAudioCueId.TopologyShift), Is.Not.Null);
+        }
+
+        [Test]
         public void UiAudioCueMap_RejectsNullBinding()
         {
             using var scope = new TestAssetScope();
