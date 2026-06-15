@@ -11,6 +11,11 @@ The runtime bootstrap path is
 The resolver loads the `StageContentEntry`; `StageRuntimeBuilder` builds the
 gameplay `StageDefinition`; `StagePresentationDefinition` remains the
 presentation source; `StageAudioDefinition` remains the gameplay BGM companion.
+Load residue cleanup follows
+[Stage-Load-Residue-Cleanup-2026-06-15.md](./Stage-Load-Residue-Cleanup-2026-06-15.md):
+`defaultStageId` and direct scene-local `StageDefinition` references are retired
+path detectors, while editor direct-play remains launcher-driven launch context
+support.
 Catalog grouping and ordering metadata lives directly on `StageContentEntry`
 as world id, chapter id, sort order, and initial availability. It is not a
 progression or unlock-rule graph.

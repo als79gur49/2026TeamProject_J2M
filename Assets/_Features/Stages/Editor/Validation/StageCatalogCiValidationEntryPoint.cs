@@ -102,10 +102,10 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine("AuditReport: stage-compat-audit.md");
             writer.WriteLine();
             WriteFullEditModeKnownFailureBaseline(writer);
-            writer.WriteLine("## Scene Mode Summary");
-            writer.WriteLine($"CatalogResolvedStageId: {summary.CatalogResolvedStageIdCount}");
-            writer.WriteLine($"SerializedStageContentEntry: {summary.SerializedStageContentEntryCount}");
-            writer.WriteLine($"LegacyStageDefinition: {summary.LegacyStageDefinitionCount}");
+            writer.WriteLine("## Scene Bootstrap Guard Summary");
+            writer.WriteLine($"LaunchContextCatalogResolvedInstallers: {summary.CatalogResolvedStageIdCount}");
+            writer.WriteLine($"RetiredSerializedStageContentEntryResidue: {summary.SerializedStageContentEntryCount}");
+            writer.WriteLine($"RetiredLegacyStageDefinitionResidue: {summary.LegacyStageDefinitionCount}");
             writer.WriteLine();
             WriteAuthoringIssues(writer, catalogReport);
             WritePresentationCatalogIssues(writer, catalogReport);

@@ -72,6 +72,8 @@
   - historical supporting truth for the retired `WindupMelee` repository profile rollout, pilot preset scorecard, same-cell ordering, no-touch matrix, and post-close non-claims
 - [Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md)
   - historical supporting truth for phase 5 official close decision, same-revision targeted evidence bundle, approve/hold branch, and phase 6 boundary
+- [Stage-Load-Residue-Cleanup-2026-06-15.md](./Stage-Load-Residue-Cleanup-2026-06-15.md)
+  - current supporting truth for `StageLoadSourceMode`, `defaultStageId`, and direct `StageDefinition` load residue classification before any deletion work
 - [Docs/Testing/UI-EditMode-Baseline-2026-04-15.md](../Testing/UI-EditMode-Baseline-2026-04-15.md)
   - pinned UI evidence truth for the completed Stage 1–9 UI architecture baseline
 - [Docs/Testing/Full-EditMode-Baseline-2026-04-13.md](../Testing/Full-EditMode-Baseline-2026-04-13.md)
