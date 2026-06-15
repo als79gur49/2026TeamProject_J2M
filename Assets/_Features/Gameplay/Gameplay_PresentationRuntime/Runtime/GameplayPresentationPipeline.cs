@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
@@ -264,21 +265,29 @@ namespace Game.Feature.Gameplay.PresentationRuntime
 
     public sealed class GameplayPresentationPipeline
     {
+        private static readonly IReadOnlyList<IPresentationExecutor> EmptyExecutors =
+            new ReadOnlyCollection<IPresentationExecutor>(new List<IPresentationExecutor>());
+
         private readonly TickPresentationFactExtractor _factExtractor;
         private readonly PresentationCuePlannerSet _cuePlannerSet;
         private readonly PresentationPlaybackPlanner _playbackPlanner;
         private readonly PresentationPlaybackScheduler _scheduler;
+        private readonly IReadOnlyList<IPresentationExecutor> _executors;
 
         public GameplayPresentationPipeline(
             TickPresentationFactExtractor factExtractor,
             PresentationCuePlannerSet cuePlannerSet,
             PresentationPlaybackPlanner playbackPlanner,
-            PresentationPlaybackScheduler scheduler)
+            PresentationPlaybackScheduler scheduler,
+            IReadOnlyList<IPresentationExecutor> executors = null)
         {
             _factExtractor = factExtractor ?? throw new ArgumentNullException(nameof(factExtractor));
             _cuePlannerSet = cuePlannerSet ?? throw new ArgumentNullException(nameof(cuePlannerSet));
             _playbackPlanner = playbackPlanner ?? throw new ArgumentNullException(nameof(playbackPlanner));
             _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
+            _executors = executors == null || executors.Count == 0
+                ? EmptyExecutors
+                : new ReadOnlyCollection<IPresentationExecutor>(new List<IPresentationExecutor>(executors));
         }
 
         public PresentationFactFrame LastFactFrame { get; private set; }
@@ -286,6 +295,8 @@ namespace Game.Feature.Gameplay.PresentationRuntime
         public PresentationCueFrame LastCueFrame { get; private set; }
 
         public PresentationPlaybackPlan LastPlaybackPlan { get; private set; }
+
+        public IReadOnlyList<IPresentationExecutor> Executors => _executors;
 
         public PresentationPlaybackDiagnostics CurrentDiagnostics => _scheduler.CurrentDiagnostics;
 
@@ -302,12 +313,25 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             LastFactFrame = factFrame;
             LastCueFrame = cueFrame;
             LastPlaybackPlan = playbackPlan;
+            for (var i = 0; i < _executors.Count; i++)
+            {
+                _executors[i]?.Prepare(playbackPlan);
+            }
+
             _scheduler.Accept(playbackPlan);
+            for (var i = 0; i < _executors.Count; i++)
+            {
+                _executors[i]?.Play(playbackPlan);
+            }
         }
 
         public void Update(float deltaTime)
         {
             _scheduler.Update(deltaTime);
+            for (var i = 0; i < _executors.Count; i++)
+            {
+                _executors[i]?.Update(deltaTime);
+            }
         }
 
         public void ResetSession()
@@ -316,6 +340,10 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             LastCueFrame = null;
             LastPlaybackPlan = null;
             _scheduler.ResetSession();
+            for (var i = 0; i < _executors.Count; i++)
+            {
+                _executors[i]?.ResetSession();
+            }
         }
 
         public void HardCleanup()
@@ -324,6 +352,10 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             LastCueFrame = null;
             LastPlaybackPlan = null;
             _scheduler.HardCleanup();
+            for (var i = 0; i < _executors.Count; i++)
+            {
+                _executors[i]?.HardCleanup();
+            }
         }
     }
 

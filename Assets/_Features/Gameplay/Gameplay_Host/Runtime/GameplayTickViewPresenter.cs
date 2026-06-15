@@ -86,7 +86,9 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationCatalog enemyPresentationCatalog = null,
             EnemyPresentationBinding[] enemyPresentationBindings = null,
             IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
-            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null,
+            TopologyPresentationExecutionMode topologyPresentationExecutionMode =
+                TopologyPresentationExecutionMode.LegacyCoordinator)
         {
             _presentationCoordinator.Initialize(
                 viewBinder,
@@ -103,7 +105,8 @@ namespace Game.Feature.Gameplay.Host
                 enemyPresentationCatalog,
                 enemyPresentationBindings,
                 tileFeatureVfxStyleBindings,
-                enemyInactiveVisualSettings);
+                enemyInactiveVisualSettings,
+                topologyPresentationExecutionMode);
             CapturePresentationState();
         }
 
@@ -247,6 +250,12 @@ namespace Game.Feature.Gameplay.Host
 
         internal EntityPresentationApplyDiagnostics DebugLastEntityPresentationApplyDiagnostics =>
             _presentationCoordinator.DebugLastEntityPresentationApplyDiagnostics;
+
+        internal TopologyPresentationExecutionMode TopologyPresentationExecutionMode =>
+            _presentationCoordinator.TopologyPresentationExecutionMode;
+
+        internal TopologyPresentationOwnershipDiagnostics TopologyPresentationOwnershipDiagnostics =>
+            _presentationCoordinator.TopologyPresentationOwnershipDiagnostics;
 
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {

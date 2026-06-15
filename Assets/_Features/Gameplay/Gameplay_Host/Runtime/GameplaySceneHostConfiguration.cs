@@ -168,6 +168,8 @@ namespace Game.Feature.Gameplay.Host
         public float MoveMotionDurationSeconds = -1f;
         public float PushMotionDurationSeconds = -1f;
         public float TopologyMotionDurationSeconds = -1f;
+        public TopologyPresentationExecutionMode TopologyPresentationExecutionMode =
+            TopologyPresentationExecutionMode.LegacyCoordinator;
         public TopologyRotationVisualMapping TopologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX;
         public TopologyRotationTweenSettings TopologyRotationTween = TopologyRotationTweenSettings.CreateDefault();
         public float FlipMotionDurationSeconds = -1f;

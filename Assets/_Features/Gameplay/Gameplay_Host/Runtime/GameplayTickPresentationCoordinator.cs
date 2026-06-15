@@ -71,8 +71,13 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayPoseResolver _poseResolver;
         private readonly GameplaySfxArbiter _gameplaySfxArbiter = new();
         private readonly List<IGameplayTickPresentationExtension> _presentationExtensions = new();
+        private readonly TopologyPresentationExecutionGuard _topologyExecutionGuard = new();
+        private readonly TopologyExecutionPipelineFactory _topologyExecutionPipelineFactory;
 
         private GameplayPresentationPipeline _presentationPipeline;
+        private GameplayPresentationPipeline _topologyExecutionPipeline;
+        private TopologyPresentationExecutionMode _topologyExecutionMode =
+            TopologyPresentationExecutionMode.LegacyCoordinator;
         private bool _isInitialized;
         private bool _presentationPipelineDiagnosticsEnabled;
         private GameplayCubeProjector _projector;
@@ -102,7 +107,14 @@ namespace Game.Feature.Gameplay.Host
         private bool _isPresentationPaused;
 
         public GameplayTickPresentationCoordinator()
+            : this(GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline)
         {
+        }
+
+        internal GameplayTickPresentationCoordinator(TopologyExecutionPipelineFactory topologyExecutionPipelineFactory)
+        {
+            _topologyExecutionPipelineFactory = topologyExecutionPipelineFactory ??
+                                                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline;
             _audioPresentationController = new GameplayAudioPresentationController(_stateStore);
             _actionAudioPresentationController = new GameplayActionAudioPresentationController(_stateStore);
             _enemyAudioPresentationController = new EnemyAudioPresentationController(_stateStore);
@@ -218,6 +230,11 @@ namespace Game.Feature.Gameplay.Host
 
         internal int PresentationPipelineNoOpSchedulerAcceptCount =>
             _presentationPipeline?.NoOpSchedulerAcceptCount ?? 0;
+
+        internal TopologyPresentationExecutionMode TopologyPresentationExecutionMode => _topologyExecutionMode;
+
+        internal TopologyPresentationOwnershipDiagnostics TopologyPresentationOwnershipDiagnostics =>
+            _topologyExecutionGuard.Diagnostics;
 
         internal void EnablePresentationPipelineDiagnostics(GameplayPresentationPipeline pipeline = null)
         {
@@ -336,13 +353,22 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationCatalog enemyPresentationCatalog = null,
             EnemyPresentationBinding[] enemyPresentationBindings = null,
             IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
-            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null,
+            TopologyPresentationExecutionMode topologyPresentationExecutionMode =
+                TopologyPresentationExecutionMode.LegacyCoordinator)
         {
             if (viewBinder == null)
             {
                 throw new ArgumentNullException(nameof(viewBinder));
             }
 
+            _topologyExecutionMode = NormalizeTopologyPresentationExecutionMode(topologyPresentationExecutionMode);
+            _topologyExecutionGuard.Configure(_topologyExecutionMode);
+            _topologyExecutionGuard.ResetSession();
+            _topologyExecutionPipeline = _topologyExecutionPipelineFactory(
+                _topologyExecutionMode,
+                _topologyTransitionController,
+                _topologyExecutionGuard);
             _viewBinder = viewBinder;
             _gravityFieldVisualPresentationController.AttachTargetViewRegistry(_viewBinder.ViewRegistry);
             _moonBlockEmergencePresentationController.Configure(_viewBinder.ViewRegistry, timingProfile);
@@ -397,6 +423,7 @@ namespace Game.Feature.Gameplay.Host
             _moonBlockEmergencePresentationController.ResetSession();
 
             _isInitialized = true;
+            _topologyExecutionPipeline?.ResetSession();
             ResetPresentationPipelineDiagnosticsIfEnabled();
         }
 
@@ -531,12 +558,7 @@ namespace Game.Feature.Gameplay.Host
             _playerLocomotionAudioPresentationController.RefreshSignals(
                 result,
                 _timingProfile.MoveMotionDurationSeconds);
-            _topologyTransitionController.RefreshTopologyTrack(
-                result.PresentationData,
-                _stateStore.CommittedTopology);
-            _topologyTransitionController.RefreshBoardSurfaceTransition(
-                result.PresentationData,
-                _stateStore.CommittedTopology);
+            RefreshTopologyExecution(result);
             RefreshGameplayAudioPlaybackGate();
             _topologyAudioPresentationController.ReplacePendingPlan(
                 _topologyAudioRequestPlanner.BuildRequests(result));
@@ -634,6 +656,52 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private void RefreshTopologyExecution(TickResult result)
+        {
+            if (_topologyExecutionMode == TopologyPresentationExecutionMode.ExecutorBridge)
+            {
+                ExecuteExecutorBridgeTopologyPath(result);
+                return;
+            }
+
+            ExecuteLegacyTopologyPath(result);
+        }
+
+        private void ExecuteLegacyTopologyPath(TickResult result)
+        {
+            if (IsTopologyTransitionPresentation(result.PresentationData.TopologyMotion) &&
+                !_topologyExecutionGuard.TryBeginExecution(
+                    TopologyPresentationExecutionOwner.LegacyCoordinator,
+                    result.TickIndex,
+                    hasSourceMetadata: false,
+                    sourceMetadataKey: 0))
+            {
+                return;
+            }
+
+            _topologyTransitionController.RefreshTopologyTrack(
+                result.PresentationData,
+                _stateStore.CommittedTopology);
+            _topologyTransitionController.RefreshBoardSurfaceTransition(
+                result.PresentationData,
+                _stateStore.CommittedTopology);
+        }
+
+        private void ExecuteExecutorBridgeTopologyPath(TickResult result)
+        {
+            if (IsTopologyTransitionPresentation(result.PresentationData.TopologyMotion))
+            {
+                _topologyExecutionGuard.RecordSkippedByPolicy(
+                    TopologyPresentationExecutionOwner.LegacyCoordinator);
+            }
+
+            _topologyExecutionPipeline ??= _topologyExecutionPipelineFactory(
+                _topologyExecutionMode,
+                _topologyTransitionController,
+                _topologyExecutionGuard);
+            _topologyExecutionPipeline?.Present(result);
+        }
+
         public void PresentInitial(
             IReadOnlyList<EntityState> entities,
             CubeTopologyState topology,
@@ -674,6 +742,8 @@ namespace Game.Feature.Gameplay.Host
             _currentEnemyGravityFieldAuraVisualStates = EmptyEnemyGravityFieldAuraVisualStates;
             _currentTileFeatureVisualStates = EmptyTileFeatureVisualStates;
             _topologyTransitionController.Reset();
+            _topologyExecutionGuard.ResetSession();
+            _topologyExecutionPipeline?.ResetSession();
             _lastPresentedResult = null;
             _topologyTransitionEpoch = 0;
             ResetPresentationPipelineDiagnosticsIfEnabled();
@@ -1142,6 +1212,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _moonBlockDestructionPresentationController.Dispose();
             _moonBlockEmergencePresentationController.Dispose();
+            _topologyExecutionPipeline?.HardCleanup();
             _presentationPipeline?.HardCleanup();
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
@@ -1323,6 +1394,14 @@ namespace Game.Feature.Gameplay.Host
         {
             return topologyMotion.HasValue &&
                    topologyMotion.Value.RotationKind != CubeRotationKind.None;
+        }
+
+        private static TopologyPresentationExecutionMode NormalizeTopologyPresentationExecutionMode(
+            TopologyPresentationExecutionMode mode)
+        {
+            return Enum.IsDefined(typeof(TopologyPresentationExecutionMode), mode)
+                ? mode
+                : TopologyPresentationExecutionMode.LegacyCoordinator;
         }
 
         private void RefreshPresentationMotionVfx(int tickIndex)
