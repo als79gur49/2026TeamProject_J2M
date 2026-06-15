@@ -12,6 +12,9 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PresentationPlanning;
+using Game.Feature.Gameplay.PresentationPlayback;
+using Game.Feature.Gameplay.PresentationRuntime;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
@@ -84,6 +87,257 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinator.CurrentGravityFieldPresentationRequests, Is.Empty);
             Assert.That(coordinator.CurrentGravityFieldVisualStates, Is.Not.Null);
             Assert.That(coordinator.CurrentGravityFieldVisualStates, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_LegacyCoordinatorMode_UsesDirectControllerPathAndDoesNotCallExecutorPort()
+        {
+            var rootObject = new GameObject(nameof(TopologyExecution_LegacyCoordinatorMode_UsesDirectControllerPathAndDoesNotCallExecutorPort));
+            var port = new RecordingTopologyTransitionPlaybackPort();
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var coordinator = CreateInitializedTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.LegacyCoordinator,
+                    port,
+                    initialTopology);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 7,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+
+                var diagnostics = coordinator.TopologyPresentationOwnershipDiagnostics;
+                Assert.That(port.BeginOrRefreshCallCount, Is.Zero);
+                Assert.That(diagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+                Assert.That(diagnostics.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ExecutorAttemptCount, Is.Zero);
+                Assert.That(diagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(diagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.LegacyCoordinator));
+                Assert.That(diagnostics.LastExecutionTickIndex, Is.EqualTo(7));
+                Assert.That(coordinator.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_ExecutorBridgeMode_UsesExecutorPortOnceAndSkipsLegacyDirectPath()
+        {
+            var rootObject = new GameObject(nameof(TopologyExecution_ExecutorBridgeMode_UsesExecutorPortOnceAndSkipsLegacyDirectPath));
+            var port = new RecordingTopologyTransitionPlaybackPort();
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var coordinator = CreateInitializedTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    port,
+                    initialTopology);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 7,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+
+                var diagnostics = coordinator.TopologyPresentationOwnershipDiagnostics;
+                Assert.That(port.BeginOrRefreshCallCount, Is.EqualTo(1));
+                Assert.That(port.LastRequest.TickIndex, Is.EqualTo(7));
+                Assert.That(port.LastRequest.SourceTopology, Is.EqualTo(initialTopology));
+                Assert.That(port.LastRequest.DestinationTopology, Is.EqualTo(destinationTopology));
+                Assert.That(port.LastRequest.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+                Assert.That(port.LastRequest.SourceTickIndex, Is.EqualTo(7));
+                Assert.That(port.LastRequest.HasSourceMetadata, Is.False);
+                Assert.That(diagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+                Assert.That(diagnostics.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ExecutorAttemptCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+                Assert.That(diagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
+                Assert.That(diagnostics.LastExecutionTickIndex, Is.EqualTo(7));
+                Assert.That(diagnostics.LastExecutionHasSourceMetadata, Is.False);
+                Assert.That(diagnostics.LastExecutionSourceMetadataKey, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_ExecutorBridgeMode_ForcedDoubleExecutorAttemptBlocksSecondOwner()
+        {
+            var rootObject = new GameObject(nameof(TopologyExecution_ExecutorBridgeMode_ForcedDoubleExecutorAttemptBlocksSecondOwner));
+            var port = new RecordingTopologyTransitionPlaybackPort();
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    port,
+                    initialTopology,
+                    duplicateExecutors: true);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 8,
+                    initialTopology,
+                    new CubeTopologyState(FaceId.Front),
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+
+                var diagnostics = coordinator.TopologyPresentationOwnershipDiagnostics;
+                Assert.That(port.BeginOrRefreshCallCount, Is.EqualTo(1));
+                Assert.That(diagnostics.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ExecutorAttemptCount, Is.EqualTo(2));
+                Assert.That(diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
+                Assert.That(diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_LegacyAndExecutorBridgePresenters_ProduceEquivalentVisualStateAndInputLock()
+        {
+            var legacyRoot = new GameObject(nameof(TopologyExecution_LegacyAndExecutorBridgePresenters_ProduceEquivalentVisualStateAndInputLock) + "_Legacy");
+            var executorRoot = new GameObject(nameof(TopologyExecution_LegacyAndExecutorBridgePresenters_ProduceEquivalentVisualStateAndInputLock) + "_Executor");
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
+                var legacyPresenter = CreateInitializedTopologyPresenter(
+                    legacyRoot,
+                    TopologyPresentationExecutionMode.LegacyCoordinator,
+                    initialTopology,
+                    timingProfile);
+                var executorPresenter = CreateInitializedTopologyPresenter(
+                    executorRoot,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    initialTopology,
+                    timingProfile);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 9,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                legacyPresenter.Present(result);
+                executorPresenter.Present(result);
+
+                AssertTopologyVisualStateEquivalent(
+                    legacyPresenter.CurrentTopologyTransitionVisualState,
+                    executorPresenter.CurrentTopologyTransitionVisualState);
+                Assert.That(legacyPresenter.HasBlockingPresentation, Is.True);
+                Assert.That(executorPresenter.HasBlockingPresentation, Is.True);
+                Assert.That(legacyPresenter.IsTopologyTransitionActive, Is.True);
+                Assert.That(executorPresenter.IsTopologyTransitionActive, Is.True);
+                Assert.That(
+                    Quaternion.Angle(legacyPresenter.PresentedBoardRotation, executorPresenter.PresentedBoardRotation),
+                    Is.LessThan(0.001f));
+
+                legacyPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.5f);
+                executorPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.5f);
+
+                AssertTopologyVisualStateEquivalent(
+                    legacyPresenter.CurrentTopologyTransitionVisualState,
+                    executorPresenter.CurrentTopologyTransitionVisualState);
+                Assert.That(
+                    Quaternion.Angle(legacyPresenter.PresentedBoardRotation, executorPresenter.PresentedBoardRotation),
+                    Is.LessThan(0.001f));
+
+                legacyPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+                executorPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+
+                AssertTopologyVisualStateEquivalent(
+                    legacyPresenter.CurrentTopologyTransitionVisualState,
+                    executorPresenter.CurrentTopologyTransitionVisualState);
+                Assert.That(legacyPresenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+                Assert.That(executorPresenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+                Assert.That(legacyPresenter.HasBlockingPresentation, Is.False);
+                Assert.That(executorPresenter.HasBlockingPresentation, Is.False);
+                Assert.That(legacyPresenter.CurrentTopologyTransitionVisualState.SourceTopology, Is.EqualTo(destinationTopology));
+                Assert.That(executorPresenter.CurrentTopologyTransitionVisualState.SourceTopology, Is.EqualTo(destinationTopology));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(legacyRoot);
+                UnityEngine.Object.DestroyImmediate(executorRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_LegacyAndExecutorBridgePresenters_PreserveAuthoritativeTickResultOutputs()
+        {
+            var legacyRoot = new GameObject(nameof(TopologyExecution_LegacyAndExecutorBridgePresenters_PreserveAuthoritativeTickResultOutputs) + "_Legacy");
+            var executorRoot = new GameObject(nameof(TopologyExecution_LegacyAndExecutorBridgePresenters_PreserveAuthoritativeTickResultOutputs) + "_Executor");
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 10,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+                var initialHash = result.DeterminismHash;
+                var initialEntities = result.FinalEntities.ToArray();
+                var initialEventLog = result.EventLog.ToArray();
+                var initialObjective = result.ObjectiveResult;
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
+                var legacyPresenter = CreateInitializedTopologyPresenter(
+                    legacyRoot,
+                    TopologyPresentationExecutionMode.LegacyCoordinator,
+                    initialTopology,
+                    timingProfile);
+                var executorPresenter = CreateInitializedTopologyPresenter(
+                    executorRoot,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    initialTopology,
+                    timingProfile);
+
+                legacyPresenter.Present(result);
+                executorPresenter.Present(result);
+                legacyPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+                executorPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+
+                Assert.That(result.DeterminismHash, Is.EqualTo(initialHash));
+                Assert.That(result.FinalEntities, Is.EqualTo(initialEntities));
+                Assert.That(result.EventLog, Is.EqualTo(initialEventLog));
+                Assert.That(result.ObjectiveResult, Is.SameAs(initialObjective));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(legacyRoot);
+                UnityEngine.Object.DestroyImmediate(executorRoot);
+            }
         }
 
         [Test]
@@ -10307,6 +10561,117 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        private static GameplayTickPresentationCoordinator CreateInitializedTopologyCoordinator(
+            GameObject rootObject,
+            TopologyPresentationExecutionMode mode,
+            RecordingTopologyTransitionPlaybackPort port,
+            CubeTopologyState initialTopology,
+            bool duplicateExecutors = false)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+            var coordinator = new GameplayTickPresentationCoordinator(
+                (pipelineMode, _, guard) => CreateRecordingTopologyExecutionPipeline(
+                    pipelineMode,
+                    guard,
+                    port,
+                    duplicateExecutors));
+
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                initialTopology,
+                1f,
+                CreateTimingProfile(),
+                topologyPresentationExecutionMode: mode);
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static GameplayTickViewPresenter CreateInitializedTopologyPresenter(
+            GameObject rootObject,
+            TopologyPresentationExecutionMode mode,
+            CubeTopologyState initialTopology,
+            GameplayTimingProfile timingProfile)
+        {
+            var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+
+            presenter.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                initialTopology,
+                1f,
+                timingProfile,
+                topologyPresentationExecutionMode: mode);
+            presenter.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return presenter;
+        }
+
+        private static GameplayPresentationPipeline CreateRecordingTopologyExecutionPipeline(
+            TopologyPresentationExecutionMode mode,
+            TopologyPresentationExecutionGuard guard,
+            ITopologyTransitionPlaybackPort port,
+            bool duplicateExecutors)
+        {
+            if (mode != TopologyPresentationExecutionMode.ExecutorBridge)
+            {
+                return null;
+            }
+
+            var executors = duplicateExecutors
+                ? new IPresentationExecutor[]
+                {
+                    new TopologyPresentationExecutor(port, mode, guard),
+                    new TopologyPresentationExecutor(port, mode, guard),
+                }
+                : new IPresentationExecutor[]
+                {
+                    new TopologyPresentationExecutor(port, mode, guard),
+                };
+
+            return new GameplayPresentationPipeline(
+                new TickPresentationFactExtractor(),
+                new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+                {
+                    new TopologyCuePlanner(),
+                }),
+                new PresentationPlaybackPlanner(),
+                new PresentationPlaybackScheduler(),
+                executors);
+        }
+
+        private static TickResult CreateTopologyTransitionResult(
+            int tickIndex,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            CubeRotationKind rotationKind)
+        {
+            return CreateTickResult(
+                tickIndex,
+                Array.Empty<EntityState>(),
+                destinationTopology,
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    new TickTopologyMotion(sourceTopology, destinationTopology, rotationKind),
+                    Array.Empty<TickVisibilityChange>()));
+        }
+
+        private static void AssertTopologyVisualStateEquivalent(
+            TopologyTransitionVisualState expected,
+            TopologyTransitionVisualState actual)
+        {
+            Assert.That(actual.IsActive, Is.EqualTo(expected.IsActive));
+            Assert.That(actual.SourceTopology, Is.EqualTo(expected.SourceTopology));
+            Assert.That(actual.DestinationTopology, Is.EqualTo(expected.DestinationTopology));
+            Assert.That(actual.RotationKind, Is.EqualTo(expected.RotationKind));
+            Assert.That(actual.Progress01, Is.EqualTo(expected.Progress01).Within(0.001f));
+            Assert.That(
+                Quaternion.Angle(actual.PresentedVisualRotation, expected.PresentedVisualRotation),
+                Is.LessThan(0.001f));
+        }
+
         private static GameplayTimingProfile CreateTimingProfile(float topologyMotionDurationSeconds = 0.2f)
         {
             return new GameplayTimingProfile(
@@ -10321,6 +10686,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 flipMotionDurationSeconds: 0.2f,
                 flipArcHeightInCells: 0.65f,
                 maxTicksPerFrame: 8);
+        }
+
+        private sealed class RecordingTopologyTransitionPlaybackPort : ITopologyTransitionPlaybackPort
+        {
+            public int BeginOrRefreshCallCount { get; private set; }
+
+            public int UpdatePresentationCallCount { get; private set; }
+
+            public int ResetSessionCallCount { get; private set; }
+
+            public int HardCleanupCallCount { get; private set; }
+
+            public bool IsTransitionActive { get; private set; }
+
+            public TopologyTransitionPlaybackRequest LastRequest { get; private set; }
+
+            public void BeginOrRefreshTopologyTransition(TopologyTransitionPlaybackRequest request)
+            {
+                BeginOrRefreshCallCount++;
+                IsTransitionActive = true;
+                LastRequest = request;
+            }
+
+            public void UpdatePresentation(float deltaTime)
+            {
+                UpdatePresentationCallCount++;
+            }
+
+            public void ResetSession()
+            {
+                ResetSessionCallCount++;
+                IsTransitionActive = false;
+            }
+
+            public void HardCleanup()
+            {
+                HardCleanupCallCount++;
+                IsTransitionActive = false;
+            }
         }
 
         private static Color ResolveExpectedInactiveColor(

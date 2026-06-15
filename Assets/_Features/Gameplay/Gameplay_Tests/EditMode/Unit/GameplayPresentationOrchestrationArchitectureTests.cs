@@ -159,6 +159,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(uiApplicationSource, Does.Not.Contain("PresentationCueFrame"));
             Assert.That(uiApplicationSource, Does.Not.Contain("PresentationPlaybackPlan"));
             Assert.That(uiApplicationSource, Does.Not.Contain("PresentationPlaybackScheduler"));
+            Assert.That(uiApplicationSource, Does.Not.Contain("TopologyPresentationOwnershipDiagnostics"));
+            Assert.That(uiApplicationSource, Does.Not.Contain("TopologyPresentationExecutionMode"));
         }
 
         [Test]
@@ -189,6 +191,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Contain("GameplayTopologyTransitionController _topologyTransitionController"));
             Assert.That(coordinatorSource, Does.Contain("_topologyTransitionController.RefreshTopologyTrack"));
             Assert.That(coordinatorSource, Does.Contain("_topologyTransitionController.RefreshBoardSurfaceTransition"));
+            Assert.That(coordinatorSource, Does.Contain("TopologyPresentationExecutionMode.LegacyCoordinator"));
+            Assert.That(coordinatorSource, Does.Contain("TopologyPresentationExecutionMode.ExecutorBridge"));
+            Assert.That(coordinatorSource, Does.Contain("ExecuteLegacyTopologyPath"));
+            Assert.That(coordinatorSource, Does.Contain("ExecuteExecutorBridgeTopologyPath"));
             Assert.That(coordinatorSource, Does.Contain("public bool IsTopologyTransitionActive => CurrentPresentationPhase == GameplayPresentationPhase.TopologyTransition;"));
             Assert.That(coordinatorSource, Does.Contain("_topologyTransitionController.HasActiveBoardRotationTween"));
             Assert.That(coordinatorSource, Does.Not.Contain("TopologyPresentationExecutor"));
@@ -216,13 +222,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeSource, Does.Not.Contain("TopologyPresentationExecutor"));
             Assert.That(coordinatorSource, Does.Not.Contain("TopologyPresentationExecutor"));
             Assert.That(coordinatorSource, Does.Not.Contain("ITopologyTransitionPlaybackPort"));
+            Assert.That(coordinatorSource, Does.Contain("GameplayHostPresentationPipelineFactory"));
             Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("ITopologyTransitionPlaybackPort"));
+            Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutionGuard"));
+            Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutionMode"));
             Assert.That(topologyExecutorSource, Does.Contain("GameplayTopologyTransitionPlaybackPort"));
             Assert.That(topologyExecutorSource, Does.Contain("GameplayTopologyTransitionController controller"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("FindObjectOfType"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("FindObjectsByType"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("new GameObject"));
+            Assert.That(topologyExecutorSource, Does.Not.Contain("TopologyTransitionPostFxController"));
+            Assert.That(topologyExecutorSource, Does.Not.Contain("GameplayCameraRig"));
+            Assert.That(topologyExecutorSource, Does.Not.Contain("TopologyVisualBridgeVisibilityController"));
+            Assert.That(topologyExecutorSource, Does.Not.Contain("AudioManager"));
+            Assert.That(topologyExecutorSource, Does.Not.Contain("Play2D"));
         }
 
         [Test]
@@ -422,15 +436,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var initialObjective = result.ObjectiveResult;
             var pipeline = GameplayPresentationPipelineInstaller.CreateDiagnosticsOnly();
             var port = new RecordingTopologyTransitionPlaybackPort();
+            var guard = new TopologyPresentationExecutionGuard(TopologyPresentationExecutionMode.ExecutorBridge);
             var executor = new TopologyPresentationExecutor(
                 port,
-                TopologyPresentationExecutorMode.EnabledForTests);
+                TopologyPresentationExecutionMode.ExecutorBridge,
+                guard);
 
             pipeline.Present(result);
             executor.Play(pipeline.LastPlaybackPlan);
 
             Assert.That(port.BeginOrRefreshCallCount, Is.EqualTo(1));
             Assert.That(executor.Diagnostics.RouteCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
             Assert.That(result.DeterminismHash, Is.EqualTo(initialHash));
             Assert.That(result.FinalEntities, Is.EqualTo(initialEntities));
             Assert.That(result.EventLog, Is.EqualTo(initialEventLog));
@@ -446,6 +463,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(coordinator.IsPresentationPipelineDiagnosticsEnabled, Is.False);
             Assert.That(coordinator.PresentationPipelineNoOpSchedulerAcceptCount, Is.Zero);
+            Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+            Assert.That(coordinator.TopologyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+            Assert.That(new GameplaySceneHostConfiguration().TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecutionSwitch_DoesNotPromoteSchedulerOrExecutorDiagnosticsToInputLock()
+        {
+            var inputHostSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayInputHost.cs");
+            var presenterSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs");
+            var coordinatorSource = ReadRepoFile(CoordinatorPath);
+
+            Assert.That(inputHostSource, Does.Contain("_presenter.HasBlockingPresentation"));
+            Assert.That(inputHostSource, Does.Not.Contain("PresentationPlaybackScheduler"));
+            Assert.That(inputHostSource, Does.Not.Contain("PresentationPlaybackPlan"));
+            Assert.That(inputHostSource, Does.Not.Contain("GameplayPresentationPipeline"));
+            Assert.That(inputHostSource, Does.Not.Contain("TopologyPresentationOwnershipDiagnostics"));
+            Assert.That(inputHostSource, Does.Not.Contain("TopologyPresentationExecutionMode"));
+            Assert.That(presenterSource, Does.Contain("HasBlockingPresentation => _presentationCoordinator.HasBlockingPresentation"));
+            Assert.That(coordinatorSource, Does.Contain("_topologyTransitionController.HasActiveBoardRotationTween"));
+            Assert.That(coordinatorSource, Does.Not.Contain("HasBlockingPresentation => _presentationPipeline"));
+            Assert.That(coordinatorSource, Does.Not.Contain("HasBlockingPresentation => _topologyExecutionPipeline"));
         }
 
         private static TickResult CreateDiagnosticTickResult(

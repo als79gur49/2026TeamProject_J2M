@@ -12,12 +12,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Core")]
-        public void TopologyPresentationExecutor_DisabledMode_IgnoresTopologyTrackWithoutCallingPort()
+        public void TopologyPresentationExecutor_LegacyCoordinatorMode_IgnoresTopologyTrackWithoutCallingPort()
         {
             var port = new RecordingTopologyTransitionPlaybackPort();
+            var guard = new TopologyPresentationExecutionGuard(TopologyPresentationExecutionMode.LegacyCoordinator);
             var executor = new TopologyPresentationExecutor(
                 port,
-                TopologyPresentationExecutorMode.Disabled);
+                TopologyPresentationExecutionMode.LegacyCoordinator,
+                guard);
             var plan = CreateTopologyPlaybackPlan(
                 new CubeTopologyState(FaceId.Floor),
                 new CubeTopologyState(FaceId.Front),
@@ -32,18 +34,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(executor.Diagnostics.IgnoredCount, Is.EqualTo(1));
             Assert.That(executor.Diagnostics.InvalidTrackCount, Is.Zero);
             Assert.That(executor.Diagnostics.MissingPortCount, Is.Zero);
+            Assert.That(guard.Diagnostics.ExecutorAttemptCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.Zero);
+            Assert.That(guard.Diagnostics.SkippedExecutorBecauseLegacyOwnerCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.Zero);
         }
 
         [Test]
         [Category("Core")]
-        public void TopologyPresentationExecutor_EnabledIsolatedMode_MapsOneTopologyTrackToOnePortCall()
+        public void TopologyPresentationExecutor_ExecutorBridgeMode_MapsOneTopologyTrackToOnePortCall()
         {
             var sourceTopology = new CubeTopologyState(FaceId.Floor);
             var destinationTopology = new CubeTopologyState(FaceId.Front);
             var port = new RecordingTopologyTransitionPlaybackPort();
+            var guard = new TopologyPresentationExecutionGuard(TopologyPresentationExecutionMode.ExecutorBridge);
             var executor = new TopologyPresentationExecutor(
                 port,
-                TopologyPresentationExecutorMode.EnabledForTests);
+                TopologyPresentationExecutionMode.ExecutorBridge,
+                guard);
             var plan = CreateTopologyPlaybackPlan(
                 sourceTopology,
                 destinationTopology,
@@ -63,13 +71,131 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(executor.Diagnostics.IgnoredCount, Is.Zero);
             Assert.That(executor.Diagnostics.InvalidTrackCount, Is.Zero);
             Assert.That(executor.Diagnostics.MissingPortCount, Is.Zero);
+            Assert.That(guard.Diagnostics.ExecutorAttemptCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.Zero);
+            Assert.That(guard.Diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
+            Assert.That(guard.Diagnostics.LastExecutionTickIndex, Is.EqualTo(42));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyPresentationExecutor_ExecutorBridgeMode_PreservesSymbolicTopologyCueSemanticsInRequest()
+        {
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+            var port = new RecordingTopologyTransitionPlaybackPort();
+            var guard = new TopologyPresentationExecutionGuard(TopologyPresentationExecutionMode.ExecutorBridge);
+            var executor = new TopologyPresentationExecutor(
+                port,
+                TopologyPresentationExecutionMode.ExecutorBridge,
+                guard);
+            var plan = CreateTopologyPlaybackPlan(
+                sourceTopology,
+                destinationTopology,
+                CubeRotationKind.Forward,
+                tickIndex: 42,
+                hasSourceMetadata: true,
+                sourceMetadataKey: 314);
+
+            executor.Play(plan);
+
+            var cue = plan.Tracks[0].Cue;
+            Assert.That(cue.Source.SemanticSource, Is.EqualTo(PresentationSemanticSource.TopologyMotion));
+            Assert.That(cue.Target.Kind, Is.EqualTo(PresentationTargetKind.Topology));
+            Assert.That(cue.Anchor.Kind, Is.EqualTo(PresentationAnchorKind.TopologyOrbit));
+            Assert.That(plan.Barriers[0].Target.Kind, Is.EqualTo(PresentationTargetKind.Topology));
+            Assert.That(plan.Barriers[0].OwnerDomain, Is.EqualTo(PresentationDomain.Topology));
+            Assert.That(plan.Barriers[0].Blocking, Is.True);
+            Assert.That(port.LastRequest.SourceTopology, Is.EqualTo(cue.TopologyPayload.SourceTopology));
+            Assert.That(port.LastRequest.DestinationTopology, Is.EqualTo(cue.TopologyPayload.DestinationTopology));
+            Assert.That(port.LastRequest.RotationKind, Is.EqualTo(cue.TopologyPayload.RotationKind));
+            Assert.That(port.LastRequest.SourceTickIndex, Is.EqualTo(cue.TopologyPayload.SourceTickIndex));
+            Assert.That(port.LastRequest.HasSourceMetadata, Is.EqualTo(cue.TopologyPayload.HasSourceMetadata));
+            Assert.That(port.LastRequest.SourceMetadataKey, Is.EqualTo(cue.TopologyPayload.SourceMetadataKey));
+            Assert.That(guard.Diagnostics.LastExecutionHasSourceMetadata, Is.True);
+            Assert.That(guard.Diagnostics.LastExecutionSourceMetadataKey, Is.EqualTo(314));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyPresentationExecutionGuard_ExecutorBridgeMode_SkipsLegacyAndAllowsExecutor()
+        {
+            var guard = new TopologyPresentationExecutionGuard(TopologyPresentationExecutionMode.ExecutorBridge);
+
+            guard.RecordSkippedByPolicy(TopologyPresentationExecutionOwner.LegacyCoordinator);
+            var executorAllowed = guard.TryBeginExecution(
+                TopologyPresentationExecutionOwner.ExecutorBridge,
+                tickIndex: 9,
+                hasSourceMetadata: false,
+                sourceMetadataKey: 0);
+
+            Assert.That(executorAllowed, Is.True);
+            Assert.That(guard.Diagnostics.LegacyAttemptCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutorAttemptCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutedByLegacyCount, Is.Zero);
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyPresentationExecutionGuard_DuplicateOwnerAttempt_IsRecordedAndBlocked()
+        {
+            var guard = new TopologyPresentationExecutionGuard(TopologyPresentationExecutionMode.LegacyCoordinator);
+            var legacyAllowed = guard.TryBeginExecution(
+                TopologyPresentationExecutionOwner.LegacyCoordinator,
+                tickIndex: 12,
+                hasSourceMetadata: false,
+                sourceMetadataKey: 0);
+
+            var executorAllowed = guard.TryBeginExecution(
+                TopologyPresentationExecutionOwner.ExecutorBridge,
+                tickIndex: 12,
+                hasSourceMetadata: false,
+                sourceMetadataKey: 0);
+
+            Assert.That(legacyAllowed, Is.True);
+            Assert.That(executorAllowed, Is.False);
+            Assert.That(guard.Diagnostics.LegacyAttemptCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutorAttemptCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.Zero);
+            Assert.That(guard.Diagnostics.SkippedExecutorBecauseLegacyOwnerCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.LegacyCoordinator));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyPresentationExecutionGuard_DuplicateOwnerAttempt_CanFailFastForTests()
+        {
+            var guard = new TopologyPresentationExecutionGuard(
+                TopologyPresentationExecutionMode.LegacyCoordinator,
+                throwOnDuplicate: true);
+
+            guard.TryBeginExecution(
+                TopologyPresentationExecutionOwner.LegacyCoordinator,
+                tickIndex: 12,
+                hasSourceMetadata: false,
+                sourceMetadataKey: 0);
+
+            Assert.Throws<InvalidOperationException>(() => guard.TryBeginExecution(
+                TopologyPresentationExecutionOwner.ExecutorBridge,
+                tickIndex: 12,
+                hasSourceMetadata: false,
+                sourceMetadataKey: 0));
+            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
         }
 
         private static PresentationPlaybackPlan CreateTopologyPlaybackPlan(
             CubeTopologyState sourceTopology,
             CubeTopologyState destinationTopology,
             CubeRotationKind rotationKind,
-            int tickIndex = 7)
+            int tickIndex = 7,
+            bool hasSourceMetadata = false,
+            int sourceMetadataKey = 0)
         {
             var cue = new PresentationCue(
                 PresentationDomain.Topology,
@@ -82,7 +208,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     sourceTopology,
                     destinationTopology,
                     rotationKind,
-                    tickIndex));
+                    tickIndex,
+                    hasSourceMetadata,
+                    sourceMetadataKey));
             var policy = PresentationPlaybackPolicy.FromHint(cue.PolicyHint);
 
             return new PresentationPlaybackPlan(
