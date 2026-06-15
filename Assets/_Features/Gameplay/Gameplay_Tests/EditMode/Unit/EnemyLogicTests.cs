@@ -5363,6 +5363,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void IEnemyAiStateResolver_ResolveSignature_DoesNotExposeChargeTimingSettings()
+        {
+            var resolveMethod = typeof(IEnemyAiStateResolver).GetMethod(nameof(IEnemyAiStateResolver.Resolve));
+
+            Assert.That(resolveMethod, Is.Not.Null);
+            var parameterTypes = resolveMethod.GetParameters()
+                .Select(parameter => parameter.ParameterType.IsByRef
+                    ? parameter.ParameterType.GetElementType()
+                    : parameter.ParameterType)
+                .ToArray();
+
+            Assert.That(parameterTypes, Has.No.Member(typeof(EnemyChargeTimingSettings)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAiRuntimeDefinition_DefaultResolver_AllowsNoChargeBehaviorModule()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                StateResolverKind = EnemyAiStateResolverKind.Default,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+            });
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(60);
+
+                Assert.That(definition.TryGetChargeBehavior(out _), Is.False);
+                Assert.DoesNotThrow(() => new EnemyLogic(100, definition));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAiProfile_CreateRuntimeDefinition_NegativeSeconds_ThrowsArgumentException()
         {
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec

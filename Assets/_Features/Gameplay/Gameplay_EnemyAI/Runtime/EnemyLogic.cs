@@ -23,7 +23,6 @@ namespace Game.Feature.Gameplay.Entities
             EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
-            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions);
     }
@@ -126,8 +125,18 @@ namespace Game.Feature.Gameplay.Entities
 
         public int ControlledEntityId => _entityId;
 
-        private EnemyChargeTimingSettings ChargeTimingSettings =>
-            _chargeBehavior?.Timing ?? EnemyChargeTimingSettings.CreateDefault();
+        private EnemyChargeTimingSettings ChargeTimingSettings
+        {
+            get
+            {
+                if (_chargeBehavior == null)
+                {
+                    throw new InvalidOperationException("Charge timing requires a charge behavior runtime.");
+                }
+
+                return _chargeBehavior.Timing;
+            }
+        }
 
         public void BindTileFeatureDefinitions(IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
@@ -183,9 +192,13 @@ namespace Game.Feature.Gameplay.Entities
                 _passiveContactCapability,
                 _movementSkillCapability,
                 _commonSettings,
-                ChargeTimingSettings,
                 _detectionSettings,
                 _tileFeatureDefinitions);
+
+            if (TryResolveImmediateChargeRecoverDecision(snapshot, source, decision, out var immediateChargeRecoverDecision))
+            {
+                decision = immediateChargeRecoverDecision;
+            }
 
             if (ShouldDeferChargeStartForOrdinaryKinematic(snapshot, source, decision, out var deferredPose))
             {
@@ -2139,6 +2152,60 @@ namespace Game.Feature.Gameplay.Entities
                    pose.Mode == MotionMode.Voluntary;
         }
 
+        private bool TryResolveImmediateChargeRecoverDecision(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyAiTransitionDecision decision,
+            out EnemyAiTransitionDecision resolvedDecision)
+        {
+            resolvedDecision = default;
+            if (!_usesChargeStateResolver ||
+                source.aiMode != EnemyAiMode.Charge ||
+                decision.Mode != EnemyAiMode.Recover ||
+                !IsChargeRecoveryDecisionReason(decision.Reason) ||
+                ChargeTimingSettings.RecoverTicks != 0)
+            {
+                return false;
+            }
+
+            resolvedDecision = ResolvePostChargeDecision(snapshot, source, decision.Reason);
+            return true;
+        }
+
+        private static bool IsChargeRecoveryDecisionReason(string reason)
+        {
+            return string.Equals(reason, "ChargeBlocked", StringComparison.Ordinal) ||
+                   string.Equals(reason, "ChargeComplete", StringComparison.Ordinal);
+        }
+
+        private EnemyAiTransitionDecision ResolvePostChargeDecision(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            string reason)
+        {
+            if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var target))
+            {
+                if (EnemyTargetSelector.TryFindLocalEngagementTarget(
+                        snapshot,
+                        source,
+                        _combatCapability,
+                        _passiveContactCapability,
+                        new List<EntityState>(),
+                        out _,
+                        out _))
+                {
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "PatrolFallbackDeniedByLocalEngagement");
+                }
+
+                return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, reason);
+            }
+
+            return _combatCapability != null &&
+                   _combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, _combatCapability.AttackDecisionSettings)
+                ? new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, reason)
+                : new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, reason);
+        }
+
         private static bool ShouldWriteChargeState(
             bool hadPreviousState,
             in EnemyChargeRuntimeState previousState,
@@ -2897,7 +2964,6 @@ namespace Game.Feature.Gameplay.Entities
             EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
-            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
@@ -3253,7 +3319,6 @@ namespace Game.Feature.Gameplay.Entities
             EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
-            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
@@ -3282,7 +3347,6 @@ namespace Game.Feature.Gameplay.Entities
                     combatCapability,
                     passiveContactCapability,
                     movementSkillCapability,
-                    chargeTimingSettings,
                     detectionSettings,
                     tileFeatureDefinitions),
                 EnemyAiTransitionStage.BeforeAttack => ResolveBeforeAttack(
@@ -3346,7 +3410,6 @@ namespace Game.Feature.Gameplay.Entities
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
-            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
@@ -3396,7 +3459,6 @@ namespace Game.Feature.Gameplay.Entities
                         detectionStrategy,
                         combatCapability,
                         passiveContactCapability,
-                        chargeTimingSettings,
                         detectionSettings,
                         tileFeatureDefinitions);
 
@@ -3786,7 +3848,6 @@ namespace Game.Feature.Gameplay.Entities
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyPassiveContactCapabilityRuntime passiveContactCapability,
-            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
@@ -3810,13 +3871,12 @@ namespace Game.Feature.Gameplay.Entities
                             chargeState.lockedDirection,
                             tileFeatureDefinitions))
                     {
-                        return ResolveChargeRecoveryOrImmediate(
+                        return ResolveChargeRecoveryTransition(
                             snapshot,
                             source,
                             detectionStrategy,
                             combatCapability,
                             passiveContactCapability,
-                            chargeTimingSettings,
                             detectionSettings,
                             "ChargeBlocked");
                     }
@@ -3844,13 +3904,12 @@ namespace Game.Feature.Gameplay.Entities
                             return new EnemyAiTransitionDecision(EnemyAiMode.Charge, 0, "ChargeWaitingForLocomotionCooldown");
                         }
 
-                        return ResolveChargeRecoveryOrImmediate(
+                        return ResolveChargeRecoveryTransition(
                             snapshot,
                             source,
                             detectionStrategy,
                             combatCapability,
                             passiveContactCapability,
-                            chargeTimingSettings,
                             detectionSettings,
                             "ChargeComplete");
                     }
@@ -3866,13 +3925,12 @@ namespace Game.Feature.Gameplay.Entities
                             chargeState.lockedDirection,
                             tileFeatureDefinitions))
                     {
-                        return ResolveChargeRecoveryOrImmediate(
+                        return ResolveChargeRecoveryTransition(
                             snapshot,
                             source,
                             detectionStrategy,
                             combatCapability,
                             passiveContactCapability,
-                            chargeTimingSettings,
                             detectionSettings,
                             "ChargeBlocked");
                     }
@@ -3892,21 +3950,15 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
-        private static EnemyAiTransitionDecision ResolveChargeRecoveryOrImmediate(
+        private static EnemyAiTransitionDecision ResolveChargeRecoveryTransition(
             WorldSnapshot snapshot,
             in EntityState source,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyPassiveContactCapabilityRuntime passiveContactCapability,
-            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             string reason)
         {
-            if (chargeTimingSettings.RecoverTicks == 0)
-            {
-                return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, passiveContactCapability, detectionSettings, reason);
-            }
-
             return new EnemyAiTransitionDecision(
                 EnemyAiMode.Recover,
                 0,
