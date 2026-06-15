@@ -60,6 +60,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_ArchetypeSummoner/EnemyAi_ArchetypeSummoner.asset",
         };
 
+        private static readonly Dictionary<string, int[]> RequiredChargeExecutionProfileTicks = new()
+        {
+            [StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeExecutionProfile_Standard.asset"] = new[] { 24, 12, 24 },
+            [StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeExecutionProfile_Fast.asset"] = new[] { 12, 6, 12 },
+            [StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeExecutionProfile_Heavy.asset"] = new[] { 36, 18, 42 },
+            [StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeExecutionProfile_SlowWindup.asset"] = new[] { 48, 12, 24 },
+        };
+
+        private static readonly string[] RequiredChargeBehaviorModulePaths =
+        {
+            StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeBehaviorModule_Standard.asset",
+            StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeBehaviorModule_Fast.asset",
+            StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeBehaviorModule_Heavy.asset",
+            StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Charge/EnemyChargeBehaviorModule_SlowWindup.asset",
+        };
+
         [Test]
         [Category("Extended")]
         public void EnemyAiProfileAssets_RepositoryProfiles_UseCanonicalAuthoringContract()
@@ -246,6 +262,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 violations,
                 Is.Empty,
                 "EnemyAiProfile Charge behavior module contract violations:\n" + string.Join("\n", violations));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyChargeExecutionProfileAssets_CompileTimingProfilesToExpectedTicks()
+        {
+            foreach (var pair in RequiredChargeExecutionProfileTicks)
+            {
+                var profile = AssetDatabase.LoadAssetAtPath<EnemyChargeExecutionProfile>(pair.Key);
+
+                Assert.That(profile, Is.Not.Null, pair.Key);
+                var timing = profile.Timing.ToRuntimeSettings(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                Assert.That(timing.WindupTicks, Is.EqualTo(pair.Value[0]), pair.Key);
+                Assert.That(timing.ActiveStepCooldownTicks, Is.EqualTo(pair.Value[1]), pair.Key);
+                Assert.That(timing.RecoverTicks, Is.EqualTo(pair.Value[2]), pair.Key);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyChargeBehaviorModuleAssets_PointToChargeExecutionProfiles()
+        {
+            foreach (var assetPath in RequiredChargeBehaviorModulePaths)
+            {
+                var module = AssetDatabase.LoadAssetAtPath<EnemyChargeBehaviorModuleAsset>(assetPath);
+
+                Assert.That(module, Is.Not.Null, assetPath);
+                Assert.That(module.Key, Is.EqualTo(EnemyBehaviorModuleKey.Charge), assetPath);
+                Assert.That(module.ChargeExecutionProfile, Is.Not.Null, assetPath);
+            }
         }
 
         [Test]
