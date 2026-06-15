@@ -150,7 +150,7 @@ namespace Game.Feature.Stages.Editor
                         AddPathError(
                             report,
                             "campaign-content.stage-folder.non-companion-asset",
-                            "Campaign stage folders may contain only StageContentEntry and companion definitions.",
+                            "Campaign stage folders may contain only StageContentEntry roots and companion definitions.",
                             path,
                             timing);
                     }

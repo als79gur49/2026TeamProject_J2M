@@ -29,6 +29,20 @@ namespace Game.Feature.Stages.Editor.Tests
             var auditReportText = File.ReadAllText(auditReportPath);
             Assert.That(reportText, Does.Contain("## Authoring Sync Issues"));
             Assert.That(reportText, Does.Contain("## Presentation Catalog Issues"));
+            Assert.That(reportText, Does.Contain("## Authoring Surface Classification"));
+            Assert.That(reportText, Does.Contain("StageContentEntry: Stage Root"));
+            Assert.That(reportText, Does.Contain("StageDefinition: Gameplay Companion"));
+            Assert.That(reportText, Does.Contain("StagePresentationDefinition: Presentation Companion"));
+            Assert.That(reportText, Does.Contain("StageAudioDefinition: Audio Companion"));
+            Assert.That(reportText, Does.Contain("Reward / Progression / ClearEvaluation: Retired Companion Guard"));
+            Assert.That(reportText, Does.Contain("RetiredStageLoadPathGuard: Retired Load Guard"));
+            Assert.That(reportText, Does.Contain("defaultStageId residue: Retired Load Detector"));
+            Assert.That(reportText, Does.Contain("direct stageDefinition residue: Retired Load Detector"));
+            Assert.That(reportText, Does.Contain("serialized StageContentEntry residue: Retired Load Detector"));
+            Assert.That(reportText, Does.Contain("compat mode residue: Retired Load Detector"));
+            Assert.That(reportText, Does.Contain("StageEditorDirectPlayCatalog / StageEditorDirectPlayLauncher / StageEditorDirectPlayWindow: Editor Direct-Play Support"));
+            Assert.That(reportText, Does.Contain("PresentationId: Presentation-Only Binding"));
+            Assert.That(reportText, Does.Contain("UI / Audio / Topology helper references: Weak Helper / Reference"));
             Assert.That(reportText, Does.Contain("## Scene Bootstrap Guard Summary"));
             Assert.That(reportText, Does.Contain("AuditReport: stage-content-inventory-retired-residue-audit.md"));
             Assert.That(reportText, Does.Contain("LaunchContextCatalogResolvedInstallers"));
@@ -36,12 +50,19 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(reportText, Does.Contain("RetiredLegacyStageDefinitionResidue"));
             Assert.That(reportText, Does.Contain("RemovedDefaultStageIdFallbackResidue"));
             Assert.That(reportText, Does.Contain("RemovedDirectStageDefinitionLoadResidue"));
-            Assert.That(reportText, Does.Contain("EditorDirectPlayMappingSupport"));
+            Assert.That(reportText, Does.Contain("EditorDirectPlayMappingSupport: Editor Direct-Play Support"));
             Assert.That(reportText, Does.Contain("## Full EditMode Known Failure Baseline"));
             Assert.That(reportText, Does.Contain("## Known Warning Governance Issues"));
             Assert.That(reportText, Does.Contain("## Alias Governance Issues"));
             Assert.That(reportText, Does.Contain("## Alias Usage Issues"));
             Assert.That(auditReportText, Does.Contain("# Stage Content Inventory / Retired Residue Audit"));
+            Assert.That(auditReportText, Does.Contain("StageContentEntryClassification: Stage Root"));
+            Assert.That(auditReportText, Does.Contain("StageDefinitionClassification: Gameplay Companion"));
+            Assert.That(auditReportText, Does.Contain("StagePresentationDefinitionClassification: Presentation Companion"));
+            Assert.That(auditReportText, Does.Contain("StageAudioDefinitionClassification: Audio Companion"));
+            Assert.That(auditReportText, Does.Contain("RetiredCompanionClassification: Retired Companion Guard"));
+            Assert.That(auditReportText, Does.Contain("RetiredLoadResidueClassification: Retired Load Detector"));
+            Assert.That(auditReportText, Does.Contain("DirectPlayClassification: Editor Direct-Play Support"));
             Assert.That(auditReportText, Does.Contain("CanonicalGameplayCompanionCount:"));
             Assert.That(auditReportText, Does.Contain("DuplicateLegacyGameplayCompanionAssetCount:"));
             Assert.That(auditReportText, Does.Contain("## Duplicate Legacy Gameplay Companion Assets"));
@@ -52,9 +73,42 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(reportText, Does.Not.Contain("DefaultStageId fallback"));
             Assert.That(reportText, Does.Not.Contain("Direct StageDefinition option"));
             Assert.That(reportText, Does.Not.Contain("FallbackStage option"));
+            Assert.That(reportText, Does.Not.Contain("active missing companion"));
+            Assert.That(reportText, Does.Not.Contain("production fallback"));
             Assert.That(reportText, Does.Not.Contain("stage-compat-audit.md"));
             Assert.That(auditReportText, Does.Not.Contain("Stage Compat Audit"));
             Assert.That(auditReportText, Does.Not.Contain("CanonicalGameplayAssetCount"));
+        }
+
+        [Test]
+        public void StageContentInventory_ExposesDisplayClassificationLabels()
+        {
+            var gameplayItem = new StageGameplayCompanionInventoryItem(
+                "guid",
+                "Assets/StageDefinition.asset",
+                isCanonicalCatalogGameplayCompanion: true,
+                isDuplicateLegacyGameplayCompanionAsset: false);
+            var buildSceneItem = new StageBuildSceneInventoryItem(
+                "Assets/Scenes/UIAudioScene.unity",
+                installerCount: 1,
+                hasCompatModeResidue: false,
+                hasDirectStageDefinitionResidue: false,
+                hasSerializedEntryResidue: false,
+                hasEnemyCatalogResidue: false,
+                hasStaticCatalogResidue: false,
+                hasDefaultStageIdResidue: false,
+                hasDirectPlayCatalogCoverage: true);
+            var snapshot = new StageContentInventorySnapshot(
+                StageContentPaths.StageCatalogAssetPath,
+                new[] { "guid" },
+                new[] { gameplayItem },
+                new[] { buildSceneItem },
+                Array.Empty<StageIdAliasEntry>());
+
+            Assert.That(snapshot.StageContentRootClassificationLabel, Is.EqualTo("Stage Root"));
+            Assert.That(gameplayItem.ClassificationLabel, Is.EqualTo("Gameplay Companion"));
+            Assert.That(buildSceneItem.ResidueClassificationLabel, Is.EqualTo("Retired Load Detector"));
+            Assert.That(buildSceneItem.DirectPlayCoverageClassificationLabel, Is.EqualTo("Editor Direct-Play Support"));
         }
 
         [Test]

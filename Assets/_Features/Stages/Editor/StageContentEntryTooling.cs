@@ -18,7 +18,8 @@ namespace Game.Feature.Stages.Editor
             var stageDefinition = Selection.activeObject as StageDefinition;
             if (stageDefinition == null)
             {
-                throw new InvalidOperationException("Select a StageDefinition asset before creating StageContentEntry companions.");
+                throw new InvalidOperationException(
+                    "Select a StageDefinition gameplay companion before creating a StageContentEntry root and companions.");
             }
 
             CreateForStageDefinition(stageDefinition);

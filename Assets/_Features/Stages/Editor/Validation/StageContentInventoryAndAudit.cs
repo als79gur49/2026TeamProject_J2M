@@ -11,6 +11,46 @@ using UnityEngine.SceneManagement;
 
 namespace Game.Feature.Stages.Editor
 {
+    internal enum StageAuthoringSurfaceKind
+    {
+        StageRoot,
+        GameplayCompanion,
+        PresentationCompanion,
+        AudioCompanion,
+        RetiredCompanionGuard,
+        RetiredLoadGuard,
+        RetiredLoadDetector,
+        EditorDirectPlaySupport,
+        PresentationOnlyBinding,
+        WeakHelperReference,
+    }
+
+    internal static class StageAuthoringSurfaceClassificationLabels
+    {
+        public static string GetLabel(StageAuthoringSurfaceKind kind)
+        {
+            return kind switch
+            {
+                StageAuthoringSurfaceKind.StageRoot => "Stage Root",
+                StageAuthoringSurfaceKind.GameplayCompanion => "Gameplay Companion",
+                StageAuthoringSurfaceKind.PresentationCompanion => "Presentation Companion",
+                StageAuthoringSurfaceKind.AudioCompanion => "Audio Companion",
+                StageAuthoringSurfaceKind.RetiredCompanionGuard => "Retired Companion Guard",
+                StageAuthoringSurfaceKind.RetiredLoadGuard => "Retired Load Guard",
+                StageAuthoringSurfaceKind.RetiredLoadDetector => "Retired Load Detector",
+                StageAuthoringSurfaceKind.EditorDirectPlaySupport => "Editor Direct-Play Support",
+                StageAuthoringSurfaceKind.PresentationOnlyBinding => "Presentation-Only Binding",
+                StageAuthoringSurfaceKind.WeakHelperReference => "Weak Helper / Reference",
+                _ => "Unknown",
+            };
+        }
+
+        public static string Format(string surface, StageAuthoringSurfaceKind kind)
+        {
+            return $"{surface}: {GetLabel(kind)}";
+        }
+    }
+
     public readonly struct StageGameplayCompanionInventoryItem
     {
         public StageGameplayCompanionInventoryItem(
@@ -28,6 +68,9 @@ namespace Game.Feature.Stages.Editor
         public string AssetGuid { get; }
 
         public string AssetPath { get; }
+
+        public string ClassificationLabel =>
+            StageAuthoringSurfaceClassificationLabels.GetLabel(StageAuthoringSurfaceKind.GameplayCompanion);
 
         public bool IsCanonicalCatalogGameplayCompanion { get; }
 
@@ -59,6 +102,12 @@ namespace Game.Feature.Stages.Editor
         }
 
         public string ScenePath { get; }
+
+        public string ResidueClassificationLabel =>
+            StageAuthoringSurfaceClassificationLabels.GetLabel(StageAuthoringSurfaceKind.RetiredLoadDetector);
+
+        public string DirectPlayCoverageClassificationLabel =>
+            StageAuthoringSurfaceClassificationLabels.GetLabel(StageAuthoringSurfaceKind.EditorDirectPlaySupport);
 
         public int InstallerCount { get; }
 
@@ -104,6 +153,9 @@ namespace Game.Feature.Stages.Editor
         }
 
         public string CatalogAssetPath { get; }
+
+        public string StageContentRootClassificationLabel =>
+            StageAuthoringSurfaceClassificationLabels.GetLabel(StageAuthoringSurfaceKind.StageRoot);
 
         public IReadOnlyList<string> CanonicalGameplayCompanionAssetGuids { get; }
 

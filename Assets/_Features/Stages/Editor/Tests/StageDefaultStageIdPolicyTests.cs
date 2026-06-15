@@ -106,8 +106,9 @@ namespace Game.Feature.Stages.Editor.Tests
             var source = File.ReadAllText("Assets/_Features/Stages/Editor/StageEditorDirectPlayWindow.cs");
 
             Assert.That(source, Does.Contain("Editor Direct-Play Context"));
-            Assert.That(source, Does.Contain("Editor-only direct-play mapping support"));
-            Assert.That(source, Does.Contain("Injects launch context before editor play"));
+            Assert.That(source, Does.Contain("EditorDirectPlaySupport"));
+            Assert.That(source, Does.Contain("Editor-only launch context injection before editor play"));
+            Assert.That(source, Does.Contain("not a production load path"));
             Assert.That(source, Does.Not.Contain("EnumPopup(\"Mode\""));
             Assert.That(source, Does.Not.Contain("production " + "fallback"));
         }

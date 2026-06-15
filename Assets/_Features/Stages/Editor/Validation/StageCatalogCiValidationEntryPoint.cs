@@ -102,6 +102,7 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine("AuditReport: stage-content-inventory-retired-residue-audit.md");
             writer.WriteLine();
             WriteFullEditModeKnownFailureBaseline(writer);
+            WriteAuthoringSurfaceClassification(writer);
             writer.WriteLine("## Scene Bootstrap Guard Summary");
             writer.WriteLine(
                 $"LaunchContextCatalogResolvedInstallers: {summary.GuardSummary.LaunchContextCatalogResolvedInstallers}");
@@ -113,7 +114,8 @@ namespace Game.Feature.Stages.Editor
                 $"RemovedDefaultStageIdFallbackResidue: {summary.GuardSummary.RemovedDefaultStageIdFallbackResidue}");
             writer.WriteLine(
                 $"RemovedDirectStageDefinitionLoadResidue: {summary.GuardSummary.RemovedDirectStageDefinitionLoadResidue}");
-            writer.WriteLine("EditorDirectPlayMappingSupport: StageEditorDirectPlayCatalog");
+            writer.WriteLine(
+                $"EditorDirectPlayMappingSupport: {StageAuthoringSurfaceClassificationLabels.GetLabel(StageAuthoringSurfaceKind.EditorDirectPlaySupport)}");
             writer.WriteLine();
             WriteAuthoringIssues(writer, catalogReport);
             WritePresentationCatalogIssues(writer, catalogReport);
@@ -236,6 +238,19 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine($"GeneratedAtUtc: {DateTime.UtcNow:O}");
             writer.WriteLine();
             writer.WriteLine("## Audit Snapshot");
+            writer.WriteLine($"StageContentEntryClassification: {auditReport.Snapshot.StageContentRootClassificationLabel}");
+            writer.WriteLine(
+                $"StageDefinitionClassification: {StageAuthoringSurfaceClassificationLabels.GetLabel(StageAuthoringSurfaceKind.GameplayCompanion)}");
+            writer.WriteLine(
+                $"StagePresentationDefinitionClassification: {StageAuthoringSurfaceClassificationLabels.GetLabel(StageAuthoringSurfaceKind.PresentationCompanion)}");
+            writer.WriteLine(
+                $"StageAudioDefinitionClassification: {StageAuthoringSurfaceClassificationLabels.GetLabel(StageAuthoringSurfaceKind.AudioCompanion)}");
+            writer.WriteLine(
+                $"RetiredCompanionClassification: {StageAuthoringSurfaceClassificationLabels.GetLabel(StageAuthoringSurfaceKind.RetiredCompanionGuard)}");
+            writer.WriteLine(
+                $"RetiredLoadResidueClassification: {StageAuthoringSurfaceClassificationLabels.GetLabel(StageAuthoringSurfaceKind.RetiredLoadDetector)}");
+            writer.WriteLine(
+                $"DirectPlayClassification: {StageAuthoringSurfaceClassificationLabels.GetLabel(StageAuthoringSurfaceKind.EditorDirectPlaySupport)}");
             writer.WriteLine($"CanonicalGameplayCompanionCount: {auditReport.Snapshot.CanonicalGameplayCompanionAssetGuids.Count}");
             writer.WriteLine($"DuplicateLegacyGameplayCompanionAssetCount: {auditReport.DuplicateLegacyGameplayCompanionAssetPaths.Count}");
             writer.WriteLine($"BuildSceneResidueCount: {auditReport.BuildSceneResiduePaths.Count}");
@@ -251,6 +266,51 @@ namespace Game.Feature.Stages.Editor
             WriteLines(writer, "Build Scene Retired-Path Guard Residues", auditReport.BuildSceneResiduePaths);
             WriteLines(writer, "Build Scene Direct-Play Catalog Coverage Gaps", auditReport.BuildSceneCoverageGapPaths);
             WriteAliasUsageLines(writer, auditReport.AliasUsage.Hits);
+        }
+
+        private static void WriteAuthoringSurfaceClassification(StreamWriter writer)
+        {
+            writer.WriteLine("## Authoring Surface Classification");
+            writer.WriteLine("- " + StageAuthoringSurfaceClassificationLabels.Format(
+                nameof(StageContentEntry),
+                StageAuthoringSurfaceKind.StageRoot));
+            writer.WriteLine("- " + StageAuthoringSurfaceClassificationLabels.Format(
+                nameof(StageDefinition),
+                StageAuthoringSurfaceKind.GameplayCompanion));
+            writer.WriteLine("- " + StageAuthoringSurfaceClassificationLabels.Format(
+                nameof(StagePresentationDefinition),
+                StageAuthoringSurfaceKind.PresentationCompanion));
+            writer.WriteLine("- " + StageAuthoringSurfaceClassificationLabels.Format(
+                nameof(StageAudioDefinition),
+                StageAuthoringSurfaceKind.AudioCompanion));
+            writer.WriteLine("- " + StageAuthoringSurfaceClassificationLabels.Format(
+                "Reward / Progression / ClearEvaluation",
+                StageAuthoringSurfaceKind.RetiredCompanionGuard));
+            writer.WriteLine("- " + StageAuthoringSurfaceClassificationLabels.Format(
+                nameof(RetiredStageLoadPathGuard),
+                StageAuthoringSurfaceKind.RetiredLoadGuard));
+            writer.WriteLine("- " + StageAuthoringSurfaceClassificationLabels.Format(
+                "defaultStageId residue",
+                StageAuthoringSurfaceKind.RetiredLoadDetector));
+            writer.WriteLine("- " + StageAuthoringSurfaceClassificationLabels.Format(
+                "direct stageDefinition residue",
+                StageAuthoringSurfaceKind.RetiredLoadDetector));
+            writer.WriteLine("- " + StageAuthoringSurfaceClassificationLabels.Format(
+                "serialized StageContentEntry residue",
+                StageAuthoringSurfaceKind.RetiredLoadDetector));
+            writer.WriteLine("- " + StageAuthoringSurfaceClassificationLabels.Format(
+                "compat mode residue",
+                StageAuthoringSurfaceKind.RetiredLoadDetector));
+            writer.WriteLine("- " + StageAuthoringSurfaceClassificationLabels.Format(
+                "StageEditorDirectPlayCatalog / StageEditorDirectPlayLauncher / StageEditorDirectPlayWindow",
+                StageAuthoringSurfaceKind.EditorDirectPlaySupport));
+            writer.WriteLine("- " + StageAuthoringSurfaceClassificationLabels.Format(
+                "PresentationId",
+                StageAuthoringSurfaceKind.PresentationOnlyBinding));
+            writer.WriteLine("- " + StageAuthoringSurfaceClassificationLabels.Format(
+                "UI / Audio / Topology helper references",
+                StageAuthoringSurfaceKind.WeakHelperReference));
+            writer.WriteLine();
         }
 
         private static void WriteIssues(StreamWriter writer, string title, StageValidationReport report)

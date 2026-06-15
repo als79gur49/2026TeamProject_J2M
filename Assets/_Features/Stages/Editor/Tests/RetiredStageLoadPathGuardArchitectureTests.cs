@@ -105,6 +105,11 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(ciEntryPointSource, Does.Contain("RemovedDefaultStageIdFallbackResidue"));
             Assert.That(ciEntryPointSource, Does.Contain("RemovedDirectStageDefinitionLoadResidue"));
             Assert.That(ciEntryPointSource, Does.Contain("EditorDirectPlayMappingSupport"));
+            Assert.That(ciEntryPointSource, Does.Contain("Authoring Surface Classification"));
+            Assert.That(ciEntryPointSource, Does.Contain("StageContentEntry"));
+            Assert.That(ciEntryPointSource, Does.Contain("StageDefinition"));
+            Assert.That(ciEntryPointSource, Does.Contain("Reward / Progression / ClearEvaluation"));
+            Assert.That(ciEntryPointSource, Does.Contain("PresentationId"));
             Assert.That(ciEntryPointSource, Does.Contain("Stage Content Inventory / Retired Residue Audit"));
             Assert.That(ciEntryPointSource, Does.Contain("CanonicalGameplayCompanionCount"));
             Assert.That(ciEntryPointSource, Does.Not.Contain("Scene Mode Summary"));
@@ -115,6 +120,40 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(ciEntryPointSource, Does.Not.Contain("Stage Compat Audit"));
             Assert.That(ciEntryPointSource, Does.Not.Contain("CanonicalGameplayAssetCount"));
             Assert.That(ciEntryPointSource, Does.Not.Contain("stage-compat-audit.md"));
+        }
+
+        [Test]
+        public void AuthoringSurfaceClassification_IsEditorOnlyDisplayHelper()
+        {
+            var helperPath =
+                "Assets/_Features/Stages/Editor/Validation/StageContentInventoryAndAudit.cs";
+            var helperSource = File.ReadAllText(helperPath);
+
+            Assert.That(helperSource, Does.Contain("StageAuthoringSurfaceKind"));
+            Assert.That(helperSource, Does.Contain("StageRoot"));
+            Assert.That(helperSource, Does.Contain("GameplayCompanion"));
+            Assert.That(helperSource, Does.Contain("RetiredCompanionGuard"));
+            Assert.That(helperSource, Does.Contain("RetiredLoadDetector"));
+            Assert.That(helperSource, Does.Contain("EditorDirectPlaySupport"));
+            Assert.That(helperSource, Does.Contain("PresentationOnlyBinding"));
+            Assert.That(helperSource, Does.Contain("WeakHelperReference"));
+            Assert.That(helperSource, Does.Not.Contain("ScriptableObject"));
+            Assert.That(helperSource, Does.Not.Contain("SerializeField"));
+            Assert.That(helperSource, Does.Not.Contain("CreateAssetMenu"));
+
+            var runtimeRoot = Path.GetFullPath(Path.Combine(Application.dataPath, "_Features/Stages/Runtime"));
+            var matches = Directory
+                .GetFiles(runtimeRoot, "*.cs", SearchOption.AllDirectories)
+                .Where(path =>
+                {
+                    var source = File.ReadAllText(path);
+                    return source.Contains("StageAuthoringSurfaceKind") ||
+                           source.Contains("StageAuthoringSurfaceClassificationLabels");
+                })
+                .Select(path => path.Replace('\\', '/'))
+                .ToArray();
+
+            Assert.That(matches, Is.Empty);
         }
 
         [Test]
