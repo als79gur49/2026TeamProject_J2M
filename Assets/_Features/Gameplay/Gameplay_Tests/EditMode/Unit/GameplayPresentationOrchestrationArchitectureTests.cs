@@ -165,6 +165,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(uiApplicationSource, Does.Not.Contain("PresentationBlockingSnapshot"));
             Assert.That(uiApplicationSource, Does.Not.Contain("TopologyPresentationOwnershipDiagnostics"));
             Assert.That(uiApplicationSource, Does.Not.Contain("TopologyPresentationExecutionMode"));
+            Assert.That(uiApplicationSource, Does.Not.Contain("GameplayMotionExecutorDiagnostics"));
+            Assert.That(uiApplicationSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
         }
 
         [Test]
@@ -208,6 +210,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(inputHostSource, Does.Not.Contain("GameplayPresentationPipeline"));
             Assert.That(inputHostSource, Does.Not.Contain("PresentationPlaybackScheduler"));
             Assert.That(inputHostSource, Does.Not.Contain("PresentationBlockingSnapshot"));
+            Assert.That(inputHostSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
+            Assert.That(inputHostSource, Does.Not.Contain("GameplayMotionPresentationExecutor"));
         }
 
         [Test]
@@ -278,6 +282,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(boxMotionExecutorSource, Does.Not.Contain("new GameObject"));
             Assert.That(boxMotionExecutorSource, Does.Not.Contain("AudioManager"));
             Assert.That(boxMotionExecutorSource, Does.Not.Contain("Play2D"));
+            Assert.That(ReadRepoFile(TopologyExecutorPath), Does.Not.Contain("GameplayInputHost"));
+            Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime"), Does.Not.Contain("GameplayMotionPresentationExecutor"));
+            Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime"), Does.Not.Contain("BoxMotionPresentationExecutionMode"));
         }
 
         [Test]

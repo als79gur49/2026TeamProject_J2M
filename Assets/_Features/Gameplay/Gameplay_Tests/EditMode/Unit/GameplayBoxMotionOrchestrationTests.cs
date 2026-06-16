@@ -124,6 +124,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void MotionExecutor_InvalidMode_NormalizesToLegacyAndDoesNotCallPlaybackPort()
+        {
+            var plan = new PresentationPlaybackPlanner().Plan(
+                CreateMotionCueFrame(CreateBoxMotionTickResult()));
+            var port = new RecordingGameplayMotionPlaybackPort();
+            var executor = new GameplayMotionPresentationExecutor(
+                port,
+                (BoxMotionPresentationExecutionMode)999);
+
+            executor.Play(plan);
+
+            Assert.That(port.TryPlayCallCount, Is.Zero);
+            Assert.That(executor.Diagnostics.ObservedTrackCount, Is.EqualTo(2));
+            Assert.That(executor.Diagnostics.LegacyOwnerNoOpCount, Is.EqualTo(2));
+            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
         public void MotionExecutor_OrchestrationMode_RoutesSlideAndFlipToPlaybackPort()
         {
             var plan = new PresentationPlaybackPlanner().Plan(
@@ -156,6 +175,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(executor.Diagnostics.TrackStartedCount, Is.EqualTo(2));
             Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(2));
             Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.Zero);
+            Assert.That(plan.Tracks.All(track => !track.Policy.Blocking), Is.True);
+            Assert.That(plan.Tracks.All(track =>
+                track.Policy.InterruptMode == PresentationPlaybackInterruptMode.IgnoreNew), Is.True);
         }
 
         [Test]
