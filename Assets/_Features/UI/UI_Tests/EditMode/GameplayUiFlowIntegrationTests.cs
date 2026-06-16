@@ -82,12 +82,14 @@ namespace Game.Feature.UI.Tests
 
                 originalPausePopup.ClickSettings();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
+                Assert.That(installer.HudView.IsVisible, Is.False);
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
                 Assert.That(installer.HudController.IsGameplayReadOnly, Is.True);
 
                 installer.SettingsScreenView.ClickBack();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+                Assert.That(installer.HudView.IsVisible, Is.True);
                 Assert.That(installer.PausePopupView, Is.Not.Null);
                 Assert.That(installer.PausePopupView, Is.Not.SameAs(originalPausePopup));
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
@@ -181,6 +183,7 @@ namespace Game.Feature.UI.Tests
                 installer.Install(host);
 
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+                Assert.That(installer.HudView.IsVisible, Is.True);
 
                 var result = host.InputHost.RunSingleTick();
 
@@ -192,6 +195,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion.Result.StageRunId.IsValid, Is.True);
                 Assert.That(host.UiAccess.PresentationFeed.CurrentMinimalStageCompletion.Result.ObjectiveSnapshot.IsCleared, Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
+                Assert.That(installer.HudView.IsVisible, Is.False);
                 Assert.That(installer.StageResultScreenView, Is.Not.Null);
                 Assert.That(installer.StageResultScreenView.transform.parent, Is.EqualTo(installer.ScreenLayerView.ContentRoot));
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));

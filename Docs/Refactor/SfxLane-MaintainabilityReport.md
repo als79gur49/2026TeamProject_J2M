@@ -140,8 +140,8 @@ Current `UiAudioCueId` set:
 - `ChanceGain`
 - `ChanceLoss`
 - `LastChance`
-- `ObjectiveComplete`
-- `TopologyShift`
+- `ObjectiveComplete` (reserved frozen-v1 slot; no current production producer)
+- `TopologyShift` (reserved frozen-v1 slot; no current production producer)
 - `PrimaryMenuCommand`
 - `StageLaunch`
 - `KeyboardMove`
@@ -151,9 +151,11 @@ Current `UiAudioCueId` set:
 
 `UiAudioCueMap_V1.asset` has one explicit binding per cue. Tests freeze this as 18 entries. Any old 7-cue documentation is stale.
 
+`ObjectiveComplete` and `TopologyShift` are retained as reserved frozen-v1 cue IDs. Current production UI SFX producers do not emit them: stage clear maps through `StageClear` / `GameClear`, topology transition overlay audio is limited to the explicit transition-kind whitelist, and local HUD/widget cues do not produce objective-complete or topology-shift playback. Do not add playback for these reserved cues without a separate product/governance decision.
+
 UI SFX uses `AudioCategory.Ui`, therefore `AudioChannel.Ui`. Its effective user-facing mix follows `Master` and `Sfx` volume/mute plus hidden `Ui` state. `Bgm`, `Voice`, and `Ambience` are not part of that dependency.
 
-Decision: `OK_CURRENT`; `DOC_MISMATCH` if stale docs remain.
+Decision: `KEEP_RESERVED`; `DOC_MISMATCH` if stale docs describe `ObjectiveComplete` or `TopologyShift` as current production producers.
 
 ## Duplicate and Reuse Findings
 

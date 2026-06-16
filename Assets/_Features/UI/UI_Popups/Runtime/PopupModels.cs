@@ -12,7 +12,6 @@ namespace Game.Feature.UI.Popups
         Closed = 0,
         Cancelled = 1,
         Confirmed = 2,
-        Acknowledged = 3,
         Resumed = 4,
         SettingsRequested = 5,
         RetryRequested = 7,
