@@ -35,6 +35,14 @@ namespace Game.Feature.Gameplay.Host
         IgnoredByPolicy = 10,
     }
 
+    internal enum GameplayEnemyPresentationLegacyCommandMappingKind
+    {
+        None = 0,
+        Jump = 1,
+        Charge = 2,
+        Death = 3,
+    }
+
     internal readonly struct EnemyPresentationPlaybackKey : IEquatable<EnemyPresentationPlaybackKey>
     {
         public EnemyPresentationPlaybackKey(
@@ -319,11 +327,21 @@ namespace Game.Feature.Gameplay.Host
     internal readonly struct GameplayEnemyPresentationPlaybackResult
     {
         public GameplayEnemyPresentationPlaybackResult(GameplayEnemyPresentationPlaybackResultKind kind)
+            : this(kind, GameplayEnemyPresentationLegacyCommandMappingKind.None)
+        {
+        }
+
+        public GameplayEnemyPresentationPlaybackResult(
+            GameplayEnemyPresentationPlaybackResultKind kind,
+            GameplayEnemyPresentationLegacyCommandMappingKind legacyCommandMappingKind)
         {
             Kind = kind;
+            LegacyCommandMappingKind = legacyCommandMappingKind;
         }
 
         public GameplayEnemyPresentationPlaybackResultKind Kind { get; }
+
+        public GameplayEnemyPresentationLegacyCommandMappingKind LegacyCommandMappingKind { get; }
     }
 
     internal readonly struct GameplayEnemyPresentationExecutorDiagnostics
@@ -341,7 +359,10 @@ namespace Game.Feature.Gameplay.Host
             int commandRequestedCount,
             int commandAppliedCount,
             int commandIgnoredByPolicyCount,
-            int missingPortCount)
+            int missingPortCount,
+            int enemyJumpCueMappedToLegacyCommandCount,
+            int enemyChargeCueMappedToLegacyCommandCount,
+            int enemyDeathCueMappedToLegacyCommandCount)
         {
             ObservedCueCount = Math.Max(0, observedCueCount);
             LegacyOwnerNoOpCount = Math.Max(0, legacyOwnerNoOpCount);
@@ -356,6 +377,9 @@ namespace Game.Feature.Gameplay.Host
             CommandAppliedCount = Math.Max(0, commandAppliedCount);
             CommandIgnoredByPolicyCount = Math.Max(0, commandIgnoredByPolicyCount);
             MissingPortCount = Math.Max(0, missingPortCount);
+            EnemyJumpCueMappedToLegacyCommandCount = Math.Max(0, enemyJumpCueMappedToLegacyCommandCount);
+            EnemyChargeCueMappedToLegacyCommandCount = Math.Max(0, enemyChargeCueMappedToLegacyCommandCount);
+            EnemyDeathCueMappedToLegacyCommandCount = Math.Max(0, enemyDeathCueMappedToLegacyCommandCount);
         }
 
         public int ObservedCueCount { get; }
@@ -383,6 +407,12 @@ namespace Game.Feature.Gameplay.Host
         public int CommandIgnoredByPolicyCount { get; }
 
         public int MissingPortCount { get; }
+
+        public int EnemyJumpCueMappedToLegacyCommandCount { get; }
+
+        public int EnemyChargeCueMappedToLegacyCommandCount { get; }
+
+        public int EnemyDeathCueMappedToLegacyCommandCount { get; }
     }
 
     internal interface IGameplayEnemyPresentationPlaybackPort
@@ -447,6 +477,9 @@ namespace Game.Feature.Gameplay.Host
             var commandAppliedCount = 0;
             var commandIgnoredByPolicyCount = 0;
             var missingPortCount = 0;
+            var enemyJumpCueMappedToLegacyCommandCount = 0;
+            var enemyChargeCueMappedToLegacyCommandCount = 0;
+            var enemyDeathCueMappedToLegacyCommandCount = 0;
 
             for (var i = 0; i < plan.Cues.Count; i++)
             {
@@ -500,6 +533,11 @@ namespace Game.Feature.Gameplay.Host
 
                 commandRequestedCount++;
                 _playbackPort.TryPlayEnemyPresentation(request, out var result);
+                RecordLegacyCommandMapping(
+                    result.LegacyCommandMappingKind,
+                    ref enemyJumpCueMappedToLegacyCommandCount,
+                    ref enemyChargeCueMappedToLegacyCommandCount,
+                    ref enemyDeathCueMappedToLegacyCommandCount);
                 switch (result.Kind)
                 {
                     case GameplayEnemyPresentationPlaybackResultKind.Applied:
@@ -546,7 +584,10 @@ namespace Game.Feature.Gameplay.Host
                 commandRequestedCount,
                 commandAppliedCount,
                 commandIgnoredByPolicyCount,
-                missingPortCount);
+                missingPortCount,
+                enemyJumpCueMappedToLegacyCommandCount,
+                enemyChargeCueMappedToLegacyCommandCount,
+                enemyDeathCueMappedToLegacyCommandCount);
         }
 
         public void Update(float deltaTime)
@@ -689,6 +730,26 @@ namespace Game.Feature.Gameplay.Host
                     break;
                 default:
                     bindingMissingCount++;
+                    break;
+            }
+        }
+
+        private static void RecordLegacyCommandMapping(
+            GameplayEnemyPresentationLegacyCommandMappingKind mappingKind,
+            ref int enemyJumpCueMappedToLegacyCommandCount,
+            ref int enemyChargeCueMappedToLegacyCommandCount,
+            ref int enemyDeathCueMappedToLegacyCommandCount)
+        {
+            switch (mappingKind)
+            {
+                case GameplayEnemyPresentationLegacyCommandMappingKind.Jump:
+                    enemyJumpCueMappedToLegacyCommandCount++;
+                    break;
+                case GameplayEnemyPresentationLegacyCommandMappingKind.Charge:
+                    enemyChargeCueMappedToLegacyCommandCount++;
+                    break;
+                case GameplayEnemyPresentationLegacyCommandMappingKind.Death:
+                    enemyDeathCueMappedToLegacyCommandCount++;
                     break;
             }
         }

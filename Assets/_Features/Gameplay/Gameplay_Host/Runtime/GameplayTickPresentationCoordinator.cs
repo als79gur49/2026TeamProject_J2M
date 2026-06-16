@@ -590,6 +590,14 @@ namespace Game.Feature.Gameplay.Host
                 _playerActionAnimationExecutionMode,
                 ResolvePlayerActionAnimationPlaybackPort(),
                 _playerActionAnimationExecutionGuard);
+            _enemyPresentationExecutionMode =
+                NormalizeEnemyPresentationExecutionMode(_enemyPresentationExecutionMode);
+            _enemyPresentationExecutionGuard.Configure(_enemyPresentationExecutionMode);
+            _enemyPresentationExecutionGuard.ResetSession();
+            _enemyPresentationExecutionPipeline = _enemyPresentationExecutionPipelineFactory(
+                _enemyPresentationExecutionMode,
+                ResolveEnemyPresentationPlaybackPort(),
+                _enemyPresentationExecutionGuard);
             _viewBinder = viewBinder;
             _gravityFieldVisualPresentationController.AttachTargetViewRegistry(_viewBinder.ViewRegistry);
             _moonBlockEmergencePresentationController.Configure(_viewBinder.ViewRegistry, timingProfile);

@@ -312,7 +312,8 @@ namespace Game.Feature.Gameplay.Host
                     request,
                     driver.LastPresentationState,
                     out var presentationState,
-                    out var useDeathCommand))
+                    out var useDeathCommand,
+                    out var legacyCommandMappingKind))
             {
                 result = new GameplayEnemyPresentationPlaybackResult(
                     GameplayEnemyPresentationPlaybackResultKind.IgnoredByPolicy);
@@ -333,7 +334,8 @@ namespace Game.Feature.Gameplay.Host
             }
 
             result = new GameplayEnemyPresentationPlaybackResult(
-                GameplayEnemyPresentationPlaybackResultKind.Applied);
+                GameplayEnemyPresentationPlaybackResultKind.Applied,
+                legacyCommandMappingKind);
             return true;
         }
 
@@ -441,9 +443,11 @@ namespace Game.Feature.Gameplay.Host
             in GameplayEnemyPresentationPlaybackRequest request,
             in EnemyViewPresentationState previousState,
             out EnemyViewPresentationState state,
-            out bool useDeathCommand)
+            out bool useDeathCommand,
+            out GameplayEnemyPresentationLegacyCommandMappingKind legacyCommandMappingKind)
         {
             useDeathCommand = false;
+            legacyCommandMappingKind = GameplayEnemyPresentationLegacyCommandMappingKind.None;
             state = default;
 
             var entityId = request.EnemyEntityId;
@@ -487,6 +491,7 @@ namespace Game.Feature.Gameplay.Host
             switch (request.EnemyPayload.Kind)
             {
                 case PresentationEnemyPresentationKind.Jump:
+                    legacyCommandMappingKind = GameplayEnemyPresentationLegacyCommandMappingKind.Jump;
                     switch (request.EnemyPayload.Phase)
                     {
                         case PresentationEnemyPresentationPhase.Windup:
@@ -513,6 +518,7 @@ namespace Game.Feature.Gameplay.Host
 
                     break;
                 case PresentationEnemyPresentationKind.Charge:
+                    legacyCommandMappingKind = GameplayEnemyPresentationLegacyCommandMappingKind.Charge;
                     switch (request.EnemyPayload.Phase)
                     {
                         case PresentationEnemyPresentationPhase.Windup:
@@ -541,6 +547,7 @@ namespace Game.Feature.Gameplay.Host
                     }
 
                     useDeathCommand = true;
+                    legacyCommandMappingKind = GameplayEnemyPresentationLegacyCommandMappingKind.Death;
                     didDie = true;
                     break;
                 default:
