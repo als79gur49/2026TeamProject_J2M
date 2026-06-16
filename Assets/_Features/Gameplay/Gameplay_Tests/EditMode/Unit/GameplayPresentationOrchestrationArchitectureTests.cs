@@ -39,6 +39,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs";
         private const string BoxMotionExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs";
+        private const string PlayerActionAnimationExecutorPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationPresentationExecutor.cs";
 
         [Test]
         [Category("Core")]
@@ -94,10 +96,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "AudioManager",
                 "GameplayTickPresentationCoordinator",
                 "GameplayTopologyTransitionController",
+                "GameplayAnimationSyncCoordinator",
+                "PlayerAnimatorDriver",
                 "GameplayInputHost",
                 "UITickEventRouter",
                 "UIStateMapper",
                 "UIPresentationSnapshot",
+                "AnimatorController",
+                "AnimationClip",
                 "GameObject",
                 "Transform",
                 "MonoBehaviour",
@@ -167,6 +173,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(uiApplicationSource, Does.Not.Contain("TopologyPresentationExecutionMode"));
             Assert.That(uiApplicationSource, Does.Not.Contain("GameplayMotionExecutorDiagnostics"));
             Assert.That(uiApplicationSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
+            Assert.That(uiApplicationSource, Does.Not.Contain("GameplayAnimationExecutorDiagnostics"));
+            Assert.That(uiApplicationSource, Does.Not.Contain("PlayerActionAnimationExecutionMode"));
         }
 
         [Test]
@@ -285,6 +293,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(ReadRepoFile(TopologyExecutorPath), Does.Not.Contain("GameplayInputHost"));
             Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime"), Does.Not.Contain("GameplayMotionPresentationExecutor"));
             Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime"), Does.Not.Contain("BoxMotionPresentationExecutionMode"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimationExecutorBoundary_StaysHostOnlyAndDoesNotLeakRuntimeObjectsToPlans()
+        {
+            var contractsPlanningPlaybackSource = ReadDirectorySource(ContractsDirectory) + "\n" +
+                                                  ReadDirectorySource(PlanningDirectory) + "\n" +
+                                                  ReadDirectorySource(PlaybackDirectory);
+            var runtimeSource = ReadDirectorySource(RuntimeDirectory);
+            var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
+            var animationExecutorSource = ReadRepoFile(PlayerActionAnimationExecutorPath);
+            var coordinatorSource = ReadRepoFile(CoordinatorPath);
+
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayAnimationSyncCoordinator"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("PlayerAnimatorDriver"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AnimatorController"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AnimationClip"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameObject"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("Transform"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("MonoBehaviour"));
+            Assert.That(runtimeSource, Does.Not.Contain("GameplayAnimationSyncCoordinator"));
+            Assert.That(runtimeSource, Does.Not.Contain("PlayerAnimatorDriver"));
+            Assert.That(coordinatorSource, Does.Contain("PlayerActionAnimationExecutionMode.LegacyAnimationSync"));
+            Assert.That(coordinatorSource, Does.Contain("PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor"));
+            Assert.That(coordinatorSource, Does.Contain("suppressLegacyPlayerActionAnimations"));
+            Assert.That(hostRuntimeSource, Does.Contain("GameplayAnimationPresentationExecutor"));
+            Assert.That(hostRuntimeSource, Does.Contain("IGameplayAnimationPlaybackPort"));
+            Assert.That(hostRuntimeSource, Does.Contain("PlayerActionAnimationExecutionGuard"));
+            Assert.That(hostRuntimeSource, Does.Contain("PlayerActionAnimationExecutionMode"));
+            Assert.That(animationExecutorSource, Does.Contain("GameplayAnimationSyncPlaybackPort"));
+            Assert.That(animationExecutorSource, Does.Contain("GameplayAnimationSyncCoordinator animationSync"));
+            Assert.That(animationExecutorSource, Does.Not.Contain("FindObjectOfType"));
+            Assert.That(animationExecutorSource, Does.Not.Contain("FindObjectsByType"));
+            Assert.That(animationExecutorSource, Does.Not.Contain("new GameObject"));
+            Assert.That(animationExecutorSource, Does.Not.Contain("AudioManager"));
+            Assert.That(animationExecutorSource, Does.Not.Contain("Play2D"));
+            Assert.That(animationExecutorSource, Does.Not.Contain("GameplayActionAudioPresentationController"));
+            Assert.That(animationExecutorSource, Does.Not.Contain("GameplayMotionPresentationExecutor"));
+            Assert.That(animationExecutorSource, Does.Not.Contain("TopologyPresentationExecutor"));
+            Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime"), Does.Not.Contain("GameplayAnimationPresentationExecutor"));
+            Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_ActionAudio/Runtime"), Does.Not.Contain("PlayerActionAnimationExecutionMode"));
         }
 
         [Test]
