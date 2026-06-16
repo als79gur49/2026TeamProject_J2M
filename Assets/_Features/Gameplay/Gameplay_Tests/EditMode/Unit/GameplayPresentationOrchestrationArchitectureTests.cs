@@ -761,6 +761,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void SfxCuePlanner_UsesTypedLocalKeys_ForCoreGameplayDamageAndExit()
+        {
+            var cueFrame = CreateSfxCueFrame(includeEnemyDeathExit: true);
+
+            var sfxKeys = cueFrame.Cues
+                .Where(cue => cue.Domain == PresentationDomain.Sfx)
+                .Select(cue =>
+                {
+                    Assert.That(cue.Key.TryGetSfxCueKey(out var key), Is.True);
+                    Assert.That(cue.Key.TryGetVfxCueKey(out _), Is.False);
+                    return key;
+                })
+                .OrderBy(key => key)
+                .ToArray();
+
+            Assert.That(sfxKeys, Is.EqualTo(new[]
+            {
+                PresentationSfxCueKey.PlayerDamage,
+                PresentationSfxCueKey.EnemyDamage,
+                PresentationSfxCueKey.EntityExitEnemyDeath,
+            }));
+            Assert.That(cueFrame.Cues.All(cue => cue.PolicyHint.Kind == PresentationPlaybackPolicyHintKind.OneShot), Is.True);
+            Assert.That(cueFrame.Cues.All(cue => !cue.PolicyHint.Blocking), Is.True);
+            Assert.That(cueFrame.Cues.All(cue => cue.PolicyHint.DedupeKey > 0), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SfxPlaybackPlanner_CreatesNonBlockingOneShotCuesWithoutTracksOrBarriers()
+        {
+            var plan = new PresentationPlaybackPlanner().Plan(CreateSfxCueFrame(includeEnemyDeathExit: true));
+
+            Assert.That(plan.Cues.Count(cue => cue.Cue.Domain == PresentationDomain.Sfx), Is.EqualTo(3));
+            Assert.That(plan.Tracks.Any(track => track.Cue.Domain == PresentationDomain.Sfx), Is.False);
+            Assert.That(plan.Barriers.Any(barrier => barrier.OwnerDomain == PresentationDomain.Sfx), Is.False);
+            Assert.That(plan.Cues.All(cue => !cue.Policy.Blocking), Is.True);
+            Assert.That(plan.Cues.All(cue => cue.Policy.UnitKind == PresentationPlaybackUnitKind.OneShot), Is.True);
+            Assert.That(plan.Cues.All(cue => cue.Policy.InterruptMode == PresentationPlaybackInterruptMode.AllowOverlap), Is.True);
+            Assert.That(plan.Diagnostics.BlockingBarrierCount, Is.Zero);
+
+            var scheduler = new PresentationPlaybackScheduler();
+            scheduler.Accept(plan);
+            Assert.That(scheduler.BlockingSnapshot.HasPlannedBlockingBarrier, Is.False);
+            Assert.That(scheduler.BlockingSnapshot.HasActiveBlockingPresentation, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
         public void VfxExecutor_DefaultLegacyMode_DoesNotCallPlaybackPort()
         {
             var plan = new PresentationPlaybackPlanner().Plan(CreateVfxCueFrame(includeEnemyDeathExit: true));
@@ -1294,6 +1342,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new PresentationCuePlannerSet(new IPresentationCuePlanner[]
             {
                 new VfxCuePlanner(),
+            }).Plan(factFrame);
+        }
+
+        private static PresentationCueFrame CreateSfxCueFrame(bool includeEnemyDeathExit)
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(
+                CreateDiagnosticTickResult(
+                    includeTopologyMotion: false,
+                    includeEnemyDeathExit: includeEnemyDeathExit));
+            return new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new SfxCuePlanner(),
             }).Plan(factFrame);
         }
 

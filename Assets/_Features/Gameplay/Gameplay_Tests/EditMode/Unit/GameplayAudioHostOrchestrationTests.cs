@@ -13,6 +13,8 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
+using Game.Feature.Gameplay.PresentationContracts;
+using Game.Feature.Gameplay.PresentationPlanning;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.TopologyAudio;
 using Game.Shared.Audio;
@@ -191,6 +193,200 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 mapBundle.Dispose();
                 UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CoreGameplaySfx_DefaultMode_UsesLegacyGameplayAudioController()
+        {
+            var rootObject = new GameObject(nameof(CoreGameplaySfx_DefaultMode_UsesLegacyGameplayAudioController));
+            var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var presenter = CreatePresenter(rootObject);
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePlayerDamagePresentationData(10)));
+
+                Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
+                Assert.That(playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(), Is.EqualTo(new[]
+                {
+                    "PlayerDamage",
+                }));
+                Assert.That(playbackPort.AttachedCalls, Is.Empty);
+                Assert.That(presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
+                Assert.That(presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(presenter.CoreGameplaySfxOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(presenter.CoreGameplaySfxExecutorDiagnostics.ObservedCueCount, Is.Zero);
+            }
+            finally
+            {
+                mapBundle.Dispose();
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CoreGameplaySfx_OrchestrationMode_RoutesCoreOneShotsThroughBridgeExecutor()
+        {
+            var rootObject = new GameObject(nameof(CoreGameplaySfx_OrchestrationMode_RoutesCoreOneShotsThroughBridgeExecutor));
+            var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var presenter = CreatePresenter(rootObject);
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+
+                presenter.ConfigureCoreGameplaySfxExecution(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor);
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreateCoreSfxPresentationData(10, 20)));
+
+                Assert.That(presenter.PendingGameplayAudioRequestCount, Is.Zero);
+                Assert.That(playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(), Is.EqualTo(new[]
+                {
+                    "PlayerDamage",
+                    "EntityExitEnemyDeath",
+                }));
+                Assert.That(presenter.CoreGameplaySfxOwnershipDiagnostics.Mode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
+                Assert.That(presenter.CoreGameplaySfxOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(2));
+                Assert.That(presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(2));
+                Assert.That(presenter.CoreGameplaySfxOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(presenter.CoreGameplaySfxExecutorDiagnostics.ObservedCueCount, Is.EqualTo(2));
+                Assert.That(presenter.CoreGameplaySfxExecutorDiagnostics.RequestPlannedCount, Is.EqualTo(2));
+                Assert.That(presenter.CoreGameplaySfxExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(2));
+                Assert.That(presenter.CoreGameplaySfxExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(2));
+                Assert.That(presenter.CoreGameplaySfxExecutionPipelineBlockingSnapshot.HasPlannedBlockingBarrier, Is.False);
+                Assert.That(presenter.CoreGameplaySfxExecutionPipelineBlockingSnapshot.HasActiveBlockingPresentation, Is.False);
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
+                Assert.That(presenter.IsTopologyTransitionActive, Is.False);
+            }
+            finally
+            {
+                mapBundle.Dispose();
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CoreGameplaySfx_OrchestrationMode_MissingOwnerViewFallsBackToTwoDAndRecordsDiagnostics()
+        {
+            var rootObject = new GameObject(nameof(CoreGameplaySfx_OrchestrationMode_MissingOwnerViewFallsBackToTwoDAndRecordsDiagnostics));
+            var mapBundle = CreateGameplayAudioMap(new Dictionary<GameplayAudioSemanticId, AudioAttachmentSlot>
+            {
+                { GameplayAudioSemanticId.PlayerDamage, AudioAttachmentSlot.FromId("body") },
+            });
+            try
+            {
+                var presenter = CreatePresenter(rootObject);
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+
+                presenter.ConfigureCoreGameplaySfxExecution(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor);
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePlayerDamagePresentationData(10)));
+
+                Assert.That(playbackPort.AttachedCalls, Is.Empty);
+                Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(1));
+                Assert.That(presenter.CoreGameplaySfxExecutorDiagnostics.OwnerViewMissingCount, Is.EqualTo(1));
+                Assert.That(presenter.CoreGameplaySfxExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(1));
+                Assert.That(presenter.CoreGameplaySfxExecutorDiagnostics.PortMissingCount, Is.Zero);
+                Assert.That(presenter.CoreGameplaySfxExecutorDiagnostics.BindingMissingCount, Is.Zero);
+            }
+            finally
+            {
+                mapBundle.Dispose();
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CoreGameplaySfx_PresentInitial_ClearsExecutorDiagnosticsAndOwnershipGuard()
+        {
+            var rootObject = new GameObject(nameof(CoreGameplaySfx_PresentInitial_ClearsExecutorDiagnosticsAndOwnershipGuard));
+            var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var presenter = CreatePresenter(rootObject);
+
+                presenter.ConfigureCoreGameplaySfxExecution(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor);
+                presenter.AttachGameplayAudioRuntime(new RecordingGameplayAudioPlaybackPort(), mapBundle.Map);
+                presenter.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePlayerDamagePresentationData(10)));
+
+                Assert.That(presenter.CoreGameplaySfxExecutorDiagnostics.ObservedCueCount, Is.EqualTo(1));
+                Assert.That(presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+
+                presenter.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
+
+                Assert.That(presenter.CoreGameplaySfxExecutorDiagnostics.ObservedCueCount, Is.Zero);
+                Assert.That(presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(presenter.CoreGameplaySfxOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+            }
+            finally
+            {
+                mapBundle.Dispose();
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CoreGameplaySfxExecutionGuard_DuplicateOwnerAttempt_BlocksSecondAttempt()
+        {
+            var guard = new CoreGameplaySfxExecutionGuard(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor);
+            var key = new CoreGameplaySfxPlaybackKey(
+                tickIndex: 5,
+                PresentationSemanticSource.PlayerDamage,
+                sourceEntityId: 10,
+                targetEntityId: 10,
+                PresentationSfxCueKey.PlayerDamage);
+
+            Assert.That(
+                guard.TryBeginExecution(CoreGameplaySfxExecutionOwner.OrchestrationSfxBridgeExecutor, key),
+                Is.True);
+            Assert.That(
+                guard.TryBeginExecution(CoreGameplaySfxExecutionOwner.OrchestrationSfxBridgeExecutor, key),
+                Is.False);
+            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CoreGameplaySfxPlaybackPortAdapter_SeparatesMapBindingTargetAndPortDiagnostics()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var adapter = new GameplaySfxPlaybackPortAdapter(stateStore);
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+            var request = CreateSfxPlaybackRequest(PresentationSfxCueKey.PlayerDamage, targetEntityId: 10);
+
+            adapter.AttachRuntime(null, null);
+            Assert.That(adapter.TryPlayCoreGameplaySfx(request, out var result), Is.False);
+            Assert.That(result.Kind, Is.EqualTo(GameplaySfxPlaybackResultKind.PortMissing));
+
+            adapter.AttachRuntime(playbackPort, null);
+            Assert.That(adapter.TryPlayCoreGameplaySfx(request, out result), Is.False);
+            Assert.That(result.Kind, Is.EqualTo(GameplaySfxPlaybackResultKind.MapMissing));
+
+            using (var mapBundle = CreateGameplayAudioMap(excludedSemantics: new[] { GameplayAudioSemanticId.PlayerDamage }))
+            {
+                adapter.AttachRuntime(playbackPort, mapBundle.Map);
+                Assert.That(adapter.TryPlayCoreGameplaySfx(request, out result), Is.False);
+                Assert.That(result.Kind, Is.EqualTo(GameplaySfxPlaybackResultKind.MapMissing));
+            }
+
+            using (var mapBundle = CreateGameplayAudioMap())
+            {
+                adapter.AttachRuntime(playbackPort, mapBundle.Map);
+                var missingTargetRequest = CreateSfxPlaybackRequest(PresentationSfxCueKey.PlayerDamage, targetEntityId: 0);
+                Assert.That(adapter.TryPlayCoreGameplaySfx(missingTargetRequest, out result), Is.False);
+                Assert.That(result.Kind, Is.EqualTo(GameplaySfxPlaybackResultKind.TargetMissing));
             }
         }
 
@@ -723,6 +919,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
         }
 
+        private static TickPresentationData CreateCoreSfxPresentationData(int playerEntityId, int exitedEnemyEntityId)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                new[]
+                {
+                    new TickPlayerDamagePresentationSignal(playerEntityId, tookDamageThisTick: true, damageAmount: 1),
+                },
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                new[]
+                {
+                    new TickEntityExitPresentationSignal(
+                        exitedEnemyEntityId,
+                        TickEntityExitCause.EnemyDeath,
+                        new SurfaceCell(FaceId.Floor, 0, 0),
+                        new CubeTopologyState(FaceId.Floor),
+                        Direction.Up,
+                        EntityType.Unit),
+                });
+        }
+
         private static TickResult CreateTickResult(
             TickPresentationData presentationData,
             IReadOnlyList<EntityState> finalEntities = null)
@@ -752,6 +976,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ownerEntityId,
                 new AudioPlaybackContext(debugTag: GameplayAudioSemanticCatalog.Format(semanticId)),
                 delaySeconds);
+        }
+
+        private static GameplaySfxPlaybackRequest CreateSfxPlaybackRequest(
+            PresentationSfxCueKey cueKey,
+            int targetEntityId)
+        {
+            var source = new PresentationSource(
+                tickIndex: 5,
+                PresentationSemanticSource.PlayerDamage,
+                sourceEntityId: targetEntityId);
+            var target = PresentationTarget.Entity(targetEntityId);
+            var key = new CoreGameplaySfxPlaybackKey(
+                source.TickIndex,
+                source.SemanticSource,
+                source.SourceEntityId,
+                targetEntityId,
+                cueKey);
+            return new GameplaySfxPlaybackRequest(
+                key,
+                cueKey,
+                source,
+                target,
+                targetEntityId > 0 ? PresentationAnchor.ForEntityCenter(targetEntityId) : PresentationAnchor.None());
         }
 
         private static EntityState CreateUnit(int entityId, UnitRole unitRole, SurfaceCell cell)
