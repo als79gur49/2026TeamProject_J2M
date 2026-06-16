@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
@@ -30,6 +31,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             var gravityCount = 0;
             var objectiveCount = 0;
             var stageCount = 0;
+            var enemyPresentationCount = 0;
 
             for (var i = 0; i < presentationData.EntityMotions.Count; i++)
             {
@@ -246,6 +248,18 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                 facts,
                 tickIndex,
                 presentationData.EntityExitSignals);
+            enemyPresentationCount += AddEnemyJumpPresentationFacts(
+                facts,
+                tickIndex,
+                presentationData.EnemyJumpSignals);
+            enemyPresentationCount += AddEnemyChargePresentationFacts(
+                facts,
+                tickIndex,
+                presentationData.EnemyChargeSignals);
+            enemyPresentationCount += AddEnemyDeathPresentationFacts(
+                facts,
+                tickIndex,
+                presentationData.EntityExitSignals);
 
             for (var i = 0; i < presentationData.TileEvents.Count; i++)
             {
@@ -318,7 +332,8 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     tileCount,
                     gravityCount,
                     objectiveCount,
-                    stageCount));
+                    stageCount,
+                    enemyPresentationCount));
         }
 
         private static int AddEntityLifecycleFacts(
@@ -737,6 +752,328 @@ namespace Game.Feature.Gameplay.PresentationRuntime
 
             return count;
         }
+
+        private static int AddEnemyJumpPresentationFacts(
+            List<PresentationFact> facts,
+            int tickIndex,
+            IReadOnlyList<TickEnemyJumpPresentationSignal> signals)
+        {
+            if (signals == null || signals.Count == 0)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityId <= 0)
+                {
+                    continue;
+                }
+
+                if (signal.StartedWindupThisTick)
+                {
+                    AddEnemyPresentationFact(
+                        facts,
+                        tickIndex,
+                        PresentationSemanticSource.EnemyJump,
+                        signal.EntityId,
+                        PresentationEnemyPresentationKind.Jump,
+                        PresentationEnemyPresentationPhase.Windup,
+                        ResolveJumpOutcome(signal),
+                        signal.Sequence > 0 ? signal.Sequence : i + 1,
+                        signal.SourceCell,
+                        signal.PresentationTargetCell,
+                        hasSourceCell: true,
+                        hasTargetCell: true,
+                        signal.Facing);
+                    count++;
+                }
+
+                if (signal.StartedAirborneThisTick || signal.RetryThisTick)
+                {
+                    AddEnemyPresentationFact(
+                        facts,
+                        tickIndex,
+                        PresentationSemanticSource.EnemyJump,
+                        signal.EntityId,
+                        PresentationEnemyPresentationKind.Jump,
+                        PresentationEnemyPresentationPhase.Airborne,
+                        ResolveJumpOutcome(signal),
+                        signal.Sequence > 0 ? signal.Sequence : i + 1,
+                        signal.SourceCell,
+                        signal.PresentationTargetCell,
+                        hasSourceCell: true,
+                        hasTargetCell: true,
+                        signal.Facing);
+                    count++;
+                }
+
+                if (signal.LandedThisTick)
+                {
+                    AddEnemyPresentationFact(
+                        facts,
+                        tickIndex,
+                        PresentationSemanticSource.EnemyJump,
+                        signal.EntityId,
+                        PresentationEnemyPresentationKind.Jump,
+                        PresentationEnemyPresentationPhase.Land,
+                        ResolveJumpOutcome(signal),
+                        signal.Sequence > 0 ? signal.Sequence : i + 1,
+                        signal.SourceCell,
+                        signal.PresentationTargetCell,
+                        hasSourceCell: true,
+                        hasTargetCell: true,
+                        signal.Facing);
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int AddEnemyChargePresentationFacts(
+            List<PresentationFact> facts,
+            int tickIndex,
+            IReadOnlyList<TickEnemyChargePresentationSignal> signals)
+        {
+            if (signals == null || signals.Count == 0)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityId <= 0)
+                {
+                    continue;
+                }
+
+                if (signal.StartedWindupThisTick)
+                {
+                    AddEnemyPresentationFact(
+                        facts,
+                        tickIndex,
+                        PresentationSemanticSource.EnemyCharge,
+                        signal.EntityId,
+                        PresentationEnemyPresentationKind.Charge,
+                        PresentationEnemyPresentationPhase.Windup,
+                        PresentationEnemyPresentationOutcome.Started,
+                        signal.Sequence > 0 ? signal.Sequence : i + 1,
+                        direction: signal.LockedDirection);
+                    count++;
+                }
+
+                if (signal.StartedActiveThisTick)
+                {
+                    AddEnemyPresentationFact(
+                        facts,
+                        tickIndex,
+                        PresentationSemanticSource.EnemyCharge,
+                        signal.EntityId,
+                        PresentationEnemyPresentationKind.Charge,
+                        PresentationEnemyPresentationPhase.Active,
+                        PresentationEnemyPresentationOutcome.ActiveStarted,
+                        signal.Sequence > 0 ? signal.Sequence : i + 1,
+                        direction: signal.LockedDirection);
+                    count++;
+                }
+
+                if (signal.StartedRecoverThisTick)
+                {
+                    AddEnemyPresentationFact(
+                        facts,
+                        tickIndex,
+                        PresentationSemanticSource.EnemyCharge,
+                        signal.EntityId,
+                        PresentationEnemyPresentationKind.Charge,
+                        PresentationEnemyPresentationPhase.Recover,
+                        PresentationEnemyPresentationOutcome.Started,
+                        signal.Sequence > 0 ? signal.Sequence : i + 1,
+                        direction: signal.LockedDirection);
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static int AddEnemyDeathPresentationFacts(
+            List<PresentationFact> facts,
+            int tickIndex,
+            IReadOnlyList<TickEntityExitPresentationSignal> signals)
+        {
+            if (signals == null || signals.Count == 0)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityType != EntityType.Unit ||
+                    signal.ExitedEntityId <= 0 ||
+                    (signal.ExitCause != TickEntityExitCause.EnemyDeath &&
+                     signal.ExitCause != TickEntityExitCause.Killed))
+                {
+                    continue;
+                }
+
+                AddEnemyPresentationFact(
+                    facts,
+                    tickIndex,
+                    PresentationSemanticSource.EntityExit,
+                    signal.ExitedEntityId,
+                    PresentationEnemyPresentationKind.Death,
+                    PresentationEnemyPresentationPhase.Death,
+                    PresentationEnemyPresentationOutcome.Death,
+                    signal.PresentationSeed > 0 ? signal.PresentationSeed : i + 1,
+                    signal.SourceCell,
+                    signal.PresentationTargetCell,
+                    hasSourceCell: true,
+                    hasTargetCell: signal.HasPresentationTargetCell,
+                    signal.Facing,
+                    (int)signal.ExitCause,
+                    (int)signal.Timing);
+                count++;
+            }
+
+            return count;
+        }
+
+        private static void AddEnemyPresentationFact(
+            List<PresentationFact> facts,
+            int tickIndex,
+            PresentationSemanticSource semanticSource,
+            int entityId,
+            PresentationEnemyPresentationKind kind,
+            PresentationEnemyPresentationPhase phase,
+            PresentationEnemyPresentationOutcome outcome,
+            int sequenceId,
+            SurfaceCell sourceCell = default,
+            SurfaceCell targetCell = default,
+            bool hasSourceCell = false,
+            bool hasTargetCell = false,
+            Direction direction = Direction.None,
+            int sourceCause = 0,
+            int timing = 0)
+        {
+            var enemyPayload = new PresentationEnemyPayload(
+                kind,
+                phase,
+                entityId,
+                tickIndex,
+                sequenceId,
+                outcome,
+                sourceCell,
+                targetCell,
+                hasSourceCell,
+                hasTargetCell,
+                direction,
+                sourceCause,
+                timing);
+            var animationPayload = new PresentationAnimationPayload(
+                PresentationAnimationFactKind.EnemyPresentation,
+                entityId,
+                ResolveEnemyAnimationActionKind(kind),
+                ResolveEnemyAnimationPhaseKind(phase),
+                ResolveEnemyAnimationOutcomeKind(outcome),
+                tickIndex,
+                sequenceId,
+                sourceActionPlanId: 0,
+                targetEntityId: 0,
+                direction);
+            facts.Add(new PresentationFact(
+                PresentationFactKind.EnemyPresentation,
+                new PresentationSource(
+                    tickIndex,
+                    semanticSource,
+                    entityId,
+                    (int)kind,
+                    sequenceId),
+                PresentationTarget.Entity(entityId),
+                new PresentationFactPayload(
+                    primaryValue: (int)kind,
+                    secondaryValue: (int)phase,
+                    tertiaryValue: (int)outcome,
+                    primaryCell: sourceCell,
+                    secondaryCell: targetCell,
+                    hasPrimaryCell: hasSourceCell,
+                    hasSecondaryCell: hasTargetCell),
+                animationPayload: animationPayload,
+                enemyPayload: enemyPayload));
+        }
+
+        private static PresentationEnemyPresentationOutcome ResolveJumpOutcome(
+            in TickEnemyJumpPresentationSignal signal)
+        {
+            switch (signal.Outcome)
+            {
+                case TickEnemyJumpPresentationOutcome.Landed:
+                case TickEnemyJumpPresentationOutcome.CrushedBoxAndLanded:
+                    return PresentationEnemyPresentationOutcome.Landed;
+                case TickEnemyJumpPresentationOutcome.Retried:
+                    return PresentationEnemyPresentationOutcome.Retried;
+                case TickEnemyJumpPresentationOutcome.AirborneStarted:
+                    return PresentationEnemyPresentationOutcome.ActiveStarted;
+                case TickEnemyJumpPresentationOutcome.WindupStarted:
+                    return PresentationEnemyPresentationOutcome.Started;
+                default:
+                    if (signal.LandedThisTick)
+                    {
+                        return PresentationEnemyPresentationOutcome.Landed;
+                    }
+
+                    return signal.StartedAirborneThisTick || signal.RetryThisTick
+                        ? PresentationEnemyPresentationOutcome.ActiveStarted
+                        : PresentationEnemyPresentationOutcome.Started;
+            }
+        }
+
+        private static PresentationAnimationActionKind ResolveEnemyAnimationActionKind(
+            PresentationEnemyPresentationKind kind)
+        {
+            return kind switch
+            {
+                PresentationEnemyPresentationKind.Jump => PresentationAnimationActionKind.EnemyJump,
+                PresentationEnemyPresentationKind.Charge => PresentationAnimationActionKind.EnemyCharge,
+                PresentationEnemyPresentationKind.Death => PresentationAnimationActionKind.EnemyDeath,
+                _ => PresentationAnimationActionKind.None,
+            };
+        }
+
+        private static PresentationAnimationPhaseKind ResolveEnemyAnimationPhaseKind(
+            PresentationEnemyPresentationPhase phase)
+        {
+            return phase switch
+            {
+                PresentationEnemyPresentationPhase.Windup => PresentationAnimationPhaseKind.Windup,
+                PresentationEnemyPresentationPhase.Airborne => PresentationAnimationPhaseKind.Airborne,
+                PresentationEnemyPresentationPhase.Land => PresentationAnimationPhaseKind.Land,
+                PresentationEnemyPresentationPhase.Active => PresentationAnimationPhaseKind.Active,
+                PresentationEnemyPresentationPhase.Recover => PresentationAnimationPhaseKind.Recovery,
+                PresentationEnemyPresentationPhase.Death => PresentationAnimationPhaseKind.Death,
+                _ => PresentationAnimationPhaseKind.None,
+            };
+        }
+
+        private static PresentationAnimationOutcomeKind ResolveEnemyAnimationOutcomeKind(
+            PresentationEnemyPresentationOutcome outcome)
+        {
+            return outcome switch
+            {
+                PresentationEnemyPresentationOutcome.Landed => PresentationAnimationOutcomeKind.Landed,
+                PresentationEnemyPresentationOutcome.Retried => PresentationAnimationOutcomeKind.Retried,
+                PresentationEnemyPresentationOutcome.ActiveStarted => PresentationAnimationOutcomeKind.Executed,
+                PresentationEnemyPresentationOutcome.Death => PresentationAnimationOutcomeKind.Death,
+                PresentationEnemyPresentationOutcome.Started => PresentationAnimationOutcomeKind.Started,
+                _ => PresentationAnimationOutcomeKind.None,
+            };
+        }
     }
 
     public sealed class GameplayPresentationPipeline
@@ -856,6 +1193,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     new TopologyCuePlanner(),
                     new MotionCuePlanner(),
                     new AnimationCuePlanner(),
+                    new EnemyPresentationCuePlanner(),
                     new VfxCuePlanner(),
                 }),
                 new PresentationPlaybackPlanner(),

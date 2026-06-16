@@ -17,6 +17,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
         Stage = 7,
         Tile = 8,
         Gravity = 9,
+        EnemyPresentation = 10,
     }
 
     public enum PresentationDomain
@@ -514,6 +515,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
     {
         None = 0,
         PlayerAction = 1,
+        EnemyPresentation = 2,
     }
 
     public enum PresentationAnimationActionKind
@@ -521,6 +523,9 @@ namespace Game.Feature.Gameplay.PresentationContracts
         None = 0,
         Push = 1,
         Flip = 2,
+        EnemyJump = 3,
+        EnemyCharge = 4,
+        EnemyDeath = 5,
     }
 
     public enum PresentationAnimationPhaseKind
@@ -530,6 +535,10 @@ namespace Game.Feature.Gameplay.PresentationContracts
         Execute = 2,
         Recovery = 3,
         Failed = 4,
+        Airborne = 5,
+        Land = 6,
+        Active = 7,
+        Death = 8,
     }
 
     public enum PresentationAnimationOutcomeKind
@@ -541,6 +550,9 @@ namespace Game.Feature.Gameplay.PresentationContracts
         Impact = 4,
         Recovery = 5,
         Failed = 6,
+        Landed = 7,
+        Retried = 8,
+        Death = 9,
     }
 
     public readonly struct PresentationAnimationPayload : IEquatable<PresentationAnimationPayload>
@@ -693,6 +705,142 @@ namespace Game.Feature.Gameplay.PresentationContracts
         }
     }
 
+    public enum PresentationEnemyPresentationKind
+    {
+        None = 0,
+        Jump = 1,
+        Charge = 2,
+        Death = 3,
+    }
+
+    public enum PresentationEnemyPresentationPhase
+    {
+        None = 0,
+        Windup = 1,
+        Airborne = 2,
+        Land = 3,
+        Active = 4,
+        Recover = 5,
+        Death = 6,
+    }
+
+    public enum PresentationEnemyPresentationOutcome
+    {
+        None = 0,
+        Started = 1,
+        ActiveStarted = 2,
+        Landed = 3,
+        Retried = 4,
+        Death = 5,
+    }
+
+    public readonly struct PresentationEnemyPayload : IEquatable<PresentationEnemyPayload>
+    {
+        public PresentationEnemyPayload(
+            PresentationEnemyPresentationKind kind,
+            PresentationEnemyPresentationPhase phase,
+            int enemyEntityId,
+            int sourceTickIndex,
+            int sourceSequenceId = 0,
+            PresentationEnemyPresentationOutcome outcome = PresentationEnemyPresentationOutcome.None,
+            SurfaceCell sourceCell = default,
+            SurfaceCell targetCell = default,
+            bool hasSourceCell = false,
+            bool hasTargetCell = false,
+            Direction direction = Direction.None,
+            int sourceCause = 0,
+            int timing = 0)
+        {
+            Kind = kind;
+            Phase = phase;
+            EnemyEntityId = Math.Max(0, enemyEntityId);
+            SourceTickIndex = Math.Max(0, sourceTickIndex);
+            SourceSequenceId = Math.Max(0, sourceSequenceId);
+            Outcome = outcome;
+            SourceCell = sourceCell;
+            TargetCell = targetCell;
+            HasSourceCell = hasSourceCell;
+            HasTargetCell = hasTargetCell;
+            Direction = direction;
+            SourceCause = sourceCause;
+            Timing = timing;
+        }
+
+        public PresentationEnemyPresentationKind Kind { get; }
+
+        public PresentationEnemyPresentationPhase Phase { get; }
+
+        public int EnemyEntityId { get; }
+
+        public int SourceTickIndex { get; }
+
+        public int SourceSequenceId { get; }
+
+        public PresentationEnemyPresentationOutcome Outcome { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell TargetCell { get; }
+
+        public bool HasSourceCell { get; }
+
+        public bool HasTargetCell { get; }
+
+        public Direction Direction { get; }
+
+        public int SourceCause { get; }
+
+        public int Timing { get; }
+
+        public bool IsValid =>
+            Kind != PresentationEnemyPresentationKind.None &&
+            Phase != PresentationEnemyPresentationPhase.None &&
+            EnemyEntityId > 0;
+
+        public bool Equals(PresentationEnemyPayload other)
+        {
+            return Kind == other.Kind &&
+                   Phase == other.Phase &&
+                   EnemyEntityId == other.EnemyEntityId &&
+                   SourceTickIndex == other.SourceTickIndex &&
+                   SourceSequenceId == other.SourceSequenceId &&
+                   Outcome == other.Outcome &&
+                   SourceCell.Equals(other.SourceCell) &&
+                   TargetCell.Equals(other.TargetCell) &&
+                   HasSourceCell == other.HasSourceCell &&
+                   HasTargetCell == other.HasTargetCell &&
+                   Direction == other.Direction &&
+                   SourceCause == other.SourceCause &&
+                   Timing == other.Timing;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationEnemyPayload other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = (int)Kind;
+                hash = (hash * 397) ^ (int)Phase;
+                hash = (hash * 397) ^ EnemyEntityId;
+                hash = (hash * 397) ^ SourceTickIndex;
+                hash = (hash * 397) ^ SourceSequenceId;
+                hash = (hash * 397) ^ (int)Outcome;
+                hash = (hash * 397) ^ SourceCell.GetHashCode();
+                hash = (hash * 397) ^ TargetCell.GetHashCode();
+                hash = (hash * 397) ^ HasSourceCell.GetHashCode();
+                hash = (hash * 397) ^ HasTargetCell.GetHashCode();
+                hash = (hash * 397) ^ (int)Direction;
+                hash = (hash * 397) ^ SourceCause;
+                hash = (hash * 397) ^ Timing;
+                return hash;
+            }
+        }
+    }
+
     public readonly struct PresentationFact : IEquatable<PresentationFact>
     {
         public PresentationFact(
@@ -702,7 +850,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
             PresentationFactPayload payload = default,
             PresentationTopologyTransitionPayload topologyPayload = default,
             PresentationMotionPayload motionPayload = default,
-            PresentationAnimationPayload animationPayload = default)
+            PresentationAnimationPayload animationPayload = default,
+            PresentationEnemyPayload enemyPayload = default)
         {
             Kind = kind;
             Source = source;
@@ -711,6 +860,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
             TopologyPayload = topologyPayload;
             MotionPayload = motionPayload;
             AnimationPayload = animationPayload;
+            EnemyPayload = enemyPayload;
         }
 
         public PresentationFactKind Kind { get; }
@@ -727,6 +877,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
         public PresentationAnimationPayload AnimationPayload { get; }
 
+        public PresentationEnemyPayload EnemyPayload { get; }
+
         public bool Equals(PresentationFact other)
         {
             return Kind == other.Kind &&
@@ -735,7 +887,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
                    Payload.Equals(other.Payload) &&
                    TopologyPayload.Equals(other.TopologyPayload) &&
                    MotionPayload.Equals(other.MotionPayload) &&
-                   AnimationPayload.Equals(other.AnimationPayload);
+                   AnimationPayload.Equals(other.AnimationPayload) &&
+                   EnemyPayload.Equals(other.EnemyPayload);
         }
 
         public override bool Equals(object obj)
@@ -754,6 +907,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
                 hash = (hash * 397) ^ TopologyPayload.GetHashCode();
                 hash = (hash * 397) ^ MotionPayload.GetHashCode();
                 hash = (hash * 397) ^ AnimationPayload.GetHashCode();
+                hash = (hash * 397) ^ EnemyPayload.GetHashCode();
                 return hash;
             }
         }
@@ -770,7 +924,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
             int tileFactCount,
             int gravityFactCount,
             int objectiveFactCount,
-            int stageFactCount)
+            int stageFactCount,
+            int enemyPresentationFactCount = 0)
         {
             ExtractedFactCount = Math.Max(0, extractedFactCount);
             TopologyFactCount = Math.Max(0, topologyFactCount);
@@ -781,6 +936,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
             GravityFactCount = Math.Max(0, gravityFactCount);
             ObjectiveFactCount = Math.Max(0, objectiveFactCount);
             StageFactCount = Math.Max(0, stageFactCount);
+            EnemyPresentationFactCount = Math.Max(0, enemyPresentationFactCount);
         }
 
         public int ExtractedFactCount { get; }
@@ -800,6 +956,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
         public int ObjectiveFactCount { get; }
 
         public int StageFactCount { get; }
+
+        public int EnemyPresentationFactCount { get; }
     }
 
     public sealed class PresentationFactFrame

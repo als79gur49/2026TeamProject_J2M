@@ -49,6 +49,13 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         PlayerFlipBlocked = 10,
         PlayerFlipImpactContact = 11,
         PlayerFlipFailed = 12,
+        EnemyJumpWindup = 13,
+        EnemyJumpAirborne = 14,
+        EnemyJumpLand = 15,
+        EnemyChargeWindup = 16,
+        EnemyChargeActive = 17,
+        EnemyChargeRecover = 18,
+        EnemyDeath = 19,
     }
 
     public readonly struct PresentationCueKey : IEquatable<PresentationCueKey>
@@ -232,7 +239,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             PresentationPlaybackPolicyHint policyHint = default,
             PresentationTopologyTransitionPayload topologyPayload = default,
             PresentationMotionPayload motionPayload = default,
-            PresentationAnimationPayload animationPayload = default)
+            PresentationAnimationPayload animationPayload = default,
+            PresentationEnemyPayload enemyPayload = default)
         {
             Domain = domain;
             Key = key;
@@ -243,6 +251,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             TopologyPayload = topologyPayload;
             MotionPayload = motionPayload;
             AnimationPayload = animationPayload;
+            EnemyPayload = enemyPayload;
         }
 
         public PresentationDomain Domain { get; }
@@ -263,6 +272,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
 
         public PresentationAnimationPayload AnimationPayload { get; }
 
+        public PresentationEnemyPayload EnemyPayload { get; }
+
         public bool Equals(PresentationCue other)
         {
             return Domain == other.Domain &&
@@ -273,7 +284,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                    PolicyHint.Equals(other.PolicyHint) &&
                    TopologyPayload.Equals(other.TopologyPayload) &&
                    MotionPayload.Equals(other.MotionPayload) &&
-                   AnimationPayload.Equals(other.AnimationPayload);
+                   AnimationPayload.Equals(other.AnimationPayload) &&
+                   EnemyPayload.Equals(other.EnemyPayload);
         }
 
         public override bool Equals(object obj)
@@ -294,6 +306,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 hash = (hash * 397) ^ TopologyPayload.GetHashCode();
                 hash = (hash * 397) ^ MotionPayload.GetHashCode();
                 hash = (hash * 397) ^ AnimationPayload.GetHashCode();
+                hash = (hash * 397) ^ EnemyPayload.GetHashCode();
                 return hash;
             }
         }
@@ -763,6 +776,124 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 hash = (hash * 397) ^ (int)payload.ActionKind;
                 hash = (hash * 397) ^ (int)payload.PhaseKind;
                 hash = (hash * 397) ^ (int)payload.OutcomeKind;
+                hash = (hash * 397) ^ key.GetHashCode();
+                return hash & int.MaxValue;
+            }
+        }
+    }
+
+    public sealed class EnemyPresentationCuePlanner : IPresentationCuePlanner
+    {
+        public void Plan(in PresentationFactFrame facts, PresentationCueFrameBuilder builder)
+        {
+            if (facts == null)
+            {
+                throw new ArgumentNullException(nameof(facts));
+            }
+
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            for (var i = 0; i < facts.Facts.Count; i++)
+            {
+                var fact = facts.Facts[i];
+                if (TryPlanEnemyPresentation(fact, out var cue))
+                {
+                    builder.Add(cue);
+                }
+            }
+        }
+
+        private static bool TryPlanEnemyPresentation(PresentationFact fact, out PresentationCue cue)
+        {
+            cue = default;
+            if (fact.Kind != PresentationFactKind.EnemyPresentation ||
+                !fact.EnemyPayload.IsValid ||
+                fact.Target.Kind != PresentationTargetKind.Entity ||
+                fact.Target.EntityId <= 0)
+            {
+                return false;
+            }
+
+            if (!TryResolveCueKey(fact.EnemyPayload, out var animationCueKey))
+            {
+                return false;
+            }
+
+            var key = PresentationCueKey.ForAnimation(animationCueKey);
+            cue = new PresentationCue(
+                PresentationDomain.Animation,
+                key,
+                fact.Source,
+                fact.Target,
+                PresentationAnchor.ForEntityVisualRoot(fact.Target.EntityId),
+                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)),
+                animationPayload: fact.AnimationPayload,
+                enemyPayload: fact.EnemyPayload);
+            return true;
+        }
+
+        private static bool TryResolveCueKey(
+            PresentationEnemyPayload payload,
+            out PresentationAnimationCueKey cueKey)
+        {
+            switch (payload.Kind)
+            {
+                case PresentationEnemyPresentationKind.Jump:
+                    cueKey = ResolveJumpCueKey(payload.Phase);
+                    return cueKey != PresentationAnimationCueKey.None;
+                case PresentationEnemyPresentationKind.Charge:
+                    cueKey = ResolveChargeCueKey(payload.Phase);
+                    return cueKey != PresentationAnimationCueKey.None;
+                case PresentationEnemyPresentationKind.Death:
+                    cueKey = payload.Phase == PresentationEnemyPresentationPhase.Death
+                        ? PresentationAnimationCueKey.EnemyDeath
+                        : PresentationAnimationCueKey.None;
+                    return cueKey != PresentationAnimationCueKey.None;
+                default:
+                    cueKey = PresentationAnimationCueKey.None;
+                    return false;
+            }
+        }
+
+        private static PresentationAnimationCueKey ResolveJumpCueKey(
+            PresentationEnemyPresentationPhase phase)
+        {
+            return phase switch
+            {
+                PresentationEnemyPresentationPhase.Windup => PresentationAnimationCueKey.EnemyJumpWindup,
+                PresentationEnemyPresentationPhase.Airborne => PresentationAnimationCueKey.EnemyJumpAirborne,
+                PresentationEnemyPresentationPhase.Land => PresentationAnimationCueKey.EnemyJumpLand,
+                _ => PresentationAnimationCueKey.None,
+            };
+        }
+
+        private static PresentationAnimationCueKey ResolveChargeCueKey(
+            PresentationEnemyPresentationPhase phase)
+        {
+            return phase switch
+            {
+                PresentationEnemyPresentationPhase.Windup => PresentationAnimationCueKey.EnemyChargeWindup,
+                PresentationEnemyPresentationPhase.Active => PresentationAnimationCueKey.EnemyChargeActive,
+                PresentationEnemyPresentationPhase.Recover => PresentationAnimationCueKey.EnemyChargeRecover,
+                _ => PresentationAnimationCueKey.None,
+            };
+        }
+
+        private static int ComputeDedupeKey(PresentationFact fact, PresentationCueKey key)
+        {
+            unchecked
+            {
+                var payload = fact.EnemyPayload;
+                var hash = 31;
+                hash = (hash * 397) ^ fact.Source.TickIndex;
+                hash = (hash * 397) ^ (int)fact.Source.SemanticSource;
+                hash = (hash * 397) ^ payload.EnemyEntityId;
+                hash = (hash * 397) ^ payload.SourceSequenceId;
+                hash = (hash * 397) ^ (int)payload.Kind;
+                hash = (hash * 397) ^ (int)payload.Phase;
                 hash = (hash * 397) ^ key.GetHashCode();
                 return hash & int.MaxValue;
             }
