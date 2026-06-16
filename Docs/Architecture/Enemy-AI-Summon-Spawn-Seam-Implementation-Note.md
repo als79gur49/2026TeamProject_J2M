@@ -26,6 +26,10 @@
 - `EntitySpawnRequest` does not carry an entity id.
 - Entity id allocation happens only during materialization.
 - Materialization happens after deterministic request order is established.
+- Utility trigger request order is established before materialization by
+  `SourceEntityId`, `EffectIndex`, then `TriggerTick`.
+- `EntitySpawnMaterializer` preserves received request order; it does not
+  establish a separate sort policy.
 - Failed spawn attempts do not allocate ids.
 - Successful spawn attempts allocate ids in materialization order.
 - `SurfaceCell(face, x, y)` identity must be preserved.
@@ -108,8 +112,6 @@ Required before Option B:
 
 Recommended additional tests:
 
-- Multiple summoners on the same tick allocate ids in deterministic source order.
-- Request ordering is stable across `SourceEntityId` / `EffectIndex` / `TriggerTick`.
 - `EntitySpawnRequest` does not hold mutable runtime state that can drift before materialization.
 - Placement parity for hazard risk fallback.
 - Max-alive parity after detached/dead/non-occupying child states.

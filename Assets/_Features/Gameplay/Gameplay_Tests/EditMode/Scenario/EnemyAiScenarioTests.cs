@@ -755,6 +755,78 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void EnemyUtilitySummon_SameTickMultiSummoners_OrderRequestsAndAllocateIdsDeterministically()
+        {
+            var profile = CreateUtilitySummonProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 5,
+                spawnCountPerTrigger: 1,
+                maxAliveChildren: 3,
+                windupTicks: 1);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateUnit(entityId: 41, teamId: 2, position: new SurfaceCell(FaceId.Floor, 3, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(
+                    profile,
+                    worldState,
+                    out defaultProfile,
+                    out archetypeCatalog,
+                    summonerEntityIds: new[] { 40, 41 });
+                pipeline.RunTick(new TickInput(1));
+                var committedTick = pipeline.RunTick(new TickInput(2));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(42, out var firstChild), Is.True);
+                Assert.That(snapshot.TryGetEntity(43, out var secondChild), Is.True);
+                Assert.That(snapshot.TryGetEntity(44, out _), Is.False);
+                Assert.That(firstChild.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+                Assert.That(secondChild.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 0)));
+                Assert.That(firstChild.spawnTick, Is.EqualTo(2));
+                Assert.That(secondChild.spawnTick, Is.EqualTo(2));
+
+                AssertSummonedChildMetadata(snapshot, 42, sourceEntityId: 40);
+                AssertSummonedChildMetadata(snapshot, 43, sourceEntityId: 41);
+
+                var triggerTrace = committedTick.Trace.Text;
+                var firstTriggerIndex = triggerTrace.IndexOf(
+                    "Source=40|Effect=0|Kind=SummonMinion|Tick=2",
+                    StringComparison.Ordinal);
+                var secondTriggerIndex = triggerTrace.IndexOf(
+                    "Source=41|Effect=0|Kind=SummonMinion|Tick=2",
+                    StringComparison.Ordinal);
+                Assert.That(firstTriggerIndex, Is.GreaterThanOrEqualTo(0), triggerTrace);
+                Assert.That(secondTriggerIndex, Is.GreaterThanOrEqualTo(0), triggerTrace);
+                Assert.That(firstTriggerIndex, Is.LessThan(secondTriggerIndex), triggerTrace);
+
+                var committedEvents = committedTick.EventLog
+                    .Where(entry => entry.StartsWith("SummonCommitted|", StringComparison.Ordinal))
+                    .ToArray();
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        "SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=42|Pos=(1,0)|Archetype=BasicMinion|Tick=2",
+                        "SummonCommitted|Source=41|Effect=0|SpawnIndex=0|Spawned=43|Pos=(4,0)|Archetype=BasicMinion|Tick=2",
+                    },
+                    committedEvents,
+                    "Utility trigger request order is SourceEntityId, EffectIndex, TriggerTick; materialization and id allocation preserve that order.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyUtilitySummon_AirArchetype_ActivatedDestroyTileCandidateIsNeutral()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -813,10 +885,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
-        private static void AssertSummonedChildMetadata(WorldSnapshot snapshot, int entityId)
+        private static void AssertSummonedChildMetadata(WorldSnapshot snapshot, int entityId, int sourceEntityId = 40)
         {
             Assert.That(snapshot.TryGetSummonedEntityState(entityId, out var summonedState), Is.True);
-            Assert.That(summonedState.SourceEntityId, Is.EqualTo(40));
+            Assert.That(summonedState.SourceEntityId, Is.EqualTo(sourceEntityId));
             Assert.That(summonedState.SourceEffectIndex, Is.EqualTo(0));
             Assert.That(snapshot.TryGetEnemyDefinitionBindingState(entityId, out var bindingState), Is.True);
             Assert.That(bindingState.ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
@@ -7465,23 +7537,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             EnemyAiProfile summonerProfile,
             out EnemyAiProfile defaultProfile,
             out EnemyUnitArchetypeCatalog archetypeCatalog,
-            EnemyUnitArchetypeAsset summonedArchetype = null)
+            EnemyUnitArchetypeAsset summonedArchetype = null,
+            IReadOnlyList<int> summonerEntityIds = null)
         {
             defaultProfile = CreateUtilityProfile();
             archetypeCatalog = CreateEnemyUnitArchetypeCatalog(summonedArchetype ?? GetSharedSummonedArchetype());
+            var overrideEntityIds = summonerEntityIds ?? new[] { 40 };
 
             var runtimeSnapshot = new GameplaySceneHostConfiguration
             {
                 SimulationTicksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                 DefaultEnemyAiProfile = defaultProfile,
-                EnemyAiProfileOverrides = new[]
-                {
-                    new EnemyAiProfileOverride
+                EnemyAiProfileOverrides = overrideEntityIds
+                    .Select(entityId => new EnemyAiProfileOverride
                     {
-                        EntityId = 40,
+                        EntityId = entityId,
                         Profile = summonerProfile,
-                    },
-                },
+                    })
+                    .ToArray(),
                 EnemyUnitArchetypeCatalog = archetypeCatalog,
             }.CreateEnemyAiRuntimeSnapshot();
 
@@ -7500,13 +7573,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             out EnemyAiProfile defaultProfile,
             out EnemyUnitArchetypeCatalog archetypeCatalog,
             EnemyUnitArchetypeAsset summonedArchetype = null,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
+            IReadOnlyList<int> summonerEntityIds = null)
         {
             var bootstrapper = CreateSharedSummonBootstrapper(
                 summonerProfile,
                 out defaultProfile,
                 out archetypeCatalog,
-                summonedArchetype);
+                summonedArchetype,
+                summonerEntityIds);
             if (tileFeatureDefinitions == null)
             {
                 return bootstrapper.CreateTickPipeline(worldState);
