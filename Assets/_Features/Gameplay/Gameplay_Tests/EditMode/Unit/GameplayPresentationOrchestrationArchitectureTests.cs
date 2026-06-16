@@ -594,7 +594,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(deathCue.Key.Domain, Is.EqualTo(PresentationDomain.Vfx));
             Assert.That(deathCue.Target.Kind, Is.EqualTo(PresentationTargetKind.Entity));
             Assert.That(deathCue.Target.EntityId, Is.EqualTo(30));
-            Assert.That(deathCue.Anchor.Kind, Is.EqualTo(PresentationAnchorKind.EntityCenter));
+            Assert.That(deathCue.Anchor.Kind, Is.EqualTo(PresentationAnchorKind.SurfaceCellCenter));
+            Assert.That(deathCue.Anchor.Target.Kind, Is.EqualTo(PresentationTargetKind.SurfaceCell));
             Assert.That(deathCue.PolicyHint.Kind, Is.EqualTo(PresentationPlaybackPolicyHintKind.OneShot));
             Assert.That(deathCue.PolicyHint.Blocking, Is.False);
         }
