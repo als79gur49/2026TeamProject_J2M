@@ -376,6 +376,7 @@ Rollback strategy:
 - Presentation/audio/VFX parity plan accepted; see [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
 - Behavior emitter request ordering contract accepted.
 - Source metadata vocabulary accepted without Utility-only coupling.
+- Option B implementation slicing and validation gates accepted; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy decided.
 
 BehaviorModule Summon runtime state shape is designed as an Option B prerequisite. SummonBehaviorModule migration has not started. Full lane was not run unless explicitly reported.

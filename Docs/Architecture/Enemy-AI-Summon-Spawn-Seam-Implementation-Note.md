@@ -128,10 +128,11 @@ The following Option B prerequisite gates are now documented or characterized:
 - Summon asset migration plan; see [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
 - Replay/export compatibility plan; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
 - Presentation/audio/VFX parity plan; see [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
+- Option B implementation slicing and validation gate plan; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 
 Remaining before Option B implementation:
 
-- Write the Option B implementation plan.
+- Accept the Option B implementation plan and approve the first implementation slice.
 - Implement the duplicate Utility/Behavior Summon compiler guard with tests.
 - Introduce `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and concrete Summon behavior runtime only inside an approved Option B implementation slice.
 - Add Behavior Summon-only compile tests.

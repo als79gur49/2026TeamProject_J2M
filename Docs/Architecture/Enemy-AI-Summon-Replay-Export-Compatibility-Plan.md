@@ -206,6 +206,7 @@ Decision:
 - Duplicate Utility/Behavior Summon guard accepted.
 - Runtime state design accepted.
 - Presentation/audio/VFX parity plan accepted; see [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
+- Option B implementation slicing and validation gates accepted; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy decided.
 
 Summon replay/export compatibility is planned as an Option B prerequisite. Initial Option B should preserve external replay/export names. SummonBehaviorModule migration has not started. Full lane was not run unless explicitly reported.

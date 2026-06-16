@@ -237,6 +237,7 @@ Decision:
 - Runtime state design accepted.
 - Behavior emitter request ordering contract accepted.
 - Source metadata vocabulary accepted without Utility-only coupling.
+- Option B implementation slicing and validation gates accepted; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy decided.
 
 Summon presentation/audio/VFX parity is planned as an Option B prerequisite. Initial Option B should preserve current presentation/audio/VFX names and cue semantics. SummonBehaviorModule migration has not started. Full lane was not run unless explicitly reported.
