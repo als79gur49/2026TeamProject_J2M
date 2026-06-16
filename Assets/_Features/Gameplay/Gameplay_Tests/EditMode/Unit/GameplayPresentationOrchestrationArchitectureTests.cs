@@ -41,6 +41,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs";
         private const string PlayerActionAnimationExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationPresentationExecutor.cs";
+        private const string EnemyPresentationExecutorPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyPresentationExecutor.cs";
 
         [Test]
         [Category("Core")]
@@ -175,6 +177,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(uiApplicationSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
             Assert.That(uiApplicationSource, Does.Not.Contain("GameplayAnimationExecutorDiagnostics"));
             Assert.That(uiApplicationSource, Does.Not.Contain("PlayerActionAnimationExecutionMode"));
+            Assert.That(uiApplicationSource, Does.Not.Contain("EnemyPresentationExecutionMode"));
         }
 
         [Test]
@@ -338,6 +341,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Audio/Runtime"), Does.Not.Contain("GameplayAnimationPresentationExecutor"));
             Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_ActionAudio/Runtime"), Does.Not.Contain("PlayerActionAnimationExecutionMode"));
             Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_ActionAudio/Runtime"), Does.Not.Contain("PresentationAnimationCueKey"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyPresentationExecutorBoundary_StaysHostOnlyAndDoesNotLeakRuntimeObjectsToPlans()
+        {
+            var contractsPlanningPlaybackSource = ReadDirectorySource(ContractsDirectory) + "\n" +
+                                                  ReadDirectorySource(PlanningDirectory) + "\n" +
+                                                  ReadDirectorySource(PlaybackDirectory);
+            var runtimeSource = ReadDirectorySource(RuntimeDirectory);
+            var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
+            var enemyExecutorSource = ReadRepoFile(EnemyPresentationExecutorPath);
+            var coordinatorSource = ReadRepoFile(CoordinatorPath);
+
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("EnemyViewPresentationMapper"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("EnemyAnimatorDriver"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AnimatorController"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AnimationClip"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameObject"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("Transform"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("MonoBehaviour"));
+            Assert.That(runtimeSource, Does.Not.Contain("EnemyViewPresentationMapper"));
+            Assert.That(runtimeSource, Does.Not.Contain("EnemyAnimatorDriver"));
+            Assert.That(coordinatorSource, Does.Contain("EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper"));
+            Assert.That(coordinatorSource, Does.Contain("EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor"));
+            Assert.That(coordinatorSource, Does.Contain("suppressLegacyEnemyPresentationAnimations"));
+            Assert.That(hostRuntimeSource, Does.Contain("GameplayEnemyPresentationExecutor"));
+            Assert.That(hostRuntimeSource, Does.Contain("IGameplayEnemyPresentationPlaybackPort"));
+            Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationExecutionGuard"));
+            Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationExecutionMode"));
+            Assert.That(enemyExecutorSource, Does.Contain("GameplayEnemyPresentationSyncPlaybackPort"));
+            Assert.That(enemyExecutorSource, Does.Contain("GameplayAnimationSyncCoordinator animationSync"));
+            Assert.That(enemyExecutorSource, Does.Not.Contain("FindObjectOfType"));
+            Assert.That(enemyExecutorSource, Does.Not.Contain("FindObjectsByType"));
+            Assert.That(enemyExecutorSource, Does.Not.Contain("new GameObject"));
+            Assert.That(enemyExecutorSource, Does.Not.Contain("AudioManager"));
+            Assert.That(enemyExecutorSource, Does.Not.Contain("Play2D"));
+            Assert.That(enemyExecutorSource, Does.Not.Contain("EnemyAudioPresentationController"));
+            Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime"), Does.Not.Contain("EnemyPresentationExecutionMode"));
+            Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_EnemyAudio/Runtime"), Does.Not.Contain("GameplayEnemyPresentationExecutor"));
         }
 
         [Test]
@@ -609,6 +652,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinator.PresentationPipelineNoOpSchedulerAcceptCount, Is.Zero);
             Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
             Assert.That(coordinator.TopologyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+            Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
+            Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
             Assert.That(new GameplaySceneHostConfiguration().TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
         }
 
@@ -872,6 +917,262 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.ObjectiveResult, Is.SameAs(objectiveResult));
         }
 
+        [Test]
+        [Category("Core")]
+        public void EnemyPresentationFactExtraction_ObservesJumpChargeAndDeathAsSemanticFacts()
+        {
+            var frame = new TickPresentationFactExtractor().Extract(CreateEnemyPresentationDiagnosticTickResult());
+            var facts = frame.Facts
+                .Where(fact => fact.Kind == PresentationFactKind.EnemyPresentation)
+                .OrderBy(fact => fact.Target.EntityId)
+                .ToArray();
+
+            Assert.That(facts, Has.Length.EqualTo(3));
+            Assert.That(frame.Diagnostics.EnemyPresentationFactCount, Is.EqualTo(3));
+            AssertEnemyFact(
+                facts[0],
+                40,
+                PresentationEnemyPresentationKind.Jump,
+                PresentationEnemyPresentationPhase.Windup,
+                PresentationSemanticSource.EnemyJump,
+                11);
+            AssertEnemyFact(
+                facts[1],
+                41,
+                PresentationEnemyPresentationKind.Charge,
+                PresentationEnemyPresentationPhase.Active,
+                PresentationSemanticSource.EnemyCharge,
+                12);
+            AssertEnemyFact(
+                facts[2],
+                42,
+                PresentationEnemyPresentationKind.Death,
+                PresentationEnemyPresentationPhase.Death,
+                PresentationSemanticSource.EntityExit,
+                9042);
+            Assert.That(facts.All(fact => fact.AnimationPayload.Kind == PresentationAnimationFactKind.EnemyPresentation), Is.True);
+            Assert.That(facts.All(fact => fact.Target.Kind == PresentationTargetKind.Entity), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyPresentationCuePlanner_UsesTypedAnimationKeysAndSymbolicAnchors()
+        {
+            var cueFrame = CreateEnemyPresentationCueFrame();
+            var cues = cueFrame.Cues
+                .Where(cue => cue.Domain == PresentationDomain.Animation && cue.EnemyPayload.IsValid)
+                .OrderBy(cue => cue.Target.EntityId)
+                .ToArray();
+
+            Assert.That(cues, Has.Length.EqualTo(3));
+            AssertEnemyCue(cues[0], 40, PresentationAnimationCueKey.EnemyJumpWindup);
+            AssertEnemyCue(cues[1], 41, PresentationAnimationCueKey.EnemyChargeActive);
+            AssertEnemyCue(cues[2], 42, PresentationAnimationCueKey.EnemyDeath);
+            Assert.That(cues.All(cue => cue.Anchor.Kind == PresentationAnchorKind.EntityVisualRoot), Is.True);
+            Assert.That(cues.All(cue => cue.PolicyHint.Kind == PresentationPlaybackPolicyHintKind.OneShot), Is.True);
+            Assert.That(cues.All(cue => !cue.PolicyHint.Blocking), Is.True);
+            Assert.That(cues.All(cue => cue.PolicyHint.DedupeKey > 0), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyPresentationPlaybackPlanner_CreatesNonBlockingCuesWithoutBarriers()
+        {
+            var plan = CreateEnemyPresentationPlaybackPlan();
+            var scheduler = new PresentationPlaybackScheduler();
+
+            scheduler.Accept(plan);
+            scheduler.Update(0f);
+
+            Assert.That(plan.Cues.Count(cue => cue.Cue.Domain == PresentationDomain.Animation), Is.EqualTo(3));
+            Assert.That(plan.Tracks.Any(track => track.Cue.Domain == PresentationDomain.Animation), Is.False);
+            Assert.That(plan.Barriers, Is.Empty);
+            Assert.That(plan.Cues.All(cue => !cue.Policy.Blocking), Is.True);
+            Assert.That(plan.Cues.All(cue => cue.Policy.UnitKind == PresentationPlaybackUnitKind.OneShot), Is.True);
+            Assert.That(plan.Cues.All(cue => cue.Policy.DedupeKey > 0), Is.True);
+            Assert.That(scheduler.HasBlockingPresentation, Is.False);
+            Assert.That(scheduler.BlockingSnapshot.HasPlannedBlockingBarrier, Is.False);
+            Assert.That(scheduler.BlockingSnapshot.HasActiveBlockingPresentation, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyPresentationExecutor_DefaultLegacyMode_DoesNotCallPlaybackPort()
+        {
+            var plan = CreateEnemyPresentationPlaybackPlan();
+            var port = new RecordingEnemyPresentationPlaybackPort();
+            var executor = new GameplayEnemyPresentationExecutor(port);
+
+            executor.Play(plan);
+
+            Assert.That(port.TryPlayCallCount, Is.Zero);
+            Assert.That(executor.Diagnostics.ObservedCueCount, Is.EqualTo(3));
+            Assert.That(executor.Diagnostics.LegacyOwnerNoOpCount, Is.EqualTo(3));
+            Assert.That(executor.Diagnostics.CommandRequestedCount, Is.Zero);
+            Assert.That(executor.Diagnostics.DuplicateSuppressedCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyPresentationExecutor_OrchestrationMode_RoutesJumpChargeDeathToPlaybackPort()
+        {
+            var plan = CreateEnemyPresentationPlaybackPlan();
+            var port = new RecordingEnemyPresentationPlaybackPort(GameplayEnemyPresentationPlaybackResultKind.Applied);
+            var guard = new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor);
+            var executor = new GameplayEnemyPresentationExecutor(
+                port,
+                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
+                guard);
+
+            executor.Play(plan);
+
+            Assert.That(port.TryPlayCallCount, Is.EqualTo(3));
+            Assert.That(port.Requests.Select(request => request.CueKey), Is.EquivalentTo(new[]
+            {
+                PresentationAnimationCueKey.EnemyJumpWindup,
+                PresentationAnimationCueKey.EnemyChargeActive,
+                PresentationAnimationCueKey.EnemyDeath,
+            }));
+            Assert.That(port.Requests.All(request => request.TickIndex == 7), Is.True);
+            Assert.That(port.Requests.All(request => request.Anchor.Kind == PresentationAnchorKind.EntityVisualRoot), Is.True);
+            Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(3));
+            Assert.That(executor.Diagnostics.CommandAppliedCount, Is.EqualTo(3));
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(3));
+            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyPresentationExecutionGuard_BlocksDuplicateOwnerAttemptForSameKey()
+        {
+            var key = new EnemyPresentationPlaybackKey(
+                7,
+                PresentationSemanticSource.EnemyJump,
+                40,
+                PresentationAnimationCueKey.EnemyJumpWindup,
+                PresentationEnemyPresentationKind.Jump,
+                PresentationEnemyPresentationPhase.Windup,
+                11);
+            var guard = new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor);
+
+            Assert.That(
+                guard.TryBeginExecution(EnemyPresentationExecutionOwner.OrchestrationEnemyPresentationExecutor, key),
+                Is.True);
+            Assert.That(
+                guard.TryBeginExecution(EnemyPresentationExecutionOwner.LegacyEnemyPresentationMapper, key),
+                Is.False);
+
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyPresentationExecutor_DistinguishesMissingTargetAnchorPortAndRuntimeBindings()
+        {
+            var cue = CreateEnemyPresentationCueFrame().Cues.Single(cue =>
+                cue.Key.TryGetAnimationCueKey(out var key) &&
+                key == PresentationAnimationCueKey.EnemyJumpWindup);
+            var targetMissingCue = CreateEnemyPresentationCue(cue, PresentationTarget.None(), cue.Anchor);
+            var anchorMissingCue = CreateEnemyPresentationCue(
+                cue,
+                PresentationTarget.Entity(51),
+                PresentationAnchor.None(),
+                51,
+                51);
+            var validCue = CreateEnemyPresentationCue(
+                cue,
+                PresentationTarget.Entity(52),
+                PresentationAnchor.ForEntityVisualRoot(52),
+                52,
+                52);
+            var frame = new PresentationCueFrame(
+                7,
+                new[] { targetMissingCue, anchorMissingCue, validCue },
+                new PresentationCueFrameDiagnostics(3, 3, 1));
+            var plan = new PresentationPlaybackPlanner().Plan(frame);
+            var port = new RecordingEnemyPresentationPlaybackPort(GameplayEnemyPresentationPlaybackResultKind.MapperMissing);
+            var executor = new GameplayEnemyPresentationExecutor(
+                port,
+                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
+                new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
+
+            executor.Play(plan);
+
+            Assert.That(executor.Diagnostics.TargetMissingCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.AnchorMissingCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.MapperMissingCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(1));
+
+            AssertEnemyMissingRuntimeResult(GameplayEnemyPresentationPlaybackResultKind.BindingMissing, diagnostics => diagnostics.BindingMissingCount);
+            AssertEnemyMissingRuntimeResult(GameplayEnemyPresentationPlaybackResultKind.DriverMissing, diagnostics => diagnostics.DriverMissingCount);
+            AssertEnemyMissingRuntimeResult(GameplayEnemyPresentationPlaybackResultKind.AnimatorMissing, diagnostics => diagnostics.AnimatorMissingCount);
+
+            var missingPortExecutor = new GameplayEnemyPresentationExecutor(
+                null,
+                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
+                new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
+            missingPortExecutor.Play(new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
+                7,
+                new[] { validCue },
+                new PresentationCueFrameDiagnostics(1, 1, 1))));
+            Assert.That(missingPortExecutor.Diagnostics.MissingPortCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyPresentationExecutor_ResetSessionAndHardCleanup_ClearDiagnosticsAndPortState()
+        {
+            var plan = CreateEnemyPresentationPlaybackPlan();
+            var port = new RecordingEnemyPresentationPlaybackPort();
+            var guard = new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor);
+            var executor = new GameplayEnemyPresentationExecutor(
+                port,
+                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
+                guard);
+
+            executor.Play(plan);
+            Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(3));
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(3));
+
+            executor.ResetSession();
+            guard.ResetSession();
+            Assert.That(executor.Diagnostics.CommandRequestedCount, Is.Zero);
+            Assert.That(port.ResetSessionCallCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.Zero);
+
+            executor.Play(plan);
+            executor.HardCleanup();
+            guard.ResetSession();
+            Assert.That(executor.Diagnostics.CommandRequestedCount, Is.Zero);
+            Assert.That(port.HardCleanupCallCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyPresentationOrchestrationRoute_DoesNotMutateAuthoritativeTickResult()
+        {
+            var result = CreateEnemyPresentationDiagnosticTickResult();
+            var determinismHash = result.DeterminismHash;
+            var finalEntities = result.FinalEntities.ToArray();
+            var eventLog = result.EventLog.ToArray();
+            var objectiveResult = result.ObjectiveResult;
+            var playbackPlan = new PresentationPlaybackPlanner().Plan(CreateEnemyPresentationCueFrame(result));
+            var executor = new GameplayEnemyPresentationExecutor(
+                new RecordingEnemyPresentationPlaybackPort(),
+                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
+                new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
+
+            executor.Play(playbackPlan);
+
+            Assert.That(result.DeterminismHash, Is.EqualTo(determinismHash));
+            Assert.That(result.FinalEntities, Is.EqualTo(finalEntities));
+            Assert.That(result.EventLog, Is.EqualTo(eventLog));
+            Assert.That(result.ObjectiveResult, Is.SameAs(objectiveResult));
+        }
+
         private static TickResult CreateDiagnosticTickResult(
             TickTopologyMotion? topologyMotion = null,
             bool includeTopologyMotion = true,
@@ -996,6 +1297,211 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }).Plan(factFrame);
         }
 
+        private static TickResult CreateEnemyPresentationDiagnosticTickResult()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                new[]
+                {
+                    new TickEnemyJumpPresentationSignal(
+                        entityId: 40,
+                        sequence: 11,
+                        phase: EnemyJumpPhase.Windup,
+                        startedWindupThisTick: true,
+                        startedAirborneThisTick: false,
+                        landedThisTick: false,
+                        retryThisTick: false,
+                        sourceCell: cell,
+                        lockedTargetCell: targetCell,
+                        presentationTargetCell: targetCell,
+                        facing: Direction.Right,
+                        windupTicks: 2,
+                        landingTick: 9,
+                        remainingAirborneTicks: 0,
+                        retryCount: 0,
+                        TickEnemyJumpPresentationOutcome.WindupStarted),
+                },
+                new[]
+                {
+                    new TickEnemyChargePresentationSignal(
+                        entityId: 41,
+                        sequence: 12,
+                        phase: EnemyChargePhase.Active,
+                        startedWindupThisTick: false,
+                        startedActiveThisTick: true,
+                        startedRecoverThisTick: false,
+                        lockedDirection: Direction.Down),
+                },
+                new[]
+                {
+                    new TickEntityExitPresentationSignal(
+                        exitedEntityId: 42,
+                        exitCause: TickEntityExitCause.Killed,
+                        sourceCell: cell,
+                        topology: topology,
+                        facing: Direction.Left,
+                        entityType: EntityType.Unit,
+                        sourceActorEntityId: 10,
+                        presentationSeed: 9042,
+                        timing: EntityExitPresentationTiming.Immediate,
+                        hasPresentationTargetCell: true,
+                        presentationTargetCell: cell),
+                },
+                Array.Empty<FlipImpactPresentationSignal>());
+
+            return new TickResult(
+                tickIndex: 7,
+                completedPhases: Array.Empty<TickPhase>(),
+                phaseTrace: Array.Empty<string>(),
+                movementPhaseResult: MovementPhaseResult.Empty,
+                attackPhaseResult: AttackPhaseResult.Empty,
+                finalEntities: Array.Empty<EntityState>(),
+                eventLog: new[] { "AuthoritativeEvent" },
+                finalTopology: topology,
+                presentationData: presentationData,
+                determinismHash: "ENEMY-PRESENTATION-HASH",
+                trace: TickTrace.Empty,
+                objectiveResult: new StageObjectiveTickResult(
+                    hasObjective: false,
+                    goalReached: false,
+                    allConditionsSatisfied: false,
+                    clearedThisTick: false,
+                    isCleared: false,
+                    conditionStatuses: Array.Empty<StageConditionStatus>()));
+        }
+
+        private static PresentationCueFrame CreateEnemyPresentationCueFrame(TickResult result = null)
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(
+                result ?? CreateEnemyPresentationDiagnosticTickResult());
+            return new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new EnemyPresentationCuePlanner(),
+            }).Plan(factFrame);
+        }
+
+        private static PresentationPlaybackPlan CreateEnemyPresentationPlaybackPlan()
+        {
+            return new PresentationPlaybackPlanner().Plan(CreateEnemyPresentationCueFrame());
+        }
+
+        private static void AssertEnemyFact(
+            PresentationFact fact,
+            int enemyEntityId,
+            PresentationEnemyPresentationKind kind,
+            PresentationEnemyPresentationPhase phase,
+            PresentationSemanticSource source,
+            int sequence)
+        {
+            Assert.That(fact.Source.TickIndex, Is.EqualTo(7));
+            Assert.That(fact.Source.SemanticSource, Is.EqualTo(source));
+            Assert.That(fact.Source.SourceEntityId, Is.EqualTo(enemyEntityId));
+            Assert.That(fact.Source.SourceSequence, Is.EqualTo(sequence));
+            Assert.That(fact.Target.EntityId, Is.EqualTo(enemyEntityId));
+            Assert.That(fact.EnemyPayload.IsValid, Is.True);
+            Assert.That(fact.EnemyPayload.EnemyEntityId, Is.EqualTo(enemyEntityId));
+            Assert.That(fact.EnemyPayload.Kind, Is.EqualTo(kind));
+            Assert.That(fact.EnemyPayload.Phase, Is.EqualTo(phase));
+            Assert.That(fact.EnemyPayload.SourceTickIndex, Is.EqualTo(7));
+            Assert.That(fact.EnemyPayload.SourceSequenceId, Is.EqualTo(sequence));
+        }
+
+        private static void AssertEnemyCue(
+            PresentationCue cue,
+            int enemyEntityId,
+            PresentationAnimationCueKey expectedKey)
+        {
+            Assert.That(cue.Key.Domain, Is.EqualTo(PresentationDomain.Animation));
+            Assert.That(cue.Key.TryGetAnimationCueKey(out var key), Is.True);
+            Assert.That(key, Is.EqualTo(expectedKey));
+            Assert.That(cue.Target.Kind, Is.EqualTo(PresentationTargetKind.Entity));
+            Assert.That(cue.Target.EntityId, Is.EqualTo(enemyEntityId));
+            Assert.That(cue.EnemyPayload.EnemyEntityId, Is.EqualTo(enemyEntityId));
+            Assert.That(cue.AnimationPayload.Kind, Is.EqualTo(PresentationAnimationFactKind.EnemyPresentation));
+        }
+
+        private static PresentationCue CreateEnemyPresentationCue(
+            PresentationCue source,
+            PresentationTarget target,
+            PresentationAnchor anchor,
+            int enemyEntityId = 0,
+            int sourceSequence = 0)
+        {
+            var resolvedEnemyEntityId = enemyEntityId > 0
+                ? enemyEntityId
+                : source.EnemyPayload.EnemyEntityId;
+            var resolvedSequence = sourceSequence > 0
+                ? sourceSequence
+                : source.EnemyPayload.SourceSequenceId;
+            var enemyPayload = new PresentationEnemyPayload(
+                source.EnemyPayload.Kind,
+                source.EnemyPayload.Phase,
+                resolvedEnemyEntityId,
+                source.EnemyPayload.SourceTickIndex,
+                resolvedSequence,
+                source.EnemyPayload.Outcome,
+                source.EnemyPayload.SourceCell,
+                source.EnemyPayload.TargetCell,
+                source.EnemyPayload.HasSourceCell,
+                source.EnemyPayload.HasTargetCell,
+                source.EnemyPayload.Direction,
+                source.EnemyPayload.SourceCause,
+                source.EnemyPayload.Timing);
+            var animationPayload = new PresentationAnimationPayload(
+                source.AnimationPayload.Kind,
+                resolvedEnemyEntityId,
+                source.AnimationPayload.ActionKind,
+                source.AnimationPayload.PhaseKind,
+                source.AnimationPayload.OutcomeKind,
+                source.AnimationPayload.SourceTickIndex,
+                resolvedSequence,
+                source.AnimationPayload.SourceActionPlanId,
+                source.AnimationPayload.TargetEntityId,
+                source.AnimationPayload.Direction);
+            return new PresentationCue(
+                source.Domain,
+                source.Key,
+                new PresentationSource(
+                    source.Source.TickIndex,
+                    source.Source.SemanticSource,
+                    resolvedEnemyEntityId,
+                    source.Source.SourceActionKind,
+                    resolvedSequence),
+                target,
+                anchor,
+                PresentationPlaybackPolicyHint.OneShot(source.PolicyHint.DedupeKey + resolvedEnemyEntityId),
+                animationPayload: animationPayload,
+                enemyPayload: enemyPayload);
+        }
+
+        private static void AssertEnemyMissingRuntimeResult(
+            GameplayEnemyPresentationPlaybackResultKind resultKind,
+            Func<GameplayEnemyPresentationExecutorDiagnostics, int> selector)
+        {
+            var plan = CreateEnemyPresentationPlaybackPlan();
+            var executor = new GameplayEnemyPresentationExecutor(
+                new RecordingEnemyPresentationPlaybackPort(resultKind),
+                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
+                new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
+
+            executor.Play(plan);
+
+            Assert.That(selector(executor.Diagnostics), Is.EqualTo(3));
+            Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(3));
+        }
+
         private sealed class RecordingTopologyTransitionPlaybackPort : ITopologyTransitionPlaybackPort
         {
             public int BeginOrRefreshCallCount { get; private set; }
@@ -1019,6 +1525,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void HardCleanup()
             {
                 IsTransitionActive = false;
+            }
+        }
+
+        private sealed class RecordingEnemyPresentationPlaybackPort : IGameplayEnemyPresentationPlaybackPort
+        {
+            private readonly GameplayEnemyPresentationPlaybackResultKind _resultKind;
+
+            public RecordingEnemyPresentationPlaybackPort(
+                GameplayEnemyPresentationPlaybackResultKind resultKind = GameplayEnemyPresentationPlaybackResultKind.Applied)
+            {
+                _resultKind = resultKind;
+            }
+
+            public int TryPlayCallCount { get; private set; }
+
+            public int ResetSessionCallCount { get; private set; }
+
+            public int HardCleanupCallCount { get; private set; }
+
+            public List<GameplayEnemyPresentationPlaybackRequest> Requests { get; } = new();
+
+            public bool TryPlayEnemyPresentation(
+                in GameplayEnemyPresentationPlaybackRequest request,
+                out GameplayEnemyPresentationPlaybackResult result)
+            {
+                TryPlayCallCount++;
+                Requests.Add(request);
+                result = new GameplayEnemyPresentationPlaybackResult(_resultKind);
+                return _resultKind == GameplayEnemyPresentationPlaybackResultKind.Applied ||
+                       _resultKind == GameplayEnemyPresentationPlaybackResultKind.Requested;
+            }
+
+            public void ResetSession()
+            {
+                ResetSessionCallCount++;
+                TryPlayCallCount = 0;
+                Requests.Clear();
+            }
+
+            public void HardCleanup()
+            {
+                HardCleanupCallCount++;
+                TryPlayCallCount = 0;
+                Requests.Clear();
             }
         }
 
