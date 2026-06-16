@@ -78,15 +78,22 @@ namespace Game.Feature.Gameplay.Host
         private readonly TopologyExecutionPipelineFactory _topologyExecutionPipelineFactory;
         private readonly DamageDeathVfxExecutionGuard _damageDeathVfxExecutionGuard = new();
         private readonly DamageDeathVfxExecutionPipelineFactory _damageDeathVfxExecutionPipelineFactory;
+        private readonly BoxMotionExecutionGuard _boxMotionExecutionGuard = new();
+        private readonly BoxMotionExecutionPipelineFactory _boxMotionExecutionPipelineFactory;
 
         private GameplayPresentationPipeline _presentationPipeline;
         private GameplayPresentationPipeline _topologyExecutionPipeline;
         private GameplayPresentationPipeline _damageDeathVfxExecutionPipeline;
+        private GameplayPresentationPipeline _boxMotionExecutionPipeline;
         private TopologyPresentationExecutionMode _topologyExecutionMode =
             TopologyPresentationExecutionMode.LegacyCoordinator;
         private DamageDeathVfxExecutionMode _damageDeathVfxExecutionMode =
             DamageDeathVfxExecutionMode.LegacyExtension;
+        private BoxMotionPresentationExecutionMode _boxMotionExecutionMode =
+            BoxMotionPresentationExecutionMode.LegacyTrackPlanner;
         private IDamageDeathVfxPlaybackPort _damageDeathVfxPlaybackPort;
+        private IGameplayMotionPlaybackPort _boxMotionPlaybackPort;
+        private GameplayMotionTrackPlannerPlaybackPort _boxMotionTrackPlannerPlaybackPort;
         private bool _isInitialized;
         private bool _presentationPipelineDiagnosticsEnabled;
         private GameplayCubeProjector _projector;
@@ -118,26 +125,42 @@ namespace Game.Feature.Gameplay.Host
         public GameplayTickPresentationCoordinator()
             : this(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline)
+                GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline)
         {
         }
 
         internal GameplayTickPresentationCoordinator(TopologyExecutionPipelineFactory topologyExecutionPipelineFactory)
             : this(
                 topologyExecutionPipelineFactory,
-                GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline)
+                GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline)
         {
         }
 
         internal GameplayTickPresentationCoordinator(
             TopologyExecutionPipelineFactory topologyExecutionPipelineFactory,
             DamageDeathVfxExecutionPipelineFactory damageDeathVfxExecutionPipelineFactory)
+            : this(
+                topologyExecutionPipelineFactory,
+                damageDeathVfxExecutionPipelineFactory,
+                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline)
+        {
+        }
+
+        internal GameplayTickPresentationCoordinator(
+            TopologyExecutionPipelineFactory topologyExecutionPipelineFactory,
+            DamageDeathVfxExecutionPipelineFactory damageDeathVfxExecutionPipelineFactory,
+            BoxMotionExecutionPipelineFactory boxMotionExecutionPipelineFactory)
         {
             _topologyExecutionPipelineFactory = topologyExecutionPipelineFactory ??
                                                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline;
             _damageDeathVfxExecutionPipelineFactory = damageDeathVfxExecutionPipelineFactory ??
                                                       GameplayHostPresentationPipelineFactory
                                                           .CreateDamageDeathVfxExecutionPipeline;
+            _boxMotionExecutionPipelineFactory = boxMotionExecutionPipelineFactory ??
+                                                 GameplayHostPresentationPipelineFactory
+                                                     .CreateBoxMotionExecutionPipeline;
             _audioPresentationController = new GameplayAudioPresentationController(_stateStore);
             _actionAudioPresentationController = new GameplayActionAudioPresentationController(_stateStore);
             _enemyAudioPresentationController = new EnemyAudioPresentationController(_stateStore);
@@ -186,6 +209,7 @@ namespace Game.Feature.Gameplay.Host
                 _exitPresentationController,
                 _moonBlockDestructionPresentationController,
                 _entityPresentationApplier);
+            _boxMotionTrackPlannerPlaybackPort = new GameplayMotionTrackPlannerPlaybackPort(_planner, _stateStore);
             _topologyTransitionController.TopologyPresentationCompleted += HandleTopologyPresentationCompleted;
             _topologyTransitionController.TopologyTransitionPresentationCompleted +=
                 HandleTopologyTransitionPresentationCompleted;
@@ -270,11 +294,22 @@ namespace Game.Feature.Gameplay.Host
         internal DamageDeathVfxOwnershipDiagnostics DamageDeathVfxOwnershipDiagnostics =>
             _damageDeathVfxExecutionGuard.Diagnostics;
 
+        internal BoxMotionPresentationExecutionMode BoxMotionPresentationExecutionMode => _boxMotionExecutionMode;
+
+        internal BoxMotionOwnershipDiagnostics BoxMotionOwnershipDiagnostics =>
+            _boxMotionExecutionGuard.Diagnostics;
+
         internal PresentationBlockingSnapshot DamageDeathVfxExecutionPipelineBlockingSnapshot =>
             _damageDeathVfxExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
+        internal PresentationBlockingSnapshot BoxMotionExecutionPipelineBlockingSnapshot =>
+            _boxMotionExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
+
         internal GameplayVfxExecutorDiagnostics DamageDeathVfxExecutorDiagnostics =>
             ResolveDamageDeathVfxExecutorDiagnostics();
+
+        internal GameplayMotionExecutorDiagnostics BoxMotionExecutorDiagnostics =>
+            ResolveBoxMotionExecutorDiagnostics();
 
         internal void ConfigureDamageDeathVfxExecution(
             DamageDeathVfxExecutionMode mode,
@@ -289,6 +324,21 @@ namespace Game.Feature.Gameplay.Host
                 _damageDeathVfxPlaybackPort,
                 _damageDeathVfxExecutionGuard);
             _damageDeathVfxExecutionPipeline?.ResetSession();
+        }
+
+        internal void ConfigureBoxMotionPresentationExecution(
+            BoxMotionPresentationExecutionMode mode,
+            IGameplayMotionPlaybackPort playbackPort = null)
+        {
+            _boxMotionExecutionMode = NormalizeBoxMotionPresentationExecutionMode(mode);
+            _boxMotionPlaybackPort = playbackPort;
+            _boxMotionExecutionGuard.Configure(_boxMotionExecutionMode);
+            _boxMotionExecutionGuard.ResetSession();
+            _boxMotionExecutionPipeline = _boxMotionExecutionPipelineFactory(
+                _boxMotionExecutionMode,
+                ResolveBoxMotionPlaybackPort(),
+                _boxMotionExecutionGuard);
+            _boxMotionExecutionPipeline?.ResetSession();
         }
 
         internal void EnablePresentationPipelineDiagnostics(GameplayPresentationPipeline pipeline = null)
@@ -431,6 +481,13 @@ namespace Game.Feature.Gameplay.Host
                 _damageDeathVfxExecutionMode,
                 _damageDeathVfxPlaybackPort,
                 _damageDeathVfxExecutionGuard);
+            _boxMotionExecutionMode = NormalizeBoxMotionPresentationExecutionMode(_boxMotionExecutionMode);
+            _boxMotionExecutionGuard.Configure(_boxMotionExecutionMode);
+            _boxMotionExecutionGuard.ResetSession();
+            _boxMotionExecutionPipeline = _boxMotionExecutionPipelineFactory(
+                _boxMotionExecutionMode,
+                ResolveBoxMotionPlaybackPort(),
+                _boxMotionExecutionGuard);
             _viewBinder = viewBinder;
             _gravityFieldVisualPresentationController.AttachTargetViewRegistry(_viewBinder.ViewRegistry);
             _moonBlockEmergencePresentationController.Configure(_viewBinder.ViewRegistry, timingProfile);
@@ -487,6 +544,7 @@ namespace Game.Feature.Gameplay.Host
             _isInitialized = true;
             _topologyExecutionPipeline?.ResetSession();
             _damageDeathVfxExecutionPipeline?.ResetSession();
+            _boxMotionExecutionPipeline?.ResetSession();
             ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             ResetPresentationPipelineDiagnosticsIfEnabled();
         }
@@ -627,12 +685,18 @@ namespace Game.Feature.Gameplay.Host
             RefreshGameplayAudioPlaybackGate();
             _topologyAudioPresentationController.ReplacePendingPlan(
                 _topologyAudioRequestPlanner.BuildRequests(result));
+            RefreshBoxMotionExecution(
+                result,
+                previousCommittedLocalTargetPoses,
+                previousCommittedTopology);
             _planner.RefreshTracks(
                 result,
                 previousCommittedLocalTargetPoses,
                 previousCommittedTopology,
                 _projector,
-                _timingProfile);
+                _timingProfile,
+                suppressBoxMotionTracks:
+                    _boxMotionExecutionMode == BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor);
             RetainTopologyMoonBlockGeneratedPoses(result.PresentationData);
             _lastPresentedTickIndex = result.TickIndex;
             RefreshPresentationMotionVfx(result.TickIndex);
@@ -751,6 +815,106 @@ namespace Game.Feature.Gameplay.Host
             _topologyTransitionController.RefreshBoardSurfaceTransition(
                 result.PresentationData,
                 _stateStore.CommittedTopology);
+        }
+
+        private void RefreshBoxMotionExecution(
+            TickResult result,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
+            CubeTopologyState previousCommittedTopology)
+        {
+            if (_boxMotionExecutionMode == BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor)
+            {
+                RecordBoxMotionLegacySkippedByPolicy(result);
+                var playbackPort = ResolveBoxMotionPlaybackPort();
+                if (playbackPort is GameplayMotionTrackPlannerPlaybackPort adapter)
+                {
+                    adapter.BeginTickContext(
+                        result,
+                        previousCommittedLocalTargetPoses,
+                        previousCommittedTopology,
+                        _projector,
+                        _timingProfile);
+                }
+
+                _boxMotionExecutionPipeline ??= _boxMotionExecutionPipelineFactory(
+                    _boxMotionExecutionMode,
+                    playbackPort,
+                    _boxMotionExecutionGuard);
+                _boxMotionExecutionPipeline?.Present(result);
+                return;
+            }
+
+            RecordBoxMotionLegacyOwnership(result);
+        }
+
+        private IGameplayMotionPlaybackPort ResolveBoxMotionPlaybackPort()
+        {
+            return _boxMotionPlaybackPort ?? _boxMotionTrackPlannerPlaybackPort;
+        }
+
+        private void RecordBoxMotionLegacyOwnership(TickResult result)
+        {
+            foreach (var key in BuildBoxMotionPlaybackKeys(result))
+            {
+                _boxMotionExecutionGuard.TryBeginExecution(
+                    BoxMotionPresentationExecutionOwner.LegacyTrackPlanner,
+                    key);
+            }
+        }
+
+        private void RecordBoxMotionLegacySkippedByPolicy(TickResult result)
+        {
+            foreach (var _ in BuildBoxMotionPlaybackKeys(result))
+            {
+                _boxMotionExecutionGuard.RecordSkippedByPolicy(
+                    BoxMotionPresentationExecutionOwner.LegacyTrackPlanner);
+            }
+        }
+
+        private static IEnumerable<BoxMotionPlaybackKey> BuildBoxMotionPlaybackKeys(TickResult result)
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            for (var i = 0; i < factFrame.Facts.Count; i++)
+            {
+                var fact = factFrame.Facts[i];
+                if (!fact.MotionPayload.IsValid ||
+                    !TryMapMotionFactKind(fact.MotionPayload.Kind, out var cueKey))
+                {
+                    continue;
+                }
+
+                var payload = fact.MotionPayload;
+                yield return new BoxMotionPlaybackKey(
+                    fact.Source.TickIndex,
+                    fact.Source.SemanticSource,
+                    payload.EntityId,
+                    cueKey,
+                    payload.SourceCell,
+                    payload.DestinationCell,
+                    payload.SourceActionPlanId,
+                    payload.SourceSequenceId);
+            }
+        }
+
+        private static bool TryMapMotionFactKind(
+            PresentationMotionFactKind factKind,
+            out PresentationMotionCueKey cueKey)
+        {
+            switch (factKind)
+            {
+                case PresentationMotionFactKind.BoxSlide:
+                    cueKey = PresentationMotionCueKey.BoxSlide;
+                    return true;
+                case PresentationMotionFactKind.BoxFlip:
+                    cueKey = PresentationMotionCueKey.BoxFlip;
+                    return true;
+                case PresentationMotionFactKind.BoxFlipImpact:
+                    cueKey = PresentationMotionCueKey.BoxFlipImpact;
+                    return true;
+                default:
+                    cueKey = PresentationMotionCueKey.None;
+                    return false;
+            }
         }
 
         private void ExecuteExecutorBridgeTopologyPath(TickResult result)
@@ -883,6 +1047,8 @@ namespace Game.Feature.Gameplay.Host
             _topologyExecutionPipeline?.ResetSession();
             _damageDeathVfxExecutionGuard.ResetSession();
             _damageDeathVfxExecutionPipeline?.ResetSession();
+            _boxMotionExecutionGuard.ResetSession();
+            _boxMotionExecutionPipeline?.ResetSession();
             ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             _lastPresentedResult = null;
             _topologyTransitionEpoch = 0;
@@ -964,6 +1130,7 @@ namespace Game.Feature.Gameplay.Host
                 _lastPresentedTickIndex);
             _moonBlockEmergencePresentationController.StartReadyRequests(_lastPresentedTickIndex);
             _damageDeathVfxExecutionPipeline?.Update(deltaTime);
+            _boxMotionExecutionPipeline?.Update(deltaTime);
             UpdatePresentationPipelineDiagnosticsIfEnabled(deltaTime);
         }
 
@@ -1356,6 +1523,7 @@ namespace Game.Feature.Gameplay.Host
             _moonBlockEmergencePresentationController.Dispose();
             _topologyExecutionPipeline?.HardCleanup();
             _damageDeathVfxExecutionPipeline?.HardCleanup();
+            _boxMotionExecutionPipeline?.HardCleanup();
             _presentationPipeline?.HardCleanup();
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
@@ -1651,12 +1819,39 @@ namespace Game.Feature.Gameplay.Host
             return default;
         }
 
+        private GameplayMotionExecutorDiagnostics ResolveBoxMotionExecutorDiagnostics()
+        {
+            if (_boxMotionExecutionPipeline == null)
+            {
+                return default;
+            }
+
+            var executors = _boxMotionExecutionPipeline.Executors;
+            for (var i = 0; i < executors.Count; i++)
+            {
+                if (executors[i] is GameplayMotionPresentationExecutor executor)
+                {
+                    return executor.Diagnostics;
+                }
+            }
+
+            return default;
+        }
+
         private static DamageDeathVfxExecutionMode NormalizeDamageDeathVfxExecutionMode(
             DamageDeathVfxExecutionMode mode)
         {
             return Enum.IsDefined(typeof(DamageDeathVfxExecutionMode), mode)
                 ? mode
                 : DamageDeathVfxExecutionMode.LegacyExtension;
+        }
+
+        private static BoxMotionPresentationExecutionMode NormalizeBoxMotionPresentationExecutionMode(
+            BoxMotionPresentationExecutionMode mode)
+        {
+            return Enum.IsDefined(typeof(BoxMotionPresentationExecutionMode), mode)
+                ? mode
+                : BoxMotionPresentationExecutionMode.LegacyTrackPlanner;
         }
 
         private void TraceStep(string stepName)

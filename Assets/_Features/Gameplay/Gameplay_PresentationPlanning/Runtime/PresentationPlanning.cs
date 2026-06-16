@@ -26,6 +26,14 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         EnemyDeath = 2,
     }
 
+    public enum PresentationMotionCueKey
+    {
+        None = 0,
+        BoxSlide = 1,
+        BoxFlip = 2,
+        BoxFlipImpact = 3,
+    }
+
     public readonly struct PresentationCueKey : IEquatable<PresentationCueKey>
     {
         public PresentationCueKey(PresentationDomain domain, int localKey, int variantKey = 0)
@@ -48,6 +56,11 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             return new PresentationCueKey(PresentationDomain.Vfx, (int)key);
         }
 
+        public static PresentationCueKey ForMotion(PresentationMotionCueKey key)
+        {
+            return new PresentationCueKey(PresentationDomain.Motion, (int)key);
+        }
+
         public bool TryGetVfxCueKey(out PresentationVfxCueKey key)
         {
             if (Domain == PresentationDomain.Vfx &&
@@ -59,6 +72,20 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             }
 
             key = PresentationVfxCueKey.None;
+            return false;
+        }
+
+        public bool TryGetMotionCueKey(out PresentationMotionCueKey key)
+        {
+            if (Domain == PresentationDomain.Motion &&
+                Enum.IsDefined(typeof(PresentationMotionCueKey), LocalKey) &&
+                LocalKey != (int)PresentationMotionCueKey.None)
+            {
+                key = (PresentationMotionCueKey)LocalKey;
+                return true;
+            }
+
+            key = PresentationMotionCueKey.None;
             return false;
         }
 
@@ -167,7 +194,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             PresentationTarget target,
             PresentationAnchor anchor,
             PresentationPlaybackPolicyHint policyHint = default,
-            PresentationTopologyTransitionPayload topologyPayload = default)
+            PresentationTopologyTransitionPayload topologyPayload = default,
+            PresentationMotionPayload motionPayload = default)
         {
             Domain = domain;
             Key = key;
@@ -176,6 +204,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             Anchor = anchor;
             PolicyHint = policyHint;
             TopologyPayload = topologyPayload;
+            MotionPayload = motionPayload;
         }
 
         public PresentationDomain Domain { get; }
@@ -192,6 +221,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
 
         public PresentationTopologyTransitionPayload TopologyPayload { get; }
 
+        public PresentationMotionPayload MotionPayload { get; }
+
         public bool Equals(PresentationCue other)
         {
             return Domain == other.Domain &&
@@ -200,7 +231,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                    Target.Equals(other.Target) &&
                    Anchor.Equals(other.Anchor) &&
                    PolicyHint.Equals(other.PolicyHint) &&
-                   TopologyPayload.Equals(other.TopologyPayload);
+                   TopologyPayload.Equals(other.TopologyPayload) &&
+                   MotionPayload.Equals(other.MotionPayload);
         }
 
         public override bool Equals(object obj)
@@ -219,6 +251,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 hash = (hash * 397) ^ Anchor.GetHashCode();
                 hash = (hash * 397) ^ PolicyHint.GetHashCode();
                 hash = (hash * 397) ^ TopologyPayload.GetHashCode();
+                hash = (hash * 397) ^ MotionPayload.GetHashCode();
                 return hash;
             }
         }
@@ -461,6 +494,98 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             }
 
             return entityIds;
+        }
+    }
+
+    public sealed class MotionCuePlanner : IPresentationCuePlanner
+    {
+        public void Plan(in PresentationFactFrame facts, PresentationCueFrameBuilder builder)
+        {
+            if (facts == null)
+            {
+                throw new ArgumentNullException(nameof(facts));
+            }
+
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            for (var i = 0; i < facts.Facts.Count; i++)
+            {
+                var fact = facts.Facts[i];
+                if (TryPlanMotion(fact, out var cue))
+                {
+                    builder.Add(cue);
+                }
+            }
+        }
+
+        private static bool TryPlanMotion(PresentationFact fact, out PresentationCue cue)
+        {
+            cue = default;
+            if (fact.Kind != PresentationFactKind.Movement ||
+                !fact.MotionPayload.IsValid ||
+                fact.Target.Kind != PresentationTargetKind.Entity ||
+                fact.Target.EntityId <= 0)
+            {
+                return false;
+            }
+
+            if (!TryResolveCueKey(fact.MotionPayload.Kind, out var motionCueKey))
+            {
+                return false;
+            }
+
+            var key = PresentationCueKey.ForMotion(motionCueKey);
+            cue = new PresentationCue(
+                PresentationDomain.Motion,
+                key,
+                fact.Source,
+                fact.Target,
+                PresentationAnchor.ForEntityVisualRoot(fact.Target.EntityId),
+                new PresentationPlaybackPolicyHint(
+                    PresentationPlaybackPolicyHintKind.Track,
+                    blocking: false,
+                    dedupeKey: ComputeDedupeKey(fact, key)),
+                motionPayload: fact.MotionPayload);
+            return true;
+        }
+
+        private static bool TryResolveCueKey(
+            PresentationMotionFactKind factKind,
+            out PresentationMotionCueKey cueKey)
+        {
+            switch (factKind)
+            {
+                case PresentationMotionFactKind.BoxSlide:
+                    cueKey = PresentationMotionCueKey.BoxSlide;
+                    return true;
+                case PresentationMotionFactKind.BoxFlip:
+                    cueKey = PresentationMotionCueKey.BoxFlip;
+                    return true;
+                case PresentationMotionFactKind.BoxFlipImpact:
+                    cueKey = PresentationMotionCueKey.BoxFlipImpact;
+                    return true;
+                default:
+                    cueKey = PresentationMotionCueKey.None;
+                    return false;
+            }
+        }
+
+        private static int ComputeDedupeKey(PresentationFact fact, PresentationCueKey key)
+        {
+            unchecked
+            {
+                var payload = fact.MotionPayload;
+                var hash = 23;
+                hash = (hash * 397) ^ fact.Source.TickIndex;
+                hash = (hash * 397) ^ (int)fact.Source.SemanticSource;
+                hash = (hash * 397) ^ payload.EntityId;
+                hash = (hash * 397) ^ payload.GetHashCode();
+                hash = (hash * 397) ^ key.GetHashCode();
+                return hash & int.MaxValue;
+            }
         }
     }
 

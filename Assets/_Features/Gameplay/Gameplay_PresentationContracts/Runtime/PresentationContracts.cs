@@ -55,6 +55,9 @@ namespace Game.Feature.Gameplay.PresentationContracts
         TopologyMotion = 18,
         ObjectiveResult = 19,
         StageOutcome = 20,
+        BoxSlideMotion = 21,
+        BoxFlipMotion = 22,
+        BoxFlipImpactMotion = 23,
     }
 
     public enum PresentationTargetKind
@@ -364,6 +367,149 @@ namespace Game.Feature.Gameplay.PresentationContracts
         }
     }
 
+    public enum PresentationMotionFactKind
+    {
+        None = 0,
+        BoxSlide = 1,
+        BoxFlip = 2,
+        BoxFlipImpact = 3,
+    }
+
+    public enum PresentationMotionActionKind
+    {
+        None = 0,
+        Push = 1,
+        Flip = 2,
+    }
+
+    public readonly struct PresentationMotionPayload : IEquatable<PresentationMotionPayload>
+    {
+        public PresentationMotionPayload(
+            PresentationMotionFactKind kind,
+            int entityId,
+            SurfaceCell sourceCell,
+            SurfaceCell destinationCell,
+            int actorEntityId = 0,
+            PresentationMotionActionKind actionKind = PresentationMotionActionKind.None,
+            Direction direction = Direction.None,
+            Direction sourceFacing = Direction.None,
+            Direction destinationFacing = Direction.None,
+            int sourceSequenceId = 0,
+            int sourceActionPlanId = 0,
+            int impactTargetEntityId = 0,
+            int flipDisposition = 0,
+            bool hasLandingCell = false,
+            SurfaceCell landingCell = default,
+            CubeTopologyState topology = default,
+            bool hasTopology = false)
+        {
+            Kind = kind;
+            EntityId = Math.Max(0, entityId);
+            ActorEntityId = Math.Max(0, actorEntityId);
+            ActionKind = actionKind;
+            Direction = direction;
+            SourceFacing = sourceFacing;
+            DestinationFacing = destinationFacing;
+            SourceCell = sourceCell;
+            DestinationCell = destinationCell;
+            SourceSequenceId = Math.Max(0, sourceSequenceId);
+            SourceActionPlanId = Math.Max(0, sourceActionPlanId);
+            ImpactTargetEntityId = Math.Max(0, impactTargetEntityId);
+            FlipDisposition = Math.Max(0, flipDisposition);
+            HasLandingCell = hasLandingCell;
+            LandingCell = landingCell;
+            Topology = topology;
+            HasTopology = hasTopology;
+        }
+
+        public PresentationMotionFactKind Kind { get; }
+
+        public int EntityId { get; }
+
+        public int ActorEntityId { get; }
+
+        public PresentationMotionActionKind ActionKind { get; }
+
+        public Direction Direction { get; }
+
+        public Direction SourceFacing { get; }
+
+        public Direction DestinationFacing { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell DestinationCell { get; }
+
+        public int SourceSequenceId { get; }
+
+        public int SourceActionPlanId { get; }
+
+        public int ImpactTargetEntityId { get; }
+
+        public int FlipDisposition { get; }
+
+        public bool HasLandingCell { get; }
+
+        public SurfaceCell LandingCell { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public bool HasTopology { get; }
+
+        public bool IsValid => Kind != PresentationMotionFactKind.None && EntityId > 0;
+
+        public bool Equals(PresentationMotionPayload other)
+        {
+            return Kind == other.Kind &&
+                   EntityId == other.EntityId &&
+                   ActorEntityId == other.ActorEntityId &&
+                   ActionKind == other.ActionKind &&
+                   Direction == other.Direction &&
+                   SourceFacing == other.SourceFacing &&
+                   DestinationFacing == other.DestinationFacing &&
+                   SourceCell.Equals(other.SourceCell) &&
+                   DestinationCell.Equals(other.DestinationCell) &&
+                   SourceSequenceId == other.SourceSequenceId &&
+                   SourceActionPlanId == other.SourceActionPlanId &&
+                   ImpactTargetEntityId == other.ImpactTargetEntityId &&
+                   FlipDisposition == other.FlipDisposition &&
+                   HasLandingCell == other.HasLandingCell &&
+                   LandingCell.Equals(other.LandingCell) &&
+                   Topology.Equals(other.Topology) &&
+                   HasTopology == other.HasTopology;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationMotionPayload other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = (int)Kind;
+                hash = (hash * 397) ^ EntityId;
+                hash = (hash * 397) ^ ActorEntityId;
+                hash = (hash * 397) ^ (int)ActionKind;
+                hash = (hash * 397) ^ (int)Direction;
+                hash = (hash * 397) ^ (int)SourceFacing;
+                hash = (hash * 397) ^ (int)DestinationFacing;
+                hash = (hash * 397) ^ SourceCell.GetHashCode();
+                hash = (hash * 397) ^ DestinationCell.GetHashCode();
+                hash = (hash * 397) ^ SourceSequenceId;
+                hash = (hash * 397) ^ SourceActionPlanId;
+                hash = (hash * 397) ^ ImpactTargetEntityId;
+                hash = (hash * 397) ^ FlipDisposition;
+                hash = (hash * 397) ^ HasLandingCell.GetHashCode();
+                hash = (hash * 397) ^ LandingCell.GetHashCode();
+                hash = (hash * 397) ^ Topology.GetHashCode();
+                hash = (hash * 397) ^ HasTopology.GetHashCode();
+                return hash;
+            }
+        }
+    }
+
     public readonly struct PresentationTopologyTransitionPayload : IEquatable<PresentationTopologyTransitionPayload>
     {
         public PresentationTopologyTransitionPayload(
@@ -431,13 +577,15 @@ namespace Game.Feature.Gameplay.PresentationContracts
             PresentationSource source,
             PresentationTarget target,
             PresentationFactPayload payload = default,
-            PresentationTopologyTransitionPayload topologyPayload = default)
+            PresentationTopologyTransitionPayload topologyPayload = default,
+            PresentationMotionPayload motionPayload = default)
         {
             Kind = kind;
             Source = source;
             Target = target;
             Payload = payload;
             TopologyPayload = topologyPayload;
+            MotionPayload = motionPayload;
         }
 
         public PresentationFactKind Kind { get; }
@@ -450,13 +598,16 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
         public PresentationTopologyTransitionPayload TopologyPayload { get; }
 
+        public PresentationMotionPayload MotionPayload { get; }
+
         public bool Equals(PresentationFact other)
         {
             return Kind == other.Kind &&
                    Source.Equals(other.Source) &&
                    Target.Equals(other.Target) &&
                    Payload.Equals(other.Payload) &&
-                   TopologyPayload.Equals(other.TopologyPayload);
+                   TopologyPayload.Equals(other.TopologyPayload) &&
+                   MotionPayload.Equals(other.MotionPayload);
         }
 
         public override bool Equals(object obj)
@@ -473,6 +624,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
                 hash = (hash * 397) ^ Target.GetHashCode();
                 hash = (hash * 397) ^ Payload.GetHashCode();
                 hash = (hash * 397) ^ TopologyPayload.GetHashCode();
+                hash = (hash * 397) ^ MotionPayload.GetHashCode();
                 return hash;
             }
         }

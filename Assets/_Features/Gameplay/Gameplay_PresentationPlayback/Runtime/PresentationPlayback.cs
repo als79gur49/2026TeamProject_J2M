@@ -524,6 +524,20 @@ namespace Game.Feature.Gameplay.PresentationPlayback
                     continue;
                 }
 
+                if (IsMotionCue(cue))
+                {
+                    tracks.Add(new PresentationPlaybackTrack(
+                        cue,
+                        new PresentationPlaybackPolicy(
+                            PresentationPlaybackUnitKind.Track,
+                            blocking: false,
+                            cue.PolicyHint.DedupeKey,
+                            cue.PolicyHint.CancellationKey,
+                            cue.PolicyHint.CooldownKey,
+                            PresentationPlaybackInterruptMode.IgnoreNew)));
+                    continue;
+                }
+
                 if (policy.UnitKind == PresentationPlaybackUnitKind.Track)
                 {
                     tracks.Add(new PresentationPlaybackTrack(cue, policy));
@@ -582,6 +596,13 @@ namespace Game.Feature.Gameplay.PresentationPlayback
         {
             return cue.Domain == PresentationDomain.Vfx &&
                    cue.Key.Domain == PresentationDomain.Vfx &&
+                   cue.Key.LocalKey > 0;
+        }
+
+        private static bool IsMotionCue(PresentationCue cue)
+        {
+            return cue.Domain == PresentationDomain.Motion &&
+                   cue.Key.Domain == PresentationDomain.Motion &&
                    cue.Key.LocalKey > 0;
         }
     }

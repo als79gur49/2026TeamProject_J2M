@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
 using Game.Feature.Gameplay.PresentationPlayback;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.PresentationRuntime
 {
@@ -33,16 +34,77 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             for (var i = 0; i < presentationData.EntityMotions.Count; i++)
             {
                 var motion = presentationData.EntityMotions[i];
+                var motionPayload = TryCreateBoxMotionPayload(
+                    presentationData,
+                    result,
+                    motion,
+                    i,
+                    out var payload)
+                    ? payload
+                    : default;
                 facts.Add(new PresentationFact(
                     PresentationFactKind.Movement,
-                    new PresentationSource(tickIndex, PresentationSemanticSource.EntityMotion, motion.EntityId),
+                    new PresentationSource(
+                        tickIndex,
+                        ResolveMotionSemanticSource(motionPayload, PresentationSemanticSource.EntityMotion),
+                        motion.EntityId,
+                        (int)motionPayload.ActionKind,
+                        motionPayload.SourceSequenceId > 0 ? motionPayload.SourceSequenceId : i + 1),
                     PresentationTarget.Entity(motion.EntityId),
                     new PresentationFactPayload(
                         primaryValue: (int)motion.MotionKind,
                         primaryCell: motion.SourceCell,
                         secondaryCell: motion.DestinationCell,
                         hasPrimaryCell: true,
-                        hasSecondaryCell: true)));
+                        hasSecondaryCell: true),
+                    motionPayload: motionPayload));
+                movementCount++;
+            }
+
+            for (var i = 0; i < presentationData.FlipImpactSignals.Count; i++)
+            {
+                var signal = presentationData.FlipImpactSignals[i];
+                if (signal.BoxEntityId <= 0)
+                {
+                    continue;
+                }
+
+                var payload = new PresentationMotionPayload(
+                    PresentationMotionFactKind.BoxFlipImpact,
+                    signal.BoxEntityId,
+                    signal.SourceCell,
+                    signal.ImpactCell,
+                    signal.ActorEntityId,
+                    PresentationMotionActionKind.Flip,
+                    signal.ImpactFacing,
+                    signal.SourceFacing,
+                    signal.ImpactFacing,
+                    sourceSequenceId: signal.SourceActionPlanId > 0 ? signal.SourceActionPlanId : i + 1,
+                    sourceActionPlanId: signal.SourceActionPlanId,
+                    impactTargetEntityId: signal.ImpactTargetEntityId,
+                    flipDisposition: (int)signal.Disposition,
+                    hasLandingCell: signal.HasLandingCell,
+                    landingCell: signal.LandingCell,
+                    topology: signal.Topology,
+                    hasTopology: true);
+                facts.Add(new PresentationFact(
+                    PresentationFactKind.Movement,
+                    new PresentationSource(
+                        tickIndex,
+                        PresentationSemanticSource.BoxFlipImpactMotion,
+                        signal.BoxEntityId,
+                        (int)PresentationMotionActionKind.Flip,
+                        payload.SourceSequenceId),
+                    PresentationTarget.Entity(signal.BoxEntityId),
+                    new PresentationFactPayload(
+                        primaryValue: (int)PresentationMotionFactKind.BoxFlipImpact,
+                        secondaryValue: (int)signal.Disposition,
+                        tertiaryValue: signal.ImpactTargetEntityId,
+                        primaryCell: signal.SourceCell,
+                        secondaryCell: signal.ImpactCell,
+                        hasPrimaryCell: true,
+                        hasSecondaryCell: true),
+                    motionPayload: payload));
                 movementCount++;
             }
 
@@ -267,6 +329,182 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             return count;
         }
 
+        private static bool TryCreateBoxMotionPayload(
+            TickPresentationData presentationData,
+            TickResult result,
+            in TickEntityMotion motion,
+            int motionIndex,
+            out PresentationMotionPayload payload)
+        {
+            payload = default;
+            if (motion.EntityId <= 0)
+            {
+                return false;
+            }
+
+            if (motion.MotionKind == TickEntityMotionKind.BoxSlide)
+            {
+                TryResolveBoxSlideStartSignal(
+                    presentationData.BoxSlideStartSignals,
+                    motion,
+                    out var startSignal);
+                payload = new PresentationMotionPayload(
+                    PresentationMotionFactKind.BoxSlide,
+                    motion.EntityId,
+                    motion.SourceCell,
+                    motion.DestinationCell,
+                    startSignal.ActorEntityId,
+                    PresentationMotionActionKind.Push,
+                    startSignal.BoxEntityId > 0 ? ResolveDirection(startSignal.SourceCell, startSignal.DestinationCell) : ResolveDirection(motion.SourceCell, motion.DestinationCell),
+                    motion.SourceFacing ?? Direction.None,
+                    motion.DestinationFacing ?? Direction.None,
+                    sourceSequenceId: motionIndex + 1,
+                    topology: startSignal.BoxEntityId > 0 ? startSignal.Topology : ResolveMotionTopology(motion, result),
+                    hasTopology: true);
+                return true;
+            }
+
+            if (motion.MotionKind == TickEntityMotionKind.Flip &&
+                IsBoxEntity(result, motion.EntityId))
+            {
+                payload = new PresentationMotionPayload(
+                    PresentationMotionFactKind.BoxFlip,
+                    motion.EntityId,
+                    motion.SourceCell,
+                    motion.DestinationCell,
+                    actorEntityId: ResolveFlipActorEntityId(presentationData, motion.EntityId),
+                    PresentationMotionActionKind.Flip,
+                    ResolveDirection(motion.SourceCell, motion.DestinationCell),
+                    motion.SourceFacing ?? Direction.None,
+                    motion.DestinationFacing ?? Direction.None,
+                    sourceSequenceId: motionIndex + 1,
+                    topology: ResolveMotionTopology(motion, result),
+                    hasTopology: true);
+                return true;
+            }
+
+            return false;
+        }
+
+        private static PresentationSemanticSource ResolveMotionSemanticSource(
+            PresentationMotionPayload payload,
+            PresentationSemanticSource fallback)
+        {
+            switch (payload.Kind)
+            {
+                case PresentationMotionFactKind.BoxSlide:
+                    return PresentationSemanticSource.BoxSlideMotion;
+                case PresentationMotionFactKind.BoxFlip:
+                    return PresentationSemanticSource.BoxFlipMotion;
+                case PresentationMotionFactKind.BoxFlipImpact:
+                    return PresentationSemanticSource.BoxFlipImpactMotion;
+                default:
+                    return fallback;
+            }
+        }
+
+        private static bool TryResolveBoxSlideStartSignal(
+            IReadOnlyList<BoxSlideStartPresentationSignal> signals,
+            in TickEntityMotion motion,
+            out BoxSlideStartPresentationSignal signal)
+        {
+            if (signals != null)
+            {
+                for (var i = 0; i < signals.Count; i++)
+                {
+                    var candidate = signals[i];
+                    if (candidate.BoxEntityId == motion.EntityId &&
+                        candidate.SourceCell.Equals(motion.SourceCell) &&
+                        candidate.DestinationCell.Equals(motion.DestinationCell))
+                    {
+                        signal = candidate;
+                        return true;
+                    }
+                }
+            }
+
+            signal = default;
+            return false;
+        }
+
+        private static bool IsBoxEntity(TickResult result, int entityId)
+        {
+            var finalEntities = result.FinalEntities;
+            for (var i = 0; i < finalEntities.Count; i++)
+            {
+                if (finalEntities[i].entityId == entityId)
+                {
+                    return finalEntities[i].type == EntityType.Box;
+                }
+            }
+
+            return false;
+        }
+
+        private static int ResolveFlipActorEntityId(TickPresentationData presentationData, int boxEntityId)
+        {
+            var playerActionSignals = presentationData.PlayerActionSignals;
+            for (var i = 0; i < playerActionSignals.Count; i++)
+            {
+                var signal = playerActionSignals[i];
+                if (signal.ActiveActionKind == PlayerActionKind.Flip &&
+                    signal.TargetEntityId == boxEntityId)
+                {
+                    return signal.EntityId;
+                }
+            }
+
+            return 0;
+        }
+
+        private static CubeTopologyState ResolveMotionTopology(in TickEntityMotion motion, TickResult result)
+        {
+            if (motion.SourceTopology.HasValue)
+            {
+                return motion.SourceTopology.Value;
+            }
+
+            if (motion.DestinationTopology.HasValue)
+            {
+                return motion.DestinationTopology.Value;
+            }
+
+            return result.PresentationData.TopologyMotion.HasValue
+                ? result.PresentationData.TopologyMotion.Value.SourceTopology
+                : result.FinalTopology;
+        }
+
+        private static Direction ResolveDirection(SurfaceCell source, SurfaceCell destination)
+        {
+            if (source.face != destination.face)
+            {
+                return Direction.None;
+            }
+
+            var delta = destination - source;
+            if (delta.x == 1 && delta.y == 0)
+            {
+                return Direction.Right;
+            }
+
+            if (delta.x == -1 && delta.y == 0)
+            {
+                return Direction.Left;
+            }
+
+            if (delta.x == 0 && delta.y == 1)
+            {
+                return Direction.Up;
+            }
+
+            if (delta.x == 0 && delta.y == -1)
+            {
+                return Direction.Down;
+            }
+
+            return Direction.None;
+        }
+
         private static int AddEnemyDeathEntityExitFacts(
             List<PresentationFact> facts,
             int tickIndex,
@@ -426,6 +664,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
                 {
                     new TopologyCuePlanner(),
+                    new MotionCuePlanner(),
                     new VfxCuePlanner(),
                 }),
                 new PresentationPlaybackPlanner(),

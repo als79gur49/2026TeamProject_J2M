@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.GravityFieldAudio;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
+using Game.Feature.Gameplay.PresentationPlayback;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.TopologyAudio;
 using Unity.Cinemachine;
@@ -206,6 +207,13 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.ConfigureDamageDeathVfxExecution(mode, playbackPort);
         }
 
+        internal void ConfigureBoxMotionPresentationExecution(
+            BoxMotionPresentationExecutionMode mode,
+            IGameplayMotionPlaybackPort playbackPort = null)
+        {
+            _presentationCoordinator.ConfigureBoxMotionPresentationExecution(mode, playbackPort);
+        }
+
         public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)
         {
             _presentationCoordinator.DetachPresentationExtension(extension);
@@ -263,6 +271,18 @@ namespace Game.Feature.Gameplay.Host
 
         internal TopologyPresentationOwnershipDiagnostics TopologyPresentationOwnershipDiagnostics =>
             _presentationCoordinator.TopologyPresentationOwnershipDiagnostics;
+
+        internal BoxMotionPresentationExecutionMode BoxMotionPresentationExecutionMode =>
+            _presentationCoordinator.BoxMotionPresentationExecutionMode;
+
+        internal BoxMotionOwnershipDiagnostics BoxMotionOwnershipDiagnostics =>
+            _presentationCoordinator.BoxMotionOwnershipDiagnostics;
+
+        internal PresentationBlockingSnapshot BoxMotionExecutionPipelineBlockingSnapshot =>
+            _presentationCoordinator.BoxMotionExecutionPipelineBlockingSnapshot;
+
+        internal GameplayMotionExecutorDiagnostics BoxMotionExecutorDiagnostics =>
+            _presentationCoordinator.BoxMotionExecutorDiagnostics;
 
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {
