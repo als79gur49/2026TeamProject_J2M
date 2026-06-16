@@ -211,7 +211,7 @@ Current tests can cover Utility-only compile behavior, no-scope-violation symbol
 Before Option B starts:
 
 - Duplicate Utility/Behavior Summon guard design is accepted.
-- BehaviorModule Summon runtime state shape is designed.
+- BehaviorModule Summon runtime state shape is designed; see [Enemy-AI-Summon-Behavior-Runtime-State-Design.md](./Enemy-AI-Summon-Behavior-Runtime-State-Design.md).
 - Behavior emitter request ordering contract is designed.
 - Source metadata vocabulary is not Utility-only.
 - Asset migration plan for `SummonMinion` authoring is written.

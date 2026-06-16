@@ -105,7 +105,7 @@ Review note: the clean working tree has no active `git diff --check` output. A r
 Required before Option B:
 
 - Duplicate Utility Summon vs Behavior Summon compiler guard design.
-- BehaviorModule summon runtime state shape.
+- BehaviorModule summon runtime state shape; see [Enemy-AI-Summon-Behavior-Runtime-State-Design.md](./Enemy-AI-Summon-Behavior-Runtime-State-Design.md).
 - Request ordering contract for multi-source behavior emitters.
 - Source metadata vocabulary that is not Utility-only.
 - Asset migration plan for SummonMinion authoring.
