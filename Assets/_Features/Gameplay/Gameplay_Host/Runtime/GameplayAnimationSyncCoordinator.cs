@@ -218,7 +218,8 @@ namespace Game.Feature.Gameplay.Host
                     request.AnimationPayload,
                     out var animationState,
                     out var phase,
-                    out var restart))
+                    out var restart,
+                    out var executeCueMappedToLegacyCommand))
             {
                 result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.IgnoredByPolicy);
                 return false;
@@ -238,7 +239,9 @@ namespace Game.Feature.Gameplay.Host
                 resolvedMotionDurationSeconds: 0f,
                 viewsByEntityId);
 
-            result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.Applied);
+            result = new GameplayAnimationPlaybackResult(
+                GameplayAnimationPlaybackResultKind.Applied,
+                executeCueMappedToLegacyCommand);
             return true;
         }
 
@@ -316,7 +319,8 @@ namespace Game.Feature.Gameplay.Host
             PresentationAnimationPayload payload,
             out PlayerViewAnimationState state,
             out PlayerPresentationPhase phase,
-            out bool restart)
+            out bool restart,
+            out bool executeCueMappedToLegacyCommand)
         {
             state = payload.ActionKind == PresentationAnimationActionKind.Push
                 ? PlayerViewAnimationState.Push
@@ -325,6 +329,7 @@ namespace Game.Feature.Gameplay.Host
                     : PlayerViewAnimationState.Idle;
             phase = PlayerPresentationPhase.None;
             restart = false;
+            executeCueMappedToLegacyCommand = false;
 
             if (state == PlayerViewAnimationState.Idle)
             {
@@ -341,6 +346,14 @@ namespace Game.Feature.Gameplay.Host
                     restart = true;
                     return true;
                 case PresentationAnimationPhaseKind.Execute:
+                    // Current adapter contract: PlayerAnimatorDriver has no execute-specific state surface.
+                    // Preserve the typed execute cue, but lower it to the legacy recovery driver command.
+                    // TODO: Revisit if a future PR adds explicit PushExecute/FlipExecute driver phases.
+                    executeCueMappedToLegacyCommand = true;
+                    phase = payload.ActionKind == PresentationAnimationActionKind.Push
+                        ? PlayerPresentationPhase.PushRecovery
+                        : PlayerPresentationPhase.FlipRecovery;
+                    return true;
                 case PresentationAnimationPhaseKind.Recovery:
                     phase = payload.ActionKind == PresentationAnimationActionKind.Push
                         ? PlayerPresentationPhase.PushRecovery

@@ -321,12 +321,17 @@ namespace Game.Feature.Gameplay.Host
 
     internal readonly struct GameplayAnimationPlaybackResult
     {
-        public GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind kind)
+        public GameplayAnimationPlaybackResult(
+            GameplayAnimationPlaybackResultKind kind,
+            bool executeCueMappedToLegacyCommand = false)
         {
             Kind = kind;
+            ExecuteCueMappedToLegacyCommand = executeCueMappedToLegacyCommand;
         }
 
         public GameplayAnimationPlaybackResultKind Kind { get; }
+
+        public bool ExecuteCueMappedToLegacyCommand { get; }
     }
 
     internal readonly struct GameplayAnimationExecutorDiagnostics
@@ -343,7 +348,8 @@ namespace Game.Feature.Gameplay.Host
             int commandRequestedCount,
             int commandAppliedCount,
             int commandIgnoredByPolicyCount,
-            int missingPortCount)
+            int missingPortCount,
+            int executeCueMappedToLegacyCommandCount)
         {
             ObservedCueCount = Math.Max(0, observedCueCount);
             LegacyOwnerNoOpCount = Math.Max(0, legacyOwnerNoOpCount);
@@ -357,6 +363,7 @@ namespace Game.Feature.Gameplay.Host
             CommandAppliedCount = Math.Max(0, commandAppliedCount);
             CommandIgnoredByPolicyCount = Math.Max(0, commandIgnoredByPolicyCount);
             MissingPortCount = Math.Max(0, missingPortCount);
+            ExecuteCueMappedToLegacyCommandCount = Math.Max(0, executeCueMappedToLegacyCommandCount);
         }
 
         public int ObservedCueCount { get; }
@@ -382,6 +389,8 @@ namespace Game.Feature.Gameplay.Host
         public int CommandIgnoredByPolicyCount { get; }
 
         public int MissingPortCount { get; }
+
+        public int ExecuteCueMappedToLegacyCommandCount { get; }
     }
 
     internal interface IGameplayAnimationPlaybackPort
@@ -445,6 +454,7 @@ namespace Game.Feature.Gameplay.Host
             var commandAppliedCount = 0;
             var commandIgnoredByPolicyCount = 0;
             var missingPortCount = 0;
+            var executeCueMappedToLegacyCommandCount = 0;
 
             for (var i = 0; i < plan.Cues.Count; i++)
             {
@@ -497,6 +507,11 @@ namespace Game.Feature.Gameplay.Host
 
                 commandRequestedCount++;
                 _playbackPort.TryPlayPlayerActionAnimation(request, out var result);
+                if (result.ExecuteCueMappedToLegacyCommand)
+                {
+                    executeCueMappedToLegacyCommandCount++;
+                }
+
                 switch (result.Kind)
                 {
                     case GameplayAnimationPlaybackResultKind.Applied:
@@ -539,7 +554,8 @@ namespace Game.Feature.Gameplay.Host
                 commandRequestedCount,
                 commandAppliedCount,
                 commandIgnoredByPolicyCount,
-                missingPortCount);
+                missingPortCount,
+                executeCueMappedToLegacyCommandCount);
         }
 
         public void Update(float deltaTime)

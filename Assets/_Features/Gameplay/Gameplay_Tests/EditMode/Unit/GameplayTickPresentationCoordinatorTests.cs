@@ -819,6 +819,540 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void PlayerActionAnimation_DefaultLegacyMode_DoesNotCallExecutorPortAndKeepsLegacyOwner()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_DefaultLegacyMode_DoesNotCallExecutorPortAndKeepsLegacyOwner));
+            var port = new RecordingGameplayAnimationPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    (PlayerActionAnimationExecutionMode)999,
+                    port,
+                    topology);
+                var result = CreatePlayerActionAnimationResult(tickIndex: 31, topology);
+                var expectedCueCount = CountPlayerActionAnimationCues(result);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.PlayerActionAnimationOwnershipDiagnostics;
+                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(ownership.Mode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(expectedCueCount));
+                Assert.That(ownership.ExecutorAttemptCount, Is.Zero);
+                Assert.That(ownership.ExecutedByLegacyCount, Is.EqualTo(expectedCueCount));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                AssertBlockingSnapshotCleared(coordinator.PlayerActionAnimationExecutionPipelineBlockingSnapshot);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_OrchestrationExecutorMode_RoutesPushFlipPhaseRequests()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_OrchestrationExecutorMode_RoutesPushFlipPhaseRequests));
+            var port = new RecordingGameplayAnimationPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology);
+                var result = CreatePlayerActionAnimationResult(tickIndex: 32, topology);
+
+                coordinator.Present(result);
+
+                Assert.That(port.Requests, Has.Count.EqualTo(9));
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerPushWindup,
+                    tickIndex: 32,
+                    sequenceId: 101,
+                    actionKind: PresentationAnimationActionKind.Push,
+                    phaseKind: PresentationAnimationPhaseKind.Windup,
+                    outcomeKind: PresentationAnimationOutcomeKind.Started);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    tickIndex: 32,
+                    sequenceId: 102,
+                    actionKind: PresentationAnimationActionKind.Push,
+                    phaseKind: PresentationAnimationPhaseKind.Execute,
+                    outcomeKind: PresentationAnimationOutcomeKind.Executed);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerPushRecovery,
+                    tickIndex: 32,
+                    sequenceId: 103,
+                    actionKind: PresentationAnimationActionKind.Push,
+                    phaseKind: PresentationAnimationPhaseKind.Recovery,
+                    outcomeKind: PresentationAnimationOutcomeKind.Recovery);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerPushBlocked,
+                    tickIndex: 32,
+                    sequenceId: 104,
+                    actionKind: PresentationAnimationActionKind.Push,
+                    phaseKind: PresentationAnimationPhaseKind.Execute,
+                    outcomeKind: PresentationAnimationOutcomeKind.Blocked);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerFlipWindup,
+                    tickIndex: 32,
+                    sequenceId: 201,
+                    actionKind: PresentationAnimationActionKind.Flip,
+                    phaseKind: PresentationAnimationPhaseKind.Windup,
+                    outcomeKind: PresentationAnimationOutcomeKind.Started);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerFlipExecute,
+                    tickIndex: 32,
+                    sequenceId: 202,
+                    actionKind: PresentationAnimationActionKind.Flip,
+                    phaseKind: PresentationAnimationPhaseKind.Execute,
+                    outcomeKind: PresentationAnimationOutcomeKind.Executed);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerFlipRecovery,
+                    tickIndex: 32,
+                    sequenceId: 203,
+                    actionKind: PresentationAnimationActionKind.Flip,
+                    phaseKind: PresentationAnimationPhaseKind.Recovery,
+                    outcomeKind: PresentationAnimationOutcomeKind.Recovery);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerFlipImpactContact,
+                    tickIndex: 32,
+                    sequenceId: 204,
+                    actionKind: PresentationAnimationActionKind.Flip,
+                    phaseKind: PresentationAnimationPhaseKind.Execute,
+                    outcomeKind: PresentationAnimationOutcomeKind.Impact);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerFlipFailed,
+                    tickIndex: 32,
+                    sequenceId: 1,
+                    actionKind: PresentationAnimationActionKind.Flip,
+                    phaseKind: PresentationAnimationPhaseKind.Failed,
+                    outcomeKind: PresentationAnimationOutcomeKind.Failed,
+                    expectedSemanticSource: PresentationSemanticSource.PlayerActionAttempt,
+                    expectedActionPlanId: 0);
+
+                var ownership = coordinator.PlayerActionAnimationOwnershipDiagnostics;
+                Assert.That(ownership.Mode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(9));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(9));
+                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(9));
+                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(9));
+                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.CommandRequestedCount, Is.EqualTo(9));
+                Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.CommandAppliedCount, Is.EqualTo(9));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests()
+        {
+            var legacyRoot = new GameObject(nameof(PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests) + "_Legacy");
+            var executorRoot = new GameObject(nameof(PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests) + "_Executor");
+            var port = new RecordingGameplayAnimationPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var legacyCoordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    legacyRoot,
+                    PlayerActionAnimationExecutionMode.LegacyAnimationSync,
+                    playbackPort: null,
+                    initialTopology: topology,
+                    viewFactory: new DefaultGameplayEntityViewFactory(legacyRoot.transform, 1f, playerEntityId: 10));
+                var executorCoordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    executorRoot,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology,
+                    viewFactory: new DefaultGameplayEntityViewFactory(executorRoot.transform, 1f, playerEntityId: 10));
+                var cases = new[]
+                {
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Push,
+                        PresentationAnimationCueKey.PlayerPushWindup,
+                        PresentationAnimationPhaseKind.Windup,
+                        PresentationAnimationOutcomeKind.Started,
+                        sequenceId: 901,
+                        startedThisTick: true),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Push,
+                        PresentationAnimationCueKey.PlayerPushExecute,
+                        PresentationAnimationPhaseKind.Execute,
+                        PresentationAnimationOutcomeKind.Executed,
+                        sequenceId: 902,
+                        executedThisTick: true),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Push,
+                        PresentationAnimationCueKey.PlayerPushRecovery,
+                        PresentationAnimationPhaseKind.Recovery,
+                        PresentationAnimationOutcomeKind.Recovery,
+                        sequenceId: 903,
+                        recoveryPhase: true),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Push,
+                        PresentationAnimationCueKey.PlayerPushBlocked,
+                        PresentationAnimationPhaseKind.Execute,
+                        PresentationAnimationOutcomeKind.Blocked,
+                        sequenceId: 904,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Blocked),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Flip,
+                        PresentationAnimationCueKey.PlayerFlipWindup,
+                        PresentationAnimationPhaseKind.Windup,
+                        PresentationAnimationOutcomeKind.Started,
+                        sequenceId: 905,
+                        startedThisTick: true),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Flip,
+                        PresentationAnimationCueKey.PlayerFlipExecute,
+                        PresentationAnimationPhaseKind.Execute,
+                        PresentationAnimationOutcomeKind.Executed,
+                        sequenceId: 906,
+                        executedThisTick: true),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Flip,
+                        PresentationAnimationCueKey.PlayerFlipRecovery,
+                        PresentationAnimationPhaseKind.Recovery,
+                        PresentationAnimationOutcomeKind.Recovery,
+                        sequenceId: 907,
+                        recoveryPhase: true),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Flip,
+                        PresentationAnimationCueKey.PlayerFlipImpactContact,
+                        PresentationAnimationPhaseKind.Execute,
+                        PresentationAnimationOutcomeKind.Impact,
+                        sequenceId: 908,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Impact),
+                };
+
+                for (var i = 0; i < cases.Length; i++)
+                {
+                    var semanticCase = cases[i];
+                    var result = CreateSinglePlayerActionAnimationResult(
+                        tickIndex: 40 + i,
+                        topology,
+                        semanticCase.ActionKind,
+                        semanticCase.SequenceId,
+                        semanticCase.StartedThisTick,
+                        semanticCase.ExecutedThisTick,
+                        semanticCase.RecoveryPhase,
+                        semanticCase.ResolutionKind);
+
+                    legacyCoordinator.Present(result);
+                    executorCoordinator.Present(result);
+
+                    var legacyState = GetPlayerAnimatorDriver(legacyRoot).LastPresentationState;
+                    var request = port.Requests.Last();
+                    Assert.That(legacyState.EntityId, Is.EqualTo(request.PlayerEntityId));
+                    Assert.That(legacyState.ActiveActionKind, Is.EqualTo(semanticCase.ActionKind));
+                    Assert.That(legacyState.ActiveActionSequence, Is.EqualTo(request.AnimationPayload.SourceSequenceId));
+                    Assert.That(legacyState.ActionPlanId, Is.EqualTo(request.AnimationPayload.SourceActionPlanId));
+                    Assert.That(legacyState.StartedThisTick, Is.EqualTo(semanticCase.StartedThisTick));
+                    Assert.That(legacyState.ExecutedThisTick, Is.EqualTo(semanticCase.ExecutedThisTick));
+                    Assert.That(legacyState.IsRecoveryPhase, Is.EqualTo(semanticCase.RecoveryPhase));
+                    Assert.That(request.CueKey, Is.EqualTo(semanticCase.CueKey));
+                    Assert.That(request.AnimationPayload.PhaseKind, Is.EqualTo(semanticCase.PhaseKind));
+                    Assert.That(request.AnimationPayload.OutcomeKind, Is.EqualTo(semanticCase.OutcomeKind));
+                    Assert.That(request.Target, Is.EqualTo(PresentationTarget.Entity(10)));
+                    Assert.That(request.Anchor, Is.EqualTo(PresentationAnchor.ForEntityVisualRoot(10)));
+                    Assert.That(request.OwnershipKey.CueKey, Is.EqualTo(semanticCase.CueKey));
+                }
+
+                Assert.That(legacyCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(executorCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(legacyRoot);
+                UnityEngine.Object.DestroyImmediate(executorRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_OrchestrationExecutorMode_ForcedDuplicateAttemptBlocksSecondOwner()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_OrchestrationExecutorMode_ForcedDuplicateAttemptBlocksSecondOwner));
+            var port = new RecordingGameplayAnimationPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology,
+                    duplicateExecutors: true);
+                var result = CreateSinglePlayerActionAnimationResult(
+                    tickIndex: 33,
+                    topology,
+                    PlayerActionKind.Push,
+                    sequenceId: 301,
+                    startedThisTick: true);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.PlayerActionAnimationOwnershipDiagnostics;
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(2));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(ownership.DuplicateAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.LastExecutionOwner, Is.EqualTo(PlayerActionAnimationExecutionOwner.OrchestrationAnimationExecutor));
+                Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.DuplicateSuppressedCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_ControlledHostExecutor_DistinguishesMissingDiagnostics()
+        {
+            var malformedRoot = new GameObject(nameof(PlayerActionAnimation_ControlledHostExecutor_DistinguishesMissingDiagnostics) + "_Malformed");
+            var adapterRoot = new GameObject(nameof(PlayerActionAnimation_ControlledHostExecutor_DistinguishesMissingDiagnostics) + "_Adapter");
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var malformedCoordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    malformedRoot,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    new RecordingGameplayAnimationPlaybackPort(),
+                    topology,
+                    overrideCues: new[]
+                    {
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushWindup,
+                            PresentationAnimationPhaseKind.Windup,
+                            PresentationAnimationOutcomeKind.Started,
+                            tickIndex: 34,
+                            sequenceId: 401,
+                            target: PresentationTarget.None()),
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushExecute,
+                            PresentationAnimationPhaseKind.Execute,
+                            PresentationAnimationOutcomeKind.Executed,
+                            tickIndex: 34,
+                            sequenceId: 402,
+                            anchor: PresentationAnchor.None()),
+                    });
+                var adapterPort = new RecordingGameplayAnimationPlaybackPort(request =>
+                    request.CueKey == PresentationAnimationCueKey.PlayerPushWindup
+                        ? GameplayAnimationPlaybackResultKind.BindingMissing
+                        : request.CueKey == PresentationAnimationCueKey.PlayerPushExecute
+                            ? GameplayAnimationPlaybackResultKind.DriverMissing
+                            : GameplayAnimationPlaybackResultKind.AnimatorMissing);
+                var adapterCoordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    adapterRoot,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    adapterPort,
+                    topology,
+                    overrideCues: new[]
+                    {
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushWindup,
+                            PresentationAnimationPhaseKind.Windup,
+                            PresentationAnimationOutcomeKind.Started,
+                            tickIndex: 35,
+                            sequenceId: 501),
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushExecute,
+                            PresentationAnimationPhaseKind.Execute,
+                            PresentationAnimationOutcomeKind.Executed,
+                            tickIndex: 35,
+                            sequenceId: 502),
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushRecovery,
+                            PresentationAnimationPhaseKind.Recovery,
+                            PresentationAnimationOutcomeKind.Recovery,
+                            tickIndex: 35,
+                            sequenceId: 503),
+                    });
+                var missingPortGuard = new PlayerActionAnimationExecutionGuard(
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
+                missingPortGuard.ResetSession();
+                var missingPortExecutor = new GameplayAnimationPresentationExecutor(
+                    playbackPort: null,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    missingPortGuard);
+
+                malformedCoordinator.Present(CreateTickResult(34, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
+                adapterCoordinator.Present(CreateTickResult(35, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
+                missingPortExecutor.Play(new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
+                    36,
+                    new[]
+                    {
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerFlipWindup,
+                            PresentationAnimationPhaseKind.Windup,
+                            PresentationAnimationOutcomeKind.Started,
+                            tickIndex: 36,
+                            sequenceId: 601),
+                    },
+                    new PresentationCueFrameDiagnostics(1, 1, 0))));
+
+                Assert.That(malformedCoordinator.PlayerActionAnimationExecutorDiagnostics.TargetMissingCount, Is.EqualTo(1));
+                Assert.That(malformedCoordinator.PlayerActionAnimationExecutorDiagnostics.AnchorMissingCount, Is.EqualTo(1));
+                Assert.That(adapterCoordinator.PlayerActionAnimationExecutorDiagnostics.BindingMissingCount, Is.EqualTo(1));
+                Assert.That(adapterCoordinator.PlayerActionAnimationExecutorDiagnostics.DriverMissingCount, Is.EqualTo(1));
+                Assert.That(adapterCoordinator.PlayerActionAnimationExecutorDiagnostics.AnimatorMissingCount, Is.EqualTo(1));
+                Assert.That(missingPortExecutor.Diagnostics.MissingPortCount, Is.EqualTo(1));
+                Assert.That(malformedCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(adapterCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(missingPortGuard.Diagnostics.DuplicateAttemptCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(malformedRoot);
+                UnityEngine.Object.DestroyImmediate(adapterRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_OrchestrationRoute_IsNonBlockingCleansLifecycleAndDoesNotMutateTickResult()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_OrchestrationRoute_IsNonBlockingCleansLifecycleAndDoesNotMutateTickResult));
+            var port = new RecordingGameplayAnimationPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology);
+                var result = CreateSinglePlayerActionAnimationResult(
+                    tickIndex: 37,
+                    topology,
+                    PlayerActionKind.Flip,
+                    sequenceId: 701,
+                    startedThisTick: true);
+                var finalEntities = result.FinalEntities.ToArray();
+                var eventLog = result.EventLog.ToArray();
+                var objectiveResult = result.ObjectiveResult;
+                var determinismHash = result.DeterminismHash;
+
+                coordinator.Present(result);
+
+                Assert.That(coordinator.HasBlockingPresentation, Is.False);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.False);
+                AssertBlockingSnapshotCleared(coordinator.PlayerActionAnimationExecutionPipelineBlockingSnapshot);
+                Assert.That(result.DeterminismHash, Is.EqualTo(determinismHash));
+                Assert.That(result.FinalEntities, Is.EqualTo(finalEntities));
+                Assert.That(result.EventLog, Is.EqualTo(eventLog));
+                Assert.That(result.ObjectiveResult, Is.SameAs(objectiveResult));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+
+                coordinator.PresentInitial(Array.Empty<EntityState>(), topology);
+                Assert.That(port.ResetSessionCallCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(coordinator.PlayerActionAnimationOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
+                Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.CommandRequestedCount, Is.Zero);
+
+                coordinator.Present(result);
+                coordinator.HardCleanupPresentationExtensions();
+                Assert.That(port.HardCleanupCallCount, Is.EqualTo(1));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(coordinator.PlayerActionAnimationOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_ExecuteCueLowering_MapsToLegacyRecoveryDriverContract()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject(
+                nameof(PlayerActionAnimation_ExecuteCueLowering_MapsToLegacyRecoveryDriverContract));
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                Assert.That(view, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+                var sync = new GameplayAnimationSyncCoordinator();
+                var port = new GameplayAnimationSyncPlaybackPort(
+                    sync,
+                    CreateStateStoreWithView(view));
+                var guard = new PlayerActionAnimationExecutionGuard(
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
+                var executor = new GameplayAnimationPresentationExecutor(
+                    port,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    guard);
+                var plan = new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
+                    38,
+                    new[]
+                    {
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushExecute,
+                            PresentationAnimationPhaseKind.Execute,
+                            PresentationAnimationOutcomeKind.Executed,
+                            tickIndex: 38,
+                            sequenceId: 801),
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerFlipExecute,
+                            PresentationAnimationPhaseKind.Execute,
+                            PresentationAnimationOutcomeKind.Executed,
+                            tickIndex: 38,
+                            sequenceId: 802),
+                    },
+                    new PresentationCueFrameDiagnostics(2, 2, 1)));
+
+                sync.CacheDrivers(10, view);
+                executor.Play(plan);
+
+                Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(2));
+                Assert.That(executor.Diagnostics.CommandAppliedCount, Is.EqualTo(2));
+                Assert.That(executor.Diagnostics.ExecuteCueMappedToLegacyCommandCount, Is.EqualTo(2));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.FlipRecovery));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Flip_Recovery"));
+                Assert.That(driver.ActionExecuteSignalCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void BoxMotion_LegacyAndOrchestrationHostAdapter_ProduceEquivalentSlideAndFlipPose()
         {
             var legacyRoot = new GameObject(nameof(BoxMotion_LegacyAndOrchestrationHostAdapter_ProduceEquivalentSlideAndFlipPose) + "_Legacy");
@@ -11559,6 +12093,78 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return coordinator;
         }
 
+        private static GameplayTickPresentationCoordinator CreateInitializedPlayerActionAnimationCoordinator(
+            GameObject rootObject,
+            PlayerActionAnimationExecutionMode mode,
+            IGameplayAnimationPlaybackPort playbackPort,
+            CubeTopologyState initialTopology,
+            bool duplicateExecutors = false,
+            IReadOnlyList<PresentationCue> overrideCues = null,
+            IGameplayEntityViewFactory viewFactory = null)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(
+                registry,
+                viewFactory ?? new MotionOverrideViewFactory(registry.transform));
+            var coordinator = new GameplayTickPresentationCoordinator(
+                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
+                (pipelineMode, port, guard) => CreateRecordingPlayerActionAnimationExecutionPipeline(
+                    pipelineMode,
+                    guard,
+                    port,
+                    duplicateExecutors,
+                    overrideCues));
+
+            coordinator.ConfigurePlayerActionAnimationExecution(mode, playbackPort);
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                initialTopology,
+                1f,
+                CreateTimingProfile());
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static GameplayPresentationPipeline CreateRecordingPlayerActionAnimationExecutionPipeline(
+            PlayerActionAnimationExecutionMode mode,
+            PlayerActionAnimationExecutionGuard guard,
+            IGameplayAnimationPlaybackPort playbackPort,
+            bool duplicateExecutors,
+            IReadOnlyList<PresentationCue> overrideCues)
+        {
+            if (mode != PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor)
+            {
+                return null;
+            }
+
+            var executors = duplicateExecutors
+                ? new IPresentationExecutor[]
+                {
+                    new GameplayAnimationPresentationExecutor(playbackPort, mode, guard),
+                    new GameplayAnimationPresentationExecutor(playbackPort, mode, guard),
+                }
+                : new IPresentationExecutor[]
+                {
+                    new GameplayAnimationPresentationExecutor(playbackPort, mode, guard),
+                };
+            var cuePlanner = overrideCues == null
+                ? (IPresentationCuePlanner)new AnimationCuePlanner()
+                : new StaticAnimationCuePlanner(overrideCues);
+
+            return new GameplayPresentationPipeline(
+                new TickPresentationFactExtractor(),
+                new PresentationCuePlannerSet(new[]
+                {
+                    cuePlanner,
+                }),
+                new PresentationPlaybackPlanner(),
+                new PresentationPlaybackScheduler(),
+                executors);
+        }
+
         private static GameplayPresentationPipeline CreateRecordingBoxMotionExecutionPipeline(
             BoxMotionPresentationExecutionMode mode,
             BoxMotionExecutionGuard guard,
@@ -11776,6 +12382,226 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationData);
         }
 
+        private static TickResult CreatePlayerActionAnimationResult(
+            int tickIndex,
+            CubeTopologyState topology)
+        {
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                new[]
+                {
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        101,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        direction: Direction.Right,
+                        actionPlanId: 1001),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        102,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Success,
+                        targetEntityId: 40,
+                        direction: Direction.Right,
+                        actionPlanId: 1002),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        103,
+                        startedThisTick: false,
+                        completedThisTick: true,
+                        canceledThisTick: false,
+                        isRecoveryPhase: true,
+                        direction: Direction.Right,
+                        actionPlanId: 1003),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        104,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Blocked,
+                        targetEntityId: 40,
+                        direction: Direction.Right,
+                        actionPlanId: 1004),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        201,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        direction: Direction.Up,
+                        actionPlanId: 2001),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        202,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Success,
+                        targetEntityId: 40,
+                        direction: Direction.Up,
+                        actionPlanId: 2002),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        203,
+                        startedThisTick: false,
+                        completedThisTick: true,
+                        canceledThisTick: false,
+                        isRecoveryPhase: true,
+                        direction: Direction.Up,
+                        actionPlanId: 2003),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        204,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Impact,
+                        targetEntityId: 40,
+                        direction: Direction.Up,
+                        actionPlanId: 2004),
+                },
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                playerActionAttemptSignals: new[]
+                {
+                    new TickPlayerActionAttemptPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        Direction.Up,
+                        PlayerActionAttemptFeedbackKind.Invalid,
+                        targetEntityId: 40,
+                        hasTarget: true),
+                });
+
+            return CreateTickResult(
+                tickIndex,
+                new[]
+                {
+                    CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 1, 1)),
+                },
+                topology,
+                presentationData);
+        }
+
+        private static TickResult CreateSinglePlayerActionAnimationResult(
+            int tickIndex,
+            CubeTopologyState topology,
+            PlayerActionKind actionKind,
+            int sequenceId,
+            bool startedThisTick = false,
+            bool executedThisTick = false,
+            bool recoveryPhase = false,
+            TickPlayerActionResolutionKind resolutionKind = TickPlayerActionResolutionKind.Success)
+        {
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                new[]
+                {
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        actionKind,
+                        sequenceId,
+                        startedThisTick,
+                        completedThisTick: recoveryPhase,
+                        canceledThisTick: false,
+                        executedThisTick: executedThisTick,
+                        isRecoveryPhase: recoveryPhase,
+                        resolutionKind: resolutionKind,
+                        targetEntityId: 40,
+                        direction: Direction.Right,
+                        actionPlanId: sequenceId + 9000),
+                });
+
+            return CreateTickResult(
+                tickIndex,
+                new[]
+                {
+                    CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 1, 1)),
+                },
+                topology,
+                presentationData);
+        }
+
+        private static PresentationCue CreatePlayerActionAnimationCue(
+            PresentationAnimationCueKey cueKey,
+            PresentationAnimationPhaseKind phase,
+            PresentationAnimationOutcomeKind outcome,
+            int tickIndex,
+            int sequenceId,
+            PresentationTarget? target = null,
+            PresentationAnchor? anchor = null)
+        {
+            var actionKind = cueKey == PresentationAnimationCueKey.PlayerFlipWindup ||
+                             cueKey == PresentationAnimationCueKey.PlayerFlipExecute ||
+                             cueKey == PresentationAnimationCueKey.PlayerFlipRecovery ||
+                             cueKey == PresentationAnimationCueKey.PlayerFlipBlocked ||
+                             cueKey == PresentationAnimationCueKey.PlayerFlipImpactContact ||
+                             cueKey == PresentationAnimationCueKey.PlayerFlipFailed
+                ? PresentationAnimationActionKind.Flip
+                : PresentationAnimationActionKind.Push;
+            var payload = new PresentationAnimationPayload(
+                PresentationAnimationFactKind.PlayerAction,
+                10,
+                actionKind,
+                phase,
+                outcome,
+                tickIndex,
+                sequenceId,
+                sourceActionPlanId: sequenceId + 9000,
+                targetEntityId: 40,
+                direction: Direction.Right);
+            return new PresentationCue(
+                PresentationDomain.Animation,
+                PresentationCueKey.ForAnimation(cueKey),
+                new PresentationSource(
+                    tickIndex,
+                    PresentationSemanticSource.PlayerAction,
+                    sourceEntityId: 10,
+                    sourceActionKind: (int)actionKind,
+                    sourceSequence: sequenceId),
+                target ?? PresentationTarget.Entity(10),
+                anchor ?? PresentationAnchor.ForEntityVisualRoot(10),
+                PresentationPlaybackPolicyHint.OneShot(sequenceId + 10000),
+                animationPayload: payload);
+        }
+
+        private static int CountPlayerActionAnimationCues(TickResult result)
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new AnimationCuePlanner(),
+            }).Plan(factFrame);
+            return cueFrame.Cues.Count(cue => cue.Domain == PresentationDomain.Animation);
+        }
+
         private static void AssertBoxMotionRequest(
             in GameplayMotionPlaybackRequest request,
             PresentationMotionCueKey cueKey,
@@ -11801,6 +12627,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.OwnershipKey.CueKey, Is.EqualTo(cueKey));
             Assert.That(request.OwnershipKey.SourceCell, Is.EqualTo(sourceCell));
             Assert.That(request.OwnershipKey.DestinationCell, Is.EqualTo(destinationCell));
+        }
+
+        private static void AssertPlayerActionAnimationRequest(
+            IReadOnlyList<GameplayAnimationPlaybackRequest> requests,
+            PresentationAnimationCueKey cueKey,
+            int tickIndex,
+            int sequenceId,
+            PresentationAnimationActionKind actionKind,
+            PresentationAnimationPhaseKind phaseKind,
+            PresentationAnimationOutcomeKind outcomeKind,
+            PresentationSemanticSource expectedSemanticSource = PresentationSemanticSource.PlayerAction,
+            int? expectedActionPlanId = null)
+        {
+            var request = requests.Single(candidate =>
+                candidate.CueKey == cueKey &&
+                candidate.AnimationPayload.SourceSequenceId == sequenceId &&
+                candidate.OwnershipKey.SemanticSource == expectedSemanticSource);
+            Assert.That(request.TickIndex, Is.EqualTo(tickIndex));
+            Assert.That(request.PlayerEntityId, Is.EqualTo(10));
+            Assert.That(request.Target, Is.EqualTo(PresentationTarget.Entity(10)));
+            Assert.That(request.Anchor, Is.EqualTo(PresentationAnchor.ForEntityVisualRoot(10)));
+            Assert.That(request.AnimationPayload.ActionKind, Is.EqualTo(actionKind));
+            Assert.That(request.AnimationPayload.PhaseKind, Is.EqualTo(phaseKind));
+            Assert.That(request.AnimationPayload.OutcomeKind, Is.EqualTo(outcomeKind));
+            Assert.That(request.AnimationPayload.SourceTickIndex, Is.EqualTo(tickIndex));
+            var defaultActionPlanId = actionKind == PresentationAnimationActionKind.Flip
+                ? sequenceId + 1800
+                : sequenceId + 900;
+            Assert.That(request.AnimationPayload.SourceActionPlanId, Is.EqualTo(expectedActionPlanId ?? defaultActionPlanId));
+            Assert.That(request.OwnershipKey.CueKey, Is.EqualTo(cueKey));
+            Assert.That(request.OwnershipKey.PlayerEntityId, Is.EqualTo(10));
+            Assert.That(request.OwnershipKey.ActionKind, Is.EqualTo(actionKind));
+            Assert.That(request.OwnershipKey.PhaseKind, Is.EqualTo(phaseKind));
+        }
+
+        private static GameplayPresentationStateStore CreateStateStoreWithView(GameplayEntityView view)
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            stateStore.ViewsByEntityId[view.EntityId] = view;
+            return stateStore;
+        }
+
+        private static PlayerAnimatorDriver GetPlayerAnimatorDriver(GameObject rootObject)
+        {
+            var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+            Assert.That(registry, Is.Not.Null);
+            Assert.That(registry.TryGetView(10, out var view), Is.True);
+            var driver = view.GetComponent<PlayerAnimatorDriver>();
+            Assert.That(driver, Is.Not.Null);
+            return driver;
         }
 
         private static void AssertDamageVfxRequest(
@@ -12148,6 +13024,119 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 TryPlayCallCount = 0;
                 _requests.Clear();
             }
+        }
+
+        private sealed class RecordingGameplayAnimationPlaybackPort : IGameplayAnimationPlaybackPort
+        {
+            private readonly Func<GameplayAnimationPlaybackRequest, GameplayAnimationPlaybackResultKind> _resultFactory;
+            private readonly List<GameplayAnimationPlaybackRequest> _requests = new();
+
+            public RecordingGameplayAnimationPlaybackPort(
+                GameplayAnimationPlaybackResultKind resultKind = GameplayAnimationPlaybackResultKind.Applied)
+                : this(_ => resultKind)
+            {
+            }
+
+            public RecordingGameplayAnimationPlaybackPort(
+                Func<GameplayAnimationPlaybackRequest, GameplayAnimationPlaybackResultKind> resultFactory)
+            {
+                _resultFactory = resultFactory ?? throw new ArgumentNullException(nameof(resultFactory));
+            }
+
+            public int TryPlayCallCount { get; private set; }
+
+            public int ResetSessionCallCount { get; private set; }
+
+            public int HardCleanupCallCount { get; private set; }
+
+            public IReadOnlyList<GameplayAnimationPlaybackRequest> Requests => _requests;
+
+            public bool TryPlayPlayerActionAnimation(
+                in GameplayAnimationPlaybackRequest request,
+                out GameplayAnimationPlaybackResult result)
+            {
+                TryPlayCallCount++;
+                _requests.Add(request);
+                var resultKind = _resultFactory(request);
+                result = new GameplayAnimationPlaybackResult(resultKind);
+                return resultKind == GameplayAnimationPlaybackResultKind.Applied ||
+                       resultKind == GameplayAnimationPlaybackResultKind.Requested;
+            }
+
+            public void ResetSession()
+            {
+                ResetSessionCallCount++;
+                TryPlayCallCount = 0;
+                _requests.Clear();
+            }
+
+            public void HardCleanup()
+            {
+                HardCleanupCallCount++;
+                TryPlayCallCount = 0;
+                _requests.Clear();
+            }
+        }
+
+        private sealed class StaticAnimationCuePlanner : IPresentationCuePlanner
+        {
+            private readonly IReadOnlyList<PresentationCue> _cues;
+
+            public StaticAnimationCuePlanner(IReadOnlyList<PresentationCue> cues)
+            {
+                _cues = cues ?? Array.Empty<PresentationCue>();
+            }
+
+            public void Plan(in PresentationFactFrame facts, PresentationCueFrameBuilder builder)
+            {
+                for (var i = 0; i < _cues.Count; i++)
+                {
+                    builder.Add(_cues[i]);
+                }
+            }
+        }
+
+        private readonly struct PlayerActionAnimationSemanticCase
+        {
+            public PlayerActionAnimationSemanticCase(
+                PlayerActionKind actionKind,
+                PresentationAnimationCueKey cueKey,
+                PresentationAnimationPhaseKind phaseKind,
+                PresentationAnimationOutcomeKind outcomeKind,
+                int sequenceId,
+                bool startedThisTick = false,
+                bool executedThisTick = false,
+                bool recoveryPhase = false,
+                TickPlayerActionResolutionKind resolutionKind = TickPlayerActionResolutionKind.Success)
+            {
+                ActionKind = actionKind;
+                CueKey = cueKey;
+                PhaseKind = phaseKind;
+                OutcomeKind = outcomeKind;
+                SequenceId = sequenceId;
+                StartedThisTick = startedThisTick;
+                ExecutedThisTick = executedThisTick;
+                RecoveryPhase = recoveryPhase;
+                ResolutionKind = resolutionKind;
+            }
+
+            public PlayerActionKind ActionKind { get; }
+
+            public PresentationAnimationCueKey CueKey { get; }
+
+            public PresentationAnimationPhaseKind PhaseKind { get; }
+
+            public PresentationAnimationOutcomeKind OutcomeKind { get; }
+
+            public int SequenceId { get; }
+
+            public bool StartedThisTick { get; }
+
+            public bool ExecutedThisTick { get; }
+
+            public bool RecoveryPhase { get; }
+
+            public TickPlayerActionResolutionKind ResolutionKind { get; }
         }
 
         private static Color ResolveExpectedInactiveColor(

@@ -325,6 +325,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(hostRuntimeSource, Does.Contain("PlayerActionAnimationExecutionMode"));
             Assert.That(animationExecutorSource, Does.Contain("GameplayAnimationSyncPlaybackPort"));
             Assert.That(animationExecutorSource, Does.Contain("GameplayAnimationSyncCoordinator animationSync"));
+            Assert.That(animationExecutorSource, Does.Contain("ExecuteCueMappedToLegacyCommand"));
             Assert.That(animationExecutorSource, Does.Not.Contain("FindObjectOfType"));
             Assert.That(animationExecutorSource, Does.Not.Contain("FindObjectsByType"));
             Assert.That(animationExecutorSource, Does.Not.Contain("new GameObject"));
@@ -334,7 +335,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(animationExecutorSource, Does.Not.Contain("GameplayMotionPresentationExecutor"));
             Assert.That(animationExecutorSource, Does.Not.Contain("TopologyPresentationExecutor"));
             Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime"), Does.Not.Contain("GameplayAnimationPresentationExecutor"));
+            Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Audio/Runtime"), Does.Not.Contain("GameplayAnimationPresentationExecutor"));
             Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_ActionAudio/Runtime"), Does.Not.Contain("PlayerActionAnimationExecutionMode"));
+            Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_ActionAudio/Runtime"), Does.Not.Contain("PresentationAnimationCueKey"));
         }
 
         [Test]

@@ -719,6 +719,71 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayActionAudio_PlayerActionAnimationExecutorMode_DoesNotChangeActionAudioLane()
+        {
+            var legacyRoot = new GameObject(nameof(GameplayActionAudio_PlayerActionAnimationExecutorMode_DoesNotChangeActionAudioLane) + "_Legacy");
+            var executorRoot = new GameObject(nameof(GameplayActionAudio_PlayerActionAnimationExecutorMode_DoesNotChangeActionAudioLane) + "_Executor");
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateActionAudioProfile(
+                new ActionAudioEntrySpec(
+                    GameplayActionKind.Push,
+                    GameplayActionAudioMoment.Windup,
+                    CreateDefinitionSpec()));
+            try
+            {
+                var legacyPresenter = CreatePresenter(
+                    legacyRoot,
+                    new ActionAudioViewFactory(legacyRoot.transform, profileBundle.Profile));
+                var executorPresenter = CreatePresenter(
+                    executorRoot,
+                    new ActionAudioViewFactory(executorRoot.transform, profileBundle.Profile));
+                var legacyAudioPort = new RecordingGameplayAudioPlaybackPort();
+                var executorAudioPort = new RecordingGameplayAudioPlaybackPort();
+                var legacyAnimationPort = new RecordingGameplayAnimationPlaybackPort();
+                var executorAnimationPort = new RecordingGameplayAnimationPlaybackPort();
+                var player = CreateUnit(10, UnitRole.Player);
+                var tick = CreateTickResult(CreatePresentationData(
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 1,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false)),
+                    new[] { player });
+
+                legacyPresenter.AttachGameplayAudioRuntime(legacyAudioPort, mapBundle.Map);
+                executorPresenter.AttachGameplayAudioRuntime(executorAudioPort, mapBundle.Map);
+                legacyPresenter.ConfigurePlayerActionAnimationExecution(
+                    PlayerActionAnimationExecutionMode.LegacyAnimationSync,
+                    legacyAnimationPort);
+                executorPresenter.ConfigurePlayerActionAnimationExecution(
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    executorAnimationPort);
+                legacyPresenter.PresentInitial(new[] { player }, new CubeTopologyState(FaceId.Floor));
+                executorPresenter.PresentInitial(new[] { player }, new CubeTopologyState(FaceId.Floor));
+
+                legacyPresenter.Present(tick);
+                executorPresenter.Present(tick);
+
+                Assert.That(legacyAudioPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(), Is.EqualTo(new[] { "Action:Push:Windup" }));
+                Assert.That(executorAudioPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(), Is.EqualTo(new[] { "Action:Push:Windup" }));
+                Assert.That(legacyAudioPort.AttachedCalls, Is.Empty);
+                Assert.That(executorAudioPort.AttachedCalls, Is.Empty);
+                Assert.That(legacyAnimationPort.TryPlayCallCount, Is.Zero);
+                Assert.That(executorAnimationPort.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(Enum.GetNames(typeof(GameplayActionAudioMoment)), Does.Contain(nameof(GameplayActionAudioMoment.Windup)));
+                Assert.That(Enum.GetNames(typeof(GameplayActionAudioMoment)), Does.Not.Contain("Execute"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(legacyRoot);
+                UnityEngine.Object.DestroyImmediate(executorRoot);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayActionAudioPresentationController_RemainsOneShotOnly_WithoutPlaybackHandles()
         {
@@ -1033,6 +1098,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     UnityEngine.Object.DestroyImmediate(Map);
                 }
+            }
+        }
+
+        private sealed class RecordingGameplayAnimationPlaybackPort : IGameplayAnimationPlaybackPort
+        {
+            public int TryPlayCallCount { get; private set; }
+
+            public bool TryPlayPlayerActionAnimation(
+                in GameplayAnimationPlaybackRequest request,
+                out GameplayAnimationPlaybackResult result)
+            {
+                TryPlayCallCount++;
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.Applied);
+                return true;
+            }
+
+            public void ResetSession()
+            {
+                TryPlayCallCount = 0;
+            }
+
+            public void HardCleanup()
+            {
+                TryPlayCallCount = 0;
             }
         }
 
