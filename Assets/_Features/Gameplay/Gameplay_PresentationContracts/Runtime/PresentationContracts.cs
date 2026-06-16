@@ -510,6 +510,129 @@ namespace Game.Feature.Gameplay.PresentationContracts
         }
     }
 
+    public enum PresentationAnimationFactKind
+    {
+        None = 0,
+        PlayerAction = 1,
+    }
+
+    public enum PresentationAnimationActionKind
+    {
+        None = 0,
+        Push = 1,
+        Flip = 2,
+    }
+
+    public enum PresentationAnimationPhaseKind
+    {
+        None = 0,
+        Windup = 1,
+        Execute = 2,
+        Recovery = 3,
+        Failed = 4,
+    }
+
+    public enum PresentationAnimationOutcomeKind
+    {
+        None = 0,
+        Started = 1,
+        Executed = 2,
+        Blocked = 3,
+        Impact = 4,
+        Recovery = 5,
+        Failed = 6,
+    }
+
+    public readonly struct PresentationAnimationPayload : IEquatable<PresentationAnimationPayload>
+    {
+        public PresentationAnimationPayload(
+            PresentationAnimationFactKind kind,
+            int entityId,
+            PresentationAnimationActionKind actionKind,
+            PresentationAnimationPhaseKind phaseKind,
+            PresentationAnimationOutcomeKind outcomeKind,
+            int sourceTickIndex,
+            int sourceSequenceId = 0,
+            int sourceActionPlanId = 0,
+            int targetEntityId = 0,
+            Direction direction = Direction.None)
+        {
+            Kind = kind;
+            EntityId = Math.Max(0, entityId);
+            ActionKind = actionKind;
+            PhaseKind = phaseKind;
+            OutcomeKind = outcomeKind;
+            SourceTickIndex = Math.Max(0, sourceTickIndex);
+            SourceSequenceId = Math.Max(0, sourceSequenceId);
+            SourceActionPlanId = Math.Max(0, sourceActionPlanId);
+            TargetEntityId = Math.Max(0, targetEntityId);
+            Direction = direction;
+        }
+
+        public PresentationAnimationFactKind Kind { get; }
+
+        public int EntityId { get; }
+
+        public PresentationAnimationActionKind ActionKind { get; }
+
+        public PresentationAnimationPhaseKind PhaseKind { get; }
+
+        public PresentationAnimationOutcomeKind OutcomeKind { get; }
+
+        public int SourceTickIndex { get; }
+
+        public int SourceSequenceId { get; }
+
+        public int SourceActionPlanId { get; }
+
+        public int TargetEntityId { get; }
+
+        public Direction Direction { get; }
+
+        public bool IsValid =>
+            Kind != PresentationAnimationFactKind.None &&
+            EntityId > 0 &&
+            ActionKind != PresentationAnimationActionKind.None &&
+            PhaseKind != PresentationAnimationPhaseKind.None;
+
+        public bool Equals(PresentationAnimationPayload other)
+        {
+            return Kind == other.Kind &&
+                   EntityId == other.EntityId &&
+                   ActionKind == other.ActionKind &&
+                   PhaseKind == other.PhaseKind &&
+                   OutcomeKind == other.OutcomeKind &&
+                   SourceTickIndex == other.SourceTickIndex &&
+                   SourceSequenceId == other.SourceSequenceId &&
+                   SourceActionPlanId == other.SourceActionPlanId &&
+                   TargetEntityId == other.TargetEntityId &&
+                   Direction == other.Direction;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationAnimationPayload other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = (int)Kind;
+                hash = (hash * 397) ^ EntityId;
+                hash = (hash * 397) ^ (int)ActionKind;
+                hash = (hash * 397) ^ (int)PhaseKind;
+                hash = (hash * 397) ^ (int)OutcomeKind;
+                hash = (hash * 397) ^ SourceTickIndex;
+                hash = (hash * 397) ^ SourceSequenceId;
+                hash = (hash * 397) ^ SourceActionPlanId;
+                hash = (hash * 397) ^ TargetEntityId;
+                hash = (hash * 397) ^ (int)Direction;
+                return hash;
+            }
+        }
+    }
+
     public readonly struct PresentationTopologyTransitionPayload : IEquatable<PresentationTopologyTransitionPayload>
     {
         public PresentationTopologyTransitionPayload(
@@ -578,7 +701,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
             PresentationTarget target,
             PresentationFactPayload payload = default,
             PresentationTopologyTransitionPayload topologyPayload = default,
-            PresentationMotionPayload motionPayload = default)
+            PresentationMotionPayload motionPayload = default,
+            PresentationAnimationPayload animationPayload = default)
         {
             Kind = kind;
             Source = source;
@@ -586,6 +710,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
             Payload = payload;
             TopologyPayload = topologyPayload;
             MotionPayload = motionPayload;
+            AnimationPayload = animationPayload;
         }
 
         public PresentationFactKind Kind { get; }
@@ -600,6 +725,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
         public PresentationMotionPayload MotionPayload { get; }
 
+        public PresentationAnimationPayload AnimationPayload { get; }
+
         public bool Equals(PresentationFact other)
         {
             return Kind == other.Kind &&
@@ -607,7 +734,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
                    Target.Equals(other.Target) &&
                    Payload.Equals(other.Payload) &&
                    TopologyPayload.Equals(other.TopologyPayload) &&
-                   MotionPayload.Equals(other.MotionPayload);
+                   MotionPayload.Equals(other.MotionPayload) &&
+                   AnimationPayload.Equals(other.AnimationPayload);
         }
 
         public override bool Equals(object obj)
@@ -625,6 +753,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
                 hash = (hash * 397) ^ Payload.GetHashCode();
                 hash = (hash * 397) ^ TopologyPayload.GetHashCode();
                 hash = (hash * 397) ^ MotionPayload.GetHashCode();
+                hash = (hash * 397) ^ AnimationPayload.GetHashCode();
                 return hash;
             }
         }

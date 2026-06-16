@@ -538,6 +538,20 @@ namespace Game.Feature.Gameplay.PresentationPlayback
                     continue;
                 }
 
+                if (IsAnimationCue(cue))
+                {
+                    cues.Add(new PresentationPlaybackCue(
+                        cue,
+                        new PresentationPlaybackPolicy(
+                            PresentationPlaybackUnitKind.OneShot,
+                            blocking: false,
+                            cue.PolicyHint.DedupeKey,
+                            cue.PolicyHint.CancellationKey,
+                            cue.PolicyHint.CooldownKey,
+                            PresentationPlaybackInterruptMode.IgnoreNew)));
+                    continue;
+                }
+
                 if (policy.UnitKind == PresentationPlaybackUnitKind.Track)
                 {
                     tracks.Add(new PresentationPlaybackTrack(cue, policy));
@@ -603,6 +617,13 @@ namespace Game.Feature.Gameplay.PresentationPlayback
         {
             return cue.Domain == PresentationDomain.Motion &&
                    cue.Key.Domain == PresentationDomain.Motion &&
+                   cue.Key.LocalKey > 0;
+        }
+
+        private static bool IsAnimationCue(PresentationCue cue)
+        {
+            return cue.Domain == PresentationDomain.Animation &&
+                   cue.Key.Domain == PresentationDomain.Animation &&
                    cue.Key.LocalKey > 0;
         }
     }

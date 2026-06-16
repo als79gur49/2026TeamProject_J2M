@@ -148,6 +148,11 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                         secondaryValue: signal.TargetEntityId)));
             }
 
+            AddPlayerActionAnimationFacts(
+                facts,
+                tickIndex,
+                presentationData.PlayerActionSignals);
+
             for (var i = 0; i < presentationData.PlayerActionAttemptSignals.Count; i++)
             {
                 var signal = presentationData.PlayerActionAttemptSignals[i];
@@ -163,6 +168,11 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                         primaryValue: (int)signal.FeedbackKind,
                         secondaryValue: signal.EmitsVisualFeedback ? 1 : 0)));
             }
+
+            AddPlayerActionAttemptAnimationFacts(
+                facts,
+                tickIndex,
+                presentationData.PlayerActionAttemptSignals);
 
             for (var i = 0; i < presentationData.PlayerDamageSignals.Count; i++)
             {
@@ -400,6 +410,186 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     return PresentationSemanticSource.BoxFlipImpactMotion;
                 default:
                     return fallback;
+            }
+        }
+
+        private static void AddPlayerActionAnimationFacts(
+            List<PresentationFact> facts,
+            int tickIndex,
+            IReadOnlyList<TickPlayerActionPresentationSignal> signals)
+        {
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (!TryResolveAnimationActionKind(signal.ActiveActionKind, out var actionKind))
+                {
+                    continue;
+                }
+
+                if (signal.StartedThisTick)
+                {
+                    AddPlayerActionAnimationFact(
+                        facts,
+                        tickIndex,
+                        signal,
+                        actionKind,
+                        PresentationAnimationPhaseKind.Windup,
+                        PresentationAnimationOutcomeKind.Started,
+                        i + 1);
+                }
+
+                if (signal.ExecutedThisTick)
+                {
+                    AddPlayerActionAnimationFact(
+                        facts,
+                        tickIndex,
+                        signal,
+                        actionKind,
+                        PresentationAnimationPhaseKind.Execute,
+                        ResolveAnimationOutcome(signal.ResolutionKind),
+                        i + 1);
+                    continue;
+                }
+
+                if (signal.IsRecoveryPhase)
+                {
+                    AddPlayerActionAnimationFact(
+                        facts,
+                        tickIndex,
+                        signal,
+                        actionKind,
+                        PresentationAnimationPhaseKind.Recovery,
+                        PresentationAnimationOutcomeKind.Recovery,
+                        i + 1);
+                }
+
+                if (signal.CanceledThisTick)
+                {
+                    AddPlayerActionAnimationFact(
+                        facts,
+                        tickIndex,
+                        signal,
+                        actionKind,
+                        PresentationAnimationPhaseKind.Failed,
+                        PresentationAnimationOutcomeKind.Failed,
+                        i + 1);
+                }
+            }
+        }
+
+        private static void AddPlayerActionAnimationFact(
+            List<PresentationFact> facts,
+            int tickIndex,
+            in TickPlayerActionPresentationSignal signal,
+            PresentationAnimationActionKind actionKind,
+            PresentationAnimationPhaseKind phaseKind,
+            PresentationAnimationOutcomeKind outcomeKind,
+            int fallbackSequence)
+        {
+            var sequenceId = signal.ActiveActionSequence > 0
+                ? signal.ActiveActionSequence
+                : fallbackSequence;
+            var payload = new PresentationAnimationPayload(
+                PresentationAnimationFactKind.PlayerAction,
+                signal.EntityId,
+                actionKind,
+                phaseKind,
+                outcomeKind,
+                tickIndex,
+                sequenceId,
+                signal.ActionPlanId,
+                signal.TargetEntityId,
+                signal.Direction);
+            facts.Add(new PresentationFact(
+                PresentationFactKind.Action,
+                new PresentationSource(
+                    tickIndex,
+                    PresentationSemanticSource.PlayerAction,
+                    signal.EntityId,
+                    (int)actionKind,
+                    sequenceId),
+                PresentationTarget.Entity(signal.EntityId),
+                new PresentationFactPayload(
+                    primaryValue: (int)phaseKind,
+                    secondaryValue: (int)outcomeKind,
+                    tertiaryValue: signal.TargetEntityId),
+                animationPayload: payload));
+        }
+
+        private static void AddPlayerActionAttemptAnimationFacts(
+            List<PresentationFact> facts,
+            int tickIndex,
+            IReadOnlyList<TickPlayerActionAttemptPresentationSignal> signals)
+        {
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (!signal.EmitsVisualFeedback ||
+                    !TryResolveAnimationActionKind(signal.ActionKind, out var actionKind))
+                {
+                    continue;
+                }
+
+                var sequenceId = i + 1;
+                var payload = new PresentationAnimationPayload(
+                    PresentationAnimationFactKind.PlayerAction,
+                    signal.EntityId,
+                    actionKind,
+                    PresentationAnimationPhaseKind.Failed,
+                    PresentationAnimationOutcomeKind.Failed,
+                    tickIndex,
+                    sequenceId,
+                    sourceActionPlanId: 0,
+                    targetEntityId: signal.TargetEntityId,
+                    direction: signal.Direction);
+                facts.Add(new PresentationFact(
+                    PresentationFactKind.Action,
+                    new PresentationSource(
+                        tickIndex,
+                        PresentationSemanticSource.PlayerActionAttempt,
+                        signal.EntityId,
+                        (int)actionKind,
+                        sequenceId),
+                    PresentationTarget.Entity(signal.EntityId),
+                    new PresentationFactPayload(
+                        primaryValue: (int)PresentationAnimationPhaseKind.Failed,
+                        secondaryValue: (int)PresentationAnimationOutcomeKind.Failed,
+                        tertiaryValue: (int)signal.FeedbackKind),
+                    animationPayload: payload));
+            }
+        }
+
+        private static bool TryResolveAnimationActionKind(
+            PlayerActionKind actionKind,
+            out PresentationAnimationActionKind animationActionKind)
+        {
+            switch (actionKind)
+            {
+                case PlayerActionKind.Push:
+                    animationActionKind = PresentationAnimationActionKind.Push;
+                    return true;
+                case PlayerActionKind.Flip:
+                    animationActionKind = PresentationAnimationActionKind.Flip;
+                    return true;
+                default:
+                    animationActionKind = PresentationAnimationActionKind.None;
+                    return false;
+            }
+        }
+
+        private static PresentationAnimationOutcomeKind ResolveAnimationOutcome(
+            TickPlayerActionResolutionKind resolutionKind)
+        {
+            switch (resolutionKind)
+            {
+                case TickPlayerActionResolutionKind.Blocked:
+                    return PresentationAnimationOutcomeKind.Blocked;
+                case TickPlayerActionResolutionKind.Impact:
+                    return PresentationAnimationOutcomeKind.Impact;
+                case TickPlayerActionResolutionKind.Success:
+                case TickPlayerActionResolutionKind.None:
+                default:
+                    return PresentationAnimationOutcomeKind.Executed;
             }
         }
 
@@ -665,6 +855,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                 {
                     new TopologyCuePlanner(),
                     new MotionCuePlanner(),
+                    new AnimationCuePlanner(),
                     new VfxCuePlanner(),
                 }),
                 new PresentationPlaybackPlanner(),

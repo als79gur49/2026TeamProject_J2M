@@ -34,6 +34,23 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         BoxFlipImpact = 3,
     }
 
+    public enum PresentationAnimationCueKey
+    {
+        None = 0,
+        PlayerPushWindup = 1,
+        PlayerPushExecute = 2,
+        PlayerPushRecovery = 3,
+        PlayerPushBlocked = 4,
+        PlayerPushImpactContact = 5,
+        PlayerPushFailed = 6,
+        PlayerFlipWindup = 7,
+        PlayerFlipExecute = 8,
+        PlayerFlipRecovery = 9,
+        PlayerFlipBlocked = 10,
+        PlayerFlipImpactContact = 11,
+        PlayerFlipFailed = 12,
+    }
+
     public readonly struct PresentationCueKey : IEquatable<PresentationCueKey>
     {
         public PresentationCueKey(PresentationDomain domain, int localKey, int variantKey = 0)
@@ -61,6 +78,11 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             return new PresentationCueKey(PresentationDomain.Motion, (int)key);
         }
 
+        public static PresentationCueKey ForAnimation(PresentationAnimationCueKey key)
+        {
+            return new PresentationCueKey(PresentationDomain.Animation, (int)key);
+        }
+
         public bool TryGetVfxCueKey(out PresentationVfxCueKey key)
         {
             if (Domain == PresentationDomain.Vfx &&
@@ -86,6 +108,20 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             }
 
             key = PresentationMotionCueKey.None;
+            return false;
+        }
+
+        public bool TryGetAnimationCueKey(out PresentationAnimationCueKey key)
+        {
+            if (Domain == PresentationDomain.Animation &&
+                Enum.IsDefined(typeof(PresentationAnimationCueKey), LocalKey) &&
+                LocalKey != (int)PresentationAnimationCueKey.None)
+            {
+                key = (PresentationAnimationCueKey)LocalKey;
+                return true;
+            }
+
+            key = PresentationAnimationCueKey.None;
             return false;
         }
 
@@ -195,7 +231,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             PresentationAnchor anchor,
             PresentationPlaybackPolicyHint policyHint = default,
             PresentationTopologyTransitionPayload topologyPayload = default,
-            PresentationMotionPayload motionPayload = default)
+            PresentationMotionPayload motionPayload = default,
+            PresentationAnimationPayload animationPayload = default)
         {
             Domain = domain;
             Key = key;
@@ -205,6 +242,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             PolicyHint = policyHint;
             TopologyPayload = topologyPayload;
             MotionPayload = motionPayload;
+            AnimationPayload = animationPayload;
         }
 
         public PresentationDomain Domain { get; }
@@ -223,6 +261,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
 
         public PresentationMotionPayload MotionPayload { get; }
 
+        public PresentationAnimationPayload AnimationPayload { get; }
+
         public bool Equals(PresentationCue other)
         {
             return Domain == other.Domain &&
@@ -232,7 +272,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                    Anchor.Equals(other.Anchor) &&
                    PolicyHint.Equals(other.PolicyHint) &&
                    TopologyPayload.Equals(other.TopologyPayload) &&
-                   MotionPayload.Equals(other.MotionPayload);
+                   MotionPayload.Equals(other.MotionPayload) &&
+                   AnimationPayload.Equals(other.AnimationPayload);
         }
 
         public override bool Equals(object obj)
@@ -252,6 +293,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 hash = (hash * 397) ^ PolicyHint.GetHashCode();
                 hash = (hash * 397) ^ TopologyPayload.GetHashCode();
                 hash = (hash * 397) ^ MotionPayload.GetHashCode();
+                hash = (hash * 397) ^ AnimationPayload.GetHashCode();
                 return hash;
             }
         }
@@ -583,6 +625,144 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 hash = (hash * 397) ^ (int)fact.Source.SemanticSource;
                 hash = (hash * 397) ^ payload.EntityId;
                 hash = (hash * 397) ^ payload.GetHashCode();
+                hash = (hash * 397) ^ key.GetHashCode();
+                return hash & int.MaxValue;
+            }
+        }
+    }
+
+    public sealed class AnimationCuePlanner : IPresentationCuePlanner
+    {
+        public void Plan(in PresentationFactFrame facts, PresentationCueFrameBuilder builder)
+        {
+            if (facts == null)
+            {
+                throw new ArgumentNullException(nameof(facts));
+            }
+
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            for (var i = 0; i < facts.Facts.Count; i++)
+            {
+                var fact = facts.Facts[i];
+                if (TryPlanAnimation(fact, out var cue))
+                {
+                    builder.Add(cue);
+                }
+            }
+        }
+
+        private static bool TryPlanAnimation(PresentationFact fact, out PresentationCue cue)
+        {
+            cue = default;
+            if (fact.Kind != PresentationFactKind.Action ||
+                !fact.AnimationPayload.IsValid ||
+                fact.Target.Kind != PresentationTargetKind.Entity ||
+                fact.Target.EntityId <= 0)
+            {
+                return false;
+            }
+
+            if (!TryResolveCueKey(fact.AnimationPayload, out var animationCueKey))
+            {
+                return false;
+            }
+
+            var key = PresentationCueKey.ForAnimation(animationCueKey);
+            cue = new PresentationCue(
+                PresentationDomain.Animation,
+                key,
+                fact.Source,
+                fact.Target,
+                PresentationAnchor.ForEntityVisualRoot(fact.Target.EntityId),
+                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)),
+                animationPayload: fact.AnimationPayload);
+            return true;
+        }
+
+        private static bool TryResolveCueKey(
+            PresentationAnimationPayload payload,
+            out PresentationAnimationCueKey cueKey)
+        {
+            switch (payload.ActionKind)
+            {
+                case PresentationAnimationActionKind.Push:
+                    cueKey = ResolvePushCueKey(payload.PhaseKind, payload.OutcomeKind);
+                    return cueKey != PresentationAnimationCueKey.None;
+                case PresentationAnimationActionKind.Flip:
+                    cueKey = ResolveFlipCueKey(payload.PhaseKind, payload.OutcomeKind);
+                    return cueKey != PresentationAnimationCueKey.None;
+                default:
+                    cueKey = PresentationAnimationCueKey.None;
+                    return false;
+            }
+        }
+
+        private static PresentationAnimationCueKey ResolvePushCueKey(
+            PresentationAnimationPhaseKind phaseKind,
+            PresentationAnimationOutcomeKind outcomeKind)
+        {
+            if (outcomeKind == PresentationAnimationOutcomeKind.Blocked)
+            {
+                return PresentationAnimationCueKey.PlayerPushBlocked;
+            }
+
+            if (outcomeKind == PresentationAnimationOutcomeKind.Impact)
+            {
+                return PresentationAnimationCueKey.PlayerPushImpactContact;
+            }
+
+            return phaseKind switch
+            {
+                PresentationAnimationPhaseKind.Windup => PresentationAnimationCueKey.PlayerPushWindup,
+                PresentationAnimationPhaseKind.Execute => PresentationAnimationCueKey.PlayerPushExecute,
+                PresentationAnimationPhaseKind.Recovery => PresentationAnimationCueKey.PlayerPushRecovery,
+                PresentationAnimationPhaseKind.Failed => PresentationAnimationCueKey.PlayerPushFailed,
+                _ => PresentationAnimationCueKey.None,
+            };
+        }
+
+        private static PresentationAnimationCueKey ResolveFlipCueKey(
+            PresentationAnimationPhaseKind phaseKind,
+            PresentationAnimationOutcomeKind outcomeKind)
+        {
+            if (outcomeKind == PresentationAnimationOutcomeKind.Blocked)
+            {
+                return PresentationAnimationCueKey.PlayerFlipBlocked;
+            }
+
+            if (outcomeKind == PresentationAnimationOutcomeKind.Impact)
+            {
+                return PresentationAnimationCueKey.PlayerFlipImpactContact;
+            }
+
+            return phaseKind switch
+            {
+                PresentationAnimationPhaseKind.Windup => PresentationAnimationCueKey.PlayerFlipWindup,
+                PresentationAnimationPhaseKind.Execute => PresentationAnimationCueKey.PlayerFlipExecute,
+                PresentationAnimationPhaseKind.Recovery => PresentationAnimationCueKey.PlayerFlipRecovery,
+                PresentationAnimationPhaseKind.Failed => PresentationAnimationCueKey.PlayerFlipFailed,
+                _ => PresentationAnimationCueKey.None,
+            };
+        }
+
+        private static int ComputeDedupeKey(PresentationFact fact, PresentationCueKey key)
+        {
+            unchecked
+            {
+                var payload = fact.AnimationPayload;
+                var hash = 29;
+                hash = (hash * 397) ^ fact.Source.TickIndex;
+                hash = (hash * 397) ^ (int)fact.Source.SemanticSource;
+                hash = (hash * 397) ^ payload.EntityId;
+                hash = (hash * 397) ^ payload.SourceSequenceId;
+                hash = (hash * 397) ^ payload.SourceActionPlanId;
+                hash = (hash * 397) ^ (int)payload.ActionKind;
+                hash = (hash * 397) ^ (int)payload.PhaseKind;
+                hash = (hash * 397) ^ (int)payload.OutcomeKind;
                 hash = (hash * 397) ^ key.GetHashCode();
                 return hash & int.MaxValue;
             }
