@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
 using Game.Feature.Gameplay.PresentationPlayback;
+using Game.Feature.Gameplay.PresentationRuntime;
 using Game.Feature.Gameplay.Vfx;
 
 namespace Game.Feature.Gameplay.Host
@@ -165,6 +166,17 @@ namespace Game.Feature.Gameplay.Host
             _mode = NormalizeMode(mode);
         }
 
+        public void RecordSkippedByPolicy(DamageDeathVfxExecutionOwner skippedOwner)
+        {
+            if (skippedOwner == DamageDeathVfxExecutionOwner.None)
+            {
+                throw new ArgumentOutOfRangeException(nameof(skippedOwner), "VFX execution owner must be explicit.");
+            }
+
+            RecordAttempt(skippedOwner);
+            RecordPolicySkip(skippedOwner);
+        }
+
         public void ResetSession()
         {
             _claimedKeys.Clear();
@@ -262,6 +274,8 @@ namespace Game.Feature.Gameplay.Host
             PresentationVfxCueKey cueKey,
             GameplayVfxCueId cueId,
             int tickIndex,
+            int sequenceId,
+            int presentationSeed,
             int sourceEntityId,
             PresentationTarget target,
             PresentationAnchor presentationAnchor,
@@ -271,6 +285,8 @@ namespace Game.Feature.Gameplay.Host
             CueKey = cueKey;
             CueId = cueId;
             TickIndex = Math.Max(0, tickIndex);
+            SequenceId = Math.Max(0, sequenceId);
+            PresentationSeed = Math.Max(0, presentationSeed);
             SourceEntityId = Math.Max(0, sourceEntityId);
             Target = target;
             PresentationAnchor = presentationAnchor;
@@ -284,6 +300,10 @@ namespace Game.Feature.Gameplay.Host
         public GameplayVfxCueId CueId { get; }
 
         public int TickIndex { get; }
+
+        public int SequenceId { get; }
+
+        public int PresentationSeed { get; }
 
         public int SourceEntityId { get; }
 
@@ -360,6 +380,11 @@ namespace Game.Feature.Gameplay.Host
         void HardCleanup();
     }
 
+    internal delegate GameplayPresentationPipeline DamageDeathVfxExecutionPipelineFactory(
+        DamageDeathVfxExecutionMode mode,
+        IDamageDeathVfxPlaybackPort playbackPort,
+        DamageDeathVfxExecutionGuard executionGuard);
+
     internal sealed class DamageDeathGameplayVfxPlaybackPortAdapter : IDamageDeathVfxPlaybackPort
     {
         private readonly IGameplayVfxPlaybackPort _playbackPort;
@@ -381,8 +406,8 @@ namespace Game.Feature.Gameplay.Host
 
             var gameplayRequest = new GameplayVfxRequest(
                 tickIndex: request.TickIndex,
-                sequenceId: request.Target.EntityId,
-                presentationSeed: request.Target.EntityId,
+                sequenceId: request.SequenceId,
+                presentationSeed: request.PresentationSeed,
                 sourceEntityId: request.SourceEntityId,
                 cueId: request.CueId,
                 anchor: request.VfxAnchor,
@@ -631,6 +656,8 @@ namespace Game.Feature.Gameplay.Host
                 cueKey,
                 cueId,
                 cue.Source.TickIndex,
+                cue.Target.EntityId,
+                cue.Source.SourceSequence > 0 ? cue.Source.SourceSequence : cue.Target.EntityId,
                 cue.Source.SourceEntityId > 0 ? cue.Source.SourceEntityId : cue.Target.EntityId,
                 cue.Target,
                 cue.Anchor,

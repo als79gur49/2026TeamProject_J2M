@@ -589,5 +589,32 @@ namespace Game.Feature.Gameplay.Host
                         executionGuard),
                 });
         }
+
+        public static GameplayPresentationPipeline CreateDamageDeathVfxExecutionPipeline(
+            DamageDeathVfxExecutionMode mode,
+            IDamageDeathVfxPlaybackPort playbackPort,
+            DamageDeathVfxExecutionGuard executionGuard)
+        {
+            if (mode != DamageDeathVfxExecutionMode.OrchestrationExecutor)
+            {
+                return null;
+            }
+
+            return new GameplayPresentationPipeline(
+                new TickPresentationFactExtractor(),
+                new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+                {
+                    new VfxCuePlanner(),
+                }),
+                new PresentationPlaybackPlanner(),
+                new PresentationPlaybackScheduler(),
+                new IPresentationExecutor[]
+                {
+                    new GameplayVfxPresentationExecutor(
+                        playbackPort,
+                        mode,
+                        executionGuard),
+                });
+        }
     }
 }

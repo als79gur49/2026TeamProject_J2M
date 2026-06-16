@@ -325,6 +325,13 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
         public bool HasSecondaryCell { get; }
 
+        public PresentationAnchor PrimaryCellCenterAnchorOrEntityCenter(int entityId)
+        {
+            return HasPrimaryCell
+                ? PresentationAnchor.ForSurfaceCellCenter(PrimaryCell)
+                : PresentationAnchor.ForEntityCenter(entityId);
+        }
+
         public bool Equals(PresentationFactPayload other)
         {
             return PrimaryValue == other.PrimaryValue &&

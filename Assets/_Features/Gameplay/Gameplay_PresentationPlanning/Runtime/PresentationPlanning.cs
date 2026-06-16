@@ -425,7 +425,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 key,
                 fact.Source,
                 fact.Target,
-                PresentationAnchor.ForEntityCenter(fact.Target.EntityId),
+                fact.Payload.PrimaryCellCenterAnchorOrEntityCenter(fact.Target.EntityId),
                 PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)));
             return true;
         }

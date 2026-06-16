@@ -199,6 +199,13 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.AttachPresentationExtension(extension);
         }
 
+        internal void ConfigureDamageDeathVfxExecution(
+            DamageDeathVfxExecutionMode mode,
+            IDamageDeathVfxPlaybackPort playbackPort = null)
+        {
+            _presentationCoordinator.ConfigureDamageDeathVfxExecution(mode, playbackPort);
+        }
+
         public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)
         {
             _presentationCoordinator.DetachPresentationExtension(extension);
