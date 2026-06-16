@@ -522,6 +522,7 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
+            ClearBoxMotionPresentationRuntimeState();
             _trackState.ResetSession();
             _utilityWindupVfxPresenter.Initialize(viewBinder.SearchRoot);
             _animationSync.Reset();
@@ -1028,6 +1029,7 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
+            ClearBoxMotionPresentationRuntimeState();
             _trackState.ResetSession();
             _exitPresentationController.Reset();
             _moonBlockDestructionPresentationController.ResetSession();
@@ -1524,11 +1526,56 @@ namespace Game.Feature.Gameplay.Host
             _topologyExecutionPipeline?.HardCleanup();
             _damageDeathVfxExecutionPipeline?.HardCleanup();
             _boxMotionExecutionPipeline?.HardCleanup();
+            _boxMotionExecutionGuard.ResetSession();
+            ClearBoxMotionPresentationRuntimeState();
             _presentationPipeline?.HardCleanup();
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.HardCleanup();
             }
+        }
+
+        private void ClearBoxMotionPresentationRuntimeState()
+        {
+            _entityPresentationApplier.ResetBoxFlipInteractionsForKnownViews();
+            _trackState.FlipInteractionResetRequests.Clear();
+
+            var boxEntityIds = new List<int>();
+            foreach (var pair in _stateStore.EntityTypesByEntityId)
+            {
+                if (pair.Value == EntityType.Box)
+                {
+                    boxEntityIds.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < boxEntityIds.Count; i++)
+            {
+                var entityId = boxEntityIds[i];
+                _trackState.LocalMotionTracks.Remove(entityId);
+                _trackState.MotionVisualScaleEntityIds.Remove(entityId);
+                _trackState.OriginalViewMotionTracks.Remove(entityId);
+                _trackState.CompletedMotionTrackIds.Remove(entityId);
+                _trackState.CompletedMotionVisualScaleEntityIds.Remove(entityId);
+                _trackState.CompletedOriginalViewMotionTrackIds.Remove(entityId);
+                _trackState.CompletedPresentationMotionKeys.RemoveWhere(key => key.EntityId == entityId);
+            }
+
+            _trackState.CompletedFlipInteractionTrackIds.Clear();
+            foreach (var pair in _trackState.FlipInteractionTracks)
+            {
+                if (boxEntityIds.Contains(pair.Value.BoxEntityId))
+                {
+                    _trackState.CompletedFlipInteractionTrackIds.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < _trackState.CompletedFlipInteractionTrackIds.Count; i++)
+            {
+                _trackState.FlipInteractionTracks.Remove(_trackState.CompletedFlipInteractionTrackIds[i]);
+            }
+
+            _trackState.CompletedFlipInteractionTrackIds.Clear();
         }
 
         private void PresentDiagnosticsPipelineIfEnabled(TickResult result)

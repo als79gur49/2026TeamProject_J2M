@@ -657,6 +657,24 @@ namespace Game.Feature.Gameplay.Host
             _enemySemanticDriversByEntityId.Clear();
         }
 
+        internal void ResetBoxFlipInteractionsForKnownViews()
+        {
+            foreach (var pair in _stateStore.ViewsByEntityId)
+            {
+                var entityId = pair.Key;
+                if (!_stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType) ||
+                    entityType != EntityType.Box ||
+                    pair.Value == null ||
+                    !pair.Value.TryGetComponent<BoxFlipInteractionDriver>(out var boxDriver) ||
+                    boxDriver == null)
+                {
+                    continue;
+                }
+
+                boxDriver.ResetInteraction();
+            }
+        }
+
         private IReadOnlyList<int> BuildProcessingEntityIds()
         {
             _processingEntityIds.Clear();
