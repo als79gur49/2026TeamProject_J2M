@@ -58,6 +58,8 @@
   - current supporting truth for the Option B prerequisite that future Behavior Summon must fail-fast when authored alongside existing Utility SummonMinion on the same Enemy AI profile
 - [Enemy-AI-Summon-Behavior-Runtime-State-Design.md](./Enemy-AI-Summon-Behavior-Runtime-State-Design.md)
   - current supporting truth for the future Option B Summon behavior runtime state shape, ownership boundaries, parity matrix, migration outline, and test plan without implementing SummonBehaviorModule
+- [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md)
+  - current supporting truth for the future Option B Utility SummonMinion to Behavior Summon asset field mapping, migration order, residue policy, rollback strategy, and test matrix without migrating production assets
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
   - current supporting truth for persistent BGM ownership, scene request-source boundaries, request-based BGM playback, FadeOutIn support, and reserved Crossfade governance
 - [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)

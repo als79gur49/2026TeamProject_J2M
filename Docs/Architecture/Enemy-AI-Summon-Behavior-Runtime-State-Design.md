@@ -309,7 +309,7 @@ Migration order:
 3. Implement duplicate guard with tests.
 4. Introduce future Behavior Summon runtime, emitter, and typed fixed slot.
 5. Add Behavior-only tests while Utility-only content remains valid.
-6. Run asset-scoped migration from Utility `SummonMinion` to future Behavior Summon.
+6. Run asset-scoped migration from Utility `SummonMinion` to future Behavior Summon after accepting [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
 7. Validate migrated profile has no Utility Summon residue.
 8. Validate replay/hash/presentation/audio/VFX parity.
 
@@ -371,7 +371,7 @@ Rollback strategy:
 
 - Runtime state design accepted.
 - Duplicate Utility/Behavior Summon guard accepted.
-- Asset migration plan accepted.
+- Asset migration plan accepted; see [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
 - Replay/export compatibility plan accepted.
 - Presentation/audio/VFX parity plan accepted.
 - Behavior emitter request ordering contract accepted.

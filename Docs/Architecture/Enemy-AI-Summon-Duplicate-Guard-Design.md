@@ -214,7 +214,7 @@ Before Option B starts:
 - BehaviorModule Summon runtime state shape is designed; see [Enemy-AI-Summon-Behavior-Runtime-State-Design.md](./Enemy-AI-Summon-Behavior-Runtime-State-Design.md).
 - Behavior emitter request ordering contract is designed.
 - Source metadata vocabulary is not Utility-only.
-- Asset migration plan for `SummonMinion` authoring is written.
+- Asset migration plan for `SummonMinion` authoring is written; see [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
 - Replay/export compatibility plan is written.
 - Presentation, audio, and VFX parity tests are planned.
 - Full lane / CI release gate policy is decided.
