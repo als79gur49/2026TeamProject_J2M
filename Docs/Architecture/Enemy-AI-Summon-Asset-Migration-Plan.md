@@ -253,7 +253,7 @@ False-positive notes:
 
 ## 10. Replay / Export Compatibility Dependency
 
-This document does not complete the replay/export compatibility plan.
+This document does not complete the replay/export compatibility plan. The accepted prerequisite is [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
 
 Preserved by default:
 
@@ -273,6 +273,12 @@ Migration-required decisions:
 Required follow-up:
 
 - A replay/export compatibility plan must be accepted before Option B implementation or asset migration starts.
+
+Validation wording note:
+
+- The targeted Summon/Utility/replay/core validation is already recorded by the spawn seam implementation note, including `./run_tests.sh core` passed with EditMode 183 + PlayMode 33.
+- This asset migration plan does not claim a newly run full lane or ui lane.
+- Do not derive broad project status or full-lane success from this plan.
 
 ## 11. Presentation / Audio / VFX Dependency
 
@@ -342,7 +348,7 @@ Required follow-up:
 - Asset migration plan accepted.
 - Duplicate Utility/Behavior Summon guard accepted.
 - Runtime state design accepted.
-- Replay/export compatibility plan accepted.
+- Replay/export compatibility plan accepted; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
 - Presentation/audio/VFX parity plan accepted.
 - Behavior emitter request ordering contract accepted.
 - Source metadata vocabulary accepted without Utility-only coupling.

@@ -215,7 +215,7 @@ Before Option B starts:
 - Behavior emitter request ordering contract is designed.
 - Source metadata vocabulary is not Utility-only.
 - Asset migration plan for `SummonMinion` authoring is written; see [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
-- Replay/export compatibility plan is written.
+- Replay/export compatibility plan is written; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
 - Presentation, audio, and VFX parity tests are planned.
 - Full lane / CI release gate policy is decided.
 

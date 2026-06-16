@@ -305,7 +305,7 @@ Compiler plan:
 Migration order:
 
 1. Accept runtime state design.
-2. Accept replay/export compatibility plan.
+2. Accept replay/export compatibility plan; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
 3. Implement duplicate guard with tests.
 4. Introduce future Behavior Summon runtime, emitter, and typed fixed slot.
 5. Add Behavior-only tests while Utility-only content remains valid.
@@ -372,7 +372,7 @@ Rollback strategy:
 - Runtime state design accepted.
 - Duplicate Utility/Behavior Summon guard accepted.
 - Asset migration plan accepted; see [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
-- Replay/export compatibility plan accepted.
+- Replay/export compatibility plan accepted; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
 - Presentation/audio/VFX parity plan accepted.
 - Behavior emitter request ordering contract accepted.
 - Source metadata vocabulary accepted without Utility-only coupling.

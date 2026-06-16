@@ -109,7 +109,7 @@ Required before Option B:
 - Request ordering contract for multi-source behavior emitters.
 - Source metadata vocabulary that is not Utility-only.
 - Asset migration plan for SummonMinion authoring; see [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
-- Replay/export compatibility decision.
+- Replay/export compatibility decision; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
 - Presentation/audio/VFX parity tests.
 - Full lane / CI release gate.
 
