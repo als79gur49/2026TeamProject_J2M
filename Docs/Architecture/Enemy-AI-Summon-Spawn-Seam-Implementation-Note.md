@@ -67,61 +67,95 @@
 
 ## 6. Validation
 
+### Initial Option C seam validation
+
 | Lane | Command | Result |
 | --- | --- | --- |
-| Summon scenario | `./run_tests.sh --integration-simulation --filter EnemyUtilitySummon_MultipleSpawns_ReserveCellsAndAllocateIdsInMaterializationOrder` | passed |
-| Summon scenario | `./run_tests.sh --integration-simulation --filter EnemyUtilitySummon_` | passed, 10 tests |
-| Replay | `./run_tests.sh --integration-replay --filter UtilitySummon` | passed, 2 tests |
-| Replay | `./run_tests.sh --integration-replay --filter UtilityArchetypeSummon` | passed, 1 test |
-| Runtime contract | `./run_tests.sh --integration-simulation --filter JPeterUtilitySummonRuntimeContractTests` | passed, 24 tests |
-| Runtime contract | `./run_tests.sh --integration-simulation --filter KaliSummonedUnitRuntimeContractTests` | passed, 5 tests |
-| Core | `./run_tests.sh core` | passed, EditMode 183 + PlayMode 33 |
-| Static | `git diff --check` | reported passed for the working-tree diff |
+| Summon scenario | `./run_tests.sh --integration-simulation --filter EnemyUtilitySummon_MultipleSpawns_ReserveCellsAndAllocateIdsInMaterializationOrder` | previously recorded passed |
+| Summon scenario | `./run_tests.sh --integration-simulation --filter EnemyUtilitySummon_` | previously recorded passed, 10 tests |
+| Replay | `./run_tests.sh --integration-replay --filter UtilitySummon` | previously recorded passed, 2 tests |
+| Replay | `./run_tests.sh --integration-replay --filter UtilityArchetypeSummon` | previously recorded passed, 1 test |
+| Runtime contract | `./run_tests.sh --integration-simulation --filter JPeterUtilitySummonRuntimeContractTests` | previously recorded passed, 24 tests |
+| Runtime contract | `./run_tests.sh --integration-simulation --filter KaliSummonedUnitRuntimeContractTests` | previously recorded passed, 5 tests |
+| Core | `./run_tests.sh core` | previously recorded passed, EditMode 183 + PlayMode 33 |
+| Static | `git diff --check` | passed for the relevant working-tree / PR hygiene checks |
 
-Full lane was not run. Therefore do not claim project-wide green, full regression closure, or full lane green.
+Review note: the previous Unity `.meta` trailing whitespace caveat was resolved by the pre-merge hygiene cleanup. Current hygiene checks for the PR/worktree passed `git diff --check`, PR-diff whitespace checks, and touched-file trailing whitespace scans. Full lane was not run.
 
-Review note: the clean working tree has no active `git diff --check` output. A review of the committed seam diff with `git diff --check HEAD^ HEAD` reports Unity `.meta` trailing whitespace in the two new `.meta` files. Treat that as a review-gate caveat unless it is corrected or intentionally accepted.
+Full lane was not run. Therefore this note does not report broad project validation, full regression closure, or broad lane success.
 
-## 7. Merge Gate Checklist
+### Follow-up characterization / guard validation
 
-- [ ] `EntitySpawnRequest` has no entity id.
-- [ ] Entity ids are allocated in materializer after placement selection.
-- [ ] Failed spawn attempts do not consume ids.
-- [ ] `FinalizationBatch.SpawnEntity` remains the write path.
-- [ ] `SurfaceCell(face, x, y)` is preserved.
-- [ ] `SummonedEntityState` is preserved.
-- [ ] `EnemyDefinitionBindingState` is preserved.
-- [ ] Replay/event/export names are unchanged.
-- [ ] `SummonBehaviorModule` is not introduced.
-- [ ] `EnemyBehaviorModuleKey.Summon` is not introduced.
-- [ ] Utility assets are not migrated.
-- [ ] GravityFieldAura is untouched.
-- [ ] RetiredLockNearbyBoxes is untouched.
-- [ ] Targeted tests passed.
-- [ ] Full lane status is explicitly recorded.
+| Area | Evidence |
+| --- | --- |
+| Same-tick multi-summoner ordering | Characterized: Utility trigger intents sort by `SourceEntityId`, `EffectIndex`, `TriggerTick`; materializer preserves received order. |
+| Mutable request payload drift guard | Guarded: `EntitySpawnRequest` uses captured `OriginCell`, `SourceFacing`, and `SourceTeamId`, not a broad live source entity payload. |
+| Duplicate Utility/Behavior Summon guard design | Documented as Option B prerequisite. |
+| BehaviorModule Summon runtime state shape design | Documented as Option B prerequisite. |
+| Summon asset migration plan | Documented as Option B prerequisite. |
+| Replay/export compatibility plan | Documented as Option B prerequisite; initial Option B preserves external replay/export names. |
+| Presentation/audio/VFX parity plan | Documented as Option B prerequisite; initial Option B preserves current names/cue semantics. |
 
-## 8. Follow-up Before Option B
+## 7. Implemented Contract Checklist
 
-Required before Option B:
+- [x] `EntitySpawnRequest` has no entity id.
+- [x] Entity ids are allocated in materializer after placement selection.
+- [x] Failed spawn attempts do not consume ids.
+- [x] `FinalizationBatch.SpawnEntity` remains the write path.
+- [x] `SurfaceCell(face, x, y)` is preserved.
+- [x] `SummonedEntityState` is preserved.
+- [x] `EnemyDefinitionBindingState` is preserved.
+- [x] Replay/event/export names are unchanged.
+- [x] Utility trigger ordering is established before materialization by `SourceEntityId`, `EffectIndex`, then `TriggerTick`.
+- [x] `EntitySpawnMaterializer` preserves received request order and does not define a separate sort policy.
+- [x] `EntitySpawnRequest` uses captured request metadata and is not a live summoner view.
+- [x] `SummonBehaviorModule` is not introduced.
+- [x] `EnemyBehaviorModuleKey.Summon` is not introduced.
+- [x] Utility assets are not migrated.
+- [x] GravityFieldAura is untouched.
+- [x] RetiredLockNearbyBoxes is untouched.
+- [x] Targeted tests and follow-up characterization evidence are recorded.
+- [x] Full lane status is explicitly recorded as not run.
 
-- Duplicate Utility Summon vs Behavior Summon compiler guard design.
-- BehaviorModule summon runtime state shape; see [Enemy-AI-Summon-Behavior-Runtime-State-Design.md](./Enemy-AI-Summon-Behavior-Runtime-State-Design.md).
-- Request ordering contract for multi-source behavior emitters.
-- Source metadata vocabulary that is not Utility-only.
-- Asset migration plan for SummonMinion authoring; see [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
-- Replay/export compatibility decision; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
-- Presentation/audio/VFX parity tests; see [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
-- Full lane / CI release gate.
+## 8. Option B Readiness Status
 
-Recommended additional tests:
+The following Option B prerequisite gates are now documented or characterized:
 
-- `EntitySpawnRequest` does not hold mutable runtime state that can drift before materialization.
-- Placement parity for hazard risk fallback.
-- Max-alive parity after detached/dead/non-occupying child states.
-- Duplicate Utility Summon + future Behavior Summon fail-fast.
-- GravityFieldAura unaffected regression.
-- RetiredLockNearbyBoxes guard regression.
+- Same-tick multi-summoner ordering characterization.
+- Mutable `EntitySpawnRequest` payload drift guard.
+- Duplicate Utility/Behavior Summon guard design; see [Enemy-AI-Summon-Duplicate-Guard-Design.md](./Enemy-AI-Summon-Duplicate-Guard-Design.md).
+- BehaviorModule Summon runtime state shape design; see [Enemy-AI-Summon-Behavior-Runtime-State-Design.md](./Enemy-AI-Summon-Behavior-Runtime-State-Design.md).
+- Summon asset migration plan; see [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
+- Replay/export compatibility plan; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
+- Presentation/audio/VFX parity plan; see [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
+
+Remaining before Option B implementation:
+
+- Write the Option B implementation plan.
+- Implement the duplicate Utility/Behavior Summon compiler guard with tests.
+- Introduce `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and concrete Summon behavior runtime only inside an approved Option B implementation slice.
+- Add Behavior Summon-only compile tests.
+- Add Utility Summon + Behavior Summon duplicate fail-fast tests.
+- Add Behavior Summon request ordering, request snapshot, max-alive, source invalidation, topology participation, replay/export, and presentation/audio/VFX parity tests.
+- Add placement parity coverage for hazard risk fallback.
+- Add max-alive parity coverage after detached, dead, and non-occupying child states.
+- Add GravityFieldAura unaffected regression coverage.
+- Add RetiredLockNearbyBoxes guard regression coverage.
+- Run asset-scoped production migration only after Behavior implementation and parity gates pass.
+- Decide and/or run full lane / CI release gate.
+
+Non-goals still in force:
+
+- No Utility whole-lane migration.
+- No GravityFieldAura migration.
+- No RetiredLockNearbyBoxes migration/delete.
+- No generic registry or `logicModuleAssets`.
+- No direct `WorldState` spawn writes.
+- No replay/export rename without an explicit compatibility migration.
+- No presentation/audio/VFX rename without an explicit asset/schema migration.
 
 ## 9. PR Summary
 
-This extracts spawn/entity creation materialization from Utility Summon. It does not migrate Summon to BehaviorModule. Utility remains the trigger/timer owner. Entity ids are allocated only during materialization, after placement candidate selection succeeds, and `FinalizationBatch.SpawnEntity` remains the authoritative write path. Replay/export names are preserved. Targeted Summon/Utility/replay/core tests passed. Full lane was not run.
+This extracts spawn/entity creation materialization from Utility Summon. It does not migrate Summon to BehaviorModule. Utility remains the trigger/timer owner. Entity ids are allocated only during materialization, after placement candidate selection succeeds, and `FinalizationBatch.SpawnEntity` remains the authoritative write path. Replay/export names are preserved. Targeted Summon/Utility/replay/core tests were previously recorded as passed. Full lane was not run.
+
+This document now also acts as the Option B readiness index for Summon migration planning. The follow-up design gates for duplicate guard, runtime state shape, asset migration, replay/export compatibility, and presentation/audio/VFX parity are documented, but Option B implementation has not started.
