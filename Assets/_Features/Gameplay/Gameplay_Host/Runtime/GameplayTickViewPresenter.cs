@@ -228,9 +228,11 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.ConfigureEnemyPresentationExecution(mode, playbackPort);
         }
 
-        internal void ConfigureCoreGameplaySfxExecution(CoreGameplaySfxExecutionMode mode)
+        internal void ConfigureCoreGameplaySfxExecution(
+            CoreGameplaySfxExecutionMode mode,
+            IGameplaySfxPlaybackPort playbackPort = null)
         {
-            _presentationCoordinator.ConfigureCoreGameplaySfxExecution(mode);
+            _presentationCoordinator.ConfigureCoreGameplaySfxExecution(mode, playbackPort);
         }
 
         public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)

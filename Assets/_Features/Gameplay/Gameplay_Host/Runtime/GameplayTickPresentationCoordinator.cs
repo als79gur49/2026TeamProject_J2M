@@ -113,6 +113,7 @@ namespace Game.Feature.Gameplay.Host
         private GameplayAnimationSyncPlaybackPort _playerActionAnimationSyncPlaybackPort;
         private IGameplayEnemyPresentationPlaybackPort _enemyPresentationPlaybackPort;
         private GameplayEnemyPresentationSyncPlaybackPort _enemyPresentationSyncPlaybackPort;
+        private IGameplaySfxPlaybackPort _coreGameplaySfxPlaybackPort;
         private GameplaySfxPlaybackPortAdapter _coreGameplaySfxPlaybackPortAdapter;
         private bool _isInitialized;
         private bool _presentationPipelineDiagnosticsEnabled;
@@ -449,7 +450,7 @@ namespace Game.Feature.Gameplay.Host
             _coreGameplaySfxExecutionGuard.ResetSession();
             _coreGameplaySfxExecutionPipeline = _coreGameplaySfxExecutionPipelineFactory(
                 _coreGameplaySfxExecutionMode,
-                _coreGameplaySfxPlaybackPortAdapter,
+                ResolveCoreGameplaySfxPlaybackPort(),
                 _coreGameplaySfxExecutionGuard);
             _playerActionAnimationExecutionPipeline?.ResetSession();
         }
@@ -469,14 +470,17 @@ namespace Game.Feature.Gameplay.Host
             _enemyPresentationExecutionPipeline?.ResetSession();
         }
 
-        internal void ConfigureCoreGameplaySfxExecution(CoreGameplaySfxExecutionMode mode)
+        internal void ConfigureCoreGameplaySfxExecution(
+            CoreGameplaySfxExecutionMode mode,
+            IGameplaySfxPlaybackPort playbackPort = null)
         {
             _coreGameplaySfxExecutionMode = NormalizeCoreGameplaySfxExecutionMode(mode);
+            _coreGameplaySfxPlaybackPort = playbackPort;
             _coreGameplaySfxExecutionGuard.Configure(_coreGameplaySfxExecutionMode);
             _coreGameplaySfxExecutionGuard.ResetSession();
             _coreGameplaySfxExecutionPipeline = _coreGameplaySfxExecutionPipelineFactory(
                 _coreGameplaySfxExecutionMode,
-                _coreGameplaySfxPlaybackPortAdapter,
+                ResolveCoreGameplaySfxPlaybackPort(),
                 _coreGameplaySfxExecutionGuard);
             _coreGameplaySfxExecutionPipeline?.ResetSession();
         }
@@ -1034,6 +1038,11 @@ namespace Game.Feature.Gameplay.Host
             return _enemyPresentationPlaybackPort ?? _enemyPresentationSyncPlaybackPort;
         }
 
+        private IGameplaySfxPlaybackPort ResolveCoreGameplaySfxPlaybackPort()
+        {
+            return _coreGameplaySfxPlaybackPort ?? _coreGameplaySfxPlaybackPortAdapter;
+        }
+
         private void RecordBoxMotionLegacyOwnership(TickResult result)
         {
             foreach (var key in BuildBoxMotionPlaybackKeys(result))
@@ -1301,7 +1310,7 @@ namespace Game.Feature.Gameplay.Host
 
             _coreGameplaySfxExecutionPipeline ??= _coreGameplaySfxExecutionPipelineFactory(
                 _coreGameplaySfxExecutionMode,
-                _coreGameplaySfxPlaybackPortAdapter,
+                ResolveCoreGameplaySfxPlaybackPort(),
                 _coreGameplaySfxExecutionGuard);
             _coreGameplaySfxExecutionPipeline?.Present(result);
         }

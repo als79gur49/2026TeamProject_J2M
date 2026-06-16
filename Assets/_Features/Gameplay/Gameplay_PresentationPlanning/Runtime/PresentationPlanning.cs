@@ -258,6 +258,48 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         }
     }
 
+    public readonly struct PresentationSfxPayload : IEquatable<PresentationSfxPayload>
+    {
+        public PresentationSfxPayload(
+            int entityType,
+            int exitCause = 0,
+            int sourceActorEntityId = 0)
+        {
+            EntityType = Math.Max(0, entityType);
+            ExitCause = Math.Max(0, exitCause);
+            SourceActorEntityId = Math.Max(0, sourceActorEntityId);
+        }
+
+        public int EntityType { get; }
+
+        public int ExitCause { get; }
+
+        public int SourceActorEntityId { get; }
+
+        public bool Equals(PresentationSfxPayload other)
+        {
+            return EntityType == other.EntityType &&
+                   ExitCause == other.ExitCause &&
+                   SourceActorEntityId == other.SourceActorEntityId;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationSfxPayload other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = EntityType;
+                hash = (hash * 397) ^ ExitCause;
+                hash = (hash * 397) ^ SourceActorEntityId;
+                return hash;
+            }
+        }
+    }
+
     public readonly struct PresentationCue : IEquatable<PresentationCue>
     {
         public PresentationCue(
@@ -270,7 +312,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             PresentationTopologyTransitionPayload topologyPayload = default,
             PresentationMotionPayload motionPayload = default,
             PresentationAnimationPayload animationPayload = default,
-            PresentationEnemyPayload enemyPayload = default)
+            PresentationEnemyPayload enemyPayload = default,
+            PresentationSfxPayload sfxPayload = default)
         {
             Domain = domain;
             Key = key;
@@ -282,6 +325,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             MotionPayload = motionPayload;
             AnimationPayload = animationPayload;
             EnemyPayload = enemyPayload;
+            SfxPayload = sfxPayload;
         }
 
         public PresentationDomain Domain { get; }
@@ -304,6 +348,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
 
         public PresentationEnemyPayload EnemyPayload { get; }
 
+        public PresentationSfxPayload SfxPayload { get; }
+
         public bool Equals(PresentationCue other)
         {
             return Domain == other.Domain &&
@@ -315,7 +361,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                    TopologyPayload.Equals(other.TopologyPayload) &&
                    MotionPayload.Equals(other.MotionPayload) &&
                    AnimationPayload.Equals(other.AnimationPayload) &&
-                   EnemyPayload.Equals(other.EnemyPayload);
+                   EnemyPayload.Equals(other.EnemyPayload) &&
+                   SfxPayload.Equals(other.SfxPayload);
         }
 
         public override bool Equals(object obj)
@@ -337,6 +384,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 hash = (hash * 397) ^ MotionPayload.GetHashCode();
                 hash = (hash * 397) ^ AnimationPayload.GetHashCode();
                 hash = (hash * 397) ^ EnemyPayload.GetHashCode();
+                hash = (hash * 397) ^ SfxPayload.GetHashCode();
                 return hash;
             }
         }
@@ -990,7 +1038,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 fact.Source,
                 fact.Target,
                 PresentationAnchor.ForEntityCenter(fact.Target.EntityId),
-                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)));
+                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)),
+                sfxPayload: new PresentationSfxPayload(entityType: 0));
             return true;
         }
 
@@ -1013,7 +1062,11 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 fact.Source,
                 fact.Target,
                 fact.Payload.PrimaryCellCenterAnchorOrEntityCenter(fact.Target.EntityId),
-                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)));
+                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)),
+                sfxPayload: new PresentationSfxPayload(
+                    fact.Payload.SecondaryValue,
+                    fact.Payload.PrimaryValue,
+                    fact.Payload.TertiaryValue));
             return true;
         }
 

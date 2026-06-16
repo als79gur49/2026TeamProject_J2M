@@ -279,13 +279,15 @@ namespace Game.Feature.Gameplay.Host
             PresentationSfxCueKey cueKey,
             PresentationSource source,
             PresentationTarget target,
-            PresentationAnchor anchor)
+            PresentationAnchor anchor,
+            PresentationSfxPayload sfxPayload = default)
         {
             OwnershipKey = ownershipKey;
             CueKey = cueKey;
             Source = source;
             Target = target;
             Anchor = anchor;
+            SfxPayload = sfxPayload;
         }
 
         public CoreGameplaySfxPlaybackKey OwnershipKey { get; }
@@ -297,6 +299,8 @@ namespace Game.Feature.Gameplay.Host
         public PresentationTarget Target { get; }
 
         public PresentationAnchor Anchor { get; }
+
+        public PresentationSfxPayload SfxPayload { get; }
 
         public int TickIndex => OwnershipKey.TickIndex;
 
@@ -701,7 +705,8 @@ namespace Game.Feature.Gameplay.Host
         private static bool IsCoreGameplaySfxCue(PresentationCue cue)
         {
             return cue.Domain == PresentationDomain.Sfx &&
-                   cue.Key.TryGetSfxCueKey(out _);
+                   cue.Key.Domain == PresentationDomain.Sfx &&
+                   cue.Key.LocalKey > 0;
         }
 
         private static bool TryCreateRequest(
@@ -736,7 +741,8 @@ namespace Game.Feature.Gameplay.Host
                 cueKey,
                 cue.Source,
                 cue.Target,
-                cue.Anchor);
+                cue.Anchor,
+                cue.SfxPayload);
             return true;
         }
 
