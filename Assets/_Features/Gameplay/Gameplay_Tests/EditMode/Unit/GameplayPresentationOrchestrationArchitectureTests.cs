@@ -763,7 +763,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void SfxCuePlanner_UsesTypedLocalKeys_ForCoreGameplayDamageAndExit()
         {
-            var cueFrame = CreateSfxCueFrame(includeEnemyDeathExit: true);
+            var cueFrame = CreateAllCoreSfxCueFrame();
 
             var sfxKeys = cueFrame.Cues
                 .Where(cue => cue.Domain == PresentationDomain.Sfx)
@@ -780,20 +780,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 PresentationSfxCueKey.PlayerDamage,
                 PresentationSfxCueKey.EnemyDamage,
+                PresentationSfxCueKey.EntityExitItemConsume,
+                PresentationSfxCueKey.EntityExitBoxDestroy,
                 PresentationSfxCueKey.EntityExitEnemyDeath,
+                PresentationSfxCueKey.EntityExitOutOfBounds,
             }));
             Assert.That(cueFrame.Cues.All(cue => cue.PolicyHint.Kind == PresentationPlaybackPolicyHintKind.OneShot), Is.True);
             Assert.That(cueFrame.Cues.All(cue => !cue.PolicyHint.Blocking), Is.True);
             Assert.That(cueFrame.Cues.All(cue => cue.PolicyHint.DedupeKey > 0), Is.True);
+            Assert.That(
+                cueFrame.Cues.Single(cue => cue.Key.TryGetSfxCueKey(out var key) &&
+                                            key == PresentationSfxCueKey.EntityExitBoxDestroy)
+                    .SfxPayload.EntityType,
+                Is.EqualTo((int)EntityType.Box));
+            Assert.That(
+                cueFrame.Cues.Single(cue => cue.Key.TryGetSfxCueKey(out var key) &&
+                                            key == PresentationSfxCueKey.EntityExitEnemyDeath)
+                    .SfxPayload.SourceActorEntityId,
+                Is.EqualTo(10));
         }
 
         [Test]
         [Category("Core")]
         public void SfxPlaybackPlanner_CreatesNonBlockingOneShotCuesWithoutTracksOrBarriers()
         {
-            var plan = new PresentationPlaybackPlanner().Plan(CreateSfxCueFrame(includeEnemyDeathExit: true));
+            var plan = new PresentationPlaybackPlanner().Plan(CreateAllCoreSfxCueFrame());
 
-            Assert.That(plan.Cues.Count(cue => cue.Cue.Domain == PresentationDomain.Sfx), Is.EqualTo(3));
+            Assert.That(plan.Cues.Count(cue => cue.Cue.Domain == PresentationDomain.Sfx), Is.EqualTo(6));
             Assert.That(plan.Tracks.Any(track => track.Cue.Domain == PresentationDomain.Sfx), Is.False);
             Assert.That(plan.Barriers.Any(barrier => barrier.OwnerDomain == PresentationDomain.Sfx), Is.False);
             Assert.That(plan.Cues.All(cue => !cue.Policy.Blocking), Is.True);
@@ -1351,6 +1364,91 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateDiagnosticTickResult(
                     includeTopologyMotion: false,
                     includeEnemyDeathExit: includeEnemyDeathExit));
+            return new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new SfxCuePlanner(),
+            }).Plan(factFrame);
+        }
+
+        private static PresentationCueFrame CreateAllCoreSfxCueFrame()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                new[]
+                {
+                    new TickPlayerDamagePresentationSignal(10, tookDamageThisTick: true, damageAmount: 1),
+                },
+                new[]
+                {
+                    new TickPlayerDeathPresentationSignal(
+                        10,
+                        didDieThisTick: false,
+                        sourceEntityId: 0,
+                        Direction.None,
+                        resolvedDamageSourceAvailable: false,
+                        damageAmountAtFatalHit: 0,
+                        DeathDirectionHintKind.Unknown),
+                },
+                new[]
+                {
+                    new TickEnemyDamagePresentationSignal(20, tookDamageThisTick: true, damageAmount: 2),
+                },
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                new[]
+                {
+                    new TickEntityExitPresentationSignal(
+                        30,
+                        TickEntityExitCause.ItemConsume,
+                        new SurfaceCell(FaceId.Floor, 0, 0),
+                        topology,
+                        Direction.Up,
+                        EntityType.Unit,
+                        sourceActorEntityId: 10),
+                    new TickEntityExitPresentationSignal(
+                        40,
+                        TickEntityExitCause.BoxDestroy,
+                        new SurfaceCell(FaceId.Floor, 1, 0),
+                        topology,
+                        Direction.Up,
+                        EntityType.Box,
+                        sourceActorEntityId: 10),
+                    new TickEntityExitPresentationSignal(
+                        50,
+                        TickEntityExitCause.EnemyDeath,
+                        new SurfaceCell(FaceId.Floor, 0, 1),
+                        topology,
+                        Direction.Up,
+                        EntityType.Unit,
+                        sourceActorEntityId: 10),
+                    new TickEntityExitPresentationSignal(
+                        60,
+                        TickEntityExitCause.OutOfBounds,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        topology,
+                        Direction.Up,
+                        EntityType.Unit),
+                });
+            var result = new TickResult(
+                tickIndex: 9,
+                completedPhases: Array.Empty<TickPhase>(),
+                phaseTrace: Array.Empty<string>(),
+                movementPhaseResult: MovementPhaseResult.Empty,
+                attackPhaseResult: AttackPhaseResult.Empty,
+                finalEntities: Array.Empty<EntityState>(),
+                eventLog: Array.Empty<string>(),
+                finalTopology: topology,
+                presentationData: presentationData,
+                determinismHash: "SFX",
+                trace: TickTrace.Empty,
+                objectiveResult: StageObjectiveTickResult.NoObjective);
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
             return new PresentationCuePlannerSet(new IPresentationCuePlanner[]
             {
                 new SfxCuePlanner(),
