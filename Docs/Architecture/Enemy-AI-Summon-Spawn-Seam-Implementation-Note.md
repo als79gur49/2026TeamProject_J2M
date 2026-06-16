@@ -110,7 +110,7 @@ Required before Option B:
 - Source metadata vocabulary that is not Utility-only.
 - Asset migration plan for SummonMinion authoring; see [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
 - Replay/export compatibility decision; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
-- Presentation/audio/VFX parity tests.
+- Presentation/audio/VFX parity tests; see [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
 - Full lane / CI release gate.
 
 Recommended additional tests:

@@ -176,7 +176,7 @@ Decision:
 - Duplicate Utility/Behavior Summon guard: [Enemy-AI-Summon-Duplicate-Guard-Design.md](./Enemy-AI-Summon-Duplicate-Guard-Design.md).
 - Future runtime state shape: [Enemy-AI-Summon-Behavior-Runtime-State-Design.md](./Enemy-AI-Summon-Behavior-Runtime-State-Design.md).
 - Asset migration plan: [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
-- Presentation/audio/VFX parity plan.
+- Presentation/audio/VFX parity plan: [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
 - Full lane / CI release gate policy.
 
 ## 10. Explicit Non-Goals
@@ -205,7 +205,7 @@ Decision:
 - Asset migration plan accepted.
 - Duplicate Utility/Behavior Summon guard accepted.
 - Runtime state design accepted.
-- Presentation/audio/VFX parity plan accepted.
+- Presentation/audio/VFX parity plan accepted; see [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
 - Full lane / CI release gate policy decided.
 
 Summon replay/export compatibility is planned as an Option B prerequisite. Initial Option B should preserve external replay/export names. SummonBehaviorModule migration has not started. Full lane was not run unless explicitly reported.

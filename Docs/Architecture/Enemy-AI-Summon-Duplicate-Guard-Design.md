@@ -216,7 +216,7 @@ Before Option B starts:
 - Source metadata vocabulary is not Utility-only.
 - Asset migration plan for `SummonMinion` authoring is written; see [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
 - Replay/export compatibility plan is written; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
-- Presentation, audio, and VFX parity tests are planned.
+- Presentation, audio, and VFX parity tests are planned; see [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
 - Full lane / CI release gate policy is decided.
 
 Duplicate Utility/Behavior Summon guard is designed as an Option B prerequisite. SummonBehaviorModule migration has not started. Full lane was not run unless explicitly reported.

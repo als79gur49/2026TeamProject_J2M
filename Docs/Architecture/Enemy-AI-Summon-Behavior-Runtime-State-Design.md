@@ -373,7 +373,7 @@ Rollback strategy:
 - Duplicate Utility/Behavior Summon guard accepted.
 - Asset migration plan accepted; see [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
 - Replay/export compatibility plan accepted; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
-- Presentation/audio/VFX parity plan accepted.
+- Presentation/audio/VFX parity plan accepted; see [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
 - Behavior emitter request ordering contract accepted.
 - Source metadata vocabulary accepted without Utility-only coupling.
 - Full lane / CI release gate policy decided.

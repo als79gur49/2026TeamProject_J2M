@@ -282,7 +282,7 @@ Validation wording note:
 
 ## 11. Presentation / Audio / VFX Dependency
 
-This document does not complete the presentation/audio/VFX plan.
+This document does not complete the presentation/audio/VFX plan. The accepted prerequisite is [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
 
 Parity requirements:
 
@@ -296,7 +296,7 @@ Parity requirements:
 
 Required follow-up:
 
-- A presentation/audio/VFX parity plan must be accepted before Option B implementation or asset migration starts.
+- A presentation/audio/VFX parity plan must be accepted before Option B implementation or asset migration starts; see [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
 
 ## 12. Future Test Matrix
 
@@ -349,7 +349,7 @@ Required follow-up:
 - Duplicate Utility/Behavior Summon guard accepted.
 - Runtime state design accepted.
 - Replay/export compatibility plan accepted; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
-- Presentation/audio/VFX parity plan accepted.
+- Presentation/audio/VFX parity plan accepted; see [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
 - Behavior emitter request ordering contract accepted.
 - Source metadata vocabulary accepted without Utility-only coupling.
 - Full lane / CI release gate policy decided.
