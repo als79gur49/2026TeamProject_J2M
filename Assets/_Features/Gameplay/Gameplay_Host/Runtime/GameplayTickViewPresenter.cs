@@ -221,6 +221,13 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.ConfigurePlayerActionAnimationExecution(mode, playbackPort);
         }
 
+        internal void ConfigureEnemyPresentationExecution(
+            EnemyPresentationExecutionMode mode,
+            IGameplayEnemyPresentationPlaybackPort playbackPort = null)
+        {
+            _presentationCoordinator.ConfigureEnemyPresentationExecution(mode, playbackPort);
+        }
+
         public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)
         {
             _presentationCoordinator.DetachPresentationExtension(extension);
@@ -302,6 +309,18 @@ namespace Game.Feature.Gameplay.Host
 
         internal GameplayAnimationExecutorDiagnostics PlayerActionAnimationExecutorDiagnostics =>
             _presentationCoordinator.PlayerActionAnimationExecutorDiagnostics;
+
+        internal EnemyPresentationExecutionMode EnemyPresentationExecutionMode =>
+            _presentationCoordinator.EnemyPresentationExecutionMode;
+
+        internal EnemyPresentationOwnershipDiagnostics EnemyPresentationOwnershipDiagnostics =>
+            _presentationCoordinator.EnemyPresentationOwnershipDiagnostics;
+
+        internal PresentationBlockingSnapshot EnemyPresentationExecutionPipelineBlockingSnapshot =>
+            _presentationCoordinator.EnemyPresentationExecutionPipelineBlockingSnapshot;
+
+        internal GameplayEnemyPresentationExecutorDiagnostics EnemyPresentationExecutorDiagnostics =>
+            _presentationCoordinator.EnemyPresentationExecutorDiagnostics;
 
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {

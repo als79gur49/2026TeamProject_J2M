@@ -112,6 +112,8 @@ namespace Game.Feature.Gameplay.Host
 
         public bool HasJumpAirborneTopologySuspendSnapshot => _jumpAirborneTopologySuspendSnapshot.HasValue;
 
+        internal bool CanDriveCurrentAnimator => CanDriveAnimator(ResolveAnimator());
+
         public int DebugLastJumpAirborneStateShortNameHash => Animator.StringToHash(jumpAirborneStateName);
 
         public float DebugLastJumpAirborneNormalizedTime =>

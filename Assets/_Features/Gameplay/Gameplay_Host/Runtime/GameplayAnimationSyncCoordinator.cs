@@ -117,11 +117,17 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
             IReadOnlyCollection<int> jumpLandingCompletionHoldEntityIds,
             Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds,
-            bool suppressPlayerActionAnimations = false)
+            bool suppressPlayerActionAnimations = false,
+            bool suppressEnemyPresentationAnimations = false)
         {
             LastStageClearPlayerPresentationDelaySeconds = 0f;
             BuildContactDelayedEnemyDeathEntityIds(result?.PresentationData);
             _enemyViewPresentationMapper.Build(result, viewsByEntityId, _enemyViewPresentationStates);
+            if (suppressEnemyPresentationAnimations)
+            {
+                SuppressEnemyPresentationFields(_enemyViewPresentationStates);
+            }
+
             foreach (var pair in _enemyViewPresentationStates)
             {
                 var state = pair.Value;
@@ -245,6 +251,92 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        internal bool TryApplyEnemyPresentationPlayback(
+            in GameplayEnemyPresentationPlaybackRequest request,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
+            out GameplayEnemyPresentationPlaybackResult result)
+        {
+            if (viewsByEntityId == null)
+            {
+                throw new ArgumentNullException(nameof(viewsByEntityId));
+            }
+
+            if (request.Target.Kind != PresentationTargetKind.Entity ||
+                request.Target.EntityId <= 0 ||
+                request.EnemyEntityId <= 0)
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.TargetMissing);
+                return false;
+            }
+
+            if (request.Anchor.Kind != PresentationAnchorKind.EntityVisualRoot &&
+                request.Anchor.Kind != PresentationAnchorKind.EntityCenter)
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.AnchorMissing);
+                return false;
+            }
+
+            if (!request.EnemyPayload.IsValid)
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.BindingMissing);
+                return false;
+            }
+
+            if (!viewsByEntityId.TryGetValue(request.Target.EntityId, out var view) ||
+                view == null)
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.BindingMissing);
+                return false;
+            }
+
+            if (!TryGetEnemyAnimatorDriver(request.Target.EntityId, viewsByEntityId, out var driver) ||
+                driver == null)
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.DriverMissing);
+                return false;
+            }
+
+            if (!driver.CanDriveCurrentAnimator)
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.AnimatorMissing);
+                return false;
+            }
+
+            if (!TryCreateEnemyPresentationPlaybackState(
+                    request,
+                    driver.LastPresentationState,
+                    out var presentationState,
+                    out var useDeathCommand))
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.IgnoredByPolicy);
+                return false;
+            }
+
+            _enemyViewPresentationStates[request.EnemyEntityId] = presentationState;
+            if (useDeathCommand)
+            {
+                _contactDelayedEnemyDeathEntityIds.Remove(request.EnemyEntityId);
+                _enemyUtilityAnimationTracks.Remove(request.EnemyEntityId);
+                driver.PlayDeathPresentation(request.EnemyEntityId);
+            }
+            else
+            {
+                driver.Apply(presentationState);
+                RefreshEnemyUtilityAnimationTrack(request.EnemyEntityId, presentationState, driver);
+            }
+
+            result = new GameplayEnemyPresentationPlaybackResult(
+                GameplayEnemyPresentationPlaybackResultKind.Applied);
+            return true;
+        }
+
         private void SuppressPlayerActionAnimationFields(
             Dictionary<int, PlayerViewPresentationState> states)
         {
@@ -290,6 +382,204 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _playerActionSuppressionBuffer.Clear();
+        }
+
+        private static void SuppressEnemyPresentationFields(
+            Dictionary<int, EnemyViewPresentationState> states)
+        {
+            if (states == null || states.Count == 0)
+            {
+                return;
+            }
+
+            var entityIds = new List<int>(states.Keys);
+            for (var i = 0; i < entityIds.Count; i++)
+            {
+                var entityId = entityIds[i];
+                var state = states[entityId];
+                var hasChargePresentation =
+                    state.ChargePhase != EnemyChargePhase.None ||
+                    state.StartedChargeWindupThisTick ||
+                    state.StartedChargeActiveThisTick ||
+                    state.StartedChargeRecoverThisTick;
+                states[entityId] = new EnemyViewPresentationState(
+                    state.EntityId,
+                    state.TickIndex,
+                    state.AiMode,
+                    state.ActiveActionKind,
+                    EnemyJumpPhase.None,
+                    EnemyChargePhase.None,
+                    state.IsMoving,
+                    hasChargePresentation ? false : state.StartedWindupThisTick,
+                    state.ExecutedThisTick,
+                    hasChargePresentation ? false : state.StartedRecoveryThisTick,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: false,
+                    startedChargeActiveThisTick: false,
+                    startedChargeRecoverThisTick: false,
+                    state.TookDamage,
+                    didDie: false,
+                    TickEnemyJumpPresentationOutcome.None,
+                    state.GlidePhase,
+                    state.StartedGlideWindupThisTick,
+                    state.StartedGlideActiveThisTick,
+                    state.StartedGlideRecoverThisTick,
+                    state.UtilityPresentationKind,
+                    state.StartedUtilityWindupThisTick,
+                    state.UtilityPhase,
+                    state.StartedUtilityRecoverThisTick,
+                    state.UtilityEffectIndex,
+                    state.UtilityActivationSequence,
+                    state.UtilityCanceledThisTick);
+            }
+        }
+
+        private static bool TryCreateEnemyPresentationPlaybackState(
+            in GameplayEnemyPresentationPlaybackRequest request,
+            in EnemyViewPresentationState previousState,
+            out EnemyViewPresentationState state,
+            out bool useDeathCommand)
+        {
+            useDeathCommand = false;
+            state = default;
+
+            var entityId = request.EnemyEntityId;
+            var baseState = previousState.EntityId == entityId
+                ? previousState
+                : new EnemyViewPresentationState(
+                    entityId,
+                    request.TickIndex,
+                    EnemyAiMode.None,
+                    EnemyActionKind.None,
+                    EnemyJumpPhase.None,
+                    EnemyChargePhase.None,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: false,
+                    startedChargeActiveThisTick: false,
+                    startedChargeRecoverThisTick: false,
+                    tookDamage: false,
+                    didDie: false);
+
+            var jumpPhase = EnemyJumpPhase.None;
+            var chargePhase = EnemyChargePhase.None;
+            var startedWindupThisTick = baseState.StartedWindupThisTick;
+            var startedRecoveryThisTick = baseState.StartedRecoveryThisTick;
+            var startedJumpWindupThisTick = false;
+            var startedJumpAirborneThisTick = false;
+            var landedFromJumpThisTick = false;
+            var retryingJumpAirborneThisTick = false;
+            var startedChargeWindupThisTick = false;
+            var startedChargeActiveThisTick = false;
+            var startedChargeRecoverThisTick = false;
+            var didDie = false;
+            var jumpOutcome = TickEnemyJumpPresentationOutcome.None;
+
+            switch (request.EnemyPayload.Kind)
+            {
+                case PresentationEnemyPresentationKind.Jump:
+                    switch (request.EnemyPayload.Phase)
+                    {
+                        case PresentationEnemyPresentationPhase.Windup:
+                            jumpPhase = EnemyJumpPhase.Windup;
+                            startedJumpWindupThisTick = true;
+                            jumpOutcome = TickEnemyJumpPresentationOutcome.WindupStarted;
+                            break;
+                        case PresentationEnemyPresentationPhase.Airborne:
+                            jumpPhase = EnemyJumpPhase.Airborne;
+                            startedJumpAirborneThisTick = true;
+                            retryingJumpAirborneThisTick =
+                                request.EnemyPayload.Outcome == PresentationEnemyPresentationOutcome.Retried;
+                            jumpOutcome = retryingJumpAirborneThisTick
+                                ? TickEnemyJumpPresentationOutcome.Retried
+                                : TickEnemyJumpPresentationOutcome.AirborneStarted;
+                            break;
+                        case PresentationEnemyPresentationPhase.Land:
+                            landedFromJumpThisTick = true;
+                            jumpOutcome = TickEnemyJumpPresentationOutcome.Landed;
+                            break;
+                        default:
+                            return false;
+                    }
+
+                    break;
+                case PresentationEnemyPresentationKind.Charge:
+                    switch (request.EnemyPayload.Phase)
+                    {
+                        case PresentationEnemyPresentationPhase.Windup:
+                            chargePhase = EnemyChargePhase.Windup;
+                            startedChargeWindupThisTick = true;
+                            startedWindupThisTick = true;
+                            break;
+                        case PresentationEnemyPresentationPhase.Active:
+                            chargePhase = EnemyChargePhase.Active;
+                            startedChargeActiveThisTick = true;
+                            break;
+                        case PresentationEnemyPresentationPhase.Recover:
+                            chargePhase = EnemyChargePhase.Recover;
+                            startedChargeRecoverThisTick = true;
+                            startedRecoveryThisTick = true;
+                            break;
+                        default:
+                            return false;
+                    }
+
+                    break;
+                case PresentationEnemyPresentationKind.Death:
+                    if (request.EnemyPayload.Phase != PresentationEnemyPresentationPhase.Death)
+                    {
+                        return false;
+                    }
+
+                    useDeathCommand = true;
+                    didDie = true;
+                    break;
+                default:
+                    return false;
+            }
+
+            state = new EnemyViewPresentationState(
+                entityId,
+                request.TickIndex,
+                didDie ? EnemyAiMode.Dead : baseState.AiMode,
+                baseState.ActiveActionKind,
+                jumpPhase,
+                chargePhase,
+                baseState.IsMoving,
+                startedWindupThisTick,
+                baseState.ExecutedThisTick,
+                startedRecoveryThisTick,
+                startedJumpWindupThisTick,
+                startedJumpAirborneThisTick,
+                landedFromJumpThisTick,
+                retryingJumpAirborneThisTick,
+                startedChargeWindupThisTick,
+                startedChargeActiveThisTick,
+                startedChargeRecoverThisTick,
+                baseState.TookDamage,
+                didDie,
+                jumpOutcome,
+                baseState.GlidePhase,
+                baseState.StartedGlideWindupThisTick,
+                baseState.StartedGlideActiveThisTick,
+                baseState.StartedGlideRecoverThisTick,
+                baseState.UtilityPresentationKind,
+                baseState.StartedUtilityWindupThisTick,
+                baseState.UtilityPhase,
+                baseState.StartedUtilityRecoverThisTick,
+                baseState.UtilityEffectIndex,
+                baseState.UtilityActivationSequence,
+                baseState.UtilityCanceledThisTick);
+            return true;
         }
 
         private static PlayerViewPresentationState CreatePlayerActionAnimationPresentationState(

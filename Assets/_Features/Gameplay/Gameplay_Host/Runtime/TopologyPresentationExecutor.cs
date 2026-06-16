@@ -670,5 +670,32 @@ namespace Game.Feature.Gameplay.Host
                         executionGuard),
                 });
         }
+
+        public static GameplayPresentationPipeline CreateEnemyPresentationExecutionPipeline(
+            EnemyPresentationExecutionMode mode,
+            IGameplayEnemyPresentationPlaybackPort playbackPort,
+            EnemyPresentationExecutionGuard executionGuard)
+        {
+            if (mode != EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor)
+            {
+                return null;
+            }
+
+            return new GameplayPresentationPipeline(
+                new TickPresentationFactExtractor(),
+                new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+                {
+                    new EnemyPresentationCuePlanner(),
+                }),
+                new PresentationPlaybackPlanner(),
+                new PresentationPlaybackScheduler(),
+                new IPresentationExecutor[]
+                {
+                    new GameplayEnemyPresentationExecutor(
+                        playbackPort,
+                        mode,
+                        executionGuard),
+                });
+        }
     }
 }

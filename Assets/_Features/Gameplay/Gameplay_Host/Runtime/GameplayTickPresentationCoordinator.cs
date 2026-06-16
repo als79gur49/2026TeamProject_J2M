@@ -82,12 +82,15 @@ namespace Game.Feature.Gameplay.Host
         private readonly BoxMotionExecutionPipelineFactory _boxMotionExecutionPipelineFactory;
         private readonly PlayerActionAnimationExecutionGuard _playerActionAnimationExecutionGuard = new();
         private readonly PlayerActionAnimationExecutionPipelineFactory _playerActionAnimationExecutionPipelineFactory;
+        private readonly EnemyPresentationExecutionGuard _enemyPresentationExecutionGuard = new();
+        private readonly EnemyPresentationExecutionPipelineFactory _enemyPresentationExecutionPipelineFactory;
 
         private GameplayPresentationPipeline _presentationPipeline;
         private GameplayPresentationPipeline _topologyExecutionPipeline;
         private GameplayPresentationPipeline _damageDeathVfxExecutionPipeline;
         private GameplayPresentationPipeline _boxMotionExecutionPipeline;
         private GameplayPresentationPipeline _playerActionAnimationExecutionPipeline;
+        private GameplayPresentationPipeline _enemyPresentationExecutionPipeline;
         private TopologyPresentationExecutionMode _topologyExecutionMode =
             TopologyPresentationExecutionMode.LegacyCoordinator;
         private DamageDeathVfxExecutionMode _damageDeathVfxExecutionMode =
@@ -96,11 +99,15 @@ namespace Game.Feature.Gameplay.Host
             BoxMotionPresentationExecutionMode.LegacyTrackPlanner;
         private PlayerActionAnimationExecutionMode _playerActionAnimationExecutionMode =
             PlayerActionAnimationExecutionMode.LegacyAnimationSync;
+        private EnemyPresentationExecutionMode _enemyPresentationExecutionMode =
+            EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper;
         private IDamageDeathVfxPlaybackPort _damageDeathVfxPlaybackPort;
         private IGameplayMotionPlaybackPort _boxMotionPlaybackPort;
         private GameplayMotionTrackPlannerPlaybackPort _boxMotionTrackPlannerPlaybackPort;
         private IGameplayAnimationPlaybackPort _playerActionAnimationPlaybackPort;
         private GameplayAnimationSyncPlaybackPort _playerActionAnimationSyncPlaybackPort;
+        private IGameplayEnemyPresentationPlaybackPort _enemyPresentationPlaybackPort;
+        private GameplayEnemyPresentationSyncPlaybackPort _enemyPresentationSyncPlaybackPort;
         private bool _isInitialized;
         private bool _presentationPipelineDiagnosticsEnabled;
         private GameplayCubeProjector _projector;
@@ -134,7 +141,8 @@ namespace Game.Feature.Gameplay.Host
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline)
+                GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateEnemyPresentationExecutionPipeline)
         {
         }
 
@@ -143,7 +151,8 @@ namespace Game.Feature.Gameplay.Host
                 topologyExecutionPipelineFactory,
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline)
+                GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateEnemyPresentationExecutionPipeline)
         {
         }
 
@@ -154,7 +163,8 @@ namespace Game.Feature.Gameplay.Host
                 topologyExecutionPipelineFactory,
                 damageDeathVfxExecutionPipelineFactory,
                 GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline)
+                GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateEnemyPresentationExecutionPipeline)
         {
         }
 
@@ -162,7 +172,8 @@ namespace Game.Feature.Gameplay.Host
             TopologyExecutionPipelineFactory topologyExecutionPipelineFactory,
             DamageDeathVfxExecutionPipelineFactory damageDeathVfxExecutionPipelineFactory,
             BoxMotionExecutionPipelineFactory boxMotionExecutionPipelineFactory,
-            PlayerActionAnimationExecutionPipelineFactory playerActionAnimationExecutionPipelineFactory = null)
+            PlayerActionAnimationExecutionPipelineFactory playerActionAnimationExecutionPipelineFactory = null,
+            EnemyPresentationExecutionPipelineFactory enemyPresentationExecutionPipelineFactory = null)
         {
             _topologyExecutionPipelineFactory = topologyExecutionPipelineFactory ??
                                                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline;
@@ -175,6 +186,9 @@ namespace Game.Feature.Gameplay.Host
             _playerActionAnimationExecutionPipelineFactory = playerActionAnimationExecutionPipelineFactory ??
                                                              GameplayHostPresentationPipelineFactory
                                                                  .CreatePlayerActionAnimationExecutionPipeline;
+            _enemyPresentationExecutionPipelineFactory = enemyPresentationExecutionPipelineFactory ??
+                                                         GameplayHostPresentationPipelineFactory
+                                                             .CreateEnemyPresentationExecutionPipeline;
             _audioPresentationController = new GameplayAudioPresentationController(_stateStore);
             _actionAudioPresentationController = new GameplayActionAudioPresentationController(_stateStore);
             _enemyAudioPresentationController = new EnemyAudioPresentationController(_stateStore);
@@ -226,6 +240,8 @@ namespace Game.Feature.Gameplay.Host
             _boxMotionTrackPlannerPlaybackPort = new GameplayMotionTrackPlannerPlaybackPort(_planner, _stateStore);
             _playerActionAnimationSyncPlaybackPort =
                 new GameplayAnimationSyncPlaybackPort(_animationSync, _stateStore);
+            _enemyPresentationSyncPlaybackPort =
+                new GameplayEnemyPresentationSyncPlaybackPort(_animationSync, _stateStore);
             _topologyTransitionController.TopologyPresentationCompleted += HandleTopologyPresentationCompleted;
             _topologyTransitionController.TopologyTransitionPresentationCompleted +=
                 HandleTopologyTransitionPresentationCompleted;
@@ -321,6 +337,12 @@ namespace Game.Feature.Gameplay.Host
         internal PlayerActionAnimationOwnershipDiagnostics PlayerActionAnimationOwnershipDiagnostics =>
             _playerActionAnimationExecutionGuard.Diagnostics;
 
+        internal EnemyPresentationExecutionMode EnemyPresentationExecutionMode =>
+            _enemyPresentationExecutionMode;
+
+        internal EnemyPresentationOwnershipDiagnostics EnemyPresentationOwnershipDiagnostics =>
+            _enemyPresentationExecutionGuard.Diagnostics;
+
         internal PresentationBlockingSnapshot DamageDeathVfxExecutionPipelineBlockingSnapshot =>
             _damageDeathVfxExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
@@ -330,6 +352,9 @@ namespace Game.Feature.Gameplay.Host
         internal PresentationBlockingSnapshot PlayerActionAnimationExecutionPipelineBlockingSnapshot =>
             _playerActionAnimationExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
+        internal PresentationBlockingSnapshot EnemyPresentationExecutionPipelineBlockingSnapshot =>
+            _enemyPresentationExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
+
         internal GameplayVfxExecutorDiagnostics DamageDeathVfxExecutorDiagnostics =>
             ResolveDamageDeathVfxExecutorDiagnostics();
 
@@ -338,6 +363,9 @@ namespace Game.Feature.Gameplay.Host
 
         internal GameplayAnimationExecutorDiagnostics PlayerActionAnimationExecutorDiagnostics =>
             ResolvePlayerActionAnimationExecutorDiagnostics();
+
+        internal GameplayEnemyPresentationExecutorDiagnostics EnemyPresentationExecutorDiagnostics =>
+            ResolveEnemyPresentationExecutorDiagnostics();
 
         internal void ConfigureDamageDeathVfxExecution(
             DamageDeathVfxExecutionMode mode,
@@ -381,7 +409,30 @@ namespace Game.Feature.Gameplay.Host
                 _playerActionAnimationExecutionMode,
                 ResolvePlayerActionAnimationPlaybackPort(),
                 _playerActionAnimationExecutionGuard);
+            _enemyPresentationExecutionMode =
+                NormalizeEnemyPresentationExecutionMode(_enemyPresentationExecutionMode);
+            _enemyPresentationExecutionGuard.Configure(_enemyPresentationExecutionMode);
+            _enemyPresentationExecutionGuard.ResetSession();
+            _enemyPresentationExecutionPipeline = _enemyPresentationExecutionPipelineFactory(
+                _enemyPresentationExecutionMode,
+                ResolveEnemyPresentationPlaybackPort(),
+                _enemyPresentationExecutionGuard);
             _playerActionAnimationExecutionPipeline?.ResetSession();
+        }
+
+        internal void ConfigureEnemyPresentationExecution(
+            EnemyPresentationExecutionMode mode,
+            IGameplayEnemyPresentationPlaybackPort playbackPort = null)
+        {
+            _enemyPresentationExecutionMode = NormalizeEnemyPresentationExecutionMode(mode);
+            _enemyPresentationPlaybackPort = playbackPort;
+            _enemyPresentationExecutionGuard.Configure(_enemyPresentationExecutionMode);
+            _enemyPresentationExecutionGuard.ResetSession();
+            _enemyPresentationExecutionPipeline = _enemyPresentationExecutionPipelineFactory(
+                _enemyPresentationExecutionMode,
+                ResolveEnemyPresentationPlaybackPort(),
+                _enemyPresentationExecutionGuard);
+            _enemyPresentationExecutionPipeline?.ResetSession();
         }
 
         internal void EnablePresentationPipelineDiagnostics(GameplayPresentationPipeline pipeline = null)
@@ -598,6 +649,7 @@ namespace Game.Feature.Gameplay.Host
             _damageDeathVfxExecutionPipeline?.ResetSession();
             _boxMotionExecutionPipeline?.ResetSession();
             _playerActionAnimationExecutionPipeline?.ResetSession();
+            _enemyPresentationExecutionPipeline?.ResetSession();
             ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             ResetPresentationPipelineDiagnosticsIfEnabled();
         }
@@ -756,6 +808,9 @@ namespace Game.Feature.Gameplay.Host
             var suppressLegacyPlayerActionAnimations =
                 _playerActionAnimationExecutionMode ==
                 PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor;
+            var suppressLegacyEnemyPresentationAnimations =
+                _enemyPresentationExecutionMode ==
+                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor;
             _animationSync.ApplyTickPresentation(
                 result,
                 _stateStore.ViewsByEntityId,
@@ -764,7 +819,9 @@ namespace Game.Feature.Gameplay.Host
                     entityId,
                     actionKind,
                     _timingProfile),
-                suppressLegacyPlayerActionAnimations);
+                suppressLegacyPlayerActionAnimations,
+                suppressLegacyEnemyPresentationAnimations);
+            RefreshEnemyPresentationExecution(result);
             RefreshPlayerActionAnimationExecution(result);
             RefreshDamageDeathVfxExecution(result);
             PresentExtensions(result);
@@ -915,6 +972,11 @@ namespace Game.Feature.Gameplay.Host
             return _playerActionAnimationPlaybackPort ?? _playerActionAnimationSyncPlaybackPort;
         }
 
+        private IGameplayEnemyPresentationPlaybackPort ResolveEnemyPresentationPlaybackPort()
+        {
+            return _enemyPresentationPlaybackPort ?? _enemyPresentationSyncPlaybackPort;
+        }
+
         private void RecordBoxMotionLegacyOwnership(TickResult result)
         {
             foreach (var key in BuildBoxMotionPlaybackKeys(result))
@@ -1053,6 +1115,78 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private void RefreshEnemyPresentationExecution(TickResult result)
+        {
+            if (result == null)
+            {
+                return;
+            }
+
+            if (_enemyPresentationExecutionMode ==
+                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor)
+            {
+                RecordEnemyPresentationLegacySkippedByPolicy(result);
+                _enemyPresentationExecutionPipeline ??= _enemyPresentationExecutionPipelineFactory(
+                    _enemyPresentationExecutionMode,
+                    ResolveEnemyPresentationPlaybackPort(),
+                    _enemyPresentationExecutionGuard);
+                _enemyPresentationExecutionPipeline?.Present(result);
+                return;
+            }
+
+            RecordEnemyPresentationLegacyOwnership(result);
+        }
+
+        private void RecordEnemyPresentationLegacyOwnership(TickResult result)
+        {
+            foreach (var key in BuildEnemyPresentationPlaybackKeys(result))
+            {
+                _enemyPresentationExecutionGuard.TryBeginExecution(
+                    EnemyPresentationExecutionOwner.LegacyEnemyPresentationMapper,
+                    key);
+            }
+        }
+
+        private void RecordEnemyPresentationLegacySkippedByPolicy(TickResult result)
+        {
+            foreach (var _ in BuildEnemyPresentationPlaybackKeys(result))
+            {
+                _enemyPresentationExecutionGuard.RecordSkippedByPolicy(
+                    EnemyPresentationExecutionOwner.LegacyEnemyPresentationMapper);
+            }
+        }
+
+        private static IEnumerable<EnemyPresentationPlaybackKey> BuildEnemyPresentationPlaybackKeys(
+            TickResult result)
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new EnemyPresentationCuePlanner(),
+            }).Plan(factFrame);
+            for (var i = 0; i < cueFrame.Cues.Count; i++)
+            {
+                var cue = cueFrame.Cues[i];
+                if (cue.Domain != PresentationDomain.Animation ||
+                    !cue.Key.TryGetAnimationCueKey(out var cueKey) ||
+                    !cue.EnemyPayload.IsValid ||
+                    cue.Target.Kind != PresentationTargetKind.Entity ||
+                    cue.Target.EntityId <= 0)
+                {
+                    continue;
+                }
+
+                yield return new EnemyPresentationPlaybackKey(
+                    cue.Source.TickIndex,
+                    cue.Source.SemanticSource,
+                    cue.Target.EntityId,
+                    cueKey,
+                    cue.EnemyPayload.Kind,
+                    cue.EnemyPayload.Phase,
+                    cue.EnemyPayload.SourceSequenceId);
+            }
+        }
+
         private void ExecuteExecutorBridgeTopologyPath(TickResult result)
         {
             if (IsTopologyTransitionPresentation(result.PresentationData.TopologyMotion))
@@ -1188,6 +1322,8 @@ namespace Game.Feature.Gameplay.Host
             _boxMotionExecutionPipeline?.ResetSession();
             _playerActionAnimationExecutionGuard.ResetSession();
             _playerActionAnimationExecutionPipeline?.ResetSession();
+            _enemyPresentationExecutionGuard.ResetSession();
+            _enemyPresentationExecutionPipeline?.ResetSession();
             ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             _lastPresentedResult = null;
             _topologyTransitionEpoch = 0;
@@ -1271,6 +1407,7 @@ namespace Game.Feature.Gameplay.Host
             _damageDeathVfxExecutionPipeline?.Update(deltaTime);
             _boxMotionExecutionPipeline?.Update(deltaTime);
             _playerActionAnimationExecutionPipeline?.Update(deltaTime);
+            _enemyPresentationExecutionPipeline?.Update(deltaTime);
             UpdatePresentationPipelineDiagnosticsIfEnabled(deltaTime);
         }
 
@@ -1667,6 +1804,8 @@ namespace Game.Feature.Gameplay.Host
             _boxMotionExecutionGuard.ResetSession();
             _playerActionAnimationExecutionPipeline?.HardCleanup();
             _playerActionAnimationExecutionGuard.ResetSession();
+            _enemyPresentationExecutionPipeline?.HardCleanup();
+            _enemyPresentationExecutionGuard.ResetSession();
             ClearBoxMotionPresentationRuntimeState();
             _presentationPipeline?.HardCleanup();
             for (var i = 0; i < _presentationExtensions.Count; i++)
@@ -2044,6 +2183,25 @@ namespace Game.Feature.Gameplay.Host
             return default;
         }
 
+        private GameplayEnemyPresentationExecutorDiagnostics ResolveEnemyPresentationExecutorDiagnostics()
+        {
+            if (_enemyPresentationExecutionPipeline == null)
+            {
+                return default;
+            }
+
+            var executors = _enemyPresentationExecutionPipeline.Executors;
+            for (var i = 0; i < executors.Count; i++)
+            {
+                if (executors[i] is GameplayEnemyPresentationExecutor executor)
+                {
+                    return executor.Diagnostics;
+                }
+            }
+
+            return default;
+        }
+
         private static DamageDeathVfxExecutionMode NormalizeDamageDeathVfxExecutionMode(
             DamageDeathVfxExecutionMode mode)
         {
@@ -2066,6 +2224,14 @@ namespace Game.Feature.Gameplay.Host
             return Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), mode)
                 ? mode
                 : PlayerActionAnimationExecutionMode.LegacyAnimationSync;
+        }
+
+        private static EnemyPresentationExecutionMode NormalizeEnemyPresentationExecutionMode(
+            EnemyPresentationExecutionMode mode)
+        {
+            return Enum.IsDefined(typeof(EnemyPresentationExecutionMode), mode)
+                ? mode
+                : EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper;
         }
 
         private void TraceStep(string stepName)
