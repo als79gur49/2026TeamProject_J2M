@@ -37,6 +37,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
         private const string TopologyExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs";
+        private const string BoxMotionExecutorPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs";
 
         [Test]
         [Category("Core")]
@@ -240,6 +242,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(topologyExecutorSource, Does.Not.Contain("TopologyVisualBridgeVisibilityController"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("AudioManager"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("Play2D"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxMotionExecutorBoundary_StaysHostOnlyAndDoesNotLeakRuntimeObjectsToPlans()
+        {
+            var contractsPlanningPlaybackSource = ReadDirectorySource(ContractsDirectory) + "\n" +
+                                                  ReadDirectorySource(PlanningDirectory) + "\n" +
+                                                  ReadDirectorySource(PlaybackDirectory);
+            var runtimeSource = ReadDirectorySource(RuntimeDirectory);
+            var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
+            var boxMotionExecutorSource = ReadRepoFile(BoxMotionExecutorPath);
+            var coordinatorSource = ReadRepoFile(CoordinatorPath);
+
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayTrackPlanner"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("PresentationMotionTrack"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("BoxFlipInteractionDriver"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameObject"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("Transform"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("MonoBehaviour"));
+            Assert.That(runtimeSource, Does.Not.Contain("GameplayTrackPlanner"));
+            Assert.That(runtimeSource, Does.Not.Contain("PresentationMotionTrack"));
+            Assert.That(runtimeSource, Does.Not.Contain("BoxFlipInteractionDriver"));
+            Assert.That(coordinatorSource, Does.Not.Contain("BoxFlipInteractionDriver"));
+            Assert.That(coordinatorSource, Does.Not.Contain("PresentationMotionTrack"));
+            Assert.That(hostRuntimeSource, Does.Contain("GameplayMotionPresentationExecutor"));
+            Assert.That(hostRuntimeSource, Does.Contain("IGameplayMotionPlaybackPort"));
+            Assert.That(hostRuntimeSource, Does.Contain("BoxMotionExecutionGuard"));
+            Assert.That(hostRuntimeSource, Does.Contain("BoxMotionPresentationExecutionMode"));
+            Assert.That(boxMotionExecutorSource, Does.Contain("GameplayTrackPlanner trackPlanner"));
+            Assert.That(boxMotionExecutorSource, Does.Contain("BoxFlipInteractionDriver"));
+            Assert.That(boxMotionExecutorSource, Does.Not.Contain("FindObjectOfType"));
+            Assert.That(boxMotionExecutorSource, Does.Not.Contain("FindObjectsByType"));
+            Assert.That(boxMotionExecutorSource, Does.Not.Contain("new GameObject"));
+            Assert.That(boxMotionExecutorSource, Does.Not.Contain("AudioManager"));
+            Assert.That(boxMotionExecutorSource, Does.Not.Contain("Play2D"));
         }
 
         [Test]
