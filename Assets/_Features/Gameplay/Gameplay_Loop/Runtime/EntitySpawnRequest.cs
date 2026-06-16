@@ -14,12 +14,16 @@ namespace Game.Feature.Gameplay.Loop
             int sourceEntityId,
             int sourceEffectIndex,
             int triggerTick,
-            SurfaceCell originCell)
+            SurfaceCell originCell,
+            Direction sourceFacing,
+            int sourceTeamId)
         {
             SourceEntityId = sourceEntityId;
             SourceEffectIndex = sourceEffectIndex;
             TriggerTick = triggerTick;
             OriginCell = originCell;
+            SourceFacing = sourceFacing;
+            SourceTeamId = sourceTeamId;
         }
 
         public int SourceEntityId { get; }
@@ -29,6 +33,10 @@ namespace Game.Feature.Gameplay.Loop
         public int TriggerTick { get; }
 
         public SurfaceCell OriginCell { get; }
+
+        public Direction SourceFacing { get; }
+
+        public int SourceTeamId { get; }
     }
 
     internal readonly struct EntitySpawnRequest
@@ -36,7 +44,6 @@ namespace Game.Feature.Gameplay.Loop
         public EntitySpawnRequest(
             EntitySpawnRequestKind kind,
             EntitySpawnRequestSource source,
-            EntityState sourceEntity,
             int spawnIndex,
             int tickIndex,
             SummonMinionRuntime summon,
@@ -44,7 +51,6 @@ namespace Game.Feature.Gameplay.Loop
         {
             Kind = kind;
             Source = source;
-            SourceEntity = sourceEntity;
             SpawnIndex = spawnIndex;
             TickIndex = tickIndex;
             Summon = summon;
@@ -54,8 +60,6 @@ namespace Game.Feature.Gameplay.Loop
         public EntitySpawnRequestKind Kind { get; }
 
         public EntitySpawnRequestSource Source { get; }
-
-        public EntityState SourceEntity { get; }
 
         public int SpawnIndex { get; }
 

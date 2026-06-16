@@ -65,7 +65,8 @@ namespace Game.Feature.Gameplay.Loop
 
             if (!EntitySpawnPlacementResolver.TrySelectSummonCandidateCell(
                     snapshot,
-                    request.SourceEntity,
+                    request.Source.OriginCell,
+                    request.Source.SourceFacing,
                     request.SpawnDefaults.UnitMobilityKind,
                     request.Summon,
                     reservedSpawnCells,
@@ -85,7 +86,8 @@ namespace Game.Feature.Gameplay.Loop
             var enemyDefinitionBindingState = new EnemyDefinitionBindingState(request.Summon.SummonedArchetypeId);
             var spawnedEntity = CreateSummonedMinionEntity(
                 entityIdAllocator.AllocateEntityId(),
-                request.SourceEntity,
+                request.Source.SourceTeamId,
+                request.Source.SourceFacing,
                 spawnCell,
                 minionHp,
                 request.SpawnDefaults.InitialAiMode,
@@ -112,7 +114,8 @@ namespace Game.Feature.Gameplay.Loop
 
         private static EntityState CreateSummonedMinionEntity(
             int entityId,
-            in EntityState source,
+            int sourceTeamId,
+            Direction sourceFacing,
             SurfaceCell spawnCell,
             int minionHp,
             EnemyAiMode initialAiMode,
@@ -125,13 +128,13 @@ namespace Game.Feature.Gameplay.Loop
                 position = spawnCell,
                 hp = minionHp,
                 maxHp = minionHp,
-                teamId = source.teamId,
+                teamId = sourceTeamId,
                 type = EntityType.Unit,
                 unitRole = UnitRole.Enemy,
                 unitMobilityKind = unitMobilityKind,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
-                facing = source.facing,
+                facing = sourceFacing,
                 boardPresence = EntityBoardPresence.Occupying,
                 markedForDeath = false,
                 spawnTick = tickIndex,
@@ -166,20 +169,21 @@ namespace Game.Feature.Gameplay.Loop
     {
         public static bool TrySelectSummonCandidateCell(
             WorldSnapshot snapshot,
-            in EntityState source,
+            SurfaceCell originCell,
+            Direction sourceFacing,
             UnitMobilityKind summonedUnitMobilityKind,
             in SummonMinionRuntime summonRuntime,
             ISet<SurfaceCell> reservedSpawnCells,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out SurfaceCell spawnCell)
         {
-            var candidateOffsets = BuildCandidateOffsets(source.facing);
-            var riskActor = CreateSummonedPlacementRiskActor(source, summonedUnitMobilityKind);
+            var candidateOffsets = BuildCandidateOffsets(sourceFacing);
+            var riskActor = CreateSummonedPlacementRiskActor(summonedUnitMobilityKind);
             var hasRiskCandidate = false;
             var riskCandidate = default(SurfaceCell);
             for (var i = 0; i < candidateOffsets.Count; i++)
             {
-                var candidateCell = source.position + candidateOffsets[i];
+                var candidateCell = originCell + candidateOffsets[i];
                 if (!snapshot.IsInsideBoard(candidateCell))
                 {
                     continue;
@@ -247,18 +251,17 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
-        private static EntityState CreateSummonedPlacementRiskActor(
-            in EntityState source,
-            UnitMobilityKind summonedUnitMobilityKind)
+        private static EntityState CreateSummonedPlacementRiskActor(UnitMobilityKind summonedUnitMobilityKind)
         {
-            var riskActor = source;
-            riskActor.entityId = 0;
-            riskActor.type = EntityType.Unit;
-            riskActor.unitMobilityKind = summonedUnitMobilityKind;
-            riskActor.boardPresence = EntityBoardPresence.Occupying;
-            riskActor.hp = Math.Max(1, riskActor.hp);
-            riskActor.markedForDeath = false;
-            return riskActor;
+            return new EntityState
+            {
+                entityId = 0,
+                type = EntityType.Unit,
+                unitMobilityKind = summonedUnitMobilityKind,
+                boardPresence = EntityBoardPresence.Occupying,
+                hp = 1,
+                markedForDeath = false,
+            };
         }
 
         private static List<Vector2Int> BuildCandidateOffsets(Direction facing)

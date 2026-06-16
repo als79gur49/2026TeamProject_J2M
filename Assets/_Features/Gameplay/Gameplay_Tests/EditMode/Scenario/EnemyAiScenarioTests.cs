@@ -755,6 +755,84 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
+        public void EnemyUtilitySummon_RequestPayloadSnapshot_DoesNotDriftWhenSourceStateChangesBeforeMaterialization()
+        {
+            var request = new EntitySpawnRequest(
+                EntitySpawnRequestKind.Summon,
+                new EntitySpawnRequestSource(
+                    sourceEntityId: 40,
+                    sourceEffectIndex: 0,
+                    triggerTick: 2,
+                    originCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    sourceFacing: Direction.Right,
+                    sourceTeamId: 2),
+                spawnIndex: 0,
+                tickIndex: 2,
+                summon: new SummonMinionRuntime(
+                    spawnCountPerTrigger: 1,
+                    candidatePattern: SummonCandidatePattern.OrthogonalAdjacent4,
+                    requireNoUnitAtSpawnCell: true,
+                    requireNoSolidAtSpawnCell: true,
+                    maxAliveChildren: 3,
+                    summonedArchetypeId: new EnemyUnitArchetypeId("BasicMinion"),
+                    windupTicks: 1),
+                spawnDefaults: new EnemyUnitSpawnDefaultsRuntime(
+                    hp: 1,
+                    initialAiMode: EnemyAiMode.Patrol,
+                    unitMobilityKind: UnitMobilityKind.Ground));
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(
+                    entityId: 40,
+                    teamId: 7,
+                    position: new SurfaceCell(FaceId.Floor, 5, 5),
+                    hp: 3,
+                    aiMode: EnemyAiMode.Patrol,
+                    facing: Direction.Left),
+            });
+            var snapshot = worldState.CreateSnapshot();
+            var batch = new FinalizationBatch();
+            var eventLogEntries = new List<string>();
+
+            var result = EntitySpawnMaterializer.Materialize(
+                snapshot,
+                request,
+                EntityIdAllocator.Create(snapshot),
+                Array.Empty<TileFeatureRuntimeDefinition>(),
+                new HashSet<SurfaceCell>(),
+                batch,
+                eventLogEntries);
+
+            Assert.That(result.Succeeded, Is.True);
+            Assert.That(result.SpawnCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(result.SpawnedEntity.entityId, Is.EqualTo(41));
+            Assert.That(result.SpawnedEntity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(result.SpawnedEntity.teamId, Is.EqualTo(2));
+            Assert.That(result.SpawnedEntity.facing, Is.EqualTo(Direction.Right));
+
+            Assert.That(batch.Operations, Has.Count.EqualTo(1));
+            var spawnOperation = batch.Operations[0];
+            Assert.That(spawnOperation.Kind, Is.EqualTo(FinalizationOperationKind.SpawnEntity));
+            Assert.That(spawnOperation.SpawnedEntity.entityId, Is.EqualTo(41));
+            Assert.That(spawnOperation.SpawnedEntity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(spawnOperation.Metadata.SourceActorEntityId, Is.EqualTo(40));
+            Assert.That(spawnOperation.HasSpawnedEntitySummonedState, Is.True);
+            Assert.That(spawnOperation.SpawnedEntitySummonedState.SourceEntityId, Is.EqualTo(40));
+            Assert.That(spawnOperation.SpawnedEntitySummonedState.SourceEffectIndex, Is.EqualTo(0));
+            Assert.That(spawnOperation.HasSpawnedEntityEnemyDefinitionBindingState, Is.True);
+            Assert.That(
+                spawnOperation.SpawnedEntityEnemyDefinitionBindingState.ArchetypeId,
+                Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41|Pos=(1,0)|Archetype=BasicMinion|Tick=2",
+                },
+                eventLogEntries);
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyUtilitySummon_SameTickMultiSummoners_OrderRequestsAndAllocateIdsDeterministically()
         {
             var profile = CreateUtilitySummonProfile(

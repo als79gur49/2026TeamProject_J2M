@@ -30,6 +30,9 @@
   `SourceEntityId`, `EffectIndex`, then `TriggerTick`.
 - `EntitySpawnMaterializer` preserves received request order; it does not
   establish a separate sort policy.
+- `EntitySpawnRequest` is a materialization request, not a live view of the
+  summoner. Placement-affecting source data, source metadata, archetype binding,
+  and deterministic event output are captured when the request is emitted.
 - Failed spawn attempts do not allocate ids.
 - Successful spawn attempts allocate ids in materialization order.
 - `SurfaceCell(face, x, y)` identity must be preserved.
