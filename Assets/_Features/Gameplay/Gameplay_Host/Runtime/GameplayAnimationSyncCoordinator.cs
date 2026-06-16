@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PresentationContracts;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -46,6 +47,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, EnemyViewPresentationState> _enemyViewPresentationStates = new();
         private readonly Dictionary<int, PlayerAnimatorDriver> _playerAnimatorDriversByEntityId = new();
         private readonly List<int> _playerFlipOutcomeStateUpdateEntityIds = new();
+        private readonly List<int> _playerActionSuppressionBuffer = new();
         private readonly Dictionary<int, PlayerVisualPresentationHoldState> _playerVisualHoldStates = new();
         private readonly PlayerViewPresentationMapper _playerViewPresentationMapper = new();
         private readonly Dictionary<int, PlayerViewPresentationState> _playerViewPresentationStates = new();
@@ -114,7 +116,8 @@ namespace Game.Feature.Gameplay.Host
             TickResult result,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
             IReadOnlyCollection<int> jumpLandingCompletionHoldEntityIds,
-            Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds)
+            Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds,
+            bool suppressPlayerActionAnimations = false)
         {
             LastStageClearPlayerPresentationDelaySeconds = 0f;
             BuildContactDelayedEnemyDeathEntityIds(result?.PresentationData);
@@ -145,6 +148,11 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _playerViewPresentationMapper.Build(result, viewsByEntityId, _playerViewPresentationStates);
+            if (suppressPlayerActionAnimations)
+            {
+                SuppressPlayerActionAnimationFields(_playerViewPresentationStates);
+            }
+
             PreservePlayerFlipOutcomeState();
             ReleasePlayerDeathOverridesForRespawnSpawns(result.PresentationData, viewsByEntityId);
             foreach (var pair in _playerViewPresentationStates)
@@ -159,6 +167,200 @@ namespace Game.Feature.Gameplay.Host
                     UpdatePlayerVisualHold(pair.Key, pair.Value, driver, resolvePlayerMotionDurationSeconds);
                     driver.Apply(pair.Value);
                 }
+            }
+        }
+
+        internal bool TryApplyPlayerActionAnimationPlayback(
+            in GameplayAnimationPlaybackRequest request,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
+            out GameplayAnimationPlaybackResult result)
+        {
+            if (viewsByEntityId == null)
+            {
+                throw new ArgumentNullException(nameof(viewsByEntityId));
+            }
+
+            if (request.Target.Kind != PresentationTargetKind.Entity ||
+                request.Target.EntityId <= 0)
+            {
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.TargetMissing);
+                return false;
+            }
+
+            if (request.Anchor.Kind != PresentationAnchorKind.EntityVisualRoot &&
+                request.Anchor.Kind != PresentationAnchorKind.EntityCenter)
+            {
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.AnchorMissing);
+                return false;
+            }
+
+            if (!viewsByEntityId.TryGetValue(request.Target.EntityId, out var view) ||
+                view == null)
+            {
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.BindingMissing);
+                return false;
+            }
+
+            if (!TryGetPlayerAnimatorDriver(request.Target.EntityId, viewsByEntityId, out var driver) ||
+                driver == null)
+            {
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.DriverMissing);
+                return false;
+            }
+
+            if (!driver.CanDriveCurrentAnimator)
+            {
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.AnimatorMissing);
+                return false;
+            }
+
+            if (!TryMapPlayerActionAnimationPlayback(
+                    request.AnimationPayload,
+                    out var animationState,
+                    out var phase,
+                    out var restart))
+            {
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.IgnoredByPolicy);
+                return false;
+            }
+
+            var presentationState = CreatePlayerActionAnimationPresentationState(request, phase, restart);
+            _playerViewPresentationStates[request.PlayerEntityId] = presentationState;
+            driver.Apply(presentationState);
+            SyncPlayerRuntimeState(
+                request.PlayerEntityId,
+                isVisible: true,
+                new PlayerAnimationPlaybackResolution(
+                    animationState,
+                    phase,
+                    restart,
+                    resolvedMotionDurationSeconds: 0f),
+                resolvedMotionDurationSeconds: 0f,
+                viewsByEntityId);
+
+            result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.Applied);
+            return true;
+        }
+
+        private void SuppressPlayerActionAnimationFields(
+            Dictionary<int, PlayerViewPresentationState> states)
+        {
+            _playerActionSuppressionBuffer.Clear();
+            foreach (var pair in states)
+            {
+                _playerActionSuppressionBuffer.Add(pair.Key);
+            }
+
+            for (var i = 0; i < _playerActionSuppressionBuffer.Count; i++)
+            {
+                var entityId = _playerActionSuppressionBuffer[i];
+                var state = states[entityId];
+                states[entityId] = new PlayerViewPresentationState(
+                    state.EntityId,
+                    state.TickIndex,
+                    PlayerActionKind.None,
+                    activeActionSequence: 0,
+                    startedThisTick: false,
+                    executedThisTick: false,
+                    completedThisTick: false,
+                    canceledThisTick: false,
+                    state.ShouldPlayWalkLoop,
+                    isRecoveryPhase: false,
+                    state.DidDie,
+                    state.DidDieThisTick,
+                    state.TookDamageThisTick,
+                    actionPlanId: 0,
+                    TickPlayerFlipOutcomeKind.None,
+                    hasFlipImpactContactTiming: false,
+                    flipTargetBoxEntityId: 0,
+                    state.DeathSourceEntityId,
+                    state.ResolvedDamageSourceAvailable,
+                    state.DamageAmountAtFatalHit,
+                    state.DeathDirectionHintKind,
+                    state.DeathFallbackFacing,
+                    hasActionAttempt: false,
+                    PlayerActionKind.None,
+                    Direction.None,
+                    PlayerActionAttemptFeedbackKind.None,
+                    state.HasPlayerOutcome,
+                    state.PlayerOutcomeKind);
+            }
+
+            _playerActionSuppressionBuffer.Clear();
+        }
+
+        private static PlayerViewPresentationState CreatePlayerActionAnimationPresentationState(
+            in GameplayAnimationPlaybackRequest request,
+            PlayerPresentationPhase phase,
+            bool restart)
+        {
+            return new PlayerViewPresentationState(
+                request.PlayerEntityId,
+                request.TickIndex,
+                ToPlayerActionKind(request.AnimationPayload.ActionKind),
+                request.AnimationPayload.SourceSequenceId,
+                startedThisTick: restart && request.AnimationPayload.PhaseKind != PresentationAnimationPhaseKind.Failed,
+                executedThisTick: request.AnimationPayload.PhaseKind == PresentationAnimationPhaseKind.Execute,
+                completedThisTick: false,
+                canceledThisTick: request.AnimationPayload.PhaseKind == PresentationAnimationPhaseKind.Failed,
+                shouldPlayWalkLoop: false,
+                isRecoveryPhase: phase == PlayerPresentationPhase.PushRecovery ||
+                                 phase == PlayerPresentationPhase.FlipRecovery,
+                didDie: false,
+                didDieThisTick: false,
+                tookDamageThisTick: false,
+                actionPlanId: request.AnimationPayload.SourceActionPlanId);
+        }
+
+        private static bool TryMapPlayerActionAnimationPlayback(
+            PresentationAnimationPayload payload,
+            out PlayerViewAnimationState state,
+            out PlayerPresentationPhase phase,
+            out bool restart)
+        {
+            state = payload.ActionKind == PresentationAnimationActionKind.Push
+                ? PlayerViewAnimationState.Push
+                : payload.ActionKind == PresentationAnimationActionKind.Flip
+                    ? PlayerViewAnimationState.Flip
+                    : PlayerViewAnimationState.Idle;
+            phase = PlayerPresentationPhase.None;
+            restart = false;
+
+            if (state == PlayerViewAnimationState.Idle)
+            {
+                return false;
+            }
+
+            switch (payload.PhaseKind)
+            {
+                case PresentationAnimationPhaseKind.Windup:
+                case PresentationAnimationPhaseKind.Failed:
+                    phase = payload.ActionKind == PresentationAnimationActionKind.Push
+                        ? PlayerPresentationPhase.PushWindup
+                        : PlayerPresentationPhase.FlipWindup;
+                    restart = true;
+                    return true;
+                case PresentationAnimationPhaseKind.Execute:
+                case PresentationAnimationPhaseKind.Recovery:
+                    phase = payload.ActionKind == PresentationAnimationActionKind.Push
+                        ? PlayerPresentationPhase.PushRecovery
+                        : PlayerPresentationPhase.FlipRecovery;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static PlayerActionKind ToPlayerActionKind(PresentationAnimationActionKind actionKind)
+        {
+            switch (actionKind)
+            {
+                case PresentationAnimationActionKind.Push:
+                    return PlayerActionKind.Push;
+                case PresentationAnimationActionKind.Flip:
+                    return PlayerActionKind.Flip;
+                default:
+                    return PlayerActionKind.None;
             }
         }
 

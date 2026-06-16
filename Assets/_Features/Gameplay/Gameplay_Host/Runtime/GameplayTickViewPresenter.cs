@@ -214,6 +214,13 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.ConfigureBoxMotionPresentationExecution(mode, playbackPort);
         }
 
+        internal void ConfigurePlayerActionAnimationExecution(
+            PlayerActionAnimationExecutionMode mode,
+            IGameplayAnimationPlaybackPort playbackPort = null)
+        {
+            _presentationCoordinator.ConfigurePlayerActionAnimationExecution(mode, playbackPort);
+        }
+
         public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)
         {
             _presentationCoordinator.DetachPresentationExtension(extension);
@@ -283,6 +290,18 @@ namespace Game.Feature.Gameplay.Host
 
         internal GameplayMotionExecutorDiagnostics BoxMotionExecutorDiagnostics =>
             _presentationCoordinator.BoxMotionExecutorDiagnostics;
+
+        internal PlayerActionAnimationExecutionMode PlayerActionAnimationExecutionMode =>
+            _presentationCoordinator.PlayerActionAnimationExecutionMode;
+
+        internal PlayerActionAnimationOwnershipDiagnostics PlayerActionAnimationOwnershipDiagnostics =>
+            _presentationCoordinator.PlayerActionAnimationOwnershipDiagnostics;
+
+        internal PresentationBlockingSnapshot PlayerActionAnimationExecutionPipelineBlockingSnapshot =>
+            _presentationCoordinator.PlayerActionAnimationExecutionPipelineBlockingSnapshot;
+
+        internal GameplayAnimationExecutorDiagnostics PlayerActionAnimationExecutorDiagnostics =>
+            _presentationCoordinator.PlayerActionAnimationExecutorDiagnostics;
 
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {

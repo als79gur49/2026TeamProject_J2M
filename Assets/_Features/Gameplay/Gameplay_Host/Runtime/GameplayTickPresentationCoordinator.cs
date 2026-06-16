@@ -80,20 +80,27 @@ namespace Game.Feature.Gameplay.Host
         private readonly DamageDeathVfxExecutionPipelineFactory _damageDeathVfxExecutionPipelineFactory;
         private readonly BoxMotionExecutionGuard _boxMotionExecutionGuard = new();
         private readonly BoxMotionExecutionPipelineFactory _boxMotionExecutionPipelineFactory;
+        private readonly PlayerActionAnimationExecutionGuard _playerActionAnimationExecutionGuard = new();
+        private readonly PlayerActionAnimationExecutionPipelineFactory _playerActionAnimationExecutionPipelineFactory;
 
         private GameplayPresentationPipeline _presentationPipeline;
         private GameplayPresentationPipeline _topologyExecutionPipeline;
         private GameplayPresentationPipeline _damageDeathVfxExecutionPipeline;
         private GameplayPresentationPipeline _boxMotionExecutionPipeline;
+        private GameplayPresentationPipeline _playerActionAnimationExecutionPipeline;
         private TopologyPresentationExecutionMode _topologyExecutionMode =
             TopologyPresentationExecutionMode.LegacyCoordinator;
         private DamageDeathVfxExecutionMode _damageDeathVfxExecutionMode =
             DamageDeathVfxExecutionMode.LegacyExtension;
         private BoxMotionPresentationExecutionMode _boxMotionExecutionMode =
             BoxMotionPresentationExecutionMode.LegacyTrackPlanner;
+        private PlayerActionAnimationExecutionMode _playerActionAnimationExecutionMode =
+            PlayerActionAnimationExecutionMode.LegacyAnimationSync;
         private IDamageDeathVfxPlaybackPort _damageDeathVfxPlaybackPort;
         private IGameplayMotionPlaybackPort _boxMotionPlaybackPort;
         private GameplayMotionTrackPlannerPlaybackPort _boxMotionTrackPlannerPlaybackPort;
+        private IGameplayAnimationPlaybackPort _playerActionAnimationPlaybackPort;
+        private GameplayAnimationSyncPlaybackPort _playerActionAnimationSyncPlaybackPort;
         private bool _isInitialized;
         private bool _presentationPipelineDiagnosticsEnabled;
         private GameplayCubeProjector _projector;
@@ -126,7 +133,8 @@ namespace Game.Feature.Gameplay.Host
             : this(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline)
+                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline)
         {
         }
 
@@ -134,7 +142,8 @@ namespace Game.Feature.Gameplay.Host
             : this(
                 topologyExecutionPipelineFactory,
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline)
+                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline)
         {
         }
 
@@ -144,14 +153,16 @@ namespace Game.Feature.Gameplay.Host
             : this(
                 topologyExecutionPipelineFactory,
                 damageDeathVfxExecutionPipelineFactory,
-                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline)
+                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline)
         {
         }
 
         internal GameplayTickPresentationCoordinator(
             TopologyExecutionPipelineFactory topologyExecutionPipelineFactory,
             DamageDeathVfxExecutionPipelineFactory damageDeathVfxExecutionPipelineFactory,
-            BoxMotionExecutionPipelineFactory boxMotionExecutionPipelineFactory)
+            BoxMotionExecutionPipelineFactory boxMotionExecutionPipelineFactory,
+            PlayerActionAnimationExecutionPipelineFactory playerActionAnimationExecutionPipelineFactory = null)
         {
             _topologyExecutionPipelineFactory = topologyExecutionPipelineFactory ??
                                                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline;
@@ -161,6 +172,9 @@ namespace Game.Feature.Gameplay.Host
             _boxMotionExecutionPipelineFactory = boxMotionExecutionPipelineFactory ??
                                                  GameplayHostPresentationPipelineFactory
                                                      .CreateBoxMotionExecutionPipeline;
+            _playerActionAnimationExecutionPipelineFactory = playerActionAnimationExecutionPipelineFactory ??
+                                                             GameplayHostPresentationPipelineFactory
+                                                                 .CreatePlayerActionAnimationExecutionPipeline;
             _audioPresentationController = new GameplayAudioPresentationController(_stateStore);
             _actionAudioPresentationController = new GameplayActionAudioPresentationController(_stateStore);
             _enemyAudioPresentationController = new EnemyAudioPresentationController(_stateStore);
@@ -210,6 +224,8 @@ namespace Game.Feature.Gameplay.Host
                 _moonBlockDestructionPresentationController,
                 _entityPresentationApplier);
             _boxMotionTrackPlannerPlaybackPort = new GameplayMotionTrackPlannerPlaybackPort(_planner, _stateStore);
+            _playerActionAnimationSyncPlaybackPort =
+                new GameplayAnimationSyncPlaybackPort(_animationSync, _stateStore);
             _topologyTransitionController.TopologyPresentationCompleted += HandleTopologyPresentationCompleted;
             _topologyTransitionController.TopologyTransitionPresentationCompleted +=
                 HandleTopologyTransitionPresentationCompleted;
@@ -299,17 +315,29 @@ namespace Game.Feature.Gameplay.Host
         internal BoxMotionOwnershipDiagnostics BoxMotionOwnershipDiagnostics =>
             _boxMotionExecutionGuard.Diagnostics;
 
+        internal PlayerActionAnimationExecutionMode PlayerActionAnimationExecutionMode =>
+            _playerActionAnimationExecutionMode;
+
+        internal PlayerActionAnimationOwnershipDiagnostics PlayerActionAnimationOwnershipDiagnostics =>
+            _playerActionAnimationExecutionGuard.Diagnostics;
+
         internal PresentationBlockingSnapshot DamageDeathVfxExecutionPipelineBlockingSnapshot =>
             _damageDeathVfxExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
         internal PresentationBlockingSnapshot BoxMotionExecutionPipelineBlockingSnapshot =>
             _boxMotionExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
+        internal PresentationBlockingSnapshot PlayerActionAnimationExecutionPipelineBlockingSnapshot =>
+            _playerActionAnimationExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
+
         internal GameplayVfxExecutorDiagnostics DamageDeathVfxExecutorDiagnostics =>
             ResolveDamageDeathVfxExecutorDiagnostics();
 
         internal GameplayMotionExecutorDiagnostics BoxMotionExecutorDiagnostics =>
             ResolveBoxMotionExecutorDiagnostics();
+
+        internal GameplayAnimationExecutorDiagnostics PlayerActionAnimationExecutorDiagnostics =>
+            ResolvePlayerActionAnimationExecutorDiagnostics();
 
         internal void ConfigureDamageDeathVfxExecution(
             DamageDeathVfxExecutionMode mode,
@@ -339,6 +367,21 @@ namespace Game.Feature.Gameplay.Host
                 ResolveBoxMotionPlaybackPort(),
                 _boxMotionExecutionGuard);
             _boxMotionExecutionPipeline?.ResetSession();
+        }
+
+        internal void ConfigurePlayerActionAnimationExecution(
+            PlayerActionAnimationExecutionMode mode,
+            IGameplayAnimationPlaybackPort playbackPort = null)
+        {
+            _playerActionAnimationExecutionMode = NormalizePlayerActionAnimationExecutionMode(mode);
+            _playerActionAnimationPlaybackPort = playbackPort;
+            _playerActionAnimationExecutionGuard.Configure(_playerActionAnimationExecutionMode);
+            _playerActionAnimationExecutionGuard.ResetSession();
+            _playerActionAnimationExecutionPipeline = _playerActionAnimationExecutionPipelineFactory(
+                _playerActionAnimationExecutionMode,
+                ResolvePlayerActionAnimationPlaybackPort(),
+                _playerActionAnimationExecutionGuard);
+            _playerActionAnimationExecutionPipeline?.ResetSession();
         }
 
         internal void EnablePresentationPipelineDiagnostics(GameplayPresentationPipeline pipeline = null)
@@ -488,6 +531,14 @@ namespace Game.Feature.Gameplay.Host
                 _boxMotionExecutionMode,
                 ResolveBoxMotionPlaybackPort(),
                 _boxMotionExecutionGuard);
+            _playerActionAnimationExecutionMode =
+                NormalizePlayerActionAnimationExecutionMode(_playerActionAnimationExecutionMode);
+            _playerActionAnimationExecutionGuard.Configure(_playerActionAnimationExecutionMode);
+            _playerActionAnimationExecutionGuard.ResetSession();
+            _playerActionAnimationExecutionPipeline = _playerActionAnimationExecutionPipelineFactory(
+                _playerActionAnimationExecutionMode,
+                ResolvePlayerActionAnimationPlaybackPort(),
+                _playerActionAnimationExecutionGuard);
             _viewBinder = viewBinder;
             _gravityFieldVisualPresentationController.AttachTargetViewRegistry(_viewBinder.ViewRegistry);
             _moonBlockEmergencePresentationController.Configure(_viewBinder.ViewRegistry, timingProfile);
@@ -546,6 +597,7 @@ namespace Game.Feature.Gameplay.Host
             _topologyExecutionPipeline?.ResetSession();
             _damageDeathVfxExecutionPipeline?.ResetSession();
             _boxMotionExecutionPipeline?.ResetSession();
+            _playerActionAnimationExecutionPipeline?.ResetSession();
             ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             ResetPresentationPipelineDiagnosticsIfEnabled();
         }
@@ -701,6 +753,9 @@ namespace Game.Feature.Gameplay.Host
             RetainTopologyMoonBlockGeneratedPoses(result.PresentationData);
             _lastPresentedTickIndex = result.TickIndex;
             RefreshPresentationMotionVfx(result.TickIndex);
+            var suppressLegacyPlayerActionAnimations =
+                _playerActionAnimationExecutionMode ==
+                PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor;
             _animationSync.ApplyTickPresentation(
                 result,
                 _stateStore.ViewsByEntityId,
@@ -708,7 +763,9 @@ namespace Game.Feature.Gameplay.Host
                 (entityId, actionKind) => _motionTimingResolver.ResolvePlayerMotionDurationSeconds(
                     entityId,
                     actionKind,
-                    _timingProfile));
+                    _timingProfile),
+                suppressLegacyPlayerActionAnimations);
+            RefreshPlayerActionAnimationExecution(result);
             RefreshDamageDeathVfxExecution(result);
             PresentExtensions(result);
             TraceStep("PlayPlannedAudio");
@@ -853,6 +910,11 @@ namespace Game.Feature.Gameplay.Host
             return _boxMotionPlaybackPort ?? _boxMotionTrackPlannerPlaybackPort;
         }
 
+        private IGameplayAnimationPlaybackPort ResolvePlayerActionAnimationPlaybackPort()
+        {
+            return _playerActionAnimationPlaybackPort ?? _playerActionAnimationSyncPlaybackPort;
+        }
+
         private void RecordBoxMotionLegacyOwnership(TickResult result)
         {
             foreach (var key in BuildBoxMotionPlaybackKeys(result))
@@ -915,6 +977,79 @@ namespace Game.Feature.Gameplay.Host
                 default:
                     cueKey = PresentationMotionCueKey.None;
                     return false;
+            }
+        }
+
+        private void RefreshPlayerActionAnimationExecution(TickResult result)
+        {
+            if (result == null)
+            {
+                return;
+            }
+
+            if (_playerActionAnimationExecutionMode ==
+                PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor)
+            {
+                RecordPlayerActionAnimationLegacySkippedByPolicy(result);
+                _playerActionAnimationExecutionPipeline ??= _playerActionAnimationExecutionPipelineFactory(
+                    _playerActionAnimationExecutionMode,
+                    ResolvePlayerActionAnimationPlaybackPort(),
+                    _playerActionAnimationExecutionGuard);
+                _playerActionAnimationExecutionPipeline?.Present(result);
+                return;
+            }
+
+            RecordPlayerActionAnimationLegacyOwnership(result);
+        }
+
+        private void RecordPlayerActionAnimationLegacyOwnership(TickResult result)
+        {
+            foreach (var key in BuildPlayerActionAnimationPlaybackKeys(result))
+            {
+                _playerActionAnimationExecutionGuard.TryBeginExecution(
+                    PlayerActionAnimationExecutionOwner.LegacyAnimationSync,
+                    key);
+            }
+        }
+
+        private void RecordPlayerActionAnimationLegacySkippedByPolicy(TickResult result)
+        {
+            foreach (var _ in BuildPlayerActionAnimationPlaybackKeys(result))
+            {
+                _playerActionAnimationExecutionGuard.RecordSkippedByPolicy(
+                    PlayerActionAnimationExecutionOwner.LegacyAnimationSync);
+            }
+        }
+
+        private static IEnumerable<PlayerActionAnimationPlaybackKey> BuildPlayerActionAnimationPlaybackKeys(
+            TickResult result)
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new AnimationCuePlanner(),
+            }).Plan(factFrame);
+            for (var i = 0; i < cueFrame.Cues.Count; i++)
+            {
+                var cue = cueFrame.Cues[i];
+                if (cue.Domain != PresentationDomain.Animation ||
+                    !cue.Key.TryGetAnimationCueKey(out var cueKey) ||
+                    !cue.AnimationPayload.IsValid ||
+                    cue.Target.Kind != PresentationTargetKind.Entity ||
+                    cue.Target.EntityId <= 0)
+                {
+                    continue;
+                }
+
+                yield return new PlayerActionAnimationPlaybackKey(
+                    cue.Source.TickIndex,
+                    cue.Source.SemanticSource,
+                    cue.Target.EntityId,
+                    cueKey,
+                    cue.AnimationPayload.ActionKind,
+                    cue.AnimationPayload.PhaseKind,
+                    cue.AnimationPayload.SourceSequenceId,
+                    cue.AnimationPayload.SourceActionPlanId);
             }
         }
 
@@ -1051,6 +1186,8 @@ namespace Game.Feature.Gameplay.Host
             _damageDeathVfxExecutionPipeline?.ResetSession();
             _boxMotionExecutionGuard.ResetSession();
             _boxMotionExecutionPipeline?.ResetSession();
+            _playerActionAnimationExecutionGuard.ResetSession();
+            _playerActionAnimationExecutionPipeline?.ResetSession();
             ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             _lastPresentedResult = null;
             _topologyTransitionEpoch = 0;
@@ -1133,6 +1270,7 @@ namespace Game.Feature.Gameplay.Host
             _moonBlockEmergencePresentationController.StartReadyRequests(_lastPresentedTickIndex);
             _damageDeathVfxExecutionPipeline?.Update(deltaTime);
             _boxMotionExecutionPipeline?.Update(deltaTime);
+            _playerActionAnimationExecutionPipeline?.Update(deltaTime);
             UpdatePresentationPipelineDiagnosticsIfEnabled(deltaTime);
         }
 
@@ -1527,6 +1665,8 @@ namespace Game.Feature.Gameplay.Host
             _damageDeathVfxExecutionPipeline?.HardCleanup();
             _boxMotionExecutionPipeline?.HardCleanup();
             _boxMotionExecutionGuard.ResetSession();
+            _playerActionAnimationExecutionPipeline?.HardCleanup();
+            _playerActionAnimationExecutionGuard.ResetSession();
             ClearBoxMotionPresentationRuntimeState();
             _presentationPipeline?.HardCleanup();
             for (var i = 0; i < _presentationExtensions.Count; i++)
@@ -1885,6 +2025,25 @@ namespace Game.Feature.Gameplay.Host
             return default;
         }
 
+        private GameplayAnimationExecutorDiagnostics ResolvePlayerActionAnimationExecutorDiagnostics()
+        {
+            if (_playerActionAnimationExecutionPipeline == null)
+            {
+                return default;
+            }
+
+            var executors = _playerActionAnimationExecutionPipeline.Executors;
+            for (var i = 0; i < executors.Count; i++)
+            {
+                if (executors[i] is GameplayAnimationPresentationExecutor executor)
+                {
+                    return executor.Diagnostics;
+                }
+            }
+
+            return default;
+        }
+
         private static DamageDeathVfxExecutionMode NormalizeDamageDeathVfxExecutionMode(
             DamageDeathVfxExecutionMode mode)
         {
@@ -1899,6 +2058,14 @@ namespace Game.Feature.Gameplay.Host
             return Enum.IsDefined(typeof(BoxMotionPresentationExecutionMode), mode)
                 ? mode
                 : BoxMotionPresentationExecutionMode.LegacyTrackPlanner;
+        }
+
+        private static PlayerActionAnimationExecutionMode NormalizePlayerActionAnimationExecutionMode(
+            PlayerActionAnimationExecutionMode mode)
+        {
+            return Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), mode)
+                ? mode
+                : PlayerActionAnimationExecutionMode.LegacyAnimationSync;
         }
 
         private void TraceStep(string stepName)

@@ -101,6 +101,8 @@ namespace Game.Feature.Gameplay.Host
 
         public string LastCrossFadedStateName { get; private set; } = string.Empty;
 
+        internal bool CanDriveCurrentAnimator => CanDriveAnimator(ResolveAnimator());
+
         private void Reset()
         {
             animator = GetComponentInChildren<Animator>();
