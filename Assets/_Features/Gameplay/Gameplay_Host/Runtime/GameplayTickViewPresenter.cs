@@ -228,6 +228,11 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.ConfigureEnemyPresentationExecution(mode, playbackPort);
         }
 
+        internal void ConfigureCoreGameplaySfxExecution(CoreGameplaySfxExecutionMode mode)
+        {
+            _presentationCoordinator.ConfigureCoreGameplaySfxExecution(mode);
+        }
+
         public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)
         {
             _presentationCoordinator.DetachPresentationExtension(extension);
@@ -321,6 +326,18 @@ namespace Game.Feature.Gameplay.Host
 
         internal GameplayEnemyPresentationExecutorDiagnostics EnemyPresentationExecutorDiagnostics =>
             _presentationCoordinator.EnemyPresentationExecutorDiagnostics;
+
+        internal CoreGameplaySfxExecutionMode CoreGameplaySfxExecutionMode =>
+            _presentationCoordinator.CoreGameplaySfxExecutionMode;
+
+        internal CoreGameplaySfxOwnershipDiagnostics CoreGameplaySfxOwnershipDiagnostics =>
+            _presentationCoordinator.CoreGameplaySfxOwnershipDiagnostics;
+
+        internal PresentationBlockingSnapshot CoreGameplaySfxExecutionPipelineBlockingSnapshot =>
+            _presentationCoordinator.CoreGameplaySfxExecutionPipelineBlockingSnapshot;
+
+        internal GameplaySfxExecutorDiagnostics CoreGameplaySfxExecutorDiagnostics =>
+            _presentationCoordinator.CoreGameplaySfxExecutorDiagnostics;
 
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {

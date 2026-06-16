@@ -58,6 +58,17 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         EnemyDeath = 19,
     }
 
+    public enum PresentationSfxCueKey
+    {
+        None = 0,
+        PlayerDamage = 1,
+        EnemyDamage = 2,
+        EntityExitItemConsume = 3,
+        EntityExitBoxDestroy = 4,
+        EntityExitEnemyDeath = 5,
+        EntityExitOutOfBounds = 6,
+    }
+
     public readonly struct PresentationCueKey : IEquatable<PresentationCueKey>
     {
         public PresentationCueKey(PresentationDomain domain, int localKey, int variantKey = 0)
@@ -88,6 +99,11 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         public static PresentationCueKey ForAnimation(PresentationAnimationCueKey key)
         {
             return new PresentationCueKey(PresentationDomain.Animation, (int)key);
+        }
+
+        public static PresentationCueKey ForSfx(PresentationSfxCueKey key)
+        {
+            return new PresentationCueKey(PresentationDomain.Sfx, (int)key);
         }
 
         public bool TryGetVfxCueKey(out PresentationVfxCueKey key)
@@ -129,6 +145,20 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             }
 
             key = PresentationAnimationCueKey.None;
+            return false;
+        }
+
+        public bool TryGetSfxCueKey(out PresentationSfxCueKey key)
+        {
+            if (Domain == PresentationDomain.Sfx &&
+                Enum.IsDefined(typeof(PresentationSfxCueKey), LocalKey) &&
+                LocalKey != (int)PresentationSfxCueKey.None)
+            {
+                key = (PresentationSfxCueKey)LocalKey;
+                return true;
+            }
+
+            key = PresentationSfxCueKey.None;
             return false;
         }
 
@@ -894,6 +924,132 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 hash = (hash * 397) ^ payload.SourceSequenceId;
                 hash = (hash * 397) ^ (int)payload.Kind;
                 hash = (hash * 397) ^ (int)payload.Phase;
+                hash = (hash * 397) ^ key.GetHashCode();
+                return hash & int.MaxValue;
+            }
+        }
+    }
+
+    public sealed class SfxCuePlanner : IPresentationCuePlanner
+    {
+        private const int ExitCauseItemConsume = 1;
+        private const int ExitCauseBoxDestroy = 2;
+        private const int ExitCauseEnemyDeath = 3;
+        private const int ExitCauseOutOfBounds = 4;
+
+        public void Plan(in PresentationFactFrame facts, PresentationCueFrameBuilder builder)
+        {
+            if (facts == null)
+            {
+                throw new ArgumentNullException(nameof(facts));
+            }
+
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            for (var i = 0; i < facts.Facts.Count; i++)
+            {
+                var fact = facts.Facts[i];
+                if (TryPlanDamageSfx(fact, out var damageCue) ||
+                    TryPlanEntityExitSfx(fact, out damageCue))
+                {
+                    builder.Add(damageCue);
+                }
+            }
+        }
+
+        private static bool TryPlanDamageSfx(PresentationFact fact, out PresentationCue cue)
+        {
+            cue = default;
+            if (fact.Kind != PresentationFactKind.Combat ||
+                fact.Target.Kind != PresentationTargetKind.Entity ||
+                fact.Target.EntityId <= 0)
+            {
+                return false;
+            }
+
+            PresentationSfxCueKey sfxCueKey;
+            switch (fact.Source.SemanticSource)
+            {
+                case PresentationSemanticSource.PlayerDamage:
+                    sfxCueKey = PresentationSfxCueKey.PlayerDamage;
+                    break;
+                case PresentationSemanticSource.EnemyDamage:
+                    sfxCueKey = PresentationSfxCueKey.EnemyDamage;
+                    break;
+                default:
+                    return false;
+            }
+
+            var key = PresentationCueKey.ForSfx(sfxCueKey);
+            cue = new PresentationCue(
+                PresentationDomain.Sfx,
+                key,
+                fact.Source,
+                fact.Target,
+                PresentationAnchor.ForEntityCenter(fact.Target.EntityId),
+                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)));
+            return true;
+        }
+
+        private static bool TryPlanEntityExitSfx(PresentationFact fact, out PresentationCue cue)
+        {
+            cue = default;
+            if (fact.Kind != PresentationFactKind.EntityLifecycle ||
+                fact.Source.SemanticSource != PresentationSemanticSource.EntityExit ||
+                fact.Target.Kind != PresentationTargetKind.Entity ||
+                fact.Target.EntityId <= 0 ||
+                !TryResolveExitCueKey(fact.Payload.PrimaryValue, out var sfxCueKey))
+            {
+                return false;
+            }
+
+            var key = PresentationCueKey.ForSfx(sfxCueKey);
+            cue = new PresentationCue(
+                PresentationDomain.Sfx,
+                key,
+                fact.Source,
+                fact.Target,
+                fact.Payload.PrimaryCellCenterAnchorOrEntityCenter(fact.Target.EntityId),
+                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)));
+            return true;
+        }
+
+        private static bool TryResolveExitCueKey(int exitCause, out PresentationSfxCueKey cueKey)
+        {
+            switch (exitCause)
+            {
+                case ExitCauseItemConsume:
+                    cueKey = PresentationSfxCueKey.EntityExitItemConsume;
+                    return true;
+                case ExitCauseBoxDestroy:
+                    cueKey = PresentationSfxCueKey.EntityExitBoxDestroy;
+                    return true;
+                case ExitCauseEnemyDeath:
+                    cueKey = PresentationSfxCueKey.EntityExitEnemyDeath;
+                    return true;
+                case ExitCauseOutOfBounds:
+                    cueKey = PresentationSfxCueKey.EntityExitOutOfBounds;
+                    return true;
+                default:
+                    cueKey = PresentationSfxCueKey.None;
+                    return false;
+            }
+        }
+
+        private static int ComputeDedupeKey(PresentationFact fact, PresentationCueKey key)
+        {
+            unchecked
+            {
+                var hash = 37;
+                hash = (hash * 397) ^ fact.Source.TickIndex;
+                hash = (hash * 397) ^ (int)fact.Source.SemanticSource;
+                hash = (hash * 397) ^ fact.Source.SourceEntityId;
+                hash = (hash * 397) ^ fact.Source.SourceActionKind;
+                hash = (hash * 397) ^ fact.Source.SourceSequence;
+                hash = (hash * 397) ^ fact.Target.EntityId;
                 hash = (hash * 397) ^ key.GetHashCode();
                 return hash & int.MaxValue;
             }

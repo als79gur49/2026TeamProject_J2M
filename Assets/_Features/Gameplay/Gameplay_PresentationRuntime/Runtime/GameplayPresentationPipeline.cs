@@ -244,7 +244,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                 tickIndex,
                 presentationData.EntityExitSignals.Count,
                 PresentationSemanticSource.EntityExit);
-            lifecycleCount += AddEnemyDeathEntityExitFacts(
+            lifecycleCount += AddCoreSfxEntityExitFacts(
                 facts,
                 tickIndex,
                 presentationData.EntityExitSignals);
@@ -710,7 +710,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             return Direction.None;
         }
 
-        private static int AddEnemyDeathEntityExitFacts(
+        private static int AddCoreSfxEntityExitFacts(
             List<PresentationFact> facts,
             int tickIndex,
             IReadOnlyList<TickEntityExitPresentationSignal> signals)
@@ -724,10 +724,8 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             for (var i = 0; i < signals.Count; i++)
             {
                 var signal = signals[i];
-                if (signal.EntityType != EntityType.Unit ||
-                    signal.ExitedEntityId <= 0 ||
-                    (signal.ExitCause != TickEntityExitCause.EnemyDeath &&
-                     signal.ExitCause != TickEntityExitCause.Killed))
+                if (signal.ExitedEntityId <= 0 ||
+                    !IsCoreSfxExitCause(signal.ExitCause))
                 {
                     continue;
                 }
@@ -751,6 +749,16 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             }
 
             return count;
+        }
+
+        private static bool IsCoreSfxExitCause(TickEntityExitCause exitCause)
+        {
+            return exitCause == TickEntityExitCause.ItemConsume ||
+                   exitCause == TickEntityExitCause.BoxDestroy ||
+                   exitCause == TickEntityExitCause.DestroyedByImpact ||
+                   exitCause == TickEntityExitCause.EnemyDeath ||
+                   exitCause == TickEntityExitCause.Killed ||
+                   exitCause == TickEntityExitCause.OutOfBounds;
         }
 
         private static int AddEnemyJumpPresentationFacts(
@@ -1195,6 +1203,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     new AnimationCuePlanner(),
                     new EnemyPresentationCuePlanner(),
                     new VfxCuePlanner(),
+                    new SfxCuePlanner(),
                 }),
                 new PresentationPlaybackPlanner(),
                 new PresentationPlaybackScheduler());
