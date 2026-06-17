@@ -22,7 +22,7 @@
 | `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Core/EnemyAiRuntimeDefinitionGuardTests.cs` | First code slice tests | Covers Behavior-only Summon compile config, duplicate behavior modules, Utility+Behavior duplicate guard, Gravity exclusion, Retired guard, and invalid authoring. |
 | `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyAiProfileAssetContractTests.cs` | First code slice asset contract tests | Confirms production Summoner remains Utility Summon and production `EnemySummonBehaviorModuleAsset` assets do not exist before migration. |
 | `Docs/Architecture/Enemy-AI-Summon-Duplicate-Guard-Design.md` | Closeout docs | Updated stale future-only guard language to the implemented compile-skeleton state. |
-| `Docs/Architecture/Enemy-AI-Summon-Behavior-Runtime-State-Design.md` | Closeout docs | Clarified that compiled Summon config exists while mutable runtime state/emitter remains future work. |
+| `Docs/Architecture/Enemy-AI-Summon-Behavior-Runtime-State-Design.md` | Closeout docs | Originally clarified compile-skeleton status; now records that the follow-up test-local runtime/emitter parity slice is implemented. |
 | `Docs/Architecture/Enemy-AI-Summon-Asset-Migration-Plan.md` | Closeout docs | Updated production inventory wording to distinguish code/test symbols from absent production Behavior Summon assets. |
 | `Docs/Architecture/Enemy-AI-Summon-Option-B-Implementation-Plan.md` | Closeout docs | Marked the first implementation slice as compile-skeleton closeout, not merely started. |
 | `Docs/Architecture/README.md` | Closeout docs | Added this closeout report to the Summon architecture index. |
@@ -42,7 +42,7 @@
 | Doc | Update |
 | --- | --- |
 | `Enemy-AI-Summon-Duplicate-Guard-Design.md` | Replaced future-only detection/test language with current compile-skeleton guard status. |
-| `Enemy-AI-Summon-Behavior-Runtime-State-Design.md` | Clarified compile-time config exists while mutable runtime state, trigger emission, and request production remain future work. |
+| `Enemy-AI-Summon-Behavior-Runtime-State-Design.md` | Clarified compile-time config exists and the follow-up test-local mutable runtime state, trigger emission, and request production path is implemented. |
 | `Enemy-AI-Summon-Asset-Migration-Plan.md` | Clarified production content has no active Behavior Summon assets even though code/test symbols now exist. |
 | `Enemy-AI-Summon-Option-B-Implementation-Plan.md` | Marked the first code slice as implemented/closed out as compile skeleton only. |
 | `Docs/Architecture/README.md` | Added the closeout report link and refreshed nearby Summon status wording. |
@@ -114,6 +114,8 @@ Not run:
 - full presentation/audio/VFX parity slice
 - asset-scoped migration later
 - full lane / CI release gate
+
+See [Enemy-AI-Summon-Behavior-Runtime-Emitter-Parity-Closeout.md](./Enemy-AI-Summon-Behavior-Runtime-Emitter-Parity-Closeout.md) for the dedicated runtime/emitter parity slice closeout.
 
 ## 9. PR / Merge Note
 

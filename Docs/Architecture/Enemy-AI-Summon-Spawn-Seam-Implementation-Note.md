@@ -138,10 +138,13 @@ The following Option B prerequisite gates are now documented or characterized:
 - Presentation/audio/VFX parity plan; see [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
 - Option B implementation slicing and validation gate plan; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 
-Remaining before Option B implementation:
+Completed before production migration:
 
 - Runtime emission for test-local Behavior Summon path is implemented.
 - Behavior Summon request ordering, request snapshot, max-alive, source invalidation, topology participation, replay/export-name, hash, and minimum windup warning parity tests are implemented.
+
+Remaining before production migration:
+
 - Add placement parity coverage for hazard risk fallback.
 - Add max-alive parity coverage after detached, dead, and non-occupying child states.
 - Add GravityFieldAura unaffected regression coverage.

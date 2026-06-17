@@ -60,7 +60,7 @@ same EnemyAiProfile
   has Behavior Summon module
 ```
 
-Utility-only Summon production content remains valid. Behavior Summon-only compile content is valid in test/local authoring after the compile-skeleton slice, but it does not emit runtime summon requests until the future runtime state/emitter parity slice.
+Utility-only Summon production content remains valid. Behavior Summon-only compile content is valid in test/local authoring after the compile-skeleton slice, and the follow-up runtime state/emitter parity slice now emits runtime summon requests for the test-local Behavior Summon path.
 
 ## 5. Detection Model
 
@@ -114,7 +114,7 @@ Use the fixed typed runtime set API added by the compile-skeleton slice:
 var hasBehaviorSummon = behaviors.TryGetSummon(out var summon);
 ```
 
-Do not replace this with a generic behavior registry or `logicModuleAssets`. `EnemyBehaviorModuleKey.Summon`, `TryGetSummon`, and the Summon runtime config slot exist only as compile skeleton; runtime emission remains future work.
+Do not replace this with a generic behavior registry or `logicModuleAssets`. `EnemyBehaviorModuleKey.Summon`, `TryGetSummon`, and the Summon runtime config slot remain fixed typed surfaces; runtime emission is implemented only for the test-local Behavior Summon path, not production migration.
 
 ## 6. Recommended Guard Location
 
@@ -186,7 +186,7 @@ The duplicate Summon message must not mention `GravityFieldAura`, must not treat
 | `ReplayNamesPreserved_AfterMigration` | Future | `SummonCommitted` and `SummonSkipped` names remain stable. |
 | `SpawnRequestOrdering_Preserved_AfterBehaviorEmitter` | Future | Behavior emitter preserves deterministic spawn request and id allocation ordering. |
 
-Current tests cover Utility-only compile behavior, Behavior-only compile config, duplicate Utility+Behavior fail-fast, no production Behavior Summon asset migration, and unchanged Gravity/retired guard behavior. Runtime emitter parity, migration parity, and replay/export parity tests remain future work.
+Current tests cover Utility-only compile behavior, Behavior-only compile config, duplicate Utility+Behavior fail-fast, no production Behavior Summon asset migration, unchanged Gravity/retired guard behavior, test-local runtime emitter parity, and replay/export name preservation. Production migration parity remains future work.
 
 ## 9. Non-Goals
 

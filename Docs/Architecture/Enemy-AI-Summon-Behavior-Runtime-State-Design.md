@@ -2,11 +2,11 @@
 
 ## 1. Decision Summary
 
-- This is design only.
+- This began as the runtime state design note and now also records the implemented test-local runtime/emitter parity status.
 - First compile-skeleton slice is implemented: `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and a fixed typed Summon runtime config slot exist.
-- Mutable Summon behavior runtime state, trigger emission, request production, and materialization participation are not implemented.
+- Mutable Summon behavior runtime state, trigger emission, request production, and materialization participation are implemented for the test-local Behavior Summon path.
 - Utility `SummonMinion` remains in the Utility capability lane until an explicit asset-scoped migration exists.
-- Future Summon behavior runtime owns timing, phase, cooldown, movement suppression, source capture, trigger eligibility, and request emission only.
+- Test-local Summon behavior runtime owns timing, phase, cooldown, movement suppression, source capture, trigger eligibility, and request emission only.
 - The Spawn/EntityCreation seam remains the owner of placement, materialization, entity id allocation, entity construction, metadata creation, and `FinalizationBatch.SpawnEntity`.
 - Duplicate Utility Summon plus Behavior Summon remains an Option B compiler guard.
 - Mutable Behavior Summon runtime state/emitter is implemented for the test-local Behavior Summon path; production Summoner assets remain Utility-owned.
@@ -55,9 +55,9 @@ Current Utility Summon is implemented through `EnemyUtilityCapabilityAsset`, `Su
 | `SummonCommitted` / `SummonSkipped` | `EnemyUtilityResolver` and `EntitySpawnMaterializer` | Replay/export-visible events | Replay/export impact | MigrationOnly | Preserve names unless a separate compatibility plan changes them. |
 | Summon windup warning | `TickResultBuilder` over `EnemyUtilityEffectState` | Presentation warning signal | Presentation output | Presentation | Future builder should consume Behavior state after migration. |
 
-## 3. Future Mutable Runtime State Shape
+## 3. Mutable Runtime State Shape
 
-The compile-skeleton slice now has an `EnemySummonBehaviorRuntime` config object produced by `EnemySummonBehaviorModuleAsset`. The fuller mutable state/emitter shape below is pseudo-code only. Do not add mutable Summon behavior state, trigger emission, or request production until the runtime state/emitter parity slice.
+The compile-skeleton slice has an `EnemySummonBehaviorRuntime` config object produced by `EnemySummonBehaviorModuleAsset`. The runtime/emitter parity slice implements the test-local mutable state/emitter path using the fixed typed `EnemySummonBehaviorRuntimeState` lane. The conceptual shape below remains the design vocabulary for ownership review; production asset migration is still future gated.
 
 ```csharp
 public readonly struct EnemySummonBehaviorRuntimeConfig
@@ -330,14 +330,14 @@ Rollback strategy:
 | `SummonBehaviorRuntime_StateParity_DesignAccepted` | Future | Locks accepted design before runtime code starts | Yes |
 | `DuplicateGuard_UtilityAndBehaviorSummon_FailsCompile` | Current | Prevents duplicate summon sources | Already implemented in compile skeleton |
 | `BehaviorSummonOnly_ProfileCompiles` | Current | Verifies Behavior-only compile config is valid after the compile skeleton | Already implemented in compile skeleton |
-| `BehaviorSummon_EmitsSpawnRequestInUtilityParityOrder` | Future | Preserves deterministic request and id allocation order | Before migration |
-| `BehaviorSummon_PreservesRequestPayloadSnapshot` | Future | Preserves origin/facing/team/tick snapshot metadata | Before migration |
-| `BehaviorSummon_MaxAliveParity` | Future | Verifies alive child count and planned child gate parity | Before migration |
-| `BehaviorSummon_SourceDeathCancelsOrSkipsAsUtility` | Future | Verifies hard invalid source behavior | Before migration |
-| `BehaviorSummon_SourceLeavesTopologyCancelsOrSuspendsAsUtility` | Future | Verifies topology participation loss shift/suspend parity | Before migration |
-| `BehaviorSummon_ReplayNamesPreservedOrMigrated` | Future | Prevents accidental replay/export rename | Before migration |
-| `BehaviorSummon_DeterminismHashParity` | Future | Verifies state hash migration and child metadata hash parity | Before migration |
-| `BehaviorSummon_PresentationWindupParity` | Future | Verifies warning and phase presentation parity | Before migration |
+| `BehaviorSummon_EmitsSpawnRequestInUtilityParityOrder` | Current | Preserves deterministic request and id allocation order | Implemented for test-local runtime/emitter parity |
+| `BehaviorSummon_PreservesRequestPayloadSnapshot` | Current | Preserves origin/facing/team/tick snapshot metadata | Implemented for test-local runtime/emitter parity |
+| `BehaviorSummon_MaxAliveParity` | Current | Verifies alive child count and planned child gate parity | Implemented for test-local runtime/emitter parity |
+| `BehaviorSummon_SourceDeathCancelsOrSkipsAsUtility` | Current | Verifies hard invalid source behavior | Implemented for test-local runtime/emitter parity |
+| `BehaviorSummon_SourceLeavesTopologyCancelsOrSuspendsAsUtility` | Current | Verifies topology participation loss shift/suspend parity | Implemented for test-local runtime/emitter parity |
+| `BehaviorSummon_ReplayNamesPreservedOrMigrated` | Current | Prevents accidental replay/export rename | Implemented for test-local runtime/emitter parity |
+| `BehaviorSummon_DeterminismHashParity` | Current | Verifies state hash migration and child metadata hash parity | Implemented for test-local runtime/emitter parity |
+| `BehaviorSummon_PresentationWindupParity` | Current | Verifies warning and phase presentation parity | Minimum windup warning parity implemented for test-local runtime/emitter parity |
 | `BehaviorSummon_AudioVfxParity` | Future | Verifies presentation-consumer parity where applicable | Before migration |
 | `GravityFieldAura_Unchanged` | Current | Guards non-goal Utility effect | Already implemented for compile skeleton |
 | `RetiredLockNearbyBoxes_GuardUnchanged` | Current | Guards retired compatibility behavior | Already implemented for compile skeleton |
@@ -349,7 +349,7 @@ Rollback strategy:
 
 ## 10. Explicit Non-Goals
 
-- No mutable Summon behavior runtime state or emitter.
+- No production Summon asset migration.
 - Runtime summon request emission from Behavior Summon is implemented for test-local Behavior Summon fixtures only.
 - No Utility `SummonMinion` asset or YAML migration.
 - No Utility whole-lane migration.
