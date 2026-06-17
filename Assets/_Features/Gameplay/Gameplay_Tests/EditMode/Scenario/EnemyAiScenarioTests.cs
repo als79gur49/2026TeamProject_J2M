@@ -5,12 +5,14 @@ using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.EnemyAudio;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
+using Game.Feature.Gameplay.Vfx;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -972,6 +974,98 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(bindingState.ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
         }
 
+        private static TickResult RunSingleBehaviorSummonCommit(
+            out EnemyAiProfile profile,
+            out EnemyAiProfile defaultProfile,
+            out EnemyUnitArchetypeCatalog archetypeCatalog)
+        {
+            profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+            pipeline.RunTick(new TickInput(1));
+            return pipeline.RunTick(new TickInput(2));
+        }
+
+        private static (int OwnerEntityId, EnemyAudioCue Cue)[] GetEnemyAudioRequests(TickResult result)
+        {
+            return new EnemyAudioRequestPlanner()
+                .BuildRequests(result)
+                .Where(request => request.Cue == EnemyAudioCue.Windup || request.Cue == EnemyAudioCue.Active)
+                .Select(request => (request.OwnerEntityId, request.Cue))
+                .ToArray();
+        }
+
+        private static IReadOnlyList<GameplayVfxRequest> PlanEnemyVfxRequests(TickResult result)
+        {
+            var builder = new GameplayVfxRequestPlanBuilder();
+            new EnemyVfxRequestPlanner().Plan(
+                new GameplayVfxPlanningContext(
+                    result.TickIndex,
+                    result.PresentationData,
+                    result.FinalTopology),
+                builder);
+            return builder.Build().Requests;
+        }
+
+        private static bool IsUtilityWindupRequest(GameplayVfxRequest request)
+        {
+            return request.CueId == GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup);
+        }
+
+        private static bool IsUtilitySummonSpawnRequest(GameplayVfxRequest request)
+        {
+            return request.CueId == GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn);
+        }
+
+        private static void AssertSummonedSpawnPresentation(
+            TickResult result,
+            int spawnedEntityId,
+            int sourceEntityId)
+        {
+            Assert.That(
+                result.PresentationData.SummonedEnemyPresentationBindings.Any(binding =>
+                    binding.EntityId == spawnedEntityId &&
+                    binding.SourceEntityId == sourceEntityId &&
+                    binding.HasEnemyDefinitionBinding &&
+                    binding.ArchetypeId.Equals(new EnemyUnitArchetypeId("BasicMinion"))),
+                Is.True);
+            Assert.That(
+                result.PresentationData.VisibilityChanges.Any(change =>
+                    change.EntityId == spawnedEntityId &&
+                    change.ChangeKind == TickVisibilityChangeKind.Spawn),
+                Is.True);
+            Assert.That(
+                GetEnemyAudioRequests(result),
+                Does.Contain((sourceEntityId, EnemyAudioCue.Active)));
+            Assert.That(
+                PlanEnemyVfxRequests(result).Any(request =>
+                    IsUtilitySummonSpawnRequest(request) &&
+                    request.SourceEntityId == spawnedEntityId),
+                Is.True);
+        }
+
+        private static void AssertNoSpawnPresentationAudioOrVfx(TickResult result)
+        {
+            var spawnedEntityIds = result.PresentationData.VisibilityChanges
+                .Where(change => change.ChangeKind == TickVisibilityChangeKind.Spawn)
+                .Select(change => change.EntityId)
+                .ToArray();
+            Assert.That(spawnedEntityIds, Is.Empty);
+            Assert.That(
+                result.PresentationData.SummonedEnemyPresentationBindings.Any(binding =>
+                    spawnedEntityIds.Contains(binding.EntityId)),
+                Is.False);
+            Assert.That(
+                GetEnemyAudioRequests(result).Any(request => request.Cue == EnemyAudioCue.Active),
+                Is.False);
+            Assert.That(
+                PlanEnemyVfxRequests(result).Any(IsUtilitySummonSpawnRequest),
+                Is.False);
+        }
+
         [Test]
         [Category("Extended")]
         public void BehaviorSummon_InitialDelayCooldownWindupRecoveryParity()
@@ -1421,6 +1515,540 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 UnityEngine.Object.DestroyImmediate(archetypeCatalog);
                 DestroyProfile(defaultProfile);
                 DestroyProfile(passiveProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_WindupWarningSignalParity()
+        {
+            var profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 2);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+                var windupTick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(windupTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                var warning = windupTick.PresentationData.SummonWindupWarnings[0];
+                Assert.That(warning.SourceEntityId, Is.EqualTo(40));
+                Assert.That(warning.EffectIndex, Is.EqualTo(0));
+                Assert.That(warning.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(warning.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+                Assert.That(warning.Facing, Is.EqualTo(Direction.Right));
+                Assert.That(warning.WindupStartTick, Is.EqualTo(1));
+                Assert.That(warning.WindupEndTick, Is.EqualTo(3));
+                Assert.That(warning.ActivationSequence, Is.EqualTo(1));
+                Assert.That(warning.TickIndex, Is.EqualTo(1));
+                Assert.That(warning.PresentationSeed, Is.Not.Zero);
+                Assert.That(
+                    windupTick.PresentationData.EnemyUtilitySignals.Select(signal =>
+                        (signal.EntityId, signal.Kind, signal.Phase, signal.EffectIndex, signal.ActivationSequence)).ToArray(),
+                    Is.EqualTo(new[]
+                    {
+                        (40, EnemyUtilityPresentationKind.SummonMinion, EnemyUtilityPresentationPhase.WindupStarted, 0, 1),
+                    }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_SourceDeathCancelsWindupPresentation()
+        {
+            var profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 1);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 2, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonBootstrapper(profile, out defaultProfile, out archetypeCatalog)
+                    .CreateTickPipeline(worldState, new IEntityLogic[] { new ScriptedAttackLogic(10, 40) });
+                var warningTick = pipeline.RunTick(new TickInput(1));
+                Assert.That(warningTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(PlanEnemyVfxRequests(warningTick).Any(IsUtilityWindupRequest), Is.True);
+
+                var canceledTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(canceledTick.PresentationData.SummonWindupWarnings, Is.Empty);
+                AssertNoSpawnPresentationAudioOrVfx(canceledTick);
+                Assert.That(
+                    canceledTick.EventLog,
+                    Has.Some.Contains("SummonSkipped|Source=40|Effect=0|SpawnIndex=0|Reason=SourceInvalid"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_TopologySuspendPresentationParity()
+        {
+            var profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 2, windupTicks: 2);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Floor));
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+
+                var firstWarningTick = pipeline.RunTick(new TickInput(1));
+                Assert.That(firstWarningTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+
+                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Front, 0, 0));
+                var suspendedTick = pipeline.RunTick(new TickInput(2));
+                var suspendedState = GetEnemySummonBehaviorState(worldState, 40);
+
+                Assert.That(suspendedState.phase, Is.EqualTo(EnemySummonBehaviorPhase.Windup));
+                Assert.That(suspendedState.windupEndTick, Is.EqualTo(4));
+                Assert.That(suspendedTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
+                Assert.That(suspendedTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(
+                    suspendedTick.PresentationData.SummonWindupWarnings[0].SourceCell,
+                    Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+
+                worldState.CreateWriteContext().MoveEntity(40, new SurfaceCell(FaceId.Floor, 0, 0));
+                pipeline.RunTick(new TickInput(3));
+                var committedTick = pipeline.RunTick(new TickInput(4));
+
+                Assert.That(committedTick.PresentationData.SummonWindupWarnings, Is.Empty);
+                AssertSummonedSpawnPresentation(committedTick, spawnedEntityId: 41, sourceEntityId: 40);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_SummonedEnemyPresentationBindingParity()
+        {
+            var committedTick = RunSingleBehaviorSummonCommit(out var profile, out var defaultProfile, out var archetypeCatalog);
+            try
+            {
+                Assert.That(committedTick.PresentationData.SummonedEnemyPresentationBindings, Has.Count.EqualTo(1));
+                var binding = committedTick.PresentationData.SummonedEnemyPresentationBindings[0];
+                Assert.That(binding.EntityId, Is.EqualTo(41));
+                Assert.That(binding.HasEnemyDefinitionBinding, Is.True);
+                Assert.That(binding.ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
+                Assert.That(binding.SourceEntityId, Is.EqualTo(40));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_SpawnVisibilityChangeParity()
+        {
+            var committedTick = RunSingleBehaviorSummonCommit(out var profile, out var defaultProfile, out var archetypeCatalog);
+            try
+            {
+                var spawnChanges = committedTick.PresentationData.VisibilityChanges
+                    .Where(change => change.ChangeKind == TickVisibilityChangeKind.Spawn)
+                    .ToArray();
+
+                Assert.That(spawnChanges, Has.Length.EqualTo(1));
+                Assert.That(spawnChanges[0].EntityId, Is.EqualTo(41));
+                Assert.That(spawnChanges[0].Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+                Assert.That(spawnChanges[0].Facing, Is.EqualTo(Direction.Right));
+                Assert.That(spawnChanges[0].Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+                AssertSummonedSpawnPresentation(committedTick, spawnedEntityId: 41, sourceEntityId: 40);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_SameTickMultiSummonerPresentationOrderParity()
+        {
+            var profile = CreateBehaviorSummonProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 5,
+                spawnCountPerTrigger: 1,
+                windupTicks: 1);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 41, teamId: 2, position: new SurfaceCell(FaceId.Floor, 3, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(
+                    profile,
+                    worldState,
+                    out defaultProfile,
+                    out archetypeCatalog,
+                    summonerEntityIds: new[] { 40, 41 });
+                pipeline.RunTick(new TickInput(1));
+                var committedTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(
+                    committedTick.PresentationData.SummonedEnemyPresentationBindings
+                        .Select(binding => (binding.EntityId, binding.SourceEntityId)).ToArray(),
+                    Is.EqualTo(new[] { (42, 40), (43, 41) }));
+                Assert.That(
+                    committedTick.PresentationData.VisibilityChanges
+                        .Where(change => change.ChangeKind == TickVisibilityChangeKind.Spawn)
+                        .Select(change => change.EntityId).ToArray(),
+                    Is.EqualTo(new[] { 42, 43 }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_AudioWindupCueParity()
+        {
+            var profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 2);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+                var windupStartTick = pipeline.RunTick(new TickInput(1));
+                var windupHoldTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(GetEnemyAudioRequests(windupStartTick), Is.EqualTo(new[] { (40, EnemyAudioCue.Windup) }));
+                Assert.That(GetEnemyAudioRequests(windupHoldTick), Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_AudioActiveSummonCueParity()
+        {
+            var committedTick = RunSingleBehaviorSummonCommit(out var profile, out var defaultProfile, out var archetypeCatalog);
+            try
+            {
+                Assert.That(GetEnemyAudioRequests(committedTick), Is.EqualTo(new[] { (40, EnemyAudioCue.Active) }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_OwnerViewMissing_AudioFallbackParity()
+        {
+            var committedTick = RunSingleBehaviorSummonCommit(out var profile, out var defaultProfile, out var archetypeCatalog);
+            try
+            {
+                var audioRequests = GetEnemyAudioRequests(committedTick);
+
+                Assert.That(audioRequests, Has.Length.EqualTo(1));
+                Assert.That(audioRequests[0], Is.EqualTo((40, EnemyAudioCue.Active)));
+                Assert.That(
+                    committedTick.PresentationData.SummonedEnemyPresentationBindings.Single().EntityId,
+                    Is.EqualTo(41),
+                    "Active summon audio remains source-owned; missing source views are handled by the existing host no-op policy.");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_SameTickMultiSummonerAudioOrderParity()
+        {
+            var profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 1);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 41, teamId: 2, position: new SurfaceCell(FaceId.Floor, 3, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(
+                    profile,
+                    worldState,
+                    out defaultProfile,
+                    out archetypeCatalog,
+                    summonerEntityIds: new[] { 40, 41 });
+                pipeline.RunTick(new TickInput(1));
+                var committedTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(
+                    GetEnemyAudioRequests(committedTick),
+                    Is.EqualTo(new[] { (40, EnemyAudioCue.Active), (41, EnemyAudioCue.Active) }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_UtilityWindupVfxParity()
+        {
+            var profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 2);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+                var windupTick = pipeline.RunTick(new TickInput(1));
+
+                var request = PlanEnemyVfxRequests(windupTick).Single(IsUtilityWindupRequest);
+                var cueId = GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup);
+                Assert.That(request.SourceEntityId, Is.EqualTo(40));
+                Assert.That(request.CueId, Is.EqualTo(cueId));
+                Assert.That(request.IsPersistent, Is.True);
+                Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Entity));
+                Assert.That(request.Anchor.EntityId, Is.EqualTo(40));
+                Assert.That(request.Anchor.HasFallbackCell, Is.True);
+                Assert.That(request.Anchor.FallbackCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(request.PersistentKey, Is.EqualTo(new VfxPersistentKey(
+                    cueId,
+                    VfxAnchorKind.Entity,
+                    entityId: 40,
+                    effectIndex: 0,
+                    activationSequence: 1)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_UtilitySummonSpawnVfxParity()
+        {
+            var committedTick = RunSingleBehaviorSummonCommit(out var profile, out var defaultProfile, out var archetypeCatalog);
+            try
+            {
+                var request = PlanEnemyVfxRequests(committedTick).Single(IsUtilitySummonSpawnRequest);
+
+                Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn)));
+                Assert.That(request.SourceEntityId, Is.EqualTo(41));
+                Assert.That(request.IsPersistent, Is.False);
+                Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
+                Assert.That(request.Anchor.Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+                Assert.That(request.Anchor.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+                Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.CellCenter));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_SameTickMultiSummonerVfxOrderParity()
+        {
+            var profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 1);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 41, teamId: 2, position: new SurfaceCell(FaceId.Floor, 3, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(
+                    profile,
+                    worldState,
+                    out defaultProfile,
+                    out archetypeCatalog,
+                    summonerEntityIds: new[] { 40, 41 });
+                pipeline.RunTick(new TickInput(1));
+                var committedTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(
+                    PlanEnemyVfxRequests(committedTick)
+                        .Where(IsUtilitySummonSpawnRequest)
+                        .Select(request => request.SourceEntityId).ToArray(),
+                    Is.EqualTo(new[] { 42, 43 }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_FailedPlacement_NoSpawnVfxOrActiveCue()
+        {
+            var profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 1);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateWall(entityId: 60, position: new Vector2Int(1, 0)),
+                CreateWall(entityId: 61, position: new Vector2Int(0, -1)),
+                CreateWall(entityId: 62, position: new Vector2Int(-1, 0)),
+                CreateWall(entityId: 63, position: new Vector2Int(0, 1)),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+                pipeline.RunTick(new TickInput(1));
+                var failedTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(
+                    failedTick.EventLog,
+                    Has.Some.Contains("SummonSkipped|Source=40|Effect=0|SpawnIndex=0|Reason=NoCandidateCell"));
+                AssertNoSpawnPresentationAudioOrVfx(failedTick);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_MaxAliveBlocked_NoSpawnVfxOrActiveCue()
+        {
+            var defaultProfile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+            });
+            var profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 5, maxAliveChildren: 1, windupTicks: 1);
+            var archetypeCatalog = CreateEnemyUnitArchetypeCatalog(GetSharedSummonedArchetype());
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(1, 0), hp: 1, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            worldState.SetSummonedEntityState(50, new SummonedEntityState(40, 0));
+
+            try
+            {
+                var pipeline = CreateTickPipeline(defaultProfile, profile, archetypeCatalog, worldState);
+                var blockedTick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(blockedTick.PresentationData.SummonWindupWarnings, Is.Empty);
+                AssertNoSpawnPresentationAudioOrVfx(blockedTick);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_PresentationDoesNotMutateAuthoritativeState()
+        {
+            var committedTick = RunSingleBehaviorSummonCommit(out var profile, out var defaultProfile, out var archetypeCatalog);
+            try
+            {
+                var hashBefore = committedTick.DeterminismHash;
+                var eventLogBefore = committedTick.EventLog.ToArray();
+                var finalEntitiesBefore = committedTick.FinalEntities.ToArray();
+                var bindingCountBefore = committedTick.PresentationData.SummonedEnemyPresentationBindings.Count;
+                var visibilityCountBefore = committedTick.PresentationData.VisibilityChanges.Count;
+
+                _ = new EnemyAudioRequestPlanner().BuildRequests(committedTick);
+                _ = PlanEnemyVfxRequests(committedTick);
+
+                Assert.That(committedTick.DeterminismHash, Is.EqualTo(hashBefore));
+                CollectionAssert.AreEqual(eventLogBefore, committedTick.EventLog);
+                CollectionAssert.AreEqual(finalEntitiesBefore, committedTick.FinalEntities);
+                Assert.That(committedTick.PresentationData.SummonedEnemyPresentationBindings, Has.Count.EqualTo(bindingCountBefore));
+                Assert.That(committedTick.PresentationData.VisibilityChanges, Has.Count.EqualTo(visibilityCountBefore));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
                 DestroyProfile(profile);
             }
         }
