@@ -19,6 +19,7 @@ Update note, 2026-06-17 KST:
 Decision vocabulary:
 
 - `KEEP_CANONICAL`: current runtime, scene, prefab, or public contract path.
+- `KEEP_STAGE_COMPANION`: catalog-owned stage companion content that must remain while its owner entry/reference remains in stage governance.
 - `KEEP_RESERVED`: currently hidden or future-facing, but explicitly governed.
 - `DELETE_SAFE`: no C# reference, no serialized GUID reference beyond owned pair, no scene/prefab/asset reference, no Resources/Addressables/string-path load, no test/docs canonical contract.
 - `DELETE_AFTER_TEST_UPDATE`: production runtime is not using it, but tests/docs still pin it or an adjacent asset chain.
@@ -38,6 +39,7 @@ Count convention:
 | Decision | Count | Notes |
 |---|---:|---|
 | KEEP_CANONICAL | 32 | Shared runtime, BGM flow, gameplay host audio maps/controllers, UI SFX/settings bridge, active scene/bootstrap assets. |
+| KEEP_STAGE_COMPANION | 1 | AUD-012 `legacy-stage-5-1_Audio.asset` is a catalog-owned archived stage companion. |
 | KEEP_RESERVED | 8 | `Crossfade`, `AudioBinding.Policy`, hidden channels, symbolic BGM contract, persistence internals. |
 | DELETE_SAFE | 18 | Pure orphan clip/assets or orphan definitions with only their owned clip reference; excludes completed cleanup and content-risk items. |
 | DELETE_AFTER_TEST_UPDATE | 0 | Previous orphan definition targets were removed by the verified asset-only cleanup PR. |
@@ -60,6 +62,7 @@ Count convention:
 | KEEP_CANONICAL | `GlobalAudioFlowBootstrap`, `GlobalAudioFlowRoot`, `BgmFlowCoordinator`, `SceneBgmRequestSource`, `BgmProfile` | BGM flow | Scenes serialize bootstrap/request source; `SceneBgmRequestSource.Start` delegates to coordinator; no direct scene `PlayBgm`. | scene refs | active runtime | BGM architecture/runtime/playmode tests | High | Preserve. |
 | REFACTOR_NOT_DELETE | `HorrorVol2FactoryMain_BgmProfile` / `HorrorVol2FactoryMain_BgmDef` / clip | BGM content | GUID reverse lookup: profile serialized in `UIAudioScene`; definition referenced by profile; clip referenced by definition. Production name is normalized. | profile in scene; def in profile; clip in def | scene entry BGM | scene contract tests | Medium | Preserve; do not delete. |
 | KEEP_CANONICAL | `StageAudioDefinition`, `StageAudioRuntimeRequestSource`, `BgmRequestRouter` | Stage gameplay BGM companion path | Stage validator validates direct `gameplayBgm` profile metadata; runtime source submits priority requests to the router; flow coordinator executes playback. | `*_Audio.asset` companions serialized from each stage entry | stage audio runtime source | `CampaignStageFlowTests`, `BgmFlowArchitectureTests`, `StageAudioDefinitionValidationTests` | High | Preserve; treat disconnects as integration issues, not deletion. |
+| KEEP_STAGE_COMPANION | AUD-012 `Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/legacy-stage-5-1/legacy-stage-5-1_Audio.asset` | Archived stage audio companion | Stage companion schema audit classifies this as `KEEP_STAGE_COMPANION`. `StageContentEntry.audioDefinition` on `legacy-stage-5-1_Entry.asset` directly references it, and `CampaignMain_StageCatalog.asset` includes that owner entry. `mode: None` with a null profile is an intentional no-gameplay-BGM marker. | owner entry GUID `df156370538abbdf66d15215fb0d804e`; asset GUID `c0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb` | stage audio runtime request path and stage governance validation | Stage content catalog/pre-build validation and `StageAudioDefinitionValidationTests` | High | Preserve. Future removal is blocked unless a separate stage governance migration first removes the owner entry/reference and passes catalog validation. |
 | KEEP_CANONICAL | `GameplayAudioSemanticId` six required members and `GameplayAudioMap_CampaignV1` | Gameplay core one-shot | Map has all six required entries; map serialized in `UIAudioScene`; planner emits damage/exit only from `TickResult.PresentationData`. | scene map ref | active host presentation | `AudioArchitectureTests`, `GameplayAudioHostOrchestrationTests` | High | Preserve. |
 | REFACTOR_NOT_DELETE | `GameplayAudioMap_CampaignV1` name | Gameplay core one-shot content | Serialized in production scene; tests load by path; production name is normalized. | `UIAudioScene` | active runtime | path-pinned tests | Medium | Preserve; do not delete. |
 | KEEP_CANONICAL | `Player_S1_GameplayActionAudioProfile` | Gameplay action audio | Serialized by `Player_S1.prefab`; planner emits Push/Flip moments; authoring validates profile. | player prefab ref | active player action audio | `GameplayActionAudioRuntimeTests` | High | Preserve. |
@@ -100,7 +103,7 @@ Evidence:
 - `PlayerPrefsAudioSettingsStore` is not legacy residue; it is the current default persistence store behind `AudioMixingService`.
 - `AudioPlaybackPolicy` is reserved via `AudioBinding.Policy`, not a dead policy implementation.
 - `GameplayActionAudioPresentationController` deferred/suppress policy is a follow-up investigation candidate only. Do not remove deferred/suppress branches in this docs cleanup PR.
-- `legacy-stage-5-1_Audio.asset` is stage-content risk if it appears in deletion searches. Treat it as blocked pending stage-content audit, not as a reference-count deletion candidate.
+- AUD-012 is closed as `KEEP_STAGE_COMPANION`: the archived stage companion remains catalog-owned, runtime/governance consumed, and blocked from removal until a future stage governance migration removes the owner entry/reference first.
 
 Potential refactor-only items:
 

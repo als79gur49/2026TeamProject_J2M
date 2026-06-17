@@ -44,6 +44,14 @@ The verified orphan audio asset cleanup PRs already removed these assets and the
 
 These rows are historical cleanup evidence, not active deletion candidates. The completed definition removals must not be confused with the retained source clips or active monster definitions. The completed end-credit clip removal followed product/content owner confirmation that the content is unused.
 
+## Kept Stage Audio Companions
+
+The StageAudioDefinition companion schema audit closes AUD-012 as keep:
+
+| Asset Type | Path | GUID | Decision | Reason | Runtime | BGM Behavior | Action |
+|---|---|---|---|---|---|---|---|
+| StageAudioDefinition | `Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/legacy-stage-5-1/legacy-stage-5-1_Audio.asset` | `c0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb` | KEEP_STAGE_COMPANION | `StageContentEntry.audioDefinition` on `legacy-stage-5-1_Entry.asset` directly references it, and `CampaignMain_StageCatalog.asset` includes that owner entry. | Consumed by the stage audio request path and by stage governance/CI/pre-build validation. | `mode: None` with a null profile is an intentional no-gameplay-BGM marker. | Keep the asset. Future removal is blocked unless a separate stage governance migration removes the owner entry/reference first and passes catalog validation. |
+
 ## Orphan / Candidate Assets
 
 | Asset Type | Path | GUID | Referenced By | Clip/Definition/Binding Chain | Production/Test | Decision |

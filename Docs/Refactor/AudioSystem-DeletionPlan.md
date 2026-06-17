@@ -282,6 +282,14 @@ Expected updates:
 - If renaming `_Test` production assets: update path-pinned tests.
 - If deleting/renaming UI cues, gameplay semantics, BGM transition enum members, channels, or `StageAudioDefinition`: update governance docs and tests in the same change.
 
+AUD-012 stage companion decision:
+
+- AUD-012 is closed as keep, not removal work.
+- `legacy-stage-5-1_Audio.asset` is a catalog-owned `StageAudioDefinition` companion.
+- Do not treat it as unowned audio content.
+- `mode: None` with a null profile is an intentional no-gameplay-BGM marker.
+- Future removal requires a separate stage governance migration that first removes the owner entry/reference and passes catalog validation.
+
 Never claim:
 
 - project-wide green
