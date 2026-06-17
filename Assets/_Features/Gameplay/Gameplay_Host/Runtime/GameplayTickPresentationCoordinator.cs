@@ -2670,9 +2670,38 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplaySfxExecutorDiagnostics ResolveCoreGameplaySfxExecutorDiagnostics()
         {
+            var ownershipDiagnostics = _coreGameplaySfxExecutionGuard.Diagnostics;
+            var adapterDiagnostics = _coreGameplaySfxPlaybackPortAdapter.Diagnostics;
             if (_coreGameplaySfxExecutionPipeline == null)
             {
-                return default;
+                return new GameplaySfxExecutorDiagnostics(
+                    ownershipDiagnostics.Mode,
+                    ownershipDiagnostics.Mode == CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor,
+                    ownershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount,
+                    observedCueCount: 0,
+                    semanticUnsupportedCount: 0,
+                    mapMissingCount: 0,
+                    bindingMissingCount: 0,
+                    targetMissingCount: 0,
+                    ownerViewMissingCount: 0,
+                    portMissingCount: 0,
+                    duplicateSuppressedCount: ownershipDiagnostics.DuplicateAttemptCount,
+                    legacyOwnerNoOpCount: ownershipDiagnostics.SkippedExecutorBecauseLegacyOwnerCount,
+                    requestPlannedCount: 0,
+                    playbackRequestedCount: 0,
+                    playbackSucceededCount: 0,
+                    playbackNoOpFallbackCount: 0,
+                    fallbackCount: 0,
+                    attachedLikePlaybackCount: adapterDiagnostics.AttachedLikePlaybackCount,
+                    twoDFallbackPlaybackCount: adapterDiagnostics.TwoDFallbackPlaybackCount,
+                    deferredDuringTopologyLockCount: adapterDiagnostics.DeferredDuringTopologyLockCount,
+                    deferredDrainCount: adapterDiagnostics.DeferredDrainCount,
+                    enemyDeathGenericCoreSfxSuppressedCount: adapterDiagnostics.EnemyDeathGenericCoreSfxSuppressedCount,
+                    lethalEnemyDamageSuppressedByDeathCount: adapterDiagnostics.LethalEnemyDamageSuppressedByDeathCount,
+                    lastTickIndex: adapterDiagnostics.LastTickIndex,
+                    lastSemanticKey: adapterDiagnostics.LastSemanticKey,
+                    lastFallbackReason: adapterDiagnostics.LastFallbackReason,
+                    semanticDiagnostics: Array.Empty<GameplaySfxSemanticDiagnostics>());
             }
 
             var executors = _coreGameplaySfxExecutionPipeline.Executors;
@@ -2680,11 +2709,92 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (executors[i] is GameplaySfxPresentationExecutor executor)
                 {
-                    return executor.Diagnostics;
+                    return MergeCoreGameplaySfxDiagnostics(
+                        executor.Diagnostics,
+                        ownershipDiagnostics,
+                        adapterDiagnostics);
                 }
             }
 
-            return default;
+            return new GameplaySfxExecutorDiagnostics(
+                ownershipDiagnostics.Mode,
+                ownershipDiagnostics.Mode == CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor,
+                ownershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount,
+                observedCueCount: 0,
+                semanticUnsupportedCount: 0,
+                mapMissingCount: 0,
+                bindingMissingCount: 0,
+                targetMissingCount: 0,
+                ownerViewMissingCount: 0,
+                portMissingCount: 0,
+                duplicateSuppressedCount: ownershipDiagnostics.DuplicateAttemptCount,
+                legacyOwnerNoOpCount: ownershipDiagnostics.SkippedExecutorBecauseLegacyOwnerCount,
+                requestPlannedCount: 0,
+                playbackRequestedCount: 0,
+                playbackSucceededCount: 0,
+                playbackNoOpFallbackCount: 0,
+                fallbackCount: 0,
+                attachedLikePlaybackCount: adapterDiagnostics.AttachedLikePlaybackCount,
+                twoDFallbackPlaybackCount: adapterDiagnostics.TwoDFallbackPlaybackCount,
+                deferredDuringTopologyLockCount: adapterDiagnostics.DeferredDuringTopologyLockCount,
+                deferredDrainCount: adapterDiagnostics.DeferredDrainCount,
+                enemyDeathGenericCoreSfxSuppressedCount: adapterDiagnostics.EnemyDeathGenericCoreSfxSuppressedCount,
+                lethalEnemyDamageSuppressedByDeathCount: adapterDiagnostics.LethalEnemyDamageSuppressedByDeathCount,
+                lastTickIndex: adapterDiagnostics.LastTickIndex,
+                lastSemanticKey: adapterDiagnostics.LastSemanticKey,
+                lastFallbackReason: adapterDiagnostics.LastFallbackReason,
+                semanticDiagnostics: Array.Empty<GameplaySfxSemanticDiagnostics>());
+        }
+
+        private static GameplaySfxExecutorDiagnostics MergeCoreGameplaySfxDiagnostics(
+            GameplaySfxExecutorDiagnostics executorDiagnostics,
+            CoreGameplaySfxOwnershipDiagnostics ownershipDiagnostics,
+            GameplaySfxPlaybackAdapterDiagnostics adapterDiagnostics)
+        {
+            var adapterFallbackCount =
+                adapterDiagnostics.TwoDFallbackPlaybackCount +
+                adapterDiagnostics.EnemyDeathGenericCoreSfxSuppressedCount +
+                adapterDiagnostics.LethalEnemyDamageSuppressedByDeathCount;
+            var lastFallbackReason = adapterDiagnostics.LastFallbackReason != GameplaySfxFallbackReason.None
+                ? adapterDiagnostics.LastFallbackReason
+                : executorDiagnostics.LastFallbackReason;
+            var lastSemanticKey = adapterDiagnostics.LastSemanticKey != PresentationSfxCueKey.None
+                ? adapterDiagnostics.LastSemanticKey
+                : executorDiagnostics.LastSemanticKey;
+            var lastTickIndex = adapterDiagnostics.LastTickIndex > 0
+                ? adapterDiagnostics.LastTickIndex
+                : executorDiagnostics.LastTickIndex;
+
+            return new GameplaySfxExecutorDiagnostics(
+                ownershipDiagnostics.Mode,
+                ownershipDiagnostics.Mode == CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor,
+                ownershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount,
+                executorDiagnostics.ObservedCueCount,
+                executorDiagnostics.SemanticUnsupportedCount,
+                executorDiagnostics.MapMissingCount,
+                executorDiagnostics.BindingMissingCount,
+                executorDiagnostics.TargetMissingCount,
+                executorDiagnostics.OwnerViewMissingCount,
+                executorDiagnostics.PortMissingCount,
+                Math.Max(
+                    executorDiagnostics.DuplicateSuppressedCount,
+                    ownershipDiagnostics.DuplicateAttemptCount),
+                executorDiagnostics.LegacyOwnerNoOpCount,
+                executorDiagnostics.RequestPlannedCount,
+                executorDiagnostics.PlaybackRequestedCount,
+                executorDiagnostics.PlaybackSucceededCount,
+                executorDiagnostics.PlaybackNoOpFallbackCount,
+                Math.Max(executorDiagnostics.FallbackCount, adapterFallbackCount),
+                adapterDiagnostics.AttachedLikePlaybackCount,
+                adapterDiagnostics.TwoDFallbackPlaybackCount,
+                adapterDiagnostics.DeferredDuringTopologyLockCount,
+                adapterDiagnostics.DeferredDrainCount,
+                adapterDiagnostics.EnemyDeathGenericCoreSfxSuppressedCount,
+                adapterDiagnostics.LethalEnemyDamageSuppressedByDeathCount,
+                lastTickIndex,
+                lastSemanticKey,
+                lastFallbackReason,
+                executorDiagnostics.SemanticDiagnostics);
         }
 
         private GameplayActionAudioExecutorDiagnostics ResolveActionAudioExecutorDiagnostics()

@@ -39,6 +39,19 @@ namespace Game.Feature.Gameplay.Host
         LegacyOwnerActive = 10,
     }
 
+    internal enum GameplaySfxFallbackReason
+    {
+        None = 0,
+        OwnerViewMissingTwoDFallback = 1,
+        EnemyDeathProfileSuppression = 2,
+        LethalEnemyDamageSuppression = 3,
+        SemanticUnsupported = 4,
+        MapMissing = 5,
+        BindingMissing = 6,
+        TargetMissing = 7,
+        PortMissing = 8,
+    }
+
     internal readonly struct CoreGameplaySfxPlaybackKey : IEquatable<CoreGameplaySfxPlaybackKey>
     {
         public CoreGameplaySfxPlaybackKey(
@@ -320,6 +333,9 @@ namespace Game.Feature.Gameplay.Host
 
     internal readonly struct GameplaySfxExecutorDiagnostics
     {
+        private static readonly IReadOnlyList<GameplaySfxSemanticDiagnostics> EmptySemanticDiagnostics =
+            Array.Empty<GameplaySfxSemanticDiagnostics>();
+
         public GameplaySfxExecutorDiagnostics(
             int observedCueCount,
             int semanticUnsupportedCount,
@@ -334,7 +350,73 @@ namespace Game.Feature.Gameplay.Host
             int playbackRequestedCount,
             int playbackSucceededCount,
             int playbackNoOpFallbackCount)
+            : this(
+                CoreGameplaySfxExecutionMode.LegacyGameplayAudioController,
+                false,
+                legacyOwnerNoOpCount,
+                observedCueCount,
+                semanticUnsupportedCount,
+                mapMissingCount,
+                bindingMissingCount,
+                targetMissingCount,
+                ownerViewMissingCount,
+                portMissingCount,
+                duplicateSuppressedCount,
+                legacyOwnerNoOpCount,
+                requestPlannedCount,
+                playbackRequestedCount,
+                playbackSucceededCount,
+                playbackNoOpFallbackCount,
+                fallbackCount: playbackNoOpFallbackCount,
+                attachedLikePlaybackCount: 0,
+                twoDFallbackPlaybackCount: ownerViewMissingCount,
+                deferredDuringTopologyLockCount: 0,
+                deferredDrainCount: 0,
+                enemyDeathGenericCoreSfxSuppressedCount: 0,
+                lethalEnemyDamageSuppressedByDeathCount: 0,
+                lastTickIndex: 0,
+                lastSemanticKey: PresentationSfxCueKey.None,
+                lastFallbackReason: ownerViewMissingCount > 0
+                    ? GameplaySfxFallbackReason.OwnerViewMissingTwoDFallback
+                    : GameplaySfxFallbackReason.None,
+                semanticDiagnostics: EmptySemanticDiagnostics)
         {
+        }
+
+        public GameplaySfxExecutorDiagnostics(
+            CoreGameplaySfxExecutionMode currentMode,
+            bool isProductionDefaultOwner,
+            int legacyOwnerSkippedByPolicyCount,
+            int observedCueCount,
+            int semanticUnsupportedCount,
+            int mapMissingCount,
+            int bindingMissingCount,
+            int targetMissingCount,
+            int ownerViewMissingCount,
+            int portMissingCount,
+            int duplicateSuppressedCount,
+            int legacyOwnerNoOpCount,
+            int requestPlannedCount,
+            int playbackRequestedCount,
+            int playbackSucceededCount,
+            int playbackNoOpFallbackCount,
+            int fallbackCount,
+            int attachedLikePlaybackCount,
+            int twoDFallbackPlaybackCount,
+            int deferredDuringTopologyLockCount,
+            int deferredDrainCount,
+            int enemyDeathGenericCoreSfxSuppressedCount,
+            int lethalEnemyDamageSuppressedByDeathCount,
+            int lastTickIndex,
+            PresentationSfxCueKey lastSemanticKey,
+            GameplaySfxFallbackReason lastFallbackReason,
+            IReadOnlyList<GameplaySfxSemanticDiagnostics> semanticDiagnostics)
+        {
+            CurrentMode = Enum.IsDefined(typeof(CoreGameplaySfxExecutionMode), currentMode)
+                ? currentMode
+                : CoreGameplaySfxExecutionMode.LegacyGameplayAudioController;
+            IsProductionDefaultOwner = isProductionDefaultOwner;
+            LegacyOwnerSkippedByPolicyCount = Math.Max(0, legacyOwnerSkippedByPolicyCount);
             ObservedCueCount = Math.Max(0, observedCueCount);
             SemanticUnsupportedCount = Math.Max(0, semanticUnsupportedCount);
             MapMissingCount = Math.Max(0, mapMissingCount);
@@ -348,7 +430,25 @@ namespace Game.Feature.Gameplay.Host
             PlaybackRequestedCount = Math.Max(0, playbackRequestedCount);
             PlaybackSucceededCount = Math.Max(0, playbackSucceededCount);
             PlaybackNoOpFallbackCount = Math.Max(0, playbackNoOpFallbackCount);
+            PlaybackRequestPlannedCount = RequestPlannedCount;
+            FallbackCount = Math.Max(0, fallbackCount);
+            AttachedLikePlaybackCount = Math.Max(0, attachedLikePlaybackCount);
+            TwoDFallbackPlaybackCount = Math.Max(0, twoDFallbackPlaybackCount);
+            DeferredDuringTopologyLockCount = Math.Max(0, deferredDuringTopologyLockCount);
+            DeferredDrainCount = Math.Max(0, deferredDrainCount);
+            EnemyDeathGenericCoreSfxSuppressedCount = Math.Max(0, enemyDeathGenericCoreSfxSuppressedCount);
+            LethalEnemyDamageSuppressedByDeathCount = Math.Max(0, lethalEnemyDamageSuppressedByDeathCount);
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastSemanticKey = lastSemanticKey;
+            LastFallbackReason = lastFallbackReason;
+            SemanticDiagnostics = semanticDiagnostics ?? EmptySemanticDiagnostics;
         }
+
+        public CoreGameplaySfxExecutionMode CurrentMode { get; }
+
+        public bool IsProductionDefaultOwner { get; }
+
+        public int LegacyOwnerSkippedByPolicyCount { get; }
 
         public int ObservedCueCount { get; }
 
@@ -370,11 +470,113 @@ namespace Game.Feature.Gameplay.Host
 
         public int RequestPlannedCount { get; }
 
+        public int PlaybackRequestPlannedCount { get; }
+
         public int PlaybackRequestedCount { get; }
 
         public int PlaybackSucceededCount { get; }
 
         public int PlaybackNoOpFallbackCount { get; }
+
+        public int FallbackCount { get; }
+
+        public int AttachedLikePlaybackCount { get; }
+
+        public int TwoDFallbackPlaybackCount { get; }
+
+        public int DeferredDuringTopologyLockCount { get; }
+
+        public int DeferredDrainCount { get; }
+
+        public int EnemyDeathGenericCoreSfxSuppressedCount { get; }
+
+        public int LethalEnemyDamageSuppressedByDeathCount { get; }
+
+        public int LastTickIndex { get; }
+
+        public PresentationSfxCueKey LastSemanticKey { get; }
+
+        public GameplaySfxFallbackReason LastFallbackReason { get; }
+
+        public IReadOnlyList<GameplaySfxSemanticDiagnostics> SemanticDiagnostics { get; }
+    }
+
+    internal readonly struct GameplaySfxSemanticDiagnostics
+    {
+        public GameplaySfxSemanticDiagnostics(
+            PresentationSfxCueKey cueKey,
+            int plannedCount,
+            int requestedCount,
+            int succeededCount,
+            int fallbackCount,
+            int duplicateSuppressedCount,
+            int lastDedupeKey)
+        {
+            CueKey = cueKey;
+            PlannedCount = Math.Max(0, plannedCount);
+            RequestedCount = Math.Max(0, requestedCount);
+            SucceededCount = Math.Max(0, succeededCount);
+            FallbackCount = Math.Max(0, fallbackCount);
+            DuplicateSuppressedCount = Math.Max(0, duplicateSuppressedCount);
+            LastDedupeKey = Math.Max(0, lastDedupeKey);
+        }
+
+        public PresentationSfxCueKey CueKey { get; }
+
+        public int PlannedCount { get; }
+
+        public int RequestedCount { get; }
+
+        public int SucceededCount { get; }
+
+        public int FallbackCount { get; }
+
+        public int DuplicateSuppressedCount { get; }
+
+        public int LastDedupeKey { get; }
+    }
+
+    internal readonly struct GameplaySfxPlaybackAdapterDiagnostics
+    {
+        public GameplaySfxPlaybackAdapterDiagnostics(
+            int attachedLikePlaybackCount,
+            int twoDFallbackPlaybackCount,
+            int deferredDuringTopologyLockCount,
+            int deferredDrainCount,
+            int enemyDeathGenericCoreSfxSuppressedCount,
+            int lethalEnemyDamageSuppressedByDeathCount,
+            int lastTickIndex,
+            PresentationSfxCueKey lastSemanticKey,
+            GameplaySfxFallbackReason lastFallbackReason)
+        {
+            AttachedLikePlaybackCount = Math.Max(0, attachedLikePlaybackCount);
+            TwoDFallbackPlaybackCount = Math.Max(0, twoDFallbackPlaybackCount);
+            DeferredDuringTopologyLockCount = Math.Max(0, deferredDuringTopologyLockCount);
+            DeferredDrainCount = Math.Max(0, deferredDrainCount);
+            EnemyDeathGenericCoreSfxSuppressedCount = Math.Max(0, enemyDeathGenericCoreSfxSuppressedCount);
+            LethalEnemyDamageSuppressedByDeathCount = Math.Max(0, lethalEnemyDamageSuppressedByDeathCount);
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastSemanticKey = lastSemanticKey;
+            LastFallbackReason = lastFallbackReason;
+        }
+
+        public int AttachedLikePlaybackCount { get; }
+
+        public int TwoDFallbackPlaybackCount { get; }
+
+        public int DeferredDuringTopologyLockCount { get; }
+
+        public int DeferredDrainCount { get; }
+
+        public int EnemyDeathGenericCoreSfxSuppressedCount { get; }
+
+        public int LethalEnemyDamageSuppressedByDeathCount { get; }
+
+        public int LastTickIndex { get; }
+
+        public PresentationSfxCueKey LastSemanticKey { get; }
+
+        public GameplaySfxFallbackReason LastFallbackReason { get; }
     }
 
     internal interface IGameplaySfxPlaybackPort
@@ -403,6 +605,15 @@ namespace Game.Feature.Gameplay.Host
         private GameplayAudioMap _audioMap;
         private IGameplayAudioPlaybackPort _playbackPort;
         private GameplayAudioPlaybackGateState _gateState = GameplayAudioPlaybackGateState.Open;
+        private int _attachedLikePlaybackCount;
+        private int _twoDFallbackPlaybackCount;
+        private int _deferredDuringTopologyLockCount;
+        private int _deferredDrainCount;
+        private int _enemyDeathGenericCoreSfxSuppressedCount;
+        private int _lethalEnemyDamageSuppressedByDeathCount;
+        private int _lastTickIndex;
+        private PresentationSfxCueKey _lastSemanticKey;
+        private GameplaySfxFallbackReason _lastFallbackReason;
 
         public GameplaySfxPlaybackPortAdapter(GameplayPresentationStateStore stateStore)
         {
@@ -410,6 +621,18 @@ namespace Game.Feature.Gameplay.Host
         }
 
         public int DeferredRequestCount => _deferredRequests.Count;
+
+        public GameplaySfxPlaybackAdapterDiagnostics Diagnostics =>
+            new(
+                _attachedLikePlaybackCount,
+                _twoDFallbackPlaybackCount,
+                _deferredDuringTopologyLockCount,
+                _deferredDrainCount,
+                _enemyDeathGenericCoreSfxSuppressedCount,
+                _lethalEnemyDamageSuppressedByDeathCount,
+                _lastTickIndex,
+                _lastSemanticKey,
+                _lastFallbackReason);
 
         public void AttachRuntime(IGameplayAudioPlaybackPort playbackPort, GameplayAudioMap audioMap)
         {
@@ -462,6 +685,7 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 _playedDeferredKeys.Add(request.OwnershipKey);
+                _deferredDrainCount++;
             }
 
             _deferredRequests.Clear();
@@ -529,6 +753,15 @@ namespace Game.Feature.Gameplay.Host
             ClearDeferredRequests();
             _enemyDeathCueSuppressedEntityIds.Clear();
             _gateState = GameplayAudioPlaybackGateState.Open;
+            _attachedLikePlaybackCount = 0;
+            _twoDFallbackPlaybackCount = 0;
+            _deferredDuringTopologyLockCount = 0;
+            _deferredDrainCount = 0;
+            _enemyDeathGenericCoreSfxSuppressedCount = 0;
+            _lethalEnemyDamageSuppressedByDeathCount = 0;
+            _lastTickIndex = 0;
+            _lastSemanticKey = PresentationSfxCueKey.None;
+            _lastFallbackReason = GameplaySfxFallbackReason.None;
         }
 
         public void HardCleanup()
@@ -557,10 +790,21 @@ namespace Game.Feature.Gameplay.Host
                 TryResolveOwner(request.OwnerEntityId, out var owner))
             {
                 _playbackPort.PlayAttached(binding.Definition, owner, binding.AttachmentSlot, context);
+                _attachedLikePlaybackCount++;
+                RecordLast(request, semanticId, GameplaySfxFallbackReason.None);
                 return;
             }
 
             _playbackPort.Play2D(binding.Definition, context);
+            if (binding.HasAttachmentSlot)
+            {
+                _twoDFallbackPlaybackCount++;
+                RecordLast(request, semanticId, GameplaySfxFallbackReason.OwnerViewMissingTwoDFallback);
+            }
+            else
+            {
+                RecordLast(request, semanticId, GameplaySfxFallbackReason.None);
+            }
         }
 
         private void DeferRequest(in GameplaySfxPlaybackRequest request)
@@ -573,6 +817,8 @@ namespace Game.Feature.Gameplay.Host
 
             _deferredRequests.Add(request);
             _deferredKeys.Add(request.OwnershipKey);
+            _deferredDuringTopologyLockCount++;
+            RecordLast(request, GameplayAudioSemanticId.None, GameplaySfxFallbackReason.None);
         }
 
         private void ClearDeferredRequests()
@@ -609,11 +855,26 @@ namespace Game.Feature.Gameplay.Host
                 request.OwnerEntityId > 0 &&
                 _enemyDeathCueSuppressedEntityIds.Contains(request.OwnerEntityId))
             {
+                _lethalEnemyDamageSuppressedByDeathCount++;
+                RecordLast(
+                    request,
+                    semanticId,
+                    GameplaySfxFallbackReason.LethalEnemyDamageSuppression);
                 return true;
             }
 
-            return semanticId == GameplayAudioSemanticId.EntityExitEnemyDeath &&
-                   ShouldSuppressGenericEnemyDeath(request.OwnerEntityId);
+            if (semanticId == GameplayAudioSemanticId.EntityExitEnemyDeath &&
+                ShouldSuppressGenericEnemyDeath(request.OwnerEntityId))
+            {
+                _enemyDeathGenericCoreSfxSuppressedCount++;
+                RecordLast(
+                    request,
+                    semanticId,
+                    GameplaySfxFallbackReason.EnemyDeathProfileSuppression);
+                return true;
+            }
+
+            return false;
         }
 
         private bool ShouldSuppressGenericEnemyDeath(int ownerEntityId)
@@ -675,6 +936,16 @@ namespace Game.Feature.Gameplay.Host
                     semanticId = GameplayAudioSemanticId.None;
                     return false;
             }
+        }
+
+        private void RecordLast(
+            in GameplaySfxPlaybackRequest request,
+            GameplayAudioSemanticId semanticId,
+            GameplaySfxFallbackReason fallbackReason)
+        {
+            _lastTickIndex = request.TickIndex;
+            _lastSemanticKey = request.CueKey;
+            _lastFallbackReason = fallbackReason;
         }
 
         private static GameplaySfxPlaybackResultKind MapFailure(GameplayAudioMapResolveFailureKind failureKind)
@@ -739,16 +1010,27 @@ namespace Game.Feature.Gameplay.Host
             var playbackRequestedCount = 0;
             var playbackSucceededCount = 0;
             var playbackNoOpFallbackCount = 0;
+            var fallbackCount = 0;
+            var lastTickIndex = 0;
+            var lastSemanticKey = PresentationSfxCueKey.None;
+            var lastFallbackReason = GameplaySfxFallbackReason.None;
+            var semanticCounters = new Dictionary<PresentationSfxCueKey, SemanticTelemetryCounter>();
 
             for (var i = 0; i < plan.Cues.Count; i++)
             {
-                var cue = plan.Cues[i].Cue;
+                var playbackCue = plan.Cues[i];
+                var cue = playbackCue.Cue;
                 if (!IsCoreGameplaySfxCue(cue))
                 {
                     continue;
                 }
 
                 observedCueCount++;
+                if (cue.Key.TryGetSfxCueKey(out var observedCueKey))
+                {
+                    lastSemanticKey = observedCueKey;
+                }
+
                 if (_mode != CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor)
                 {
                     legacyOwnerNoOpCount++;
@@ -757,6 +1039,13 @@ namespace Game.Feature.Gameplay.Host
 
                 if (!TryCreateRequest(cue, out var request, out var missingKind))
                 {
+                    lastTickIndex = Math.Max(0, cue.Source.TickIndex);
+                    lastFallbackReason = ResolveFallbackReason(missingKind);
+                    if (lastFallbackReason != GameplaySfxFallbackReason.None)
+                    {
+                        fallbackCount++;
+                    }
+
                     RecordResult(
                         missingKind,
                         ref semanticUnsupportedCount,
@@ -772,6 +1061,10 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 requestPlannedCount++;
+                lastTickIndex = request.TickIndex;
+                lastSemanticKey = request.CueKey;
+                GetOrCreateSemanticCounter(semanticCounters, request.CueKey)
+                    .RecordPlanned(playbackCue.Policy.DedupeKey);
                 var duplicateBefore = _executionGuard?.Diagnostics.DuplicateAttemptCount ?? 0;
                 if (!TryClaimExecution(request.OwnershipKey))
                 {
@@ -779,6 +1072,7 @@ namespace Game.Feature.Gameplay.Host
                     if (duplicateAfter > duplicateBefore)
                     {
                         duplicateSuppressedCount++;
+                        GetOrCreateSemanticCounter(semanticCounters, request.CueKey).DuplicateSuppressedCount++;
                     }
                     else
                     {
@@ -795,7 +1089,21 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 playbackRequestedCount++;
+                GetOrCreateSemanticCounter(semanticCounters, request.CueKey).RequestedCount++;
                 _playbackPort.TryPlayCoreGameplaySfx(request, out var result);
+                var fallbackReason = ResolveFallbackReason(result.Kind);
+                if (fallbackReason != GameplaySfxFallbackReason.None)
+                {
+                    fallbackCount++;
+                    lastFallbackReason = fallbackReason;
+                    GetOrCreateSemanticCounter(semanticCounters, request.CueKey).FallbackCount++;
+                }
+
+                if (IsSuccessResult(result.Kind))
+                {
+                    GetOrCreateSemanticCounter(semanticCounters, request.CueKey).SucceededCount++;
+                }
+
                 RecordResult(
                     result.Kind,
                     ref semanticUnsupportedCount,
@@ -810,19 +1118,33 @@ namespace Game.Feature.Gameplay.Host
             }
 
             Diagnostics = new GameplaySfxExecutorDiagnostics(
-                observedCueCount,
-                semanticUnsupportedCount,
-                mapMissingCount,
-                bindingMissingCount,
-                targetMissingCount,
-                ownerViewMissingCount,
-                portMissingCount,
-                duplicateSuppressedCount,
-                legacyOwnerNoOpCount,
-                requestPlannedCount,
-                playbackRequestedCount,
-                playbackSucceededCount,
-                playbackNoOpFallbackCount);
+                currentMode: _mode,
+                isProductionDefaultOwner: _mode == CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor,
+                legacyOwnerSkippedByPolicyCount: 0,
+                observedCueCount: observedCueCount,
+                semanticUnsupportedCount: semanticUnsupportedCount,
+                mapMissingCount: mapMissingCount,
+                bindingMissingCount: bindingMissingCount,
+                targetMissingCount: targetMissingCount,
+                ownerViewMissingCount: ownerViewMissingCount,
+                portMissingCount: portMissingCount,
+                duplicateSuppressedCount: duplicateSuppressedCount,
+                legacyOwnerNoOpCount: legacyOwnerNoOpCount,
+                requestPlannedCount: requestPlannedCount,
+                playbackRequestedCount: playbackRequestedCount,
+                playbackSucceededCount: playbackSucceededCount,
+                playbackNoOpFallbackCount: playbackNoOpFallbackCount,
+                fallbackCount: fallbackCount,
+                attachedLikePlaybackCount: 0,
+                twoDFallbackPlaybackCount: ownerViewMissingCount,
+                deferredDuringTopologyLockCount: 0,
+                deferredDrainCount: 0,
+                enemyDeathGenericCoreSfxSuppressedCount: 0,
+                lethalEnemyDamageSuppressedByDeathCount: 0,
+                lastTickIndex: lastTickIndex,
+                lastSemanticKey: lastSemanticKey,
+                lastFallbackReason: lastFallbackReason,
+                semanticDiagnostics: BuildSemanticDiagnostics(semanticCounters));
         }
 
         public void Update(float deltaTime)
@@ -949,11 +1271,115 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private static bool IsSuccessResult(GameplaySfxPlaybackResultKind resultKind)
+        {
+            return resultKind == GameplaySfxPlaybackResultKind.Succeeded ||
+                   resultKind == GameplaySfxPlaybackResultKind.Requested ||
+                   resultKind == GameplaySfxPlaybackResultKind.OwnerViewMissing;
+        }
+
+        private static GameplaySfxFallbackReason ResolveFallbackReason(GameplaySfxPlaybackResultKind resultKind)
+        {
+            switch (resultKind)
+            {
+                case GameplaySfxPlaybackResultKind.SemanticUnsupported:
+                    return GameplaySfxFallbackReason.SemanticUnsupported;
+                case GameplaySfxPlaybackResultKind.MapMissing:
+                    return GameplaySfxFallbackReason.MapMissing;
+                case GameplaySfxPlaybackResultKind.BindingMissing:
+                    return GameplaySfxFallbackReason.BindingMissing;
+                case GameplaySfxPlaybackResultKind.TargetMissing:
+                    return GameplaySfxFallbackReason.TargetMissing;
+                case GameplaySfxPlaybackResultKind.OwnerViewMissing:
+                    return GameplaySfxFallbackReason.OwnerViewMissingTwoDFallback;
+                case GameplaySfxPlaybackResultKind.PortMissing:
+                    return GameplaySfxFallbackReason.PortMissing;
+                case GameplaySfxPlaybackResultKind.NoOpFallback:
+                    return GameplaySfxFallbackReason.EnemyDeathProfileSuppression;
+                default:
+                    return GameplaySfxFallbackReason.None;
+            }
+        }
+
+        private static SemanticTelemetryCounter GetOrCreateSemanticCounter(
+            IDictionary<PresentationSfxCueKey, SemanticTelemetryCounter> counters,
+            PresentationSfxCueKey cueKey)
+        {
+            if (!counters.TryGetValue(cueKey, out var counter))
+            {
+                counter = new SemanticTelemetryCounter(cueKey);
+                counters.Add(cueKey, counter);
+            }
+
+            return counter;
+        }
+
+        private static IReadOnlyList<GameplaySfxSemanticDiagnostics> BuildSemanticDiagnostics(
+            Dictionary<PresentationSfxCueKey, SemanticTelemetryCounter> counters)
+        {
+            if (counters.Count == 0)
+            {
+                return Array.Empty<GameplaySfxSemanticDiagnostics>();
+            }
+
+            var diagnostics = new GameplaySfxSemanticDiagnostics[counters.Count];
+            var index = 0;
+            foreach (var counter in counters.Values)
+            {
+                diagnostics[index++] = counter.ToDiagnostics();
+            }
+
+            Array.Sort(
+                diagnostics,
+                (left, right) => ((int)left.CueKey).CompareTo((int)right.CueKey));
+            return diagnostics;
+        }
+
         private static CoreGameplaySfxExecutionMode NormalizeMode(CoreGameplaySfxExecutionMode mode)
         {
             return Enum.IsDefined(typeof(CoreGameplaySfxExecutionMode), mode)
                 ? mode
                 : CoreGameplaySfxExecutionMode.LegacyGameplayAudioController;
+        }
+
+        private sealed class SemanticTelemetryCounter
+        {
+            public SemanticTelemetryCounter(PresentationSfxCueKey cueKey)
+            {
+                CueKey = cueKey;
+            }
+
+            private PresentationSfxCueKey CueKey { get; }
+
+            private int PlannedCount { get; set; }
+
+            public int RequestedCount { get; set; }
+
+            public int SucceededCount { get; set; }
+
+            public int FallbackCount { get; set; }
+
+            public int DuplicateSuppressedCount { get; set; }
+
+            private int LastDedupeKey { get; set; }
+
+            public void RecordPlanned(int dedupeKey)
+            {
+                PlannedCount++;
+                LastDedupeKey = Math.Max(0, dedupeKey);
+            }
+
+            public GameplaySfxSemanticDiagnostics ToDiagnostics()
+            {
+                return new GameplaySfxSemanticDiagnostics(
+                    CueKey,
+                    PlannedCount,
+                    RequestedCount,
+                    SucceededCount,
+                    FallbackCount,
+                    DuplicateSuppressedCount,
+                    LastDedupeKey);
+            }
         }
     }
 }
