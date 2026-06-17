@@ -43,6 +43,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationPresentationExecutor.cs";
         private const string EnemyPresentationExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyPresentationExecutor.cs";
+        private const string ActionAudioExecutorPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayActionAudioPresentationExecutor.cs";
 
         [Test]
         [Category("Core")]
@@ -374,6 +376,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(uiSource, Does.Not.Contain("PresentationActionAudioPayload"));
             Assert.That(uiSource, Does.Not.Contain("PresentationActionAudioCueKey"));
             Assert.That(uiSource, Does.Not.Contain("ActionAudioCuePlanner"));
+            Assert.That(uiSource, Does.Not.Contain("ActionAudioExecutionMode"));
+            Assert.That(uiSource, Does.Not.Contain("GameplayActionAudioExecutorDiagnostics"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudioBridgeExecutorBoundary_StaysHostOnlyAndDoesNotBecomeDefaultOwner()
+        {
+            var contractsPlanningPlaybackSource = ReadDirectorySource(ContractsDirectory) + "\n" +
+                                                  ReadDirectorySource(PlanningDirectory) + "\n" +
+                                                  ReadDirectorySource(PlaybackDirectory);
+            var runtimeSource = ReadDirectorySource(RuntimeDirectory);
+            var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
+            var actionAudioExecutorSource = ReadRepoFile(ActionAudioExecutorPath);
+            var coordinatorSource = ReadRepoFile(CoordinatorPath);
+
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayActionAudioPresentationController"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayActionAudioProfile"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayActionAudioAuthoring"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AudioManager"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AudioBinding"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AudioClip"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AudioSource"));
+            Assert.That(runtimeSource, Does.Not.Contain("GameplayActionAudioPresentationController"));
+            Assert.That(runtimeSource, Does.Not.Contain("GameplayActionAudioPresentationExecutor"));
+            Assert.That(coordinatorSource, Does.Contain("ActionAudioExecutionMode.LegacyActionAudioController"));
+            Assert.That(coordinatorSource, Does.Contain("ActionAudioExecutionMode.OrchestrationActionAudioBridge"));
+            Assert.That(coordinatorSource, Does.Contain("_actionAudioPresentationController.ReplacePendingPlan"));
+            Assert.That(hostRuntimeSource, Does.Contain("GameplayActionAudioPresentationExecutor"));
+            Assert.That(hostRuntimeSource, Does.Contain("IGameplayActionAudioPlaybackPort"));
+            Assert.That(hostRuntimeSource, Does.Contain("ActionAudioExecutionGuard"));
+            Assert.That(actionAudioExecutorSource, Does.Contain("GameplayActionAudioPlaybackPortAdapter"));
+            Assert.That(actionAudioExecutorSource, Does.Contain("GameplayActionAudioPresentationController controller"));
+            Assert.That(actionAudioExecutorSource, Does.Not.Contain("FindObjectOfType"));
+            Assert.That(actionAudioExecutorSource, Does.Not.Contain("FindObjectsByType"));
+            Assert.That(actionAudioExecutorSource, Does.Not.Contain("new GameObject"));
+            Assert.That(actionAudioExecutorSource, Does.Not.Contain("AudioManager"));
+            Assert.That(actionAudioExecutorSource, Does.Not.Contain("IAudioService"));
+            Assert.That(actionAudioExecutorSource, Does.Not.Contain("PresentationSfxCueKey"));
+            Assert.That(actionAudioExecutorSource, Does.Not.Contain("PresentationAnimationCueKey"));
         }
 
         [Test]
