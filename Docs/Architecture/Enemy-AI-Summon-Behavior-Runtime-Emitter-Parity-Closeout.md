@@ -121,6 +121,7 @@ Not run:
 ## 7. Follow-up
 
 - production asset-scoped migration later
+- asset-scoped migration readiness gate; see [Enemy-AI-Summon-Asset-Scoped-Migration-Readiness.md](./Enemy-AI-Summon-Asset-Scoped-Migration-Readiness.md)
 - no-double-count verification during production migration
 - full lane / CI release gate
 

@@ -134,6 +134,7 @@ The following Option B prerequisite gates are now documented or characterized:
 - Duplicate Utility/Behavior Summon guard design; see [Enemy-AI-Summon-Duplicate-Guard-Design.md](./Enemy-AI-Summon-Duplicate-Guard-Design.md).
 - BehaviorModule Summon runtime state shape design; see [Enemy-AI-Summon-Behavior-Runtime-State-Design.md](./Enemy-AI-Summon-Behavior-Runtime-State-Design.md).
 - Summon asset migration plan; see [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
+- Asset-scoped migration readiness; see [Enemy-AI-Summon-Asset-Scoped-Migration-Readiness.md](./Enemy-AI-Summon-Asset-Scoped-Migration-Readiness.md).
 - Replay/export compatibility plan; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
 - Presentation/audio/VFX parity plan; see [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md).
 - Option B implementation slicing and validation gate plan; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).

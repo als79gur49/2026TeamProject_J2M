@@ -60,6 +60,8 @@
   - current supporting truth for the implemented test-local Option B mutable Summon behavior runtime state/emitter shape, ownership boundaries, parity matrix, migration outline, and remaining production migration boundary
 - [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md)
   - current supporting truth for the future Option B Utility SummonMinion to Behavior Summon asset field mapping, migration order, residue policy, rollback strategy, and test matrix without migrating production assets
+- [Enemy-AI-Summon-Asset-Scoped-Migration-Readiness.md](./Enemy-AI-Summon-Asset-Scoped-Migration-Readiness.md)
+  - current readiness / dry-run gate for exact production Summoner allowlist, current Utility field inventory, duplicate guard sequencing, replay/hash no-double-count policy, baseline capture, residue scans, rollback, and validation commands before any production asset migration
 - [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md)
   - current supporting truth for Option B replay trace, event log, determinism hash, export naming, and source metadata compatibility while preserving replay/export-visible names
 - [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md)

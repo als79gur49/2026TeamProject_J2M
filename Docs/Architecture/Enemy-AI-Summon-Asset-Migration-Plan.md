@@ -253,6 +253,8 @@ False-positive notes:
 
 This document does not complete the replay/export compatibility plan. The accepted prerequisite is [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
 
+The final production pre-migration readiness gate is [Enemy-AI-Summon-Asset-Scoped-Migration-Readiness.md](./Enemy-AI-Summon-Asset-Scoped-Migration-Readiness.md).
+
 Preserved by default:
 
 - `SummonCommitted`.
