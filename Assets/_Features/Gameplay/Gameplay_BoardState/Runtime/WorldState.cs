@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId = new();
         private readonly Dictionary<int, EnemyGlideRuntimeState> _enemyGlideStatesByEntityId = new();
         private readonly Dictionary<int, EnemyUtilityRuntimeState> _enemyUtilityStatesByEntityId = new();
+        private readonly Dictionary<int, EnemySummonBehaviorRuntimeState> _enemySummonBehaviorStatesByEntityId = new();
         private readonly Dictionary<int, BoxInteractionLockState> _boxInteractionLockStatesByEntityId = new();
         private readonly Dictionary<int, EnemyGravityFieldAuraFieldState> _enemyGravityFieldAuraFieldsById = new();
         private readonly Dictionary<int, PhasedRuntimeState> _phasedStatesByEntityId = new();
@@ -159,6 +160,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, EnemyJumpRuntimeState>(_enemyJumpStatesByEntityId),
                 new Dictionary<int, EnemyGlideRuntimeState>(_enemyGlideStatesByEntityId),
                 new Dictionary<int, EnemyUtilityRuntimeState>(_enemyUtilityStatesByEntityId),
+                new Dictionary<int, EnemySummonBehaviorRuntimeState>(_enemySummonBehaviorStatesByEntityId),
                 new Dictionary<int, BoxInteractionLockState>(_boxInteractionLockStatesByEntityId),
                 new Dictionary<int, EnemyGravityFieldAuraFieldState>(_enemyGravityFieldAuraFieldsById),
                 new Dictionary<int, PhasedRuntimeState>(_phasedStatesByEntityId),
@@ -190,6 +192,7 @@ namespace Game.Feature.Gameplay.BoardState
             snapshot.CopyEnemyJumpStatesByEntityIdTo(_enemyJumpStatesByEntityId);
             snapshot.CopyEnemyGlideStatesByEntityIdTo(_enemyGlideStatesByEntityId);
             snapshot.CopyEnemyUtilityStatesByEntityIdTo(_enemyUtilityStatesByEntityId);
+            snapshot.CopyEnemySummonBehaviorStatesByEntityIdTo(_enemySummonBehaviorStatesByEntityId);
             snapshot.CopyBoxInteractionLockStatesByEntityIdTo(_boxInteractionLockStatesByEntityId);
             snapshot.CopyEnemyGravityFieldAuraFieldsByIdTo(_enemyGravityFieldAuraFieldsById);
             snapshot.CopyPhasedStatesByEntityIdTo(_phasedStatesByEntityId);
@@ -267,6 +270,7 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyJumpStatesByEntityId.Remove(entityId);
             _enemyGlideStatesByEntityId.Remove(entityId);
             _enemyUtilityStatesByEntityId.Remove(entityId);
+            _enemySummonBehaviorStatesByEntityId.Remove(entityId);
             _boxInteractionLockStatesByEntityId.Remove(entityId);
             _phasedStatesByEntityId.Remove(entityId);
             _playerDamageStatesByEntityId.Remove(entityId);
@@ -570,6 +574,16 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _enemyUtilityStatesByEntityId[entityId] = state;
+        }
+
+        internal void SetEnemySummonBehaviorState(int entityId, EnemySummonBehaviorRuntimeState state)
+        {
+            if (!_entitiesById.ContainsKey(entityId))
+            {
+                return;
+            }
+
+            _enemySummonBehaviorStatesByEntityId[entityId] = state;
         }
 
         internal void SetSummonedEntityState(int entityId, SummonedEntityState state)
@@ -944,6 +958,16 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyUtilityStatesByEntityId.Remove(entityId);
         }
 
+        internal bool TryGetEnemySummonBehaviorState(int entityId, out EnemySummonBehaviorRuntimeState state)
+        {
+            return _enemySummonBehaviorStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        internal void RemoveEnemySummonBehaviorState(int entityId)
+        {
+            _enemySummonBehaviorStatesByEntityId.Remove(entityId);
+        }
+
         internal void EnumerateEnemyUtilityStatesOrdered(List<EnemyUtilitySnapshotEntry> buffer)
         {
             if (buffer == null)
@@ -955,6 +979,22 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var pair in _enemyUtilityStatesByEntityId)
             {
                 buffer.Add(new EnemyUtilitySnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumerateEnemySummonBehaviorStatesOrdered(List<EnemySummonBehaviorSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+            foreach (var pair in _enemySummonBehaviorStatesByEntityId)
+            {
+                buffer.Add(new EnemySummonBehaviorSnapshotEntry(pair.Key, pair.Value));
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
@@ -1331,6 +1371,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state)
         {
             SetEnemyUtilityState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetEnemySummonBehaviorState(int entityId, EnemySummonBehaviorRuntimeState state)
+        {
+            SetEnemySummonBehaviorState(entityId, state);
         }
 
         void IWorldStateMutationPort.SetSummonedEntityState(int entityId, SummonedEntityState state)

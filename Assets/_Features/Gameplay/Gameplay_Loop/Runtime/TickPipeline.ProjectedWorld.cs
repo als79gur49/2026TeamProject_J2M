@@ -359,6 +359,11 @@ namespace Game.Feature.Gameplay.Loop
                     writeContext.SetEnemyUtilityState(entityId, enemyUtilityState);
                 }
 
+                if (snapshot.TryGetEnemySummonBehaviorState(entityId, out var enemySummonBehaviorState))
+                {
+                    writeContext.SetEnemySummonBehaviorState(entityId, enemySummonBehaviorState);
+                }
+
                 if (snapshot.TryGetBoxInteractionLockState(entityId, out var boxInteractionLockState))
                 {
                     writeContext.SetBoxInteractionLockState(entityId, boxInteractionLockState);

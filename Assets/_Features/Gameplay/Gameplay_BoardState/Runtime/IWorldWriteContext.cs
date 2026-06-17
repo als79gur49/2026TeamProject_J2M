@@ -55,6 +55,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state);
 
+        void SetEnemySummonBehaviorState(int entityId, EnemySummonBehaviorRuntimeState state);
+
         void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
 
         void SetEnemyGravityFieldAuraFieldState(int fieldId, EnemyGravityFieldAuraFieldState state);
@@ -126,6 +128,8 @@ namespace Game.Feature.Gameplay.BoardState
     internal interface IEnemyUtilityTriggerSink
     {
         void EmitEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent);
+
+        void EmitEnemySummonBehaviorTriggerIntent(EnemySummonBehaviorTriggerIntent intent);
     }
 
     internal interface IRespawnCommitContext : IAttackCommitContext, IPlayerControlCommitContext

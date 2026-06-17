@@ -71,6 +71,7 @@ namespace Game.Feature.Gameplay.Loop
         RemoveEnemyGravityFieldAuraFieldState = 32,
         SetPendingEnemyBlockedReaction = 33,
         ClearPendingEnemyBlockedReaction = 34,
+        SetEnemySummonBehaviorState = 35,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -233,6 +234,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyGlideRuntimeState enemyGlideState = default,
             EnemyChargeRuntimeState enemyChargeState = default,
             EnemyUtilityRuntimeState enemyUtilityState = null,
+            EnemySummonBehaviorRuntimeState enemySummonBehaviorState = default,
             BoxInteractionLockState boxInteractionLockState = default,
             EnemyGravityFieldAuraFieldState enemyGravityFieldAuraFieldState = default,
             PendingEnemyBlockedReaction pendingEnemyBlockedReaction = default,
@@ -276,6 +278,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyGlideState = enemyGlideState;
             EnemyChargeState = enemyChargeState;
             EnemyUtilityState = enemyUtilityState;
+            EnemySummonBehaviorState = enemySummonBehaviorState;
             BoxInteractionLockState = boxInteractionLockState;
             EnemyGravityFieldAuraFieldState = enemyGravityFieldAuraFieldState;
             PendingEnemyBlockedReaction = pendingEnemyBlockedReaction;
@@ -349,6 +352,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public EnemyUtilityRuntimeState EnemyUtilityState { get; }
 
+        public EnemySummonBehaviorRuntimeState EnemySummonBehaviorState { get; }
+
         public BoxInteractionLockState BoxInteractionLockState { get; }
 
         public EnemyGravityFieldAuraFieldState EnemyGravityFieldAuraFieldState { get; }
@@ -407,6 +412,7 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyGlideState,
                 EnemyChargeState,
                 EnemyUtilityState,
+                EnemySummonBehaviorState,
                 BoxInteractionLockState,
                 EnemyGravityFieldAuraFieldState,
                 PendingEnemyBlockedReaction,
@@ -637,6 +643,17 @@ namespace Game.Feature.Gameplay.Loop
                 metadata,
                 entityId: entityId,
                 enemyUtilityState: enemyUtilityState);
+        }
+
+        public static FinalizationOperation SetEnemySummonBehaviorState(long sequence, int entityId, EnemySummonBehaviorRuntimeState enemySummonBehaviorState, FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetEnemySummonBehaviorState,
+                metadata,
+                entityId: entityId,
+                enemySummonBehaviorState: enemySummonBehaviorState);
         }
 
         public static FinalizationOperation SetBoxInteractionLockState(long sequence, int entityId, BoxInteractionLockState boxInteractionLockState, FinalizationOperationMetadata metadata = default)
@@ -940,6 +957,11 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.SetEnemyUtilityState(_nextSequence++, entityId, state, metadata));
         }
 
+        public void SetEnemySummonBehaviorState(int entityId, EnemySummonBehaviorRuntimeState state, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetEnemySummonBehaviorState(_nextSequence++, entityId, state, metadata));
+        }
+
         public void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetBoxInteractionLockState(_nextSequence++, entityId, state, metadata));
@@ -1209,6 +1231,10 @@ namespace Game.Feature.Gameplay.Loop
                         ((IPreMovementStateCommitContext)writeContext).SetEnemyUtilityState(operation.EntityId, operation.EnemyUtilityState);
                         break;
 
+                    case FinalizationOperationKind.SetEnemySummonBehaviorState:
+                        ((IPreMovementStateCommitContext)writeContext).SetEnemySummonBehaviorState(operation.EntityId, operation.EnemySummonBehaviorState);
+                        break;
+
                     case FinalizationOperationKind.SetBoxInteractionLockState:
                         writeContext.SetBoxInteractionLockState(operation.EntityId, operation.BoxInteractionLockState);
                         break;
@@ -1302,17 +1328,20 @@ namespace Game.Feature.Gameplay.Loop
         private readonly TickPhase _originPhase;
         private readonly WorldSnapshot _referenceSnapshot;
         private readonly List<EnemyUtilityTriggerIntent> _utilityTriggerIntents;
+        private readonly List<EnemySummonBehaviorTriggerIntent> _summonBehaviorTriggerIntents;
 
         public RecordingFinalizationContext(
             FinalizationBatch batch,
             WorldSnapshot referenceSnapshot = null,
             TickPhase originPhase = TickPhase.Resolve,
-            List<EnemyUtilityTriggerIntent> utilityTriggerIntents = null)
+            List<EnemyUtilityTriggerIntent> utilityTriggerIntents = null,
+            List<EnemySummonBehaviorTriggerIntent> summonBehaviorTriggerIntents = null)
         {
             _batch = batch ?? throw new ArgumentNullException(nameof(batch));
             _referenceSnapshot = referenceSnapshot;
             _originPhase = originPhase;
             _utilityTriggerIntents = utilityTriggerIntents;
+            _summonBehaviorTriggerIntents = summonBehaviorTriggerIntents;
         }
 
         public void MoveEntity(int entityId, SurfaceCell destination)
@@ -1378,6 +1407,11 @@ namespace Game.Feature.Gameplay.Loop
         public void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state)
         {
             _batch.SetEnemyUtilityState(entityId, state);
+        }
+
+        public void SetEnemySummonBehaviorState(int entityId, EnemySummonBehaviorRuntimeState state)
+        {
+            _batch.SetEnemySummonBehaviorState(entityId, state);
         }
 
         public void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)
@@ -1521,6 +1555,11 @@ namespace Game.Feature.Gameplay.Loop
         public void EmitEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent)
         {
             _utilityTriggerIntents?.Add(intent);
+        }
+
+        public void EmitEnemySummonBehaviorTriggerIntent(EnemySummonBehaviorTriggerIntent intent)
+        {
+            _summonBehaviorTriggerIntents?.Add(intent);
         }
 
         private FinalizationOperationMetadata CreateJumpStateMetadata(int entityId, in EnemyJumpRuntimeState state)

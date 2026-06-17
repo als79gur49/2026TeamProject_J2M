@@ -2388,7 +2388,115 @@ namespace Game.Feature.Gameplay.Loop
                 }
             }
 
+            AddEnemySummonBehaviorPresentation(
+                context,
+                summonWindupWarnings,
+                enemyUtilitySignals);
             AddEnemyGravityFieldAuraFieldPresentation(context, enemyGravityFieldAuraVisualStates);
+        }
+
+        private static void AddEnemySummonBehaviorPresentation(
+            in TickPresentationBuildContext context,
+            List<TickSummonWindupWarningSignal> summonWindupWarnings,
+            List<TickEnemyUtilityPresentationSignal> enemyUtilitySignals)
+        {
+            const int compatibilityEffectIndex = 0;
+            var entries = new List<EnemySummonBehaviorSnapshotEntry>();
+            context.FinalAuthoritativeSnapshot.EnumerateEnemySummonBehaviorStatesOrdered(entries);
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (!context.FinalAuthoritativeSnapshot.TryGetEntity(entry.EntityId, out var source) ||
+                    !EntityRolePolicy.IsEnemyUnit(source))
+                {
+                    continue;
+                }
+
+                if (entry.State.phase == EnemySummonBehaviorPhase.Windup)
+                {
+                    summonWindupWarnings.Add(
+                        new TickSummonWindupWarningSignal(
+                            entry.EntityId,
+                            compatibilityEffectIndex,
+                            source.position,
+                            context.FinalAuthoritativeSnapshot.Topology,
+                            source.facing,
+                            entry.State.windupStartTick,
+                            entry.State.windupEndTick,
+                            entry.State.activationSequence,
+                            context.CurrentTickIndex,
+                            BuildUtilityWarningPresentationSeed(
+                                context.CurrentTickIndex,
+                                entry.EntityId,
+                                compatibilityEffectIndex,
+                                source.position,
+                                entry.State.activationSequence)));
+                    if (context.CurrentTickIndex == entry.State.windupStartTick)
+                    {
+                        enemyUtilitySignals.Add(
+                            new TickEnemyUtilityPresentationSignal(
+                                entry.EntityId,
+                                EnemyUtilityPresentationKind.SummonMinion,
+                                EnemyUtilityPresentationPhase.WindupStarted,
+                                entry.State.windupStartTick,
+                                entry.State.windupEndTick,
+                                Math.Max(0, entry.State.windupEndTick - entry.State.windupStartTick),
+                                compatibilityEffectIndex,
+                                entry.State.activationSequence));
+                    }
+
+                    continue;
+                }
+
+                if (entry.State.phase == EnemySummonBehaviorPhase.Recover &&
+                    context.CurrentTickIndex == entry.State.recoverStartTick)
+                {
+                    enemyUtilitySignals.Add(
+                        new TickEnemyUtilityPresentationSignal(
+                            entry.EntityId,
+                            EnemyUtilityPresentationKind.SummonMinion,
+                            EnemyUtilityPresentationPhase.RecoverStarted,
+                            entry.State.recoverStartTick,
+                            entry.State.recoverEndTickExclusive,
+                            Math.Max(0, entry.State.recoverEndTickExclusive - entry.State.recoverStartTick),
+                            compatibilityEffectIndex,
+                            entry.State.activationSequence));
+                    continue;
+                }
+
+                if (entry.State.phase == EnemySummonBehaviorPhase.None &&
+                    WasEnemySummonBehaviorCanceledThisTick(context, entry.EntityId, compatibilityEffectIndex))
+                {
+                    enemyUtilitySignals.Add(
+                        new TickEnemyUtilityPresentationSignal(
+                            entry.EntityId,
+                            EnemyUtilityPresentationKind.SummonMinion,
+                            EnemyUtilityPresentationPhase.Canceled,
+                            context.CurrentTickIndex,
+                            context.CurrentTickIndex,
+                            durationTicks: 0,
+                            compatibilityEffectIndex,
+                            entry.State.activationSequence));
+                }
+            }
+        }
+
+        private static bool WasEnemySummonBehaviorCanceledThisTick(
+            in TickPresentationBuildContext context,
+            int entityId,
+            int effectIndex)
+        {
+            var prefix = $"EnemySummonBehaviorWindupCanceled|E={entityId}|Effect={effectIndex}|";
+            var updates = context.PreMovementStatePhaseResult.Updates;
+            for (var i = 0; i < updates.Count; i++)
+            {
+                if (updates[i].StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void AddEnemyUtilityCanceledPresentationSignal(

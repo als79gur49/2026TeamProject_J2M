@@ -39,6 +39,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "PreMovement.PlayerControlUpdates", preMovementStatePhaseResult.Updates, FormatString);
             AppendSection(builder, "PreMovement.PlayerActionTransitions", preMovementStatePhaseResult.PlayerActionTransitions, FormatPlayerActionTransition);
             AppendSection(builder, "PreMovement.UtilityTriggers", preMovementStatePhaseResult.UtilityTriggerIntents, FormatEnemyUtilityTriggerIntent);
+            AppendSection(builder, "PreMovement.SummonBehaviorTriggers", preMovementStatePhaseResult.SummonBehaviorTriggerIntents, FormatEnemySummonBehaviorTriggerIntent);
             AppendSection(builder, "PreMovement.EventLogEntries", preMovementStatePhaseResult.EventLogEntries, FormatString);
             AppendSection(builder, "Movement.RawIntents", movementPhaseResult.RawIntents, FormatRawMovementIntent);
             AppendSection(builder, "Movement.SortedIntents", movementPhaseResult.SortedIntents, FormatMoveIntent);
@@ -121,6 +122,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.EnemyJumps", GetEnemyJumpEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyGlides", GetEnemyGlideEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyUtilities", GetEnemyUtilityEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.EnemySummonBehaviors", GetEnemySummonBehaviorEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.BoxInteractionLocks", GetBoxInteractionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyCharges", GetEnemyChargeEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.Phased", GetPhasedEntries(snapshot), FormatString);
@@ -332,6 +334,22 @@ namespace Game.Feature.Gameplay.Debug
                     lines.Add(
                         $"E={entries[i].EntityId}|Effect={effectIndex}|Cooldown={effectState.cooldownTicksRemaining}|Phase={effectState.phase}|WindupStart={effectState.windupStartTick}|WindupEnd={effectState.windupEndTick}|ActiveStart={effectState.activeStartTick}|ActiveEnd={effectState.activeEndTickExclusive}|ActiveOrigin={FormatCell(effectState.activeOriginCell)}|RecoverStart={effectState.recoverStartTick}|RecoverEnd={effectState.recoverEndTickExclusive}|Sequence={effectState.activationSequence}|MoveSuppressUntil={effectState.movementSuppressionUntilTickInclusive}|Kind={effectState.effectKind}");
                 }
+            }
+
+            return lines;
+        }
+
+        private static List<string> GetEnemySummonBehaviorEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<EnemySummonBehaviorSnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumerateEnemySummonBehaviorStatesOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var state = entries[i].State;
+                lines.Add(
+                    $"E={entries[i].EntityId}|Cooldown={state.cooldownTicksRemaining}|Phase={state.phase}|WindupStart={state.windupStartTick}|WindupEnd={state.windupEndTick}|RecoverStart={state.recoverStartTick}|RecoverEnd={state.recoverEndTickExclusive}|Sequence={state.activationSequence}|MoveSuppressUntil={state.movementSuppressionUntilTickInclusive}");
             }
 
             return lines;
@@ -597,6 +615,17 @@ namespace Game.Feature.Gameplay.Debug
                     }
                     break;
 
+                case FinalizationOperationKind.SetEnemySummonBehaviorState:
+                    builder.Append("|SummonBehaviorCooldown=").Append(operation.EnemySummonBehaviorState.cooldownTicksRemaining)
+                        .Append("|SummonBehaviorPhase=").Append(operation.EnemySummonBehaviorState.phase)
+                        .Append("|WindupStart=").Append(operation.EnemySummonBehaviorState.windupStartTick)
+                        .Append("|WindupEnd=").Append(operation.EnemySummonBehaviorState.windupEndTick)
+                        .Append("|RecoverStart=").Append(operation.EnemySummonBehaviorState.recoverStartTick)
+                        .Append("|RecoverEnd=").Append(operation.EnemySummonBehaviorState.recoverEndTickExclusive)
+                        .Append("|Sequence=").Append(operation.EnemySummonBehaviorState.activationSequence)
+                        .Append("|MoveSuppressUntil=").Append(operation.EnemySummonBehaviorState.movementSuppressionUntilTickInclusive);
+                    break;
+
                 case FinalizationOperationKind.SetBoxInteractionLockState:
                     builder.Append("|LockSource=").Append(operation.BoxInteractionLockState.SourceEntityId)
                         .Append("|LockEffect=").Append(operation.BoxInteractionLockState.SourceEffectIndex)
@@ -680,6 +709,11 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent)
         {
             return $"Source={intent.SourceEntityId}|Effect={intent.EffectIndex}|Kind={intent.EffectKind}|Tick={intent.TriggerTick}|Origin={FormatCell(intent.OriginCell)}";
+        }
+
+        private static string FormatEnemySummonBehaviorTriggerIntent(EnemySummonBehaviorTriggerIntent intent)
+        {
+            return $"Source={intent.SourceEntityId}|Effect={intent.SourceEffectIndex}|Tick={intent.TriggerTick}|Origin={FormatCell(intent.OriginCell)}|Facing={intent.SourceFacing}|Team={intent.SourceTeamId}|Archetype={intent.Summon.SummonedArchetypeId}";
         }
 
         private static string BuildPhasedMetadataSuffix(PhasedRuntimeStateOwnerKind ownerKind)

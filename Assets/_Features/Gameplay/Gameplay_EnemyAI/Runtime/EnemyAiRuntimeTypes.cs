@@ -1217,6 +1217,38 @@ namespace Game.Feature.Gameplay.Entities
         Active = 3,
     }
 
+    public enum EnemySummonBehaviorPhase
+    {
+        None = 0,
+        Windup = 1,
+        Recover = 2,
+    }
+
+    public struct EnemySummonBehaviorRuntimeState
+    {
+        public int cooldownTicksRemaining;
+        public EnemySummonBehaviorPhase phase;
+        public int windupStartTick;
+        public int windupEndTick;
+        public int recoverStartTick;
+        public int recoverEndTickExclusive;
+        public int activationSequence;
+        public int movementSuppressionUntilTickInclusive;
+    }
+
+    public readonly struct EnemySummonBehaviorSnapshotEntry
+    {
+        public EnemySummonBehaviorSnapshotEntry(int entityId, EnemySummonBehaviorRuntimeState state)
+        {
+            EntityId = entityId;
+            State = state;
+        }
+
+        public int EntityId { get; }
+
+        public EnemySummonBehaviorRuntimeState State { get; }
+    }
+
     public sealed class EnemyUtilityRuntimeState
     {
         private readonly ReadOnlyCollection<EnemyUtilityEffectState> _effectStates;
@@ -1413,6 +1445,63 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyUtilityEffectRuntime EffectRuntime { get; }
 
         public SurfaceCell OriginCell { get; }
+    }
+
+    internal readonly struct EnemySummonBehaviorTriggerIntent
+    {
+        public EnemySummonBehaviorTriggerIntent(
+            int sourceEntityId,
+            int sourceEffectIndex,
+            int triggerTick,
+            SurfaceCell originCell,
+            Direction sourceFacing,
+            int sourceTeamId,
+            SummonMinionRuntime summon)
+        {
+            SourceEntityId = sourceEntityId;
+            SourceEffectIndex = sourceEffectIndex;
+            TriggerTick = triggerTick;
+            OriginCell = originCell;
+            SourceFacing = sourceFacing;
+            SourceTeamId = sourceTeamId;
+            Summon = summon;
+        }
+
+        public int SourceEntityId { get; }
+
+        public int SourceEffectIndex { get; }
+
+        public int TriggerTick { get; }
+
+        public SurfaceCell OriginCell { get; }
+
+        public Direction SourceFacing { get; }
+
+        public int SourceTeamId { get; }
+
+        public SummonMinionRuntime Summon { get; }
+    }
+
+    internal sealed class EnemySummonBehaviorTriggerIntentComparer : IComparer<EnemySummonBehaviorTriggerIntent>
+    {
+        public static readonly EnemySummonBehaviorTriggerIntentComparer Instance = new();
+
+        public int Compare(EnemySummonBehaviorTriggerIntent left, EnemySummonBehaviorTriggerIntent right)
+        {
+            var sourceComparison = left.SourceEntityId.CompareTo(right.SourceEntityId);
+            if (sourceComparison != 0)
+            {
+                return sourceComparison;
+            }
+
+            var effectComparison = left.SourceEffectIndex.CompareTo(right.SourceEffectIndex);
+            if (effectComparison != 0)
+            {
+                return effectComparison;
+            }
+
+            return left.TriggerTick.CompareTo(right.TriggerTick);
+        }
     }
 
     internal sealed class EnemyUtilityTriggerIntentComparer : IComparer<EnemyUtilityTriggerIntent>
