@@ -1197,7 +1197,8 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     targetCell: signal.PresentationTargetCell,
                     hasSourceCell: true,
                     hasTargetCell: signal.HasPresentationTargetCell,
-                    direction: signal.Facing);
+                    direction: signal.Facing,
+                    visualContactNormalizedTime: signal.VisualContactNormalizedTime);
                 count++;
             }
 
@@ -1225,7 +1226,8 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             Direction direction = Direction.None,
             int impactTick = 0,
             int impactId = 0,
-            int presentationKey = 0)
+            int presentationKey = 0,
+            float visualContactNormalizedTime = 0f)
         {
             var payload = new PresentationEnemyAudioPayload(
                 ownerEntityId,
@@ -1245,7 +1247,8 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                 hasTargetCell,
                 impactTick,
                 impactId,
-                presentationKey);
+                presentationKey,
+                visualContactNormalizedTime);
             facts.Add(new PresentationFact(
                 PresentationFactKind.EnemyAudio,
                 new PresentationSource(

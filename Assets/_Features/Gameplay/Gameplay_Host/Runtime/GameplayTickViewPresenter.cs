@@ -242,6 +242,13 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.ConfigureActionAudioExecution(mode, playbackPort);
         }
 
+        internal void ConfigureEnemyAudioExecution(
+            EnemyAudioExecutionMode mode,
+            IGameplayEnemyAudioPlaybackPort playbackPort = null)
+        {
+            _presentationCoordinator.ConfigureEnemyAudioExecution(mode, playbackPort);
+        }
+
         public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)
         {
             _presentationCoordinator.DetachPresentationExtension(extension);
@@ -359,6 +366,18 @@ namespace Game.Feature.Gameplay.Host
 
         internal GameplayActionAudioExecutorDiagnostics ActionAudioExecutorDiagnostics =>
             _presentationCoordinator.ActionAudioExecutorDiagnostics;
+
+        internal EnemyAudioExecutionMode EnemyAudioExecutionMode =>
+            _presentationCoordinator.EnemyAudioExecutionMode;
+
+        internal EnemyAudioOwnershipDiagnostics EnemyAudioOwnershipDiagnostics =>
+            _presentationCoordinator.EnemyAudioOwnershipDiagnostics;
+
+        internal PresentationBlockingSnapshot EnemyAudioExecutionPipelineBlockingSnapshot =>
+            _presentationCoordinator.EnemyAudioExecutionPipelineBlockingSnapshot;
+
+        internal GameplayEnemyAudioExecutorDiagnostics EnemyAudioExecutorDiagnostics =>
+            _presentationCoordinator.EnemyAudioExecutorDiagnostics;
 
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {

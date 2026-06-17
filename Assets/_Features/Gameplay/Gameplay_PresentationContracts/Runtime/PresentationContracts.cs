@@ -878,7 +878,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
             bool hasTargetCell = false,
             int impactTick = 0,
             int impactId = 0,
-            int presentationKey = 0)
+            int presentationKey = 0,
+            float visualContactNormalizedTime = 0f)
         {
             OwnerEntityId = Math.Max(0, ownerEntityId);
             CueKey = Math.Max(0, cueKey);
@@ -898,6 +899,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
             ImpactTick = Math.Max(0, impactTick);
             ImpactId = Math.Max(0, impactId);
             PresentationKey = Math.Max(0, presentationKey);
+            VisualContactNormalizedTime = ClampNormalized(visualContactNormalizedTime);
         }
 
         public int OwnerEntityId { get; }
@@ -936,6 +938,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
         public int PresentationKey { get; }
 
+        public float VisualContactNormalizedTime { get; }
+
         public bool IsValid =>
             OwnerEntityId > 0 &&
             CueKey > 0 &&
@@ -961,7 +965,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
                    HasTargetCell == other.HasTargetCell &&
                    ImpactTick == other.ImpactTick &&
                    ImpactId == other.ImpactId &&
-                   PresentationKey == other.PresentationKey;
+                   PresentationKey == other.PresentationKey &&
+                   VisualContactNormalizedTime.Equals(other.VisualContactNormalizedTime);
         }
 
         public override bool Equals(object obj)
@@ -991,8 +996,19 @@ namespace Game.Feature.Gameplay.PresentationContracts
                 hash = (hash * 397) ^ ImpactTick;
                 hash = (hash * 397) ^ ImpactId;
                 hash = (hash * 397) ^ PresentationKey;
+                hash = (hash * 397) ^ VisualContactNormalizedTime.GetHashCode();
                 return hash;
             }
+        }
+
+        private static float ClampNormalized(float value)
+        {
+            if (value <= 0f)
+            {
+                return 0f;
+            }
+
+            return value >= 1f ? 1f : value;
         }
     }
 
