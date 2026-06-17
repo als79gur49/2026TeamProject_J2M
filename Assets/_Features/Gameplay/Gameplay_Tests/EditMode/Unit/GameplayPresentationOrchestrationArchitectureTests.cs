@@ -45,6 +45,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyPresentationExecutor.cs";
         private const string ActionAudioExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayActionAudioPresentationExecutor.cs";
+        private const string EnemyAudioExecutorPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayEnemyAudioPresentationExecutor.cs";
 
         [Test]
         [Category("Core")]
@@ -1274,6 +1276,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var planningSource = ReadDirectorySource(PlanningDirectory);
             var playbackSource = ReadDirectorySource(PlaybackDirectory);
             var runtimeSource = ReadDirectorySource(RuntimeDirectory);
+            var coordinatorSource = ReadRepoFile(CoordinatorPath);
+            var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
+            var enemyAudioExecutorSource = ReadRepoFile(EnemyAudioExecutorPath);
             var uiSource = ReadDirectorySource("Assets/_Features/UI");
 
             Assert.That(contractsPlanningPlaybackSource, Does.Contain("PresentationEnemyAudioPayload"));
@@ -1294,11 +1299,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeSource, Does.Not.Contain("EnemyAudioProfile"));
             Assert.That(runtimeSource, Does.Not.Contain("AudioManager"));
 
+            Assert.That(coordinatorSource, Does.Contain("EnemyAudioExecutionMode.LegacyEnemyAudioController"));
+            Assert.That(coordinatorSource, Does.Contain("EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge"));
+            Assert.That(coordinatorSource, Does.Contain("ConfigureEnemyAudioExecution"));
+            Assert.That(hostRuntimeSource, Does.Contain("GameplayEnemyAudioPresentationExecutor"));
+            Assert.That(hostRuntimeSource, Does.Contain("IGameplayEnemyAudioPlaybackPort"));
+            Assert.That(hostRuntimeSource, Does.Contain("EnemyAudioExecutionGuard"));
+            Assert.That(enemyAudioExecutorSource, Does.Contain("GameplayEnemyAudioPlaybackPortAdapter"));
+            Assert.That(enemyAudioExecutorSource, Does.Contain("EnemyAudioPresentationController controller"));
+            Assert.That(enemyAudioExecutorSource, Does.Not.Contain("AudioManager"));
+            Assert.That(enemyAudioExecutorSource, Does.Not.Contain("PresentationSfxCueKey"));
+            Assert.That(enemyAudioExecutorSource, Does.Not.Contain("PresentationActionAudioCueKey"));
+
             Assert.That(planningSource, Does.Not.Contain("PresentationSfxCueKey.ForwardCellImpact"));
             Assert.That(planningSource, Does.Not.Contain("PresentationActionAudioCueKey.Enemy"));
             Assert.That(uiSource, Does.Not.Contain("PresentationEnemyAudioPayload"));
             Assert.That(uiSource, Does.Not.Contain("PresentationEnemyAudioCueKey"));
             Assert.That(uiSource, Does.Not.Contain("EnemyAudioCuePlanner"));
+            Assert.That(uiSource, Does.Not.Contain("EnemyAudioExecutionMode"));
+            Assert.That(uiSource, Does.Not.Contain("GameplayEnemyAudioExecutorDiagnostics"));
         }
 
         [Test]
