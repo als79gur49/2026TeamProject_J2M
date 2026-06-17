@@ -156,6 +156,22 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Object.FindObjectsByType<GlobalAudioFlowRoot>(FindObjectsInactive.Include, FindObjectsSortMode.None).Length,
                 Is.EqualTo(1),
                 $"{scenePath} must not create duplicate persistent BGM roots.");
+            Assert.That(
+                host.Presenter.CoreGameplaySfxExecutionMode,
+                Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor),
+                $"{scenePath} must boot Core SFX with the production orchestration owner.");
+            Assert.That(
+                host.Presenter.CoreGameplaySfxExecutorDiagnostics.IsProductionDefaultOwner,
+                Is.True,
+                $"{scenePath} must report Core SFX production default owner telemetry at bootstrap.");
+            Assert.That(
+                host.Presenter.ActionAudioExecutionMode,
+                Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController),
+                $"{scenePath} must not switch action audio production ownership.");
+            Assert.That(
+                host.Presenter.EnemyAudioExecutionMode,
+                Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController),
+                $"{scenePath} must not switch enemy audio production ownership.");
         }
 
         private static void AssertUiBootstrap(string scenePath)

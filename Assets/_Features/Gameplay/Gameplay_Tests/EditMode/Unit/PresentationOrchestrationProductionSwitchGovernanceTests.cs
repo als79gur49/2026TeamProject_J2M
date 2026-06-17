@@ -124,14 +124,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "OrchestrationSfxBridgeExecutor",
                 false,
                 true,
-                "CoreSfx_DefaultOrchestration_TelemetryReportsProductionOwner",
-                "CoreSfx_ProductionTelemetry_IsNonAuthoritative",
+                "CoreSfxProductionDefault_PlayMode_TelemetryHasNoDuplicatePlayback",
+                "CoreSfx_PlayModeSmoke_IsNonAuthoritative",
                 "CoreGameplaySfx_ResetSessionHardCleanupAndPresentInitial_ClearExecutorPortAndGuardState",
-                "AudioOwnership_AfterCoreSfxTelemetry_RemainsSeparated",
+                "AudioOwnership_AfterCoreSfxPlayModeSmoke_RemainsSeparated",
                 "Low: non-blocking one-shot.",
                 "Medium: audio ownership must stay separated.",
                 "Set CoreGameplaySfxExecutionMode.LegacyGameplayAudioController.",
-                ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened),
+                ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered),
             new(
                 "Action audio",
                 typeof(ActionAudioExecutionMode),
@@ -343,7 +343,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void AudioOwnership_AfterCoreSfxTelemetry_RemainsSeparated()
+        public void AudioOwnership_AfterCoreSfxPlayModeSmoke_RemainsSeparated()
         {
             var coreSfxExecutor = ReadRepoFile($"{HostRuntimeDirectory}/GameplaySfxPresentationExecutor.cs");
             var actionAudioExecutor = ReadRepoFile($"{HostRuntimeDirectory}/GameplayActionAudioPresentationExecutor.cs");
@@ -421,14 +421,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionSwitchReadiness_ReflectsCoreSfxTelemetryHardening()
+        public void ProductionSwitchReadiness_ReflectsCoreSfxPlayModeSmoke()
         {
             var coreSfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode));
+            var readinessDocument = ReadRepoFile(ReadinessDocumentPath);
 
             Assert.That(coreSfx.CurrentDefault, Is.EqualTo(coreSfx.OrchestrationOwner));
             Assert.That(coreSfx.DefaultIsLegacy, Is.False);
             Assert.That(coreSfx.InvalidModeNormalizesToLegacy, Is.True);
-            Assert.That(coreSfx.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened));
+            Assert.That(coreSfx.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered));
+            Assert.That(readinessDocument, Does.Contain("Phase 9D"));
+            Assert.That(readinessDocument, Does.Contain("ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered"));
+            Assert.That(readinessDocument, Does.Contain("CoreSfxProductionDefault_PlayMode_UsesOrchestrationOwner"));
+            Assert.That(readinessDocument, Does.Contain("CoreSfxProductionDefault_PlayMode_TopologyLockDefersAndDrains"));
 
             foreach (var row in ReadinessMatrix.Where(row => row.ExecutionModeType != typeof(CoreGameplaySfxExecutionMode)))
             {
@@ -436,6 +441,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(row.DefaultIsLegacy, Is.True, row.Domain);
                 Assert.That(row.RecommendedStatus, Is.Not.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOn), row.Domain);
                 Assert.That(row.RecommendedStatus, Is.Not.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened), row.Domain);
+                Assert.That(row.RecommendedStatus, Is.Not.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered), row.Domain);
             }
         }
 
@@ -563,6 +569,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             DoNotSwitchYet = 3,
             ProductionDefaultOn = 4,
             ProductionDefaultOnTelemetryHardened = 5,
+            ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered = 6,
         }
 
         private sealed class ProductionSwitchReadinessRow
