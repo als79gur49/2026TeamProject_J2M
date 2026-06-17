@@ -59,7 +59,7 @@ The requested paths `Assets/_Features/Stages/Stage_CombinedGameplayShowcase` and
 | Retired residue | No active Utility capability asset with `kind: 1` was found in the Utility capability asset allowlist. Numeric `kind: 1` appears in other enum contexts and must be treated as a false-positive unless surrounded by `EnemyUtilityCapabilityAsset` context. |
 | Behavior Summon symbols | Runtime and test code now contain the compile-skeleton `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and compiled Summon behavior runtime config. Production stage content has no active `EnemySummonBehaviorModuleAsset` instances, and `logicModuleAssets` has no matches. |
 | Behavior module assets | `behaviorModuleAssets` is empty for the Summoner profile. The only non-empty production profile observed is Charge, referencing `EnemyChargeBehaviorModule_Standard.asset`. |
-| Presentation/audio/VFX related assets | Utility Summoner has separate audio requirement/profile assets. These are not fields on current Summon authoring and require a later presentation/audio/VFX parity plan. |
+| Presentation/audio/VFX related assets | Utility Summoner has separate audio requirement/profile assets. These are not fields on current Summon authoring. Test-local Behavior Summon presentation/audio/VFX parity is implemented without asset migration; production asset migration remains future gated. |
 
 ## 4. Future Behavior Summon Asset Shape
 
@@ -326,7 +326,7 @@ Required follow-up:
 
 ## 13. Explicit Non-Goals
 
-- No mutable Summon runtime implementation or trigger emission.
+- No production Behavior Summon asset migration.
 - No production asset migration.
 - No Utility whole-lane migration.
 - No `GravityFieldAura` migration.
@@ -350,4 +350,4 @@ Required follow-up:
 - Option B implementation slicing and validation gates accepted; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy decided.
 
-Summon asset migration remains future gated work after the compile skeleton. No production assets were migrated. Full lane was not run unless explicitly reported.
+Summon asset migration remains future gated work after the compile skeleton, runtime/emitter slice, and test-local presentation/audio/VFX parity slice. No production assets were migrated. Current replay/export and presentation/audio/VFX names remain preserved; neutral naming remains future schema/asset migration only. Full lane was not run unless explicitly reported.

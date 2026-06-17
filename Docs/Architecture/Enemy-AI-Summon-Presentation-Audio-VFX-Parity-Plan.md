@@ -4,14 +4,14 @@
 
 - This is a presentation/audio/VFX parity plan only.
 - Option B compile skeleton exists: `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and a fixed typed Summon runtime config slot are implemented.
-- Mutable Summon behavior state and runtime emission are implemented for the test-local Behavior Summon path, including minimum windup warning parity; full presentation/audio/VFX migration and production asset migration are not implemented.
+- Mutable Summon behavior state, runtime emission, and full presentation/audio/VFX parity are implemented for the test-local Behavior Summon path; production asset migration is not implemented.
 - Utility `SummonMinion` remains in the Utility capability lane.
-- Presentation/audio/VFX runtime behavior is not changed by this document.
+- Presentation/audio/VFX runtime contracts are preserved by this document.
 - Presentation prefabs, audio definitions, audio bindings, VFX assets, and production assets are not changed by this document.
 - Replay/export-visible names, `DeterminismHashBuilder`, `TickPipeline`, `EntitySpawnRequest`, and `EntitySpawnMaterializer` are not changed by this document.
 - Initial Option B preserves current presentation/audio/VFX names and cue semantics.
 - Neutral naming requires an explicit presentation/audio/VFX asset or schema migration.
-- Full lane was not run for this plan.
+- Full lane was not run for this plan or the parity slice.
 
 ## 2. Current Presentation / Audio / VFX Surface Inventory
 
@@ -169,20 +169,20 @@ Decision:
 | runtime state shape design | Current already covered | Future state ownership boundary | Already recorded as design |
 | asset migration plan | Current already covered | Asset-scoped migration boundary | Already recorded as design |
 | replay/export compatibility plan | Current already covered | External name/hash/export compatibility | Already recorded as design |
-| `BehaviorSummon_WindupWarningSignalParity` | Future | Preserve windup warning facts | Yes |
-| `BehaviorSummon_SummonedEnemyPresentationBindingParity` | Future | Preserve child binding facts | Yes |
-| `BehaviorSummon_SpawnVisibilityChangeParity` | Future | Preserve spawn visibility timing/order | Yes |
-| `BehaviorSummon_AudioWindupCueParity` | Future | Preserve source windup audio cue | Yes |
-| `BehaviorSummon_AudioActiveSummonCueParity` | Future | Preserve source active summon cue | Yes |
-| `BehaviorSummon_UtilityWindupVfxParity` | Future | Preserve persistent windup VFX | Yes |
-| `BehaviorSummon_UtilitySummonSpawnVfxParity` | Future | Preserve one-shot spawn VFX | Yes |
-| `BehaviorSummon_SameTickMultiSummonerPresentationOrderParity` | Future | Preserve presentation/audio/VFX order | Yes |
-| `BehaviorSummon_FailedPlacement_NoSpawnVfxOrActiveCue` | Future | No committed spawn side effects on failed placement | Yes |
-| `BehaviorSummon_MaxAliveBlocked_NoSpawnVfxOrActiveCue` | Future | No spawn cue when max alive blocks | Yes |
-| `BehaviorSummon_SourceDeathCancelsWindupPresentation` | Future | Windup cleanup on invalid source | Yes |
-| `BehaviorSummon_TopologySuspendPresentationParity` | Future | Topology suspend/cancel presentation parity | Yes |
-| `BehaviorSummon_OwnerViewMissing_AudioFallbackParity` | Future | Preserve missing owner no-op behavior | Yes |
-| `BehaviorSummon_PresentationDoesNotMutateAuthoritativeState` | Future | Guard presentation-only boundary | Yes |
+| `BehaviorSummon_WindupWarningSignalParity` | Current | Preserve windup warning facts | Implemented |
+| `BehaviorSummon_SummonedEnemyPresentationBindingParity` | Current | Preserve child binding facts | Implemented |
+| `BehaviorSummon_SpawnVisibilityChangeParity` | Current | Preserve spawn visibility timing/order | Implemented |
+| `BehaviorSummon_AudioWindupCueParity` | Current | Preserve source windup audio cue | Implemented |
+| `BehaviorSummon_AudioActiveSummonCueParity` | Current | Preserve source active summon cue | Implemented |
+| `BehaviorSummon_UtilityWindupVfxParity` | Current | Preserve persistent windup VFX | Implemented |
+| `BehaviorSummon_UtilitySummonSpawnVfxParity` | Current | Preserve one-shot spawn VFX | Implemented |
+| `BehaviorSummon_SameTickMultiSummonerPresentationOrderParity` | Current | Preserve presentation/audio/VFX order | Implemented |
+| `BehaviorSummon_FailedPlacement_NoSpawnVfxOrActiveCue` | Current | No committed spawn side effects on failed placement | Implemented |
+| `BehaviorSummon_MaxAliveBlocked_NoSpawnVfxOrActiveCue` | Current | No spawn cue when max alive blocks | Implemented |
+| `BehaviorSummon_SourceDeathCancelsWindupPresentation` | Current | Windup cleanup on invalid source | Implemented |
+| `BehaviorSummon_TopologySuspendPresentationParity` | Current | Topology suspend/cancel presentation parity | Implemented |
+| `BehaviorSummon_OwnerViewMissing_AudioFallbackParity` | Current | Preserve missing owner no-op behavior | Implemented |
+| `BehaviorSummon_PresentationDoesNotMutateAuthoritativeState` | Current | Guard presentation-only boundary | Implemented |
 | `MigratedSummon_PresentationBaselineParity` | Migration | Compare migrated presentation facts to Utility baseline | Before migration close |
 | `MigratedSummon_AudioBaselineParity` | Migration | Compare migrated audio request/playback plan to Utility baseline | Before migration close |
 | `MigratedSummon_VfxBaselineParity` | Migration | Compare migrated VFX request/lifecycle plan to Utility baseline | Before migration close |
@@ -202,11 +202,11 @@ Decision:
 
 ## 11. Explicit Non-Goals
 
-- No concrete `SummonBehaviorRuntime`.
-- No mutable Summon runtime implementation or trigger emission.
+- No production `EnemySummonBehaviorModuleAsset`.
+- No production Utility SummonMinion migration.
 - No Utility `SummonMinion` production asset migration.
 - No production asset changes.
-- No presentation/audio/VFX runtime behavior change.
+- No presentation/audio/VFX asset migration.
 - No presentation prefab change.
 - No audio definition or audio binding asset change.
 - No VFX asset change.
@@ -234,4 +234,4 @@ Decision:
 - Option B implementation slicing and validation gates accepted; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy decided.
 
-Minimum Behavior Summon windup warning parity is implemented for the test-local Behavior Summon runtime/emitter path. Presentation/audio/VFX names and assets remain preserved; full presentation/audio/VFX parity remains a future slice. Full lane was not run unless explicitly reported.
+Full presentation/audio/VFX parity is implemented for the test-local Behavior Summon runtime/emitter path. Current names and cue semantics are preserved: `TickSummonWindupWarningSignal`, `TickSummonedEnemyPresentationBinding`, `TickVisibilityChange(Spawn)`, `EnemyAudioCue.Windup`, `EnemyAudioCue.Active`, `UtilityWindup`, and `UtilitySummonSpawn` remain unchanged. Production asset migration has not started. Neutral naming remains future asset/schema migration only. Full lane was not run unless explicitly reported.

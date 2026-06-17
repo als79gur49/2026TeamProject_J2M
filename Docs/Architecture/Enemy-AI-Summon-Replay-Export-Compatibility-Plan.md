@@ -4,12 +4,12 @@
 
 - This is a compatibility plan only.
 - Option B compile skeleton exists: `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and a fixed typed Summon runtime config slot are implemented.
-- Mutable Summon behavior state and runtime emission are implemented for the test-local Behavior Summon path; production asset migration is not implemented.
+- Mutable Summon behavior state, runtime emission, and full presentation/audio/VFX parity are implemented for the test-local Behavior Summon path; production asset migration is not implemented.
 - Utility `SummonMinion` remains in the Utility capability lane.
 - Replay/export-visible names are not changed by this document.
 - Initial Option B preserves external replay/export names.
 - Neutral naming requires an explicit replay/export schema or version migration.
-- Full lane was not run for this plan.
+- Full lane was not run for this plan or the parity slice.
 
 ## 2. Current Replay / Export / Hash Surface Inventory
 
@@ -179,8 +179,8 @@ Decision:
 
 ## 10. Explicit Non-Goals
 
-- No concrete `SummonBehaviorRuntime`.
-- No mutable Summon runtime implementation or trigger emission.
+- No production `EnemySummonBehaviorModuleAsset`.
+- No production Utility SummonMinion migration.
 - No Utility `SummonMinion` production asset migration.
 - No replay/export-visible rename in this step.
 - No `DeterminismHashBuilder` runtime behavior change.
@@ -203,4 +203,4 @@ Decision:
 - Option B implementation slicing and validation gates accepted; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy decided.
 
-Summon replay/export compatibility is implemented for the test-local Behavior Summon runtime/emitter path. `SummonCommitted`, `SummonSkipped`, `SummonedEntities`, `EnemyDefinitionBindings`, `Effect=`, and `SourceEffectIndex` names remain preserved. Production asset migration has not started, and full lane was not run unless explicitly reported.
+Summon replay/export compatibility and full presentation/audio/VFX parity are implemented for the test-local Behavior Summon runtime/emitter path. `SummonCommitted`, `SummonSkipped`, `SummonedEntities`, `EnemyDefinitionBindings`, `Effect=`, and `SourceEffectIndex` names remain preserved. Current presentation/audio/VFX names and cue semantics remain preserved. Production asset migration has not started, neutral naming remains future schema/asset migration only, and full lane was not run unless explicitly reported.

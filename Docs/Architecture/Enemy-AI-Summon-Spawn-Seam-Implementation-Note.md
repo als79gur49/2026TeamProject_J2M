@@ -103,7 +103,7 @@ Full lane was not run. Therefore this note does not report broad project validat
 | BehaviorModule Summon runtime state shape design | Documented as Option B prerequisite. |
 | Summon asset migration plan | Documented as Option B prerequisite. |
 | Replay/export compatibility plan | Documented as Option B prerequisite; initial Option B preserves external replay/export names. |
-| Presentation/audio/VFX parity plan | Documented as Option B prerequisite; initial Option B preserves current names/cue semantics. |
+| Presentation/audio/VFX parity plan | Implemented for test-local Behavior Summon path; initial Option B preserves current names/cue semantics and assets. |
 
 ## 7. Implemented Contract Checklist
 
@@ -142,6 +142,7 @@ Completed before production migration:
 
 - Runtime emission for test-local Behavior Summon path is implemented.
 - Behavior Summon request ordering, request snapshot, max-alive, source invalidation, topology participation, replay/export-name, hash, and minimum windup warning parity tests are implemented.
+- Full presentation/audio/VFX parity for the test-local Behavior Summon path is implemented.
 
 Remaining before production migration:
 
@@ -166,4 +167,4 @@ Non-goals still in force:
 
 This extracts spawn/entity creation materialization from Utility Summon. It does not migrate Summon to BehaviorModule. Utility remains the trigger/timer owner. Entity ids are allocated only during materialization, after placement candidate selection succeeds, and `FinalizationBatch.SpawnEntity` remains the authoritative write path. Replay/export names are preserved. Targeted Summon/Utility/replay/core tests were previously recorded as passed. Full lane was not run.
 
-This document now also acts as the Option B readiness index for Summon migration planning. The duplicate guard, compile skeleton, and test-local runtime/emitter parity path are implemented. Production asset migration and full presentation/audio/VFX parity remain future gated work.
+This document now also acts as the Option B readiness index for Summon migration planning. The duplicate guard, compile skeleton, test-local runtime/emitter parity path, and test-local full presentation/audio/VFX parity path are implemented. Production asset migration remains future gated work. Current replay/export names and presentation/audio/VFX cue semantics remain preserved; neutral naming remains future schema/asset migration only.
