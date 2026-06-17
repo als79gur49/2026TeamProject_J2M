@@ -240,7 +240,12 @@ namespace Game.Feature.Gameplay.PresentationPlayback
             int noOpSchedulerAcceptCount,
             int actionAudioCueCount = 0,
             int actionAudioPlaybackCueCount = 0,
-            int actionAudioNoPlaybackBecausePlanningOnlyCount = 0)
+            int actionAudioNoPlaybackBecausePlanningOnlyCount = 0,
+            int enemyAudioCueCount = 0,
+            int enemyAudioPlaybackCueCount = 0,
+            int enemyAudioObservedCount = 0,
+            int enemyAudioIgnoredBecauseLegacyOwnerCount = 0,
+            int enemyAudioNoPlaybackBecausePlanningOnlyCount = 0)
         {
             ExtractedFactCount = Math.Max(0, extractedFactCount);
             PlannedCueCount = Math.Max(0, plannedCueCount);
@@ -260,6 +265,12 @@ namespace Game.Feature.Gameplay.PresentationPlayback
             ActionAudioPlaybackCueCount = Math.Max(0, actionAudioPlaybackCueCount);
             ActionAudioNoPlaybackBecausePlanningOnlyCount =
                 Math.Max(0, actionAudioNoPlaybackBecausePlanningOnlyCount);
+            EnemyAudioCueCount = Math.Max(0, enemyAudioCueCount);
+            EnemyAudioPlaybackCueCount = Math.Max(0, enemyAudioPlaybackCueCount);
+            EnemyAudioObservedCount = Math.Max(0, enemyAudioObservedCount);
+            EnemyAudioIgnoredBecauseLegacyOwnerCount = Math.Max(0, enemyAudioIgnoredBecauseLegacyOwnerCount);
+            EnemyAudioNoPlaybackBecausePlanningOnlyCount =
+                Math.Max(0, enemyAudioNoPlaybackBecausePlanningOnlyCount);
         }
 
         public int ExtractedFactCount { get; }
@@ -296,6 +307,16 @@ namespace Game.Feature.Gameplay.PresentationPlayback
 
         public int ActionAudioNoPlaybackBecausePlanningOnlyCount { get; }
 
+        public int EnemyAudioCueCount { get; }
+
+        public int EnemyAudioPlaybackCueCount { get; }
+
+        public int EnemyAudioObservedCount { get; }
+
+        public int EnemyAudioIgnoredBecauseLegacyOwnerCount { get; }
+
+        public int EnemyAudioNoPlaybackBecausePlanningOnlyCount { get; }
+
         public PresentationPlaybackDiagnostics WithNoOpSchedulerAcceptCount(int acceptCount)
         {
             return new PresentationPlaybackDiagnostics(
@@ -315,7 +336,12 @@ namespace Game.Feature.Gameplay.PresentationPlayback
                 acceptCount,
                 ActionAudioCueCount,
                 ActionAudioPlaybackCueCount,
-                ActionAudioNoPlaybackBecausePlanningOnlyCount);
+                ActionAudioNoPlaybackBecausePlanningOnlyCount,
+                EnemyAudioCueCount,
+                EnemyAudioPlaybackCueCount,
+                EnemyAudioObservedCount,
+                EnemyAudioIgnoredBecauseLegacyOwnerCount,
+                EnemyAudioNoPlaybackBecausePlanningOnlyCount);
         }
     }
 
@@ -506,6 +532,8 @@ namespace Game.Feature.Gameplay.PresentationPlayback
             var blockingBarrierCount = 0;
             var actionAudioCueCount = 0;
             var actionAudioPlaybackCueCount = 0;
+            var enemyAudioCueCount = 0;
+            var enemyAudioPlaybackCueCount = 0;
 
             for (var i = 0; i < cueFrame.Cues.Count; i++)
             {
@@ -600,6 +628,22 @@ namespace Game.Feature.Gameplay.PresentationPlayback
                     continue;
                 }
 
+                if (IsEnemyAudioCue(cue))
+                {
+                    cues.Add(new PresentationPlaybackCue(
+                        cue,
+                        new PresentationPlaybackPolicy(
+                            PresentationPlaybackUnitKind.OneShot,
+                            blocking: false,
+                            cue.PolicyHint.DedupeKey,
+                            cue.PolicyHint.CancellationKey,
+                            cue.PolicyHint.CooldownKey,
+                            PresentationPlaybackInterruptMode.AllowOverlap)));
+                    enemyAudioCueCount++;
+                    enemyAudioPlaybackCueCount++;
+                    continue;
+                }
+
                 if (policy.UnitKind == PresentationPlaybackUnitKind.Track)
                 {
                     tracks.Add(new PresentationPlaybackTrack(cue, policy));
@@ -647,7 +691,12 @@ namespace Game.Feature.Gameplay.PresentationPlayback
                     noOpSchedulerAcceptCount: 0,
                     actionAudioCueCount,
                     actionAudioPlaybackCueCount,
-                    actionAudioNoPlaybackBecausePlanningOnlyCount: actionAudioPlaybackCueCount));
+                    actionAudioNoPlaybackBecausePlanningOnlyCount: actionAudioPlaybackCueCount,
+                    enemyAudioCueCount,
+                    enemyAudioPlaybackCueCount,
+                    enemyAudioObservedCount: enemyAudioPlaybackCueCount,
+                    enemyAudioIgnoredBecauseLegacyOwnerCount: enemyAudioPlaybackCueCount,
+                    enemyAudioNoPlaybackBecausePlanningOnlyCount: enemyAudioPlaybackCueCount));
         }
 
         private static bool IsTopologyTransitionCue(PresentationCue cue)
@@ -689,6 +738,13 @@ namespace Game.Feature.Gameplay.PresentationPlayback
         {
             return cue.Domain == PresentationDomain.ActionAudio &&
                    cue.Key.Domain == PresentationDomain.ActionAudio &&
+                   cue.Key.LocalKey > 0;
+        }
+
+        private static bool IsEnemyAudioCue(PresentationCue cue)
+        {
+            return cue.Domain == PresentationDomain.EnemyAudio &&
+                   cue.Key.Domain == PresentationDomain.EnemyAudio &&
                    cue.Key.LocalKey > 0;
         }
     }

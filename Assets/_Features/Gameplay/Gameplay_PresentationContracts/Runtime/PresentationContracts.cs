@@ -19,6 +19,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
         Gravity = 9,
         EnemyPresentation = 10,
         ActionAudio = 11,
+        EnemyAudio = 12,
     }
 
     public enum PresentationDomain
@@ -33,6 +34,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
         UiBridge = 7,
         Stage = 8,
         ActionAudio = 9,
+        EnemyAudio = 10,
     }
 
     public enum PresentationSemanticSource
@@ -63,6 +65,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
         BoxFlipImpactMotion = 23,
         PlayerActionAudio = 24,
         PlayerActionAttemptAudio = 25,
+        EnemyForwardCellImpact = 26,
     }
 
     public enum PresentationTargetKind
@@ -834,6 +837,165 @@ namespace Game.Feature.Gameplay.PresentationContracts
         Death = 5,
     }
 
+    public enum PresentationEnemyAudioOriginKind
+    {
+        None = 0,
+        Action = 1,
+        Jump = 2,
+        Charge = 3,
+        Death = 4,
+        ForwardCellImpact = 5,
+    }
+
+    public enum PresentationEnemyAudioPhase
+    {
+        None = 0,
+        Windup = 1,
+        Active = 2,
+        Recover = 3,
+        Landing = 4,
+        Death = 5,
+        Impact = 6,
+    }
+
+    public readonly struct PresentationEnemyAudioPayload : IEquatable<PresentationEnemyAudioPayload>
+    {
+        public PresentationEnemyAudioPayload(
+            int ownerEntityId,
+            int cueKey,
+            int sourceTickIndex,
+            int sourceSequenceId = 0,
+            PresentationEnemyAudioOriginKind originKind = PresentationEnemyAudioOriginKind.None,
+            PresentationEnemyAudioPhase phase = PresentationEnemyAudioPhase.None,
+            int targetEntityId = 0,
+            Direction direction = Direction.None,
+            int sourceOutcome = 0,
+            int sourceCause = 0,
+            int timing = 0,
+            SurfaceCell sourceCell = default,
+            SurfaceCell targetCell = default,
+            bool hasSourceCell = false,
+            bool hasTargetCell = false,
+            int impactTick = 0,
+            int impactId = 0,
+            int presentationKey = 0)
+        {
+            OwnerEntityId = Math.Max(0, ownerEntityId);
+            CueKey = Math.Max(0, cueKey);
+            SourceTickIndex = Math.Max(0, sourceTickIndex);
+            SourceSequenceId = Math.Max(0, sourceSequenceId);
+            OriginKind = originKind;
+            Phase = phase;
+            TargetEntityId = Math.Max(0, targetEntityId);
+            Direction = direction;
+            SourceOutcome = Math.Max(0, sourceOutcome);
+            SourceCause = Math.Max(0, sourceCause);
+            Timing = Math.Max(0, timing);
+            SourceCell = sourceCell;
+            TargetCell = targetCell;
+            HasSourceCell = hasSourceCell;
+            HasTargetCell = hasTargetCell;
+            ImpactTick = Math.Max(0, impactTick);
+            ImpactId = Math.Max(0, impactId);
+            PresentationKey = Math.Max(0, presentationKey);
+        }
+
+        public int OwnerEntityId { get; }
+
+        public int CueKey { get; }
+
+        public int SourceTickIndex { get; }
+
+        public int SourceSequenceId { get; }
+
+        public PresentationEnemyAudioOriginKind OriginKind { get; }
+
+        public PresentationEnemyAudioPhase Phase { get; }
+
+        public int TargetEntityId { get; }
+
+        public Direction Direction { get; }
+
+        public int SourceOutcome { get; }
+
+        public int SourceCause { get; }
+
+        public int Timing { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell TargetCell { get; }
+
+        public bool HasSourceCell { get; }
+
+        public bool HasTargetCell { get; }
+
+        public int ImpactTick { get; }
+
+        public int ImpactId { get; }
+
+        public int PresentationKey { get; }
+
+        public bool IsValid =>
+            OwnerEntityId > 0 &&
+            CueKey > 0 &&
+            OriginKind != PresentationEnemyAudioOriginKind.None &&
+            Phase != PresentationEnemyAudioPhase.None;
+
+        public bool Equals(PresentationEnemyAudioPayload other)
+        {
+            return OwnerEntityId == other.OwnerEntityId &&
+                   CueKey == other.CueKey &&
+                   SourceTickIndex == other.SourceTickIndex &&
+                   SourceSequenceId == other.SourceSequenceId &&
+                   OriginKind == other.OriginKind &&
+                   Phase == other.Phase &&
+                   TargetEntityId == other.TargetEntityId &&
+                   Direction == other.Direction &&
+                   SourceOutcome == other.SourceOutcome &&
+                   SourceCause == other.SourceCause &&
+                   Timing == other.Timing &&
+                   SourceCell.Equals(other.SourceCell) &&
+                   TargetCell.Equals(other.TargetCell) &&
+                   HasSourceCell == other.HasSourceCell &&
+                   HasTargetCell == other.HasTargetCell &&
+                   ImpactTick == other.ImpactTick &&
+                   ImpactId == other.ImpactId &&
+                   PresentationKey == other.PresentationKey;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationEnemyAudioPayload other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = OwnerEntityId;
+                hash = (hash * 397) ^ CueKey;
+                hash = (hash * 397) ^ SourceTickIndex;
+                hash = (hash * 397) ^ SourceSequenceId;
+                hash = (hash * 397) ^ (int)OriginKind;
+                hash = (hash * 397) ^ (int)Phase;
+                hash = (hash * 397) ^ TargetEntityId;
+                hash = (hash * 397) ^ (int)Direction;
+                hash = (hash * 397) ^ SourceOutcome;
+                hash = (hash * 397) ^ SourceCause;
+                hash = (hash * 397) ^ Timing;
+                hash = (hash * 397) ^ SourceCell.GetHashCode();
+                hash = (hash * 397) ^ TargetCell.GetHashCode();
+                hash = (hash * 397) ^ HasSourceCell.GetHashCode();
+                hash = (hash * 397) ^ HasTargetCell.GetHashCode();
+                hash = (hash * 397) ^ ImpactTick;
+                hash = (hash * 397) ^ ImpactId;
+                hash = (hash * 397) ^ PresentationKey;
+                return hash;
+            }
+        }
+    }
+
     public readonly struct PresentationEnemyPayload : IEquatable<PresentationEnemyPayload>
     {
         public PresentationEnemyPayload(
@@ -952,7 +1114,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
             PresentationMotionPayload motionPayload = default,
             PresentationAnimationPayload animationPayload = default,
             PresentationEnemyPayload enemyPayload = default,
-            PresentationActionAudioPayload actionAudioPayload = default)
+            PresentationActionAudioPayload actionAudioPayload = default,
+            PresentationEnemyAudioPayload enemyAudioPayload = default)
         {
             Kind = kind;
             Source = source;
@@ -963,6 +1126,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
             AnimationPayload = animationPayload;
             EnemyPayload = enemyPayload;
             ActionAudioPayload = actionAudioPayload;
+            EnemyAudioPayload = enemyAudioPayload;
         }
 
         public PresentationFactKind Kind { get; }
@@ -983,6 +1147,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
         public PresentationActionAudioPayload ActionAudioPayload { get; }
 
+        public PresentationEnemyAudioPayload EnemyAudioPayload { get; }
+
         public bool Equals(PresentationFact other)
         {
             return Kind == other.Kind &&
@@ -993,7 +1159,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
                    MotionPayload.Equals(other.MotionPayload) &&
                    AnimationPayload.Equals(other.AnimationPayload) &&
                    EnemyPayload.Equals(other.EnemyPayload) &&
-                   ActionAudioPayload.Equals(other.ActionAudioPayload);
+                   ActionAudioPayload.Equals(other.ActionAudioPayload) &&
+                   EnemyAudioPayload.Equals(other.EnemyAudioPayload);
         }
 
         public override bool Equals(object obj)
@@ -1014,6 +1181,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
                 hash = (hash * 397) ^ AnimationPayload.GetHashCode();
                 hash = (hash * 397) ^ EnemyPayload.GetHashCode();
                 hash = (hash * 397) ^ ActionAudioPayload.GetHashCode();
+                hash = (hash * 397) ^ EnemyAudioPayload.GetHashCode();
                 return hash;
             }
         }
@@ -1032,7 +1200,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
             int objectiveFactCount,
             int stageFactCount,
             int enemyPresentationFactCount = 0,
-            int actionAudioFactCount = 0)
+            int actionAudioFactCount = 0,
+            int enemyAudioFactCount = 0)
         {
             ExtractedFactCount = Math.Max(0, extractedFactCount);
             TopologyFactCount = Math.Max(0, topologyFactCount);
@@ -1045,6 +1214,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
             StageFactCount = Math.Max(0, stageFactCount);
             EnemyPresentationFactCount = Math.Max(0, enemyPresentationFactCount);
             ActionAudioFactCount = Math.Max(0, actionAudioFactCount);
+            EnemyAudioFactCount = Math.Max(0, enemyAudioFactCount);
         }
 
         public int ExtractedFactCount { get; }
@@ -1068,6 +1238,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
         public int EnemyPresentationFactCount { get; }
 
         public int ActionAudioFactCount { get; }
+
+        public int EnemyAudioFactCount { get; }
     }
 
     public sealed class PresentationFactFrame

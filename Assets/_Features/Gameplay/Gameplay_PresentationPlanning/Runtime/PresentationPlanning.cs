@@ -82,6 +82,21 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         PlayerFlipInvalid = 8,
     }
 
+    public enum PresentationEnemyAudioCueKey
+    {
+        None = 0,
+        Move = 1,
+        Death = 2,
+        Windup = 3,
+        Landing = 4,
+        Active = 5,
+        Recover = 6,
+        ForwardCellImpact = 7,
+        ChargeActiveLoop = 8,
+        StationaryActive = 9,
+        PassiveContact = 10,
+    }
+
     public readonly struct PresentationCueKey : IEquatable<PresentationCueKey>
     {
         public PresentationCueKey(PresentationDomain domain, int localKey, int variantKey = 0)
@@ -122,6 +137,11 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         public static PresentationCueKey ForActionAudio(PresentationActionAudioCueKey key)
         {
             return new PresentationCueKey(PresentationDomain.ActionAudio, (int)key);
+        }
+
+        public static PresentationCueKey ForEnemyAudio(PresentationEnemyAudioCueKey key)
+        {
+            return new PresentationCueKey(PresentationDomain.EnemyAudio, (int)key);
         }
 
         public bool TryGetVfxCueKey(out PresentationVfxCueKey key)
@@ -191,6 +211,20 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             }
 
             key = PresentationActionAudioCueKey.None;
+            return false;
+        }
+
+        public bool TryGetEnemyAudioCueKey(out PresentationEnemyAudioCueKey key)
+        {
+            if (Domain == PresentationDomain.EnemyAudio &&
+                Enum.IsDefined(typeof(PresentationEnemyAudioCueKey), LocalKey) &&
+                LocalKey != (int)PresentationEnemyAudioCueKey.None)
+            {
+                key = (PresentationEnemyAudioCueKey)LocalKey;
+                return true;
+            }
+
+            key = PresentationEnemyAudioCueKey.None;
             return false;
         }
 
@@ -346,7 +380,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             PresentationAnimationPayload animationPayload = default,
             PresentationEnemyPayload enemyPayload = default,
             PresentationSfxPayload sfxPayload = default,
-            PresentationActionAudioPayload actionAudioPayload = default)
+            PresentationActionAudioPayload actionAudioPayload = default,
+            PresentationEnemyAudioPayload enemyAudioPayload = default)
         {
             Domain = domain;
             Key = key;
@@ -360,6 +395,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             EnemyPayload = enemyPayload;
             SfxPayload = sfxPayload;
             ActionAudioPayload = actionAudioPayload;
+            EnemyAudioPayload = enemyAudioPayload;
         }
 
         public PresentationDomain Domain { get; }
@@ -386,6 +422,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
 
         public PresentationActionAudioPayload ActionAudioPayload { get; }
 
+        public PresentationEnemyAudioPayload EnemyAudioPayload { get; }
+
         public bool Equals(PresentationCue other)
         {
             return Domain == other.Domain &&
@@ -399,7 +437,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                    AnimationPayload.Equals(other.AnimationPayload) &&
                    EnemyPayload.Equals(other.EnemyPayload) &&
                    SfxPayload.Equals(other.SfxPayload) &&
-                   ActionAudioPayload.Equals(other.ActionAudioPayload);
+                   ActionAudioPayload.Equals(other.ActionAudioPayload) &&
+                   EnemyAudioPayload.Equals(other.EnemyAudioPayload);
         }
 
         public override bool Equals(object obj)
@@ -423,6 +462,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 hash = (hash * 397) ^ EnemyPayload.GetHashCode();
                 hash = (hash * 397) ^ SfxPayload.GetHashCode();
                 hash = (hash * 397) ^ ActionAudioPayload.GetHashCode();
+                hash = (hash * 397) ^ EnemyAudioPayload.GetHashCode();
                 return hash;
             }
         }
@@ -1256,6 +1296,95 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 hash = (hash * 397) ^ payload.SourceActionPlanId;
                 hash = (hash * 397) ^ payload.TargetEntityId;
                 hash = (hash * 397) ^ (int)payload.OutcomeKind;
+                hash = (hash * 397) ^ key.GetHashCode();
+                return hash & int.MaxValue;
+            }
+        }
+    }
+
+    public sealed class EnemyAudioCuePlanner : IPresentationCuePlanner
+    {
+        public void Plan(in PresentationFactFrame facts, PresentationCueFrameBuilder builder)
+        {
+            if (facts == null)
+            {
+                throw new ArgumentNullException(nameof(facts));
+            }
+
+            if (builder == null)
+            {
+                throw new ArgumentNullException(nameof(builder));
+            }
+
+            for (var i = 0; i < facts.Facts.Count; i++)
+            {
+                var fact = facts.Facts[i];
+                if (TryPlanEnemyAudio(fact, out var cue))
+                {
+                    builder.Add(cue);
+                }
+            }
+        }
+
+        private static bool TryPlanEnemyAudio(PresentationFact fact, out PresentationCue cue)
+        {
+            cue = default;
+            if (fact.Kind != PresentationFactKind.EnemyAudio ||
+                !fact.EnemyAudioPayload.IsValid ||
+                fact.Target.Kind != PresentationTargetKind.Entity ||
+                fact.Target.EntityId <= 0)
+            {
+                return false;
+            }
+
+            if (!TryResolveCueKey(fact.EnemyAudioPayload.CueKey, out var enemyAudioCueKey))
+            {
+                return false;
+            }
+
+            var key = PresentationCueKey.ForEnemyAudio(enemyAudioCueKey);
+            cue = new PresentationCue(
+                PresentationDomain.EnemyAudio,
+                key,
+                fact.Source,
+                PresentationTarget.Entity(fact.EnemyAudioPayload.OwnerEntityId),
+                PresentationAnchor.ForEntityVisualRoot(fact.EnemyAudioPayload.OwnerEntityId),
+                PresentationPlaybackPolicyHint.OneShot(ComputeDedupeKey(fact, key)),
+                enemyAudioPayload: fact.EnemyAudioPayload);
+            return true;
+        }
+
+        private static bool TryResolveCueKey(int cueKey, out PresentationEnemyAudioCueKey resolved)
+        {
+            if (Enum.IsDefined(typeof(PresentationEnemyAudioCueKey), cueKey) &&
+                cueKey != (int)PresentationEnemyAudioCueKey.None &&
+                cueKey != (int)PresentationEnemyAudioCueKey.ChargeActiveLoop)
+            {
+                resolved = (PresentationEnemyAudioCueKey)cueKey;
+                return true;
+            }
+
+            resolved = PresentationEnemyAudioCueKey.None;
+            return false;
+        }
+
+        private static int ComputeDedupeKey(PresentationFact fact, PresentationCueKey key)
+        {
+            unchecked
+            {
+                var payload = fact.EnemyAudioPayload;
+                var hash = 43;
+                hash = (hash * 397) ^ fact.Source.TickIndex;
+                hash = (hash * 397) ^ (int)fact.Source.SemanticSource;
+                hash = (hash * 397) ^ payload.OwnerEntityId;
+                hash = (hash * 397) ^ payload.CueKey;
+                hash = (hash * 397) ^ payload.SourceSequenceId;
+                hash = (hash * 397) ^ (int)payload.OriginKind;
+                hash = (hash * 397) ^ (int)payload.Phase;
+                hash = (hash * 397) ^ payload.TargetEntityId;
+                hash = (hash * 397) ^ payload.ImpactTick;
+                hash = (hash * 397) ^ payload.ImpactId;
+                hash = (hash * 397) ^ payload.PresentationKey;
                 hash = (hash * 397) ^ key.GetHashCode();
                 return hash & int.MaxValue;
             }

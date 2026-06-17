@@ -33,6 +33,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             var stageCount = 0;
             var enemyPresentationCount = 0;
             var actionAudioCount = 0;
+            var enemyAudioCount = 0;
 
             for (var i = 0; i < presentationData.EntityMotions.Count; i++)
             {
@@ -306,6 +307,26 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                 facts,
                 tickIndex,
                 presentationData.EntityExitSignals);
+            enemyAudioCount += AddEnemyActionAudioFacts(
+                facts,
+                tickIndex,
+                presentationData.EnemyActionSignals);
+            enemyAudioCount += AddEnemyJumpAudioFacts(
+                facts,
+                tickIndex,
+                presentationData.EnemyJumpSignals);
+            enemyAudioCount += AddEnemyChargeAudioFacts(
+                facts,
+                tickIndex,
+                presentationData.EnemyChargeSignals);
+            enemyAudioCount += AddForwardCellImpactEnemyAudioFacts(
+                facts,
+                tickIndex,
+                presentationData.ForwardCellProjectileArrivalSignals);
+            enemyAudioCount += AddEnemyDeathAudioFacts(
+                facts,
+                tickIndex,
+                presentationData.EntityExitSignals);
 
             for (var i = 0; i < presentationData.TileEvents.Count; i++)
             {
@@ -380,7 +401,8 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     objectiveCount,
                     stageCount,
                     enemyPresentationCount,
-                    actionAudioCount));
+                    actionAudioCount,
+                    enemyAudioCount));
         }
 
         private static bool TryCreateActionAudioPayload(
@@ -898,6 +920,406 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                    exitCause == TickEntityExitCause.OutOfBounds;
         }
 
+        private static int AddEnemyActionAudioFacts(
+            List<PresentationFact> facts,
+            int tickIndex,
+            IReadOnlyList<TickEnemyActionPresentationSignal> signals)
+        {
+            if (signals == null || signals.Count == 0)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityId <= 0)
+                {
+                    continue;
+                }
+
+                var sequenceId = signal.ActiveActionSequence > 0
+                    ? signal.ActiveActionSequence
+                    : i + 1;
+                if (signal.StartedThisTick)
+                {
+                    AddEnemyAudioFact(
+                        facts,
+                        tickIndex,
+                        PresentationSemanticSource.EnemyAction,
+                        signal.EntityId,
+                        PresentationEnemyAudioCueKey.Windup,
+                        PresentationEnemyAudioOriginKind.Action,
+                        PresentationEnemyAudioPhase.Windup,
+                        sequenceId,
+                        sourceActionKind: (int)signal.ActiveActionKind,
+                        sourceOutcome: (int)signal.PresentationOutcome,
+                        sourceCause: (int)signal.PresentationSource);
+                    count++;
+                }
+
+                if (TryResolveEnemyActionExecutionAudioCue(signal, out var executionCue, out var executionPhase))
+                {
+                    AddEnemyAudioFact(
+                        facts,
+                        tickIndex,
+                        PresentationSemanticSource.EnemyAction,
+                        signal.EntityId,
+                        executionCue,
+                        PresentationEnemyAudioOriginKind.Action,
+                        executionPhase,
+                        sequenceId,
+                        sourceActionKind: (int)signal.ActiveActionKind,
+                        sourceOutcome: (int)signal.PresentationOutcome,
+                        sourceCause: (int)signal.PresentationSource);
+                    count++;
+                }
+
+                if (signal.StartedRecoveryThisTick)
+                {
+                    AddEnemyAudioFact(
+                        facts,
+                        tickIndex,
+                        PresentationSemanticSource.EnemyAction,
+                        signal.EntityId,
+                        PresentationEnemyAudioCueKey.Recover,
+                        PresentationEnemyAudioOriginKind.Action,
+                        PresentationEnemyAudioPhase.Recover,
+                        sequenceId,
+                        sourceActionKind: (int)signal.ActiveActionKind,
+                        sourceOutcome: (int)signal.PresentationOutcome,
+                        sourceCause: (int)signal.PresentationSource);
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static bool TryResolveEnemyActionExecutionAudioCue(
+            in TickEnemyActionPresentationSignal signal,
+            out PresentationEnemyAudioCueKey cueKey,
+            out PresentationEnemyAudioPhase phase)
+        {
+            cueKey = PresentationEnemyAudioCueKey.None;
+            phase = PresentationEnemyAudioPhase.None;
+            if (!signal.ExecutedThisTick ||
+                signal.PresentationOutcome == EnemyActionPresentationOutcome.RejectedByReceiverCooldown ||
+                signal.PresentationSource == EnemyActionPresentationSource.ForwardCellImpact)
+            {
+                return false;
+            }
+
+            if (signal.PresentationSource == EnemyActionPresentationSource.PassiveContact)
+            {
+                if (signal.PresentationOutcome == EnemyActionPresentationOutcome.RejectedByPlayerInvincible)
+                {
+                    return false;
+                }
+
+                cueKey = PresentationEnemyAudioCueKey.PassiveContact;
+                phase = PresentationEnemyAudioPhase.Active;
+                return true;
+            }
+
+            cueKey = PresentationEnemyAudioCueKey.Active;
+            phase = PresentationEnemyAudioPhase.Active;
+            return true;
+        }
+
+        private static int AddEnemyJumpAudioFacts(
+            List<PresentationFact> facts,
+            int tickIndex,
+            IReadOnlyList<TickEnemyJumpPresentationSignal> signals)
+        {
+            if (signals == null || signals.Count == 0)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityId <= 0 || !signal.LandedThisTick)
+                {
+                    continue;
+                }
+
+                AddEnemyAudioFact(
+                    facts,
+                    tickIndex,
+                    PresentationSemanticSource.EnemyJump,
+                    signal.EntityId,
+                    PresentationEnemyAudioCueKey.Landing,
+                    PresentationEnemyAudioOriginKind.Jump,
+                    PresentationEnemyAudioPhase.Landing,
+                    signal.Sequence > 0 ? signal.Sequence : i + 1,
+                    sourceActionKind: (int)PresentationEnemyPresentationKind.Jump,
+                    sourceOutcome: (int)ResolveJumpOutcome(signal),
+                    sourceCell: signal.SourceCell,
+                    targetCell: signal.PresentationTargetCell,
+                    hasSourceCell: true,
+                    hasTargetCell: true,
+                    direction: signal.Facing);
+                count++;
+            }
+
+            return count;
+        }
+
+        private static int AddEnemyChargeAudioFacts(
+            List<PresentationFact> facts,
+            int tickIndex,
+            IReadOnlyList<TickEnemyChargePresentationSignal> signals)
+        {
+            if (signals == null || signals.Count == 0)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityId <= 0 || !signal.StartedActiveThisTick)
+                {
+                    continue;
+                }
+
+                AddEnemyAudioFact(
+                    facts,
+                    tickIndex,
+                    PresentationSemanticSource.EnemyCharge,
+                    signal.EntityId,
+                    PresentationEnemyAudioCueKey.Active,
+                    PresentationEnemyAudioOriginKind.Charge,
+                    PresentationEnemyAudioPhase.Active,
+                    signal.Sequence > 0 ? signal.Sequence : i + 1,
+                    sourceActionKind: (int)PresentationEnemyPresentationKind.Charge,
+                    sourceOutcome: (int)PresentationEnemyPresentationOutcome.ActiveStarted,
+                    direction: signal.LockedDirection);
+                count++;
+            }
+
+            return count;
+        }
+
+        private static int AddForwardCellImpactEnemyAudioFacts(
+            List<PresentationFact> facts,
+            int tickIndex,
+            IReadOnlyList<TickForwardCellProjectileArrivalPresentationSignal> signals)
+        {
+            if (signals == null || signals.Count == 0)
+            {
+                return 0;
+            }
+
+            var emittedIdentities = new HashSet<ForwardCellImpactEnemyAudioIdentity>();
+            var count = 0;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                var identity = new ForwardCellImpactEnemyAudioIdentity(
+                    signal.SourceEnemyId,
+                    signal.TargetCell,
+                    signal.ImpactTick,
+                    signal.ImpactId,
+                    signal.PresentationKey);
+                if (signal.SourceEnemyId <= 0 ||
+                    !signal.ResolutionKind.IsValidArrival() ||
+                    !emittedIdentities.Add(identity))
+                {
+                    continue;
+                }
+
+                AddEnemyAudioFact(
+                    facts,
+                    tickIndex,
+                    PresentationSemanticSource.EnemyForwardCellImpact,
+                    signal.SourceEnemyId,
+                    PresentationEnemyAudioCueKey.ForwardCellImpact,
+                    PresentationEnemyAudioOriginKind.ForwardCellImpact,
+                    PresentationEnemyAudioPhase.Impact,
+                    signal.PresentationKey > 0 ? signal.PresentationKey : i + 1,
+                    targetEntityId: signal.TargetEntityId,
+                    sourceActionKind: (int)PresentationEnemyAudioOriginKind.ForwardCellImpact,
+                    sourceOutcome: (int)signal.ResolutionKind,
+                    sourceCause: (int)signal.ResolutionKind,
+                    targetCell: signal.TargetCell,
+                    hasTargetCell: true,
+                    direction: signal.Direction,
+                    impactTick: signal.ImpactTick,
+                    impactId: signal.ImpactId,
+                    presentationKey: signal.PresentationKey);
+                count++;
+            }
+
+            return count;
+        }
+
+        private static int AddEnemyDeathAudioFacts(
+            List<PresentationFact> facts,
+            int tickIndex,
+            IReadOnlyList<TickEntityExitPresentationSignal> signals)
+        {
+            if (signals == null || signals.Count == 0)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.ExitedEntityId <= 0 ||
+                    (signal.ExitCause != TickEntityExitCause.EnemyDeath &&
+                     signal.ExitCause != TickEntityExitCause.Killed))
+                {
+                    continue;
+                }
+
+                AddEnemyAudioFact(
+                    facts,
+                    tickIndex,
+                    PresentationSemanticSource.EntityExit,
+                    signal.ExitedEntityId,
+                    PresentationEnemyAudioCueKey.Death,
+                    PresentationEnemyAudioOriginKind.Death,
+                    PresentationEnemyAudioPhase.Death,
+                    signal.PresentationSeed > 0 ? signal.PresentationSeed : i + 1,
+                    sourceActionKind: (int)PresentationEnemyPresentationKind.Death,
+                    sourceOutcome: (int)PresentationEnemyPresentationOutcome.Death,
+                    sourceCause: (int)signal.ExitCause,
+                    timing: (int)signal.Timing,
+                    sourceCell: signal.SourceCell,
+                    targetCell: signal.PresentationTargetCell,
+                    hasSourceCell: true,
+                    hasTargetCell: signal.HasPresentationTargetCell,
+                    direction: signal.Facing);
+                count++;
+            }
+
+            return count;
+        }
+
+        private static void AddEnemyAudioFact(
+            List<PresentationFact> facts,
+            int tickIndex,
+            PresentationSemanticSource semanticSource,
+            int ownerEntityId,
+            PresentationEnemyAudioCueKey cueKey,
+            PresentationEnemyAudioOriginKind originKind,
+            PresentationEnemyAudioPhase phase,
+            int sequenceId,
+            int targetEntityId = 0,
+            int sourceActionKind = 0,
+            int sourceOutcome = 0,
+            int sourceCause = 0,
+            int timing = 0,
+            SurfaceCell sourceCell = default,
+            SurfaceCell targetCell = default,
+            bool hasSourceCell = false,
+            bool hasTargetCell = false,
+            Direction direction = Direction.None,
+            int impactTick = 0,
+            int impactId = 0,
+            int presentationKey = 0)
+        {
+            var payload = new PresentationEnemyAudioPayload(
+                ownerEntityId,
+                (int)cueKey,
+                tickIndex,
+                sequenceId,
+                originKind,
+                phase,
+                targetEntityId,
+                direction,
+                sourceOutcome,
+                sourceCause,
+                timing,
+                sourceCell,
+                targetCell,
+                hasSourceCell,
+                hasTargetCell,
+                impactTick,
+                impactId,
+                presentationKey);
+            facts.Add(new PresentationFact(
+                PresentationFactKind.EnemyAudio,
+                new PresentationSource(
+                    tickIndex,
+                    semanticSource,
+                    ownerEntityId,
+                    sourceActionKind,
+                    sequenceId),
+                PresentationTarget.Entity(ownerEntityId),
+                new PresentationFactPayload(
+                    primaryValue: (int)cueKey,
+                    secondaryValue: (int)phase,
+                    tertiaryValue: targetEntityId,
+                    primaryCell: sourceCell,
+                    secondaryCell: targetCell,
+                    hasPrimaryCell: hasSourceCell,
+                    hasSecondaryCell: hasTargetCell),
+                enemyAudioPayload: payload));
+        }
+
+        private readonly struct ForwardCellImpactEnemyAudioIdentity : IEquatable<ForwardCellImpactEnemyAudioIdentity>
+        {
+            public ForwardCellImpactEnemyAudioIdentity(
+                int sourceEnemyId,
+                SurfaceCell targetCell,
+                int impactTick,
+                int impactId,
+                int presentationKey)
+            {
+                SourceEnemyId = sourceEnemyId;
+                TargetCell = targetCell;
+                ImpactTick = impactTick;
+                ImpactId = impactId;
+                PresentationKey = presentationKey;
+            }
+
+            public int SourceEnemyId { get; }
+
+            public SurfaceCell TargetCell { get; }
+
+            public int ImpactTick { get; }
+
+            public int ImpactId { get; }
+
+            public int PresentationKey { get; }
+
+            public bool Equals(ForwardCellImpactEnemyAudioIdentity other)
+            {
+                return SourceEnemyId == other.SourceEnemyId &&
+                       TargetCell.Equals(other.TargetCell) &&
+                       ImpactTick == other.ImpactTick &&
+                       ImpactId == other.ImpactId &&
+                       PresentationKey == other.PresentationKey;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is ForwardCellImpactEnemyAudioIdentity other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    var hash = SourceEnemyId;
+                    hash = (hash * 397) ^ TargetCell.GetHashCode();
+                    hash = (hash * 397) ^ ImpactTick;
+                    hash = (hash * 397) ^ ImpactId;
+                    hash = (hash * 397) ^ PresentationKey;
+                    return hash;
+                }
+            }
+        }
+
         private static int AddEnemyJumpPresentationFacts(
             List<PresentationFact> facts,
             int tickIndex,
@@ -1342,6 +1764,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     new VfxCuePlanner(),
                     new SfxCuePlanner(),
                     new ActionAudioCuePlanner(),
+                    new EnemyAudioCuePlanner(),
                 }),
                 new PresentationPlaybackPlanner(),
                 new PresentationPlaybackScheduler());

@@ -13,6 +13,9 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Gameplay.PresentationContracts;
+using Game.Feature.Gameplay.PresentationPlanning;
+using Game.Feature.Gameplay.PresentationRuntime;
 using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEditor;
@@ -142,6 +145,163 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     (23, EnemyAudioCue.Landing),
                     (24, EnemyAudioCue.Death),
                 }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAudioPlanning_LegacyRequestPlannerParity_UsesCurrentOneShotVocabulary()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var result = CreateTickResult(CreatePresentationData(
+                enemyActionSignals: new[]
+                {
+                    new TickEnemyActionPresentationSignal(
+                        60,
+                        EnemyActionKind.Melee,
+                        activeActionSequence: 11,
+                        startedThisTick: true,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        startedRecoveryThisTick: true,
+                        EnemyActionPresentationSource.Combat,
+                        EnemyActionPresentationOutcome.Executed),
+                    new TickEnemyActionPresentationSignal(
+                        61,
+                        EnemyActionKind.Melee,
+                        activeActionSequence: 12,
+                        startedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        startedRecoveryThisTick: false,
+                        EnemyActionPresentationSource.PassiveContact,
+                        EnemyActionPresentationOutcome.Executed),
+                },
+                enemyJumpSignals: new[]
+                {
+                    new TickEnemyJumpPresentationSignal(
+                        62,
+                        sequence: 13,
+                        EnemyJumpPhase.Cooldown,
+                        startedWindupThisTick: false,
+                        startedAirborneThisTick: false,
+                        landedThisTick: true,
+                        retryThisTick: false,
+                        sourceCell: sourceCell,
+                        lockedTargetCell: targetCell,
+                        presentationTargetCell: targetCell,
+                        facing: Direction.Right,
+                        windupTicks: 0,
+                        landingTick: 7,
+                        remainingAirborneTicks: 0,
+                        retryCount: 0,
+                        TickEnemyJumpPresentationOutcome.Landed),
+                },
+                enemyChargeSignals: new[]
+                {
+                    new TickEnemyChargePresentationSignal(
+                        63,
+                        sequence: 14,
+                        EnemyChargePhase.Active,
+                        startedWindupThisTick: false,
+                        startedActiveThisTick: true,
+                        startedRecoverThisTick: false,
+                        lockedDirection: Direction.Up),
+                },
+                forwardCellProjectileArrivalSignals: new[]
+                {
+                    new TickForwardCellProjectileArrivalPresentationSignal(
+                        impactId: 91,
+                        presentationKey: 910,
+                        ownerId: 64,
+                        sourceEnemyId: 64,
+                        targetCell: targetCell,
+                        direction: Direction.Up,
+                        impactTick: 7,
+                        PendingCellImpactResolutionKind.Hit,
+                        targetEntityId: 10),
+                },
+                entityExitSignals: new[]
+                {
+                    new TickEntityExitPresentationSignal(
+                        65,
+                        TickEntityExitCause.Killed,
+                        sourceCell,
+                        new CubeTopologyState(FaceId.Floor),
+                        Direction.Left,
+                        EntityType.Unit,
+                        sourceActorEntityId: 10,
+                        presentationSeed: 915),
+                }),
+                tickIndex: 7);
+            var legacyRequests = new EnemyAudioRequestPlanner().BuildRequests(result);
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new EnemyAudioCuePlanner(),
+            }).Plan(factFrame);
+
+            Assert.That(cueFrame.Cues, Has.Count.EqualTo(legacyRequests.Count));
+            for (var i = 0; i < legacyRequests.Count; i++)
+            {
+                Assert.That(cueFrame.Cues[i].Domain, Is.EqualTo(PresentationDomain.EnemyAudio));
+                Assert.That(cueFrame.Cues[i].Key.TryGetEnemyAudioCueKey(out var cueKey), Is.True);
+                Assert.That((int)cueKey, Is.EqualTo((int)legacyRequests[i].Cue));
+                Assert.That(cueFrame.Cues[i].EnemyAudioPayload.OwnerEntityId, Is.EqualTo(legacyRequests[i].OwnerEntityId));
+                Assert.That(cueFrame.Cues[i].Source.TickIndex, Is.EqualTo(result.TickIndex));
+                Assert.That(cueFrame.Cues[i].Target, Is.EqualTo(PresentationTarget.Entity(legacyRequests[i].OwnerEntityId)));
+                Assert.That(cueFrame.Cues[i].Anchor.Kind, Is.EqualTo(PresentationAnchorKind.EntityVisualRoot));
+                Assert.That(cueFrame.Cues[i].PolicyHint.Kind, Is.EqualTo(PresentationPlaybackPolicyHintKind.OneShot));
+                Assert.That(cueFrame.Cues[i].PolicyHint.Blocking, Is.False);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAudioPlanningOnly_DoesNotChangeLegacyPlaybackCount()
+        {
+            var rootObject = new GameObject(nameof(EnemyAudioPlanningOnly_DoesNotChangeLegacyPlaybackCount));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Active, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var enemy = CreateUnit(60, UnitRole.Enemy);
+                var result = CreateTickResult(
+                    CreatePresentationData(
+                        enemyActionSignals: new[]
+                        {
+                            new TickEnemyActionPresentationSignal(
+                                60,
+                                EnemyActionKind.Melee,
+                                activeActionSequence: 11,
+                                startedThisTick: false,
+                                canceledThisTick: false,
+                                executedThisTick: true,
+                                startedRecoveryThisTick: false,
+                                EnemyActionPresentationSource.Combat,
+                                EnemyActionPresentationOutcome.Executed),
+                        }),
+                    new[] { enemy },
+                    tickIndex: 7);
+                var diagnosticsPipeline = GameplayPresentationPipelineInstaller.CreateDiagnosticsOnly();
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                diagnosticsPipeline.Present(result);
+                presenter.Present(result);
+
+                Assert.That(diagnosticsPipeline.LastPlaybackPlan.Diagnostics.EnemyAudioPlaybackCueCount, Is.EqualTo(1));
+                Assert.That(diagnosticsPipeline.LastPlaybackPlan.Diagnostics.EnemyAudioNoPlaybackBecausePlanningOnlyCount, Is.EqualTo(1));
+                Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(1));
+                Assert.That(playbackPort.TwoDCalls[0].Context.DebugTag, Is.EqualTo("Active"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
         }
 
         [Test]
