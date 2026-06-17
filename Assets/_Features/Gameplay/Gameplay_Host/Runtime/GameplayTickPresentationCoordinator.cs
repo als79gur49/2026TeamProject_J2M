@@ -111,7 +111,7 @@ namespace Game.Feature.Gameplay.Host
         private EnemyPresentationExecutionMode _enemyPresentationExecutionMode =
             EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper;
         private CoreGameplaySfxExecutionMode _coreGameplaySfxExecutionMode =
-            CoreGameplaySfxExecutionMode.LegacyGameplayAudioController;
+            CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor;
         private ActionAudioExecutionMode _actionAudioExecutionMode =
             ActionAudioExecutionMode.LegacyActionAudioController;
         private EnemyAudioExecutionMode _enemyAudioExecutionMode =
@@ -340,6 +340,7 @@ namespace Game.Feature.Gameplay.Host
 
         internal int DeferredGameplayAudioRequestCount =>
             _audioPresentationController.DeferredRequestCount +
+            _coreGameplaySfxPlaybackPortAdapter.DeferredRequestCount +
             _actionAudioPresentationController.DeferredRequestCount +
             _enemyAudioPresentationController.DeferredRequestCount;
 
@@ -734,6 +735,14 @@ namespace Game.Feature.Gameplay.Host
                 _enemyPresentationExecutionMode,
                 ResolveEnemyPresentationPlaybackPort(),
                 _enemyPresentationExecutionGuard);
+            _coreGameplaySfxExecutionMode =
+                NormalizeCoreGameplaySfxExecutionMode(_coreGameplaySfxExecutionMode);
+            _coreGameplaySfxExecutionGuard.Configure(_coreGameplaySfxExecutionMode);
+            _coreGameplaySfxExecutionGuard.ResetSession();
+            _coreGameplaySfxExecutionPipeline = _coreGameplaySfxExecutionPipelineFactory(
+                _coreGameplaySfxExecutionMode,
+                ResolveCoreGameplaySfxPlaybackPort(),
+                _coreGameplaySfxExecutionGuard);
             _actionAudioExecutionMode = NormalizeActionAudioExecutionMode(_actionAudioExecutionMode);
             _actionAudioExecutionGuard.Configure(_actionAudioExecutionMode);
             _actionAudioExecutionGuard.ResetSession();
@@ -1756,6 +1765,7 @@ namespace Game.Feature.Gameplay.Host
                     ? 0f
                     : deltaTime;
             _audioPresentationController.Update(gameplayAudioDeltaTime);
+            _coreGameplaySfxPlaybackPortAdapter.Update();
             _actionAudioPresentationController.Update();
             _enemyAudioPresentationController.Update(_lastPresentedTickIndex, gameplayAudioDeltaTime);
             _blockAudioPresentationController.Update(deltaTime);
@@ -1960,10 +1970,13 @@ namespace Game.Feature.Gameplay.Host
         {
             var gameplayAudioRequests = _audioRequestPlanner.BuildRequests(result, _timingProfile);
             var enemyAudioRequests = _enemyAudioRequestPlanner.BuildRequests(result, _timingProfile);
-            var filteredGameplayAudioRequests = SuppressLethalEnemyDamageRequests(
+            var playableDeathCueEntityIds = BuildPlayableEnemyDeathCueEntityIds(
                 result.PresentationData,
-                gameplayAudioRequests,
                 enemyAudioRequests);
+            _coreGameplaySfxPlaybackPortAdapter.ConfigureEnemyDeathCueSuppression(playableDeathCueEntityIds);
+            var filteredGameplayAudioRequests = SuppressLethalEnemyDamageRequests(
+                gameplayAudioRequests,
+                playableDeathCueEntityIds);
 
             if (_coreGameplaySfxExecutionMode == CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor)
             {
@@ -2047,24 +2060,18 @@ namespace Game.Feature.Gameplay.Host
         private void SetGameplayAudioPlaybackGate(GameplayAudioPlaybackGateState gateState)
         {
             _audioPresentationController.SetPlaybackGateState(gateState);
+            _coreGameplaySfxPlaybackPortAdapter.SetPlaybackGateState(gateState);
             _actionAudioPresentationController.SetPlaybackGateState(gateState);
             _enemyAudioPresentationController.SetPlaybackGateState(gateState);
         }
 
         private IReadOnlyList<GameplayAudioRequest> SuppressLethalEnemyDamageRequests(
-            TickPresentationData presentationData,
             IReadOnlyList<GameplayAudioRequest> gameplayAudioRequests,
-            IReadOnlyList<EnemyAudioRequest> enemyAudioRequests)
+            ISet<int> playableDeathCueEntityIds)
         {
-            if (gameplayAudioRequests.Count == 0 || enemyAudioRequests.Count == 0)
-            {
-                return gameplayAudioRequests;
-            }
-
-            var playableDeathCueEntityIds = BuildPlayableEnemyDeathCueEntityIds(
-                presentationData,
-                enemyAudioRequests);
-            if (playableDeathCueEntityIds.Count == 0)
+            if (gameplayAudioRequests.Count == 0 ||
+                playableDeathCueEntityIds == null ||
+                playableDeathCueEntityIds.Count == 0)
             {
                 return gameplayAudioRequests;
             }

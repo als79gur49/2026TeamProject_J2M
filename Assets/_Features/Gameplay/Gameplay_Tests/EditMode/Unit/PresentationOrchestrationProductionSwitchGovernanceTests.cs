@@ -120,18 +120,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 typeof(CoreGameplaySfxExecutionMode),
                 "LegacyGameplayAudioController",
                 "OrchestrationSfxBridgeExecutor",
-                "LegacyGameplayAudioController",
                 "OrchestrationSfxBridgeExecutor",
+                "OrchestrationSfxBridgeExecutor",
+                false,
                 true,
-                true,
-                "CoreGameplaySfx_OrchestrationMode_DistinguishesControlledIntegrationDiagnostics",
-                "CoreGameplaySfxPlanning_DoesNotMutateAuthoritativeTickResult",
-                "CoreGameplaySfx_OrchestrationMode_CleanupResetsPortAndDiagnostics",
-                "AudioOwnershipGovernance_RemainsSeparated",
+                "CoreSfx_DefaultOrchestration_DoesNotDuplicateLegacyPlayback",
+                "Determinism_NonContamination_AfterCoreSfxDefaultSwitch",
+                "CoreGameplaySfx_ResetSessionHardCleanupAndPresentInitial_ClearExecutorPortAndGuardState",
+                "AudioOwnership_RemainsSeparatedAfterCoreSfxSwitch",
                 "Low: non-blocking one-shot.",
                 "Medium: audio ownership must stay separated.",
                 "Set CoreGameplaySfxExecutionMode.LegacyGameplayAudioController.",
-                ProductionSwitchRecommendedStatus.CandidateForNextPR),
+                ProductionSwitchRecommendedStatus.ProductionDefaultOn),
             new(
                 "Action audio",
                 typeof(ActionAudioExecutionMode),
@@ -195,11 +195,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void PresentationExecutionDefaults_RemainLegacy()
+        public void PresentationExecutionDefaults_CoreSfxIsOrchestration_OthersRemainLegacy()
         {
             var config = new GameplaySceneHostConfiguration();
             var coordinator = new GameplayTickPresentationCoordinator();
-            var rootObject = new GameObject(nameof(PresentationExecutionDefaults_RemainLegacy));
+            var rootObject = new GameObject(nameof(PresentationExecutionDefaults_CoreSfxIsOrchestration_OthersRemainLegacy));
 
             try
             {
@@ -211,7 +211,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
                 Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
-                Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
+                Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(coordinator.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
                 Assert.That(coordinator.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
 
@@ -219,14 +219,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
                 Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
                 Assert.That(presenter.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
-                Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
+                Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
                 Assert.That(presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
 
                 foreach (var row in ReadinessMatrix)
                 {
-                    Assert.That(row.DefaultIsLegacy, Is.True, row.Domain);
-                    Assert.That(row.CurrentDefault, Is.EqualTo(row.LegacyOwner), row.Domain);
+                    if (row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode))
+                    {
+                        Assert.That(row.DefaultIsLegacy, Is.False, row.Domain);
+                        Assert.That(row.CurrentDefault, Is.EqualTo(row.OrchestrationOwner), row.Domain);
+                    }
+                    else
+                    {
+                        Assert.That(row.DefaultIsLegacy, Is.True, row.Domain);
+                        Assert.That(row.CurrentDefault, Is.EqualTo(row.LegacyOwner), row.Domain);
+                    }
                 }
             }
             finally
@@ -281,15 +289,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionConfig_DoesNotEnableExperimentalModes()
+        public void ProductionConfig_AllowsOnlyCoreSfxProductionOrchestrationDefault()
         {
             var productionPaths = EnumerateProductionConfigFiles().ToArray();
             var forbiddenTokens = ReadinessMatrix
+                .Where(row => row.ExecutionModeType != typeof(CoreGameplaySfxExecutionMode))
                 .Select(row => row.OrchestrationOwner)
                 .Distinct()
                 .ToArray();
+            var allowedToken = ReadinessMatrix
+                .Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode))
+                .OrchestrationOwner;
 
             Assert.That(productionPaths, Is.Not.Empty);
+            Assert.That(forbiddenTokens, Does.Not.Contain(allowedToken));
             foreach (var path in productionPaths)
             {
                 var source = ReadRepoFile(path);
@@ -330,7 +343,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void AudioOwnershipGovernance_RemainsSeparated()
+        public void AudioOwnership_RemainsSeparatedAfterCoreSfxSwitch()
         {
             var coreSfxExecutor = ReadRepoFile($"{HostRuntimeDirectory}/GameplaySfxPresentationExecutor.cs");
             var actionAudioExecutor = ReadRepoFile($"{HostRuntimeDirectory}/GameplayActionAudioPresentationExecutor.cs");
@@ -405,15 +418,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionSwitchCandidate_IsExactlyOne()
+        public void ReadinessMatrix_ReflectsCoreSfxProductionSwitch()
+        {
+            var coreSfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode));
+
+            Assert.That(coreSfx.CurrentDefault, Is.EqualTo(coreSfx.OrchestrationOwner));
+            Assert.That(coreSfx.DefaultIsLegacy, Is.False);
+            Assert.That(coreSfx.InvalidModeNormalizesToLegacy, Is.True);
+            Assert.That(coreSfx.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOn));
+
+            foreach (var row in ReadinessMatrix.Where(row => row.ExecutionModeType != typeof(CoreGameplaySfxExecutionMode)))
+            {
+                Assert.That(row.CurrentDefault, Is.EqualTo(row.LegacyOwner), row.Domain);
+                Assert.That(row.DefaultIsLegacy, Is.True, row.Domain);
+                Assert.That(row.RecommendedStatus, Is.Not.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOn), row.Domain);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProductionSwitchCandidate_CountIsZeroAfterCoreSfxSwitch()
         {
             var candidates = ReadinessMatrix
                 .Where(row => row.RecommendedStatus == ProductionSwitchRecommendedStatus.CandidateForNextPR)
                 .ToArray();
 
-            Assert.That(candidates, Has.Length.EqualTo(1));
-            Assert.That(candidates[0].ExecutionModeType, Is.EqualTo(typeof(CoreGameplaySfxExecutionMode)));
-            Assert.That(candidates[0].Domain, Is.EqualTo("Core gameplay SFX"));
+            Assert.That(candidates, Is.Empty);
         }
 
         [Test]
@@ -527,6 +557,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CandidateForNextPR = 1,
             NeedsMoreCoverage = 2,
             DoNotSwitchYet = 3,
+            ProductionDefaultOn = 4,
         }
 
         private sealed class ProductionSwitchReadinessRow

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
+using Game.Feature.Gameplay.EnemyAudio;
 using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
 using Game.Feature.Gameplay.PresentationPlayback;
@@ -149,7 +150,7 @@ namespace Game.Feature.Gameplay.Host
         private CoreGameplaySfxExecutionOwner _lastExecutionOwner;
 
         public CoreGameplaySfxExecutionGuard(
-            CoreGameplaySfxExecutionMode mode = CoreGameplaySfxExecutionMode.LegacyGameplayAudioController)
+            CoreGameplaySfxExecutionMode mode = CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor)
         {
             _mode = NormalizeMode(mode);
         }
@@ -395,13 +396,20 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class GameplaySfxPlaybackPortAdapter : IGameplaySfxPlaybackPort
     {
         private readonly GameplayPresentationStateStore _stateStore;
+        private readonly List<GameplaySfxPlaybackRequest> _deferredRequests = new();
+        private readonly HashSet<CoreGameplaySfxPlaybackKey> _deferredKeys = new();
+        private readonly HashSet<CoreGameplaySfxPlaybackKey> _playedDeferredKeys = new();
+        private readonly HashSet<int> _enemyDeathCueSuppressedEntityIds = new();
         private GameplayAudioMap _audioMap;
         private IGameplayAudioPlaybackPort _playbackPort;
+        private GameplayAudioPlaybackGateState _gateState = GameplayAudioPlaybackGateState.Open;
 
         public GameplaySfxPlaybackPortAdapter(GameplayPresentationStateStore stateStore)
         {
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
         }
+
+        public int DeferredRequestCount => _deferredRequests.Count;
 
         public void AttachRuntime(IGameplayAudioPlaybackPort playbackPort, GameplayAudioMap audioMap)
         {
@@ -413,6 +421,51 @@ namespace Game.Feature.Gameplay.Host
         {
             _playbackPort = null;
             _audioMap = null;
+            ClearDeferredRequests();
+        }
+
+        public void SetPlaybackGateState(GameplayAudioPlaybackGateState gateState)
+        {
+            _gateState = gateState;
+        }
+
+        public void ConfigureEnemyDeathCueSuppression(ISet<int> entityIds)
+        {
+            _enemyDeathCueSuppressedEntityIds.Clear();
+            if (entityIds == null)
+            {
+                return;
+            }
+
+            foreach (var entityId in entityIds)
+            {
+                if (entityId > 0)
+                {
+                    _enemyDeathCueSuppressedEntityIds.Add(entityId);
+                }
+            }
+        }
+
+        public void Update()
+        {
+            if (_gateState.IsBlocked || _deferredRequests.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _deferredRequests.Count; i++)
+            {
+                var request = _deferredRequests[i];
+                if (!ShouldSuppress(request, out var semanticId))
+                {
+                    PlayMappedRequest(request, semanticId);
+                }
+
+                _playedDeferredKeys.Add(request.OwnershipKey);
+            }
+
+            _deferredRequests.Clear();
+            _deferredKeys.Clear();
         }
 
         public bool TryPlayCoreGameplaySfx(
@@ -437,6 +490,12 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
+            if (ShouldSuppress(request, semanticId))
+            {
+                result = new GameplaySfxPlaybackResult(GameplaySfxPlaybackResultKind.NoOpFallback);
+                return true;
+            }
+
             if (!_audioMap.TryResolve(semanticId, out var binding, out var failureKind))
             {
                 result = new GameplaySfxPlaybackResult(MapFailure(failureKind));
@@ -450,19 +509,16 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            var context = new AudioPlaybackContext(
-                ownerEntityId: request.OwnerEntityId > 0 ? request.OwnerEntityId : (int?)null,
-                debugTag: GameplayAudioSemanticCatalog.Format(semanticId));
-            if (binding.HasAttachmentSlot &&
-                TryResolveOwner(request.OwnerEntityId, out var owner))
+            if (ShouldDefer(semanticId))
             {
-                _playbackPort.PlayAttached(binding.Definition, owner, binding.AttachmentSlot, context);
-                result = new GameplaySfxPlaybackResult(GameplaySfxPlaybackResultKind.Succeeded);
+                DeferRequest(request);
+                result = new GameplaySfxPlaybackResult(GameplaySfxPlaybackResultKind.Requested);
                 return true;
             }
 
-            _playbackPort.Play2D(binding.Definition, context);
-            result = binding.HasAttachmentSlot
+            PlayMappedRequest(request, semanticId, binding);
+            result = binding.HasAttachmentSlot &&
+                     !TryResolveOwner(request.OwnerEntityId, out _)
                 ? new GameplaySfxPlaybackResult(GameplaySfxPlaybackResultKind.OwnerViewMissing)
                 : new GameplaySfxPlaybackResult(GameplaySfxPlaybackResultKind.Succeeded);
             return true;
@@ -470,11 +526,112 @@ namespace Game.Feature.Gameplay.Host
 
         public void ResetSession()
         {
+            ClearDeferredRequests();
+            _enemyDeathCueSuppressedEntityIds.Clear();
+            _gateState = GameplayAudioPlaybackGateState.Open;
         }
 
         public void HardCleanup()
         {
+            ResetSession();
             DetachRuntime();
+        }
+
+        private void PlayMappedRequest(
+            in GameplaySfxPlaybackRequest request,
+            GameplayAudioSemanticId semanticId)
+        {
+            var binding = _audioMap.ResolveOrThrow(semanticId);
+            PlayMappedRequest(request, semanticId, binding);
+        }
+
+        private void PlayMappedRequest(
+            in GameplaySfxPlaybackRequest request,
+            GameplayAudioSemanticId semanticId,
+            AudioBinding binding)
+        {
+            var context = new AudioPlaybackContext(
+                ownerEntityId: request.OwnerEntityId > 0 ? request.OwnerEntityId : (int?)null,
+                debugTag: GameplayAudioSemanticCatalog.Format(semanticId));
+            if (binding.HasAttachmentSlot &&
+                TryResolveOwner(request.OwnerEntityId, out var owner))
+            {
+                _playbackPort.PlayAttached(binding.Definition, owner, binding.AttachmentSlot, context);
+                return;
+            }
+
+            _playbackPort.Play2D(binding.Definition, context);
+        }
+
+        private void DeferRequest(in GameplaySfxPlaybackRequest request)
+        {
+            if (_deferredKeys.Contains(request.OwnershipKey) ||
+                _playedDeferredKeys.Contains(request.OwnershipKey))
+            {
+                return;
+            }
+
+            _deferredRequests.Add(request);
+            _deferredKeys.Add(request.OwnershipKey);
+        }
+
+        private void ClearDeferredRequests()
+        {
+            _deferredRequests.Clear();
+            _deferredKeys.Clear();
+            _playedDeferredKeys.Clear();
+        }
+
+        private bool ShouldDefer(GameplayAudioSemanticId semanticId)
+        {
+            return _gateState.IsBlocked &&
+                   _gateState.Reason == GameplayAudioPlaybackBlockReason.TopologyPresentationLock &&
+                   IsTopologyLockSensitive(semanticId);
+        }
+
+        private bool ShouldSuppress(
+            in GameplaySfxPlaybackRequest request,
+            out GameplayAudioSemanticId semanticId)
+        {
+            if (!TryMapSemantic(request.CueKey, out semanticId))
+            {
+                return false;
+            }
+
+            return ShouldSuppress(request, semanticId);
+        }
+
+        private bool ShouldSuppress(
+            in GameplaySfxPlaybackRequest request,
+            GameplayAudioSemanticId semanticId)
+        {
+            if (semanticId == GameplayAudioSemanticId.EnemyDamage &&
+                request.OwnerEntityId > 0 &&
+                _enemyDeathCueSuppressedEntityIds.Contains(request.OwnerEntityId))
+            {
+                return true;
+            }
+
+            return semanticId == GameplayAudioSemanticId.EntityExitEnemyDeath &&
+                   ShouldSuppressGenericEnemyDeath(request.OwnerEntityId);
+        }
+
+        private bool ShouldSuppressGenericEnemyDeath(int ownerEntityId)
+        {
+            if (!TryResolveOwner(ownerEntityId, out var owner))
+            {
+                return false;
+            }
+
+            var authoring = EnemyAudioAuthoring.GetOptionalValidatedAuthoring(owner);
+            return authoring != null &&
+                   authoring.Profile.HasCue(EnemyAudioCue.Death);
+        }
+
+        private static bool IsTopologyLockSensitive(GameplayAudioSemanticId semanticId)
+        {
+            return semanticId == GameplayAudioSemanticId.PlayerDamage ||
+                   semanticId == GameplayAudioSemanticId.EnemyDamage;
         }
 
         private bool TryResolveOwner(int ownerEntityId, out GameplayEntityView owner)
@@ -544,7 +701,7 @@ namespace Game.Feature.Gameplay.Host
 
         public GameplaySfxPresentationExecutor(
             IGameplaySfxPlaybackPort playbackPort = null,
-            CoreGameplaySfxExecutionMode mode = CoreGameplaySfxExecutionMode.LegacyGameplayAudioController,
+            CoreGameplaySfxExecutionMode mode = CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor,
             CoreGameplaySfxExecutionGuard executionGuard = null)
         {
             _playbackPort = playbackPort;
