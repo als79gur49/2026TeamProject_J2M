@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94344f6fd7714fd6954a260a1d8a68c3, type: 3}
+  m_Name: EnemySummonBehaviorModule_ArchetypeSummoner
+  m_EditorClassIdentifier:
+  initialDelaySeconds: 10
+  cooldownSeconds: 10
+  summon:
+    spawnCountPerTrigger: 1
+    maxAliveChildren: 2
+    candidatePattern: 0
+    requireNoUnitAtSpawnCell: 1
+    requireNoSolidAtSpawnCell: 1
+    summonedArchetype: {fileID: 11400000, guid: 8da265900dc94540a0e150fa08ff4c7f, type: 2}
+    overrideHp: 1
+    hpOverride: 1
+    windupSeconds: 1.7
+    suppressMovementDuringWindup: 1
+    recoverySeconds: 0.7
+    suppressMovementDuringRecover: 1

@@ -17,4 +17,5 @@ MonoBehaviour:
   capabilityAssets:
   - {fileID: 11400000, guid: 44788e5c202648d0bae1e8b5be647816, type: 2}
   - {fileID: 11400000, guid: bf094ca1fd8f4a378e18159ddaf0d4f0, type: 2}
-  behaviorModuleAssets: []
+  behaviorModuleAssets:
+  - {fileID: 11400000, guid: a73bf2a62ddc4cc88cc8587d38288135, type: 2}

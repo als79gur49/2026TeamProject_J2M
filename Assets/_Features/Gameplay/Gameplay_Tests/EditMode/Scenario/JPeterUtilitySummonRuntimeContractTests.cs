@@ -15,7 +15,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
-    public sealed class JPeterUtilitySummonRuntimeContractTests
+    public sealed class MigratedSummonRuntimeContractTests
     {
         private const int EnemyId = 40;
         private const string ArchetypeSummonerProfilePath =
@@ -23,7 +23,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private const string CombinedArchetypeCatalogPath =
             StageContentPaths.SharedEnemyAiRoot + "/Catalogs/EnemyUnitArchetypeCatalog_CampaignMainEnemy.asset";
 
-        // Jpeter is the ArchetypeSummoner utility profile: windup arms SummonMinion state, then resolve revalidates summon placement.
+        // Jpeter is the migrated ArchetypeSummoner behavior profile: windup arms Summon state, then resolve revalidates summon placement.
 
         [Test]
         [Category("Extended")]
@@ -35,8 +35,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var tick = CreatePipeline(worldState).RunTick(new TickInput(1));
             var state = GetUtilityEffectState(worldState);
 
-            Assert.That(state.effectKind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion));
-            Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+            Assert.That(state.phase, Is.EqualTo(EnemySummonBehaviorPhase.Windup));
             Assert.That(state.windupStartTick, Is.EqualTo(1));
             Assert.That(state.windupEndTick, Is.GreaterThan(1));
             Assert.That(GetSummonedChildren(worldState), Is.Empty);
@@ -58,7 +57,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var nextTick = pipeline.RunTick(new TickInput(2));
 
             Assert.That(spawnedAfterExecute, Has.Count.EqualTo(1));
-            Assert.That(recoverState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
+            Assert.That(recoverState.phase, Is.EqualTo(EnemySummonBehaviorPhase.Recover));
             Assert.That(recoverState.recoverEndTickExclusive, Is.GreaterThan(2));
             Assert.That(GetSummonedChildren(worldState), Has.Count.EqualTo(1));
             Assert.That(nextTick.EventLog, Has.None.Contains("SummonCommitted|Source=40|Effect=0|SpawnIndex=0"));
@@ -77,7 +76,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var canceledTick = pipeline.RunTick(new TickInput(2));
             var state = GetUtilityEffectState(worldState);
 
-            Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+            Assert.That(state.phase, Is.EqualTo(EnemySummonBehaviorPhase.None));
             Assert.That(state.cooldownTicksRemaining, Is.GreaterThan(0));
             Assert.That(GetSummonedChildren(worldState), Is.Empty);
             Assert.That(canceledTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
@@ -432,7 +431,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CreatePipeline(worldState, CreateActiveDefinitions(barricades)).RunTick(new TickInput(1));
             var state = GetUtilityEffectState(worldState);
 
-            Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
+            Assert.That(state.phase, Is.EqualTo(EnemySummonBehaviorPhase.Recover));
             Assert.That(state.recoverEndTickExclusive, Is.GreaterThan(1));
             Assert.That(GetSummonedChildren(worldState), Is.Empty);
             AssertNoSummonCandidateGhostOccupancy(worldState);
@@ -484,7 +483,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CreatePipeline(worldState).RunTick(new TickInput(1));
             var state = GetUtilityEffectState(worldState);
 
-            Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover), "CurrentPolicy: blocked summon execution enters Recover instead of staying in Windup.");
+            Assert.That(state.phase, Is.EqualTo(EnemySummonBehaviorPhase.Recover), "CurrentPolicy: blocked summon execution enters Recover instead of staying in Windup.");
             Assert.That(state.recoverEndTickExclusive, Is.GreaterThan(1));
             Assert.That(GetSummonedChildren(worldState), Is.Empty);
             AssertNoSummonCandidateGhostOccupancy(worldState);
@@ -517,9 +516,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(GetSummonedChildren(worldState), Is.Empty);
             Assert.That(tick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
-            if (worldState.CreateSnapshot().TryGetEnemyUtilityState(EnemyId, out var utilityState))
+            if (worldState.CreateSnapshot().TryGetEnemySummonBehaviorState(EnemyId, out var summonState))
             {
-                Assert.That(utilityState.EffectStates[0].phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(summonState.phase, Is.EqualTo(EnemySummonBehaviorPhase.None));
             }
         }
 
@@ -582,42 +581,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static void SeedReadyUtilityState(WorldState worldState)
         {
-            worldState.CreateWriteContext().SetEnemyUtilityState(
+            worldState.CreateWriteContext().SetEnemySummonBehaviorState(
                 EnemyId,
-                new EnemyUtilityRuntimeState(
-                    new[]
-                    {
-                        new EnemyUtilityEffectState
-                        {
-                            effectKind = EnemyUtilityEffectKind.SummonMinion,
-                            cooldownTicksRemaining = 0,
-                        },
-                    }));
+                new EnemySummonBehaviorRuntimeState
+                {
+                    cooldownTicksRemaining = 0,
+                });
         }
 
         private static void SeedWindupUtilityState(WorldState worldState, int windupEndTick)
         {
-            worldState.CreateWriteContext().SetEnemyUtilityState(
+            worldState.CreateWriteContext().SetEnemySummonBehaviorState(
                 EnemyId,
-                new EnemyUtilityRuntimeState(
-                    new[]
-                    {
-                        new EnemyUtilityEffectState
-                        {
-                            effectKind = EnemyUtilityEffectKind.SummonMinion,
-                            phase = EnemyUtilityEffectPhase.Windup,
-                            windupStartTick = 0,
-                            windupEndTick = windupEndTick,
-                            activationSequence = 1,
-                        },
-                    }));
+                new EnemySummonBehaviorRuntimeState
+                {
+                    phase = EnemySummonBehaviorPhase.Windup,
+                    windupStartTick = 0,
+                    windupEndTick = windupEndTick,
+                    activationSequence = 1,
+                });
         }
 
-        private static EnemyUtilityEffectState GetUtilityEffectState(WorldState worldState)
+        private static EnemySummonBehaviorRuntimeState GetUtilityEffectState(WorldState worldState)
         {
-            Assert.That(worldState.CreateSnapshot().TryGetEnemyUtilityState(EnemyId, out var state), Is.True);
-            Assert.That(state.EffectStates, Has.Count.EqualTo(1));
-            return state.EffectStates[0];
+            Assert.That(worldState.CreateSnapshot().TryGetEnemySummonBehaviorState(EnemyId, out var state), Is.True);
+            return state;
         }
 
         private static IReadOnlyList<EntityState> GetSummonedChildren(WorldState worldState)

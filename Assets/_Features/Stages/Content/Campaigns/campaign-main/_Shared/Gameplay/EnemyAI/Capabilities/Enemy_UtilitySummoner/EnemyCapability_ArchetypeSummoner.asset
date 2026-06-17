@@ -12,30 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 796b57ef0725c454396098ce96fc18a5, type: 3}
   m_Name: EnemyCapability_ArchetypeSummoner
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Entities.EnemyUtilityCapabilityAsset
-  effects:
-  - kind: 0
-    initialDelaySeconds: 10
-    cooldownSeconds: 10
-    summon:
-      spawnCountPerTrigger: 1
-      maxAliveChildren: 2
-      candidatePattern: 0
-      requireNoUnitAtSpawnCell: 1
-      requireNoSolidAtSpawnCell: 1
-      summonedArchetype: {fileID: 11400000, guid: 8da265900dc94540a0e150fa08ff4c7f, type: 2}
-      overrideHp: 1
-      hpOverride: 1
-      windupSeconds: 1.7
-      suppressMovementDuringWindup: 1
-      recoverySeconds: 0.7
-      suppressMovementDuringRecover: 1
-    gravityFieldAura:
-      radius: 1
-      windupSeconds: 0.5
-      fieldDurationSeconds: 4
-      recoverSeconds: 0.5
-      blocksPush: 1
-      blocksFlip: 1
-      blocksDestroy: 1
-      suppressMovementDuringWindup: 1
-      suppressMovementDuringRecover: 1
+  effects: []

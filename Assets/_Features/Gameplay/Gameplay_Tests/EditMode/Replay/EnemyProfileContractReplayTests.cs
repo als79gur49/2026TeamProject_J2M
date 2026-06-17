@@ -65,16 +65,20 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_JPeterUtilitySummonProfile_SummonedMetadataAndPlacementRemainDeterministic()
+        public void Replay_MigratedSummonProfile_SummonedMetadataAndPlacementRemainDeterministic()
         {
-            var firstReplay = RunJpeterUtilitySummonReplaySequence();
-            var secondReplay = RunJpeterUtilitySummonReplaySequence();
+            var firstReplay = RunMigratedSummonReplaySequence();
+            var secondReplay = RunMigratedSummonReplaySequence();
 
             AssertEquivalentReplayOutputs(firstReplay, secondReplay);
-            Assert.That(firstReplay.Any(frame => frame.UtilityDump.Contains("Kind=SummonMinion")), Is.True);
+            Assert.That(firstReplay.All(frame => frame.UtilityDump == "<empty>"), Is.True);
+            Assert.That(firstReplay.Any(frame => frame.SummonBehaviorDump.Contains("Phase=Recover")), Is.True);
+            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Final.EnemySummonBehaviors")), Is.True);
+            Assert.That(firstReplay.All(frame => !frame.Trace.Contains("Kind=SummonMinion")), Is.True);
             Assert.That(firstReplay.Any(frame => frame.SummonedDump.Contains("Source=40|Effect=0")), Is.True);
             Assert.That(firstReplay.Any(frame => frame.DefinitionBindingDump.Contains("Archetype=PassiveContactMinion")), Is.True);
             Assert.That(firstReplay.Last().FinalEntitiesDump, Does.Contain("E=41|Cell=Floor:-1,0"));
+            Assert.That(firstReplay.Any(frame => frame.EventLogDump.Contains("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41")), Is.True);
         }
 
         private static IReadOnlyList<ReplayCaptureFrame> RunStartisReplaySequence()
@@ -174,7 +178,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return frames;
         }
 
-        private static IReadOnlyList<ReplayCaptureFrame> RunJpeterUtilitySummonReplaySequence()
+        private static IReadOnlyList<ReplayCaptureFrame> RunMigratedSummonReplaySequence()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -182,20 +186,15 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateUnit(EnemyId, 2, new SurfaceCell(FaceId.Floor, 0, 0), UnitRole.Enemy, EnemyAiMode.Patrol),
                 },
                 new CubeTopologyState(FaceId.Floor));
-            worldState.CreateWriteContext().SetEnemyUtilityState(
+            worldState.CreateWriteContext().SetEnemySummonBehaviorState(
                 EnemyId,
-                new EnemyUtilityRuntimeState(
-                    new[]
-                    {
-                        new EnemyUtilityEffectState
-                        {
-                            effectKind = EnemyUtilityEffectKind.SummonMinion,
-                            phase = EnemyUtilityEffectPhase.Windup,
-                            windupStartTick = 0,
-                            windupEndTick = 1,
-                            activationSequence = 1,
-                        },
-                    }));
+                new EnemySummonBehaviorRuntimeState
+                {
+                    phase = EnemySummonBehaviorPhase.Windup,
+                    windupStartTick = 0,
+                    windupEndTick = 1,
+                    activationSequence = 1,
+                });
 
             var pipeline = CreateJpeterPipeline(worldState);
             var frames = new List<ReplayCaptureFrame>
@@ -265,6 +264,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 BuildPendingImpactDump(worldState.CreateSnapshot()),
                 BuildJumpDump(worldState.CreateSnapshot()),
                 BuildUtilityDump(worldState.CreateSnapshot()),
+                BuildSummonBehaviorDump(worldState.CreateSnapshot()),
                 BuildSummonedDump(worldState.CreateSnapshot()),
                 BuildDefinitionBindingDump(worldState.CreateSnapshot()),
                 result.Trace.Text);
@@ -286,6 +286,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 Assert.That(secondReplay[i].PendingImpactDump, Is.EqualTo(firstReplay[i].PendingImpactDump), $"Pending impact mismatch at frame {i}.");
                 Assert.That(secondReplay[i].JumpDump, Is.EqualTo(firstReplay[i].JumpDump), $"Jump state mismatch at frame {i}.");
                 Assert.That(secondReplay[i].UtilityDump, Is.EqualTo(firstReplay[i].UtilityDump), $"Utility state mismatch at frame {i}.");
+                Assert.That(secondReplay[i].SummonBehaviorDump, Is.EqualTo(firstReplay[i].SummonBehaviorDump), $"Summon behavior state mismatch at frame {i}.");
                 Assert.That(secondReplay[i].SummonedDump, Is.EqualTo(firstReplay[i].SummonedDump), $"Summoned metadata mismatch at frame {i}.");
                 Assert.That(secondReplay[i].DefinitionBindingDump, Is.EqualTo(firstReplay[i].DefinitionBindingDump), $"Definition binding mismatch at frame {i}.");
                 Assert.That(secondReplay[i].Trace, Is.EqualTo(firstReplay[i].Trace), $"Trace mismatch at frame {i}.");
@@ -407,6 +408,21 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return builder.Length == 0 ? "<empty>" : builder.ToString();
         }
 
+        private static string BuildSummonBehaviorDump(WorldSnapshot snapshot)
+        {
+            var entries = new List<EnemySummonBehaviorSnapshotEntry>();
+            snapshot.EnumerateEnemySummonBehaviorStatesOrdered(entries);
+            if (entries.Count == 0)
+            {
+                return "<empty>";
+            }
+
+            return string.Join(
+                "\n",
+                entries.Select(entry =>
+                    $"E={entry.EntityId}|Cooldown={entry.State.cooldownTicksRemaining}|Phase={entry.State.phase}|WindupStart={entry.State.windupStartTick}|WindupEnd={entry.State.windupEndTick}|RecoverStart={entry.State.recoverStartTick}|RecoverEnd={entry.State.recoverEndTickExclusive}|Seq={entry.State.activationSequence}"));
+        }
+
         private static string BuildSummonedDump(WorldSnapshot snapshot)
         {
             var entries = new List<SummonedEntitySnapshotEntry>();
@@ -498,6 +514,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 string pendingImpactDump,
                 string jumpDump,
                 string utilityDump,
+                string summonBehaviorDump,
                 string summonedDump,
                 string definitionBindingDump,
                 string trace)
@@ -511,6 +528,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 PendingImpactDump = pendingImpactDump;
                 JumpDump = jumpDump;
                 UtilityDump = utilityDump;
+                SummonBehaviorDump = summonBehaviorDump;
                 SummonedDump = summonedDump;
                 DefinitionBindingDump = definitionBindingDump;
                 Trace = trace;
@@ -533,6 +551,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             public string JumpDump { get; }
 
             public string UtilityDump { get; }
+
+            public string SummonBehaviorDump { get; }
 
             public string SummonedDump { get; }
 

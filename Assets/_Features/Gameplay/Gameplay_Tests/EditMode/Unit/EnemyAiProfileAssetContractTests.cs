@@ -310,21 +310,85 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyAiProfileAssets_ArchetypeSummoner_RemainsUtilitySummonWithoutBehaviorSummon()
+        public void MigratedSummon_ProfileHasBehaviorModuleOnly()
         {
             var profile = LoadRequiredProfile(ArchetypeSummonerProfilePath);
+            var module = AssetDatabase.LoadAssetAtPath<EnemySummonBehaviorModuleAsset>(
+                ArchetypeSummonerSummonBehaviorModulePath);
             var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
-            Assert.That(profile.BehaviorModuleAssets, Is.Empty, ArchetypeSummonerProfilePath);
-            Assert.That(definition.TryGetSummonBehavior(out _), Is.False, ArchetypeSummonerProfilePath);
+            Assert.That(module, Is.Not.Null, ArchetypeSummonerSummonBehaviorModulePath);
+            Assert.That(profile.BehaviorModuleAssets, Has.Count.EqualTo(1), ArchetypeSummonerProfilePath);
+            Assert.That(profile.BehaviorModuleAssets[0], Is.SameAs(module), ArchetypeSummonerProfilePath);
+            Assert.That(definition.TryGetSummonBehavior(out var summon), Is.True, ArchetypeSummonerProfilePath);
+            Assert.That(summon.SummonedArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
             Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True, ArchetypeSummonerProfilePath);
-            Assert.That(utility.Effects, Has.Count.EqualTo(1), ArchetypeSummonerProfilePath);
-            Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion), ArchetypeSummonerProfilePath);
+            Assert.That(utility.Effects, Is.Empty, ArchetypeSummonerProfilePath);
+            Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
+            Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
+            Assert.That(
+                File.ReadAllText(GetAbsoluteAssetPath(ArchetypeSummonerProfilePath)),
+                Does.Not.Contain("logicModuleAssets"),
+                ArchetypeSummonerProfilePath);
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemySummonBehaviorModuleAssets_NoProductionAssetsBeforeMigration()
+        public void MigratedSummon_ProfileHasNoUtilitySummonResidue()
+        {
+            var profile = LoadRequiredProfile(ArchetypeSummonerProfilePath);
+            var capability = AssetDatabase.LoadAssetAtPath<EnemyUtilityCapabilityAsset>(
+                ArchetypeSummonerUtilityCapabilityPath);
+            var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+            Assert.That(capability, Is.Not.Null, ArchetypeSummonerUtilityCapabilityPath);
+            Assert.That(capability.Effects.Count, Is.EqualTo(0), ArchetypeSummonerUtilityCapabilityPath);
+            Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True, ArchetypeSummonerProfilePath);
+            Assert.That(utility.Effects, Is.Empty, ArchetypeSummonerProfilePath);
+            Assert.That(definition.TryGetSummonBehavior(out _), Is.True, ArchetypeSummonerProfilePath);
+            Assert.That(
+                File.ReadAllText(GetAbsoluteAssetPath(ArchetypeSummonerUtilityCapabilityPath)),
+                Does.Not.Contain("kind: 0"),
+                ArchetypeSummonerUtilityCapabilityPath);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MigratedSummon_FieldMappingMatchesUtilityBaseline()
+        {
+            var module = AssetDatabase.LoadAssetAtPath<EnemySummonBehaviorModuleAsset>(
+                ArchetypeSummonerSummonBehaviorModulePath);
+            var definition = LoadRequiredProfile(ArchetypeSummonerProfilePath)
+                .CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+            Assert.That(module, Is.Not.Null, ArchetypeSummonerSummonBehaviorModulePath);
+            Assert.That(module.Key, Is.EqualTo(EnemyBehaviorModuleKey.Summon));
+            Assert.That(module.InitialDelaySeconds, Is.EqualTo(10f).Within(0.0001f));
+            Assert.That(module.CooldownSeconds, Is.EqualTo(10f).Within(0.0001f));
+            Assert.That(module.Summon.SpawnCountPerTrigger, Is.EqualTo(1));
+            Assert.That(module.Summon.MaxAliveChildren, Is.EqualTo(2));
+            Assert.That(module.Summon.CandidatePattern, Is.EqualTo(SummonCandidatePattern.OrthogonalAdjacent4));
+            Assert.That(module.Summon.RequireNoUnitAtSpawnCell, Is.True);
+            Assert.That(module.Summon.RequireNoSolidAtSpawnCell, Is.True);
+            Assert.That(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(module.Summon.SummonedArchetype)), Is.EqualTo("8da265900dc94540a0e150fa08ff4c7f"));
+            Assert.That(module.Summon.OverrideHp, Is.True);
+            Assert.That(module.Summon.HpOverride, Is.EqualTo(1));
+            Assert.That(module.Summon.WindupSeconds, Is.EqualTo(1.7f).Within(0.0001f));
+            Assert.That(module.Summon.SuppressMovementDuringWindup, Is.True);
+            Assert.That(module.Summon.RecoverySeconds, Is.EqualTo(0.7f).Within(0.0001f));
+            Assert.That(module.Summon.SuppressMovementDuringRecover, Is.True);
+            Assert.That(definition.TryGetSummonBehavior(out var summon), Is.True);
+            Assert.That(summon.InitialDelayTicks, Is.EqualTo(600));
+            Assert.That(summon.CooldownTicks, Is.EqualTo(600));
+            Assert.That(summon.WindupTicks, Is.EqualTo(102));
+            Assert.That(summon.RecoveryTicks, Is.EqualTo(42));
+            Assert.That(summon.MaxAliveChildren, Is.EqualTo(2));
+            Assert.That(summon.HpOverride, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemySummonBehaviorModuleAssets_ProductionAllowlistContainsOnlyArchetypeSummoner()
         {
             var assetPaths = AssetDatabase.FindAssets("t:EnemySummonBehaviorModuleAsset", new[] { StageContentPaths.CampaignRoot })
                 .Select(AssetDatabase.GUIDToAssetPath)
@@ -333,13 +397,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(
                 assetPaths,
-                Is.Empty,
-                "Production EnemySummonBehaviorModuleAsset instances are forbidden until the asset-scoped migration slice.");
+                Is.EquivalentTo(new[] { ArchetypeSummonerSummonBehaviorModulePath }),
+                "Production EnemySummonBehaviorModuleAsset instances must remain asset-scoped to the ArchetypeSummoner migration.");
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtilityLockNearbyBoxesRetirement_DeletedActiveSymbolsDoNotRemain()
+        public void RetiredLockNearbyBoxes_GuardUnchanged()
         {
             var projectRoot = Directory.GetParent(Application.dataPath)?.FullName;
             Assert.That(projectRoot, Is.Not.Null.And.Not.Empty, "Unable to resolve Unity project root from Application.dataPath.");
@@ -377,6 +441,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 violations,
                 Is.Empty,
                 "Retired LockNearbyBoxes active symbol inventory violations:\n" + string.Join("\n", violations));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GravityFieldAura_Unchanged()
+        {
+            var capability = AssetDatabase.LoadAssetAtPath<EnemyUtilityCapabilityAsset>(GravityFieldAuraCapabilityPath);
+
+            Assert.That(capability, Is.Not.Null, GravityFieldAuraCapabilityPath);
+            Assert.That(capability.Effects.Count, Is.EqualTo(1), GravityFieldAuraCapabilityPath);
+            Assert.That(capability.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.GravityFieldAura), GravityFieldAuraCapabilityPath);
+            Assert.That(capability.Effects[0].InitialDelaySeconds, Is.EqualTo(7f).Within(0.0001f));
+            Assert.That(capability.Effects[0].CooldownSeconds, Is.EqualTo(7f).Within(0.0001f));
+            Assert.That(capability.Effects[0].GravityFieldAura.Radius, Is.EqualTo(1));
+            Assert.That(capability.Effects[0].GravityFieldAura.WindupSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+            Assert.That(capability.Effects[0].GravityFieldAura.FieldDurationSeconds, Is.EqualTo(4f).Within(0.0001f));
+            Assert.That(capability.Effects[0].GravityFieldAura.RecoverSeconds, Is.EqualTo(0.5f).Within(0.0001f));
         }
 
         [Test]
@@ -584,7 +665,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void AdvancedCampaignStage_JPeterBindings_UseArchetypeSummonerUtilityProfile()
+        public void AdvancedCampaignStage_JPeterBindings_UseArchetypeSummonerProfile()
         {
             var bindings = FindStageEnemyPresentationProfileBindings(AdvancedCampaignStagePath, "j_peter");
 
@@ -687,6 +768,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private const string ArchetypeSummonerProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_ArchetypeSummoner/EnemyAi_ArchetypeSummoner.asset";
+
+        private const string ArchetypeSummonerUtilityCapabilityPath =
+            StageContentPaths.SharedEnemyAiRoot + "/Capabilities/Enemy_UtilitySummoner/EnemyCapability_ArchetypeSummoner.asset";
+
+        private const string ArchetypeSummonerSummonBehaviorModulePath =
+            StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Summon/EnemySummonBehaviorModule_ArchetypeSummoner.asset";
+
+        private const string GravityFieldAuraCapabilityPath =
+            StageContentPaths.SharedEnemyAiRoot + "/Capabilities/GravityFieldAura/EnemyCapability_GravityFieldAura.asset";
 
         private const string AdvancedCampaignStagePath =
             StageContentPaths.CampaignLevel01StagesRoot + "/stage-4-2/stage-4-2.asset";
@@ -889,11 +979,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(definition.Capabilities.TryGetCombat(out var combat), Is.False, $"Jpeter must not be inferred as Combat={combat?.Kind.ToString() ?? "<null>"}.");
             Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True);
-            Assert.That(utility.Effects, Has.Count.EqualTo(1));
-            Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion));
-            Assert.That(
-                utility.Effects[0].Summon.SummonedArchetypeId,
-                Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
+            Assert.That(utility.Effects, Is.Empty);
+            Assert.That(definition.TryGetSummonBehavior(out var summon), Is.True);
+            Assert.That(summon.SummonedArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
+            Assert.That(summon.MaxAliveChildren, Is.EqualTo(2));
             Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
             Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
         }
