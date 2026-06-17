@@ -310,6 +310,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyAiProfileAssets_ArchetypeSummoner_RemainsUtilitySummonWithoutBehaviorSummon()
+        {
+            var profile = LoadRequiredProfile(ArchetypeSummonerProfilePath);
+            var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+            Assert.That(profile.BehaviorModuleAssets, Is.Empty, ArchetypeSummonerProfilePath);
+            Assert.That(definition.TryGetSummonBehavior(out _), Is.False, ArchetypeSummonerProfilePath);
+            Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True, ArchetypeSummonerProfilePath);
+            Assert.That(utility.Effects, Has.Count.EqualTo(1), ArchetypeSummonerProfilePath);
+            Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion), ArchetypeSummonerProfilePath);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemySummonBehaviorModuleAssets_NoProductionAssetsBeforeMigration()
+        {
+            var assetPaths = AssetDatabase.FindAssets("t:EnemySummonBehaviorModuleAsset", new[] { StageContentPaths.CampaignRoot })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .OrderBy(path => path, System.StringComparer.Ordinal)
+                .ToArray();
+
+            Assert.That(
+                assetPaths,
+                Is.Empty,
+                "Production EnemySummonBehaviorModuleAsset instances are forbidden until the asset-scoped migration slice.");
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyUtilityLockNearbyBoxesRetirement_DeletedActiveSymbolsDoNotRemain()
         {
             var projectRoot = Directory.GetParent(Application.dataPath)?.FullName;

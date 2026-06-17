@@ -1183,6 +1183,11 @@ namespace Game.Feature.Gameplay.Entities
             return Behaviors.TryGetCharge(out charge);
         }
 
+        public bool TryGetSummonBehavior(out EnemySummonBehaviorRuntime summon)
+        {
+            return Behaviors.TryGetSummon(out summon);
+        }
+
         public void Validate(string paramName)
         {
             Core.Validate(paramName);

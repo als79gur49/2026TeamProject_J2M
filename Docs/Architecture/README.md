@@ -53,7 +53,7 @@
 - [Enemy-AI-Shield-Summon-Utility-Audit.md](./Enemy-AI-Shield-Summon-Utility-Audit.md)
   - current supporting truth for Shield pre-design, Summon/Utility audit boundaries, and Phase 2 trigger classification
 - [Enemy-AI-Summon-Spawn-Seam-Implementation-Note.md](./Enemy-AI-Summon-Spawn-Seam-Implementation-Note.md)
-  - current supporting truth for Option C spawn/entity creation seam extraction for Utility Summon, where Summon remains in the Utility capability lane and Option B/SummonBehaviorModule remains future-only
+  - current supporting truth for Option C spawn/entity creation seam extraction for Utility Summon, where production Summon remains in the Utility capability lane and Option B runtime emission/migration remains future-only
 - [Enemy-AI-Summon-Duplicate-Guard-Design.md](./Enemy-AI-Summon-Duplicate-Guard-Design.md)
   - current supporting truth for the Option B prerequisite that future Behavior Summon must fail-fast when authored alongside existing Utility SummonMinion on the same Enemy AI profile
 - [Enemy-AI-Summon-Behavior-Runtime-State-Design.md](./Enemy-AI-Summon-Behavior-Runtime-State-Design.md)
@@ -65,7 +65,7 @@
 - [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md)
   - current supporting truth for future Option B Summon presentation signals, audio cues, VFX cues, view binding, visibility changes, baseline capture, and compatibility policy without changing runtime behavior or assets
 - [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md)
-  - current supporting truth for future Option B implementation slices, guard/test/migration order, validation gates, rollback strategy, and non-goal boundaries without starting SummonBehaviorModule migration
+  - current supporting truth for Option B implementation slices, implemented compile-skeleton status, guard/test/migration order, validation gates, rollback strategy, and non-goal boundaries
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
   - current supporting truth for persistent BGM ownership, scene request-source boundaries, request-based BGM playback, FadeOutIn support, and reserved Crossfade governance
 - [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)

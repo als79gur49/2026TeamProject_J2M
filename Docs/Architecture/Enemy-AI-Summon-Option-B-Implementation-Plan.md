@@ -3,7 +3,7 @@
 ## 1. Decision Summary
 
 - This is an implementation plan only, not implementation.
-- Option B remains future work until an approved implementation slice starts.
+- First implementation slice has started: the compile skeleton adds the real Behavior Summon key, typed runtime slot, module asset, config compile path, and duplicate Utility/Behavior Summon guard.
 - Initial Option B preserves the Spawn/EntityCreation seam, external replay/export names, and presentation/audio/VFX cue semantics.
 - Production asset migration is a separate gated phase after implementation and parity gates.
 - Full lane was not run for this plan.
@@ -27,8 +27,7 @@
 |---|---|---|---|---|---|---|
 | 0. Pre-implementation hygiene / docs lock | Lock this plan and cross-links | Docs and architecture index links only | No runtime, test, schema, asset, or production YAML edits | `git diff --check`; Summon docs trailing whitespace scan; forbidden symbol scan | Docs-only diff | Revert docs-only commit |
 | 1. Compiler guard infrastructure timing | Define where the actual duplicate guard lands | Guard helper design may be refined; actual guard only when real Behavior Summon key/runtime exists in this or next slice | No placeholder key, fake runtime, or production migration | Existing Utility-only compile remains valid | No future symbols unless implementation slice starts | Revert docs or guard-helper-only commit |
-| 2. Summon behavior key and fixed typed slot | Add the real Behavior Summon lane entrypoint | Add `EnemyBehaviorModuleKey.Summon`, fixed typed `EnemyBehaviorRuntimeSet` slot, `HasSummon`, and `TryGetSummon(out ...)`; extend compiler switch | No generic registry; no `logicModuleAssets`; no production assets | Charge unaffected compile/runtime-set tests | Touched compiler tests plus no production asset diff | Revert key/slot/compiler commit |
-| 3. Summon behavior module asset and config compile | Add authoring/runtime config compile shape | Add `EnemySummonBehaviorModuleAsset` and config validation; test-local assets or runtime-constructed fixtures only | No production asset instances; no materialization changes | Behavior-only profile compile after module exists; invalid field validation tests | Utility-only content still compiles | Revert asset/config commit |
+| 2-3. Compile skeleton | Add the real Behavior Summon lane entrypoint without key-only placeholder | Add `EnemyBehaviorModuleKey.Summon`, fixed typed `EnemyBehaviorRuntimeSet` slot, `HasSummon`, `TryGetSummon(out ...)`, `EnemySummonBehaviorModuleAsset`, config validation, compiler switch, and duplicate Utility/Behavior Summon guard | No generic registry; no `logicModuleAssets`; no production assets; no materialization changes | Behavior-only compile, duplicate guard, invalid field validation, Utility/Gravity/Retired guard tests | Touched compiler tests plus no production asset diff | Revert key/slot/compiler/asset-test commit |
 | 4. Summon behavior runtime state and emitter | Move timing/state/request emission owner to Behavior runtime | Implement windup/recovery/cooldown/suppression/max-alive/request emission parity; emit id-free `EntitySpawnRequest` with captured source metadata | No direct `WorldState` spawn write; no `EntitySpawnRequest` or `EntitySpawnMaterializer` contract change | Behavior Summon delay, cooldown, order, payload, max-alive, source invalidation, topology, and movement suppression parity tests | Targeted Summon tests and `./run_tests.sh core` | Revert runtime emitter/state commit |
 | 5. Duplicate guard actual enforcement | Fail fast on Utility Summon plus Behavior Summon | Enforce compiler guard after real Behavior Summon exists; message includes profile, Utility effect index, Behavior module asset/key | Do not classify `GravityFieldAura` or `RetiredLockNearbyBoxes` as Summon | Duplicate fail-fast tests; Gravity/Retired exclusions | Guard tests green before migration | Revert guard commit if no migrated assets depend on it |
 | 6. Replay/export compatibility preservation | Preserve external replay/export surface | Preserve `SummonCommitted`, `SummonSkipped`, `SummonedEntities`, `EnemyDefinitionBindings`, `Effect=`, `SourceEffectIndex`, and initial `PreMovement.UtilityTriggers` alias | No unversioned neutral rename; no standalone hash behavior change | Behavior Summon replay names/hash/source metadata tests; no double-count tests | Replay filters green | Revert compatibility adapter/hash commit |
@@ -237,8 +236,7 @@ If full lane is not run, do not report broad validation success.
 
 ## 16. Explicit Non-Goals
 
-- No code in this plan.
-- No production migration in this plan.
+- No production migration in the compile-skeleton slice.
 - No generic registry.
 - No Utility whole-lane migration.
 - No `GravityFieldAura` changes.
@@ -246,10 +244,8 @@ If full lane is not run, do not report broad validation success.
 - No replay/export rename.
 - No presentation/audio/VFX rename.
 - No direct `WorldState` write.
-- No actual `SummonBehaviorModule` implementation.
-- No actual `EnemyBehaviorModuleKey.Summon`.
-- No actual `EnemySummonBehaviorModuleAsset`.
-- No actual runtime type.
+- No Behavior Summon runtime emission, request production, materialization, or tick participation in the compile-skeleton slice.
+- No production `EnemySummonBehaviorModuleAsset` instances before asset-scoped migration.
 - No `logicModuleAssets`.
 
 ## 17. Option B Implementation Entry Criteria
@@ -260,4 +256,4 @@ If full lane is not run, do not report broad validation success.
 - Duplicate guard, key/runtime, replay/export, presentation/audio/VFX, and migration gates are assigned to separate reviewable slices.
 - Full lane / CI release gate policy is decided before production migration or release.
 
-Option B implementation is planned but not started. The plan preserves the Spawn/EntityCreation seam, external replay/export names, and presentation/audio/VFX cue semantics. SummonBehaviorModule migration has not started. Full lane was not run unless explicitly reported.
+Option B compile-skeleton implementation has started. Production Summon remains Utility-owned, and runtime emission, replay/export migration, presentation/audio/VFX parity migration, and production asset migration are still future gated slices. Full lane was not run unless explicitly reported.

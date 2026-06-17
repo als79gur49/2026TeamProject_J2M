@@ -211,9 +211,254 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(failures, Is.Empty, "EnemyAiProfile compile failures:\n" + string.Join("\n", failures));
         }
 
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_SummonBehaviorOnly_CompilesRealTypedRuntime()
+        {
+            var minionProfile = CreateProfile();
+            var archetype = CreateArchetype("BehaviorMinion", minionProfile);
+            var summonModule = CreateSummonBehaviorModule(
+                archetype,
+                initialDelaySeconds: 0.2f,
+                cooldownSeconds: 0.5f,
+                spawnCountPerTrigger: 2,
+                maxAliveChildren: 4,
+                overrideHp: true,
+                hpOverride: 3,
+                windupSeconds: 0.3f,
+                recoverySeconds: 0.1f);
+            var profile = CreateProfile(behaviors: new EnemyBehaviorModuleAsset[] { summonModule });
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(10);
+
+                Assert.That(definition.TryGetSummonBehavior(out var summon), Is.True);
+                Assert.That(summon.Key, Is.EqualTo(EnemyBehaviorModuleKey.Summon));
+                Assert.That(summon.InitialDelayTicks, Is.EqualTo(2));
+                Assert.That(summon.CooldownTicks, Is.EqualTo(5));
+                Assert.That(summon.SpawnCountPerTrigger, Is.EqualTo(2));
+                Assert.That(summon.MaxAliveChildren, Is.EqualTo(4));
+                Assert.That(summon.SummonedArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BehaviorMinion")));
+                Assert.That(summon.OverrideHp, Is.True);
+                Assert.That(summon.HpOverride, Is.EqualTo(3));
+                Assert.That(summon.WindupTicks, Is.EqualTo(3));
+                Assert.That(summon.RecoveryTicks, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(summonModule);
+                UnityEngine.Object.DestroyImmediate(archetype);
+                UnityEngine.Object.DestroyImmediate(minionProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_DuplicateSummonBehaviorModules_FailsDuringCompile()
+        {
+            var minionProfile = CreateProfile();
+            var archetype = CreateArchetype("BehaviorMinion", minionProfile);
+            var first = CreateSummonBehaviorModule(archetype, moduleName: "Test_FirstSummonBehaviorModule");
+            var second = CreateSummonBehaviorModule(archetype, moduleName: "Test_SecondSummonBehaviorModule");
+            var profile = CreateProfile(behaviors: new EnemyBehaviorModuleAsset[] { first, second });
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                AssertGuardMessage(
+                    exception,
+                    "multiple behavior modules",
+                    EnemyBehaviorModuleKey.Summon.ToString(),
+                    "Test_FirstSummonBehaviorModule",
+                    "Test_SecondSummonBehaviorModule");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(second);
+                UnityEngine.Object.DestroyImmediate(first);
+                UnityEngine.Object.DestroyImmediate(archetype);
+                UnityEngine.Object.DestroyImmediate(minionProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_UtilitySummonAndBehaviorSummon_FailsDuplicateSourceGuard()
+        {
+            var minionProfile = CreateProfile();
+            var archetype = CreateArchetype("BehaviorMinion", minionProfile);
+            var utility = CreateUtilityCapability(CreateUtilityEffect(EnemyUtilityEffectKind.SummonMinion, archetype));
+            var summonModule = CreateSummonBehaviorModule(archetype, moduleName: "Test_SummonBehaviorModule");
+            var profile = CreateProfile(
+                capabilities: new EnemyCapabilityAsset[] { utility },
+                behaviors: new EnemyBehaviorModuleAsset[] { summonModule });
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                AssertGuardMessage(
+                    exception,
+                    "Utility SummonMinion",
+                    "Utility.effects[0]",
+                    EnemyBehaviorModuleKey.Summon.ToString(),
+                    "Test_SummonBehaviorModule",
+                    "asset-scoped");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(summonModule);
+                UnityEngine.Object.DestroyImmediate(utility);
+                UnityEngine.Object.DestroyImmediate(archetype);
+                UnityEngine.Object.DestroyImmediate(minionProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_GravityFieldAuraWithBehaviorSummon_DoesNotTriggerSummonDuplicateGuard()
+        {
+            var minionProfile = CreateProfile();
+            var archetype = CreateArchetype("BehaviorMinion", minionProfile);
+            var utility = CreateUtilityCapability(CreateUtilityEffect(EnemyUtilityEffectKind.GravityFieldAura, archetype));
+            var summonModule = CreateSummonBehaviorModule(archetype);
+            var profile = CreateProfile(
+                capabilities: new EnemyCapabilityAsset[] { utility },
+                behaviors: new EnemyBehaviorModuleAsset[] { summonModule });
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(60);
+
+                Assert.That(definition.TryGetSummonBehavior(out _), Is.True);
+                Assert.That(definition.Capabilities.TryGetUtility(out var compiledUtility), Is.True);
+                Assert.That(compiledUtility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.GravityFieldAura));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(summonModule);
+                UnityEngine.Object.DestroyImmediate(utility);
+                UnityEngine.Object.DestroyImmediate(archetype);
+                UnityEngine.Object.DestroyImmediate(minionProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_RetiredLockNearbyBoxesWithBehaviorSummon_FailsRetiredGuard()
+        {
+            var minionProfile = CreateProfile();
+            var archetype = CreateArchetype("BehaviorMinion", minionProfile);
+            var utility = CreateUtilityCapability(CreateUtilityEffect(EnemyUtilityEffectKind.RetiredLockNearbyBoxes, archetype));
+            var summonModule = CreateSummonBehaviorModule(archetype);
+            var profile = CreateProfile(
+                capabilities: new EnemyCapabilityAsset[] { utility },
+                behaviors: new EnemyBehaviorModuleAsset[] { summonModule });
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                AssertGuardMessage(exception, "LockNearbyBoxes", "retired");
+                Assert.That(exception.Message, Does.Not.Contain("Utility SummonMinion"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(summonModule);
+                UnityEngine.Object.DestroyImmediate(utility);
+                UnityEngine.Object.DestroyImmediate(archetype);
+                UnityEngine.Object.DestroyImmediate(minionProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_InvalidSummonBehaviorAuthoring_FailsDuringCompile()
+        {
+            var minionProfile = CreateProfile();
+            var archetype = CreateArchetype("BehaviorMinion", minionProfile);
+            var cases = new (string Name, Action<EnemySummonBehaviorModuleAsset> Mutate, string ExpectedToken)[]
+            {
+                (
+                    "negative initial delay",
+                    module => SetSerializedField(module, "initialDelaySeconds", -0.1f),
+                    "non-negative initial delay"),
+                (
+                    "non-positive cooldown",
+                    module => SetSerializedField(module, "cooldownSeconds", 0f),
+                    "positive cooldown"),
+                (
+                    "null summon authoring",
+                    module => SetSerializedField(module, "summon", null),
+                    "requires summon authoring data"),
+                (
+                    "missing archetype",
+                    module => SetSerializedField(module, "summon", CreateSummonAuthoring(null)),
+                    "summoned archetype asset"),
+                (
+                    "non-positive spawn count",
+                    module => SetSerializedField(module, "summon", CreateSummonAuthoring(archetype, spawnCountPerTrigger: 0)),
+                    "positive spawn count"),
+                (
+                    "non-positive max alive",
+                    module => SetSerializedField(module, "summon", CreateSummonAuthoring(archetype, maxAliveChildren: 0)),
+                    "positive max alive child count"),
+                (
+                    "invalid hp override",
+                    module => SetSerializedField(module, "summon", CreateSummonAuthoring(archetype, overrideHp: true, hpOverride: 0)),
+                    "HP override"),
+                (
+                    "non-positive windup",
+                    module => SetSerializedField(module, "summon", CreateSummonAuthoring(archetype, windupSeconds: 0f)),
+                    "positive windup duration"),
+                (
+                    "negative recovery",
+                    module => SetSerializedField(module, "summon", CreateSummonAuthoring(archetype, recoverySeconds: -0.1f)),
+                    "non-negative recovery duration"),
+            };
+
+            try
+            {
+                foreach (var testCase in cases)
+                {
+                    var summonModule = CreateSummonBehaviorModule(archetype);
+                    var profile = CreateProfile(behaviors: new EnemyBehaviorModuleAsset[] { summonModule });
+
+                    try
+                    {
+                        testCase.Mutate(summonModule);
+
+                        var exception = Assert.Throws<ArgumentException>(
+                            () => profile.CreateRuntimeDefinition(60),
+                            testCase.Name);
+
+                        AssertGuardMessage(exception, testCase.ExpectedToken);
+                    }
+                    finally
+                    {
+                        UnityEngine.Object.DestroyImmediate(profile);
+                        UnityEngine.Object.DestroyImmediate(summonModule);
+                    }
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetype);
+                UnityEngine.Object.DestroyImmediate(minionProfile);
+            }
+        }
+
         private static EnemyAiProfile CreateProfile(
             EnemyDetectionStrategyAsset detectionAsset = null,
-            EnemyCapabilityAsset[] capabilities = null)
+            EnemyCapabilityAsset[] capabilities = null,
+            EnemyBehaviorModuleAsset[] behaviors = null)
         {
             var profile = CreateAsset<EnemyAiProfile>("Test_EnemyAiProfile");
             var core = CreateAsset<EnemyCoreAuthoring>("Test_EnemyCoreAuthoring");
@@ -232,9 +477,86 @@ namespace Game.Feature.Gameplay.Tests.Core
             SetSerializedField(profile, "coreAuthoring", core);
             SetSerializedField(profile, "brainAuthoring", brain);
             SetSerializedField(profile, "capabilityAssets", new List<EnemyCapabilityAsset>(capabilities ?? Array.Empty<EnemyCapabilityAsset>()));
-            SetSerializedField(profile, "behaviorModuleAssets", new List<EnemyBehaviorModuleAsset>());
+            SetSerializedField(profile, "behaviorModuleAssets", new List<EnemyBehaviorModuleAsset>(behaviors ?? Array.Empty<EnemyBehaviorModuleAsset>()));
 
             return profile;
+        }
+
+        private static EnemySummonBehaviorModuleAsset CreateSummonBehaviorModule(
+            EnemyUnitArchetypeAsset archetype,
+            string moduleName = "Test_EnemySummonBehaviorModule",
+            float initialDelaySeconds = 0f,
+            float cooldownSeconds = 1f,
+            int spawnCountPerTrigger = 1,
+            int maxAliveChildren = 3,
+            bool overrideHp = false,
+            int hpOverride = 1,
+            float windupSeconds = 1f,
+            float recoverySeconds = 0f)
+        {
+            var module = CreateAsset<EnemySummonBehaviorModuleAsset>(moduleName);
+            SetSerializedField(module, "initialDelaySeconds", initialDelaySeconds);
+            SetSerializedField(module, "cooldownSeconds", cooldownSeconds);
+            SetSerializedField(
+                module,
+                "summon",
+                CreateSummonAuthoring(
+                    archetype,
+                    spawnCountPerTrigger,
+                    maxAliveChildren,
+                    overrideHp,
+                    hpOverride,
+                    windupSeconds,
+                    recoverySeconds));
+            return module;
+        }
+
+        private static SummonMinionAuthoring CreateSummonAuthoring(
+            EnemyUnitArchetypeAsset archetype,
+            int spawnCountPerTrigger = 1,
+            int maxAliveChildren = 3,
+            bool overrideHp = false,
+            int hpOverride = 1,
+            float windupSeconds = 1f,
+            float recoverySeconds = 0f)
+        {
+            var summon = new SummonMinionAuthoring();
+            SetSerializedField(summon, "spawnCountPerTrigger", spawnCountPerTrigger);
+            SetSerializedField(summon, "maxAliveChildren", maxAliveChildren);
+            SetSerializedField(summon, "summonedArchetype", archetype);
+            SetSerializedField(summon, "overrideHp", overrideHp);
+            SetSerializedField(summon, "hpOverride", hpOverride);
+            SetSerializedField(summon, "windupSeconds", windupSeconds);
+            SetSerializedField(summon, "recoverySeconds", recoverySeconds);
+            return summon;
+        }
+
+        private static EnemyUtilityCapabilityAsset CreateUtilityCapability(params EnemyUtilityEffectAuthoring[] effects)
+        {
+            var utility = CreateAsset<EnemyUtilityCapabilityAsset>("Test_EnemyUtilityCapability");
+            SetSerializedField(utility, "effects", effects ?? Array.Empty<EnemyUtilityEffectAuthoring>());
+            return utility;
+        }
+
+        private static EnemyUtilityEffectAuthoring CreateUtilityEffect(
+            EnemyUtilityEffectKind kind,
+            EnemyUnitArchetypeAsset summonArchetype)
+        {
+            var effect = new EnemyUtilityEffectAuthoring();
+            SetSerializedField(effect, "kind", kind);
+            SetSerializedField(effect, "initialDelaySeconds", 0f);
+            SetSerializedField(effect, "cooldownSeconds", 1f);
+            SetSerializedField(effect, "summon", CreateSummonAuthoring(summonArchetype));
+            return effect;
+        }
+
+        private static EnemyUnitArchetypeAsset CreateArchetype(string archetypeId, EnemyAiProfile profile)
+        {
+            var archetype = CreateAsset<EnemyUnitArchetypeAsset>("Test_EnemyUnitArchetype");
+            SetSerializedField(archetype, "archetypeId", new EnemyUnitArchetypeId(archetypeId));
+            SetSerializedField(archetype, "aiProfile", profile);
+            SetSerializedField(archetype, "spawnDefaults", EnemyUnitSpawnDefaults.CreateDefault());
+            return archetype;
         }
 
         private static T CreateAsset<T>(string name)

@@ -38,7 +38,12 @@ namespace Game.Feature.Gameplay.Entities
             var core = profile.CoreAuthoring.Compile(simulationTicksPerSecond);
             var brain = profile.BrainAuthoring.Compile();
             var capabilities = CompileCapabilities(profile.name, profile.CapabilityAssets, simulationTicksPerSecond);
-            var behaviors = CompileBehaviors(profile.name, profile.BehaviorModuleAssets, simulationTicksPerSecond);
+            var behaviors = CompileBehaviors(
+                profile.name,
+                profile.BehaviorModuleAssets,
+                simulationTicksPerSecond,
+                out var summonBehaviorModuleName);
+            ValidateNoDuplicateSummonSources(profile.name, capabilities, behaviors, summonBehaviorModuleName);
             ValidateBehaviorRequirements(profile, behaviors);
             return new EnemyAiRuntimeDefinition(core, brain, capabilities, behaviors);
         }
@@ -139,9 +144,12 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyBehaviorRuntimeSet CompileBehaviors(
             string profileName,
             IReadOnlyList<EnemyBehaviorModuleAsset> behaviorModuleAssets,
-            int simulationTicksPerSecond)
+            int simulationTicksPerSecond,
+            out string summonBehaviorModuleName)
         {
             EnemyChargeBehaviorRuntime charge = null;
+            EnemySummonBehaviorRuntime summon = null;
+            summonBehaviorModuleName = null;
             var behaviorCount = behaviorModuleAssets?.Count ?? 0;
             var context = new EnemyBehaviorModuleCompileContext(profileName, simulationTicksPerSecond);
 
@@ -179,6 +187,21 @@ namespace Game.Feature.Gameplay.Entities
                                 nameof(behaviorModuleAssets));
                         break;
 
+                    case EnemyBehaviorModuleKey.Summon:
+                        if (summon != null)
+                        {
+                            throw new ArgumentException(
+                                $"Enemy AI profile '{profileName}' declares multiple behavior modules with key '{EnemyBehaviorModuleKey.Summon}' ('{summonBehaviorModuleName}' and '{behaviorAsset.name}').",
+                                nameof(behaviorModuleAssets));
+                        }
+
+                        summon = runtime as EnemySummonBehaviorRuntime
+                            ?? throw new ArgumentException(
+                                $"Enemy AI profile '{profileName}' compiled an invalid summon behavior module runtime from '{behaviorAsset.name}'.",
+                                nameof(behaviorModuleAssets));
+                        summonBehaviorModuleName = behaviorAsset.name;
+                        break;
+
                     default:
                         throw new ArgumentOutOfRangeException(
                             nameof(runtime),
@@ -187,7 +210,46 @@ namespace Game.Feature.Gameplay.Entities
                 }
             }
 
-            return new EnemyBehaviorRuntimeSet(charge);
+            return new EnemyBehaviorRuntimeSet(charge, summon);
+        }
+
+        private static void ValidateNoDuplicateSummonSources(
+            string profileName,
+            in EnemyCapabilityRuntimeSet capabilities,
+            in EnemyBehaviorRuntimeSet behaviors,
+            string summonBehaviorModuleName)
+        {
+            if (!behaviors.HasSummon ||
+                !TryFindUtilitySummonMinion(capabilities, out var utilityEffectIndex))
+            {
+                return;
+            }
+
+            throw new ArgumentException(
+                $"Enemy AI profile '{profileName}' cannot author both Utility SummonMinion effect at Utility.effects[{utilityEffectIndex}] and Behavior {EnemyBehaviorModuleKey.Summon} module '{summonBehaviorModuleName}'. Summon migration must be asset-scoped; remove one source before compile.",
+                nameof(capabilities));
+        }
+
+        private static bool TryFindUtilitySummonMinion(
+            in EnemyCapabilityRuntimeSet capabilities,
+            out int effectIndex)
+        {
+            effectIndex = -1;
+            if (!capabilities.TryGetUtility(out var utility))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < utility.Effects.Count; i++)
+            {
+                if (utility.Effects[i].Kind == EnemyUtilityEffectKind.SummonMinion)
+                {
+                    effectIndex = i;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void ValidateBehaviorRequirements(

@@ -3,10 +3,8 @@
 ## 1. Decision Summary
 
 - This is design only.
-- `SummonBehaviorModule` is not implemented.
-- `EnemyBehaviorModuleKey.Summon` is not added.
-- `EnemySummonBehaviorModuleAsset` is not added.
-- No concrete `SummonBehaviorRuntime` runtime type is added.
+- First compile-skeleton slice is implemented: `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and a fixed typed Summon runtime config slot exist.
+- Mutable Summon behavior runtime state, trigger emission, request production, and materialization participation are not implemented.
 - Utility `SummonMinion` remains in the Utility capability lane until an explicit asset-scoped migration exists.
 - Future Summon behavior runtime owns timing, phase, cooldown, movement suppression, source capture, trigger eligibility, and request emission only.
 - The Spawn/EntityCreation seam remains the owner of placement, materialization, entity id allocation, entity construction, metadata creation, and `FinalizationBatch.SpawnEntity`.
@@ -351,10 +349,6 @@ Rollback strategy:
 
 ## 10. Explicit Non-Goals
 
-- No `SummonBehaviorModule`.
-- No `EnemyBehaviorModuleKey.Summon`.
-- No `EnemySummonBehaviorModuleAsset`.
-- No concrete `EnemySummonBehaviorRuntime`.
 - No concrete `SummonBehaviorRuntime`.
 - No Utility `SummonMinion` asset or YAML migration.
 - No Utility whole-lane migration.
@@ -379,4 +373,4 @@ Rollback strategy:
 - Option B implementation slicing and validation gates accepted; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy decided.
 
-BehaviorModule Summon runtime state shape is designed as an Option B prerequisite. SummonBehaviorModule migration has not started. Full lane was not run unless explicitly reported.
+BehaviorModule Summon compile skeleton exists. Mutable Summon runtime state, trigger emission, and production asset migration have not started. Full lane was not run unless explicitly reported.

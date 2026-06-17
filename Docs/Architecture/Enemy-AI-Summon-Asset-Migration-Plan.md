@@ -3,10 +3,8 @@
 ## 1. Decision Summary
 
 - This is a migration plan only.
-- `SummonBehaviorModule` is not implemented.
-- `EnemyBehaviorModuleKey.Summon` is not added.
-- `EnemySummonBehaviorModuleAsset` is not added.
-- No concrete `SummonBehaviorRuntime` runtime type is added.
+- Option B compile skeleton exists: `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and a fixed typed Summon runtime config slot are implemented.
+- No mutable Summon behavior state, runtime emission, or production asset migration is implemented.
 - Utility `SummonMinion` remains valid until a future explicit asset-scoped migration.
 - Future migration must be field-by-field, guarded, replay/export-reviewed, and parity-tested.
 - `GravityFieldAura` and `RetiredLockNearbyBoxes` are excluded from Summon migration.
@@ -328,10 +326,7 @@ Required follow-up:
 
 ## 13. Explicit Non-Goals
 
-- No `SummonBehaviorModule`.
-- No `EnemyBehaviorModuleKey.Summon`.
-- No `EnemySummonBehaviorModuleAsset`.
-- No runtime implementation.
+- No mutable Summon runtime implementation or trigger emission.
 - No production asset migration.
 - No Utility whole-lane migration.
 - No `GravityFieldAura` migration.
@@ -355,4 +350,4 @@ Required follow-up:
 - Option B implementation slicing and validation gates accepted; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy decided.
 
-Summon asset migration is planned as an Option B prerequisite. SummonBehaviorModule migration has not started. No production assets were migrated. Full lane was not run unless explicitly reported.
+Summon asset migration remains future gated work after the compile skeleton. No production assets were migrated. Full lane was not run unless explicitly reported.

@@ -4,7 +4,8 @@
 
 - Duplicate Utility `SummonMinion` plus future Behavior Summon authoring must fail fast.
 - This guard is an Option B prerequisite, not an Option B implementation.
-- No `SummonBehaviorModule`, `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, Summon runtime, or Utility migration is introduced by this document.
+- The first Option B compile-skeleton slice introduces `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, a fixed typed Summon runtime config slot, and this duplicate guard.
+- Utility production asset migration is not introduced by this document.
 - The primary guard belongs in `EnemyAiProfileCompiler` after capability and behavior module compilation, where both lanes and profile context are available.
 - Asset contract tests should cover the compiler contract. Runtime definition validation can be a secondary safety net only if useful source context is preserved.
 
@@ -14,7 +15,7 @@
 - Utility Summon remains in the capability lane as `EnemyUtilityEffectKind.SummonMinion`.
 - `GravityFieldAura` remains a Utility/board-modifier style effect and is not part of the Summon duplicate guard.
 - `RetiredLockNearbyBoxes` remains a retired serialized compatibility slot and already fails through the retired Utility guard.
-- BehaviorModule lane is currently Charge-only. Behavior Summon does not exist.
+- BehaviorModule lane now has Charge plus a compile-only Summon slot. Behavior Summon runtime emission does not exist.
 - Option C already extracted spawn/entity creation materialization through `EntitySpawnRequest` and `EntitySpawnMaterializer`.
 - `EntitySpawnRequest` does not carry an allocated entity id; id allocation happens during materialization after placement succeeds.
 - Same-tick multi-summoner ordering and mutable spawn request payload drift guards are already characterized.
@@ -192,10 +193,6 @@ Current tests can cover Utility-only compile behavior, no-scope-violation symbol
 
 ## 9. Non-Goals
 
-- No `SummonBehaviorModule`.
-- No `EnemyBehaviorModuleKey.Summon`.
-- No `EnemySummonBehaviorModuleAsset`.
-- No `EnemySummonBehaviorRuntime`.
 - No Utility `SummonMinion` asset or YAML migration.
 - No whole-lane Utility migration.
 - No `GravityFieldAura` migration or behavior change.
@@ -220,4 +217,4 @@ Before Option B starts:
 - Option B implementation slicing and validation gates are planned; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy is decided.
 
-Duplicate Utility/Behavior Summon guard is designed as an Option B prerequisite. SummonBehaviorModule migration has not started. Full lane was not run unless explicitly reported.
+Duplicate Utility/Behavior Summon guard is implemented for the compile-skeleton slice. Summon runtime emission and production asset migration have not started. Full lane was not run unless explicitly reported.

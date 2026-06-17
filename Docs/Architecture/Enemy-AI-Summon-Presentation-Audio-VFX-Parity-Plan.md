@@ -3,10 +3,8 @@
 ## 1. Decision Summary
 
 - This is a presentation/audio/VFX parity plan only.
-- `SummonBehaviorModule` is not implemented.
-- `EnemyBehaviorModuleKey.Summon` is not added.
-- `EnemySummonBehaviorModuleAsset` is not added.
-- No concrete `EnemySummonBehaviorRuntime` or `SummonBehaviorRuntime` runtime type is added.
+- Option B compile skeleton exists: `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and a fixed typed Summon runtime config slot are implemented.
+- No mutable Summon behavior state, runtime emission, presentation/audio/VFX migration, or production asset migration is implemented.
 - Utility `SummonMinion` remains in the Utility capability lane.
 - Presentation/audio/VFX runtime behavior is not changed by this document.
 - Presentation prefabs, audio definitions, audio bindings, VFX assets, and production assets are not changed by this document.
@@ -204,12 +202,8 @@ Decision:
 
 ## 11. Explicit Non-Goals
 
-- No `SummonBehaviorModule`.
-- No `EnemyBehaviorModuleKey.Summon`.
-- No `EnemySummonBehaviorModuleAsset`.
-- No concrete `EnemySummonBehaviorRuntime`.
 - No concrete `SummonBehaviorRuntime`.
-- No runtime implementation.
+- No mutable Summon runtime implementation or trigger emission.
 - No Utility `SummonMinion` production asset migration.
 - No production asset changes.
 - No presentation/audio/VFX runtime behavior change.
@@ -240,4 +234,4 @@ Decision:
 - Option B implementation slicing and validation gates accepted; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy decided.
 
-Summon presentation/audio/VFX parity is planned as an Option B prerequisite. Initial Option B should preserve current presentation/audio/VFX names and cue semantics. SummonBehaviorModule migration has not started. Full lane was not run unless explicitly reported.
+Summon presentation/audio/VFX parity remains future gated work after the compile skeleton. Initial Option B preserves current presentation/audio/VFX names and cue semantics. Full lane was not run unless explicitly reported.

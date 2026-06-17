@@ -3,10 +3,8 @@
 ## 1. Decision Summary
 
 - This is a compatibility plan only.
-- `SummonBehaviorModule` is not implemented.
-- `EnemyBehaviorModuleKey.Summon` is not added.
-- `EnemySummonBehaviorModuleAsset` is not added.
-- No concrete `SummonBehaviorRuntime` runtime type is added.
+- Option B compile skeleton exists: `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and a fixed typed Summon runtime config slot are implemented.
+- No mutable Summon behavior state, runtime emission, replay/export migration, or production asset migration is implemented.
 - Utility `SummonMinion` remains in the Utility capability lane.
 - Replay/export-visible names are not changed by this document.
 - Initial Option B should preserve external replay/export names.
@@ -181,12 +179,8 @@ Decision:
 
 ## 10. Explicit Non-Goals
 
-- No `SummonBehaviorModule`.
-- No `EnemyBehaviorModuleKey.Summon`.
-- No `EnemySummonBehaviorModuleAsset`.
-- No concrete `EnemySummonBehaviorRuntime`.
 - No concrete `SummonBehaviorRuntime`.
-- No runtime implementation.
+- No mutable Summon runtime implementation or trigger emission.
 - No Utility `SummonMinion` production asset migration.
 - No replay/export-visible rename in this step.
 - No `DeterminismHashBuilder` runtime behavior change.
@@ -209,4 +203,4 @@ Decision:
 - Option B implementation slicing and validation gates accepted; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy decided.
 
-Summon replay/export compatibility is planned as an Option B prerequisite. Initial Option B should preserve external replay/export names. SummonBehaviorModule migration has not started. Full lane was not run unless explicitly reported.
+Summon replay/export compatibility remains future gated work after the compile skeleton. Initial Option B preserves external replay/export names. Full lane was not run unless explicitly reported.

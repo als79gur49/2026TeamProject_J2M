@@ -53,9 +53,7 @@
 
 ## 5. Explicit Non-Goals
 
-- No `SummonBehaviorModule`.
-- No `EnemyBehaviorModuleKey.Summon`.
-- No `EnemySummonBehaviorModuleAsset`.
+- At the original Option C seam extraction point there was no `SummonBehaviorModule`, `EnemyBehaviorModuleKey.Summon`, or `EnemySummonBehaviorModuleAsset`; the later Option B compile-skeleton slice now adds them without changing this spawn seam.
 - No Utility asset migration.
 - No Utility whole-lane migration.
 - No GravityFieldAura migration.
@@ -109,8 +107,7 @@ Full lane was not run. Therefore this note does not report broad project validat
 - [x] Utility trigger ordering is established before materialization by `SourceEntityId`, `EffectIndex`, then `TriggerTick`.
 - [x] `EntitySpawnMaterializer` preserves received request order and does not define a separate sort policy.
 - [x] `EntitySpawnRequest` uses captured request metadata and is not a live summoner view.
-- [x] `SummonBehaviorModule` is not introduced.
-- [x] `EnemyBehaviorModuleKey.Summon` is not introduced.
+- [x] Option C did not introduce `SummonBehaviorModule` or `EnemyBehaviorModuleKey.Summon`; the later Option B compile-skeleton slice introduces them without changing this seam.
 - [x] Utility assets are not migrated.
 - [x] GravityFieldAura is untouched.
 - [x] RetiredLockNearbyBoxes is untouched.
@@ -132,11 +129,7 @@ The following Option B prerequisite gates are now documented or characterized:
 
 Remaining before Option B implementation:
 
-- Accept the Option B implementation plan and approve the first implementation slice.
-- Implement the duplicate Utility/Behavior Summon compiler guard with tests.
-- Introduce `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and concrete Summon behavior runtime only inside an approved Option B implementation slice.
-- Add Behavior Summon-only compile tests.
-- Add Utility Summon + Behavior Summon duplicate fail-fast tests.
+- Runtime emission for Behavior Summon remains future work.
 - Add Behavior Summon request ordering, request snapshot, max-alive, source invalidation, topology participation, replay/export, and presentation/audio/VFX parity tests.
 - Add placement parity coverage for hazard risk fallback.
 - Add max-alive parity coverage after detached, dead, and non-occupying child states.
@@ -159,4 +152,4 @@ Non-goals still in force:
 
 This extracts spawn/entity creation materialization from Utility Summon. It does not migrate Summon to BehaviorModule. Utility remains the trigger/timer owner. Entity ids are allocated only during materialization, after placement candidate selection succeeds, and `FinalizationBatch.SpawnEntity` remains the authoritative write path. Replay/export names are preserved. Targeted Summon/Utility/replay/core tests were previously recorded as passed. Full lane was not run.
 
-This document now also acts as the Option B readiness index for Summon migration planning. The follow-up design gates for duplicate guard, runtime state shape, asset migration, replay/export compatibility, and presentation/audio/VFX parity are documented, but Option B implementation has not started.
+This document now also acts as the Option B readiness index for Summon migration planning. The duplicate guard and compile skeleton have started; runtime emission, production asset migration, replay/export migration, and presentation/audio/VFX parity migration remain future gated work.

@@ -86,6 +86,7 @@ namespace Game.Feature.Gameplay.Entities
     public enum EnemyBehaviorModuleKey
     {
         Charge = 1,
+        Summon = 2,
     }
 
     public enum EnemyUtilityEffectKind
@@ -1093,17 +1094,85 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    public sealed class EnemySummonBehaviorRuntime : EnemyBehaviorModuleRuntime
+    {
+        public EnemySummonBehaviorRuntime(
+            int initialDelayTicks,
+            int cooldownTicks,
+            SummonMinionRuntime summon)
+            : base(EnemyBehaviorModuleKey.Summon)
+        {
+            InitialDelayTicks = initialDelayTicks;
+            CooldownTicks = cooldownTicks;
+            Summon = summon;
+            Validate(nameof(EnemySummonBehaviorRuntime));
+        }
+
+        public int InitialDelayTicks { get; }
+
+        public int CooldownTicks { get; }
+
+        public SummonMinionRuntime Summon { get; }
+
+        public int SpawnCountPerTrigger => Summon.SpawnCountPerTrigger;
+
+        public SummonCandidatePattern CandidatePattern => Summon.CandidatePattern;
+
+        public bool RequireNoUnitAtSpawnCell => Summon.RequireNoUnitAtSpawnCell;
+
+        public bool RequireNoSolidAtSpawnCell => Summon.RequireNoSolidAtSpawnCell;
+
+        public int MaxAliveChildren => Summon.MaxAliveChildren;
+
+        public EnemyUnitArchetypeId SummonedArchetypeId => Summon.SummonedArchetypeId;
+
+        public bool OverrideHp => Summon.OverrideHp;
+
+        public int HpOverride => Summon.HpOverride;
+
+        public int WindupTicks => Summon.WindupTicks;
+
+        public bool SuppressMovementDuringWindup => Summon.SuppressMovementDuringWindup;
+
+        public int RecoveryTicks => Summon.RecoveryTicks;
+
+        public bool SuppressMovementDuringRecover => Summon.SuppressMovementDuringRecover;
+
+        public override void Validate(string paramName)
+        {
+            base.Validate(paramName);
+            if (InitialDelayTicks < 0)
+            {
+                throw new ArgumentException("Enemy summon behavior runtime requires a non-negative initial delay.", paramName);
+            }
+
+            if (CooldownTicks <= 0)
+            {
+                throw new ArgumentException("Enemy summon behavior runtime requires a positive cooldown.", paramName);
+            }
+
+            Summon.Validate(paramName);
+        }
+    }
+
     public readonly struct EnemyBehaviorRuntimeSet
     {
-        public EnemyBehaviorRuntimeSet(EnemyChargeBehaviorRuntime charge)
+        public EnemyBehaviorRuntimeSet(
+            EnemyChargeBehaviorRuntime charge,
+            EnemySummonBehaviorRuntime summon = null)
         {
             Charge = charge;
+            Summon = summon;
             Validate(nameof(EnemyBehaviorRuntimeSet));
         }
 
         public EnemyChargeBehaviorRuntime Charge { get; }
 
+        public EnemySummonBehaviorRuntime Summon { get; }
+
         public bool HasCharge => Charge != null;
+
+        public bool HasSummon => Summon != null;
 
         public bool TryGetCharge(out EnemyChargeBehaviorRuntime charge)
         {
@@ -1111,9 +1180,16 @@ namespace Game.Feature.Gameplay.Entities
             return charge != null;
         }
 
+        public bool TryGetSummon(out EnemySummonBehaviorRuntime summon)
+        {
+            summon = Summon;
+            return summon != null;
+        }
+
         public void Validate(string paramName)
         {
             Charge?.Validate(paramName);
+            Summon?.Validate(paramName);
         }
     }
 
