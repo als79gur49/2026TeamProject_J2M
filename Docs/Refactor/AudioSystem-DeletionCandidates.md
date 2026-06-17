@@ -10,6 +10,12 @@ Update note, 2026-06-16 KST:
 - The active `.wav`/source clips and active monster definition chains remain present.
 - Completed cleanup targets are historical evidence only and are no longer active deletion candidates.
 
+Update note, 2026-06-17 KST:
+
+- Product/content owner confirmed end-credit content is unused.
+- The owner-approved `World_EndCredit.ogg` cleanup removed `Assets/_Shared/Audio/Clips/Bgm/World_EndCredit.ogg` and its matching `.meta` file.
+- BGM runtime code, `BgmProfile`, `AudioDefinition`, stage metadata, `SceneBgmRequestSource`, and `BgmFlowCoordinator` were unchanged.
+
 Decision vocabulary:
 
 - `KEEP_CANONICAL`: current runtime, scene, prefab, or public contract path.
@@ -27,7 +33,7 @@ Count convention:
 
 - Counts exclude `.meta` files unless explicitly stated.
 - Definition/clip pairs are counted by asset file, not by logical pair.
-- `World_EndCredit.ogg` is technically unreferenced but deletion is blocked until product/content intent is confirmed.
+- `World_EndCredit.ogg` was technically unreferenced and is now removed after product/content owner confirmation.
 
 | Decision | Count | Notes |
 |---|---:|---|
@@ -37,8 +43,8 @@ Count convention:
 | DELETE_AFTER_TEST_UPDATE | 0 | Previous orphan definition targets were removed by the verified asset-only cleanup PR. |
 | REFACTOR_NOT_DELETE | 5 | Production `_Test` naming and stage BGM/scene BGM content naming cleanup. |
 | DEFER_DECISION | 5 | Optional/future enum members or content cues that are valid but not always emitted. |
-| BLOCKED_CONTENT_INTENT | 1 | `World_EndCredit.ogg`; requires content owner confirmation before deletion. |
-| COMPLETED_REMOVED | 4 | Verified orphan audio asset cleanup removed two `.m4a` clips and two orphan monster definitions. |
+| BLOCKED_CONTENT_INTENT | 0 | No active content-intent-blocked audio deletion candidates remain from this snapshot. |
+| COMPLETED_REMOVED | 5 | Verified orphan audio cleanup removed two `.m4a` clips, two orphan monster definitions, and owner-approved `World_EndCredit.ogg`. |
 
 ## Candidate Table
 
@@ -65,7 +71,7 @@ Count convention:
 | KEEP_CANONICAL | Enemy audio profiles under `Stages/.../Enemy/AudioProfiles` | Enemy presentation audio | Each profile serialized by enemy prefab; host has `EnemyAudioPresentationController`; tests load profiles and definitions. | enemy prefab refs | active host presentation | `EnemyAudioRuntimeTests` | High | Preserve. |
 | KEEP_CANONICAL | `UiAudioCueMap_V1` and all 18 `UiAudioCueId` entries | UI SFX | Cue map serialized in `MainMenuScene` and `UIAudioScene`; validation requires all enum values; runtime/tests call expanded cue set. | two scene refs | active UI flow/local/HUD/transition | `UiAudioSfxContractTests`, `UIFlowCoordinatorTests`, `MainMenuUiAudioFeedbackTests`, `UiScreenRuntimeAudioCueTests` | High | Preserve. |
 | KEEP_CANONICAL | `UiAudioPortAdapter`, `AudioSettingsPortAdapter`, `UIAudioChannelMapper`, `AudioSettingsLifecycleRelay` | UI audio/settings bridge | Runtime installers construct adapters; mapper policy is tested; lifecycle relay flushes pause/quit. These are architecture boundaries that keep UI.Application from directly depending on Shared runtime. | installer script refs in scenes | active UI composition | `AudioSettingsBridgeTests`, `MainMenuAudioSceneContractTests` | High | Preserve. |
-| BLOCKED_CONTENT_INTENT | `World_EndCredit.ogg` | AudioClip | GUID reverse lookup found only its `.meta`; no `AudioDefinition` references it; no path string refs found in scoped search. Name suggests end-credit content intent. | none | none | none | Medium | Requires content owner confirmation. Deletion is blocked; do not remove based on reference count alone. |
+| COMPLETED_REMOVED | `World_EndCredit.ogg` | AudioClip | Product/content owner confirmed end-credit content is unused. Pre-deletion GUID reverse lookup found only its `.meta`; no `AudioDefinition`, BGM profile, scene request source, stage metadata, or path string refs were found in scoped search. | removed | none | none | Low | Historical cleanup evidence only; BGM runtime/code/profile/stage metadata remained unchanged. |
 | DELETE_SAFE | `cre_Nebulus_dead.wav` | AudioClip | GUID reverse lookup found only `.meta`; `Nebulous_Death_Def` uses another clip; no path string refs found. | none | none | none | Low | Delete clip and `.meta`. |
 | DELETE_SAFE | `cre_bot_dead.wav`, `cre_bot_move.wav` | AudioClip | GUID reverse lookup found only `.meta`; SecBot definitions use current authored clips; no path refs found. | none | none | none | Low | Delete clips and `.meta`. |
 | DELETE_SAFE | `Sucked-into-the-Black-Hole-1_TTX041201_Test.wav` | AudioClip | GUID reverse lookup found only `.meta`; no definition references it; `_Test` name and no path refs. | none | none | none | Low | Delete clip and `.meta`. |

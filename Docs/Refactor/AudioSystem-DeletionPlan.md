@@ -16,6 +16,14 @@ Update note, 2026-06-16 KST:
 - The active `.wav`/source clips remain present: `Game_Clear.wav`, `Game_Over.wav`, `cre_Dr.saturn_act.wav`, and `cre_RocketFace_act_fix.wav`.
 - The active monster definition chains remain present: `DrSaturn_Move_Def` and `RocketFace_ChargeActiveLoop_Def`.
 
+Update note, 2026-06-17 KST:
+
+- Product/content owner confirmed end-credit content is unused.
+- The owner-approved `World_EndCredit.ogg` cleanup removed:
+  - `Assets/_Shared/Audio/Clips/Bgm/World_EndCredit.ogg`
+  - `Assets/_Shared/Audio/Clips/Bgm/World_EndCredit.ogg.meta`
+- BGM runtime code, `BgmProfile`, `AudioDefinition`, stage metadata, `SceneBgmRequestSource`, and `BgmFlowCoordinator` were unchanged.
+
 ## Preconditions
 
 Before any deletion PR:
@@ -48,9 +56,9 @@ Delete targets:
 - `Assets/_Shared/Audio/Clips/Sfx/Sucked-into-the-Black-Hole-1_TTX041201_Test.wav`
 - matching `.meta` files
 
-Blocked content-risk exclusion:
+Completed content-risk removal:
 
-- `Assets/_Shared/Audio/Clips/Bgm/World_EndCredit.ogg` is technically unreferenced, but deletion is blocked until product/content intent is confirmed. Do not remove it based on reference count alone.
+- `Assets/_Shared/Audio/Clips/Bgm/World_EndCredit.ogg` was technically unreferenced and is now removed after product/content owner confirmation that end-credit content is unused.
 
 Reason:
 
@@ -84,7 +92,7 @@ Risk:
 
 - Low compile risk.
 - Low runtime risk if GUID search remains empty.
-- Grade X content risk for `World_EndCredit.ogg`; get content-owner confirmation before any deletion PR.
+- `World_EndCredit.ogg` content risk is closed by owner-confirmed removal; future content-risk candidates still require owner confirmation before deletion.
 
 ## Step 2: Orphan Test Definition/Clip Pairs
 

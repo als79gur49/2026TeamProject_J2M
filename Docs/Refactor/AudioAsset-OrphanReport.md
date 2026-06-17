@@ -28,11 +28,11 @@ Count convention:
 
 - Counts exclude `.meta` files unless explicitly stated.
 - Definition/clip pairs are counted by asset file, not by logical pair.
-- `World_EndCredit.ogg` is technically unreferenced but deletion is blocked until product/content intent is confirmed.
+- `World_EndCredit.ogg` was technically unreferenced and is now removed after product/content owner confirmation.
 
 ## Completed Asset-Only Cleanup
 
-The verified orphan audio asset cleanup PR already removed these assets and their matching `.meta` files:
+The verified orphan audio asset cleanup PRs already removed these assets and their matching `.meta` files:
 
 | Asset Type | Path | GUID | Cleanup Status | Retained Chain |
 |---|---|---|---|---|
@@ -40,14 +40,14 @@ The verified orphan audio asset cleanup PR already removed these assets and thei
 | AudioClip | `Assets/_Shared/Audio/Clips/Sfx/Game_Over.m4a` | `80921e00888a84842ad438544913d583` | COMPLETED_REMOVED | `Game_Over.wav` remains present |
 | SingleAudioDefinition | `Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/DrSaturn_Act_Def.asset` | `5646112bb2e343d18745567c3ba5ec6a` | COMPLETED_REMOVED | `cre_Dr.saturn_act.wav` and `DrSaturn_Move_Def` remain present |
 | SingleAudioDefinition | `Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/RocketFace_Act_Def.asset` | `322ed63326e445de84998446805cbcbc` | COMPLETED_REMOVED | `cre_RocketFace_act_fix.wav` and `RocketFace_ChargeActiveLoop_Def` remain present |
+| AudioClip | `Assets/_Shared/Audio/Clips/Bgm/World_EndCredit.ogg` | `4d9cf3682b260774f9716cde2687fe8a` | COMPLETED_REMOVED after owner confirmation | BGM runtime/code/profile/stage metadata unchanged |
 
-These rows are historical cleanup evidence, not active deletion candidates. The completed definition removals must not be confused with the retained source clips or active monster definitions.
+These rows are historical cleanup evidence, not active deletion candidates. The completed definition removals must not be confused with the retained source clips or active monster definitions. The completed end-credit clip removal followed product/content owner confirmation that the content is unused.
 
 ## Orphan / Candidate Assets
 
 | Asset Type | Path | GUID | Referenced By | Clip/Definition/Binding Chain | Production/Test | Decision |
 |---|---|---|---|---|---|---|
-| AudioClip | `Assets/_Shared/Audio/Clips/Bgm/World_EndCredit.ogg` | `4d9cf3682b260774f9716cde2687fe8a` | no serialized refs beyond `.meta` | no `AudioDefinition` | Production name, unreferenced | BLOCKED_CONTENT_INTENT; requires content owner confirmation |
 | AudioClip | `Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_Nebulus_dead.wav` | `cc2f38d04e258b047ab5bb4f0bf836c0` | no serialized refs beyond `.meta` | no active definition uses this wav | Production name, unreferenced duplicate candidate | DELETE_SAFE |
 | AudioClip | `Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_bot_dead.wav` | `f7e6d9b2584b48d47b8b6a37306a17cd` | no serialized refs beyond `.meta` | no active definition | Production name, unreferenced duplicate candidate | DELETE_SAFE |
 | AudioClip | `Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_bot_move.wav` | `e392d668fea0e6346a1fb644e91e7e01` | no serialized refs beyond `.meta` | no active definition | Production name, unreferenced duplicate candidate | DELETE_SAFE |
