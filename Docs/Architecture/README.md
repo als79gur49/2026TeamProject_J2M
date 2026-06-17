@@ -53,19 +53,19 @@
 - [Enemy-AI-Shield-Summon-Utility-Audit.md](./Enemy-AI-Shield-Summon-Utility-Audit.md)
   - current supporting truth for Shield pre-design, Summon/Utility audit boundaries, and Phase 2 trigger classification
 - [Enemy-AI-Summon-Spawn-Seam-Implementation-Note.md](./Enemy-AI-Summon-Spawn-Seam-Implementation-Note.md)
-  - current supporting truth for Option C spawn/entity creation seam extraction for Utility Summon, where production Summon remains in the Utility capability lane and Option B runtime emission/migration remains future-only
+  - current supporting truth for Option C spawn/entity creation seam extraction for Utility Summon and the later test-local Behavior Summon runtime/emitter path, where production Summon remains in the Utility capability lane and production migration remains future-only
 - [Enemy-AI-Summon-Duplicate-Guard-Design.md](./Enemy-AI-Summon-Duplicate-Guard-Design.md)
   - current supporting truth for the implemented compile-skeleton guard that Behavior Summon must fail-fast when authored alongside existing Utility SummonMinion on the same Enemy AI profile
 - [Enemy-AI-Summon-Behavior-Runtime-State-Design.md](./Enemy-AI-Summon-Behavior-Runtime-State-Design.md)
-  - current supporting truth for the future Option B mutable Summon behavior runtime state/emitter shape, ownership boundaries, parity matrix, migration outline, and test plan after the compile-skeleton config exists
+  - current supporting truth for the implemented test-local Option B mutable Summon behavior runtime state/emitter shape, ownership boundaries, parity matrix, migration outline, and remaining production migration boundary
 - [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md)
   - current supporting truth for the future Option B Utility SummonMinion to Behavior Summon asset field mapping, migration order, residue policy, rollback strategy, and test matrix without migrating production assets
 - [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md)
-  - current supporting truth for future Option B replay trace, event log, determinism hash, export naming, and source metadata compatibility without changing runtime behavior or replay/export-visible names
+  - current supporting truth for Option B replay trace, event log, determinism hash, export naming, and source metadata compatibility while preserving replay/export-visible names
 - [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md)
-  - current supporting truth for future Option B Summon presentation signals, audio cues, VFX cues, view binding, visibility changes, baseline capture, and compatibility policy without changing runtime behavior or assets
+  - current supporting truth for Option B Summon presentation signals, audio cues, VFX cues, view binding, visibility changes, baseline capture, minimum test-local windup parity, and compatibility policy without changing assets
 - [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md)
-  - current supporting truth for Option B implementation slices, implemented compile-skeleton status, guard/test/migration order, validation gates, rollback strategy, and non-goal boundaries
+  - current supporting truth for Option B implementation slices, implemented compile-skeleton and test-local runtime/emitter status, guard/test/migration order, validation gates, rollback strategy, and non-goal boundaries
 - [Enemy-AI-Summon-Option-B-First-Code-Slice-Closeout.md](./Enemy-AI-Summon-Option-B-First-Code-Slice-Closeout.md)
   - current closeout report for the Summon Option B first code slice, recording compile-skeleton-only status, preserved contracts, scans, validation evidence, and future runtime state/emitter parity follow-up
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)

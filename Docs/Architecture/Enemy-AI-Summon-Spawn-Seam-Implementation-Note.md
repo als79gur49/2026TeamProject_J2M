@@ -4,6 +4,7 @@
 
 - Option C is implemented.
 - Utility Summon remains the trigger, timer, cooldown, windup, recovery, max-alive, and source-validation owner through `EnemyUtilityResolver` / `EnemyUtilityEffectState`.
+- Behavior Summon runtime/emitter parity is implemented for test-local Behavior Summon fixtures and joins this existing materialization seam by emitting id-free spawn requests.
 - Spawn/entity creation materialization is extracted behind `EntitySpawnRequest` and `EntitySpawnMaterializer`.
 - This is not a SummonBehaviorModule migration.
 - Full lane was not run.
@@ -19,7 +20,7 @@
 | Authoritative write | `FinalizationBatch.SpawnEntity` | unchanged |
 | Metadata | `SummonedEntityState` / `EnemyDefinitionBindingState` | unchanged |
 | Replay names | `SummonCommitted` / `SummonSkipped` | unchanged |
-| BehaviorModule | none | still none |
+| BehaviorModule | none at original Option C extraction | test-local Behavior Summon now emits requests into the same materialization seam; production Summon remains Utility-owned |
 
 ## 3. New Seam Contract
 
@@ -82,6 +83,16 @@ Review note: the previous Unity `.meta` trailing whitespace caveat was resolved 
 
 Full lane was not run. Therefore this note does not report broad project validation, full regression closure, or broad lane success.
 
+### Runtime/emitter parity slice validation
+
+| Lane | Command | Result |
+| --- | --- | --- |
+| Behavior Summon runtime/emitter | `./run_tests.sh --integration-simulation --filter BehaviorSummon` | Passed, 11 tests |
+| Utility Summon regression | `./run_tests.sh --integration-simulation --filter EnemyUtilitySummon_` | Passed, 12 tests |
+| Replay | `./run_tests.sh --integration-replay --filter UtilitySummon` | Passed, 2 tests |
+| Replay | `./run_tests.sh --integration-replay --filter UtilityArchetypeSummon` | Passed, 1 test |
+| Core | `./run_tests.sh core` | Passed, EditMode 189 + PlayMode 33 |
+
 ### Follow-up characterization / guard validation
 
 | Area | Evidence |
@@ -129,8 +140,8 @@ The following Option B prerequisite gates are now documented or characterized:
 
 Remaining before Option B implementation:
 
-- Runtime emission for Behavior Summon remains future work.
-- Add Behavior Summon request ordering, request snapshot, max-alive, source invalidation, topology participation, replay/export, and presentation/audio/VFX parity tests.
+- Runtime emission for test-local Behavior Summon path is implemented.
+- Behavior Summon request ordering, request snapshot, max-alive, source invalidation, topology participation, replay/export-name, hash, and minimum windup warning parity tests are implemented.
 - Add placement parity coverage for hazard risk fallback.
 - Add max-alive parity coverage after detached, dead, and non-occupying child states.
 - Add GravityFieldAura unaffected regression coverage.
@@ -152,4 +163,4 @@ Non-goals still in force:
 
 This extracts spawn/entity creation materialization from Utility Summon. It does not migrate Summon to BehaviorModule. Utility remains the trigger/timer owner. Entity ids are allocated only during materialization, after placement candidate selection succeeds, and `FinalizationBatch.SpawnEntity` remains the authoritative write path. Replay/export names are preserved. Targeted Summon/Utility/replay/core tests were previously recorded as passed. Full lane was not run.
 
-This document now also acts as the Option B readiness index for Summon migration planning. The duplicate guard and compile skeleton have started; runtime emission, production asset migration, replay/export migration, and presentation/audio/VFX parity migration remain future gated work.
+This document now also acts as the Option B readiness index for Summon migration planning. The duplicate guard, compile skeleton, and test-local runtime/emitter parity path are implemented. Production asset migration and full presentation/audio/VFX parity remain future gated work.

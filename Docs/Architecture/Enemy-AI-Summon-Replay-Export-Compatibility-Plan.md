@@ -4,10 +4,10 @@
 
 - This is a compatibility plan only.
 - Option B compile skeleton exists: `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and a fixed typed Summon runtime config slot are implemented.
-- No mutable Summon behavior state, runtime emission, replay/export migration, or production asset migration is implemented.
+- Mutable Summon behavior state and runtime emission are implemented for the test-local Behavior Summon path; production asset migration is not implemented.
 - Utility `SummonMinion` remains in the Utility capability lane.
 - Replay/export-visible names are not changed by this document.
-- Initial Option B should preserve external replay/export names.
+- Initial Option B preserves external replay/export names.
 - Neutral naming requires an explicit replay/export schema or version migration.
 - Full lane was not run for this plan.
 
@@ -95,7 +95,7 @@ Required tests:
 | Hash Section | Current Utility Summon Content | Future Behavior Summon Content | Policy | Risk | Required Test |
 | --- | --- | --- | --- | --- | --- |
 | `EnemyUtilities` | entity id, effect index, effect kind, cooldown, phase, windup start/end, active fields, active origin, recover start/end, activation sequence, movement suppression | None after migrated Summon state leaves Utility | Keep before Option B; remove Summon content only in the same reviewed migration that adds behavior state hash | Double-count or missing-count | `MigratedSummon_NoDoubleCountUtilityAndBehaviorState`. |
-| future Behavior Summon state section | None | equivalent cooldown, phase/timing, activation sequence, movement suppression, and captured source state needed for parity | Add only with baseline migration and replay/export review | Hash rename drift | `MigratedSummon_DeterminismHashParityAgainstUtilityBaseline`. |
+| `EnemySummonBehaviors` | None for Utility-owned production Summon | cooldown, phase/timing, activation sequence, and movement suppression for test-local Behavior Summon runtime state | Additive until production migration; Utility hash section remains unchanged | Hash rename drift | `BehaviorSummon_StateHashIncluded`. |
 | `SummonedEntities` | child entity id, source entity id, source effect index | Same | Preserve | Child tracking drift | `BehaviorSummon_SummonedEntitiesHashParity`. |
 | `EnemyDefinitionBindings` | child entity id, archetype id | Same | Preserve | Archetype binding drift | `BehaviorSummon_EnemyDefinitionBindingsHashParity`. |
 | `Entities` / final entities | spawned id, position, HP, team, facing, spawn tick, AI mode | Same | Preserve | Id allocation or placement drift | `BehaviorSummon_RequestOrderReplayParity`. |
@@ -203,4 +203,4 @@ Decision:
 - Option B implementation slicing and validation gates accepted; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy decided.
 
-Summon replay/export compatibility remains future gated work after the compile skeleton. Initial Option B preserves external replay/export names. Full lane was not run unless explicitly reported.
+Summon replay/export compatibility is implemented for the test-local Behavior Summon runtime/emitter path. `SummonCommitted`, `SummonSkipped`, `SummonedEntities`, `EnemyDefinitionBindings`, `Effect=`, and `SourceEffectIndex` names remain preserved. Production asset migration has not started, and full lane was not run unless explicitly reported.

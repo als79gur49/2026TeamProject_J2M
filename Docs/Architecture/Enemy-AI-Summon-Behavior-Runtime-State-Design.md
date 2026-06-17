@@ -8,7 +8,8 @@
 - Utility `SummonMinion` remains in the Utility capability lane until an explicit asset-scoped migration exists.
 - Future Summon behavior runtime owns timing, phase, cooldown, movement suppression, source capture, trigger eligibility, and request emission only.
 - The Spawn/EntityCreation seam remains the owner of placement, materialization, entity id allocation, entity construction, metadata creation, and `FinalizationBatch.SpawnEntity`.
-- Duplicate Utility Summon plus future Behavior Summon remains an Option B prerequisite guard.
+- Duplicate Utility Summon plus Behavior Summon remains an Option B compiler guard.
+- Mutable Behavior Summon runtime state/emitter is implemented for the test-local Behavior Summon path; production Summoner assets remain Utility-owned.
 - Full lane was not run for this design note.
 
 ## 2. Current Utility Summon State Inventory
@@ -304,7 +305,7 @@ Migration order:
 1. Accept runtime state design.
 2. Accept replay/export compatibility plan; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
 3. Implement compile skeleton, typed fixed slot, module asset, and duplicate guard with tests.
-4. Introduce future mutable Behavior Summon state and emitter while preserving the fixed typed slot.
+4. Introduce mutable Behavior Summon state and emitter while preserving the fixed typed slot. Status: implemented for test-local Behavior Summon path.
 5. Add runtime parity tests while Utility-only content remains valid.
 6. Run asset-scoped migration from Utility `SummonMinion` to future Behavior Summon after accepting [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
 7. Validate migrated profile has no Utility Summon residue.
@@ -349,7 +350,7 @@ Rollback strategy:
 ## 10. Explicit Non-Goals
 
 - No mutable Summon behavior runtime state or emitter.
-- No runtime summon request emission from Behavior Summon.
+- Runtime summon request emission from Behavior Summon is implemented for test-local Behavior Summon fixtures only.
 - No Utility `SummonMinion` asset or YAML migration.
 - No Utility whole-lane migration.
 - No `GravityFieldAura` changes.
@@ -373,4 +374,4 @@ Rollback strategy:
 - Option B implementation slicing and validation gates accepted; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy decided.
 
-BehaviorModule Summon compile skeleton exists. Mutable Summon runtime state, trigger emission, and production asset migration have not started. Full lane was not run unless explicitly reported.
+BehaviorModule Summon compile skeleton exists. Mutable Summon runtime state and trigger emission are implemented for the test-local Behavior Summon path. Production asset migration has not started, and full lane was not run unless explicitly reported.

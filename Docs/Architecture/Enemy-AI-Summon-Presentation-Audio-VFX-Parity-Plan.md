@@ -4,12 +4,12 @@
 
 - This is a presentation/audio/VFX parity plan only.
 - Option B compile skeleton exists: `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and a fixed typed Summon runtime config slot are implemented.
-- No mutable Summon behavior state, runtime emission, presentation/audio/VFX migration, or production asset migration is implemented.
+- Mutable Summon behavior state and runtime emission are implemented for the test-local Behavior Summon path, including minimum windup warning parity; full presentation/audio/VFX migration and production asset migration are not implemented.
 - Utility `SummonMinion` remains in the Utility capability lane.
 - Presentation/audio/VFX runtime behavior is not changed by this document.
 - Presentation prefabs, audio definitions, audio bindings, VFX assets, and production assets are not changed by this document.
 - Replay/export-visible names, `DeterminismHashBuilder`, `TickPipeline`, `EntitySpawnRequest`, and `EntitySpawnMaterializer` are not changed by this document.
-- Initial Option B should preserve current presentation/audio/VFX names and cue semantics.
+- Initial Option B preserves current presentation/audio/VFX names and cue semantics.
 - Neutral naming requires an explicit presentation/audio/VFX asset or schema migration.
 - Full lane was not run for this plan.
 
@@ -234,4 +234,4 @@ Decision:
 - Option B implementation slicing and validation gates accepted; see [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md).
 - Full lane / CI release gate policy decided.
 
-Summon presentation/audio/VFX parity remains future gated work after the compile skeleton. Initial Option B preserves current presentation/audio/VFX names and cue semantics. Full lane was not run unless explicitly reported.
+Minimum Behavior Summon windup warning parity is implemented for the test-local Behavior Summon runtime/emitter path. Presentation/audio/VFX names and assets remain preserved; full presentation/audio/VFX parity remains a future slice. Full lane was not run unless explicitly reported.

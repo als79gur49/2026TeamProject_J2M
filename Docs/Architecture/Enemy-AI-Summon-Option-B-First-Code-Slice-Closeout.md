@@ -7,7 +7,7 @@
 - Test code changed in this pass? no
 - Production assets changed? no
 - Compile skeleton implemented? yes
-- Runtime emitter implemented? no
+- Runtime emitter implemented? yes, in the follow-up test-local Behavior Summon runtime/emitter parity slice
 - Production migration started? no
 - Full lane run? no
 
@@ -103,9 +103,7 @@ Not run:
 
 ## 7. Non-Goals Still Preserved
 
-- no runtime emitter
 - no production migration
-- no TickPipeline behavior summon emission
 - no direct WorldState spawn write
 - no replay/export rename
 - no presentation/audio/VFX rename
@@ -113,9 +111,7 @@ Not run:
 
 ## 8. Follow-up
 
-- runtime state/emitter parity slice
-- replay/export parity tests
-- presentation/audio/VFX parity tests
+- full presentation/audio/VFX parity slice
 - asset-scoped migration later
 - full lane / CI release gate
 
@@ -123,4 +119,4 @@ Not run:
 
 Summon Option B first code slice is a compile-skeleton-only closeout. It adds the Behavior Summon key/config/asset compile path and duplicate Utility+Behavior guard while preserving Utility-owned production Summon, spawn materialization contracts, replay/export-visible names, and presentation/audio/VFX cue semantics. This closeout pass updates docs and records scans only; it does not change runtime C#, tests, production assets, YAML, replay/hash code, TickPipeline materialization, or presentation/audio/VFX assets.
 
-Summon Option B first code slice is closed out as compile skeleton only. Runtime summon emission and production asset migration have not started. Spawn/EntityCreation seam, replay/export names, and presentation/audio/VFX cue semantics remain preserved. Full lane was not run unless explicitly reported.
+Summon Option B first code slice is closed out as compile skeleton, and the follow-up test-local runtime/emitter parity slice is implemented. Production asset migration has not started. Spawn/EntityCreation seam, replay/export names, and presentation/audio/VFX cue semantics remain preserved. Full lane was not run unless explicitly reported.
