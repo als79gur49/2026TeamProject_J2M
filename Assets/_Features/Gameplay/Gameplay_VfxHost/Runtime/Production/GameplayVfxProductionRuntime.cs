@@ -102,6 +102,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private bool suppressLegacyDamageDeathVfxRequests;
         private GameplayStageTerminalPresentationReason stageTerminalSuppressionReason;
         private int topologyTransitionSuppressEpoch;
+        private int legacyDamageCueSuppressedCount;
+        private int legacyDeathCueSuppressedCount;
+        private int legacyDamageDeathUnrelatedCueRetainedCount;
+        private int lastLegacySuppressFilteredRequestCount;
         private const bool CanonicalMigratedGameplayVfxEnabled = true;
         private const float TopologyTransitionSoftSpawnDelaySeconds = 0.12f;
 
@@ -458,6 +462,14 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int TileFeatureHardCleanupCount { get; private set; }
 
+        public int LegacyDamageCueSuppressedCount => legacyDamageCueSuppressedCount;
+
+        public int LegacyDeathCueSuppressedCount => legacyDeathCueSuppressedCount;
+
+        public int LegacyDamageDeathUnrelatedCueRetainedCount => legacyDamageDeathUnrelatedCueRetainedCount;
+
+        public int LastLegacySuppressFilteredRequestCount => lastLegacySuppressFilteredRequestCount;
+
         public void ConfigureHostDefaultMap(VfxCueMapAsset cueMap)
         {
             if (hostDefaultCueMap == cueMap)
@@ -518,6 +530,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             suppressLegacyDamageDeathVfxRequests = false;
             stageTerminalSuppressionReason = GameplayStageTerminalPresentationReason.Unknown;
             topologyTransitionSuppressEpoch = 0;
+            legacyDamageCueSuppressedCount = 0;
+            legacyDeathCueSuppressedCount = 0;
+            legacyDamageDeathUnrelatedCueRetainedCount = 0;
+            lastLegacySuppressFilteredRequestCount = 0;
             flipDestroySelfMotionMissingBindingCount = 0;
             flipImpactStayTrailMissingBindingCount = 0;
             flipImpactStayTrailMissingOwnerViewCount = 0;
@@ -1016,6 +1032,10 @@ namespace Game.Feature.Gameplay.Vfx.Host
             suppressLegacyDamageDeathVfxRequests = false;
             stageTerminalSuppressionReason = GameplayStageTerminalPresentationReason.Unknown;
             topologyTransitionSuppressEpoch = 0;
+            legacyDamageCueSuppressedCount = 0;
+            legacyDeathCueSuppressedCount = 0;
+            legacyDamageDeathUnrelatedCueRetainedCount = 0;
+            lastLegacySuppressFilteredRequestCount = 0;
             motionFollowingVfxController.HardCleanup();
             forwardCellProjectileVfxController.HardCleanup(pool);
             RecordCleanup(GameplayVfxCleanupReason.ManualHardCleanup, GameplayVfxCleanupScope.AllFamilies);
@@ -1480,20 +1500,45 @@ namespace Game.Feature.Gameplay.Vfx.Host
             }
 
             var filteredRequests = new List<GameplayVfxRequest>(plan.Requests.Count);
+            var filteredSuppressedCount = 0;
             for (var i = 0; i < plan.Requests.Count; i++)
             {
                 var request = plan.Requests[i];
+                if (suppressDamageDeathRequests && IsDamageDeathVfxExecutorOwnedCue(request.CueId))
+                {
+                    RecordLegacyDamageDeathSuppressedCue(request.CueId);
+                    filteredSuppressedCount++;
+                    continue;
+                }
+
                 if (IsCueEnabled(request.CueId) &&
-                    !(suppressDamageDeathRequests && IsDamageDeathVfxExecutorOwnedCue(request.CueId)) &&
                     !IsParameterizedCommandOwnedCue(request.CueId))
                 {
                     filteredRequests.Add(request);
+                    if (suppressDamageDeathRequests)
+                    {
+                        legacyDamageDeathUnrelatedCueRetainedCount++;
+                    }
                 }
             }
+
+            lastLegacySuppressFilteredRequestCount = filteredSuppressedCount;
 
             return filteredRequests.Count == 0
                 ? GameplayVfxRequestPlan.Empty
                 : new GameplayVfxRequestPlan(filteredRequests);
+        }
+
+        private void RecordLegacyDamageDeathSuppressedCue(GameplayVfxCueId cueId)
+        {
+            if (cueId == GameplayVfxCueId.From(EnemyVfxCue.Damage))
+            {
+                legacyDamageCueSuppressedCount++;
+            }
+            else if (cueId == GameplayVfxCueId.From(EnemyVfxCue.Death))
+            {
+                legacyDeathCueSuppressedCount++;
+            }
         }
 
         private static bool ShouldSuppressLegacyDamageDeathVfxRequests(

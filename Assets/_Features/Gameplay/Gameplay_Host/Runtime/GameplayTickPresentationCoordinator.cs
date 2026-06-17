@@ -1414,6 +1414,7 @@ namespace Game.Feature.Gameplay.Host
                     _damageDeathVfxPlaybackPort,
                     _damageDeathVfxExecutionGuard);
                 _damageDeathVfxExecutionPipeline?.Present(result);
+                ApplyDamageDeathVfxPlannerSuppressionDiagnostics();
                 return;
             }
 
@@ -2609,6 +2610,31 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return default;
+        }
+
+        private void ApplyDamageDeathVfxPlannerSuppressionDiagnostics()
+        {
+            if (_damageDeathVfxExecutionPipeline?.LastCueFrame == null)
+            {
+                return;
+            }
+
+            var suppressedByDeath = _damageDeathVfxExecutionPipeline.LastCueFrame
+                .Diagnostics
+                .DamageHitSuppressedByEnemyDeathCount;
+            if (suppressedByDeath <= 0)
+            {
+                return;
+            }
+
+            var executors = _damageDeathVfxExecutionPipeline.Executors;
+            for (var i = 0; i < executors.Count; i++)
+            {
+                if (executors[i] is GameplayVfxPresentationExecutor executor)
+                {
+                    executor.RecordSameTickDamageHitSuppressedByDeath(suppressedByDeath);
+                }
+            }
         }
 
         private GameplayMotionExecutorDiagnostics ResolveBoxMotionExecutorDiagnostics()

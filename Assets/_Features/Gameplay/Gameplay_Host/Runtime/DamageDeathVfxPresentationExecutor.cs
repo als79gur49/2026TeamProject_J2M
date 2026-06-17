@@ -33,6 +33,18 @@ namespace Game.Feature.Gameplay.Host
         LegacyOwnerActive = 6,
     }
 
+    internal enum DamageDeathVfxSuppressionReason
+    {
+        None = 0,
+        LegacyOwnerSkippedByPolicy = 1,
+        Duplicate = 2,
+        SameTickDamageHitSuppressedByDeath = 3,
+        TargetMissing = 4,
+        AnchorMissing = 5,
+        BindingMissing = 6,
+        PortMissing = 7,
+    }
+
     internal readonly struct DamageDeathVfxPlaybackKey : IEquatable<DamageDeathVfxPlaybackKey>
     {
         public DamageDeathVfxPlaybackKey(
@@ -326,6 +338,9 @@ namespace Game.Feature.Gameplay.Host
 
     internal readonly struct GameplayVfxExecutorDiagnostics
     {
+        private static readonly IReadOnlyList<DamageDeathVfxSemanticDiagnostics> EmptySemanticDiagnostics =
+            Array.Empty<DamageDeathVfxSemanticDiagnostics>();
+
         public GameplayVfxExecutorDiagnostics(
             int observedCueCount,
             int legacyOwnerNoOpCount,
@@ -336,7 +351,65 @@ namespace Game.Feature.Gameplay.Host
             int playbackRequestedCount,
             int playbackSucceededCount,
             int missingPortCount)
+            : this(
+                DamageDeathVfxExecutionMode.LegacyExtension,
+                false,
+                legacyOwnerNoOpCount,
+                observedCueCount,
+                legacyOwnerNoOpCount,
+                targetMissingCount,
+                anchorMissingCount,
+                bindingMissingCount,
+                duplicateSuppressedCount,
+                playbackRequestedCount,
+                playbackSucceededCount,
+                missingPortCount,
+                damageCuePlannedCount: 0,
+                deathCuePlannedCount: 0,
+                damagePlaybackRequestedCount: 0,
+                deathPlaybackRequestedCount: 0,
+                sameTickDamageHitSuppressedByDeathCount: 0,
+                cleanupRequestedCount: 0,
+                cleanupSucceededCount: 0,
+                lastTickIndex: 0,
+                lastCueKey: PresentationVfxCueKey.None,
+                lastTargetEntityId: 0,
+                lastSuppressionReason: DamageDeathVfxSuppressionReason.None,
+                semanticDiagnostics: EmptySemanticDiagnostics)
         {
+        }
+
+        public GameplayVfxExecutorDiagnostics(
+            DamageDeathVfxExecutionMode currentMode,
+            bool isProductionDefaultOwner,
+            int legacyOwnerSkippedByPolicyCount,
+            int observedCueCount,
+            int legacyOwnerNoOpCount,
+            int targetMissingCount,
+            int anchorMissingCount,
+            int bindingMissingCount,
+            int duplicateSuppressedCount,
+            int playbackRequestedCount,
+            int playbackSucceededCount,
+            int missingPortCount,
+            int damageCuePlannedCount,
+            int deathCuePlannedCount,
+            int damagePlaybackRequestedCount,
+            int deathPlaybackRequestedCount,
+            int sameTickDamageHitSuppressedByDeathCount,
+            int cleanupRequestedCount,
+            int cleanupSucceededCount,
+            int lastTickIndex,
+            PresentationVfxCueKey lastCueKey,
+            int lastTargetEntityId,
+            DamageDeathVfxSuppressionReason lastSuppressionReason,
+            IReadOnlyList<DamageDeathVfxSemanticDiagnostics> semanticDiagnostics)
+        {
+            CurrentMode = Enum.IsDefined(typeof(DamageDeathVfxExecutionMode), currentMode)
+                ? currentMode
+                : DamageDeathVfxExecutionMode.LegacyExtension;
+            IsProductionDefaultOwner = isProductionDefaultOwner;
+            LegacyOwnerSkippedByPolicyCount = Math.Max(0, legacyOwnerSkippedByPolicyCount);
             ObservedCueCount = Math.Max(0, observedCueCount);
             LegacyOwnerNoOpCount = Math.Max(0, legacyOwnerNoOpCount);
             TargetMissingCount = Math.Max(0, targetMissingCount);
@@ -346,7 +419,26 @@ namespace Game.Feature.Gameplay.Host
             PlaybackRequestedCount = Math.Max(0, playbackRequestedCount);
             PlaybackSucceededCount = Math.Max(0, playbackSucceededCount);
             MissingPortCount = Math.Max(0, missingPortCount);
+            PortMissingCount = MissingPortCount;
+            DamageCuePlannedCount = Math.Max(0, damageCuePlannedCount);
+            DeathCuePlannedCount = Math.Max(0, deathCuePlannedCount);
+            DamagePlaybackRequestedCount = Math.Max(0, damagePlaybackRequestedCount);
+            DeathPlaybackRequestedCount = Math.Max(0, deathPlaybackRequestedCount);
+            SameTickDamageHitSuppressedByDeathCount = Math.Max(0, sameTickDamageHitSuppressedByDeathCount);
+            CleanupRequestedCount = Math.Max(0, cleanupRequestedCount);
+            CleanupSucceededCount = Math.Max(0, cleanupSucceededCount);
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastCueKey = lastCueKey;
+            LastTargetEntityId = Math.Max(0, lastTargetEntityId);
+            LastSuppressionReason = lastSuppressionReason;
+            SemanticDiagnostics = semanticDiagnostics ?? EmptySemanticDiagnostics;
         }
+
+        public DamageDeathVfxExecutionMode CurrentMode { get; }
+
+        public bool IsProductionDefaultOwner { get; }
+
+        public int LegacyOwnerSkippedByPolicyCount { get; }
 
         public int ObservedCueCount { get; }
 
@@ -365,6 +457,95 @@ namespace Game.Feature.Gameplay.Host
         public int PlaybackSucceededCount { get; }
 
         public int MissingPortCount { get; }
+
+        public int PortMissingCount { get; }
+
+        public int DamageCuePlannedCount { get; }
+
+        public int DeathCuePlannedCount { get; }
+
+        public int DamagePlaybackRequestedCount { get; }
+
+        public int DeathPlaybackRequestedCount { get; }
+
+        public int SameTickDamageHitSuppressedByDeathCount { get; }
+
+        public int CleanupRequestedCount { get; }
+
+        public int CleanupSucceededCount { get; }
+
+        public int LastTickIndex { get; }
+
+        public PresentationVfxCueKey LastCueKey { get; }
+
+        public int LastTargetEntityId { get; }
+
+        public DamageDeathVfxSuppressionReason LastSuppressionReason { get; }
+
+        public IReadOnlyList<DamageDeathVfxSemanticDiagnostics> SemanticDiagnostics { get; }
+    }
+
+    internal readonly struct DamageDeathVfxSemanticDiagnostics
+    {
+        public DamageDeathVfxSemanticDiagnostics(
+            PresentationVfxCueKey cueKey,
+            int plannedCount,
+            int requestedCount,
+            int succeededCount,
+            int duplicateSuppressedCount,
+            int lastDedupeKey,
+            int lastTargetEntityId,
+            PresentationAnchorKind lastAnchorKind)
+        {
+            CueKey = cueKey;
+            PlannedCount = Math.Max(0, plannedCount);
+            RequestedCount = Math.Max(0, requestedCount);
+            SucceededCount = Math.Max(0, succeededCount);
+            DuplicateSuppressedCount = Math.Max(0, duplicateSuppressedCount);
+            LastDedupeKey = Math.Max(0, lastDedupeKey);
+            LastTargetEntityId = Math.Max(0, lastTargetEntityId);
+            LastAnchorKind = lastAnchorKind;
+        }
+
+        public PresentationVfxCueKey CueKey { get; }
+
+        public int PlannedCount { get; }
+
+        public int RequestedCount { get; }
+
+        public int SucceededCount { get; }
+
+        public int DuplicateSuppressedCount { get; }
+
+        public int LastDedupeKey { get; }
+
+        public int LastTargetEntityId { get; }
+
+        public PresentationAnchorKind LastAnchorKind { get; }
+    }
+
+    internal sealed class DamageDeathVfxSemanticTelemetryCounter
+    {
+        public int PlannedCount;
+        public int RequestedCount;
+        public int SucceededCount;
+        public int DuplicateSuppressedCount;
+        public int LastDedupeKey;
+        public int LastTargetEntityId;
+        public PresentationAnchorKind LastAnchorKind;
+
+        public DamageDeathVfxSemanticDiagnostics ToDiagnostics(PresentationVfxCueKey cueKey)
+        {
+            return new DamageDeathVfxSemanticDiagnostics(
+                cueKey,
+                PlannedCount,
+                RequestedCount,
+                SucceededCount,
+                DuplicateSuppressedCount,
+                LastDedupeKey,
+                LastTargetEntityId,
+                LastAnchorKind);
+        }
     }
 
     internal interface IDamageDeathVfxPlaybackPort
@@ -437,7 +618,29 @@ namespace Game.Feature.Gameplay.Host
         private readonly IDamageDeathVfxPlaybackPort _playbackPort;
         private readonly DamageDeathVfxExecutionMode _mode;
         private readonly DamageDeathVfxExecutionGuard _executionGuard;
+        private readonly Dictionary<PresentationVfxCueKey, DamageDeathVfxSemanticTelemetryCounter> _semanticCounters =
+            new();
         private bool _hasRoutedRequest;
+        private int _observedCueCount;
+        private int _legacyOwnerNoOpCount;
+        private int _targetMissingCount;
+        private int _anchorMissingCount;
+        private int _bindingMissingCount;
+        private int _duplicateSuppressedCount;
+        private int _playbackRequestedCount;
+        private int _playbackSucceededCount;
+        private int _missingPortCount;
+        private int _damageCuePlannedCount;
+        private int _deathCuePlannedCount;
+        private int _damagePlaybackRequestedCount;
+        private int _deathPlaybackRequestedCount;
+        private int _sameTickDamageHitSuppressedByDeathCount;
+        private int _cleanupRequestedCount;
+        private int _cleanupSucceededCount;
+        private int _lastTickIndex;
+        private PresentationVfxCueKey _lastCueKey;
+        private int _lastTargetEntityId;
+        private DamageDeathVfxSuppressionReason _lastSuppressionReason;
 
         public GameplayVfxPresentationExecutor(
             IDamageDeathVfxPlaybackPort playbackPort = null,
@@ -450,6 +653,18 @@ namespace Game.Feature.Gameplay.Host
         }
 
         public GameplayVfxExecutorDiagnostics Diagnostics { get; private set; }
+
+        public void RecordSameTickDamageHitSuppressedByDeath(int count)
+        {
+            if (count <= 0)
+            {
+                return;
+            }
+
+            _sameTickDamageHitSuppressedByDeathCount += count;
+            _lastSuppressionReason = DamageDeathVfxSuppressionReason.SameTickDamageHitSuppressedByDeath;
+            RefreshDiagnostics();
+        }
 
         public void Prepare(PresentationPlaybackPlan plan)
         {
@@ -485,9 +700,20 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 observedCueCount++;
+                if (cue.Key.TryGetVfxCueKey(out var observedCueKey))
+                {
+                    RecordPlannedCue(
+                        observedCueKey,
+                        plan.Cues[i].Policy.DedupeKey,
+                        cue.Source.TickIndex,
+                        cue.Target.EntityId,
+                        cue.Anchor.Kind);
+                }
+
                 if (_mode != DamageDeathVfxExecutionMode.OrchestrationExecutor)
                 {
                     legacyOwnerNoOpCount++;
+                    _lastSuppressionReason = DamageDeathVfxSuppressionReason.LegacyOwnerSkippedByPolicy;
                     continue;
                 }
 
@@ -496,10 +722,17 @@ namespace Game.Feature.Gameplay.Host
                     if (missingKind == GameplayVfxPlaybackResultKind.TargetMissing)
                     {
                         targetMissingCount++;
+                        _lastSuppressionReason = DamageDeathVfxSuppressionReason.TargetMissing;
+                    }
+                    else if (missingKind == GameplayVfxPlaybackResultKind.BindingMissing)
+                    {
+                        bindingMissingCount++;
+                        _lastSuppressionReason = DamageDeathVfxSuppressionReason.BindingMissing;
                     }
                     else
                     {
                         anchorMissingCount++;
+                        _lastSuppressionReason = DamageDeathVfxSuppressionReason.AnchorMissing;
                     }
 
                     continue;
@@ -512,10 +745,13 @@ namespace Game.Feature.Gameplay.Host
                     if (duplicateAfter > duplicateBefore)
                     {
                         duplicateSuppressedCount++;
+                        GetOrCreateSemanticCounter(request.CueKey).DuplicateSuppressedCount++;
+                        _lastSuppressionReason = DamageDeathVfxSuppressionReason.Duplicate;
                     }
                     else
                     {
                         legacyOwnerNoOpCount++;
+                        _lastSuppressionReason = DamageDeathVfxSuppressionReason.LegacyOwnerSkippedByPolicy;
                     }
 
                     continue;
@@ -524,42 +760,49 @@ namespace Game.Feature.Gameplay.Host
                 if (_playbackPort == null)
                 {
                     missingPortCount++;
+                    _lastSuppressionReason = DamageDeathVfxSuppressionReason.PortMissing;
                     continue;
                 }
 
                 playbackRequestedCount++;
+                RecordRequestedCue(request.CueKey);
                 _hasRoutedRequest = true;
                 _playbackPort.TryPlayDamageDeathVfx(request, out var result);
                 switch (result.Kind)
                 {
                     case GameplayVfxPlaybackResultKind.Succeeded:
                         playbackSucceededCount++;
+                        GetOrCreateSemanticCounter(request.CueKey).SucceededCount++;
                         break;
                     case GameplayVfxPlaybackResultKind.BindingMissing:
                         bindingMissingCount++;
+                        _lastSuppressionReason = DamageDeathVfxSuppressionReason.BindingMissing;
                         break;
                     case GameplayVfxPlaybackResultKind.AnchorMissing:
                         anchorMissingCount++;
+                        _lastSuppressionReason = DamageDeathVfxSuppressionReason.AnchorMissing;
                         break;
                     case GameplayVfxPlaybackResultKind.TargetMissing:
                         targetMissingCount++;
+                        _lastSuppressionReason = DamageDeathVfxSuppressionReason.TargetMissing;
                         break;
                     case GameplayVfxPlaybackResultKind.LegacyOwnerActive:
                         legacyOwnerNoOpCount++;
+                        _lastSuppressionReason = DamageDeathVfxSuppressionReason.LegacyOwnerSkippedByPolicy;
                         break;
                 }
             }
 
-            Diagnostics = new GameplayVfxExecutorDiagnostics(
-                observedCueCount,
-                legacyOwnerNoOpCount,
-                targetMissingCount,
-                anchorMissingCount,
-                bindingMissingCount,
-                duplicateSuppressedCount,
-                playbackRequestedCount,
-                playbackSucceededCount,
-                missingPortCount);
+            _observedCueCount += observedCueCount;
+            _legacyOwnerNoOpCount += legacyOwnerNoOpCount;
+            _targetMissingCount += targetMissingCount;
+            _anchorMissingCount += anchorMissingCount;
+            _bindingMissingCount += bindingMissingCount;
+            _duplicateSuppressedCount += duplicateSuppressedCount;
+            _playbackRequestedCount += playbackRequestedCount;
+            _playbackSucceededCount += playbackSucceededCount;
+            _missingPortCount += missingPortCount;
+            RefreshDiagnostics();
         }
 
         public void Update(float deltaTime)
@@ -579,23 +822,29 @@ namespace Game.Feature.Gameplay.Host
         public void ResetSession()
         {
             _hasRoutedRequest = false;
-            Diagnostics = default;
+            ClearTelemetry();
             _executionGuard?.ResetSession();
             if (_mode == DamageDeathVfxExecutionMode.OrchestrationExecutor)
             {
+                _cleanupRequestedCount++;
                 _playbackPort?.ResetSession();
+                _cleanupSucceededCount++;
             }
+            RefreshDiagnostics();
         }
 
         public void HardCleanup()
         {
             _hasRoutedRequest = false;
-            Diagnostics = default;
+            ClearTelemetry();
             _executionGuard?.ResetSession();
             if (_mode == DamageDeathVfxExecutionMode.OrchestrationExecutor)
             {
+                _cleanupRequestedCount++;
                 _playbackPort?.HardCleanup();
+                _cleanupSucceededCount++;
             }
+            RefreshDiagnostics();
         }
 
         private bool TryClaimExecution(in DamageDeathVfxPlaybackKey key)
@@ -616,6 +865,132 @@ namespace Game.Feature.Gameplay.Host
                    cue.Key.TryGetVfxCueKey(out var cueKey) &&
                    (cueKey == PresentationVfxCueKey.DamageHit ||
                     cueKey == PresentationVfxCueKey.EnemyDeath);
+        }
+
+        private void RecordPlannedCue(
+            PresentationVfxCueKey cueKey,
+            int dedupeKey,
+            int tickIndex,
+            int targetEntityId,
+            PresentationAnchorKind anchorKind)
+        {
+            var counter = GetOrCreateSemanticCounter(cueKey);
+            counter.PlannedCount++;
+            counter.LastDedupeKey = dedupeKey;
+            counter.LastTargetEntityId = Math.Max(0, targetEntityId);
+            counter.LastAnchorKind = anchorKind;
+            _lastTickIndex = Math.Max(0, tickIndex);
+            _lastCueKey = cueKey;
+            _lastTargetEntityId = Math.Max(0, targetEntityId);
+            if (cueKey == PresentationVfxCueKey.DamageHit)
+            {
+                _damageCuePlannedCount++;
+            }
+            else if (cueKey == PresentationVfxCueKey.EnemyDeath)
+            {
+                _deathCuePlannedCount++;
+            }
+        }
+
+        private void RecordRequestedCue(PresentationVfxCueKey cueKey)
+        {
+            var counter = GetOrCreateSemanticCounter(cueKey);
+            counter.RequestedCount++;
+            if (cueKey == PresentationVfxCueKey.DamageHit)
+            {
+                _damagePlaybackRequestedCount++;
+            }
+            else if (cueKey == PresentationVfxCueKey.EnemyDeath)
+            {
+                _deathPlaybackRequestedCount++;
+            }
+        }
+
+        private DamageDeathVfxSemanticTelemetryCounter GetOrCreateSemanticCounter(PresentationVfxCueKey cueKey)
+        {
+            if (!_semanticCounters.TryGetValue(cueKey, out var counter))
+            {
+                counter = new DamageDeathVfxSemanticTelemetryCounter();
+                _semanticCounters.Add(cueKey, counter);
+            }
+
+            return counter;
+        }
+
+        private void RefreshDiagnostics()
+        {
+            Diagnostics = new GameplayVfxExecutorDiagnostics(
+                currentMode: _mode,
+                isProductionDefaultOwner: _mode == DamageDeathVfxExecutionMode.OrchestrationExecutor,
+                legacyOwnerSkippedByPolicyCount: _executionGuard?.Diagnostics.SkippedLegacyBecauseExecutorOwnerCount ?? 0,
+                observedCueCount: _observedCueCount,
+                legacyOwnerNoOpCount: _legacyOwnerNoOpCount,
+                targetMissingCount: _targetMissingCount,
+                anchorMissingCount: _anchorMissingCount,
+                bindingMissingCount: _bindingMissingCount,
+                duplicateSuppressedCount: _duplicateSuppressedCount,
+                playbackRequestedCount: _playbackRequestedCount,
+                playbackSucceededCount: _playbackSucceededCount,
+                missingPortCount: _missingPortCount,
+                damageCuePlannedCount: _damageCuePlannedCount,
+                deathCuePlannedCount: _deathCuePlannedCount,
+                damagePlaybackRequestedCount: _damagePlaybackRequestedCount,
+                deathPlaybackRequestedCount: _deathPlaybackRequestedCount,
+                sameTickDamageHitSuppressedByDeathCount: _sameTickDamageHitSuppressedByDeathCount,
+                cleanupRequestedCount: _cleanupRequestedCount,
+                cleanupSucceededCount: _cleanupSucceededCount,
+                lastTickIndex: _lastTickIndex,
+                lastCueKey: _lastCueKey,
+                lastTargetEntityId: _lastTargetEntityId,
+                lastSuppressionReason: _lastSuppressionReason,
+                semanticDiagnostics: BuildSemanticDiagnostics());
+        }
+
+        private IReadOnlyList<DamageDeathVfxSemanticDiagnostics> BuildSemanticDiagnostics()
+        {
+            if (_semanticCounters.Count == 0)
+            {
+                return Array.Empty<DamageDeathVfxSemanticDiagnostics>();
+            }
+
+            var diagnostics = new List<DamageDeathVfxSemanticDiagnostics>(_semanticCounters.Count);
+            if (_semanticCounters.TryGetValue(PresentationVfxCueKey.DamageHit, out var damage))
+            {
+                diagnostics.Add(damage.ToDiagnostics(PresentationVfxCueKey.DamageHit));
+            }
+
+            if (_semanticCounters.TryGetValue(PresentationVfxCueKey.EnemyDeath, out var death))
+            {
+                diagnostics.Add(death.ToDiagnostics(PresentationVfxCueKey.EnemyDeath));
+            }
+
+            return diagnostics;
+        }
+
+        private void ClearTelemetry()
+        {
+            _semanticCounters.Clear();
+            _observedCueCount = 0;
+            _legacyOwnerNoOpCount = 0;
+            _targetMissingCount = 0;
+            _anchorMissingCount = 0;
+            _bindingMissingCount = 0;
+            _duplicateSuppressedCount = 0;
+            _playbackRequestedCount = 0;
+            _playbackSucceededCount = 0;
+            _missingPortCount = 0;
+            _damageCuePlannedCount = 0;
+            _deathCuePlannedCount = 0;
+            _damagePlaybackRequestedCount = 0;
+            _deathPlaybackRequestedCount = 0;
+            _sameTickDamageHitSuppressedByDeathCount = 0;
+            _cleanupRequestedCount = 0;
+            _cleanupSucceededCount = 0;
+            _lastTickIndex = 0;
+            _lastCueKey = PresentationVfxCueKey.None;
+            _lastTargetEntityId = 0;
+            _lastSuppressionReason = DamageDeathVfxSuppressionReason.None;
+            Diagnostics = default;
         }
 
         private static bool TryCreateRequest(
