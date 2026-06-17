@@ -124,14 +124,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "OrchestrationSfxBridgeExecutor",
                 false,
                 true,
-                "CoreSfx_DefaultOrchestration_DoesNotDuplicateLegacyPlayback",
-                "Determinism_NonContamination_AfterCoreSfxDefaultSwitch",
+                "CoreSfx_DefaultOrchestration_TelemetryReportsProductionOwner",
+                "CoreSfx_ProductionTelemetry_IsNonAuthoritative",
                 "CoreGameplaySfx_ResetSessionHardCleanupAndPresentInitial_ClearExecutorPortAndGuardState",
-                "AudioOwnership_RemainsSeparatedAfterCoreSfxSwitch",
+                "AudioOwnership_AfterCoreSfxTelemetry_RemainsSeparated",
                 "Low: non-blocking one-shot.",
                 "Medium: audio ownership must stay separated.",
                 "Set CoreGameplaySfxExecutionMode.LegacyGameplayAudioController.",
-                ProductionSwitchRecommendedStatus.ProductionDefaultOn),
+                ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened),
             new(
                 "Action audio",
                 typeof(ActionAudioExecutionMode),
@@ -343,7 +343,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void AudioOwnership_RemainsSeparatedAfterCoreSfxSwitch()
+        public void AudioOwnership_AfterCoreSfxTelemetry_RemainsSeparated()
         {
             var coreSfxExecutor = ReadRepoFile($"{HostRuntimeDirectory}/GameplaySfxPresentationExecutor.cs");
             var actionAudioExecutor = ReadRepoFile($"{HostRuntimeDirectory}/GameplayActionAudioPresentationExecutor.cs");
@@ -396,6 +396,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "GameplayAnimationExecutorDiagnostics",
                 "GameplayEnemyPresentationExecutorDiagnostics",
                 "GameplaySfxExecutorDiagnostics",
+                "GameplaySfxSemanticDiagnostics",
+                "GameplaySfxPlaybackAdapterDiagnostics",
+                "GameplaySfxFallbackReason",
                 "GameplayActionAudioExecutorDiagnostics",
                 "GameplayEnemyAudioExecutorDiagnostics",
                 "TopologyPresentationExecutionMode",
@@ -418,20 +421,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ReadinessMatrix_ReflectsCoreSfxProductionSwitch()
+        public void ProductionSwitchReadiness_ReflectsCoreSfxTelemetryHardening()
         {
             var coreSfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode));
 
             Assert.That(coreSfx.CurrentDefault, Is.EqualTo(coreSfx.OrchestrationOwner));
             Assert.That(coreSfx.DefaultIsLegacy, Is.False);
             Assert.That(coreSfx.InvalidModeNormalizesToLegacy, Is.True);
-            Assert.That(coreSfx.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOn));
+            Assert.That(coreSfx.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened));
 
             foreach (var row in ReadinessMatrix.Where(row => row.ExecutionModeType != typeof(CoreGameplaySfxExecutionMode)))
             {
                 Assert.That(row.CurrentDefault, Is.EqualTo(row.LegacyOwner), row.Domain);
                 Assert.That(row.DefaultIsLegacy, Is.True, row.Domain);
                 Assert.That(row.RecommendedStatus, Is.Not.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOn), row.Domain);
+                Assert.That(row.RecommendedStatus, Is.Not.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened), row.Domain);
             }
         }
 
@@ -558,6 +562,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             NeedsMoreCoverage = 2,
             DoNotSwitchYet = 3,
             ProductionDefaultOn = 4,
+            ProductionDefaultOnTelemetryHardened = 5,
         }
 
         private sealed class ProductionSwitchReadinessRow
