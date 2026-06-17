@@ -32,6 +32,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
             var objectiveCount = 0;
             var stageCount = 0;
             var enemyPresentationCount = 0;
+            var actionAudioCount = 0;
 
             for (var i = 0; i < presentationData.EntityMotions.Count; i++)
             {
@@ -148,6 +149,28 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     new PresentationFactPayload(
                         primaryValue: (int)signal.ResolutionKind,
                         secondaryValue: signal.TargetEntityId)));
+
+                if (TryCreateActionAudioPayload(
+                        signal,
+                        tickIndex,
+                        out var actionAudioPayload))
+                {
+                    facts.Add(new PresentationFact(
+                        PresentationFactKind.ActionAudio,
+                        new PresentationSource(
+                            tickIndex,
+                            PresentationSemanticSource.PlayerActionAudio,
+                            signal.EntityId,
+                            (int)actionAudioPayload.ActionKind,
+                            actionAudioPayload.SourceSequenceId),
+                        PresentationTarget.Entity(signal.EntityId),
+                        new PresentationFactPayload(
+                            primaryValue: (int)actionAudioPayload.Moment,
+                            secondaryValue: actionAudioPayload.TargetEntityId,
+                            tertiaryValue: (int)actionAudioPayload.OutcomeKind),
+                        actionAudioPayload: actionAudioPayload));
+                    actionAudioCount++;
+                }
             }
 
             AddPlayerActionAnimationFacts(
@@ -169,6 +192,29 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     new PresentationFactPayload(
                         primaryValue: (int)signal.FeedbackKind,
                         secondaryValue: signal.EmitsVisualFeedback ? 1 : 0)));
+
+                if (TryCreateActionAudioPayload(
+                        signal,
+                        tickIndex,
+                        i + 1,
+                        out var actionAudioPayload))
+                {
+                    facts.Add(new PresentationFact(
+                        PresentationFactKind.ActionAudio,
+                        new PresentationSource(
+                            tickIndex,
+                            PresentationSemanticSource.PlayerActionAttemptAudio,
+                            signal.EntityId,
+                            (int)actionAudioPayload.ActionKind,
+                            actionAudioPayload.SourceSequenceId),
+                        PresentationTarget.Entity(signal.EntityId),
+                        new PresentationFactPayload(
+                            primaryValue: (int)actionAudioPayload.Moment,
+                            secondaryValue: actionAudioPayload.TargetEntityId,
+                            tertiaryValue: actionAudioPayload.SourceFeedbackKind),
+                        actionAudioPayload: actionAudioPayload));
+                    actionAudioCount++;
+                }
             }
 
             AddPlayerActionAttemptAnimationFacts(
@@ -333,7 +379,98 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     gravityCount,
                     objectiveCount,
                     stageCount,
-                    enemyPresentationCount));
+                    enemyPresentationCount,
+                    actionAudioCount));
+        }
+
+        private static bool TryCreateActionAudioPayload(
+            in TickPlayerActionPresentationSignal signal,
+            int tickIndex,
+            out PresentationActionAudioPayload payload)
+        {
+            payload = default;
+            if (!signal.StartedThisTick ||
+                !TryResolveGameplayActionKind(signal.ActiveActionKind, out var actionKind))
+            {
+                return false;
+            }
+
+            payload = new PresentationActionAudioPayload(
+                signal.EntityId,
+                actionKind,
+                moment: 0,
+                tickIndex,
+                sourceSequenceId: signal.ActiveActionSequence,
+                sourceActionPlanId: signal.ActionPlanId,
+                targetEntityId: signal.TargetEntityId,
+                direction: signal.Direction,
+                outcomeKind: PresentationActionAudioOutcomeKind.Started);
+            return payload.IsValid;
+        }
+
+        private static bool TryCreateActionAudioPayload(
+            in TickPlayerActionAttemptPresentationSignal signal,
+            int tickIndex,
+            int sourceSequenceId,
+            out PresentationActionAudioPayload payload)
+        {
+            payload = default;
+            if (!TryResolveGameplayActionKind(signal.ActionKind, out var actionKind) ||
+                !TryResolveActionAudioMoment(signal.FeedbackKind, out var moment))
+            {
+                return false;
+            }
+
+            payload = new PresentationActionAudioPayload(
+                signal.EntityId,
+                actionKind,
+                moment,
+                tickIndex,
+                sourceSequenceId: sourceSequenceId,
+                targetEntityId: signal.HasTarget ? signal.TargetEntityId : 0,
+                direction: signal.Direction,
+                outcomeKind: PresentationActionAudioOutcomeKind.AttemptFeedback,
+                sourceFeedbackKind: (int)signal.FeedbackKind);
+            return payload.IsValid;
+        }
+
+        private static bool TryResolveGameplayActionKind(
+            PlayerActionKind actionKind,
+            out int resolved)
+        {
+            switch (actionKind)
+            {
+                case PlayerActionKind.Push:
+                    resolved = 0;
+                    return true;
+                case PlayerActionKind.Flip:
+                    resolved = 1;
+                    return true;
+                default:
+                    resolved = default;
+                    return false;
+            }
+        }
+
+        private static bool TryResolveActionAudioMoment(
+            PlayerActionAttemptFeedbackKind feedbackKind,
+            out int moment)
+        {
+            switch (feedbackKind)
+            {
+                case PlayerActionAttemptFeedbackKind.AssistOutOfRange:
+                    moment = 6;
+                    return true;
+                case PlayerActionAttemptFeedbackKind.NoTarget:
+                    moment = 7;
+                    return true;
+                case PlayerActionAttemptFeedbackKind.Invalid:
+                    moment = 8;
+                    return true;
+                default:
+                    moment = default;
+                    return false;
+            }
         }
 
         private static int AddEntityLifecycleFacts(
@@ -1204,6 +1341,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                     new EnemyPresentationCuePlanner(),
                     new VfxCuePlanner(),
                     new SfxCuePlanner(),
+                    new ActionAudioCuePlanner(),
                 }),
                 new PresentationPlaybackPlanner(),
                 new PresentationPlaybackScheduler());

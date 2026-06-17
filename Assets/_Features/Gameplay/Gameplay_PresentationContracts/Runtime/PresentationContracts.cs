@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
         Tile = 8,
         Gravity = 9,
         EnemyPresentation = 10,
+        ActionAudio = 11,
     }
 
     public enum PresentationDomain
@@ -31,6 +32,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
         Topology = 6,
         UiBridge = 7,
         Stage = 8,
+        ActionAudio = 9,
     }
 
     public enum PresentationSemanticSource
@@ -59,6 +61,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
         BoxSlideMotion = 21,
         BoxFlipMotion = 22,
         BoxFlipImpactMotion = 23,
+        PlayerActionAudio = 24,
+        PlayerActionAttemptAudio = 25,
     }
 
     public enum PresentationTargetKind
@@ -705,6 +709,102 @@ namespace Game.Feature.Gameplay.PresentationContracts
         }
     }
 
+    public enum PresentationActionAudioOutcomeKind
+    {
+        None = 0,
+        Started = 1,
+        AttemptFeedback = 2,
+    }
+
+    public readonly struct PresentationActionAudioPayload : IEquatable<PresentationActionAudioPayload>
+    {
+        public PresentationActionAudioPayload(
+            int ownerEntityId,
+            int actionKind,
+            int moment,
+            int sourceTickIndex,
+            int sourceSequenceId = 0,
+            int sourceActionPlanId = 0,
+            int targetEntityId = 0,
+            Direction direction = Direction.None,
+            PresentationActionAudioOutcomeKind outcomeKind = PresentationActionAudioOutcomeKind.None,
+            int sourceFeedbackKind = 0)
+        {
+            OwnerEntityId = Math.Max(0, ownerEntityId);
+            ActionKind = actionKind;
+            Moment = moment;
+            SourceTickIndex = Math.Max(0, sourceTickIndex);
+            SourceSequenceId = Math.Max(0, sourceSequenceId);
+            SourceActionPlanId = Math.Max(0, sourceActionPlanId);
+            TargetEntityId = Math.Max(0, targetEntityId);
+            Direction = direction;
+            OutcomeKind = outcomeKind;
+            SourceFeedbackKind = Math.Max(0, sourceFeedbackKind);
+        }
+
+        public int OwnerEntityId { get; }
+
+        public int ActionKind { get; }
+
+        public int Moment { get; }
+
+        public int SourceTickIndex { get; }
+
+        public int SourceSequenceId { get; }
+
+        public int SourceActionPlanId { get; }
+
+        public int TargetEntityId { get; }
+
+        public Direction Direction { get; }
+
+        public PresentationActionAudioOutcomeKind OutcomeKind { get; }
+
+        public int SourceFeedbackKind { get; }
+
+        public bool IsValid =>
+            OwnerEntityId > 0 &&
+            (ActionKind == 0 || ActionKind == 1) &&
+            (Moment == 0 || Moment == 6 || Moment == 7 || Moment == 8);
+
+        public bool Equals(PresentationActionAudioPayload other)
+        {
+            return OwnerEntityId == other.OwnerEntityId &&
+                   ActionKind == other.ActionKind &&
+                   Moment == other.Moment &&
+                   SourceTickIndex == other.SourceTickIndex &&
+                   SourceSequenceId == other.SourceSequenceId &&
+                   SourceActionPlanId == other.SourceActionPlanId &&
+                   TargetEntityId == other.TargetEntityId &&
+                   Direction == other.Direction &&
+                   OutcomeKind == other.OutcomeKind &&
+                   SourceFeedbackKind == other.SourceFeedbackKind;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationActionAudioPayload other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = OwnerEntityId;
+                hash = (hash * 397) ^ ActionKind;
+                hash = (hash * 397) ^ Moment;
+                hash = (hash * 397) ^ SourceTickIndex;
+                hash = (hash * 397) ^ SourceSequenceId;
+                hash = (hash * 397) ^ SourceActionPlanId;
+                hash = (hash * 397) ^ TargetEntityId;
+                hash = (hash * 397) ^ (int)Direction;
+                hash = (hash * 397) ^ (int)OutcomeKind;
+                hash = (hash * 397) ^ SourceFeedbackKind;
+                return hash;
+            }
+        }
+    }
+
     public enum PresentationEnemyPresentationKind
     {
         None = 0,
@@ -851,7 +951,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
             PresentationTopologyTransitionPayload topologyPayload = default,
             PresentationMotionPayload motionPayload = default,
             PresentationAnimationPayload animationPayload = default,
-            PresentationEnemyPayload enemyPayload = default)
+            PresentationEnemyPayload enemyPayload = default,
+            PresentationActionAudioPayload actionAudioPayload = default)
         {
             Kind = kind;
             Source = source;
@@ -861,6 +962,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
             MotionPayload = motionPayload;
             AnimationPayload = animationPayload;
             EnemyPayload = enemyPayload;
+            ActionAudioPayload = actionAudioPayload;
         }
 
         public PresentationFactKind Kind { get; }
@@ -879,6 +981,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
 
         public PresentationEnemyPayload EnemyPayload { get; }
 
+        public PresentationActionAudioPayload ActionAudioPayload { get; }
+
         public bool Equals(PresentationFact other)
         {
             return Kind == other.Kind &&
@@ -888,7 +992,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
                    TopologyPayload.Equals(other.TopologyPayload) &&
                    MotionPayload.Equals(other.MotionPayload) &&
                    AnimationPayload.Equals(other.AnimationPayload) &&
-                   EnemyPayload.Equals(other.EnemyPayload);
+                   EnemyPayload.Equals(other.EnemyPayload) &&
+                   ActionAudioPayload.Equals(other.ActionAudioPayload);
         }
 
         public override bool Equals(object obj)
@@ -908,6 +1013,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
                 hash = (hash * 397) ^ MotionPayload.GetHashCode();
                 hash = (hash * 397) ^ AnimationPayload.GetHashCode();
                 hash = (hash * 397) ^ EnemyPayload.GetHashCode();
+                hash = (hash * 397) ^ ActionAudioPayload.GetHashCode();
                 return hash;
             }
         }
@@ -925,7 +1031,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
             int gravityFactCount,
             int objectiveFactCount,
             int stageFactCount,
-            int enemyPresentationFactCount = 0)
+            int enemyPresentationFactCount = 0,
+            int actionAudioFactCount = 0)
         {
             ExtractedFactCount = Math.Max(0, extractedFactCount);
             TopologyFactCount = Math.Max(0, topologyFactCount);
@@ -937,6 +1044,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
             ObjectiveFactCount = Math.Max(0, objectiveFactCount);
             StageFactCount = Math.Max(0, stageFactCount);
             EnemyPresentationFactCount = Math.Max(0, enemyPresentationFactCount);
+            ActionAudioFactCount = Math.Max(0, actionAudioFactCount);
         }
 
         public int ExtractedFactCount { get; }
@@ -958,6 +1066,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
         public int StageFactCount { get; }
 
         public int EnemyPresentationFactCount { get; }
+
+        public int ActionAudioFactCount { get; }
     }
 
     public sealed class PresentationFactFrame

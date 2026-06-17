@@ -345,6 +345,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ActionAudioPlanningBoundary_StaysPlanningOnlyAndDoesNotAbsorbPlaybackOwnership()
+        {
+            var contractsPlanningPlaybackSource = ReadDirectorySource(ContractsDirectory) + "\n" +
+                                                  ReadDirectorySource(PlanningDirectory) + "\n" +
+                                                  ReadDirectorySource(PlaybackDirectory);
+            var planningSource = ReadDirectorySource(PlanningDirectory);
+            var playbackSource = ReadDirectorySource(PlaybackDirectory);
+            var uiSource = ReadDirectorySource("Assets/_Features/UI");
+
+            Assert.That(contractsPlanningPlaybackSource, Does.Contain("PresentationActionAudioPayload"));
+            Assert.That(planningSource, Does.Contain("PresentationActionAudioCueKey"));
+            Assert.That(planningSource, Does.Contain("ActionAudioCuePlanner"));
+            Assert.That(playbackSource, Does.Contain("ActionAudioNoPlaybackBecausePlanningOnlyCount"));
+
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayActionAudioPresentationController"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayActionAudioProfile"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayActionAudioAuthoring"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AudioManager"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AudioBinding"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AudioClip"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AudioSource"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("Play2D"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("PlayAttached"));
+
+            Assert.That(planningSource, Does.Not.Contain("PresentationSfxCueKey.PlayerPush"));
+            Assert.That(planningSource, Does.Not.Contain("PresentationSfxCueKey.PlayerFlip"));
+            Assert.That(uiSource, Does.Not.Contain("PresentationActionAudioPayload"));
+            Assert.That(uiSource, Does.Not.Contain("PresentationActionAudioCueKey"));
+            Assert.That(uiSource, Does.Not.Contain("ActionAudioCuePlanner"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyPresentationExecutorBoundary_StaysHostOnlyAndDoesNotLeakRuntimeObjectsToPlans()
         {
             var contractsPlanningPlaybackSource = ReadDirectorySource(ContractsDirectory) + "\n" +
