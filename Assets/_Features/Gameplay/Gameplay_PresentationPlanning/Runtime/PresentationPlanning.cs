@@ -470,11 +470,18 @@ namespace Game.Feature.Gameplay.PresentationPlanning
 
     public readonly struct PresentationCueFrameDiagnostics
     {
-        public PresentationCueFrameDiagnostics(int sourceFactCount, int plannedCueCount, int plannerCount)
+        public PresentationCueFrameDiagnostics(
+            int sourceFactCount,
+            int plannedCueCount,
+            int plannerCount,
+            int suppressedCueCount = 0,
+            int damageHitSuppressedByEnemyDeathCount = 0)
         {
             SourceFactCount = Math.Max(0, sourceFactCount);
             PlannedCueCount = Math.Max(0, plannedCueCount);
             PlannerCount = Math.Max(0, plannerCount);
+            SuppressedCueCount = Math.Max(0, suppressedCueCount);
+            DamageHitSuppressedByEnemyDeathCount = Math.Max(0, damageHitSuppressedByEnemyDeathCount);
         }
 
         public int SourceFactCount { get; }
@@ -482,6 +489,10 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         public int PlannedCueCount { get; }
 
         public int PlannerCount { get; }
+
+        public int SuppressedCueCount { get; }
+
+        public int DamageHitSuppressedByEnemyDeathCount { get; }
     }
 
     public sealed class PresentationCueFrame
@@ -522,6 +533,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         private readonly List<PresentationCue> _cues = new();
         private readonly int _sourceFactCount;
         private int _plannerCount;
+        private int _suppressedCueCount;
+        private int _damageHitSuppressedByEnemyDeathCount;
 
         public PresentationCueFrameBuilder(int tickIndex, int sourceFactCount)
         {
@@ -548,12 +561,23 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             _plannerCount++;
         }
 
+        public void RecordDamageHitSuppressedByEnemyDeath()
+        {
+            _suppressedCueCount++;
+            _damageHitSuppressedByEnemyDeathCount++;
+        }
+
         public PresentationCueFrame Build()
         {
             return new PresentationCueFrame(
                 TickIndex,
                 _cues,
-                new PresentationCueFrameDiagnostics(_sourceFactCount, _cues.Count, _plannerCount));
+                new PresentationCueFrameDiagnostics(
+                    _sourceFactCount,
+                    _cues.Count,
+                    _plannerCount,
+                    _suppressedCueCount,
+                    _damageHitSuppressedByEnemyDeathCount));
         }
     }
 
@@ -617,7 +641,7 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             for (var i = 0; i < facts.Facts.Count; i++)
             {
                 var fact = facts.Facts[i];
-                if (TryPlanDamageHit(fact, enemyDeathEntityIds, out var damageCue) ||
+                if (TryPlanDamageHit(fact, enemyDeathEntityIds, builder, out var damageCue) ||
                     TryPlanEnemyDeath(fact, out damageCue))
                 {
                     builder.Add(damageCue);
@@ -628,14 +652,21 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         private static bool TryPlanDamageHit(
             PresentationFact fact,
             ISet<int> enemyDeathEntityIds,
+            PresentationCueFrameBuilder builder,
             out PresentationCue cue)
         {
             if (fact.Kind != PresentationFactKind.Combat ||
                 fact.Source.SemanticSource != PresentationSemanticSource.EnemyDamage ||
                 fact.Target.Kind != PresentationTargetKind.Entity ||
-                fact.Target.EntityId <= 0 ||
-                enemyDeathEntityIds.Contains(fact.Target.EntityId))
+                fact.Target.EntityId <= 0)
             {
+                cue = default;
+                return false;
+            }
+
+            if (enemyDeathEntityIds.Contains(fact.Target.EntityId))
+            {
+                builder.RecordDamageHitSuppressedByEnemyDeath();
                 cue = default;
                 return false;
             }

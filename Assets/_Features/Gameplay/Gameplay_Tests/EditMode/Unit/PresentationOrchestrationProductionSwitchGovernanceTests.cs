@@ -52,18 +52,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 typeof(DamageDeathVfxExecutionMode),
                 "LegacyExtension",
                 "OrchestrationExecutor",
-                "LegacyExtension",
                 "OrchestrationExecutor",
+                "OrchestrationExecutor",
+                false,
                 true,
-                true,
-                "DamageDeathVfx_OrchestrationMode_RoutesDamageAndDeathRequests",
+                "DamageDeathVfx_DefaultOrchestration_RoutesDamageAndDeathRequests",
                 "VfxPlanning_DoesNotMutateAuthoritativeTickResult",
-                "DamageDeathVfx_OrchestrationMode_CleanupResetsPortAndDiagnostics",
+                "DamageDeathVfx_LifecycleCleanup_Remains",
                 "VfxPlanningBoundary_StaysPresentationOnly",
                 "Low",
                 "Low",
                 "Set DamageDeathVfxExecutionMode.LegacyExtension.",
-                ProductionSwitchRecommendedStatus.NeedsMoreCoverage),
+                ProductionSwitchRecommendedStatus.ProductionDefaultOnPendingTelemetry),
             new(
                 "Box motion",
                 typeof(BoxMotionPresentationExecutionMode),
@@ -195,11 +195,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void PresentationExecutionDefaults_CoreSfxIsOrchestration_OthersRemainLegacy()
+        public void PresentationExecutionDefaults_DamageDeathVfxIsOrchestration_OthersRemainExpected()
         {
             var config = new GameplaySceneHostConfiguration();
             var coordinator = new GameplayTickPresentationCoordinator();
-            var rootObject = new GameObject(nameof(PresentationExecutionDefaults_CoreSfxIsOrchestration_OthersRemainLegacy));
+            var rootObject = new GameObject(nameof(PresentationExecutionDefaults_DamageDeathVfxIsOrchestration_OthersRemainExpected));
 
             try
             {
@@ -207,7 +207,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(config.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
                 Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
-                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
+                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
                 Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
@@ -216,6 +216,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
 
                 Assert.That(presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+                Assert.That(presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
                 Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
                 Assert.That(presenter.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
@@ -225,7 +226,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 foreach (var row in ReadinessMatrix)
                 {
-                    if (row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode))
+                    if (row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode) ||
+                        row.ExecutionModeType == typeof(DamageDeathVfxExecutionMode))
                     {
                         Assert.That(row.DefaultIsLegacy, Is.False, row.Domain);
                         Assert.That(row.CurrentDefault, Is.EqualTo(row.OrchestrationOwner), row.Domain);
@@ -289,20 +291,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionConfig_AllowsOnlyCoreSfxProductionOrchestrationDefault()
+        public void ProductionConfig_AllowsCoreSfxAndDamageDeathVfxProductionOrchestrationDefaults()
         {
             var productionPaths = EnumerateProductionConfigFiles().ToArray();
-            var forbiddenTokens = ReadinessMatrix
-                .Where(row => row.ExecutionModeType != typeof(CoreGameplaySfxExecutionMode))
+            var allowedTokens = ReadinessMatrix
+                .Where(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode) ||
+                              row.ExecutionModeType == typeof(DamageDeathVfxExecutionMode))
                 .Select(row => row.OrchestrationOwner)
                 .Distinct()
                 .ToArray();
-            var allowedToken = ReadinessMatrix
-                .Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode))
-                .OrchestrationOwner;
+            var forbiddenTokens = ReadinessMatrix
+                .Where(row => row.ExecutionModeType != typeof(CoreGameplaySfxExecutionMode) &&
+                              row.ExecutionModeType != typeof(DamageDeathVfxExecutionMode))
+                .Select(row => row.OrchestrationOwner)
+                .Distinct()
+                .ToArray();
 
             Assert.That(productionPaths, Is.Not.Empty);
-            Assert.That(forbiddenTokens, Does.Not.Contain(allowedToken));
+            foreach (var allowedToken in allowedTokens)
+            {
+                Assert.That(forbiddenTokens, Does.Not.Contain(allowedToken));
+            }
+
             foreach (var path in productionPaths)
             {
                 var source = ReadRepoFile(path);
@@ -395,6 +405,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "GameplayMotionExecutorDiagnostics",
                 "GameplayAnimationExecutorDiagnostics",
                 "GameplayEnemyPresentationExecutorDiagnostics",
+                "GameplayVfxExecutorDiagnostics",
+                "DamageHitSuppressedByEnemyDeathCount",
                 "GameplaySfxExecutorDiagnostics",
                 "GameplaySfxSemanticDiagnostics",
                 "GameplaySfxPlaybackAdapterDiagnostics",
@@ -424,6 +436,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void ProductionSwitchReadiness_ReflectsCoreSfxPlayModeSmoke()
         {
             var coreSfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode));
+            var damageDeathVfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(DamageDeathVfxExecutionMode));
             var readinessDocument = ReadRepoFile(ReadinessDocumentPath);
 
             Assert.That(coreSfx.CurrentDefault, Is.EqualTo(coreSfx.OrchestrationOwner));
@@ -435,7 +448,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(readinessDocument, Does.Contain("CoreSfxProductionDefault_PlayMode_UsesOrchestrationOwner"));
             Assert.That(readinessDocument, Does.Contain("CoreSfxProductionDefault_PlayMode_TopologyLockDefersAndDrains"));
 
-            foreach (var row in ReadinessMatrix.Where(row => row.ExecutionModeType != typeof(CoreGameplaySfxExecutionMode)))
+            Assert.That(damageDeathVfx.CurrentDefault, Is.EqualTo(damageDeathVfx.OrchestrationOwner));
+            Assert.That(damageDeathVfx.DefaultIsLegacy, Is.False);
+            Assert.That(damageDeathVfx.InvalidModeNormalizesToLegacy, Is.True);
+            Assert.That(damageDeathVfx.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnPendingTelemetry));
+            Assert.That(readinessDocument, Does.Contain("Phase 9B"));
+            Assert.That(readinessDocument, Does.Contain("ProductionDefaultOnPendingTelemetry"));
+            Assert.That(readinessDocument, Does.Contain("Phase 9E"));
+
+            foreach (var row in ReadinessMatrix.Where(row =>
+                         row.ExecutionModeType != typeof(CoreGameplaySfxExecutionMode) &&
+                         row.ExecutionModeType != typeof(DamageDeathVfxExecutionMode)))
             {
                 Assert.That(row.CurrentDefault, Is.EqualTo(row.LegacyOwner), row.Domain);
                 Assert.That(row.DefaultIsLegacy, Is.True, row.Domain);
@@ -447,7 +470,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionSwitchCandidate_CountIsZeroAfterCoreSfxSwitch()
+        public void CoreSfx_ProductionDefault_RemainsStableAfterVfxSwitch()
+        {
+            var coordinator = new GameplayTickPresentationCoordinator();
+            var rootObject = new GameObject(nameof(CoreSfx_ProductionDefault_RemainsStableAfterVfxSwitch));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+
+                Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
+                Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
+                Assert.That(
+                    InvokeCoordinatorNormalize("NormalizeCoreGameplaySfxExecutionMode", (CoreGameplaySfxExecutionMode)999),
+                    Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ProductionSwitchCandidate_CountIsZeroAfterDamageDeathVfxSwitch()
         {
             var candidates = ReadinessMatrix
                 .Where(row => row.RecommendedStatus == ProductionSwitchRecommendedStatus.CandidateForNextPR)
@@ -568,8 +614,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             NeedsMoreCoverage = 2,
             DoNotSwitchYet = 3,
             ProductionDefaultOn = 4,
-            ProductionDefaultOnTelemetryHardened = 5,
-            ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered = 6,
+            ProductionDefaultOnPendingTelemetry = 5,
+            ProductionDefaultOnTelemetryHardened = 6,
+            ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered = 7,
         }
 
         private sealed class ProductionSwitchReadinessRow

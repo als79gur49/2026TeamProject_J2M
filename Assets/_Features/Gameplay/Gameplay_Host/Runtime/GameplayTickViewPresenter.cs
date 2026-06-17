@@ -307,6 +307,9 @@ namespace Game.Feature.Gameplay.Host
         internal TopologyPresentationOwnershipDiagnostics TopologyPresentationOwnershipDiagnostics =>
             _presentationCoordinator.TopologyPresentationOwnershipDiagnostics;
 
+        internal DamageDeathVfxExecutionMode DamageDeathVfxExecutionMode =>
+            _presentationCoordinator.DamageDeathVfxExecutionMode;
+
         internal BoxMotionPresentationExecutionMode BoxMotionPresentationExecutionMode =>
             _presentationCoordinator.BoxMotionPresentationExecutionMode;
 

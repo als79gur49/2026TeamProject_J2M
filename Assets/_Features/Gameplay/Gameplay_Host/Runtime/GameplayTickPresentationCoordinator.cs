@@ -103,7 +103,7 @@ namespace Game.Feature.Gameplay.Host
         private TopologyPresentationExecutionMode _topologyExecutionMode =
             TopologyPresentationExecutionMode.LegacyCoordinator;
         private DamageDeathVfxExecutionMode _damageDeathVfxExecutionMode =
-            DamageDeathVfxExecutionMode.LegacyExtension;
+            DamageDeathVfxExecutionMode.OrchestrationExecutor;
         private BoxMotionPresentationExecutionMode _boxMotionExecutionMode =
             BoxMotionPresentationExecutionMode.LegacyTrackPlanner;
         private PlayerActionAnimationExecutionMode _playerActionAnimationExecutionMode =

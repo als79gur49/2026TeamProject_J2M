@@ -824,6 +824,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void VfxCuePlanner_RecordsSameTickDeathDamageSuppressionDiagnostics()
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(
+                CreateDiagnosticTickResult(
+                    includeEnemyDeathExit: true,
+                    enemyDamageEntityId: 20,
+                    enemyDeathEntityId: 20));
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new VfxCuePlanner(),
+            }).Plan(factFrame);
+
+            Assert.That(
+                cueFrame.Cues,
+                Has.None.Matches<PresentationCue>(cue =>
+                    cue.Key.TryGetVfxCueKey(out var key) &&
+                    key == PresentationVfxCueKey.DamageHit));
+            Assert.That(
+                cueFrame.Cues,
+                Has.Exactly(1).Matches<PresentationCue>(cue =>
+                    cue.Key.TryGetVfxCueKey(out var key) &&
+                    key == PresentationVfxCueKey.EnemyDeath));
+            Assert.That(cueFrame.Diagnostics.SuppressedCueCount, Is.EqualTo(1));
+            Assert.That(cueFrame.Diagnostics.DamageHitSuppressedByEnemyDeathCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
         public void VfxPlaybackPlanner_CreatesNonBlockingOneShotCues()
         {
             var plan = new PresentationPlaybackPlanner().Plan(CreateVfxCueFrame(includeEnemyDeathExit: true));
@@ -1541,10 +1569,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.ObjectiveResult, Is.SameAs(objectiveResult));
         }
 
+        [Test]
+        [Category("Core")]
+        public void ArchitectureBoundary_AfterDamageDeathVfxSwitch_Remains()
+        {
+            var contractsPlanningPlaybackSource = ReadDirectorySource(ContractsDirectory) + "\n" +
+                                                  ReadDirectorySource(PlanningDirectory) + "\n" +
+                                                  ReadDirectorySource(PlaybackDirectory);
+            var runtimeSource = ReadDirectorySource(RuntimeDirectory);
+            var uiSource = ReadDirectorySource("Assets/_Features/UI");
+            var topologyExecutorSource = ReadRepoFile(TopologyExecutorPath);
+            var simulationSource = ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Model/Runtime") + "\n" +
+                                   ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Loop/Runtime") + "\n" +
+                                   ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Entities/Runtime");
+
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayVfxProductionRuntime"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameObject"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("Transform"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("ParticleSystem"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("Pooled"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AudioManager"));
+            Assert.That(runtimeSource, Does.Not.Contain("GameplayVfxProductionRuntime"));
+            Assert.That(runtimeSource, Does.Not.Contain("AudioManager"));
+            Assert.That(uiSource, Does.Not.Contain("PresentationVfxCueKey"));
+            Assert.That(uiSource, Does.Not.Contain("GameplayVfxExecutorDiagnostics"));
+            Assert.That(uiSource, Does.Not.Contain("DamageHitSuppressedByEnemyDeathCount"));
+            Assert.That(topologyExecutorSource, Does.Not.Contain("GameplayVfxPresentationExecutor executor"));
+            Assert.That(topologyExecutorSource, Does.Not.Contain("IsTopologyTransitionActive = DamageDeath"));
+            Assert.That(simulationSource, Does.Not.Contain("DamageDeathVfxExecutionMode"));
+            Assert.That(simulationSource, Does.Not.Contain("GameplayVfxPresentationExecutor"));
+        }
+
         private static TickResult CreateDiagnosticTickResult(
             TickTopologyMotion? topologyMotion = null,
             bool includeTopologyMotion = true,
-            bool includeEnemyDeathExit = false)
+            bool includeEnemyDeathExit = false,
+            int enemyDamageEntityId = 20,
+            int enemyDeathEntityId = 30)
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var destinationTopology = new CubeTopologyState(FaceId.Front);
@@ -1557,7 +1618,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ? new[]
                 {
                     new TickEntityExitPresentationSignal(
-                        exitedEntityId: 30,
+                        exitedEntityId: enemyDeathEntityId,
                         TickEntityExitCause.Killed,
                         cell,
                         topology,
@@ -1607,7 +1668,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 },
                 new[]
                 {
-                    new TickEnemyDamagePresentationSignal(20, tookDamageThisTick: true, damageAmount: 2),
+                    new TickEnemyDamagePresentationSignal(enemyDamageEntityId, tookDamageThisTick: true, damageAmount: 2),
                 },
                 Array.Empty<TickEnemyActionPresentationSignal>(),
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
