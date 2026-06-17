@@ -54,12 +54,12 @@ Current Utility Summon is implemented through `EnemyUtilityCapabilityAsset`, `Su
 | `SummonCommitted` / `SummonSkipped` | `EnemyUtilityResolver` and `EntitySpawnMaterializer` | Replay/export-visible events | Replay/export impact | MigrationOnly | Preserve names unless a separate compatibility plan changes them. |
 | Summon windup warning | `TickResultBuilder` over `EnemyUtilityEffectState` | Presentation warning signal | Presentation output | Presentation | Future builder should consume Behavior state after migration. |
 
-## 3. Future Runtime State Shape
+## 3. Future Mutable Runtime State Shape
 
-The following is pseudo-code only. Do not add these C# types until Option B is explicitly started.
+The compile-skeleton slice now has an `EnemySummonBehaviorRuntime` config object produced by `EnemySummonBehaviorModuleAsset`. The fuller mutable state/emitter shape below is pseudo-code only. Do not add mutable Summon behavior state, trigger emission, or request production until the runtime state/emitter parity slice.
 
 ```csharp
-public readonly struct EnemySummonBehaviorRuntime
+public readonly struct EnemySummonBehaviorRuntimeConfig
 {
     public readonly SummonBehaviorTiming Timing;
     public readonly SummonBehaviorSpawnPolicy SpawnPolicy;
@@ -269,10 +269,9 @@ Required replay/hash tests:
 
 Future asset shape is conceptual only:
 
-- A future `EnemySummonBehaviorModuleAsset` may wrap a `SummonBehaviorProfile` or `EnemySummonExecutionProfile`.
-- A separate profile is useful if presentation/audio/VFX parity settings grow, or if multiple summon modules share timing/spawn policy presets.
-- For a first implementation, the behavior module asset can directly own timing, spawn, and suppression authoring if no reuse pressure exists.
-- No asset or schema is added in this design pass.
+- The implemented `EnemySummonBehaviorModuleAsset` directly owns initial delay, cooldown, and nested `SummonMinionAuthoring` config for the compile skeleton.
+- A future profile wrapper such as `SummonBehaviorProfile` or `EnemySummonExecutionProfile` may be added only if presentation/audio/VFX parity settings grow or multiple summon modules need shared presets.
+- No production `EnemySummonBehaviorModuleAsset` asset or migration is added in this design pass.
 
 | Current Authoring Field | Future Behavior Field | Migration Rule | Validation | Notes |
 | --- | --- | --- | --- | --- |
@@ -296,17 +295,17 @@ Compiler plan:
 
 - Keep Utility compile isolated from Behavior compile.
 - Keep Behavior module asset compile isolated from Utility knowledge.
-- Add duplicate Utility/Behavior Summon guard in `EnemyAiProfileCompiler` after both lanes compile, as documented by `Enemy-AI-Summon-Duplicate-Guard-Design.md`.
-- Validate future Summon behavior authoring for positive spawn count, positive max alive, non-null archetype, available spawn defaults, positive windup, positive cooldown, non-negative initial delay, non-negative recovery, and positive HP override when enabled.
+- The duplicate Utility/Behavior Summon guard is implemented in `EnemyAiProfileCompiler` after both lanes compile, as documented by `Enemy-AI-Summon-Duplicate-Guard-Design.md`.
+- Validate Summon behavior authoring for positive spawn count, positive max alive, non-null archetype, available spawn defaults, positive windup, positive cooldown, non-negative initial delay, non-negative recovery, and positive HP override when enabled.
 - Detect migration residue by compiled runtime source, not by YAML string scans.
 
 Migration order:
 
 1. Accept runtime state design.
 2. Accept replay/export compatibility plan; see [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md).
-3. Implement duplicate guard with tests.
-4. Introduce future Behavior Summon runtime, emitter, and typed fixed slot.
-5. Add Behavior-only tests while Utility-only content remains valid.
+3. Implement compile skeleton, typed fixed slot, module asset, and duplicate guard with tests.
+4. Introduce future mutable Behavior Summon state and emitter while preserving the fixed typed slot.
+5. Add runtime parity tests while Utility-only content remains valid.
 6. Run asset-scoped migration from Utility `SummonMinion` to future Behavior Summon after accepting [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md).
 7. Validate migrated profile has no Utility Summon residue.
 8. Validate replay/hash/presentation/audio/VFX parity.
@@ -328,8 +327,8 @@ Rollback strategy:
 | UtilityArchetypeSummon replay | Current already covered | Baseline archetype binding replay contract | Yes, already recorded |
 | Core lane | Current already covered | Existing touched-cluster baseline evidence | Already recorded; rerun only when code changes require it |
 | `SummonBehaviorRuntime_StateParity_DesignAccepted` | Future | Locks accepted design before runtime code starts | Yes |
-| `DuplicateGuard_UtilityAndBehaviorSummon_FailsCompile` | Future | Prevents duplicate summon sources | Before migration |
-| `BehaviorSummonOnly_ProfileCompiles_AfterOptionBExists` | Future | Verifies Behavior-only source becomes valid after real module exists | Before migration |
+| `DuplicateGuard_UtilityAndBehaviorSummon_FailsCompile` | Current | Prevents duplicate summon sources | Already implemented in compile skeleton |
+| `BehaviorSummonOnly_ProfileCompiles` | Current | Verifies Behavior-only compile config is valid after the compile skeleton | Already implemented in compile skeleton |
 | `BehaviorSummon_EmitsSpawnRequestInUtilityParityOrder` | Future | Preserves deterministic request and id allocation order | Before migration |
 | `BehaviorSummon_PreservesRequestPayloadSnapshot` | Future | Preserves origin/facing/team/tick snapshot metadata | Before migration |
 | `BehaviorSummon_MaxAliveParity` | Future | Verifies alive child count and planned child gate parity | Before migration |
@@ -339,8 +338,8 @@ Rollback strategy:
 | `BehaviorSummon_DeterminismHashParity` | Future | Verifies state hash migration and child metadata hash parity | Before migration |
 | `BehaviorSummon_PresentationWindupParity` | Future | Verifies warning and phase presentation parity | Before migration |
 | `BehaviorSummon_AudioVfxParity` | Future | Verifies presentation-consumer parity where applicable | Before migration |
-| `GravityFieldAura_Unchanged` | Future | Guards non-goal Utility effect | Before migration |
-| `RetiredLockNearbyBoxes_GuardUnchanged` | Future | Guards retired compatibility behavior | Before migration |
+| `GravityFieldAura_Unchanged` | Current | Guards non-goal Utility effect | Already implemented for compile skeleton |
+| `RetiredLockNearbyBoxes_GuardUnchanged` | Current | Guards retired compatibility behavior | Already implemented for compile skeleton |
 | `UtilitySummonOnly_ProfileCompilesBeforeMigration` | Migration | Ensures Utility-only assets stay valid before migration | During migration |
 | `UtilitySummonRemoved_BehaviorSummonAdded_ProfileCompiles` | Migration | Confirms asset-scoped replacement succeeds | During migration |
 | `UtilityAndBehaviorSummon_ProfileCompileFails` | Migration | Confirms duplicate guard catches residue | During migration |
@@ -349,7 +348,8 @@ Rollback strategy:
 
 ## 10. Explicit Non-Goals
 
-- No concrete `SummonBehaviorRuntime`.
+- No mutable Summon behavior runtime state or emitter.
+- No runtime summon request emission from Behavior Summon.
 - No Utility `SummonMinion` asset or YAML migration.
 - No Utility whole-lane migration.
 - No `GravityFieldAura` changes.

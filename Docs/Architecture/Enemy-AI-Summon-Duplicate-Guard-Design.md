@@ -16,6 +16,7 @@
 - `GravityFieldAura` remains a Utility/board-modifier style effect and is not part of the Summon duplicate guard.
 - `RetiredLockNearbyBoxes` remains a retired serialized compatibility slot and already fails through the retired Utility guard.
 - BehaviorModule lane now has Charge plus a compile-only Summon slot. Behavior Summon runtime emission does not exist.
+- The first Option B compile skeleton has introduced `EnemyBehaviorModuleKey.Summon`, a fixed typed Summon slot, `EnemySummonBehaviorModuleAsset`, and compiled Summon behavior runtime config.
 - Option C already extracted spawn/entity creation materialization through `EntitySpawnRequest` and `EntitySpawnMaterializer`.
 - `EntitySpawnRequest` does not carry an allocated entity id; id allocation happens during materialization after placement succeeds.
 - Same-tick multi-summoner ordering and mutable spawn request payload drift guards are already characterized.
@@ -38,7 +39,9 @@ EnemyAiProfile.CreateRuntimeDefinition
     -> CompileBehaviors(profile.name, profile.BehaviorModuleAssets)
        -> compile each behavior module asset
        -> validate duplicate behavior module key
-       -> currently supports Charge only
+       -> supports Charge and compile-only Summon runtime config
+    -> ValidateNoDuplicateSummonSources(profile, capabilities, behaviors)
+       -> Utility SummonMinion plus Behavior Summon fails fast
     -> ValidateBehaviorRequirements(profile, behaviors)
        -> charge resolver requires Charge behavior module
     -> new EnemyAiRuntimeDefinition(core, brain, capabilities, behaviors)
@@ -47,17 +50,17 @@ EnemyAiProfile.CreateRuntimeDefinition
 
 ## 4. Why Duplicate Guard Is Required
 
-If a future Behavior Summon module is added while legacy Utility `SummonMinion` remains authored on the same `EnemyAiProfile`, the same enemy can gain two summon sources in one tick. That creates policy drift risk across trigger timing, max-alive checks, spawn request ordering, entity id allocation, `SummonCommitted` / `SummonSkipped` event output, `SummonedEntityState` metadata, determinism hash input, replay/export contracts, and asset migration safety.
+If a Behavior Summon module is authored while legacy Utility `SummonMinion` remains authored on the same `EnemyAiProfile`, the same enemy can gain two summon sources in one tick once runtime emission exists. That creates policy drift risk across trigger timing, max-alive checks, spawn request ordering, entity id allocation, `SummonCommitted` / `SummonSkipped` event output, `SummonedEntityState` metadata, determinism hash input, replay/export contracts, and asset migration safety.
 
 The invalid state is specifically:
 
 ```text
 same EnemyAiProfile
   has Utility capability effect kind SummonMinion
-  has future Behavior Summon module
+  has Behavior Summon module
 ```
 
-Utility-only Summon content remains valid. Future Behavior Summon-only content becomes valid only after Option B introduces the real module key, runtime state, emitter, tests, and migration contract.
+Utility-only Summon production content remains valid. Behavior Summon-only compile content is valid in test/local authoring after the compile-skeleton slice, but it does not emit runtime summon requests until the future runtime state/emitter parity slice.
 
 ## 5. Detection Model
 
@@ -103,21 +106,15 @@ Detection results:
 | Utility capability with `GravityFieldAura` only | false |
 | Utility capability with `RetiredLockNearbyBoxes` | existing retired guard fails first |
 
-### Future Behavior Summon Detection
+### Behavior Summon Detection
 
-Do not add placeholders in the current codebase. When Option B introduces real Behavior Summon support, use the actual typed runtime set API:
-
-```csharp
-var hasBehaviorSummon = behaviors.Contains(EnemyBehaviorModuleKey.Summon);
-```
-
-or, if the fixed typed slot pattern continues:
+Use the fixed typed runtime set API added by the compile-skeleton slice:
 
 ```csharp
 var hasBehaviorSummon = behaviors.TryGetSummon(out var summon);
 ```
 
-`EnemyBehaviorModuleKey.Summon`, `TryGetSummon`, and a Summon runtime slot must be added only as part of the future Option B implementation.
+Do not replace this with a generic behavior registry or `logicModuleAssets`. `EnemyBehaviorModuleKey.Summon`, `TryGetSummon`, and the Summon runtime config slot exist only as compile skeleton; runtime emission remains future work.
 
 ## 6. Recommended Guard Location
 
@@ -131,7 +128,7 @@ Reasons:
 - It keeps `EnemyBehaviorModuleAsset` compile isolated from Utility knowledge.
 - It keeps `EnemyUtilityCapabilityAsset` compile isolated from BehaviorModule knowledge.
 
-Future compiler shape:
+Compiler shape:
 
 ```csharp
 var capabilities = CompileCapabilities(profile.name, profile.CapabilityAssets, simulationTicksPerSecond);
@@ -155,7 +152,7 @@ Rejected locations:
 
 ## 7. Error Message Contract
 
-The future fail-fast message must include:
+The fail-fast message must include:
 
 - Profile asset name, and path when the test/validation context can provide it.
 - Utility `SummonMinion` source.
@@ -172,24 +169,24 @@ Enemy AI profile 'EnemyAi_ArchetypeSummoner' cannot author both Utility SummonMi
 
 The duplicate Summon message must not mention `GravityFieldAura`, must not treat `RetiredLockNearbyBoxes` as Summon, and must not collapse into a generic duplicate behavior-module message.
 
-## 8. Future Test Matrix
+## 8. Test Matrix
 
 | Test | Current or Future | Purpose |
 | --- | --- | --- |
 | `UtilitySummonOnly_ProfileCompiles` | Current | Existing Utility Summon content remains valid. |
-| `NoScopeViolation_NoSummonBehaviorSymbolsInAssets` | Current | Confirms current implementation does not add Option B runtime symbols. |
+| `NoProductionEnemySummonBehaviorModuleAssetsBeforeMigration` | Current | Confirms production content has no Behavior Summon assets before migration. |
 | `GravityRetiredGuards_Unchanged` | Current | Confirms existing GravityFieldAura and retired guard behavior remains unchanged. |
-| `BehaviorSummonOnly_ProfileCompiles_AfterOptionBExists` | Future | Behavior Summon-only content is valid after the real Option B module exists. |
-| `UtilitySummonAndBehaviorSummon_ProfileCompileFails` | Future | Primary compiler duplicate guard fails fast. |
-| `DuplicateGuard_MessageIncludesProfileAndBothSources` | Future | Error includes profile, Utility effect index, and Behavior module source. |
-| `GravityFieldAuraWithBehaviorSummon_DoesNotTriggerSummonDuplicateGuard` | Future | GravityFieldAura stays excluded from the Summon duplicate guard. |
-| `RetiredLockNearbyBoxes_StillFailsByRetiredGuard_NotDuplicateGuard` | Future | Retired Utility kind still fails through the retired guard. |
+| `BehaviorSummonOnly_ProfileCompiles` | Current | Behavior Summon-only compile config is valid after the compile-skeleton slice. |
+| `UtilitySummonAndBehaviorSummon_ProfileCompileFails` | Current | Primary compiler duplicate guard fails fast. |
+| `DuplicateGuard_MessageIncludesProfileAndBothSources` | Current | Error includes profile, Utility effect index, and Behavior module source. |
+| `GravityFieldAuraWithBehaviorSummon_DoesNotTriggerSummonDuplicateGuard` | Current | GravityFieldAura stays excluded from the Summon duplicate guard. |
+| `RetiredLockNearbyBoxes_StillFailsByRetiredGuard_NotDuplicateGuard` | Current | Retired Utility kind still fails through the retired guard. |
 | `MultipleUtilitySummonEffects_AllowedOrRejectedByExistingUtilityPolicy` | Future | Duplicate guard does not invent a new intra-Utility policy. |
 | `UtilitySummonMigration_RemovedOldUtility_AddsBehavior_Passes` | Future | Asset-scoped migration removes the old source before adding the new one. |
 | `ReplayNamesPreserved_AfterMigration` | Future | `SummonCommitted` and `SummonSkipped` names remain stable. |
 | `SpawnRequestOrdering_Preserved_AfterBehaviorEmitter` | Future | Behavior emitter preserves deterministic spawn request and id allocation ordering. |
 
-Current tests can cover Utility-only compile behavior, no-scope-violation symbol scans, and unchanged Gravity/retired guard behavior. Behavior-only, duplicate Utility+Behavior, migration parity, and replay/export parity tests must wait until the future Summon BehaviorModule exists.
+Current tests cover Utility-only compile behavior, Behavior-only compile config, duplicate Utility+Behavior fail-fast, no production Behavior Summon asset migration, and unchanged Gravity/retired guard behavior. Runtime emitter parity, migration parity, and replay/export parity tests remain future work.
 
 ## 9. Non-Goals
 
@@ -205,9 +202,9 @@ Current tests can cover Utility-only compile behavior, no-scope-violation symbol
 
 ## 10. Option B Entry Criteria
 
-Before Option B starts:
+Before runtime emission and production migration continue:
 
-- Duplicate Utility/Behavior Summon guard design is accepted.
+- Duplicate Utility/Behavior Summon guard is implemented for compile skeleton.
 - BehaviorModule Summon runtime state shape is designed; see [Enemy-AI-Summon-Behavior-Runtime-State-Design.md](./Enemy-AI-Summon-Behavior-Runtime-State-Design.md).
 - Behavior emitter request ordering contract is designed.
 - Source metadata vocabulary is not Utility-only.

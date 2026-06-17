@@ -3,7 +3,7 @@
 ## 1. Decision Summary
 
 - This is an implementation plan only, not implementation.
-- First implementation slice has started: the compile skeleton adds the real Behavior Summon key, typed runtime slot, module asset, config compile path, and duplicate Utility/Behavior Summon guard.
+- First implementation slice is implemented: the compile skeleton adds the real Behavior Summon key, typed runtime slot, module asset, config compile path, and duplicate Utility/Behavior Summon guard.
 - Initial Option B preserves the Spawn/EntityCreation seam, external replay/export names, and presentation/audio/VFX cue semantics.
 - Production asset migration is a separate gated phase after implementation and parity gates.
 - Full lane was not run for this plan.
@@ -256,4 +256,4 @@ If full lane is not run, do not report broad validation success.
 - Duplicate guard, key/runtime, replay/export, presentation/audio/VFX, and migration gates are assigned to separate reviewable slices.
 - Full lane / CI release gate policy is decided before production migration or release.
 
-Option B compile-skeleton implementation has started. Production Summon remains Utility-owned, and runtime emission, replay/export migration, presentation/audio/VFX parity migration, and production asset migration are still future gated slices. Full lane was not run unless explicitly reported.
+Option B compile-skeleton implementation is closed out as compile skeleton only. Production Summon remains Utility-owned, and runtime emission, replay/export migration, presentation/audio/VFX parity migration, and production asset migration are still future gated slices. Full lane was not run unless explicitly reported.
