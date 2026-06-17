@@ -56,14 +56,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "OrchestrationExecutor",
                 false,
                 true,
-                "DamageDeathVfx_DefaultOrchestration_RoutesDamageAndDeathRequests",
+                "DamageDeathVfx_DefaultOrchestration_TelemetryCoversDamageAndDeath",
                 "VfxPlanning_DoesNotMutateAuthoritativeTickResult",
-                "DamageDeathVfx_LifecycleCleanup_Remains",
+                "DamageDeathVfx_LifecycleCleanup_TelemetryClearsState",
                 "VfxPlanningBoundary_StaysPresentationOnly",
                 "Low",
                 "Low",
                 "Set DamageDeathVfxExecutionMode.LegacyExtension.",
-                ProductionSwitchRecommendedStatus.ProductionDefaultOnPendingTelemetry),
+                ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened),
             new(
                 "Box motion",
                 typeof(BoxMotionPresentationExecutionMode),
@@ -406,6 +406,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "GameplayAnimationExecutorDiagnostics",
                 "GameplayEnemyPresentationExecutorDiagnostics",
                 "GameplayVfxExecutorDiagnostics",
+                "DamageDeathVfxSemanticDiagnostics",
+                "DamageDeathVfxSuppressionReason",
                 "DamageHitSuppressedByEnemyDeathCount",
                 "GameplaySfxExecutorDiagnostics",
                 "GameplaySfxSemanticDiagnostics",
@@ -433,7 +435,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionSwitchReadiness_ReflectsCoreSfxPlayModeSmoke()
+        public void ProductionSwitchReadiness_ReflectsCoreSfxPlayModeSmokeAndDamageDeathVfxTelemetry()
         {
             var coreSfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode));
             var damageDeathVfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(DamageDeathVfxExecutionMode));
@@ -451,9 +453,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(damageDeathVfx.CurrentDefault, Is.EqualTo(damageDeathVfx.OrchestrationOwner));
             Assert.That(damageDeathVfx.DefaultIsLegacy, Is.False);
             Assert.That(damageDeathVfx.InvalidModeNormalizesToLegacy, Is.True);
-            Assert.That(damageDeathVfx.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnPendingTelemetry));
-            Assert.That(readinessDocument, Does.Contain("Phase 9B"));
-            Assert.That(readinessDocument, Does.Contain("ProductionDefaultOnPendingTelemetry"));
+            Assert.That(damageDeathVfx.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened));
+            Assert.That(readinessDocument, Does.Contain("Phase 9E"));
+            Assert.That(readinessDocument, Does.Contain("ProductionDefaultOnTelemetryHardened"));
+            Assert.That(readinessDocument, Does.Contain("DamageDeathVfx_DefaultOrchestration_TelemetryReportsProductionOwner"));
+            Assert.That(readinessDocument, Does.Contain("DamageDeathVfx_SameTickDeathSuppression_TelemetryIsRecorded"));
             Assert.That(readinessDocument, Does.Contain("Phase 9E"));
 
             foreach (var row in ReadinessMatrix.Where(row =>
@@ -470,10 +474,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void CoreSfx_ProductionDefault_RemainsStableAfterVfxSwitch()
+        public void CoreSfx_ProductionDefault_RemainsStableAfterVfxTelemetry()
         {
             var coordinator = new GameplayTickPresentationCoordinator();
-            var rootObject = new GameObject(nameof(CoreSfx_ProductionDefault_RemainsStableAfterVfxSwitch));
+            var rootObject = new GameObject(nameof(CoreSfx_ProductionDefault_RemainsStableAfterVfxTelemetry));
 
             try
             {

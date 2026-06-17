@@ -274,9 +274,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void DamageDeathVfx_LegacySuppressPolicy_OnlySuppressesDamageDeathFamily()
+        public void DamageDeathVfx_LegacySuppressPolicy_TelemetryCoversOnlyDamageDeath()
         {
-            var owner = new GameObject(nameof(DamageDeathVfx_LegacySuppressPolicy_OnlySuppressesDamageDeathFamily));
+            var owner = new GameObject(nameof(DamageDeathVfx_LegacySuppressPolicy_TelemetryCoversOnlyDamageDeath));
             try
             {
                 var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
@@ -306,6 +306,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }));
                 Assert.That(cueIds, Has.None.EqualTo(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)));
                 Assert.That(IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)), Is.False);
+                Assert.That(runtime.LegacyDamageCueSuppressedCount, Is.EqualTo(1));
+                Assert.That(runtime.LegacyDeathCueSuppressedCount, Is.EqualTo(1));
+                Assert.That(runtime.LastLegacySuppressFilteredRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.LegacyDamageDeathUnrelatedCueRetainedCount, Is.EqualTo(3));
+                Assert.That(IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)), Is.False);
+                Assert.That(IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)), Is.False);
+                Assert.That(IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup)), Is.False);
             }
             finally
             {

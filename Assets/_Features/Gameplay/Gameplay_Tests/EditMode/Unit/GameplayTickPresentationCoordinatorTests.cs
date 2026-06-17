@@ -231,9 +231,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DamageDeathVfx_DefaultMode_IsOrchestrationExecutor()
+        public void DamageDeathVfx_DefaultOrchestration_TelemetryReportsProductionOwner()
         {
-            var rootObject = new GameObject(nameof(DamageDeathVfx_DefaultMode_IsOrchestrationExecutor));
+            var rootObject = new GameObject(nameof(DamageDeathVfx_DefaultOrchestration_TelemetryReportsProductionOwner));
             var port = new RecordingDamageDeathVfxPlaybackPort();
 
             try
@@ -260,6 +260,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
                 Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
+                Assert.That(telemetry.CurrentMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
+                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
+                Assert.That(telemetry.DamageCuePlannedCount, Is.EqualTo(1));
+                Assert.That(telemetry.DamagePlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(1));
+                Assert.That(telemetry.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(telemetry.LastTickIndex, Is.EqualTo(12));
+                Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationVfxCueKey.DamageHit));
+                Assert.That(telemetry.LastTargetEntityId, Is.EqualTo(40));
             }
             finally
             {
@@ -269,9 +280,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DamageDeathVfx_ExplicitLegacyMode_RemainsRollbackPath()
+        public void DamageDeathVfx_ExplicitLegacyRollback_TelemetryConfirmsNoExecutorPlayback()
         {
-            var rootObject = new GameObject(nameof(DamageDeathVfx_ExplicitLegacyMode_RemainsRollbackPath));
+            var rootObject = new GameObject(nameof(DamageDeathVfx_ExplicitLegacyRollback_TelemetryConfirmsNoExecutorPlayback));
             var port = new RecordingDamageDeathVfxPlaybackPort();
 
             try
@@ -298,6 +309,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(ownership.ExecutedByLegacyCount, Is.EqualTo(1));
                 Assert.That(ownership.ExecutedByExecutorCount, Is.Zero);
                 Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.IsProductionDefaultOwner, Is.False);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.DuplicateSuppressedCount, Is.Zero);
 
                 coordinator.PresentInitial(Array.Empty<EntityState>(), topology);
                 Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.LegacyAttemptCount, Is.Zero);
@@ -314,9 +328,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DamageDeathVfx_DefaultOrchestration_RoutesDamageAndDeathRequests()
+        public void DamageDeathVfx_DefaultOrchestration_TelemetryCoversDamageAndDeath()
         {
-            var rootObject = new GameObject(nameof(DamageDeathVfx_DefaultOrchestration_RoutesDamageAndDeathRequests));
+            var rootObject = new GameObject(nameof(DamageDeathVfx_DefaultOrchestration_TelemetryCoversDamageAndDeath));
             var port = new RecordingDamageDeathVfxPlaybackPort();
 
             try
@@ -350,8 +364,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(2));
                 Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(2));
                 Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
-                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(1));
-                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(1));
+                var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
+                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(2));
+                Assert.That(telemetry.DamageCuePlannedCount, Is.EqualTo(1));
+                Assert.That(telemetry.DeathCuePlannedCount, Is.EqualTo(1));
+                Assert.That(telemetry.DamagePlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(telemetry.DeathPlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackRequestedCount, Is.EqualTo(2));
+                Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(2));
+                Assert.That(telemetry.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(telemetry.SemanticDiagnostics, Has.Count.EqualTo(2));
+                AssertSemanticTelemetry(
+                    telemetry,
+                    PresentationVfxCueKey.DamageHit,
+                    planned: 1,
+                    requested: 1,
+                    succeeded: 1,
+                    entityId: 40,
+                    anchorKind: PresentationAnchorKind.EntityCenter);
+                AssertSemanticTelemetry(
+                    telemetry,
+                    PresentationVfxCueKey.EnemyDeath,
+                    planned: 1,
+                    requested: 1,
+                    succeeded: 1,
+                    entityId: 41,
+                    anchorKind: PresentationAnchorKind.SurfaceCellCenter);
             }
             finally
             {
@@ -361,9 +400,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DamageDeathVfx_DefaultOrchestration_DeathSuppressesSameTickDamageHit()
+        public void DamageDeathVfx_SameTickDeathSuppression_TelemetryIsRecorded()
         {
-            var rootObject = new GameObject(nameof(DamageDeathVfx_DefaultOrchestration_DeathSuppressesSameTickDamageHit));
+            var rootObject = new GameObject(nameof(DamageDeathVfx_SameTickDeathSuppression_TelemetryIsRecorded));
             var port = new RecordingDamageDeathVfxPlaybackPort();
 
             try
@@ -387,6 +426,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(port.Requests, Has.Count.EqualTo(1));
                 AssertDeathVfxRequest(port.Requests[0], tickIndex: 14, entityId: 40, deathCell, presentationSeed: 9040);
                 Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
+                Assert.That(telemetry.DamageCuePlannedCount, Is.Zero);
+                Assert.That(telemetry.DamagePlaybackRequestedCount, Is.Zero);
+                Assert.That(telemetry.DeathCuePlannedCount, Is.EqualTo(1));
+                Assert.That(telemetry.DeathPlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(1));
+                Assert.That(telemetry.SameTickDamageHitSuppressedByDeathCount, Is.EqualTo(1));
+                Assert.That(telemetry.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(telemetry.LastSuppressionReason, Is.EqualTo(DamageDeathVfxSuppressionReason.SameTickDamageHitSuppressedByDeath));
             }
             finally
             {
@@ -466,10 +514,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DamageDeathVfx_MissingDiagnostics_RemainSeparated()
+        public void DamageDeathVfx_MissingDiagnostics_TelemetryRemainsSeparated()
         {
-            var missingPortRoot = new GameObject(nameof(DamageDeathVfx_MissingDiagnostics_RemainSeparated) + "_MissingPort");
-            var bindingRoot = new GameObject(nameof(DamageDeathVfx_MissingDiagnostics_RemainSeparated) + "_Binding");
+            var missingPortRoot = new GameObject(nameof(DamageDeathVfx_MissingDiagnostics_TelemetryRemainsSeparated) + "_MissingPort");
+            var bindingRoot = new GameObject(nameof(DamageDeathVfx_MissingDiagnostics_TelemetryRemainsSeparated) + "_Binding");
             var bindingPort = new RecordingDamageDeathVfxPlaybackPort(GameplayVfxPlaybackResultKind.BindingMissing);
 
             try
@@ -496,6 +544,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(bindingCoordinator.DamageDeathVfxExecutorDiagnostics.MissingPortCount, Is.Zero);
                 Assert.That(bindingCoordinator.DamageDeathVfxExecutorDiagnostics.BindingMissingCount, Is.EqualTo(1));
                 Assert.That(bindingPort.TryPlayCallCount, Is.EqualTo(1));
+
+                var targetMissing = PlayDamageDeathVfxCueDirectly(
+                    CreateDamageDeathVfxCue(
+                        PresentationVfxCueKey.DamageHit,
+                        PresentationTarget.Global(),
+                        PresentationAnchor.ForGlobal(),
+                        tickIndex: 17));
+                var anchorMissing = PlayDamageDeathVfxCueDirectly(
+                    CreateDamageDeathVfxCue(
+                        PresentationVfxCueKey.DamageHit,
+                        PresentationTarget.Entity(40),
+                        PresentationAnchor.ForGlobal(),
+                        tickIndex: 18));
+                Assert.That(targetMissing.TargetMissingCount, Is.EqualTo(1));
+                Assert.That(targetMissing.AnchorMissingCount, Is.Zero);
+                Assert.That(targetMissing.BindingMissingCount, Is.Zero);
+                Assert.That(targetMissing.PortMissingCount, Is.Zero);
+                Assert.That(targetMissing.LastSuppressionReason, Is.EqualTo(DamageDeathVfxSuppressionReason.TargetMissing));
+                Assert.That(anchorMissing.TargetMissingCount, Is.Zero);
+                Assert.That(anchorMissing.AnchorMissingCount, Is.EqualTo(1));
+                Assert.That(anchorMissing.BindingMissingCount, Is.Zero);
+                Assert.That(anchorMissing.PortMissingCount, Is.Zero);
+                Assert.That(anchorMissing.LastSuppressionReason, Is.EqualTo(DamageDeathVfxSuppressionReason.AnchorMissing));
             }
             finally
             {
@@ -506,9 +577,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DamageDeathVfx_LifecycleCleanup_Remains()
+        public void DamageDeathVfx_LifecycleCleanup_TelemetryClearsState()
         {
-            var rootObject = new GameObject(nameof(DamageDeathVfx_LifecycleCleanup_Remains));
+            var rootObject = new GameObject(nameof(DamageDeathVfx_LifecycleCleanup_TelemetryClearsState));
             var port = new RecordingDamageDeathVfxPlaybackPort();
 
             try
@@ -530,11 +601,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(port.ResetSessionCallCount, Is.GreaterThanOrEqualTo(1));
                 Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
                 Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.DamageCuePlannedCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.SemanticDiagnostics, Is.Empty);
 
                 coordinator.Present(result);
                 coordinator.HardCleanupPresentationExtensions();
                 Assert.That(port.HardCleanupCallCount, Is.EqualTo(1));
                 Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.SemanticDiagnostics, Is.Empty);
             }
             finally
             {
@@ -544,9 +619,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void DamageDeathVfx_DefaultOrchestration_IsNonBlockingAndDeterminismNeutral()
+        public void DamageDeathVfx_ProductionTelemetry_IsNonAuthoritative()
         {
-            var rootObject = new GameObject(nameof(DamageDeathVfx_DefaultOrchestration_IsNonBlockingAndDeterminismNeutral));
+            var rootObject = new GameObject(nameof(DamageDeathVfx_ProductionTelemetry_IsNonAuthoritative));
             var port = new RecordingDamageDeathVfxPlaybackPort();
 
             try
@@ -12817,6 +12892,65 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(request.VfxAnchor.Cell, Is.EqualTo(deathCell));
             Assert.That(request.VfxAnchor.Topology, Is.EqualTo(new CubeTopologyState(deathCell.face)));
             Assert.That(request.VfxAnchor.Slot, Is.EqualTo(VfxAnchorSlot.CellCenter));
+        }
+
+        private static void AssertSemanticTelemetry(
+            GameplayVfxExecutorDiagnostics diagnostics,
+            PresentationVfxCueKey cueKey,
+            int planned,
+            int requested,
+            int succeeded,
+            int entityId,
+            PresentationAnchorKind anchorKind)
+        {
+            var semantic = diagnostics.SemanticDiagnostics.Single(candidate => candidate.CueKey == cueKey);
+            Assert.That(semantic.PlannedCount, Is.EqualTo(planned));
+            Assert.That(semantic.RequestedCount, Is.EqualTo(requested));
+            Assert.That(semantic.SucceededCount, Is.EqualTo(succeeded));
+            Assert.That(semantic.DuplicateSuppressedCount, Is.Zero);
+            Assert.That(semantic.LastDedupeKey, Is.GreaterThan(0));
+            Assert.That(semantic.LastTargetEntityId, Is.EqualTo(entityId));
+            Assert.That(semantic.LastAnchorKind, Is.EqualTo(anchorKind));
+        }
+
+        private static GameplayVfxExecutorDiagnostics PlayDamageDeathVfxCueDirectly(PresentationCue cue)
+        {
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+            var guard = new DamageDeathVfxExecutionGuard(DamageDeathVfxExecutionMode.OrchestrationExecutor);
+            var executor = new GameplayVfxPresentationExecutor(
+                port,
+                DamageDeathVfxExecutionMode.OrchestrationExecutor,
+                guard);
+            var plan = new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
+                cue.Source.TickIndex,
+                new[] { cue },
+                new PresentationCueFrameDiagnostics(1, 1, 1)));
+
+            executor.Play(plan);
+
+            return executor.Diagnostics;
+        }
+
+        private static PresentationCue CreateDamageDeathVfxCue(
+            PresentationVfxCueKey cueKey,
+            PresentationTarget target,
+            PresentationAnchor anchor,
+            int tickIndex)
+        {
+            var key = PresentationCueKey.ForVfx(cueKey);
+            return new PresentationCue(
+                PresentationDomain.Vfx,
+                key,
+                new PresentationSource(
+                    tickIndex,
+                    cueKey == PresentationVfxCueKey.DamageHit
+                        ? PresentationSemanticSource.EnemyDamage
+                        : PresentationSemanticSource.EntityExit,
+                    target.EntityId,
+                    sourceSequence: Math.Max(1, target.EntityId)),
+                target,
+                anchor,
+                PresentationPlaybackPolicyHint.OneShot(tickIndex * 1000 + (int)cueKey));
         }
 
         private static GameplayTickViewPresenter CreateInitializedTopologyPresenter(

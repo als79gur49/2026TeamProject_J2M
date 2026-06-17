@@ -1571,7 +1571,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ArchitectureBoundary_AfterDamageDeathVfxSwitch_Remains()
+        public void Boundary_AfterDamageDeathVfxTelemetry_RemainsSeparated()
         {
             var contractsPlanningPlaybackSource = ReadDirectorySource(ContractsDirectory) + "\n" +
                                                   ReadDirectorySource(PlanningDirectory) + "\n" +
@@ -1593,6 +1593,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeSource, Does.Not.Contain("AudioManager"));
             Assert.That(uiSource, Does.Not.Contain("PresentationVfxCueKey"));
             Assert.That(uiSource, Does.Not.Contain("GameplayVfxExecutorDiagnostics"));
+            Assert.That(uiSource, Does.Not.Contain("DamageDeathVfxSemanticDiagnostics"));
+            Assert.That(uiSource, Does.Not.Contain("DamageDeathVfxSuppressionReason"));
             Assert.That(uiSource, Does.Not.Contain("DamageHitSuppressedByEnemyDeathCount"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("GameplayVfxPresentationExecutor executor"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("IsTopologyTransitionActive = DamageDeath"));
