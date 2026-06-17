@@ -2,7 +2,7 @@
 
 ## Overview
 
-Phase 9A switches exactly one production default: Core gameplay SFX now uses explicit orchestration execution ownership by default. The readiness matrix continues to define the criteria for moving one presentation domain at a time from legacy execution ownership to explicit orchestration execution ownership.
+Phase 9C keeps exactly one production default switched: Core gameplay SFX uses explicit orchestration execution ownership by default, with hardened runtime telemetry for production review. The readiness matrix continues to define the criteria for moving one presentation domain at a time from legacy execution ownership to explicit orchestration execution ownership.
 
 The current production policy remains:
 
@@ -10,7 +10,7 @@ The current production policy remains:
 - every other known presentation orchestration domain default execution mode is still its legacy owner
 - non-Core-SFX orchestration execution is explicit configuration only
 - duplicate guards remain enabled
-- diagnostics remain enabled
+- diagnostics are hardened for Core gameplay SFX default owner, request, fallback, deferred, suppression, and duplicate review
 - legacy rollback paths remain available
 
 ## Current default policy
@@ -28,15 +28,15 @@ Production scenes, stage content, and host authoring configuration must not seri
 | Box motion | LegacyTrackPlanner | OrchestrationMotionExecutor | LegacyTrackPlanner | OrchestrationMotionExecutor | Yes | Yes | `BoxMotion_OrchestrationMotionExecutorMode_RoutesSlideFlipAndImpactRequests` | `BoxMotionPlanning_DoesNotMutateAuthoritativeTickResult` | `BoxMotion_OrchestrationMode_CleanupResetsPortAndDiagnostics` | `BoxMotionExecutionSwitch_DoesNotLeakIntoInputOrVfxContracts` | Medium, motion can affect perceived input timing | Low | Set `BoxMotionPresentationExecutionMode.LegacyTrackPlanner` | NeedsMoreCoverage |
 | Player action animation | LegacyAnimationSync | OrchestrationAnimationExecutor | LegacyAnimationSync | OrchestrationAnimationExecutor | Yes | Yes | `PlayerActionAnimation_OrchestrationMode_RoutesPushFlipAndFakeAttempts` | `PlayerActionAnimationPlanning_DoesNotMutateAuthoritativeTickResult` | `PlayerActionAnimation_OrchestrationMode_CleanupResetsPortAndDiagnostics` | `PlayerActionAnimationBoundary_RemainsHostOnly` | Medium, action holds can affect input feel | Low | Set `PlayerActionAnimationExecutionMode.LegacyAnimationSync` | KeepLegacy |
 | Enemy presentation | LegacyEnemyPresentationMapper | OrchestrationEnemyPresentationExecutor | LegacyEnemyPresentationMapper | OrchestrationEnemyPresentationExecutor | Yes | Yes | `EnemyPresentation_OrchestrationMode_RoutesJumpChargeAndDeathRequests` | `EnemyPresentationPlanning_DoesNotMutateAuthoritativeTickResult` | `EnemyPresentation_OrchestrationMode_CleanupResetsPortAndDiagnostics` | `EnemyPresentationPlanningBoundary_StaysPresentationOnly` | Medium | Low | Set `EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper` | KeepLegacy |
-| Core gameplay SFX | LegacyGameplayAudioController | OrchestrationSfxBridgeExecutor | OrchestrationSfxBridgeExecutor | OrchestrationSfxBridgeExecutor | No | Yes | `CoreSfx_DefaultOrchestration_DoesNotDuplicateLegacyPlayback` | `Determinism_NonContamination_AfterCoreSfxDefaultSwitch` | `CoreGameplaySfx_ResetSessionHardCleanupAndPresentInitial_ClearExecutorPortAndGuardState` | `AudioOwnership_RemainsSeparatedAfterCoreSfxSwitch` | Low, non-blocking one-shot | Medium, audio ownership must stay separated | Set `CoreGameplaySfxExecutionMode.LegacyGameplayAudioController` | ProductionDefaultOn |
+| Core gameplay SFX | LegacyGameplayAudioController | OrchestrationSfxBridgeExecutor | OrchestrationSfxBridgeExecutor | OrchestrationSfxBridgeExecutor | No | Yes | `CoreSfx_DefaultOrchestration_TelemetryReportsProductionOwner` | `CoreSfx_ProductionTelemetry_IsNonAuthoritative` | `CoreGameplaySfx_ResetSessionHardCleanupAndPresentInitial_ClearExecutorPortAndGuardState` | `AudioOwnership_AfterCoreSfxTelemetry_RemainsSeparated` | Low, non-blocking one-shot | Medium, audio ownership must stay separated | Set `CoreGameplaySfxExecutionMode.LegacyGameplayAudioController` | ProductionDefaultOnTelemetryHardened |
 | Action audio | LegacyActionAudioController | OrchestrationActionAudioBridge | LegacyActionAudioController | OrchestrationActionAudioBridge | Yes | Yes | `ActionAudio_OrchestrationMode_RoutesProfileMoments` | `ActionAudioPlanning_DoesNotMutateAuthoritativeTickResult` | `ActionAudio_OrchestrationMode_CleanupResetsPortAndDiagnostics` | `ActionAudioPlanningBoundary_StaysActionAudioOwned` | Low | Medium, profile/authoring edge cases remain | Set `ActionAudioExecutionMode.LegacyActionAudioController` | KeepLegacy |
 | Enemy audio | LegacyEnemyAudioController | OrchestrationEnemyAudioBridge | LegacyEnemyAudioController | OrchestrationEnemyAudioBridge | Yes | Yes | `EnemyAudio_OrchestrationMode_RoutesEnemyMoments` | `EnemyAudioPlanning_DoesNotMutateAuthoritativeTickResult` | `EnemyAudio_OrchestrationMode_CleanupResetsPortAndDiagnostics` | `EnemyAudioPlanningBoundary_StaysPlanningOnlyAndDoesNotAbsorbPlaybackOwnership` | Low | Medium, latest audio integration | Set `EnemyAudioExecutionMode.LegacyEnemyAudioController` | KeepLegacy |
 
 ## Production switch candidate recommendation
 
-There is no next `CandidateForNextPR` in this matrix after the Phase 9A switch. The next PR should harden telemetry and validation for Core gameplay SFX before another domain becomes a production default candidate.
+There is no immediate next `CandidateForNextPR` in this matrix after Phase 9C. Core gameplay SFX telemetry should be observed before another domain becomes a production default candidate.
 
-Core gameplay SFX was switched first because:
+Core gameplay SFX remains the only switched domain because:
 
 - non-blocking one-shot playback
 - small closed semantic set
@@ -45,8 +45,10 @@ Core gameplay SFX was switched first because:
 - duplicate guard coverage exists
 - audio ownership tests already separate core SFX, action audio, enemy audio, BGM, and UI audio
 - rollback is a single execution mode switch back to `LegacyGameplayAudioController`
+- topology-lock deferral and unlock drain parity are now covered by telemetry tests
+- enemy death profile suppression and lethal enemy damage suppression parity are now covered by telemetry tests
 
-No other domain is a Phase 9A production default candidate.
+Damage/death VFX may be reconsidered after Core gameplay SFX duplicate, fallback, deferred, and suppression telemetry remains stable. No other domain is a Phase 9C production default candidate.
 
 ## Required validation lanes by candidate
 
