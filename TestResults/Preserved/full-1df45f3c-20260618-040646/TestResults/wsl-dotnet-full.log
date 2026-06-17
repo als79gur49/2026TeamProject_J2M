@@ -1,0 +1,59 @@
+  복원할 프로젝트를 확인하는 중...
+  수행할 작업이 없습니다. 지정한 프로젝트에 복원할 패키지가 없습니다.
+  Game.Feature.UI.ViewShared -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.UI.ViewShared.dll
+  Game.Shared.Audio -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Shared.Audio.dll
+  AllIn1SpriteShaderAssembly -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\AllIn1SpriteShaderAssembly.dll
+  Game.Feature.Gameplay -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.dll
+  DOTween.Modules -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\DOTween.Modules.dll
+  Game.Shared.Display -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Shared.Display.dll
+  Game.Feature.Gameplay.AudioPolicy -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.AudioPolicy.dll
+  UnityUIExtensions -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\UnityUIExtensions.dll
+  Game.Shared.Input -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Shared.Input.dll
+  Game.TestSupport.Pure -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.TestSupport.Pure.dll
+  Game.Feature.Gameplay.TileFeatureAudio -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.TileFeatureAudio.dll
+  Game.Feature.Gameplay.ActionAudio -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.ActionAudio.dll
+  Game.Feature.Gameplay.BlockAudio -> C:\users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.BlockAudio.dll
+  Game.Feature.Gameplay.EnemyAudio -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.EnemyAudio.dll
+  Game.Feature.Gameplay.PlayerLocomotionAudio -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.PlayerLocomotionAudio.dll
+  Game.Feature.Gameplay.Audio -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.Audio.dll
+  Game.Feature.Gameplay.TopologyAudio -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.TopologyAudio.dll
+  Game.Feature.Gameplay.PresentationVfx.Contracts -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.PresentationVfx.Contracts.dll
+  Game.Feature.Gameplay.GravityFieldAudio -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.GravityFieldAudio.dll
+  Game.Feature.UI.Screens -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.UI.Screens.dll
+  Game.Feature.UI.HUD -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.UI.HUD.dll
+  Game.Feature.UI.Popups -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.UI.Popups.dll
+  DOTweenPro.Scripts -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\DOTweenPro.Scripts.dll
+  Game.Feature.Gameplay.Vfx -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.Vfx.dll
+  DOTweenPro.EditorScripts -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\DOTweenPro.EditorScripts.dll
+  Game.Feature.Gameplay.Vfx.Authoring -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.Vfx.Authoring.dll
+  Game.Feature.Gameplay.EnemyPresentation -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.EnemyPresentation.dll
+  Game.Feature.Stages -> C:\users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Stages.dll
+  Game.Feature.DemoStageControl.Runtime -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.DemoStageControl.Runtime.dll
+  Game.Feature.Flow.Audio -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Flow.Audio.dll
+  Game.Feature.Gameplay.UIAccess -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.UIAccess.dll
+  Game.Feature.UI.Application -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.UI.Application.dll
+  Game.Feature.Gameplay.Host -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.Host.dll
+  Game.Feature.UI.Flow -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.UI.Flow.dll
+  Game.Core.Tests -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Core.Tests.dll
+  Game.Feature.Gameplay.Host.Editor -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.Host.Editor.dll
+  Game.Feature.Gameplay.Vfx.Host -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.Vfx.Host.dll
+  Game.Feature.DemoStageControl.UI -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.DemoStageControl.UI.dll
+  Game.Feature.Gameplay.Vfx.ProductionRuntime -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.Vfx.ProductionRuntime.dll
+  Game.Feature.UI.Composition -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.UI.Composition.dll
+  Game.Feature.Gameplay.Tests -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.Tests.dll
+  Game.Feature.Gameplay.PlayModeTests -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Gameplay.PlayModeTests.dll
+  Game.TestInfrastructure -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.TestInfrastructure.dll
+  Game.Feature.UI.Tests -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.UI.Tests.dll
+  Game.Feature.Stages.Editor -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Stages.Editor.dll
+  Game.Integration.Replay.Tests -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Integration.Replay.Tests.dll
+  Game.Integration.Simulation.Tests -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Integration.Simulation.Tests.dll
+  Game.Integration.Fuzz.Tests -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Integration.Fuzz.Tests.dll
+  Game.Feature.Stages.Editor.Tests -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Game.Feature.Stages.Editor.Tests.dll
+  Assembly-CSharp -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Assembly-CSharp.dll
+  Assembly-CSharp-Editor -> C:\Users\user\2026teamproject_j2m-cleanup\Temp\bin\Debug\Assembly-CSharp-Editor.dll
+
+빌드했습니다.
+    경고 0개
+    오류 0개
+
+경과 시간: 00:00:07.86
