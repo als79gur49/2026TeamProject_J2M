@@ -86,6 +86,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly EnemyPresentationExecutionPipelineFactory _enemyPresentationExecutionPipelineFactory;
         private readonly CoreGameplaySfxExecutionGuard _coreGameplaySfxExecutionGuard = new();
         private readonly CoreGameplaySfxExecutionPipelineFactory _coreGameplaySfxExecutionPipelineFactory;
+        private readonly ActionAudioExecutionGuard _actionAudioExecutionGuard = new();
+        private readonly ActionAudioExecutionPipelineFactory _actionAudioExecutionPipelineFactory;
 
         private GameplayPresentationPipeline _presentationPipeline;
         private GameplayPresentationPipeline _topologyExecutionPipeline;
@@ -94,6 +96,7 @@ namespace Game.Feature.Gameplay.Host
         private GameplayPresentationPipeline _playerActionAnimationExecutionPipeline;
         private GameplayPresentationPipeline _enemyPresentationExecutionPipeline;
         private GameplayPresentationPipeline _coreGameplaySfxExecutionPipeline;
+        private GameplayPresentationPipeline _actionAudioExecutionPipeline;
         private TopologyPresentationExecutionMode _topologyExecutionMode =
             TopologyPresentationExecutionMode.LegacyCoordinator;
         private DamageDeathVfxExecutionMode _damageDeathVfxExecutionMode =
@@ -106,6 +109,8 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper;
         private CoreGameplaySfxExecutionMode _coreGameplaySfxExecutionMode =
             CoreGameplaySfxExecutionMode.LegacyGameplayAudioController;
+        private ActionAudioExecutionMode _actionAudioExecutionMode =
+            ActionAudioExecutionMode.LegacyActionAudioController;
         private IDamageDeathVfxPlaybackPort _damageDeathVfxPlaybackPort;
         private IGameplayMotionPlaybackPort _boxMotionPlaybackPort;
         private GameplayMotionTrackPlannerPlaybackPort _boxMotionTrackPlannerPlaybackPort;
@@ -115,6 +120,8 @@ namespace Game.Feature.Gameplay.Host
         private GameplayEnemyPresentationSyncPlaybackPort _enemyPresentationSyncPlaybackPort;
         private IGameplaySfxPlaybackPort _coreGameplaySfxPlaybackPort;
         private GameplaySfxPlaybackPortAdapter _coreGameplaySfxPlaybackPortAdapter;
+        private IGameplayActionAudioPlaybackPort _actionAudioPlaybackPort;
+        private GameplayActionAudioPlaybackPortAdapter _actionAudioPlaybackPortAdapter;
         private bool _isInitialized;
         private bool _presentationPipelineDiagnosticsEnabled;
         private GameplayCubeProjector _projector;
@@ -150,7 +157,8 @@ namespace Game.Feature.Gameplay.Host
                 GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateEnemyPresentationExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreateCoreGameplaySfxExecutionPipeline)
+                GameplayHostPresentationPipelineFactory.CreateCoreGameplaySfxExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateActionAudioExecutionPipeline)
         {
         }
 
@@ -161,7 +169,8 @@ namespace Game.Feature.Gameplay.Host
                 GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateEnemyPresentationExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreateCoreGameplaySfxExecutionPipeline)
+                GameplayHostPresentationPipelineFactory.CreateCoreGameplaySfxExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateActionAudioExecutionPipeline)
         {
         }
 
@@ -174,7 +183,8 @@ namespace Game.Feature.Gameplay.Host
                 GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateEnemyPresentationExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreateCoreGameplaySfxExecutionPipeline)
+                GameplayHostPresentationPipelineFactory.CreateCoreGameplaySfxExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateActionAudioExecutionPipeline)
         {
         }
 
@@ -184,7 +194,8 @@ namespace Game.Feature.Gameplay.Host
             BoxMotionExecutionPipelineFactory boxMotionExecutionPipelineFactory,
             PlayerActionAnimationExecutionPipelineFactory playerActionAnimationExecutionPipelineFactory = null,
             EnemyPresentationExecutionPipelineFactory enemyPresentationExecutionPipelineFactory = null,
-            CoreGameplaySfxExecutionPipelineFactory coreGameplaySfxExecutionPipelineFactory = null)
+            CoreGameplaySfxExecutionPipelineFactory coreGameplaySfxExecutionPipelineFactory = null,
+            ActionAudioExecutionPipelineFactory actionAudioExecutionPipelineFactory = null)
         {
             _topologyExecutionPipelineFactory = topologyExecutionPipelineFactory ??
                                                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline;
@@ -203,6 +214,9 @@ namespace Game.Feature.Gameplay.Host
             _coreGameplaySfxExecutionPipelineFactory = coreGameplaySfxExecutionPipelineFactory ??
                                                        GameplayHostPresentationPipelineFactory
                                                            .CreateCoreGameplaySfxExecutionPipeline;
+            _actionAudioExecutionPipelineFactory = actionAudioExecutionPipelineFactory ??
+                                                   GameplayHostPresentationPipelineFactory
+                                                       .CreateActionAudioExecutionPipeline;
             _audioPresentationController = new GameplayAudioPresentationController(_stateStore);
             _actionAudioPresentationController = new GameplayActionAudioPresentationController(_stateStore);
             _enemyAudioPresentationController = new EnemyAudioPresentationController(_stateStore);
@@ -257,6 +271,8 @@ namespace Game.Feature.Gameplay.Host
             _enemyPresentationSyncPlaybackPort =
                 new GameplayEnemyPresentationSyncPlaybackPort(_animationSync, _stateStore);
             _coreGameplaySfxPlaybackPortAdapter = new GameplaySfxPlaybackPortAdapter(_stateStore);
+            _actionAudioPlaybackPortAdapter =
+                new GameplayActionAudioPlaybackPortAdapter(_actionAudioPresentationController);
             _topologyTransitionController.TopologyPresentationCompleted += HandleTopologyPresentationCompleted;
             _topologyTransitionController.TopologyTransitionPresentationCompleted +=
                 HandleTopologyTransitionPresentationCompleted;
@@ -364,6 +380,12 @@ namespace Game.Feature.Gameplay.Host
         internal CoreGameplaySfxOwnershipDiagnostics CoreGameplaySfxOwnershipDiagnostics =>
             _coreGameplaySfxExecutionGuard.Diagnostics;
 
+        internal ActionAudioExecutionMode ActionAudioExecutionMode =>
+            _actionAudioExecutionMode;
+
+        internal ActionAudioOwnershipDiagnostics ActionAudioOwnershipDiagnostics =>
+            _actionAudioExecutionGuard.Diagnostics;
+
         internal PresentationBlockingSnapshot DamageDeathVfxExecutionPipelineBlockingSnapshot =>
             _damageDeathVfxExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
@@ -379,6 +401,9 @@ namespace Game.Feature.Gameplay.Host
         internal PresentationBlockingSnapshot CoreGameplaySfxExecutionPipelineBlockingSnapshot =>
             _coreGameplaySfxExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
+        internal PresentationBlockingSnapshot ActionAudioExecutionPipelineBlockingSnapshot =>
+            _actionAudioExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
+
         internal GameplayVfxExecutorDiagnostics DamageDeathVfxExecutorDiagnostics =>
             ResolveDamageDeathVfxExecutorDiagnostics();
 
@@ -393,6 +418,9 @@ namespace Game.Feature.Gameplay.Host
 
         internal GameplaySfxExecutorDiagnostics CoreGameplaySfxExecutorDiagnostics =>
             ResolveCoreGameplaySfxExecutorDiagnostics();
+
+        internal GameplayActionAudioExecutorDiagnostics ActionAudioExecutorDiagnostics =>
+            ResolveActionAudioExecutorDiagnostics();
 
         internal void ConfigureDamageDeathVfxExecution(
             DamageDeathVfxExecutionMode mode,
@@ -483,6 +511,21 @@ namespace Game.Feature.Gameplay.Host
                 ResolveCoreGameplaySfxPlaybackPort(),
                 _coreGameplaySfxExecutionGuard);
             _coreGameplaySfxExecutionPipeline?.ResetSession();
+        }
+
+        internal void ConfigureActionAudioExecution(
+            ActionAudioExecutionMode mode,
+            IGameplayActionAudioPlaybackPort playbackPort = null)
+        {
+            _actionAudioExecutionMode = NormalizeActionAudioExecutionMode(mode);
+            _actionAudioPlaybackPort = playbackPort;
+            _actionAudioExecutionGuard.Configure(_actionAudioExecutionMode);
+            _actionAudioExecutionGuard.ResetSession();
+            _actionAudioExecutionPipeline = _actionAudioExecutionPipelineFactory(
+                _actionAudioExecutionMode,
+                ResolveActionAudioPlaybackPort(),
+                _actionAudioExecutionGuard);
+            _actionAudioExecutionPipeline?.ResetSession();
         }
 
         internal void EnablePresentationPipelineDiagnostics(GameplayPresentationPipeline pipeline = null)
@@ -648,6 +691,13 @@ namespace Game.Feature.Gameplay.Host
                 _enemyPresentationExecutionMode,
                 ResolveEnemyPresentationPlaybackPort(),
                 _enemyPresentationExecutionGuard);
+            _actionAudioExecutionMode = NormalizeActionAudioExecutionMode(_actionAudioExecutionMode);
+            _actionAudioExecutionGuard.Configure(_actionAudioExecutionMode);
+            _actionAudioExecutionGuard.ResetSession();
+            _actionAudioExecutionPipeline = _actionAudioExecutionPipelineFactory(
+                _actionAudioExecutionMode,
+                ResolveActionAudioPlaybackPort(),
+                _actionAudioExecutionGuard);
             _viewBinder = viewBinder;
             _gravityFieldVisualPresentationController.AttachTargetViewRegistry(_viewBinder.ViewRegistry);
             _moonBlockEmergencePresentationController.Configure(_viewBinder.ViewRegistry, timingProfile);
@@ -710,6 +760,8 @@ namespace Game.Feature.Gameplay.Host
             _enemyPresentationExecutionPipeline?.ResetSession();
             _coreGameplaySfxExecutionGuard.ResetSession();
             _coreGameplaySfxExecutionPipeline?.ResetSession();
+            _actionAudioExecutionGuard.ResetSession();
+            _actionAudioExecutionPipeline?.ResetSession();
             ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             ResetPresentationPipelineDiagnosticsIfEnabled();
         }
@@ -892,6 +944,7 @@ namespace Game.Feature.Gameplay.Host
             try
             {
                 RefreshCoreGameplaySfxExecution(result);
+                RefreshActionAudioExecution(result);
                 _audioPresentationController.PlayPlannedAudio();
                 _actionAudioPresentationController.PlayPlannedAudio(result.TickIndex);
                 _enemyAudioPresentationController.PlayPlannedAudio(result.TickIndex);
@@ -1041,6 +1094,11 @@ namespace Game.Feature.Gameplay.Host
         private IGameplaySfxPlaybackPort ResolveCoreGameplaySfxPlaybackPort()
         {
             return _coreGameplaySfxPlaybackPort ?? _coreGameplaySfxPlaybackPortAdapter;
+        }
+
+        private IGameplayActionAudioPlaybackPort ResolveActionAudioPlaybackPort()
+        {
+            return _actionAudioPlaybackPort ?? _actionAudioPlaybackPortAdapter;
         }
 
         private void RecordBoxMotionLegacyOwnership(TickResult result)
@@ -1315,6 +1373,21 @@ namespace Game.Feature.Gameplay.Host
             _coreGameplaySfxExecutionPipeline?.Present(result);
         }
 
+        private void RefreshActionAudioExecution(TickResult result)
+        {
+            if (result == null ||
+                _actionAudioExecutionMode != ActionAudioExecutionMode.OrchestrationActionAudioBridge)
+            {
+                return;
+            }
+
+            _actionAudioExecutionPipeline ??= _actionAudioExecutionPipelineFactory(
+                _actionAudioExecutionMode,
+                ResolveActionAudioPlaybackPort(),
+                _actionAudioExecutionGuard);
+            _actionAudioExecutionPipeline?.Present(result);
+        }
+
         private static IReadOnlyList<DamageDeathVfxPlaybackKey> BuildDamageDeathVfxPlaybackKeys(TickResult result)
         {
             var factFrame = new TickPresentationFactExtractor().Extract(result);
@@ -1391,6 +1464,74 @@ namespace Game.Feature.Gameplay.Host
                 : keys;
         }
 
+        private static IReadOnlyList<ActionAudioPlaybackKey> BuildActionAudioPlaybackKeys(TickResult result)
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new ActionAudioCuePlanner(),
+            }).Plan(factFrame);
+            if (cueFrame.Cues.Count == 0)
+            {
+                return Array.Empty<ActionAudioPlaybackKey>();
+            }
+
+            var keys = new List<ActionAudioPlaybackKey>(cueFrame.Cues.Count);
+            for (var i = 0; i < cueFrame.Cues.Count; i++)
+            {
+                var cue = cueFrame.Cues[i];
+                if (cue.Domain != PresentationDomain.ActionAudio ||
+                    !cue.Key.TryGetActionAudioCueKey(out _) ||
+                    !TryMapActionAudioPayload(cue.ActionAudioPayload, out var action, out var moment))
+                {
+                    continue;
+                }
+
+                var payload = cue.ActionAudioPayload;
+                keys.Add(new ActionAudioPlaybackKey(
+                    cue.Source.TickIndex,
+                    cue.Source.SemanticSource,
+                    payload.OwnerEntityId,
+                    action,
+                    moment,
+                    payload.SourceSequenceId,
+                    payload.SourceActionPlanId,
+                    payload.TargetEntityId,
+                    i));
+            }
+
+            return keys.Count == 0
+                ? Array.Empty<ActionAudioPlaybackKey>()
+                : keys;
+        }
+
+        private static bool TryMapActionAudioPayload(
+            PresentationActionAudioPayload payload,
+            out GameplayActionKind action,
+            out GameplayActionAudioMoment moment)
+        {
+            action = default;
+            moment = default;
+            if (!payload.IsValid ||
+                !Enum.IsDefined(typeof(GameplayActionKind), payload.ActionKind))
+            {
+                return false;
+            }
+
+            action = (GameplayActionKind)payload.ActionKind;
+            switch ((GameplayActionAudioMoment)payload.Moment)
+            {
+                case GameplayActionAudioMoment.Windup:
+                case GameplayActionAudioMoment.AssistOutOfRange:
+                case GameplayActionAudioMoment.NoTarget:
+                case GameplayActionAudioMoment.Invalid:
+                    moment = (GameplayActionAudioMoment)payload.Moment;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         public void PresentInitial(
             IReadOnlyList<EntityState> entities,
             CubeTopologyState topology,
@@ -1444,6 +1585,8 @@ namespace Game.Feature.Gameplay.Host
             _enemyPresentationExecutionPipeline?.ResetSession();
             _coreGameplaySfxExecutionGuard.ResetSession();
             _coreGameplaySfxExecutionPipeline?.ResetSession();
+            _actionAudioExecutionGuard.ResetSession();
+            _actionAudioExecutionPipeline?.ResetSession();
             ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             _lastPresentedResult = null;
             _topologyTransitionEpoch = 0;
@@ -1529,6 +1672,7 @@ namespace Game.Feature.Gameplay.Host
             _playerActionAnimationExecutionPipeline?.Update(deltaTime);
             _enemyPresentationExecutionPipeline?.Update(deltaTime);
             _coreGameplaySfxExecutionPipeline?.Update(deltaTime);
+            _actionAudioExecutionPipeline?.Update(deltaTime);
             UpdatePresentationPipelineDiagnosticsIfEnabled(deltaTime);
         }
 
@@ -1723,9 +1867,31 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
-            _actionAudioPresentationController.ReplacePendingPlan(
-                _actionAudioRequestPlanner.BuildRequests(result),
-                result.TickIndex);
+            var actionAudioRequests = _actionAudioRequestPlanner.BuildRequests(result);
+            var actionAudioKeys = BuildActionAudioPlaybackKeys(result);
+            if (_actionAudioExecutionMode == ActionAudioExecutionMode.OrchestrationActionAudioBridge)
+            {
+                for (var i = 0; i < actionAudioKeys.Count; i++)
+                {
+                    _actionAudioExecutionGuard.RecordSkippedByPolicy(
+                        ActionAudioExecutionOwner.LegacyActionAudioController);
+                }
+
+                _actionAudioPresentationController.ReplacePendingPlan(
+                    Array.Empty<GameplayActionAudioRequest>(),
+                    result.TickIndex);
+            }
+            else
+            {
+                _actionAudioPresentationController.ReplacePendingPlan(actionAudioRequests, result.TickIndex);
+                for (var i = 0; i < actionAudioKeys.Count; i++)
+                {
+                    _actionAudioExecutionGuard.TryBeginExecution(
+                        ActionAudioExecutionOwner.LegacyActionAudioController,
+                        actionAudioKeys[i]);
+                }
+            }
+
             _enemyAudioPresentationController.ReplacePendingPlan(enemyAudioRequests, result.TickIndex);
         }
 
@@ -1953,6 +2119,8 @@ namespace Game.Feature.Gameplay.Host
             _enemyPresentationExecutionGuard.ResetSession();
             _coreGameplaySfxExecutionPipeline?.HardCleanup();
             _coreGameplaySfxExecutionGuard.ResetSession();
+            _actionAudioExecutionPipeline?.HardCleanup();
+            _actionAudioExecutionGuard.ResetSession();
             ClearBoxMotionPresentationRuntimeState();
             _presentationPipeline?.HardCleanup();
             for (var i = 0; i < _presentationExtensions.Count; i++)
@@ -2047,6 +2215,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _topologyExecutionPipeline?.ObserveTopologyActiveState(isTopologyActive, tickIndex);
+            _actionAudioExecutionPipeline?.ObserveTopologyActiveState(isTopologyActive, tickIndex);
         }
 
         private void PresentExtensions(TickResult result)
@@ -2368,6 +2537,25 @@ namespace Game.Feature.Gameplay.Host
             return default;
         }
 
+        private GameplayActionAudioExecutorDiagnostics ResolveActionAudioExecutorDiagnostics()
+        {
+            if (_actionAudioExecutionPipeline == null)
+            {
+                return default;
+            }
+
+            var executors = _actionAudioExecutionPipeline.Executors;
+            for (var i = 0; i < executors.Count; i++)
+            {
+                if (executors[i] is GameplayActionAudioPresentationExecutor executor)
+                {
+                    return executor.Diagnostics;
+                }
+            }
+
+            return default;
+        }
+
         private static DamageDeathVfxExecutionMode NormalizeDamageDeathVfxExecutionMode(
             DamageDeathVfxExecutionMode mode)
         {
@@ -2406,6 +2594,14 @@ namespace Game.Feature.Gameplay.Host
             return Enum.IsDefined(typeof(CoreGameplaySfxExecutionMode), mode)
                 ? mode
                 : CoreGameplaySfxExecutionMode.LegacyGameplayAudioController;
+        }
+
+        private static ActionAudioExecutionMode NormalizeActionAudioExecutionMode(
+            ActionAudioExecutionMode mode)
+        {
+            return Enum.IsDefined(typeof(ActionAudioExecutionMode), mode)
+                ? mode
+                : ActionAudioExecutionMode.LegacyActionAudioController;
         }
 
         private void TraceStep(string stepName)
