@@ -2,7 +2,7 @@
 
 ## Overview
 
-Phase 9E hardens production telemetry for the Damage/death VFX default introduced in Phase 9B. Damage/death VFX still uses explicit orchestration execution ownership by default, and Core gameplay SFX keeps the Phase 9D production default, hardened telemetry, and PlayMode smoke coverage status. The readiness matrix continues to define the criteria for moving one presentation domain at a time from legacy execution ownership to explicit orchestration execution ownership.
+Phase 9F expands PlayMode smoke coverage for the Damage/death VFX default introduced in Phase 9B and telemetry-hardened in Phase 9E. Damage/death VFX still uses explicit orchestration execution ownership by default, and Core gameplay SFX keeps the Phase 9D production default, hardened telemetry, and PlayMode smoke coverage status. The readiness matrix continues to define the criteria for moving one presentation domain at a time from legacy execution ownership to explicit orchestration execution ownership.
 
 The current production policy remains:
 
@@ -12,7 +12,7 @@ The current production policy remains:
 - non-Core-SFX and non-Damage/death-VFX orchestration execution is explicit configuration only
 - duplicate guards remain enabled
 - diagnostics are hardened for Core gameplay SFX default owner, request, fallback, deferred, suppression, and duplicate review
-- Damage/death VFX now has hardened production telemetry for default owner, legacy skip, semantic damage/death planning and playback, duplicate suppression, same-tick death suppression, missing target, missing anchor, missing binding, missing port, and cleanup review
+- Damage/death VFX now has hardened production telemetry and PlayMode smoke for default owner, legacy skip, semantic damage/death planning and playback, duplicate suppression, same-tick death suppression, missing diagnostics, rollback, non-authoritative behavior, and lifecycle cleanup review
 - PlayMode smoke now covers the actual host/audio lifecycle for Core gameplay SFX default ownership, fallback, topology deferral, suppression, rollback, and non-authoritative behavior
 - legacy rollback paths remain available
 
@@ -27,7 +27,7 @@ Production scenes, stage content, and host authoring configuration must not seri
 | Domain | LegacyOwner | OrchestrationOwner | CurrentDefault | ControlledMode | DefaultIsLegacy | InvalidModeNormalizesToLegacy | DuplicateGuardEvidence | DeterminismEvidence | LifecycleCleanupEvidence | BoundaryEvidence | InputLockRisk | AudioUiRisk | RollbackPath | RecommendedStatus |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Topology transition | LegacyCoordinator | ExecutorBridge | LegacyCoordinator | ExecutorBridge | Yes | Yes | `TopologyExecution_ExecutorBridgeMode_UsesExecutorPortOnceAndSkipsLegacyDirectPath` | `TopologyExecutor_DoesNotMutateAuthoritativeTickResult` | `TopologyExecution_ExecutorBridgeMode_CleanupResetsPortAndDiagnostics` | `TopologyAndInputLockExistingPath_RemainsOwnedByCoordinator` | High, input lock observes coordinator presentation phase | Low | Set `TopologyPresentationExecutionMode.LegacyCoordinator` | KeepLegacy |
-| Damage/death VFX | LegacyExtension | OrchestrationExecutor | OrchestrationExecutor | OrchestrationExecutor | No | Yes | `DamageDeathVfx_DefaultOrchestration_TelemetryCoversDamageAndDeath` | `VfxPlanning_DoesNotMutateAuthoritativeTickResult` | `DamageDeathVfx_LifecycleCleanup_TelemetryClearsState` | `VfxPlanningBoundary_StaysPresentationOnly` | Low | Low | Set `DamageDeathVfxExecutionMode.LegacyExtension` | ProductionDefaultOnTelemetryHardened |
+| Damage/death VFX | LegacyExtension | OrchestrationExecutor | OrchestrationExecutor | OrchestrationExecutor | No | Yes | `DamageDeathVfxProductionDefault_PlayMode_TelemetryHasNoDuplicatePlayback` | `DamageDeathVfx_PlayModeSmoke_IsNonAuthoritative` | `DamageDeathVfx_PlayModeSmoke_LifecycleCleanupClearsGuardAndDiagnostics` | `VfxPlanningBoundary_StaysPresentationOnly` | Low | Low | Set `DamageDeathVfxExecutionMode.LegacyExtension` | ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered |
 | Box motion | LegacyTrackPlanner | OrchestrationMotionExecutor | LegacyTrackPlanner | OrchestrationMotionExecutor | Yes | Yes | `BoxMotion_OrchestrationMotionExecutorMode_RoutesSlideFlipAndImpactRequests` | `BoxMotionPlanning_DoesNotMutateAuthoritativeTickResult` | `BoxMotion_OrchestrationMode_CleanupResetsPortAndDiagnostics` | `BoxMotionExecutionSwitch_DoesNotLeakIntoInputOrVfxContracts` | Medium, motion can affect perceived input timing | Low | Set `BoxMotionPresentationExecutionMode.LegacyTrackPlanner` | NeedsMoreCoverage |
 | Player action animation | LegacyAnimationSync | OrchestrationAnimationExecutor | LegacyAnimationSync | OrchestrationAnimationExecutor | Yes | Yes | `PlayerActionAnimation_OrchestrationMode_RoutesPushFlipAndFakeAttempts` | `PlayerActionAnimationPlanning_DoesNotMutateAuthoritativeTickResult` | `PlayerActionAnimation_OrchestrationMode_CleanupResetsPortAndDiagnostics` | `PlayerActionAnimationBoundary_RemainsHostOnly` | Medium, action holds can affect input feel | Low | Set `PlayerActionAnimationExecutionMode.LegacyAnimationSync` | KeepLegacy |
 | Enemy presentation | LegacyEnemyPresentationMapper | OrchestrationEnemyPresentationExecutor | LegacyEnemyPresentationMapper | OrchestrationEnemyPresentationExecutor | Yes | Yes | `EnemyPresentation_OrchestrationMode_RoutesJumpChargeAndDeathRequests` | `EnemyPresentationPlanning_DoesNotMutateAuthoritativeTickResult` | `EnemyPresentation_OrchestrationMode_CleanupResetsPortAndDiagnostics` | `EnemyPresentationPlanningBoundary_StaysPresentationOnly` | Medium | Low | Set `EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper` | KeepLegacy |
@@ -37,7 +37,7 @@ Production scenes, stage content, and host authoring configuration must not seri
 
 ## Production switch candidate recommendation
 
-There is no immediate `CandidateForNextPR` status in this matrix after Phase 9E. The recommended next PR is Phase 9F Damage/death VFX production PlayMode smoke expansion. Box motion production readiness hardening remains a later conditional step and must not switch the Box motion default.
+There is no immediate `CandidateForNextPR` status in this matrix after Phase 9F. The recommended next PR is Phase 9G Box motion production readiness hardening. Box motion production readiness hardening must add pose, lifecycle, duplicate, cleanup, and PlayMode evidence before any default switch.
 
 Core gameplay SFX remains switched because:
 
@@ -62,8 +62,9 @@ Damage/death VFX is now switched because:
 - lifecycle cleanup resets guard, executor diagnostics, and controlled port state
 - rollback is a single execution mode switch back to `LegacyExtension`
 - the legacy `GameplayVfxProductionRuntime` path remains available and suppresses only `EnemyVfxCue.Damage` and `EnemyVfxCue.Death` when orchestration owns Damage/death VFX
+- actual host lifecycle PlayMode smoke now covers default owner telemetry, damage/death request routing, same-tick death suppression, explicit legacy rollback, missing port/binding diagnostics, lifecycle cleanup, non-authoritative behavior, and Core SFX/audio boundary stability
 
-Phase 9F should expand Damage/death VFX PlayMode smoke coverage for actual host/scene lifecycle, default orchestration owner telemetry, missing binding/fallback behavior, and pooling cleanup. Box motion readiness hardening remains a later candidate; Box motion is not switched in Phase 9E.
+Phase 9F does not switch any additional production default. Box motion readiness hardening remains the next recommended candidate; Box motion is not switched in Phase 9F.
 
 ## Phase 9D PlayMode smoke coverage
 
@@ -99,6 +100,23 @@ Phase 9E Damage/death VFX scenarios:
 - `DamageDeathVfx_LifecycleCleanup_TelemetryClearsState`
 - `DamageDeathVfx_ProductionTelemetry_IsNonAuthoritative`
 
+## Phase 9F Damage/death VFX PlayMode smoke coverage
+
+Phase 9F uses Hybrid PlayMode evidence. Synthetic host smoke runs through a real `GameplaySceneHost`, `GameplayTickViewPresenter`, and `GameplayTickPresentationCoordinator` lifecycle while feeding deterministic presentation ticks for Damage/death VFX scenarios. This avoids brittle combat-scene authoring while validating the production default owner path. The actual `UIAudioScene` bootstrap smoke verifies that the scene-host lifecycle boots with `DamageDeathVfxExecutionMode.OrchestrationExecutor`, keeps `GameplayVfxProductionRuntime` present, keeps Core SFX production ownership, and keeps action/enemy audio on legacy owners.
+
+Phase 9F Damage/death VFX PlayMode smoke scenarios:
+
+- `DamageDeathVfxProductionDefault_PlayMode_UsesOrchestrationOwner`
+- `DamageDeathVfxProductionDefault_PlayMode_TelemetryHasNoDuplicatePlayback`
+- `DamageDeathVfxProductionDefault_PlayMode_RoutesDamageAndDeath`
+- `DamageDeathVfxProductionDefault_PlayMode_SameTickDeathSuppressesDamage`
+- `DamageDeathVfxProductionDefault_PlayMode_LegacySuppressPolicyOnlyDamageDeath`
+- `DamageDeathVfx_ExplicitLegacyRollback_RemainsAvailableAfterPlayModeSmoke`
+- `DamageDeathVfx_PlayModeSmoke_IsNonAuthoritative`
+- `DamageDeathVfx_PlayModeSmoke_KeepsCoreSfxAndAudioBoundaries`
+- `DamageDeathVfx_PlayModeSmoke_ReportsMissingPortAndBindingWithoutThrowing`
+- `DamageDeathVfx_PlayModeSmoke_LifecycleCleanupClearsGuardAndDiagnostics`
+
 ## Required validation lanes by candidate
 
 Core gameplay SFX and Damage/death VFX production switch validation must include:
@@ -119,7 +137,7 @@ Core gameplay SFX and Damage/death VFX production switch validation must include
 
 Optional escalation includes targeted audio, VFX, and PlayMode tests when the touched diff changes runtime playback behavior.
 
-Phase 9D Core gameplay SFX validation should include the targeted PlayMode smoke filters listed above in addition to the existing governance, orchestration, architecture, UI audio, and core lanes. Phase 9E Damage/death VFX validation should include the targeted coordinator, architecture, governance, and VFX migration filters listed above, plus Core SFX/audio regression guards.
+Phase 9D Core gameplay SFX validation should include the targeted PlayMode smoke filters listed above in addition to the existing governance, orchestration, architecture, UI audio, and core lanes. Phase 9F Damage/death VFX validation should include the targeted PlayMode smoke filters listed above, the existing Phase 9E coordinator telemetry filters, architecture, governance, and VFX migration filters, plus Core SFX/audio regression guards.
 
 If the full lane is not executed and passing on the same revision, do not claim full-lane green, project-wide green, full regression closure, or all regressions fixed. A no-test-match result is not validation evidence. `obj` or `dll` file locks are runner/build concurrency issues and must be reported separately from test failures.
 
@@ -129,9 +147,10 @@ Rollback remains configuration-first. For Damage/death VFX:
 
 1. Set `DamageDeathVfxExecutionMode` back to `LegacyExtension`.
 2. Remove the Damage/death VFX orchestration default allowance from the production config drift guard.
-3. Set the Damage/death VFX readiness matrix status back to `NeedsMoreCoverage`.
-4. Restore default orchestration tests to controlled integration expectations.
-5. Leave controlled orchestration integration code in place unless a domain-specific regression requires a separate rollback.
+3. Remove or skip the Phase 9F PlayMode smoke tests.
+4. Set the Damage/death VFX readiness matrix status back to `ProductionDefaultOnTelemetryHardened`.
+5. Restore default orchestration tests to controlled integration expectations.
+6. Leave controlled orchestration integration code in place unless a domain-specific regression requires a separate rollback.
 
 For Core gameplay SFX:
 
@@ -144,7 +163,7 @@ For Core gameplay SFX:
 
 ## Explicit non-goals
 
-- Do not switch any additional production default beyond Damage/death VFX in Phase 9E.
+- Do not switch any additional production default beyond Damage/death VFX in Phase 9F.
 - Do not remove legacy paths or coordinator direct-call paths.
 - Do not promote scheduler blocking state to input lock ownership.
 - Do not let `GameplayInputHost` read scheduler, pipeline, or plan internals.

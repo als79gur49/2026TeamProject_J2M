@@ -2,6 +2,7 @@ using System.Collections;
 using System.Linq;
 using Game.Feature.Flow.Audio;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Vfx.Host;
 using Game.Feature.Stages;
 using Game.Feature.UI.Composition;
 using Game.Shared.Audio;
@@ -115,6 +116,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 AssertAudioBootstrap(scenePath, host);
                 AssertUiBootstrap(scenePath);
                 AssertTopologyBootstrap(scenePath, host);
+                AssertDamageDeathVfxBootstrap(scenePath, host);
                 if (assertDirectPlayEvidence)
                 {
                     AssertStage1_1DirectPlayEvidence(scenePath, stageId, host);
@@ -192,6 +194,18 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(host.GetComponent<GameplayCameraRig>(), Is.Not.Null, $"{scenePath} must install GameplayCameraRig.");
             Assert.That(host.GetComponent<TopologyTransitionPostFxController>(), Is.Not.Null, $"{scenePath} must install topology post-fx controller.");
             Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False, $"{scenePath} should not start stuck in a topology presentation lock.");
+        }
+
+        private static void AssertDamageDeathVfxBootstrap(string scenePath, GameplaySceneHost host)
+        {
+            Assert.That(
+                host.Presenter.DamageDeathVfxExecutionMode,
+                Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor),
+                $"{scenePath} must boot Damage/death VFX with the production orchestration owner.");
+            Assert.That(
+                host.GetComponent<GameplayVfxProductionRuntime>(),
+                Is.Not.Null,
+                $"{scenePath} must keep Gameplay_Vfx production runtime on the gameplay root.");
         }
 
         private static void AssertStage1_1DirectPlayEvidence(

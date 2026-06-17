@@ -310,6 +310,15 @@ namespace Game.Feature.Gameplay.Host
         internal DamageDeathVfxExecutionMode DamageDeathVfxExecutionMode =>
             _presentationCoordinator.DamageDeathVfxExecutionMode;
 
+        internal DamageDeathVfxOwnershipDiagnostics DamageDeathVfxOwnershipDiagnostics =>
+            _presentationCoordinator.DamageDeathVfxOwnershipDiagnostics;
+
+        internal PresentationBlockingSnapshot DamageDeathVfxExecutionPipelineBlockingSnapshot =>
+            _presentationCoordinator.DamageDeathVfxExecutionPipelineBlockingSnapshot;
+
+        internal GameplayVfxExecutorDiagnostics DamageDeathVfxExecutorDiagnostics =>
+            _presentationCoordinator.DamageDeathVfxExecutorDiagnostics;
+
         internal BoxMotionPresentationExecutionMode BoxMotionPresentationExecutionMode =>
             _presentationCoordinator.BoxMotionPresentationExecutionMode;
 

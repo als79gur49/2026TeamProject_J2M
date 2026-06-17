@@ -56,14 +56,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "OrchestrationExecutor",
                 false,
                 true,
-                "DamageDeathVfx_DefaultOrchestration_TelemetryCoversDamageAndDeath",
-                "VfxPlanning_DoesNotMutateAuthoritativeTickResult",
-                "DamageDeathVfx_LifecycleCleanup_TelemetryClearsState",
+                "DamageDeathVfxProductionDefault_PlayMode_TelemetryHasNoDuplicatePlayback",
+                "DamageDeathVfx_PlayModeSmoke_IsNonAuthoritative",
+                "DamageDeathVfx_PlayModeSmoke_LifecycleCleanupClearsGuardAndDiagnostics",
                 "VfxPlanningBoundary_StaysPresentationOnly",
                 "Low",
                 "Low",
                 "Set DamageDeathVfxExecutionMode.LegacyExtension.",
-                ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened),
+                ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered),
             new(
                 "Box motion",
                 typeof(BoxMotionPresentationExecutionMode),
@@ -435,7 +435,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionSwitchReadiness_ReflectsCoreSfxPlayModeSmokeAndDamageDeathVfxTelemetry()
+        public void ProductionSwitchReadiness_ReflectsDamageDeathVfxPlayModeSmoke()
         {
             var coreSfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode));
             var damageDeathVfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(DamageDeathVfxExecutionMode));
@@ -453,12 +453,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(damageDeathVfx.CurrentDefault, Is.EqualTo(damageDeathVfx.OrchestrationOwner));
             Assert.That(damageDeathVfx.DefaultIsLegacy, Is.False);
             Assert.That(damageDeathVfx.InvalidModeNormalizesToLegacy, Is.True);
-            Assert.That(damageDeathVfx.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened));
-            Assert.That(readinessDocument, Does.Contain("Phase 9E"));
+            Assert.That(damageDeathVfx.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered));
+            Assert.That(readinessDocument, Does.Contain("Phase 9F"));
             Assert.That(readinessDocument, Does.Contain("ProductionDefaultOnTelemetryHardened"));
-            Assert.That(readinessDocument, Does.Contain("DamageDeathVfx_DefaultOrchestration_TelemetryReportsProductionOwner"));
-            Assert.That(readinessDocument, Does.Contain("DamageDeathVfx_SameTickDeathSuppression_TelemetryIsRecorded"));
-            Assert.That(readinessDocument, Does.Contain("Phase 9E"));
+            Assert.That(readinessDocument, Does.Contain("DamageDeathVfxProductionDefault_PlayMode_UsesOrchestrationOwner"));
+            Assert.That(readinessDocument, Does.Contain("DamageDeathVfxProductionDefault_PlayMode_SameTickDeathSuppressesDamage"));
+            Assert.That(readinessDocument, Does.Contain("DamageDeathVfx_PlayModeSmoke_LifecycleCleanupClearsGuardAndDiagnostics"));
 
             foreach (var row in ReadinessMatrix.Where(row =>
                          row.ExecutionModeType != typeof(CoreGameplaySfxExecutionMode) &&
