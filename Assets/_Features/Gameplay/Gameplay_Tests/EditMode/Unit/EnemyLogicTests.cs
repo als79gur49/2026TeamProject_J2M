@@ -5178,6 +5178,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectionAssert.AreEqual(
                 new[]
                 {
+                    "behaviorModuleAssets",
                     "brainAuthoring",
                     "capabilityAssets",
                     "coreAuthoring",
