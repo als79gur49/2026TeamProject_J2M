@@ -90,14 +90,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "OrchestrationAnimationExecutor",
                 true,
                 true,
-                "PlayerActionAnimation_OrchestrationMode_RoutesPushFlipAndFakeAttempts",
-                "PlayerActionAnimationPlanning_DoesNotMutateAuthoritativeTickResult",
-                "PlayerActionAnimation_OrchestrationMode_CleanupResetsPortAndDiagnostics",
-                "PlayerActionAnimationBoundary_RemainsHostOnly",
+                "PlayerActionAnimation_Readiness_DuplicateGuardNormalAndForced",
+                "PlayerActionAnimation_Readiness_IsNonAuthoritative",
+                "PlayerActionAnimation_Readiness_LifecycleCleanupClearsState",
+                "ArchitectureBoundary_AfterPlayerActionAnimationReadiness_RemainsSeparated",
                 "Medium: action holds can affect input feel.",
                 "Low",
                 "Set PlayerActionAnimationExecutionMode.LegacyAnimationSync.",
-                ProductionSwitchRecommendedStatus.KeepLegacy),
+                ProductionSwitchRecommendedStatus.NeedsMorePlayModeEvidence),
             new(
                 "Enemy presentation",
                 typeof(EnemyPresentationExecutionMode),
@@ -443,6 +443,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var coreSfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode));
             var damageDeathVfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(DamageDeathVfxExecutionMode));
             var boxMotion = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(BoxMotionPresentationExecutionMode));
+            var playerActionAnimation = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(PlayerActionAnimationExecutionMode));
             var readinessDocument = ReadRepoFile(ReadinessDocumentPath);
 
             Assert.That(coreSfx.CurrentDefault, Is.EqualTo(coreSfx.OrchestrationOwner));
@@ -477,6 +478,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(readinessDocument, Does.Contain("BoxMotion_DefaultOrchestration_TelemetryCoversSlideFlipImpact"));
             Assert.That(readinessDocument, Does.Contain("GameplayInputHost_BoxSlidePresentation_DoesNotBlockSimulationTicks"));
             Assert.That(readinessDocument, Does.Contain("GameplayInputHost_FlipPresentation_DoesNotBlockSubsequentTicks"));
+
+            Assert.That(playerActionAnimation.CurrentDefault, Is.EqualTo(playerActionAnimation.LegacyOwner));
+            Assert.That(playerActionAnimation.DefaultIsLegacy, Is.True);
+            Assert.That(playerActionAnimation.InvalidModeNormalizesToLegacy, Is.True);
+            Assert.That(playerActionAnimation.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.NeedsMorePlayModeEvidence));
+            Assert.That(readinessDocument, Does.Contain("Phase 9K"));
+            Assert.That(readinessDocument, Does.Contain("NeedsMorePlayModeEvidence"));
+            Assert.That(readinessDocument, Does.Contain("PlayerPushExecute -> PlayerPresentationPhase.PushRecovery"));
+            Assert.That(readinessDocument, Does.Contain("PlayerFlipExecute -> PlayerPresentationPhase.FlipRecovery"));
 
             foreach (var row in ReadinessMatrix.Where(row =>
                          row.ExecutionModeType != typeof(CoreGameplaySfxExecutionMode) &&
@@ -670,6 +680,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             ProductionDefaultOnPendingTelemetry = 6,
             ProductionDefaultOnTelemetryHardened = 7,
             ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered = 8,
+            NeedsExecuteDriverSurface = 9,
+            NeedsMorePlayModeEvidence = 10,
+            CandidateForPlayModeSmoke = 11,
         }
 
         private sealed class ProductionSwitchReadinessRow
