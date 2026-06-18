@@ -333,13 +333,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             Assert.That(uiSource, Does.Not.Contain("GameplayMotionExecutorDiagnostics"));
+            Assert.That(uiSource, Does.Not.Contain("BoxMotionProductionTelemetrySnapshot"));
             Assert.That(uiSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
             Assert.That(vfxSource, Does.Not.Contain("GameplayMotionPresentationExecutor"));
+            Assert.That(vfxSource, Does.Not.Contain("BoxMotionProductionTelemetrySnapshot"));
             Assert.That(vfxSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
             Assert.That(topologyControllerAndInputSource, Does.Not.Contain("GameplayMotionPresentationExecutor"));
+            Assert.That(topologyControllerAndInputSource, Does.Not.Contain("BoxMotionProductionTelemetrySnapshot"));
             Assert.That(topologyControllerAndInputSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
             Assert.That(authoritativeSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
             Assert.That(authoritativeSource, Does.Not.Contain("GameplayMotionPresentationExecutor"));
+            Assert.That(authoritativeSource, Does.Not.Contain("BoxMotionProductionTelemetrySnapshot"));
         }
 
         [Test]

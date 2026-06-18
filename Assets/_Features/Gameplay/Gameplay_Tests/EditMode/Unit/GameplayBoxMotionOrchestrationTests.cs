@@ -243,6 +243,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void BoxMotion_DefaultOrchestration_TelemetryCoversSlideFlipImpact()
+        {
+            var plan = new PresentationPlaybackPlanner().Plan(
+                CreateMotionCueFrame(CreateBoxMotionTickResultWithImpact()));
+            var port = new RecordingGameplayMotionPlaybackPort();
+            var guard = new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor);
+            var executor = new GameplayMotionPresentationExecutor(
+                port,
+                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
+                guard);
+
+            executor.Play(plan);
+
+            Assert.That(executor.Diagnostics.CurrentMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+            Assert.That(executor.Diagnostics.IsProductionDefaultOwner, Is.True);
+            Assert.That(executor.Diagnostics.ProductionDefaultMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+            Assert.That(executor.Diagnostics.RollbackMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
+            AssertSemanticTelemetry(executor.Diagnostics, PresentationMotionFactKind.BoxSlide, PresentationMotionCueKey.BoxSlide);
+            AssertSemanticTelemetry(executor.Diagnostics, PresentationMotionFactKind.BoxFlip, PresentationMotionCueKey.BoxFlip);
+            AssertSemanticTelemetry(executor.Diagnostics, PresentationMotionFactKind.BoxFlipImpact, PresentationMotionCueKey.BoxFlipImpact);
+            Assert.That(
+                executor.Diagnostics.SemanticDiagnostics.Single(diagnostics =>
+                    diagnostics.Semantic == PresentationMotionFactKind.BoxFlip).LastDedupeKey,
+                Is.Not.EqualTo(executor.Diagnostics.SemanticDiagnostics.Single(diagnostics =>
+                    diagnostics.Semantic == PresentationMotionFactKind.BoxFlipImpact).LastDedupeKey));
+            Assert.That(executor.Diagnostics.LastMotionFactKind, Is.EqualTo(PresentationMotionFactKind.BoxFlipImpact));
+            Assert.That(executor.Diagnostics.LastCueKey, Is.EqualTo(PresentationMotionCueKey.BoxFlipImpact));
+            Assert.That(executor.Diagnostics.LastTargetEntityId, Is.EqualTo(BoxEntityId));
+            Assert.That(executor.Diagnostics.LastFailureReason, Is.EqualTo(BoxMotionTelemetryFailureReason.None));
+        }
+
+        [Test]
+        [Category("Core")]
         public void MotionExecutionGuard_BlocksDuplicateOwnerAttemptForSameBoxMotionKey()
         {
             var key = new BoxMotionPlaybackKey(
@@ -403,6 +436,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(executor.Diagnostics.DuplicateSuppressedCount, Is.Zero);
             Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.EqualTo(2));
             Assert.That(executor.Diagnostics.TrackStartedCount, Is.Zero);
+            Assert.That(executor.Diagnostics.LastFailureReason, Is.EqualTo(BoxMotionTelemetryFailureReason.DriverMissing));
+            Assert.That(executor.Diagnostics.SemanticDiagnostics.Single(diagnostics =>
+                diagnostics.Semantic == PresentationMotionFactKind.BoxSlide).MissingDependencyCount, Is.EqualTo(3));
+            Assert.That(executor.Diagnostics.SemanticDiagnostics.Single(diagnostics =>
+                diagnostics.Semantic == PresentationMotionFactKind.BoxFlip).MissingDependencyCount, Is.EqualTo(1));
 
             var missingPortExecutor = new GameplayMotionPresentationExecutor(
                 null,
@@ -413,6 +451,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[] { validCue },
                 new PresentationCueFrameDiagnostics(1, 1, 1))));
             Assert.That(missingPortExecutor.Diagnostics.MissingPortCount, Is.EqualTo(1));
+            Assert.That(missingPortExecutor.Diagnostics.LastFailureReason, Is.EqualTo(BoxMotionTelemetryFailureReason.PortMissing));
         }
 
         [Test]
@@ -663,6 +702,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static bool IsMotionTrack(PresentationPlaybackTrack track, PresentationMotionCueKey cueKey)
         {
             return track.Cue.Key.TryGetMotionCueKey(out var key) && key == cueKey;
+        }
+
+        private static void AssertSemanticTelemetry(
+            GameplayMotionExecutorDiagnostics diagnostics,
+            PresentationMotionFactKind semantic,
+            PresentationMotionCueKey cueKey)
+        {
+            var semanticDiagnostics = diagnostics.SemanticDiagnostics.Single(item => item.Semantic == semantic);
+            Assert.That(semanticDiagnostics.CueKey, Is.EqualTo(cueKey));
+            Assert.That(semanticDiagnostics.PlannedCount, Is.EqualTo(1), semantic.ToString());
+            Assert.That(semanticDiagnostics.RequestedCount, Is.EqualTo(1), semantic.ToString());
+            Assert.That(semanticDiagnostics.StartedCount, Is.EqualTo(1), semantic.ToString());
+            Assert.That(semanticDiagnostics.DuplicateSuppressedCount, Is.Zero, semantic.ToString());
+            Assert.That(semanticDiagnostics.MissingDependencyCount, Is.Zero, semantic.ToString());
+            Assert.That(semanticDiagnostics.LastEntityId, Is.EqualTo(BoxEntityId), semantic.ToString());
+            Assert.That(semanticDiagnostics.LastDedupeKey, Is.Not.Zero, semantic.ToString());
         }
 
         private static void AssertEquivalentMotionRequest(

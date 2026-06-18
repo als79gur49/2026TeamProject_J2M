@@ -80,7 +80,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Medium: motion can affect perceived input timing.",
                 "Low",
                 "Set BoxMotionPresentationExecutionMode.LegacyTrackPlanner.",
-                ProductionSwitchRecommendedStatus.ProductionDefaultOnPendingTelemetry),
+                ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened),
             new(
                 "Player action animation",
                 typeof(PlayerActionAnimationExecutionMode),
@@ -438,7 +438,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionSwitchReadiness_ReflectsBoxMotionPlayModeEvidence()
+        public void ProductionSwitchReadiness_ReflectsBoxMotionTelemetryHardening()
         {
             var coreSfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode));
             var damageDeathVfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(DamageDeathVfxExecutionMode));
@@ -467,12 +467,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(boxMotion.CurrentDefault, Is.EqualTo(boxMotion.OrchestrationOwner));
             Assert.That(boxMotion.DefaultIsLegacy, Is.False);
             Assert.That(boxMotion.InvalidModeNormalizesToLegacy, Is.True);
-            Assert.That(boxMotion.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnPendingTelemetry));
+            Assert.That(boxMotion.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened));
             Assert.That(readinessDocument, Does.Contain("Phase 9H"));
-            Assert.That(readinessDocument, Does.Contain("ProductionDefaultOnPendingTelemetry"));
+            Assert.That(readinessDocument, Does.Contain("Phase 9J"));
+            Assert.That(readinessDocument, Does.Contain("ProductionDefaultOnTelemetryHardened"));
             Assert.That(readinessDocument, Does.Contain("BoxMotionProductionDefault_PlayMode_UsesOrchestrationOwner"));
             Assert.That(readinessDocument, Does.Contain("BoxMotionProductionDefault_PlayMode_ConcreteAdapterStartsAndCompletesTracks"));
             Assert.That(readinessDocument, Does.Contain("BoxMotionProductionDefault_PlayMode_FlipPoseAndVisualRootReset"));
+            Assert.That(readinessDocument, Does.Contain("BoxMotion_DefaultOrchestration_TelemetryCoversSlideFlipImpact"));
             Assert.That(readinessDocument, Does.Contain("GameplayInputHost_BoxSlidePresentation_DoesNotBlockSimulationTicks"));
             Assert.That(readinessDocument, Does.Contain("GameplayInputHost_FlipPresentation_DoesNotBlockSubsequentTicks"));
 

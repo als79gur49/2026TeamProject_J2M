@@ -84,6 +84,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(3));
                 Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(3));
                 Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                var telemetry = context.Host.Presenter.BoxMotionProductionTelemetrySnapshot;
+                Assert.That(telemetry.CurrentMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
+                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(3));
+                Assert.That(telemetry.ExecutorOwnerExecutedCount, Is.EqualTo(3));
+                Assert.That(telemetry.DuplicateOwnerAttemptCount, Is.Zero);
+                Assert.That(telemetry.SemanticDiagnostics.Single(item => item.Semantic == PresentationMotionFactKind.BoxSlide).StartedCount, Is.EqualTo(1));
+                Assert.That(telemetry.SemanticDiagnostics.Single(item => item.Semantic == PresentationMotionFactKind.BoxFlip).StartedCount, Is.EqualTo(1));
+                Assert.That(telemetry.SemanticDiagnostics.Single(item => item.Semantic == PresentationMotionFactKind.BoxFlipImpact).StartedCount, Is.EqualTo(1));
                 AssertMotionRequest(port.Requests.Single(request => request.CueKey == PresentationMotionCueKey.BoxSlide), PresentationMotionCueKey.BoxSlide, 21, SlideSourceCell, SlideDestinationCell);
                 AssertMotionRequest(port.Requests.Single(request => request.CueKey == PresentationMotionCueKey.BoxFlip), PresentationMotionCueKey.BoxFlip, 21, FlipSourceCell, FlipDestinationCell);
                 AssertMotionRequest(port.Requests.Single(request => request.CueKey == PresentationMotionCueKey.BoxFlipImpact), PresentationMotionCueKey.BoxFlipImpact, 21, FlipDestinationCell, ImpactCell);
@@ -113,10 +122,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 AdvancePresentation(context.Host, context.Host.TimingProfile.MoveMotionDurationSeconds + context.Host.TimingProfile.SimulationTickIntervalSeconds);
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.ActiveLocalMotionTrackCount, Is.Zero);
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.ActiveTrackCount, Is.Zero);
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.PlaybackTrackCompletedCount, Is.GreaterThanOrEqualTo(1));
 
                 context.Host.Presenter.PresentInitial(context.InitialEntities, Topology);
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.ActiveLocalMotionTrackCount, Is.Zero);
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.DefaultAdapterDiagnostics.HasTickContext, Is.False);
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.LastCleanupReason, Is.EqualTo(BoxMotionTelemetryCleanupReason.PresentInitial));
 
                 context.Host.Presenter.Present(CreateSlideResult(31));
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.DefaultAdapterDiagnostics.StartedCount, Is.EqualTo(2));
@@ -193,6 +205,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 AssertVisualRootReset(view);
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.FlipInteractionTrackCount, Is.Zero);
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.ActiveLocalMotionTrackCount, Is.Zero);
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.CleanupDiagnostics.VisualRootPositionResetCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.CleanupDiagnostics.VisualRootRotationResetCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.CleanupDiagnostics.FlipDriverResetCount, Is.GreaterThanOrEqualTo(1));
                 yield return null;
             }
             finally
@@ -258,6 +273,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
                 Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.EqualTo(1));
                 Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.DuplicateSuppressedCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.DuplicateOwnerAttemptCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.DuplicateSuppressedCount, Is.EqualTo(1));
                 Assert.That(result.DeterminismHash, Is.EqualTo("BOX-MOTION-71"));
                 yield return null;
             }
@@ -280,6 +297,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     useDefaultPlaybackPort: false);
                 portMissingContext.Host.Presenter.Present(CreateSlideResult(81));
                 Assert.That(portMissingContext.Host.Presenter.BoxMotionExecutorDiagnostics.MissingPortCount, Is.EqualTo(1));
+                Assert.That(portMissingContext.Host.Presenter.BoxMotionProductionTelemetrySnapshot.PortMissingCount, Is.EqualTo(1));
+                Assert.That(portMissingContext.Host.Presenter.BoxMotionProductionTelemetrySnapshot.LastFailureReason, Is.EqualTo(BoxMotionTelemetryFailureReason.PortMissing));
                 Assert.That(portMissingContext.Host.Presenter.BoxMotionRuntimeDebugSnapshot.ActiveLocalMotionTrackCount, Is.Zero);
                 AssertBlockingSnapshotCleared(portMissingContext.Host.Presenter.BoxMotionExecutionPipelineBlockingSnapshot);
             }
@@ -295,6 +314,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 bindingMissingContext.Host.Presenter.Present(CreateSlideResult(82));
                 Assert.That(bindingMissingContext.Host.Presenter.BoxMotionExecutorDiagnostics.BindingMissingCount, Is.EqualTo(1));
+                Assert.That(bindingMissingContext.Host.Presenter.BoxMotionProductionTelemetrySnapshot.BindingMissingCount, Is.EqualTo(1));
                 Assert.That(bindingMissingContext.Host.Presenter.BoxMotionRuntimeDebugSnapshot.ActiveLocalMotionTrackCount, Is.Zero);
                 AssertBlockingSnapshotCleared(bindingMissingContext.Host.Presenter.BoxMotionExecutionPipelineBlockingSnapshot);
             }
@@ -310,6 +330,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 driverMissingContext.Host.Presenter.Present(CreateFlipResult(83, includeActiveFlipSignal: false));
                 Assert.That(driverMissingContext.Host.Presenter.BoxMotionExecutorDiagnostics.DriverMissingCount, Is.EqualTo(1));
+                Assert.That(driverMissingContext.Host.Presenter.BoxMotionProductionTelemetrySnapshot.DriverMissingCount, Is.EqualTo(1));
                 Assert.That(driverMissingContext.Host.Presenter.BoxMotionRuntimeDebugSnapshot.ActiveLocalMotionTrackCount, Is.Zero);
                 AssertBlockingSnapshotCleared(driverMissingContext.Host.Presenter.BoxMotionExecutionPipelineBlockingSnapshot);
             }
@@ -343,6 +364,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.FlipInteractionTrackCount, Is.Zero);
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.CompletedPresentationMotionKeyCount, Is.Zero);
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.DefaultAdapterDiagnostics.HasTickContext, Is.False);
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.LastCleanupReason, Is.EqualTo(BoxMotionTelemetryCleanupReason.PresentInitial));
                 AssertVisualRootReset(view);
 
                 context.Host.Presenter.Present(CreateSlideResult(92));
@@ -353,6 +375,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.ActiveLocalMotionTrackCount, Is.Zero);
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.DefaultAdapterDiagnostics.HasTickContext, Is.False);
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.DefaultAdapterDiagnostics.HardCleanupCallCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.LastCleanupReason, Is.EqualTo(BoxMotionTelemetryCleanupReason.HardCleanupPresentationExtensions));
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.CleanupDiagnostics.StaleTrackClearedCount, Is.GreaterThanOrEqualTo(1));
                 AssertVisualRootReset(view);
                 yield return null;
             }
@@ -379,6 +403,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.IsProductionDefaultOwner, Is.False);
                 Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
                 Assert.That(context.Host.Presenter.BoxMotionOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.CurrentMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.IsProductionDefaultOwner, Is.False);
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.ExecutorOwnerExecutedCount, Is.Zero);
+                Assert.That(context.Host.Presenter.BoxMotionProductionTelemetrySnapshot.LegacyOwnerAttemptCount, Is.EqualTo(1));
                 Assert.That(context.Host.Presenter.BoxMotionRuntimeDebugSnapshot.ActiveLocalMotionTrackCount, Is.EqualTo(1));
                 AdvancePresentation(context.Host, context.Host.TimingProfile.MoveMotionDurationSeconds + context.Host.TimingProfile.SimulationTickIntervalSeconds);
                 AssertVectorClose(GetView(context.Host, BoxEntityId).transform.position, ProjectWorldPosition(context.Host, SlideDestinationCell, EntityType.Box));
