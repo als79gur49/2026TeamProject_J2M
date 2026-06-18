@@ -621,8 +621,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.True);
                 Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);
                 Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-                Assert.That(configuration.PlayerFree2DLocomotion.ActionAssistSettleWindowCells, Is.EqualTo(0.3125f));
-                Assert.That(configuration.PlayerFree2DLocomotion.CollisionRadiusCells, Is.EqualTo(0.25f));
+                Assert.That(configuration.PlayerFree2DLocomotionOverride.OverrideCollisionRadiusCells, Is.True);
+                Assert.That(configuration.PlayerFree2DLocomotionOverride.CollisionRadiusCells, Is.EqualTo(0.25f));
+                Assert.That(configuration.PlayerFree2DLocomotionOverride.OverrideActionAssistSettleWindowCells, Is.True);
+                Assert.That(
+                    configuration.PlayerFree2DLocomotionOverride.ActionAssistSettleWindowCells,
+                    Is.EqualTo(0.3125f));
+                var playerSettings = configuration.CreatePlayerFree2DLocomotionSettings();
+                Assert.That(playerSettings.TicksPerCell, Is.EqualTo(20));
+                Assert.That(playerSettings.CollisionRadiusUnits, Is.EqualTo(1024));
+                Assert.That(playerSettings.ActionAssistSettleWindowUnits, Is.EqualTo(1280));
             }
             finally
             {

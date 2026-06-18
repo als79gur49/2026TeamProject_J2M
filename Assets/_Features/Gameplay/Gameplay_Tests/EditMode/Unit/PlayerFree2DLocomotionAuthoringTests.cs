@@ -117,6 +117,86 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayerFree2DLocomotionAuthoringResolver_NoOverride_ReturnsBaseline()
+        {
+            var baseline = PlayerFree2DLocomotionAuthoring.CreateDefault();
+            baseline.SecondsPerCellAtFullSpeed = 0.4f;
+            baseline.CollisionRadiusCells = 0.125f;
+            baseline.ActionAssistSettleWindowCells = 0.1875f;
+
+            var resolved = PlayerFree2DLocomotionAuthoringResolver.Resolve(
+                baseline,
+                PlayerFree2DLocomotionOverride.None);
+
+            Assert.That(resolved.SecondsPerCellAtFullSpeed, Is.EqualTo(0.4f));
+            Assert.That(resolved.CollisionRadiusCells, Is.EqualTo(0.125f));
+            Assert.That(resolved.ActionAssistSettleWindowCells, Is.EqualTo(0.1875f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2DLocomotionAuthoringResolver_PartialOverride_ChangesOnlyEnabledFields()
+        {
+            var baseline = PlayerFree2DLocomotionAuthoring.CreateDefault();
+            baseline.SecondsPerCellAtFullSpeed = 0.4f;
+            baseline.CollisionRadiusCells = 0.125f;
+            baseline.ActionAssistSettleWindowCells = 0.1875f;
+            var overrideValue = PlayerFree2DLocomotionOverride.CreateCollisionAndActionAssist(
+                collisionRadiusCells: 0.25f,
+                actionAssistSettleWindowCells: 0.0625f);
+
+            var resolved = PlayerFree2DLocomotionAuthoringResolver.Resolve(baseline, overrideValue);
+            var snapshot = resolved.Compile(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+            Assert.That(snapshot.SecondsPerCellAtFullSpeed, Is.EqualTo(0.4f));
+            Assert.That(snapshot.TicksPerCell, Is.EqualTo(24));
+            Assert.That(snapshot.CollisionRadiusUnits, Is.EqualTo(1024));
+            Assert.That(snapshot.ActionAssistSettleWindowUnits, Is.EqualTo(256));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2DLocomotionAuthoringResolver_ExplicitDefaultValuedOverride_IsApplied()
+        {
+            var baseline = PlayerFree2DLocomotionAuthoring.CreateDefault();
+            baseline.CollisionRadiusCells = 0.125f;
+            baseline.ActionAssistSettleWindowCells = 0.1875f;
+            var overrideValue = PlayerFree2DLocomotionOverride.Create(
+                overrideSecondsPerCellAtFullSpeed: false,
+                secondsPerCellAtFullSpeed: 0f,
+                overrideCollisionRadiusCells: true,
+                collisionRadiusCells: 0f,
+                overrideActionAssistSettleWindowCells: true,
+                actionAssistSettleWindowCells: 0.125f);
+
+            var resolved = PlayerFree2DLocomotionAuthoringResolver.Resolve(baseline, overrideValue);
+            var snapshot = resolved.Compile(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+            Assert.That(snapshot.CollisionRadiusUnits, Is.EqualTo(0));
+            Assert.That(snapshot.ActionAssistSettleWindowUnits, Is.EqualTo(512));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2DLocomotionAuthoringResolver_InvalidOverride_FailsAtCompile()
+        {
+            var baseline = PlayerFree2DLocomotionAuthoring.CreateDefault();
+            var overrideValue = PlayerFree2DLocomotionOverride.Create(
+                overrideSecondsPerCellAtFullSpeed: false,
+                secondsPerCellAtFullSpeed: 0f,
+                overrideCollisionRadiusCells: true,
+                collisionRadiusCells: -0.01f,
+                overrideActionAssistSettleWindowCells: false,
+                actionAssistSettleWindowCells: 0f);
+
+            var resolved = PlayerFree2DLocomotionAuthoringResolver.Resolve(baseline, overrideValue);
+
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => resolved.Compile(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PlayerFree2DLocomotionSource_DoesNotReferenceUnitOrEnemyTimingSettings()
         {
             const string path =
@@ -126,6 +206,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(source, Does.Not.Contain("UnitKinematicLocomotionTimingSettings"));
             Assert.That(source, Does.Not.Contain("EnemyLocomotionTimingSettings"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPipeline_DoesNotCreateDefaultPlayerFree2DSettingsAtRuntime()
+        {
+            const string path =
+                "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs";
+
+            var source = File.ReadAllText(path);
+
+            Assert.That(source, Does.Not.Contain("PlayerFree2DLocomotionAuthoring.CreateDefault"));
+            Assert.That(source, Does.Not.Contain("GameplayTimingProfile.DefaultSimulationTicksPerSecond"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageBackedInstaller_DescribesPlayerFree2DOverrideWithoutMutatingBaseline()
+        {
+            const string path =
+                "Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstaller.cs";
+
+            var source = File.ReadAllText(path);
+
+            Assert.That(source, Does.Contain("TryGetPlayerFree2DLocomotionOverride"));
+            Assert.That(source, Does.Contain("PlayerFree2DLocomotionOverride.CreateCollisionAndActionAssist"));
+            Assert.That(source, Does.Not.Contain("configuration.PlayerFree2DLocomotion ="));
         }
     }
 }

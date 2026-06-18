@@ -161,6 +161,8 @@ namespace Game.Feature.Gameplay.Host
             UnitKinematicLocomotionTimingSettings.CreateDefault();
         public PlayerFree2DLocomotionAuthoring PlayerFree2DLocomotion =
             PlayerFree2DLocomotionAuthoring.CreateDefault();
+        public PlayerFree2DLocomotionOverride PlayerFree2DLocomotionOverride =
+            PlayerFree2DLocomotionOverride.None;
         public PlayerRespawnTimingSettings PlayerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();
         public float MoveMotionDurationSeconds = -1f;
         public float PushMotionDurationSeconds = -1f;
@@ -414,7 +416,9 @@ namespace Game.Feature.Gameplay.Host
 
         private PlayerFree2DLocomotionAuthoring ResolvePlayerFree2DLocomotionAuthoring()
         {
-            return PlayerFree2DLocomotion;
+            return PlayerFree2DLocomotionAuthoringResolver.Resolve(
+                PlayerFree2DLocomotion,
+                PlayerFree2DLocomotionOverride);
         }
 
         private PlayerRespawnTimingSettings ResolvePlayerRespawnTimingSettings()

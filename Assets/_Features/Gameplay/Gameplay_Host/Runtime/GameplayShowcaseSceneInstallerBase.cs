@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.Timing;
 using Game.Feature.Stages;
@@ -297,10 +298,12 @@ namespace Game.Feature.Gameplay.Host
         {
         }
 
-        protected virtual void ConfigureRuntimeConfigurationAfterTimingPresets(
-            GameplaySceneHostConfiguration configuration,
-            in InitialGameplayState initialState)
+        protected virtual bool TryGetPlayerFree2DLocomotionOverride(
+            in InitialGameplayState initialState,
+            out PlayerFree2DLocomotionOverride value)
         {
+            value = PlayerFree2DLocomotionOverride.None;
+            return false;
         }
 
         protected virtual void OnHostInitialized(
@@ -403,7 +406,11 @@ namespace Game.Feature.Gameplay.Host
             ConfigureRuntimeConfiguration(configuration, initialState);
             ResolveSimulationTimingPreset().ApplyTo(configuration);
             ResolvePresentationTimingPreset().ApplyTo(configuration);
-            ConfigureRuntimeConfigurationAfterTimingPresets(configuration, initialState);
+            if (TryGetPlayerFree2DLocomotionOverride(initialState, out var playerFree2DLocomotionOverride))
+            {
+                configuration.PlayerFree2DLocomotionOverride = playerFree2DLocomotionOverride;
+            }
+
             ConfigureObjectiveRuntimeDefinition(configuration, initialState);
             GameplayCameraTopologyConfigurationComposer.ApplyTo(
                 configuration,

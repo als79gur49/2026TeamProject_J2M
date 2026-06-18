@@ -200,6 +200,130 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayerFree2DConfig_NoOverride_DoesNotOverwritePreset()
+        {
+            var playerFree2DLocomotion = PlayerFree2DLocomotionAuthoring.CreateDefault();
+            playerFree2DLocomotion.SecondsPerCellAtFullSpeed = 0.4f;
+            playerFree2DLocomotion.CollisionRadiusCells = 0.125f;
+            playerFree2DLocomotion.ActionAssistSettleWindowCells = 0.1875f;
+            var preset = CreateSimulationTimingPreset(playerFree2DLocomotion: playerFree2DLocomotion);
+
+            try
+            {
+                var configuration = new GameplaySceneHostConfiguration();
+
+                preset.ApplyTo(configuration);
+                var settings = configuration.CreatePlayerFree2DLocomotionSettings();
+
+                Assert.That(configuration.PlayerFree2DLocomotionOverride.OverridesAny, Is.False);
+                Assert.That(settings.SecondsPerCellAtFullSpeed, Is.EqualTo(0.4f));
+                Assert.That(settings.TicksPerCell, Is.EqualTo(24));
+                Assert.That(settings.CollisionRadiusUnits, Is.EqualTo(512));
+                Assert.That(settings.ActionAssistSettleWindowUnits, Is.EqualTo(768));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(preset);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2DConfig_PresetApply_ClearsStaleOverride()
+        {
+            var playerFree2DLocomotion = PlayerFree2DLocomotionAuthoring.CreateDefault();
+            playerFree2DLocomotion.CollisionRadiusCells = 0.125f;
+            var preset = CreateSimulationTimingPreset(playerFree2DLocomotion: playerFree2DLocomotion);
+
+            try
+            {
+                var configuration = new GameplaySceneHostConfiguration
+                {
+                    PlayerFree2DLocomotionOverride =
+                        PlayerFree2DLocomotionOverride.CreateCollisionAndActionAssist(
+                            collisionRadiusCells: 0f,
+                            actionAssistSettleWindowCells: 0f),
+                };
+
+                preset.ApplyTo(configuration);
+                var settings = configuration.CreatePlayerFree2DLocomotionSettings();
+
+                Assert.That(configuration.PlayerFree2DLocomotionOverride.OverridesAny, Is.False);
+                Assert.That(settings.CollisionRadiusUnits, Is.EqualTo(512));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(preset);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2DConfig_PartialOverride_ChangesOnlySelectedFields()
+        {
+            var playerFree2DLocomotion = PlayerFree2DLocomotionAuthoring.CreateDefault();
+            playerFree2DLocomotion.SecondsPerCellAtFullSpeed = 0.4f;
+            playerFree2DLocomotion.CollisionRadiusCells = 0.125f;
+            playerFree2DLocomotion.ActionAssistSettleWindowCells = 0.1875f;
+            var preset = CreateSimulationTimingPreset(playerFree2DLocomotion: playerFree2DLocomotion);
+
+            try
+            {
+                var configuration = new GameplaySceneHostConfiguration();
+
+                preset.ApplyTo(configuration);
+                configuration.PlayerFree2DLocomotionOverride =
+                    PlayerFree2DLocomotionOverride.CreateCollisionAndActionAssist(
+                        collisionRadiusCells: 0f,
+                        actionAssistSettleWindowCells: 0.0625f);
+                var settings = configuration.CreatePlayerFree2DLocomotionSettings();
+
+                Assert.That(settings.SecondsPerCellAtFullSpeed, Is.EqualTo(0.4f));
+                Assert.That(settings.TicksPerCell, Is.EqualTo(24));
+                Assert.That(settings.CollisionRadiusUnits, Is.EqualTo(0));
+                Assert.That(settings.ActionAssistSettleWindowUnits, Is.EqualTo(256));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(preset);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerFree2DConfig_ExplicitDefaultValuedOverride_IsStillOverride()
+        {
+            var playerFree2DLocomotion = PlayerFree2DLocomotionAuthoring.CreateDefault();
+            playerFree2DLocomotion.CollisionRadiusCells = 0.125f;
+            playerFree2DLocomotion.ActionAssistSettleWindowCells = 0.1875f;
+            var preset = CreateSimulationTimingPreset(playerFree2DLocomotion: playerFree2DLocomotion);
+
+            try
+            {
+                var configuration = new GameplaySceneHostConfiguration();
+
+                preset.ApplyTo(configuration);
+                configuration.PlayerFree2DLocomotionOverride = PlayerFree2DLocomotionOverride.Create(
+                    overrideSecondsPerCellAtFullSpeed: false,
+                    secondsPerCellAtFullSpeed: 0f,
+                    overrideCollisionRadiusCells: true,
+                    collisionRadiusCells: 0f,
+                    overrideActionAssistSettleWindowCells: true,
+                    actionAssistSettleWindowCells: 0.125f);
+                var settings = configuration.CreatePlayerFree2DLocomotionSettings();
+
+                Assert.That(configuration.PlayerFree2DLocomotionOverride.OverridesAny, Is.True);
+                Assert.That(settings.CollisionRadiusUnits, Is.EqualTo(0));
+                Assert.That(settings.ActionAssistSettleWindowUnits, Is.EqualTo(512));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(preset);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PlayerControlTimingSettings_CreateDefault_UsesPhaseAlignedExecuteAndRecoveryWindows()
         {
             var snapshot = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(

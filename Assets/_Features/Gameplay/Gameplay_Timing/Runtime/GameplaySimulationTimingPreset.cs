@@ -22,6 +22,8 @@ namespace Game.Feature.Gameplay.Timing
         [SerializeField] private float boxSlideStepIntervalSeconds = GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
         [SerializeField] private float projectileStepIntervalSeconds = GameplayTimingProfile.DefaultProjectileStepIntervalSeconds;
 
+        public PlayerFree2DLocomotionAuthoring PlayerFree2DLocomotion => playerFree2DLocomotion;
+
         public void ApplyTo(GameplaySceneHostConfiguration configuration)
         {
             if (configuration == null)
@@ -35,6 +37,7 @@ namespace Game.Feature.Gameplay.Timing
             configuration.PlayerControlTiming = playerControlTiming.Clone();
             configuration.UnitKinematicLocomotionTiming = unitKinematicLocomotionTiming.Clone();
             configuration.PlayerFree2DLocomotion = playerFree2DLocomotion;
+            configuration.PlayerFree2DLocomotionOverride = PlayerFree2DLocomotionOverride.None;
             configuration.PlayerRespawnTiming = playerRespawnTiming.Clone();
             configuration.RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds;
             configuration.BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds;

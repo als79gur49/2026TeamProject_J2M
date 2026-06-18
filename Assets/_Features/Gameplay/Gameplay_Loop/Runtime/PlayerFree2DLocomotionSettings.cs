@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Gameplay.BoardState;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Loop
 {
@@ -78,6 +79,99 @@ namespace Game.Feature.Gameplay.Loop
             PlayerFree2DLocomotionDefaults.ActionAssistSettleWindowCells *
             KinematicFixed.UnitsPerCell,
             MidpointRounding.AwayFromZero);
+    }
+
+    [Serializable]
+    public struct PlayerFree2DLocomotionOverride
+    {
+        [SerializeField] private bool overrideSecondsPerCellAtFullSpeed;
+        [SerializeField] private float secondsPerCellAtFullSpeed;
+        [SerializeField] private bool overrideCollisionRadiusCells;
+        [SerializeField] private float collisionRadiusCells;
+        [SerializeField] private bool overrideActionAssistSettleWindowCells;
+        [SerializeField] private float actionAssistSettleWindowCells;
+
+        public static PlayerFree2DLocomotionOverride None => default;
+
+        public static PlayerFree2DLocomotionOverride Create(
+            bool overrideSecondsPerCellAtFullSpeed,
+            float secondsPerCellAtFullSpeed,
+            bool overrideCollisionRadiusCells,
+            float collisionRadiusCells,
+            bool overrideActionAssistSettleWindowCells,
+            float actionAssistSettleWindowCells)
+        {
+            return new PlayerFree2DLocomotionOverride
+            {
+                overrideSecondsPerCellAtFullSpeed = overrideSecondsPerCellAtFullSpeed,
+                secondsPerCellAtFullSpeed = secondsPerCellAtFullSpeed,
+                overrideCollisionRadiusCells = overrideCollisionRadiusCells,
+                collisionRadiusCells = collisionRadiusCells,
+                overrideActionAssistSettleWindowCells = overrideActionAssistSettleWindowCells,
+                actionAssistSettleWindowCells = actionAssistSettleWindowCells,
+            };
+        }
+
+        public static PlayerFree2DLocomotionOverride CreateCollisionAndActionAssist(
+            float collisionRadiusCells,
+            float actionAssistSettleWindowCells)
+        {
+            return Create(
+                overrideSecondsPerCellAtFullSpeed: false,
+                secondsPerCellAtFullSpeed: 0f,
+                overrideCollisionRadiusCells: true,
+                collisionRadiusCells: collisionRadiusCells,
+                overrideActionAssistSettleWindowCells: true,
+                actionAssistSettleWindowCells: actionAssistSettleWindowCells);
+        }
+
+        public bool OverridesAny =>
+            overrideSecondsPerCellAtFullSpeed ||
+            overrideCollisionRadiusCells ||
+            overrideActionAssistSettleWindowCells;
+
+        public bool OverrideSecondsPerCellAtFullSpeed => overrideSecondsPerCellAtFullSpeed;
+
+        public float SecondsPerCellAtFullSpeed => secondsPerCellAtFullSpeed;
+
+        public bool OverrideCollisionRadiusCells => overrideCollisionRadiusCells;
+
+        public float CollisionRadiusCells => collisionRadiusCells;
+
+        public bool OverrideActionAssistSettleWindowCells => overrideActionAssistSettleWindowCells;
+
+        public float ActionAssistSettleWindowCells => actionAssistSettleWindowCells;
+
+        public PlayerFree2DLocomotionAuthoring ApplyTo(
+            PlayerFree2DLocomotionAuthoring baseline)
+        {
+            if (overrideSecondsPerCellAtFullSpeed)
+            {
+                baseline.SecondsPerCellAtFullSpeed = secondsPerCellAtFullSpeed;
+            }
+
+            if (overrideCollisionRadiusCells)
+            {
+                baseline.CollisionRadiusCells = collisionRadiusCells;
+            }
+
+            if (overrideActionAssistSettleWindowCells)
+            {
+                baseline.ActionAssistSettleWindowCells = actionAssistSettleWindowCells;
+            }
+
+            return baseline;
+        }
+    }
+
+    public static class PlayerFree2DLocomotionAuthoringResolver
+    {
+        public static PlayerFree2DLocomotionAuthoring Resolve(
+            PlayerFree2DLocomotionAuthoring baseline,
+            PlayerFree2DLocomotionOverride optionalOverride)
+        {
+            return optionalOverride.ApplyTo(baseline);
+        }
     }
 
     [Serializable]

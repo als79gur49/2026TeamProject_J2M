@@ -17,14 +17,14 @@ namespace Game.Feature.Gameplay.Host
             configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
         }
 
-        protected override void ConfigureRuntimeConfigurationAfterTimingPresets(
-            GameplaySceneHostConfiguration configuration,
-            in InitialGameplayState initialState)
+        protected override bool TryGetPlayerFree2DLocomotionOverride(
+            in InitialGameplayState initialState,
+            out PlayerFree2DLocomotionOverride value)
         {
-            var playerFree2DLocomotion = configuration.PlayerFree2DLocomotion;
-            playerFree2DLocomotion.ActionAssistSettleWindowCells = 0.3125f;
-            playerFree2DLocomotion.CollisionRadiusCells = 0.25f;
-            configuration.PlayerFree2DLocomotion = playerFree2DLocomotion;
+            value = PlayerFree2DLocomotionOverride.CreateCollisionAndActionAssist(
+                collisionRadiusCells: 0.25f,
+                actionAssistSettleWindowCells: 0.3125f);
+            return true;
         }
 
         protected override IGameplayEntityViewFactory CreateViewFactory(
