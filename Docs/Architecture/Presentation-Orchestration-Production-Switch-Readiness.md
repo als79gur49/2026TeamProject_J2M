@@ -2,29 +2,29 @@
 
 ## Overview
 
-Phase 9L adds Player action animation PlayMode evidence without changing the production default. Player action animation remains owned by `LegacyAnimationSync` by default, invalid/unset values still normalize to `LegacyAnimationSync`, and `OrchestrationAnimationExecutor` remains controlled-test configuration only. Core gameplay SFX, Damage/death VFX, and Box motion keep their completed production defaults and telemetry/smoke evidence. The readiness matrix continues to define the criteria for moving one presentation domain at a time from legacy execution ownership to explicit orchestration execution ownership.
+Phase 9M switches Player action animation production ownership to `OrchestrationAnimationExecutor`. Invalid/unset values still normalize to `LegacyAnimationSync`, and explicit `LegacyAnimationSync` remains the rollback path. Core gameplay SFX, Damage/death VFX, and Box motion keep their completed production defaults and telemetry/smoke evidence. The readiness matrix continues to define the criteria for moving one presentation domain at a time from legacy execution ownership to explicit orchestration execution ownership.
 
 The current production policy remains:
 
 - Core gameplay SFX default execution mode is `OrchestrationSfxBridgeExecutor`
 - Damage/death VFX default execution mode is `OrchestrationExecutor`
 - Box motion default execution mode is `OrchestrationMotionExecutor`
-- Player action animation default execution mode is `LegacyAnimationSync`
+- Player action animation default execution mode is `OrchestrationAnimationExecutor`
 - every other known presentation orchestration domain default execution mode is still its legacy owner
-- non-Core-SFX, non-Damage/death-VFX, and non-Box-motion orchestration execution is explicit configuration only
+- non-Core-SFX, non-Damage/death-VFX, non-Box-motion, and non-player-action-animation orchestration execution is explicit configuration only
 - duplicate guards remain enabled
 - diagnostics are hardened for Core gameplay SFX default owner, request, fallback, deferred, suppression, and duplicate review
 - Damage/death VFX now has hardened production telemetry and PlayMode smoke for default owner, legacy skip, semantic damage/death planning and playback, duplicate suppression, same-tick death suppression, missing diagnostics, rollback, non-authoritative behavior, and lifecycle cleanup review
 - Box motion now has Phase 9J hardened production telemetry for default owner metadata, legacy source suppression, semantic slide/flip/flip-impact lifecycle, active/pending/completed state, duplicate and missing diagnostics, visualRoot/flip-driver reset, lifecycle cleanup, explicit legacy rollback, non-blocking/input-lock neutrality, and determinism neutrality
-- Player action animation now has Phase 9K EditMode readiness evidence plus Phase 9L actual Animator PlayMode evidence for host lifecycle routing, Push/Flip timing, execute lowering, duplicate guard, missing diagnostics, cleanup, action-audio separation, non-blocking behavior, determinism neutrality, and default/governance drift
+- Player action animation now has Phase 9K EditMode readiness evidence, Phase 9L actual Animator PlayMode evidence, and Phase 9M production-default evidence for host lifecycle routing, Push/Flip timing, execute lowering, duplicate guard, missing diagnostics, cleanup, action-audio separation, non-blocking behavior, determinism neutrality, and default/governance drift
 - PlayMode smoke now covers the actual host/audio lifecycle for Core gameplay SFX default ownership, fallback, topology deferral, suppression, rollback, and non-authoritative behavior
 - legacy rollback paths remain available
 
 ## Current default policy
 
-All known presentation orchestration domains except Core gameplay SFX, Damage/death VFX, and Box motion must keep legacy as the current default until a dedicated production-switch PR changes exactly one additional domain. Invalid or unset execution mode values must normalize back to the legacy owner, including Core gameplay SFX, Damage/death VFX, and Box motion, so rollback remains safe when stale or corrupt config is encountered.
+All known presentation orchestration domains except Core gameplay SFX, Damage/death VFX, Box motion, and Player action animation must keep legacy as the current default until a dedicated production-switch PR changes exactly one additional domain. Invalid or unset execution mode values must normalize back to the legacy owner, including the four switched domains, so rollback remains safe when stale or corrupt config is encountered.
 
-Production scenes, stage content, and host authoring configuration must not serialize orchestration execution modes as default values except for the Core gameplay SFX, Damage/death VFX, and Box motion production default tokens. Explicit orchestration mode remains allowed in unit tests, targeted fixtures, and controlled integration tests.
+Production scenes, stage content, and host authoring configuration must not serialize orchestration execution modes as default values except for the Core gameplay SFX, Damage/death VFX, Box motion, and Player action animation production default tokens. Explicit orchestration mode remains allowed in unit tests, targeted fixtures, and controlled integration tests.
 
 ## Domain readiness matrix
 
@@ -33,7 +33,7 @@ Production scenes, stage content, and host authoring configuration must not seri
 | Topology transition | LegacyCoordinator | ExecutorBridge | LegacyCoordinator | ExecutorBridge | Yes | Yes | `TopologyExecution_ExecutorBridgeMode_UsesExecutorPortOnceAndSkipsLegacyDirectPath` | `TopologyExecutor_DoesNotMutateAuthoritativeTickResult` | `TopologyExecution_ExecutorBridgeMode_CleanupResetsPortAndDiagnostics` | `TopologyAndInputLockExistingPath_RemainsOwnedByCoordinator` | High, input lock observes coordinator presentation phase | Low | Set `TopologyPresentationExecutionMode.LegacyCoordinator` | KeepLegacy |
 | Damage/death VFX | LegacyExtension | OrchestrationExecutor | OrchestrationExecutor | OrchestrationExecutor | No | Yes | `DamageDeathVfxProductionDefault_PlayMode_TelemetryHasNoDuplicatePlayback` | `DamageDeathVfx_PlayModeSmoke_IsNonAuthoritative` | `DamageDeathVfx_PlayModeSmoke_LifecycleCleanupClearsGuardAndDiagnostics` | `VfxPlanningBoundary_StaysPresentationOnly` | Low | Low | Set `DamageDeathVfxExecutionMode.LegacyExtension` | ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered |
 | Box motion | LegacyTrackPlanner | OrchestrationMotionExecutor | OrchestrationMotionExecutor | OrchestrationMotionExecutor | No | Yes | `BoxMotionProductionDefault_PlayMode_DuplicateGuardNormalAndForced` | `BoxMotionProductionDefault_PlayMode_IsNonAuthoritative` | `BoxMotionProductionDefault_PlayMode_LifecycleCleanupClearsTrackAndPose` | `ArchitectureBoundary_AfterBoxMotionReadiness_RemainsSeparated` | Medium, motion can affect perceived input timing | Low | Set `BoxMotionPresentationExecutionMode.LegacyTrackPlanner` | ProductionDefaultOnTelemetryHardened |
-| Player action animation | LegacyAnimationSync | OrchestrationAnimationExecutor | LegacyAnimationSync | OrchestrationAnimationExecutor | Yes | Yes | `PlayerActionAnimationReadiness_PlayMode_DuplicateGuardNormalAndForced` | `PlayerActionAnimationReadiness_PlayMode_IsNonAuthoritative` | `PlayerActionAnimationReadiness_PlayMode_LifecycleCleanupClearsAnimatorState` | `ArchitectureBoundary_AfterPlayerActionAnimationReadiness_RemainsSeparated` | Medium, action holds can affect input feel | Low | Set `PlayerActionAnimationExecutionMode.LegacyAnimationSync` | CandidateForNextPR |
+| Player action animation | LegacyAnimationSync | OrchestrationAnimationExecutor | OrchestrationAnimationExecutor | OrchestrationAnimationExecutor | No | Yes | `PlayerActionAnimationReadiness_PlayMode_DuplicateGuardNormalAndForced` | `PlayerActionAnimationReadiness_PlayMode_IsNonAuthoritative` | `PlayerActionAnimationReadiness_PlayMode_LifecycleCleanupClearsAnimatorState` | `ArchitectureBoundary_AfterPlayerAnimationSwitch_RemainsSeparated` | Medium, action holds can affect input feel | Low | Set `PlayerActionAnimationExecutionMode.LegacyAnimationSync` | ProductionDefaultOnPendingTelemetry |
 | Enemy presentation | LegacyEnemyPresentationMapper | OrchestrationEnemyPresentationExecutor | LegacyEnemyPresentationMapper | OrchestrationEnemyPresentationExecutor | Yes | Yes | `EnemyPresentation_OrchestrationMode_RoutesJumpChargeAndDeathRequests` | `EnemyPresentationPlanning_DoesNotMutateAuthoritativeTickResult` | `EnemyPresentation_OrchestrationMode_CleanupResetsPortAndDiagnostics` | `EnemyPresentationPlanningBoundary_StaysPresentationOnly` | Medium | Low | Set `EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper` | KeepLegacy |
 | Core gameplay SFX | LegacyGameplayAudioController | OrchestrationSfxBridgeExecutor | OrchestrationSfxBridgeExecutor | OrchestrationSfxBridgeExecutor | No | Yes | `CoreSfxProductionDefault_PlayMode_TelemetryHasNoDuplicatePlayback` | `CoreSfx_PlayModeSmoke_IsNonAuthoritative` | `CoreGameplaySfx_ResetSessionHardCleanupAndPresentInitial_ClearExecutorPortAndGuardState` | `AudioOwnership_AfterCoreSfxPlayModeSmoke_RemainsSeparated` | Low, non-blocking one-shot | Medium, audio ownership must stay separated | Set `CoreGameplaySfxExecutionMode.LegacyGameplayAudioController` | ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered |
 | Action audio | LegacyActionAudioController | OrchestrationActionAudioBridge | LegacyActionAudioController | OrchestrationActionAudioBridge | Yes | Yes | `ActionAudio_OrchestrationMode_RoutesProfileMoments` | `ActionAudioPlanning_DoesNotMutateAuthoritativeTickResult` | `ActionAudio_OrchestrationMode_CleanupResetsPortAndDiagnostics` | `ActionAudioPlanningBoundary_StaysActionAudioOwned` | Low | Medium, profile/authoring edge cases remain | Set `ActionAudioExecutionMode.LegacyActionAudioController` | KeepLegacy |
@@ -41,7 +41,7 @@ Production scenes, stage content, and host authoring configuration must not seri
 
 ## Production switch candidate recommendation
 
-Box motion is `ProductionDefaultOnTelemetryHardened` after Phase 9J. The current production default is `OrchestrationMotionExecutor`, invalid/unset values still normalize to `LegacyTrackPlanner`, and explicit `LegacyTrackPlanner` rollback remains required. Phase 9L evaluates Player action animation with actual Animator PlayMode smoke and records `AcceptedTemporaryAdapterContract`. Player action animation is now `CandidateForNextPR`; production switch is still deferred to a dedicated Phase 9M PR because this PR intentionally keeps `LegacyAnimationSync` as the production default.
+Box motion is `ProductionDefaultOnTelemetryHardened` after Phase 9J. The current production default is `OrchestrationMotionExecutor`, invalid/unset values still normalize to `LegacyTrackPlanner`, and explicit `LegacyTrackPlanner` rollback remains required. Phase 9M switches Player action animation to `OrchestrationAnimationExecutor`, invalid/unset values still normalize to `LegacyAnimationSync`, explicit `LegacyAnimationSync` rollback remains required, and the execute lowering contract remains `AcceptedTemporaryAdapterContract`.
 
 Core gameplay SFX remains switched because:
 
@@ -68,7 +68,7 @@ Damage/death VFX is now switched because:
 - the legacy `GameplayVfxProductionRuntime` path remains available and suppresses only `EnemyVfxCue.Damage` and `EnemyVfxCue.Death` when orchestration owns Damage/death VFX
 - actual host lifecycle PlayMode smoke now covers default owner telemetry, damage/death request routing, same-tick death suppression, explicit legacy rollback, missing port/binding diagnostics, lifecycle cleanup, non-authoritative behavior, and Core SFX/audio boundary stability
 
-Phase 9H switches only Box motion. Phase 9K and Phase 9L switch no production default. Player action animation, enemy presentation, action audio, enemy audio, and topology transition remain on their legacy production defaults.
+Phase 9H switches only Box motion. Phase 9M switches only Player action animation. Enemy presentation, action audio, enemy audio, and topology transition remain on their legacy production defaults.
 
 ## Phase 9K Player action animation readiness assessment
 
@@ -107,7 +107,7 @@ Execute cue lowering assessment: `NeedsMorePlayModeEvidence`.
 
 Phase 9K evidence includes:
 
-- `PlayerActionAnimation_Readiness_DefaultStillLegacy`
+- `PlayerActionAnimation_DefaultMode_IsOrchestrationExecutor`
 - `PlayerActionAnimation_Readiness_ControlledRoutesSupportedCues`
 - `PlayerActionAnimation_Readiness_LegacyAndOrchestrationSemanticParity`
 - `PlayerActionAnimation_Readiness_ExecuteLoweringContractIsExplicit`
@@ -151,7 +151,7 @@ Execute cue lowering assessment: `AcceptedTemporaryAdapterContract`.
 
 Phase 9L PlayMode evidence includes:
 
-- `PlayerActionAnimationReadiness_PlayMode_DefaultRemainsLegacy`
+- `PlayerActionAnimationReadiness_PlayMode_DefaultMode_IsOrchestrationExecutor`
 - `PlayerActionAnimationReadiness_PlayMode_ControlledRoutesSupportedCues`
 - `PlayerActionAnimationReadiness_PlayMode_ConcreteAnimatorLifecycle`
 - `PlayerActionAnimationReadiness_PlayMode_PushWindupExecuteRecoveryTiming`
@@ -170,6 +170,23 @@ Phase 9L PlayMode evidence includes:
 
 Readiness gate result after Phase 9L: `CandidateForNextPR`. The next recommended PR is Phase 9M Player Action Animation Production Switch. That PR may change the normal/default owner to `OrchestrationAnimationExecutor`, must keep invalid/unset fallback and explicit rollback as `LegacyAnimationSync`, and must continue to keep topology, enemy presentation, action audio, and enemy audio ownership separated.
 
+## Phase 9M Player action animation production switch
+
+Player action animation production default is now `OrchestrationAnimationExecutor`. The enum zero/default value remains `LegacyAnimationSync`; invalid/unset normalization remains `LegacyAnimationSync`; explicit `LegacyAnimationSync` remains the rollback path.
+
+Phase 9M changes presentation execution ownership only:
+
+- `GameplaySceneHost -> GameplayTickViewPresenter -> GameplayTickPresentationCoordinator` explicitly configures `PlayerActionAnimationExecutionDefaults.ProductionDefault`.
+- Legacy player Push/Flip action animation source fields are skipped by owner policy while locomotion, non-action player mapping, death mapping, enemy presentation, topology, action audio, VFX/SFX, and box motion remain owned by their existing paths.
+- Default orchestration routes the 12 supported Push/Flip animation cues through `GameplayAnimationPresentationExecutor -> GameplayAnimationSyncPlaybackPort -> GameplayAnimationSyncCoordinator -> PlayerAnimatorDriver -> Animator`.
+- Execute cue lowering remains `AcceptedTemporaryAdapterContract`: `PlayerPushExecute -> PlayerPresentationPhase.PushRecovery` and `PlayerFlipExecute -> PlayerPresentationPhase.FlipRecovery`.
+- Animation cues remain non-blocking, input-lock neutral, and non-authoritative.
+- Action audio remains owned by `GameplayActionAudioPresentationController`; `GameplayActionAudioMoment` vocabulary is unchanged.
+
+Recommended status after Phase 9M: `ProductionDefaultOnPendingTelemetry`.
+
+Current `CandidateForNextPR` recommendation count: 0. The next recommended work is Phase 9N Player Action Animation Production Telemetry Hardening, not another domain switch.
+
 ## Phase 9J Box motion production telemetry hardening
 
 Phase 9J keeps the Phase 9H production switch in place and adds reviewable host/runtime diagnostics. The telemetry snapshot remains outside `WorldState`, `TickResult`, save/replay state, and determinism hashing. It records only values such as modes, enum semantics, entity ids, cue keys, dedupe keys, tick indexes, counts, and cleanup reasons.
@@ -186,7 +203,7 @@ Phase 9J Box motion telemetry evidence includes:
 - `BoxMotionReadiness_PlayMode_ExplicitLegacyRollbackRemains`
 - `ProductionSwitchReadiness_ReflectsBoxMotionTelemetryHardening`
 
-Phase 9J did not nominate an immediate next production switch candidate. Phase 9L later promoted Player action animation to `CandidateForNextPR`; it still remains a legacy default until a dedicated production-switch PR changes that owner. Enemy presentation remains legacy until a separate readiness pass evaluates lifecycle, rollback, input feel, and boundary evidence.
+Phase 9J did not nominate an immediate next production switch candidate. Phase 9L later promoted Player action animation to `CandidateForNextPR`; Phase 9M completed that switch. Enemy presentation remains legacy until a separate readiness pass evaluates lifecycle, rollback, input feel, and boundary evidence.
 
 ## Phase 9H Box motion production default switch
 

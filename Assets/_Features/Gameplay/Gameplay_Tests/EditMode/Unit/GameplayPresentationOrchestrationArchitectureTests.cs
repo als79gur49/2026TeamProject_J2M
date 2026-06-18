@@ -367,7 +367,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("MonoBehaviour"));
             Assert.That(runtimeSource, Does.Not.Contain("GameplayAnimationSyncCoordinator"));
             Assert.That(runtimeSource, Does.Not.Contain("PlayerAnimatorDriver"));
-            Assert.That(coordinatorSource, Does.Contain("PlayerActionAnimationExecutionMode.LegacyAnimationSync"));
+            Assert.That(coordinatorSource, Does.Contain("PlayerActionAnimationExecutionDefaults.LegacyFallback"));
             Assert.That(coordinatorSource, Does.Contain("PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor"));
             Assert.That(coordinatorSource, Does.Contain("suppressLegacyPlayerActionAnimations"));
             Assert.That(hostRuntimeSource, Does.Contain("GameplayAnimationPresentationExecutor"));

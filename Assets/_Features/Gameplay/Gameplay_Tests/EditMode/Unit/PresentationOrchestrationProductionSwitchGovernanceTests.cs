@@ -86,18 +86,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 typeof(PlayerActionAnimationExecutionMode),
                 "LegacyAnimationSync",
                 "OrchestrationAnimationExecutor",
-                "LegacyAnimationSync",
                 "OrchestrationAnimationExecutor",
+                "OrchestrationAnimationExecutor",
+                false,
                 true,
-                true,
-                "PlayerActionAnimation_Readiness_DuplicateGuardNormalAndForced",
-                "PlayerActionAnimation_Readiness_IsNonAuthoritative",
-                "PlayerActionAnimation_Readiness_LifecycleCleanupClearsState",
-                "ArchitectureBoundary_AfterPlayerActionAnimationReadiness_RemainsSeparated",
+                "PlayerActionAnimationReadiness_PlayMode_DuplicateGuardNormalAndForced",
+                "PlayerActionAnimationReadiness_PlayMode_IsNonAuthoritative",
+                "PlayerActionAnimationReadiness_PlayMode_LifecycleCleanupClearsAnimatorState",
+                "ArchitectureBoundary_AfterPlayerAnimationSwitch_RemainsSeparated",
                 "Medium: action holds can affect input feel.",
                 "Low",
                 "Set PlayerActionAnimationExecutionMode.LegacyAnimationSync.",
-                ProductionSwitchRecommendedStatus.CandidateForNextPR),
+                ProductionSwitchRecommendedStatus.ProductionDefaultOnPendingTelemetry),
             new(
                 "Enemy presentation",
                 typeof(EnemyPresentationExecutionMode),
@@ -195,11 +195,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void PresentationExecutionDefaults_BoxMotionIsOrchestration_OthersRemainExpected()
+        public void PresentationExecutionDefaults_PlayerActionAnimationIsOrchestration_OthersRemainExpected()
         {
             var config = new GameplaySceneHostConfiguration();
             var coordinator = new GameplayTickPresentationCoordinator();
-            var rootObject = new GameObject(nameof(PresentationExecutionDefaults_BoxMotionIsOrchestration_OthersRemainExpected));
+            var rootObject = new GameObject(nameof(PresentationExecutionDefaults_PlayerActionAnimationIsOrchestration_OthersRemainExpected));
 
             try
             {
@@ -209,7 +209,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
                 Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
-                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
                 Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(coordinator.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
@@ -218,7 +218,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
                 Assert.That(presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
-                Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(presenter.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
                 Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
@@ -228,7 +228,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     if (row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode) ||
                         row.ExecutionModeType == typeof(DamageDeathVfxExecutionMode) ||
-                        row.ExecutionModeType == typeof(BoxMotionPresentationExecutionMode))
+                        row.ExecutionModeType == typeof(BoxMotionPresentationExecutionMode) ||
+                        row.ExecutionModeType == typeof(PlayerActionAnimationExecutionMode))
                     {
                         Assert.That(row.DefaultIsLegacy, Is.False, row.Domain);
                         Assert.That(row.CurrentDefault, Is.EqualTo(row.OrchestrationOwner), row.Domain);
@@ -292,20 +293,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionConfig_AllowsCoreSfxDamageDeathVfxAndBoxMotionDefaults()
+        public void ProductionConfig_ReflectsPlayerActionAnimationSwitch()
         {
             var productionPaths = EnumerateProductionConfigFiles().ToArray();
             var allowedTokens = ReadinessMatrix
                 .Where(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode) ||
                               row.ExecutionModeType == typeof(DamageDeathVfxExecutionMode) ||
-                              row.ExecutionModeType == typeof(BoxMotionPresentationExecutionMode))
+                              row.ExecutionModeType == typeof(BoxMotionPresentationExecutionMode) ||
+                              row.ExecutionModeType == typeof(PlayerActionAnimationExecutionMode))
                 .Select(row => row.OrchestrationOwner)
                 .Distinct()
                 .ToArray();
             var forbiddenTokens = ReadinessMatrix
                 .Where(row => row.ExecutionModeType != typeof(CoreGameplaySfxExecutionMode) &&
                               row.ExecutionModeType != typeof(DamageDeathVfxExecutionMode) &&
-                              row.ExecutionModeType != typeof(BoxMotionPresentationExecutionMode))
+                              row.ExecutionModeType != typeof(BoxMotionPresentationExecutionMode) &&
+                              row.ExecutionModeType != typeof(PlayerActionAnimationExecutionMode))
                 .Select(row => row.OrchestrationOwner)
                 .Distinct()
                 .ToArray();
@@ -438,7 +441,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionSwitchReadiness_ReflectsBoxMotionTelemetryHardening()
+        public void ProductionSwitchReadiness_ReflectsPlayerActionAnimationSwitch()
         {
             var coreSfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode));
             var damageDeathVfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(DamageDeathVfxExecutionMode));
@@ -479,21 +482,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(readinessDocument, Does.Contain("GameplayInputHost_BoxSlidePresentation_DoesNotBlockSimulationTicks"));
             Assert.That(readinessDocument, Does.Contain("GameplayInputHost_FlipPresentation_DoesNotBlockSubsequentTicks"));
 
-            Assert.That(playerActionAnimation.CurrentDefault, Is.EqualTo(playerActionAnimation.LegacyOwner));
-            Assert.That(playerActionAnimation.DefaultIsLegacy, Is.True);
+            Assert.That(playerActionAnimation.CurrentDefault, Is.EqualTo(playerActionAnimation.OrchestrationOwner));
+            Assert.That(playerActionAnimation.DefaultIsLegacy, Is.False);
             Assert.That(playerActionAnimation.InvalidModeNormalizesToLegacy, Is.True);
-            Assert.That(playerActionAnimation.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.CandidateForNextPR));
+            Assert.That(playerActionAnimation.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnPendingTelemetry));
             Assert.That(readinessDocument, Does.Contain("Phase 9K"));
             Assert.That(readinessDocument, Does.Contain("Phase 9L"));
+            Assert.That(readinessDocument, Does.Contain("Phase 9M"));
             Assert.That(readinessDocument, Does.Contain("AcceptedTemporaryAdapterContract"));
-            Assert.That(readinessDocument, Does.Contain("CandidateForNextPR"));
+            Assert.That(readinessDocument, Does.Contain("ProductionDefaultOnPendingTelemetry"));
             Assert.That(readinessDocument, Does.Contain("PlayerPushExecute -> PlayerPresentationPhase.PushRecovery"));
             Assert.That(readinessDocument, Does.Contain("PlayerFlipExecute -> PlayerPresentationPhase.FlipRecovery"));
 
             foreach (var row in ReadinessMatrix.Where(row =>
                          row.ExecutionModeType != typeof(CoreGameplaySfxExecutionMode) &&
                          row.ExecutionModeType != typeof(DamageDeathVfxExecutionMode) &&
-                         row.ExecutionModeType != typeof(BoxMotionPresentationExecutionMode)))
+                         row.ExecutionModeType != typeof(BoxMotionPresentationExecutionMode) &&
+                         row.ExecutionModeType != typeof(PlayerActionAnimationExecutionMode)))
             {
                 Assert.That(row.CurrentDefault, Is.EqualTo(row.LegacyOwner), row.Domain);
                 Assert.That(row.DefaultIsLegacy, Is.True, row.Domain);
@@ -528,10 +533,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void CoreSfxAndDamageDeathVfx_ProductionDefaultsRemainStableAfterBoxMotionSwitch()
+        public void ExistingProductionDefaultsRemainStableAfterPlayerAnimationSwitch()
         {
             var coordinator = new GameplayTickPresentationCoordinator();
-            var rootObject = new GameObject(nameof(CoreSfxAndDamageDeathVfx_ProductionDefaultsRemainStableAfterBoxMotionSwitch));
+            var rootObject = new GameObject(nameof(ExistingProductionDefaultsRemainStableAfterPlayerAnimationSwitch));
 
             try
             {
@@ -546,7 +551,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
                 Assert.That(coordinator.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
                 Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
-                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
             }
             finally
@@ -557,14 +562,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionSwitchCandidate_IsPlayerActionAnimationAfterPlayModeEvidence()
+        public void ProductionSwitchCandidate_IsEmptyAfterPlayerAnimationSwitch()
         {
             var candidates = ReadinessMatrix
                 .Where(row => row.RecommendedStatus == ProductionSwitchRecommendedStatus.CandidateForNextPR)
                 .ToArray();
 
-            Assert.That(candidates.Select(row => row.Domain).ToArray(), Is.EqualTo(new[] { "Player action animation" }));
-            Assert.That(candidates[0].CurrentDefault, Is.EqualTo(candidates[0].LegacyOwner));
+            Assert.That(candidates, Is.Empty);
         }
 
         [Test]

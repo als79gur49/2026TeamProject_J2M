@@ -41,14 +41,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator PlayerActionAnimationReadiness_PlayMode_DefaultRemainsLegacy()
+        public IEnumerator PlayerActionAnimationReadiness_PlayMode_DefaultMode_IsOrchestrationExecutor()
         {
             var port = new RecordingGameplayAnimationPlaybackPort();
-            var context = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_DefaultRemainsLegacy));
+            var context = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_DefaultMode_IsOrchestrationExecutor));
             try
             {
                 Assert.That(default(PlayerActionAnimationExecutionMode), Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
-                Assert.That(context.Host.Presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(context.Host.Presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(context.Host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(context.Host.Presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
@@ -61,19 +61,22 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     Is.Null,
                     "Player action animation execution mode must not be serialized into production scene host configuration.");
 
-                context.Host.Presenter.ConfigurePlayerActionAnimationExecution(
-                    PlayerActionAnimationExecutionMode.LegacyAnimationSync,
-                    port);
                 context.Host.Presenter.Present(CreateSingleActionResult(
                     11,
                     CreateSignal(PlayerActionKind.Push, 101, started: true)));
 
-                Assert.That(port.TryPlayCallCount, Is.Zero);
-                Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.CommandAppliedCount, Is.EqualTo(1));
                 Assert.That(context.Driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushWindup));
 
                 context.Host.Presenter.ConfigurePlayerActionAnimationExecution((PlayerActionAnimationExecutionMode)999, port);
                 Assert.That(context.Host.Presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                context.Host.Presenter.Present(CreateSingleActionResult(
+                    12,
+                    CreateSignal(PlayerActionKind.Push, 102, started: true)));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
                 yield return null;
             }
             finally
@@ -136,8 +139,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_ConcreteAnimatorLifecycle));
             try
             {
-                context.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
-
                 context.Host.Presenter.Present(CreateSingleActionResult(31, CreateSignal(PlayerActionKind.Push, 301, started: true)));
                 yield return null;
                 AssertDriverAndAnimator(context, PlayerPresentationPhase.PushWindup, "Push_Windup", 2);
@@ -236,7 +237,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_ExecuteLoweringTransitionGate));
             try
             {
-                context.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
                 context.Host.Presenter.Present(CreateSingleActionResult(61, CreateSignal(PlayerActionKind.Push, 601, started: true)));
                 yield return null;
                 var windupCount = context.Driver.CrossFadeCommandCount;
@@ -269,7 +269,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_BlockedImpactFailedOutcomes));
             try
             {
-                context.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
                 var cases = new[]
                 {
                     (CreateSignal(PlayerActionKind.Push, 701, executed: true, resolutionKind: TickPlayerActionResolutionKind.Blocked), PlayerPresentationPhase.PushRecovery, "Push_Recovery"),
@@ -373,7 +372,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var forced = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_DuplicateGuardNormalAndForced) + "_Forced");
             try
             {
-                context.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
                 var result = CreateSingleActionResult(111, CreateSignal(PlayerActionKind.Push, 1101, started: true));
 
                 context.Host.Presenter.Present(result);
@@ -381,7 +379,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(context.Host.Presenter.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
                 Assert.That(context.Driver.CrossFadeCommandCount, Is.EqualTo(2));
 
-                forced.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
                 var duplicateSignal = CreateSignal(PlayerActionKind.Push, 1102, started: true);
                 var duplicateResult = CreateActionResult(
                     112,
@@ -413,7 +410,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var animatorMissing = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_MissingAnimatorDriverBindingPortAreNoOp) + "_AnimatorMissing", animatorMode: AnimatorFixtureMode.MissingController);
             try
             {
-                animatorMissing.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
                 animatorMissing.Host.Presenter.Present(CreateSingleActionResult(121, CreateSignal(PlayerActionKind.Push, 1201, started: true)));
                 Assert.That(animatorMissing.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.AnimatorMissingCount, Is.EqualTo(1));
                 Assert.That(animatorMissing.Driver.CrossFadeCommandCount, Is.Zero);
@@ -427,7 +423,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var driverMissing = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_MissingAnimatorDriverBindingPortAreNoOp) + "_DriverMissing", attachDriver: false);
             try
             {
-                driverMissing.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
                 driverMissing.Host.Presenter.Present(CreateSingleActionResult(122, CreateSignal(PlayerActionKind.Push, 1202, started: true)));
                 Assert.That(driverMissing.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.DriverMissingCount, Is.EqualTo(1));
             }
@@ -439,7 +434,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var bindingMissing = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_MissingAnimatorDriverBindingPortAreNoOp) + "_BindingMissing", autoCreateViews: false);
             try
             {
-                bindingMissing.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
                 bindingMissing.Host.Presenter.Present(CreateSingleActionResult(123, CreateSignal(PlayerActionKind.Push, 1203, started: true)));
                 Assert.That(bindingMissing.Host.Presenter.PlayerActionAnimationExecutorDiagnostics.BindingMissingCount, Is.EqualTo(1));
             }
@@ -464,7 +458,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_LifecycleCleanupClearsAnimatorState));
             try
             {
-                context.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
                 context.Host.Presenter.Present(CreateSingleActionResult(131, CreateSignal(PlayerActionKind.Push, 1301, executed: true)));
                 yield return null;
                 AssertDriverAndAnimator(context, PlayerPresentationPhase.PushRecovery, "Push_Recovery", 2);
@@ -497,7 +490,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_ActionAudioOwnershipRemainsSeparated));
             try
             {
-                context.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
                 context.Host.Presenter.Present(CreateSingleActionResult(141, CreateSignal(PlayerActionKind.Push, 1401, executed: true)));
                 yield return null;
 
@@ -526,7 +518,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_IsNonBlockingAndInputLockNeutral));
             try
             {
-                context.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
                 context.Host.Presenter.Present(CreateSingleActionResult(151, CreateSignal(PlayerActionKind.Flip, 1501, started: true)));
                 yield return null;
 
@@ -549,7 +540,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(PlayerActionAnimationReadiness_PlayMode_IsNonAuthoritative));
             try
             {
-                context.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
                 var result = CreateSingleActionResult(161, CreateSignal(PlayerActionKind.Push, 1601, executed: true));
                 var hash = result.DeterminismHash;
                 var finalEntities = result.FinalEntities.ToArray();
@@ -577,7 +567,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(CoreSfxDamageVfxAndBoxMotion_ProductionDefaultsRemainStableAfterPlayerAnimationSmoke));
             try
             {
-                context.Host.Presenter.ConfigurePlayerActionAnimationExecution(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
                 context.Host.Presenter.Present(CreateSingleActionResult(171, CreateSignal(PlayerActionKind.Push, 1701, started: true)));
                 yield return null;
 

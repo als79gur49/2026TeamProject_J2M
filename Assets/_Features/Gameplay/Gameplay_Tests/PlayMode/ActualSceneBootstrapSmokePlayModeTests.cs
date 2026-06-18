@@ -221,8 +221,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 $"{scenePath} must keep topology on the current legacy production owner.");
             Assert.That(
                 host.Presenter.PlayerActionAnimationExecutionMode,
-                Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync),
-                $"{scenePath} must keep player action animation on the current legacy production owner.");
+                Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor),
+                $"{scenePath} must boot player action animation with the production orchestration owner.");
             Assert.That(
                 host.Presenter.EnemyPresentationExecutionMode,
                 Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper),

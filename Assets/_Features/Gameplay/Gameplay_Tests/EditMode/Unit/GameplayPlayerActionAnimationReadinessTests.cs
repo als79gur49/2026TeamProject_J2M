@@ -28,9 +28,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void PlayerActionAnimation_Readiness_DefaultStillLegacy()
+        public void PlayerActionAnimation_DefaultMode_IsOrchestrationExecutor()
         {
-            var rootObject = new GameObject(nameof(PlayerActionAnimation_Readiness_DefaultStillLegacy));
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_DefaultMode_IsOrchestrationExecutor));
 
             try
             {
@@ -38,8 +38,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
 
                 Assert.That(default(PlayerActionAnimationExecutionMode), Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
-                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
-                Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
+                Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(
                     InvokeCoordinatorNormalize((PlayerActionAnimationExecutionMode)999),
                     Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
@@ -422,13 +422,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(document, Does.Contain("Phase 9K"));
             Assert.That(document, Does.Contain("Phase 9L"));
+            Assert.That(document, Does.Contain("Phase 9M"));
             Assert.That(document, Does.Contain("Player action animation"));
             Assert.That(document, Does.Contain("LegacyAnimationSync"));
             Assert.That(document, Does.Contain("AcceptedTemporaryAdapterContract"));
-            Assert.That(document, Does.Contain("CandidateForNextPR"));
+            Assert.That(document, Does.Contain("ProductionDefaultOnPendingTelemetry"));
             Assert.That(document, Does.Contain("PlayerPushExecute -> PlayerPresentationPhase.PushRecovery"));
             Assert.That(document, Does.Contain("PlayerFlipExecute -> PlayerPresentationPhase.FlipRecovery"));
-            Assert.That(document, Does.Contain("production switch is still deferred to a dedicated Phase 9M PR"));
+            Assert.That(document, Does.Contain("Player action animation production default is now `OrchestrationAnimationExecutor`"));
         }
 
         [Test]
@@ -445,12 +446,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
-                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
                 Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
                 Assert.That(coordinator.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
                 Assert.That(coordinator.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
-                Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
             }
             finally
             {
@@ -460,7 +461,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ArchitectureBoundary_AfterPlayerActionAnimationReadiness_RemainsSeparated()
+        public void ArchitectureBoundary_AfterPlayerAnimationSwitch_RemainsSeparated()
         {
             var contracts = ReadDirectory("Assets/_Features/Gameplay/Gameplay_PresentationContracts/Runtime");
             var planning = ReadDirectory("Assets/_Features/Gameplay/Gameplay_PresentationPlanning/Runtime");
