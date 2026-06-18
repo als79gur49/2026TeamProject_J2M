@@ -273,7 +273,7 @@ namespace Game.Feature.Gameplay.Host
         private BoxMotionPresentationExecutionMode _boxMotionExecutionMode =
             BoxMotionPresentationExecutionDefaults.ProductionDefault;
         private PlayerActionAnimationExecutionMode _playerActionAnimationExecutionMode =
-            PlayerActionAnimationExecutionMode.LegacyAnimationSync;
+            PlayerActionAnimationExecutionDefaults.ProductionDefault;
         private EnemyPresentationExecutionMode _enemyPresentationExecutionMode =
             EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper;
         private CoreGameplaySfxExecutionMode _coreGameplaySfxExecutionMode =
@@ -3216,7 +3216,7 @@ namespace Game.Feature.Gameplay.Host
         {
             return Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), mode)
                 ? mode
-                : PlayerActionAnimationExecutionMode.LegacyAnimationSync;
+                : PlayerActionAnimationExecutionDefaults.LegacyFallback;
         }
 
         private static EnemyPresentationExecutionMode NormalizeEnemyPresentationExecutionMode(

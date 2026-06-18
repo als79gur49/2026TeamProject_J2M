@@ -163,6 +163,8 @@ namespace Game.Feature.Gameplay.Host
 
             presenter.ConfigureBoxMotionPresentationExecution(
                 BoxMotionPresentationExecutionDefaults.ProductionDefault);
+            presenter.ConfigurePlayerActionAnimationExecution(
+                PlayerActionAnimationExecutionDefaults.ProductionDefault);
             presenter.Initialize(
                 viewBinder,
                 configuration.InitialBoardBounds,

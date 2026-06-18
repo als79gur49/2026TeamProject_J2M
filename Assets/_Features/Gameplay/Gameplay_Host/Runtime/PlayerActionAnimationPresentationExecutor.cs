@@ -15,6 +15,14 @@ namespace Game.Feature.Gameplay.Host
         OrchestrationAnimationExecutor = 1,
     }
 
+    internal static class PlayerActionAnimationExecutionDefaults
+    {
+        public const PlayerActionAnimationExecutionMode LegacyFallback =
+            PlayerActionAnimationExecutionMode.LegacyAnimationSync;
+        public const PlayerActionAnimationExecutionMode ProductionDefault =
+            PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor;
+    }
+
     internal enum PlayerActionAnimationExecutionOwner
     {
         None = 0,
@@ -165,7 +173,7 @@ namespace Game.Feature.Gameplay.Host
         private PlayerActionAnimationExecutionOwner _lastExecutionOwner;
 
         public PlayerActionAnimationExecutionGuard(
-            PlayerActionAnimationExecutionMode mode = PlayerActionAnimationExecutionMode.LegacyAnimationSync)
+            PlayerActionAnimationExecutionMode mode = PlayerActionAnimationExecutionDefaults.LegacyFallback)
         {
             _mode = NormalizeMode(mode);
         }
@@ -252,7 +260,7 @@ namespace Game.Feature.Gameplay.Host
         {
             return Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), mode)
                 ? mode
-                : PlayerActionAnimationExecutionMode.LegacyAnimationSync;
+                : PlayerActionAnimationExecutionDefaults.LegacyFallback;
         }
 
         private bool IsOwnerAllowed(PlayerActionAnimationExecutionOwner owner)
@@ -417,7 +425,7 @@ namespace Game.Feature.Gameplay.Host
 
         public GameplayAnimationPresentationExecutor(
             IGameplayAnimationPlaybackPort playbackPort = null,
-            PlayerActionAnimationExecutionMode mode = PlayerActionAnimationExecutionMode.LegacyAnimationSync,
+            PlayerActionAnimationExecutionMode mode = PlayerActionAnimationExecutionDefaults.LegacyFallback,
             PlayerActionAnimationExecutionGuard executionGuard = null)
         {
             _playbackPort = playbackPort;
@@ -683,7 +691,7 @@ namespace Game.Feature.Gameplay.Host
         {
             return Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), mode)
                 ? mode
-                : PlayerActionAnimationExecutionMode.LegacyAnimationSync;
+                : PlayerActionAnimationExecutionDefaults.LegacyFallback;
         }
     }
 
