@@ -421,12 +421,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var document = System.IO.File.ReadAllText(ToAbsolutePath(readinessPath));
 
             Assert.That(document, Does.Contain("Phase 9K"));
+            Assert.That(document, Does.Contain("Phase 9L"));
             Assert.That(document, Does.Contain("Player action animation"));
             Assert.That(document, Does.Contain("LegacyAnimationSync"));
-            Assert.That(document, Does.Contain("NeedsMorePlayModeEvidence"));
+            Assert.That(document, Does.Contain("AcceptedTemporaryAdapterContract"));
+            Assert.That(document, Does.Contain("CandidateForNextPR"));
             Assert.That(document, Does.Contain("PlayerPushExecute -> PlayerPresentationPhase.PushRecovery"));
             Assert.That(document, Does.Contain("PlayerFlipExecute -> PlayerPresentationPhase.FlipRecovery"));
-            Assert.That(document, Does.Contain("production switch is not recommended"));
+            Assert.That(document, Does.Contain("production switch is still deferred to a dedicated Phase 9M PR"));
         }
 
         [Test]

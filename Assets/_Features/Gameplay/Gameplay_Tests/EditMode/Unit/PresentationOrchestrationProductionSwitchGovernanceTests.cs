@@ -97,7 +97,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Medium: action holds can affect input feel.",
                 "Low",
                 "Set PlayerActionAnimationExecutionMode.LegacyAnimationSync.",
-                ProductionSwitchRecommendedStatus.NeedsMorePlayModeEvidence),
+                ProductionSwitchRecommendedStatus.CandidateForNextPR),
             new(
                 "Enemy presentation",
                 typeof(EnemyPresentationExecutionMode),
@@ -482,9 +482,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(playerActionAnimation.CurrentDefault, Is.EqualTo(playerActionAnimation.LegacyOwner));
             Assert.That(playerActionAnimation.DefaultIsLegacy, Is.True);
             Assert.That(playerActionAnimation.InvalidModeNormalizesToLegacy, Is.True);
-            Assert.That(playerActionAnimation.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.NeedsMorePlayModeEvidence));
+            Assert.That(playerActionAnimation.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.CandidateForNextPR));
             Assert.That(readinessDocument, Does.Contain("Phase 9K"));
-            Assert.That(readinessDocument, Does.Contain("NeedsMorePlayModeEvidence"));
+            Assert.That(readinessDocument, Does.Contain("Phase 9L"));
+            Assert.That(readinessDocument, Does.Contain("AcceptedTemporaryAdapterContract"));
+            Assert.That(readinessDocument, Does.Contain("CandidateForNextPR"));
             Assert.That(readinessDocument, Does.Contain("PlayerPushExecute -> PlayerPresentationPhase.PushRecovery"));
             Assert.That(readinessDocument, Does.Contain("PlayerFlipExecute -> PlayerPresentationPhase.FlipRecovery"));
 
@@ -555,13 +557,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionSwitchCandidate_IsEmptyAfterBoxMotionSwitch()
+        public void ProductionSwitchCandidate_IsPlayerActionAnimationAfterPlayModeEvidence()
         {
             var candidates = ReadinessMatrix
                 .Where(row => row.RecommendedStatus == ProductionSwitchRecommendedStatus.CandidateForNextPR)
                 .ToArray();
 
-            Assert.That(candidates, Is.Empty);
+            Assert.That(candidates.Select(row => row.Domain).ToArray(), Is.EqualTo(new[] { "Player action animation" }));
+            Assert.That(candidates[0].CurrentDefault, Is.EqualTo(candidates[0].LegacyOwner));
         }
 
         [Test]
