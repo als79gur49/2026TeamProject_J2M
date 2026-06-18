@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Timing;
+using Game.Feature.Gameplay.Tests;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
@@ -30,6 +31,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
         private const string DefaultPresentationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplayPresentationTimingPreset_DefaultShowcase.asset";
+        private const string ArchetypeSummonerProfilePath =
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_ArchetypeSummoner/EnemyAi_ArchetypeSummoner.asset";
         private const int ConfiguredShowcaseEnemyId = 60;
         private const int WallFollowerShowcaseEnemyId = 56;
         private const int JumpShowcaseEnemyId = 61;
@@ -984,6 +987,71 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(checkedSummonStages, Is.GreaterThan(0));
         }
 
+        [Test]
+        [Category("Full")]
+        public void StageUsesSummonArchetype_RecognizesProductionBehaviorSummon()
+        {
+            var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(ArchetypeSummonerProfilePath);
+
+            Assert.That(profile, Is.Not.Null, $"Missing EnemyAiProfile asset at '{ArchetypeSummonerProfilePath}'.");
+            Assert.That(profile.BehaviorModuleAssets.OfType<EnemySummonBehaviorModuleAsset>(), Is.Not.Empty);
+            Assert.That(
+                profile.CapabilityAssets
+                    .OfType<EnemyUtilityCapabilityAsset>()
+                    .SelectMany(capability => capability.Effects)
+                    .Where(effect => effect != null)
+                    .Any(effect => effect.Kind == EnemyUtilityEffectKind.SummonMinion),
+                Is.False);
+            Assert.That(ProfileUsesSummonArchetype(profile), Is.True);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void StageUsesSummonArchetype_IgnoresEmptyUtilityCapability()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                UtilityEffects = Array.Empty<EnemyUtilityEffectAuthoring>(),
+            });
+
+            Assert.That(ProfileUsesSummonArchetype(profile), Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void StageUsesSummonArchetype_IgnoresGravityFieldAuraUtilityEffect()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                UtilityEffects = new[] { CreateUtilityEffect(EnemyUtilityEffectKind.GravityFieldAura) },
+            });
+
+            Assert.That(ProfileUsesSummonArchetype(profile), Is.False);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void StageUsesSummonArchetype_RecognizesLegacyUtilitySummonEffect()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                UtilityEffects = new[] { CreateUtilityEffect(EnemyUtilityEffectKind.SummonMinion) },
+            });
+
+            Assert.That(ProfileUsesSummonArchetype(profile), Is.True);
+        }
+
+        [Test]
+        [Category("Full")]
+        public void StageUsesSummonArchetype_IgnoresNonSummonAndNullInputs()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateNonAttacking();
+
+            Assert.That(StageUsesSummonArchetype(null), Is.False);
+            Assert.That(ProfileUsesSummonArchetype(null), Is.False);
+            Assert.That(ProfileUsesSummonArchetype(profile), Is.False);
+        }
+
         private static StageRuntimeBuildResult BuildCombinedStage()
         {
             var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
@@ -993,25 +1061,65 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static bool StageUsesSummonArchetype(StageDefinition stage)
         {
+            if (stage == null)
+            {
+                return false;
+            }
+
             var enemySpawns = stage.EnemySpawns;
             for (var spawnIndex = 0; spawnIndex < enemySpawns.Length; spawnIndex++)
             {
-                var profile = enemySpawns[spawnIndex].EnemyAiProfile;
-                if (profile == null)
+                if (ProfileUsesSummonArchetype(enemySpawns[spawnIndex].EnemyAiProfile))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ProfileUsesSummonArchetype(EnemyAiProfile profile)
+        {
+            if (profile == null)
+            {
+                return false;
+            }
+
+            var behaviorModules = profile.BehaviorModuleAssets;
+            if (behaviorModules != null)
+            {
+                for (var moduleIndex = 0; moduleIndex < behaviorModules.Count; moduleIndex++)
+                {
+                    if (behaviorModules[moduleIndex] is EnemySummonBehaviorModuleAsset)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            var capabilities = profile.CapabilityAssets;
+            if (capabilities == null)
+            {
+                return false;
+            }
+
+            for (var capabilityIndex = 0; capabilityIndex < capabilities.Count; capabilityIndex++)
+            {
+                if (!(capabilities[capabilityIndex] is EnemyUtilityCapabilityAsset utility))
                 {
                     continue;
                 }
 
-                var runtimeDefinition = profile.CreateRuntimeDefinition(
-                    GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-                if (!runtimeDefinition.Capabilities.TryGetUtility(out var utility))
+                var effects = utility.Effects;
+                if (effects == null)
                 {
                     continue;
                 }
 
-                for (var effectIndex = 0; effectIndex < utility.Effects.Count; effectIndex++)
+                for (var effectIndex = 0; effectIndex < effects.Count; effectIndex++)
                 {
-                    if (utility.Effects[effectIndex].Kind == EnemyUtilityEffectKind.SummonMinion)
+                    var effect = effects[effectIndex];
+                    if (effect != null && effect.Kind == EnemyUtilityEffectKind.SummonMinion)
                     {
                         return true;
                     }
@@ -1019,6 +1127,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             return false;
+        }
+
+        private static EnemyUtilityEffectAuthoring CreateUtilityEffect(EnemyUtilityEffectKind kind)
+        {
+            var effect = new EnemyUtilityEffectAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", kind);
+            return effect;
         }
 
         private static void AssignStageContentEntry(StageBackedGameplaySceneInstaller installer)
