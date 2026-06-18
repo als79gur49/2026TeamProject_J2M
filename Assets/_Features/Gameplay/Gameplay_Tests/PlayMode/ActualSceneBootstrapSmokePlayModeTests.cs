@@ -213,8 +213,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             Assert.That(
                 host.Presenter.BoxMotionPresentationExecutionMode,
-                Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner),
-                $"{scenePath} must not switch Box motion production ownership.");
+                Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor),
+                $"{scenePath} must boot Box motion with the production orchestration owner.");
             Assert.That(
                 host.Presenter.TopologyPresentationExecutionMode,
                 Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator),

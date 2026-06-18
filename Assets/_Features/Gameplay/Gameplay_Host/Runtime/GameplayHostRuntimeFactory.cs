@@ -161,6 +161,8 @@ namespace Game.Feature.Gameplay.Host
                 initialSnapshot,
                 initialObjectiveResult);
 
+            presenter.ConfigureBoxMotionPresentationExecution(
+                BoxMotionPresentationExecutionDefaults.ProductionDefault);
             presenter.Initialize(
                 viewBinder,
                 configuration.InitialBoardBounds,

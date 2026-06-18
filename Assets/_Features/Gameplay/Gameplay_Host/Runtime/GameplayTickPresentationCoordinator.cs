@@ -152,7 +152,7 @@ namespace Game.Feature.Gameplay.Host
         private DamageDeathVfxExecutionMode _damageDeathVfxExecutionMode =
             DamageDeathVfxExecutionMode.OrchestrationExecutor;
         private BoxMotionPresentationExecutionMode _boxMotionExecutionMode =
-            BoxMotionPresentationExecutionMode.LegacyTrackPlanner;
+            BoxMotionPresentationExecutionDefaults.ProductionDefault;
         private PlayerActionAnimationExecutionMode _playerActionAnimationExecutionMode =
             PlayerActionAnimationExecutionMode.LegacyAnimationSync;
         private EnemyPresentationExecutionMode _enemyPresentationExecutionMode =
@@ -2938,7 +2938,7 @@ namespace Game.Feature.Gameplay.Host
         {
             return Enum.IsDefined(typeof(BoxMotionPresentationExecutionMode), mode)
                 ? mode
-                : BoxMotionPresentationExecutionMode.LegacyTrackPlanner;
+                : BoxMotionPresentationExecutionDefaults.LegacyFallback;
         }
 
         private static PlayerActionAnimationExecutionMode NormalizePlayerActionAnimationExecutionMode(

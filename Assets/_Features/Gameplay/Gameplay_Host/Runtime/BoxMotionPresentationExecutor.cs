@@ -15,6 +15,14 @@ namespace Game.Feature.Gameplay.Host
         OrchestrationMotionExecutor = 1,
     }
 
+    internal static class BoxMotionPresentationExecutionDefaults
+    {
+        public const BoxMotionPresentationExecutionMode LegacyFallback =
+            BoxMotionPresentationExecutionMode.LegacyTrackPlanner;
+        public const BoxMotionPresentationExecutionMode ProductionDefault =
+            BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor;
+    }
+
     internal enum BoxMotionPresentationExecutionOwner
     {
         None = 0,
@@ -250,7 +258,7 @@ namespace Game.Feature.Gameplay.Host
         {
             return Enum.IsDefined(typeof(BoxMotionPresentationExecutionMode), mode)
                 ? mode
-                : BoxMotionPresentationExecutionMode.LegacyTrackPlanner;
+                : BoxMotionPresentationExecutionDefaults.LegacyFallback;
         }
 
         private bool IsOwnerAllowed(BoxMotionPresentationExecutionOwner owner)
@@ -339,7 +347,8 @@ namespace Game.Feature.Gameplay.Host
             int duplicateSuppressedCount,
             int playbackRequestedCount,
             int trackStartedCount,
-            int missingPortCount)
+            int missingPortCount,
+            bool isProductionDefaultOwner)
         {
             ObservedTrackCount = Math.Max(0, observedTrackCount);
             LegacyOwnerNoOpCount = Math.Max(0, legacyOwnerNoOpCount);
@@ -351,6 +360,7 @@ namespace Game.Feature.Gameplay.Host
             PlaybackRequestedCount = Math.Max(0, playbackRequestedCount);
             TrackStartedCount = Math.Max(0, trackStartedCount);
             MissingPortCount = Math.Max(0, missingPortCount);
+            IsProductionDefaultOwner = isProductionDefaultOwner;
         }
 
         public int ObservedTrackCount { get; }
@@ -372,6 +382,8 @@ namespace Game.Feature.Gameplay.Host
         public int TrackStartedCount { get; }
 
         public int MissingPortCount { get; }
+
+        public bool IsProductionDefaultOwner { get; }
     }
 
     internal interface IGameplayMotionPlaybackPort
@@ -577,7 +589,8 @@ namespace Game.Feature.Gameplay.Host
                 duplicateSuppressedCount,
                 playbackRequestedCount,
                 trackStartedCount,
-                missingPortCount);
+                missingPortCount,
+                _mode == BoxMotionPresentationExecutionDefaults.ProductionDefault);
         }
 
         public void Update(float deltaTime)
@@ -710,7 +723,7 @@ namespace Game.Feature.Gameplay.Host
         {
             return Enum.IsDefined(typeof(BoxMotionPresentationExecutionMode), mode)
                 ? mode
-                : BoxMotionPresentationExecutionMode.LegacyTrackPlanner;
+                : BoxMotionPresentationExecutionDefaults.LegacyFallback;
         }
     }
 

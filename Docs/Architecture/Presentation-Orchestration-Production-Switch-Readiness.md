@@ -2,26 +2,27 @@
 
 ## Overview
 
-Phase 9I expands Box motion production switch readiness with PlayMode host lifecycle smoke without changing the Box motion production default. Box slide, box flip, and box flip impact remain available through explicit `OrchestrationMotionExecutor` controlled mode, while production still uses `LegacyTrackPlanner`. Damage/death VFX still uses explicit orchestration execution ownership by default, and Core gameplay SFX keeps the Phase 9D production default, hardened telemetry, and PlayMode smoke coverage status. The readiness matrix continues to define the criteria for moving one presentation domain at a time from legacy execution ownership to explicit orchestration execution ownership.
+Phase 9H switches the Box motion production default to `OrchestrationMotionExecutor` after the Phase 9I PlayMode host lifecycle evidence. Box slide, box flip, and box flip impact now use the orchestration motion executor by default, while explicit `LegacyTrackPlanner` remains the rollback mode. Damage/death VFX still uses explicit orchestration execution ownership by default, and Core gameplay SFX keeps the Phase 9D production default, hardened telemetry, and PlayMode smoke coverage status. The readiness matrix continues to define the criteria for moving one presentation domain at a time from legacy execution ownership to explicit orchestration execution ownership.
 
 The current production policy remains:
 
 - Core gameplay SFX default execution mode is `OrchestrationSfxBridgeExecutor`
 - Damage/death VFX default execution mode is `OrchestrationExecutor`
+- Box motion default execution mode is `OrchestrationMotionExecutor`
 - every other known presentation orchestration domain default execution mode is still its legacy owner
-- non-Core-SFX and non-Damage/death-VFX orchestration execution is explicit configuration only
+- non-Core-SFX, non-Damage/death-VFX, and non-Box-motion orchestration execution is explicit configuration only
 - duplicate guards remain enabled
 - diagnostics are hardened for Core gameplay SFX default owner, request, fallback, deferred, suppression, and duplicate review
 - Damage/death VFX now has hardened production telemetry and PlayMode smoke for default owner, legacy skip, semantic damage/death planning and playback, duplicate suppression, same-tick death suppression, missing diagnostics, rollback, non-authoritative behavior, and lifecycle cleanup review
-- Box motion now has Phase 9I PlayMode readiness evidence for controlled host routing, concrete adapter track lifecycle, slide/flip/flip-impact smoke, visualRoot cleanup, duplicate guard behavior, missing diagnostics, lifecycle cleanup, explicit legacy rollback, non-blocking/input-lock neutrality, and determinism neutrality
+- Box motion now has Phase 9H production default coverage reusing the Phase 9I PlayMode readiness evidence for default host routing, concrete adapter track lifecycle, slide/flip/flip-impact smoke, visualRoot cleanup, duplicate guard behavior, missing diagnostics, lifecycle cleanup, explicit legacy rollback, non-blocking/input-lock neutrality, and determinism neutrality
 - PlayMode smoke now covers the actual host/audio lifecycle for Core gameplay SFX default ownership, fallback, topology deferral, suppression, rollback, and non-authoritative behavior
 - legacy rollback paths remain available
 
 ## Current default policy
 
-All known presentation orchestration domains except Core gameplay SFX and Damage/death VFX must keep legacy as the current default until a dedicated production-switch PR changes exactly one additional domain. Invalid or unset execution mode values must normalize back to the legacy owner, including Core gameplay SFX and Damage/death VFX, so rollback remains safe when stale or corrupt config is encountered.
+All known presentation orchestration domains except Core gameplay SFX, Damage/death VFX, and Box motion must keep legacy as the current default until a dedicated production-switch PR changes exactly one additional domain. Invalid or unset execution mode values must normalize back to the legacy owner, including Core gameplay SFX, Damage/death VFX, and Box motion, so rollback remains safe when stale or corrupt config is encountered.
 
-Production scenes, stage content, and host authoring configuration must not serialize orchestration execution modes as default values except for the Core gameplay SFX and Damage/death VFX production default tokens. Explicit orchestration mode remains allowed in unit tests, targeted fixtures, and controlled integration tests.
+Production scenes, stage content, and host authoring configuration must not serialize orchestration execution modes as default values except for the Core gameplay SFX, Damage/death VFX, and Box motion production default tokens. Explicit orchestration mode remains allowed in unit tests, targeted fixtures, and controlled integration tests.
 
 ## Domain readiness matrix
 
@@ -29,7 +30,7 @@ Production scenes, stage content, and host authoring configuration must not seri
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Topology transition | LegacyCoordinator | ExecutorBridge | LegacyCoordinator | ExecutorBridge | Yes | Yes | `TopologyExecution_ExecutorBridgeMode_UsesExecutorPortOnceAndSkipsLegacyDirectPath` | `TopologyExecutor_DoesNotMutateAuthoritativeTickResult` | `TopologyExecution_ExecutorBridgeMode_CleanupResetsPortAndDiagnostics` | `TopologyAndInputLockExistingPath_RemainsOwnedByCoordinator` | High, input lock observes coordinator presentation phase | Low | Set `TopologyPresentationExecutionMode.LegacyCoordinator` | KeepLegacy |
 | Damage/death VFX | LegacyExtension | OrchestrationExecutor | OrchestrationExecutor | OrchestrationExecutor | No | Yes | `DamageDeathVfxProductionDefault_PlayMode_TelemetryHasNoDuplicatePlayback` | `DamageDeathVfx_PlayModeSmoke_IsNonAuthoritative` | `DamageDeathVfx_PlayModeSmoke_LifecycleCleanupClearsGuardAndDiagnostics` | `VfxPlanningBoundary_StaysPresentationOnly` | Low | Low | Set `DamageDeathVfxExecutionMode.LegacyExtension` | ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered |
-| Box motion | LegacyTrackPlanner | OrchestrationMotionExecutor | LegacyTrackPlanner | OrchestrationMotionExecutor | Yes | Yes | `BoxMotionReadiness_PlayMode_DuplicateGuardNormalAndForced` | `BoxMotionReadiness_PlayMode_IsNonAuthoritative` | `BoxMotionReadiness_PlayMode_LifecycleCleanupClearsTrackAndPose` | `ArchitectureBoundary_AfterBoxMotionReadiness_RemainsSeparated` | Medium, motion can affect perceived input timing | Low | Set `BoxMotionPresentationExecutionMode.LegacyTrackPlanner` | CandidateForNextPR |
+| Box motion | LegacyTrackPlanner | OrchestrationMotionExecutor | OrchestrationMotionExecutor | OrchestrationMotionExecutor | No | Yes | `BoxMotionProductionDefault_PlayMode_DuplicateGuardNormalAndForced` | `BoxMotionProductionDefault_PlayMode_IsNonAuthoritative` | `BoxMotionProductionDefault_PlayMode_LifecycleCleanupClearsTrackAndPose` | `ArchitectureBoundary_AfterBoxMotionReadiness_RemainsSeparated` | Medium, motion can affect perceived input timing | Low | Set `BoxMotionPresentationExecutionMode.LegacyTrackPlanner` | ProductionDefaultOnPendingTelemetry |
 | Player action animation | LegacyAnimationSync | OrchestrationAnimationExecutor | LegacyAnimationSync | OrchestrationAnimationExecutor | Yes | Yes | `PlayerActionAnimation_OrchestrationMode_RoutesPushFlipAndFakeAttempts` | `PlayerActionAnimationPlanning_DoesNotMutateAuthoritativeTickResult` | `PlayerActionAnimation_OrchestrationMode_CleanupResetsPortAndDiagnostics` | `PlayerActionAnimationBoundary_RemainsHostOnly` | Medium, action holds can affect input feel | Low | Set `PlayerActionAnimationExecutionMode.LegacyAnimationSync` | KeepLegacy |
 | Enemy presentation | LegacyEnemyPresentationMapper | OrchestrationEnemyPresentationExecutor | LegacyEnemyPresentationMapper | OrchestrationEnemyPresentationExecutor | Yes | Yes | `EnemyPresentation_OrchestrationMode_RoutesJumpChargeAndDeathRequests` | `EnemyPresentationPlanning_DoesNotMutateAuthoritativeTickResult` | `EnemyPresentation_OrchestrationMode_CleanupResetsPortAndDiagnostics` | `EnemyPresentationPlanningBoundary_StaysPresentationOnly` | Medium | Low | Set `EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper` | KeepLegacy |
 | Core gameplay SFX | LegacyGameplayAudioController | OrchestrationSfxBridgeExecutor | OrchestrationSfxBridgeExecutor | OrchestrationSfxBridgeExecutor | No | Yes | `CoreSfxProductionDefault_PlayMode_TelemetryHasNoDuplicatePlayback` | `CoreSfx_PlayModeSmoke_IsNonAuthoritative` | `CoreGameplaySfx_ResetSessionHardCleanupAndPresentInitial_ClearExecutorPortAndGuardState` | `AudioOwnership_AfterCoreSfxPlayModeSmoke_RemainsSeparated` | Low, non-blocking one-shot | Medium, audio ownership must stay separated | Set `CoreGameplaySfxExecutionMode.LegacyGameplayAudioController` | ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered |
@@ -38,7 +39,7 @@ Production scenes, stage content, and host authoring configuration must not seri
 
 ## Production switch candidate recommendation
 
-Box motion is `CandidateForNextPR` after Phase 9I PlayMode smoke expansion. This is not a production switch. The current production default remains `LegacyTrackPlanner`, invalid/unset values still normalize to `LegacyTrackPlanner`, and explicit `LegacyTrackPlanner` rollback remains required. The next PR may evaluate the Phase 9H Box motion production switch with this PlayMode gate as evidence.
+Box motion is `ProductionDefaultOnPendingTelemetry` after the Phase 9H production switch. The current production default is `OrchestrationMotionExecutor`, invalid/unset values still normalize to `LegacyTrackPlanner`, and explicit `LegacyTrackPlanner` rollback remains required. There is no `CandidateForNextPR` domain immediately after this switch; the next recommended PR is Phase 9J Box motion production telemetry hardening.
 
 Core gameplay SFX remains switched because:
 
@@ -65,27 +66,27 @@ Damage/death VFX is now switched because:
 - the legacy `GameplayVfxProductionRuntime` path remains available and suppresses only `EnemyVfxCue.Damage` and `EnemyVfxCue.Death` when orchestration owns Damage/death VFX
 - actual host lifecycle PlayMode smoke now covers default owner telemetry, damage/death request routing, same-tick death suppression, explicit legacy rollback, missing port/binding diagnostics, lifecycle cleanup, non-authoritative behavior, and Core SFX/audio boundary stability
 
-Phase 9I does not switch any additional production default. Box motion readiness hardening improves explicit controlled PlayMode evidence only; Box motion is not switched in Phase 9I.
+Phase 9H switches only Box motion. Player action animation, enemy presentation, action audio, enemy audio, and topology transition remain on their legacy production defaults.
 
-## Phase 9I Box motion PlayMode smoke expansion
+## Phase 9H Box motion production default switch
 
-Phase 9I uses hybrid PlayMode evidence. Synthetic host smoke runs through a real `GameplaySceneHost`, `GameplayTickViewPresenter`, and `GameplayTickPresentationCoordinator` lifecycle while feeding deterministic presentation ticks for Box motion scenarios. The fixture covers both recording-port routing and the concrete `GameplayMotionTrackPlannerPlaybackPort -> GameplayTrackPlanner -> PresentationMotionTrack -> GameplayEntityPresentationApplier / BoxFlipInteractionDriver` adapter path. Actual scene bootstrap smoke verifies production defaults remain stable.
+Phase 9H uses the Phase 9I hybrid PlayMode evidence as production-default coverage. Synthetic host smoke runs through a real `GameplaySceneHost`, `GameplayTickViewPresenter`, and `GameplayTickPresentationCoordinator` lifecycle while feeding deterministic presentation ticks for Box motion scenarios. The fixture covers both recording-port routing and the concrete `GameplayMotionTrackPlannerPlaybackPort -> GameplayTrackPlanner -> PresentationMotionTrack -> GameplayEntityPresentationApplier / BoxFlipInteractionDriver` adapter path. Actual scene bootstrap smoke verifies the Box motion production default is `OrchestrationMotionExecutor` and unapproved domains remain legacy.
 
-Phase 9I Box motion PlayMode scenarios:
+Phase 9H Box motion PlayMode scenarios:
 
-- `BoxMotionReadiness_PlayMode_DefaultRemainsLegacy`
-- `BoxMotionReadiness_PlayMode_ControlledOrchestrationRoutesSlideFlipImpact`
-- `BoxMotionReadiness_PlayMode_ConcreteAdapterStartsAndCompletesTracks`
-- `BoxMotionReadiness_PlayMode_SlidePoseRemainsEquivalent`
-- `BoxMotionReadiness_PlayMode_FlipPoseAndVisualRootReset`
-- `BoxMotionReadiness_PlayMode_FlipImpactRemainsSeparateSemantic`
-- `BoxMotionReadiness_PlayMode_DuplicateGuardNormalAndForced`
-- `BoxMotionReadiness_PlayMode_MissingDiagnosticsAreNoOp`
-- `BoxMotionReadiness_PlayMode_LifecycleCleanupClearsTrackAndPose`
+- `BoxMotionProductionDefault_PlayMode_UsesOrchestrationOwner`
+- `BoxMotionProductionDefault_PlayMode_RoutesSlideFlipImpact`
+- `BoxMotionProductionDefault_PlayMode_ConcreteAdapterStartsAndCompletesTracks`
+- `BoxMotionProductionDefault_PlayMode_SlidePoseRemainsEquivalent`
+- `BoxMotionProductionDefault_PlayMode_FlipPoseAndVisualRootReset`
+- `BoxMotionProductionDefault_PlayMode_FlipImpactRemainsSeparateSemantic`
+- `BoxMotionProductionDefault_PlayMode_DuplicateGuardNormalAndForced`
+- `BoxMotionProductionDefault_PlayMode_MissingDiagnosticsAreNoOp`
+- `BoxMotionProductionDefault_PlayMode_LifecycleCleanupClearsTrackAndPose`
 - `BoxMotionReadiness_PlayMode_ExplicitLegacyRollbackRemains`
-- `BoxMotionReadiness_PlayMode_IsNonBlockingAndInputLockNeutral`
-- `BoxMotionReadiness_PlayMode_IsNonAuthoritative`
-- `CoreSfxAndDamageDeathVfx_ProductionDefaultsRemainStableAfterBoxMotionPlayMode`
+- `BoxMotionProductionDefault_PlayMode_IsNonBlockingAndInputLockNeutral`
+- `BoxMotionProductionDefault_PlayMode_IsNonAuthoritative`
+- `CoreSfxAndDamageDeathVfx_RemainStableAfterBoxMotionSwitch`
 
 ## Phase 9G Box motion readiness hardening
 
@@ -101,8 +102,8 @@ Box motion production switch risks covered in Phase 9G:
 
 Phase 9G Box motion scenarios:
 
-- `BoxMotion_Readiness_DefaultStillLegacy`
-- `BoxMotion_Readiness_ControlledHostRoutesSlideFlipImpact`
+- `BoxMotion_DefaultMode_IsOrchestrationMotionExecutor`
+- `BoxMotion_DefaultOrchestration_RoutesSlideFlipImpact`
 - `BoxMotion_Readiness_LegacyAndOrchestrationSemanticEquivalence`
 - `BoxMotion_Readiness_PoseEquivalenceAndVisualRootReset`
 - `BoxMotion_Readiness_DuplicateGuardNormalAndForced`
@@ -110,8 +111,8 @@ Phase 9G Box motion scenarios:
 - `BoxMotion_Readiness_LifecycleCleanupClearsState`
 - `BoxMotion_Readiness_IsNonBlockingAndInputLockNeutral`
 - `BoxMotion_Readiness_IsDeterminismNeutral`
-- `ProductionSwitchReadiness_ReflectsBoxMotionHardening`
-- `CoreSfxAndDamageDeathVfx_ProductionDefaultsRemainStableAfterBoxMotionReadiness`
+- `ProductionSwitchReadiness_ReflectsBoxMotionPlayModeEvidence`
+- `CoreSfxAndDamageDeathVfx_ProductionDefaultsRemainStableAfterBoxMotionSwitch`
 - `ArchitectureBoundary_AfterBoxMotionReadiness_RemainsSeparated`
 
 ## Phase 9D PlayMode smoke coverage
@@ -197,7 +198,7 @@ Phase 9G Box motion validation should include:
 - `GameplayInputHost_FlipPresentation_DoesNotBlockSubsequentTicks`
 - `./run_tests.sh core`
 
-Phase 9I Box motion validation should include the targeted PlayMode smoke filters listed above, actual scene bootstrap default checks, the Phase 9G EditMode readiness/governance filters, the two existing non-blocking PlayMode filters, and Core SFX / Damage-death VFX regression filters. If these do not run or do not pass on the same revision, keep Box motion at `ReadinessHardened` and do not recommend the Phase 9H production switch.
+Phase 9H Box motion validation should include the targeted PlayMode smoke filters listed above, actual scene bootstrap default checks, the Phase 9G EditMode readiness/governance filters updated for production default ownership, the two existing non-blocking PlayMode filters, and Core SFX / Damage-death VFX regression filters. If these do not run or do not pass on the same revision, revert Box motion to `CandidateForNextPR` and do not claim the production switch is validated.
 
 If the full lane is not executed and passing on the same revision, do not claim full-lane green, project-wide green, full regression closure, or all regressions fixed. A no-test-match result is not validation evidence. `obj` or `dll` file locks are runner/build concurrency issues and must be reported separately from test failures.
 
@@ -221,19 +222,19 @@ For Core gameplay SFX:
 5. Restore default orchestration tests to their legacy default expectations.
 6. Leave controlled integration code in place unless a domain-specific regression requires a separate rollback.
 
-For Box motion Phase 9I readiness hardening:
+For Box motion Phase 9H production default switch:
 
-1. Remove or skip the new PlayMode smoke tests.
-2. Set the Box motion readiness matrix status back to `ReadinessHardened`.
-3. Revert any fixture-only diagnostics additions.
-4. Keep `BoxMotionPresentationExecutionMode.LegacyTrackPlanner` as the production default.
-5. If a severe controlled-mode regression appears, disable or no-op controlled `OrchestrationMotionExecutor` registration.
-6. Keep `GameplayTrackPlanner`, `PresentationMotionTrack`, and `BoxFlipInteractionDriver` legacy paths.
+1. Set the normal production Box motion execution mode back to `LegacyTrackPlanner`.
+2. Remove the Box motion orchestration default allowance from the production config drift guard.
+3. Set the Box motion readiness matrix status back to `CandidateForNextPR`.
+4. Restore default orchestration tests to Phase 9I controlled-mode expectations.
+5. Restore actual scene bootstrap expected default to `LegacyTrackPlanner`.
+6. Keep `OrchestrationMotionExecutor`, Phase 9I smoke fixtures, `GameplayTrackPlanner`, `PresentationMotionTrack`, and `BoxFlipInteractionDriver` paths available.
 7. Keep Core gameplay SFX and Damage/death VFX production defaults unless they have a separate regression.
 
 ## Explicit non-goals
 
-- Do not switch any additional production default beyond Damage/death VFX in Phase 9G.
+- Do not switch any additional production default beyond Box motion in Phase 9H.
 - Do not remove legacy paths or coordinator direct-call paths.
 - Do not promote scheduler blocking state to input lock ownership.
 - Do not let `GameplayInputHost` read scheduler, pipeline, or plan internals.
