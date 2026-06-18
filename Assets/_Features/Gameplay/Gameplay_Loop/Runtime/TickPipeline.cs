@@ -83,8 +83,7 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId = null,
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
-            PlayerFree2DLocomotionSettings playerFree2DLocomotion = default)
+            UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default)
             : this(
                 worldState,
                 entityLogics,
