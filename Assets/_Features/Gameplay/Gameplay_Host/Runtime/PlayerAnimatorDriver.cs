@@ -101,6 +101,10 @@ namespace Game.Feature.Gameplay.Host
 
         public string LastCrossFadedStateName { get; private set; } = string.Empty;
 
+        internal int CrossFadeCommandCount { get; private set; }
+
+        internal int TriggerWriteCount { get; private set; }
+
         internal bool CanDriveCurrentAnimator => CanDriveAnimator(ResolveAnimator());
 
         private void Reset()
@@ -421,6 +425,7 @@ namespace Game.Feature.Gameplay.Host
             targetAnimator.CrossFadeInFixedTime(Animator.StringToHash(stateName), resolvedDurationSeconds);
             LastCrossFadedStateName = stateName;
             LastCrossFadeDurationSeconds = resolvedDurationSeconds;
+            CrossFadeCommandCount++;
             return true;
         }
 
@@ -462,6 +467,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             targetAnimator.SetTrigger(hitTriggerName);
+            TriggerWriteCount++;
         }
 
         private static bool HasAnimatorParameter(
