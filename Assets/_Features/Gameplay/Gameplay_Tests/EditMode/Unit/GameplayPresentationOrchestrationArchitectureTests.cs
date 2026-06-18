@@ -304,6 +304,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ArchitectureBoundary_AfterBoxMotionReadiness_RemainsSeparated()
+        {
+            var contractsPlanningPlaybackSource = ReadDirectorySource(ContractsDirectory) + "\n" +
+                                                  ReadDirectorySource(PlanningDirectory) + "\n" +
+                                                  ReadDirectorySource(PlaybackDirectory);
+            var uiSource = ReadDirectorySource("Assets/_Features/UI");
+            var vfxSource = ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime");
+            var topologyControllerAndInputSource =
+                ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTopologyTransitionController.cs") + "\n" +
+                ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayInputHost.cs");
+            var authoritativeSource = ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Model/Runtime") + "\n" +
+                                      ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Loop/Runtime") + "\n" +
+                                      ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime") + "\n" +
+                                      ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Entities/Runtime");
+
+            foreach (var token in new[]
+                     {
+                         "GameObject",
+                         "Transform",
+                         "MonoBehaviour",
+                         "PresentationMotionTrack",
+                         "GameplayTrackPlanner",
+                         "BoxFlipInteractionDriver",
+                     })
+            {
+                Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain(token), token);
+            }
+
+            Assert.That(uiSource, Does.Not.Contain("GameplayMotionExecutorDiagnostics"));
+            Assert.That(uiSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
+            Assert.That(vfxSource, Does.Not.Contain("GameplayMotionPresentationExecutor"));
+            Assert.That(vfxSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
+            Assert.That(topologyControllerAndInputSource, Does.Not.Contain("GameplayMotionPresentationExecutor"));
+            Assert.That(topologyControllerAndInputSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
+            Assert.That(authoritativeSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
+            Assert.That(authoritativeSource, Does.Not.Contain("GameplayMotionPresentationExecutor"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void PlayerActionAnimationExecutorBoundary_StaysHostOnlyAndDoesNotLeakRuntimeObjectsToPlans()
         {
             var contractsPlanningPlaybackSource = ReadDirectorySource(ContractsDirectory) + "\n" +

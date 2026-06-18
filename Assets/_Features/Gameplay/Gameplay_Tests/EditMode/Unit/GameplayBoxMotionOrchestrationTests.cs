@@ -213,6 +213,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void BoxMotion_Readiness_LegacyAndOrchestrationSemanticEquivalence()
+        {
+            var cueFrame = CreateMotionCueFrame(CreateBoxMotionTickResultWithImpact());
+            var plan = new PresentationPlaybackPlanner().Plan(cueFrame);
+            var port = new RecordingGameplayMotionPlaybackPort();
+            var executor = new GameplayMotionPresentationExecutor(
+                port,
+                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
+                new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+
+            executor.Play(plan);
+
+            Assert.That(port.Requests, Has.Length.EqualTo(3));
+            AssertEquivalentMotionRequest(
+                plan.Tracks.Single(track => IsMotionTrack(track, PresentationMotionCueKey.BoxSlide)),
+                port.Requests.Single(request => request.CueKey == PresentationMotionCueKey.BoxSlide));
+            AssertEquivalentMotionRequest(
+                plan.Tracks.Single(track => IsMotionTrack(track, PresentationMotionCueKey.BoxFlip)),
+                port.Requests.Single(request => request.CueKey == PresentationMotionCueKey.BoxFlip));
+            AssertEquivalentMotionRequest(
+                plan.Tracks.Single(track => IsMotionTrack(track, PresentationMotionCueKey.BoxFlipImpact)),
+                port.Requests.Single(request => request.CueKey == PresentationMotionCueKey.BoxFlipImpact));
+            Assert.That(plan.Tracks.All(track => track.Policy.UnitKind == PresentationPlaybackUnitKind.Track), Is.True);
+            Assert.That(plan.Tracks.All(track => !track.Policy.Blocking), Is.True);
+            Assert.That(plan.Tracks.All(track =>
+                track.Policy.InterruptMode == PresentationPlaybackInterruptMode.IgnoreNew), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
         public void MotionExecutionGuard_BlocksDuplicateOwnerAttemptForSameBoxMotionKey()
         {
             var key = new BoxMotionPlaybackKey(
@@ -304,6 +334,89 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void BoxMotion_Readiness_MissingDiagnosticsSeparated()
+        {
+            var validCue = CreateMotionCueFrame(CreateBoxMotionTickResult())
+                .Cues.Single(cue =>
+                    cue.Key.TryGetMotionCueKey(out var key) && key == PresentationMotionCueKey.BoxSlide);
+            var targetMissingCue = new PresentationCue(
+                PresentationDomain.Motion,
+                PresentationCueKey.ForMotion(PresentationMotionCueKey.BoxSlide),
+                validCue.Source,
+                PresentationTarget.None(),
+                validCue.Anchor,
+                validCue.PolicyHint,
+                motionPayload: validCue.MotionPayload);
+            var anchorMissingCue = new PresentationCue(
+                PresentationDomain.Motion,
+                PresentationCueKey.ForMotion(PresentationMotionCueKey.BoxSlide),
+                new PresentationSource(12, PresentationSemanticSource.BoxSlideMotion, BoxEntityId),
+                PresentationTarget.Entity(BoxEntityId),
+                PresentationAnchor.None(),
+                new PresentationPlaybackPolicyHint(
+                    PresentationPlaybackPolicyHintKind.Track,
+                    blocking: false,
+                    dedupeKey: 1234),
+                motionPayload: validCue.MotionPayload);
+            var bindingMissingCue = new PresentationCue(
+                PresentationDomain.Motion,
+                PresentationCueKey.ForMotion(PresentationMotionCueKey.BoxSlide),
+                new PresentationSource(13, PresentationSemanticSource.BoxSlideMotion, BoxEntityId),
+                PresentationTarget.Entity(BoxEntityId),
+                validCue.Anchor,
+                new PresentationPlaybackPolicyHint(
+                    PresentationPlaybackPolicyHintKind.Track,
+                    blocking: false,
+                    dedupeKey: 5678),
+                motionPayload: validCue.MotionPayload);
+            var driverMissingCue = new PresentationCue(
+                PresentationDomain.Motion,
+                PresentationCueKey.ForMotion(PresentationMotionCueKey.BoxFlip),
+                new PresentationSource(14, PresentationSemanticSource.BoxFlipMotion, BoxEntityId),
+                PresentationTarget.Entity(BoxEntityId),
+                validCue.Anchor,
+                new PresentationPlaybackPolicyHint(
+                    PresentationPlaybackPolicyHintKind.Track,
+                    blocking: false,
+                    dedupeKey: 9012),
+                motionPayload: validCue.MotionPayload);
+            var port = new RecordingGameplayMotionPlaybackPort(request =>
+                request.CueKey == PresentationMotionCueKey.BoxFlip
+                    ? GameplayMotionPlaybackResultKind.DriverMissing
+                    : GameplayMotionPlaybackResultKind.BindingMissing);
+            var executor = new GameplayMotionPresentationExecutor(
+                port,
+                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
+                new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+            var plan = new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
+                14,
+                new[] { targetMissingCue, anchorMissingCue, bindingMissingCue, driverMissingCue },
+                new PresentationCueFrameDiagnostics(4, 4, 1)));
+
+            Assert.DoesNotThrow(() => executor.Play(plan));
+
+            Assert.That(executor.Diagnostics.TargetMissingCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.AnchorMissingCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.BindingMissingCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.DriverMissingCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.MissingPortCount, Is.Zero);
+            Assert.That(executor.Diagnostics.DuplicateSuppressedCount, Is.Zero);
+            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.EqualTo(2));
+            Assert.That(executor.Diagnostics.TrackStartedCount, Is.Zero);
+
+            var missingPortExecutor = new GameplayMotionPresentationExecutor(
+                null,
+                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
+                new BoxMotionExecutionGuard(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+            missingPortExecutor.Play(new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
+                15,
+                new[] { validCue },
+                new PresentationCueFrameDiagnostics(1, 1, 1))));
+            Assert.That(missingPortExecutor.Diagnostics.MissingPortCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Core")]
         public void MotionExecutor_ResetSessionAndHardCleanup_ClearDiagnosticsGuardAndPortState()
         {
             var plan = new PresentationPlaybackPlanner().Plan(
@@ -362,6 +475,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.FinalEntities, Is.EqualTo(finalEntities));
             Assert.That(result.EventLog, Is.EqualTo(eventLog));
             Assert.That(result.ObjectiveResult, Is.SameAs(objectiveResult));
+            Assert.That(result.MovementPhaseResult, Is.SameAs(MovementPhaseResult.Empty));
+            Assert.That(result.AttackPhaseResult, Is.SameAs(AttackPhaseResult.Empty));
         }
 
         private const int BoxEntityId = 40;
@@ -370,6 +485,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static readonly SurfaceCell SlideDestinationCell = new(FaceId.Floor, 2, 1);
         private static readonly SurfaceCell FlipSourceCell = new(FaceId.Floor, 2, 1);
         private static readonly SurfaceCell FlipDestinationCell = new(FaceId.Floor, 2, 2);
+        private static readonly SurfaceCell ImpactCell = new(FaceId.Floor, 2, 3);
         private static readonly CubeTopologyState Topology = new(FaceId.Floor);
 
         private static TickResult CreateBoxMotionTickResult()
@@ -446,6 +562,95 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 objectiveResult: StageObjectiveTickResult.NoObjective);
         }
 
+        private static TickResult CreateBoxMotionTickResultWithImpact()
+        {
+            var presentationData = new TickPresentationData(
+                new[]
+                {
+                    new TickEntityMotion(
+                        BoxEntityId,
+                        TickEntityMotionKind.BoxSlide,
+                        SlideSourceCell,
+                        SlideDestinationCell,
+                        Topology,
+                        Topology,
+                        Direction.Right,
+                        Direction.Right),
+                    new TickEntityMotion(
+                        BoxEntityId,
+                        TickEntityMotionKind.Flip,
+                        FlipSourceCell,
+                        FlipDestinationCell,
+                        Topology,
+                        Topology,
+                        Direction.Up,
+                        Direction.Up),
+                },
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                flipImpactSignals: new[]
+                {
+                    new FlipImpactPresentationSignal(
+                        sourceActionPlanId: 711,
+                        BoxEntityId,
+                        impactTargetEntityId: 50,
+                        actorEntityId: PlayerEntityId,
+                        FlipDestinationCell,
+                        ImpactCell,
+                        Topology,
+                        Direction.Up,
+                        Direction.Right,
+                        FlipImpactPresentationDisposition.Stay,
+                        hasLandingCell: true,
+                        landingCell: FlipDestinationCell),
+                },
+                boxSlideStartSignals: new[]
+                {
+                    new BoxSlideStartPresentationSignal(
+                        BoxEntityId,
+                        PlayerEntityId,
+                        SlideSourceCell,
+                        SlideDestinationCell,
+                        Topology),
+                });
+
+            return new TickResult(
+                tickIndex: 11,
+                completedPhases: Array.Empty<TickPhase>(),
+                phaseTrace: Array.Empty<string>(),
+                movementPhaseResult: MovementPhaseResult.Empty,
+                attackPhaseResult: AttackPhaseResult.Empty,
+                finalEntities: new[]
+                {
+                    new EntityState
+                    {
+                        entityId = BoxEntityId,
+                        type = EntityType.Box,
+                        position = FlipDestinationCell,
+                        facing = Direction.Up,
+                        hp = 1,
+                        maxHp = 1,
+                        boardPresence = EntityBoardPresence.Occupying,
+                        boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
+                    },
+                },
+                eventLog: new[] { "AuthoritativeEvent" },
+                finalTopology: Topology,
+                presentationData: presentationData,
+                determinismHash: "BOX-MOTION-HASH",
+                trace: TickTrace.Empty,
+                objectiveResult: StageObjectiveTickResult.NoObjective);
+        }
+
         private static PresentationCueFrame CreateMotionCueFrame(TickResult result)
         {
             var factFrame = new TickPresentationFactExtractor().Extract(result);
@@ -453,6 +658,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 new MotionCuePlanner(),
             }).Plan(factFrame);
+        }
+
+        private static bool IsMotionTrack(PresentationPlaybackTrack track, PresentationMotionCueKey cueKey)
+        {
+            return track.Cue.Key.TryGetMotionCueKey(out var key) && key == cueKey;
+        }
+
+        private static void AssertEquivalentMotionRequest(
+            PresentationPlaybackTrack legacySemanticTrack,
+            GameplayMotionPlaybackRequest orchestrationRequest)
+        {
+            Assert.That(orchestrationRequest.CueKey, Is.EqualTo((PresentationMotionCueKey)legacySemanticTrack.Cue.Key.LocalKey));
+            Assert.That(orchestrationRequest.TickIndex, Is.EqualTo(legacySemanticTrack.Cue.Source.TickIndex));
+            Assert.That(orchestrationRequest.EntityId, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.EntityId));
+            Assert.That(orchestrationRequest.Target, Is.EqualTo(legacySemanticTrack.Cue.Target));
+            Assert.That(orchestrationRequest.Anchor, Is.EqualTo(legacySemanticTrack.Cue.Anchor));
+            Assert.That(orchestrationRequest.MotionPayload.Kind, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.Kind));
+            Assert.That(orchestrationRequest.MotionPayload.EntityId, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.EntityId));
+            Assert.That(orchestrationRequest.MotionPayload.SourceCell, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.SourceCell));
+            Assert.That(orchestrationRequest.MotionPayload.DestinationCell, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.DestinationCell));
+            Assert.That(orchestrationRequest.MotionPayload.Topology, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.Topology));
+            Assert.That(orchestrationRequest.MotionPayload.HasTopology, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.HasTopology));
+            Assert.That(orchestrationRequest.MotionPayload.Direction, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.Direction));
+            Assert.That(orchestrationRequest.MotionPayload.SourceFacing, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.SourceFacing));
+            Assert.That(orchestrationRequest.MotionPayload.DestinationFacing, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.DestinationFacing));
+            Assert.That(orchestrationRequest.MotionPayload.ActionKind, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.ActionKind));
+            Assert.That(orchestrationRequest.MotionPayload.SourceSequenceId, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.SourceSequenceId));
+            Assert.That(orchestrationRequest.MotionPayload.SourceActionPlanId, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.SourceActionPlanId));
+            Assert.That(orchestrationRequest.MotionPayload.ImpactTargetEntityId, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.ImpactTargetEntityId));
+            Assert.That(orchestrationRequest.MotionPayload.FlipDisposition, Is.EqualTo(legacySemanticTrack.Cue.MotionPayload.FlipDisposition));
+            Assert.That(legacySemanticTrack.Policy.DedupeKey, Is.GreaterThan(0));
+            Assert.That(legacySemanticTrack.Policy.Blocking, Is.False);
+            Assert.That(legacySemanticTrack.Policy.InterruptMode, Is.EqualTo(PresentationPlaybackInterruptMode.IgnoreNew));
         }
 
         private sealed class RecordingGameplayMotionPlaybackPort : IGameplayMotionPlaybackPort

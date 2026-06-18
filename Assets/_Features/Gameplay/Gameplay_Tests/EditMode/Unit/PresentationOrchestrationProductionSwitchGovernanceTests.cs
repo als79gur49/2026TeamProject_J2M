@@ -73,14 +73,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "OrchestrationMotionExecutor",
                 true,
                 true,
-                "BoxMotion_OrchestrationMotionExecutorMode_RoutesSlideFlipAndImpactRequests",
-                "BoxMotionPlanning_DoesNotMutateAuthoritativeTickResult",
-                "BoxMotion_OrchestrationMode_CleanupResetsPortAndDiagnostics",
+                "BoxMotion_Readiness_DuplicateGuardNormalAndForced",
+                "BoxMotion_Readiness_IsDeterminismNeutral",
+                "BoxMotion_Readiness_LifecycleCleanupClearsState",
                 "BoxMotionExecutionSwitch_DoesNotLeakIntoInputOrVfxContracts",
                 "Medium: motion can affect perceived input timing.",
                 "Low",
                 "Set BoxMotionPresentationExecutionMode.LegacyTrackPlanner.",
-                ProductionSwitchRecommendedStatus.NeedsMoreCoverage),
+                ProductionSwitchRecommendedStatus.ReadinessHardened),
             new(
                 "Player action animation",
                 typeof(PlayerActionAnimationExecutionMode),
@@ -435,10 +435,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionSwitchReadiness_ReflectsDamageDeathVfxPlayModeSmoke()
+        public void ProductionSwitchReadiness_ReflectsBoxMotionHardening()
         {
             var coreSfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode));
             var damageDeathVfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(DamageDeathVfxExecutionMode));
+            var boxMotion = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(BoxMotionPresentationExecutionMode));
             var readinessDocument = ReadRepoFile(ReadinessDocumentPath);
 
             Assert.That(coreSfx.CurrentDefault, Is.EqualTo(coreSfx.OrchestrationOwner));
@@ -459,6 +460,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(readinessDocument, Does.Contain("DamageDeathVfxProductionDefault_PlayMode_UsesOrchestrationOwner"));
             Assert.That(readinessDocument, Does.Contain("DamageDeathVfxProductionDefault_PlayMode_SameTickDeathSuppressesDamage"));
             Assert.That(readinessDocument, Does.Contain("DamageDeathVfx_PlayModeSmoke_LifecycleCleanupClearsGuardAndDiagnostics"));
+
+            Assert.That(boxMotion.CurrentDefault, Is.EqualTo(boxMotion.LegacyOwner));
+            Assert.That(boxMotion.DefaultIsLegacy, Is.True);
+            Assert.That(boxMotion.InvalidModeNormalizesToLegacy, Is.True);
+            Assert.That(boxMotion.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ReadinessHardened));
+            Assert.That(readinessDocument, Does.Contain("Phase 9G"));
+            Assert.That(readinessDocument, Does.Contain("ReadinessHardened"));
+            Assert.That(readinessDocument, Does.Contain("BoxMotion_Readiness_ControlledHostRoutesSlideFlipImpact"));
+            Assert.That(readinessDocument, Does.Contain("GameplayInputHost_BoxSlidePresentation_DoesNotBlockSimulationTicks"));
+            Assert.That(readinessDocument, Does.Contain("GameplayInputHost_FlipPresentation_DoesNotBlockSubsequentTicks"));
 
             foreach (var row in ReadinessMatrix.Where(row =>
                          row.ExecutionModeType != typeof(CoreGameplaySfxExecutionMode) &&
@@ -488,6 +499,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     InvokeCoordinatorNormalize("NormalizeCoreGameplaySfxExecutionMode", (CoreGameplaySfxExecutionMode)999),
                     Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CoreSfxAndDamageDeathVfx_ProductionDefaultsRemainStableAfterBoxMotionReadiness()
+        {
+            var coordinator = new GameplayTickPresentationCoordinator();
+            var rootObject = new GameObject(nameof(CoreSfxAndDamageDeathVfx_ProductionDefaultsRemainStableAfterBoxMotionReadiness));
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+
+                Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
+                Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
+                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
+                Assert.That(presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
+                Assert.That(coordinator.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
+                Assert.That(coordinator.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
+                Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
             }
             finally
             {
@@ -617,10 +657,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CandidateForNextPR = 1,
             NeedsMoreCoverage = 2,
             DoNotSwitchYet = 3,
-            ProductionDefaultOn = 4,
-            ProductionDefaultOnPendingTelemetry = 5,
-            ProductionDefaultOnTelemetryHardened = 6,
-            ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered = 7,
+            ReadinessHardened = 4,
+            ProductionDefaultOn = 5,
+            ProductionDefaultOnPendingTelemetry = 6,
+            ProductionDefaultOnTelemetryHardened = 7,
+            ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered = 8,
         }
 
         private sealed class ProductionSwitchReadinessRow
