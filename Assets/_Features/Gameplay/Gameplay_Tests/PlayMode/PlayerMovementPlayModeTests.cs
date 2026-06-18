@@ -2256,17 +2256,37 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(
                 projector.TryProjectEntityCell(entity.position, snapshot.Topology, entity.type, out var projectedPose),
                 Is.True);
+            var expectedLocalPosition = projectedPose.LocalPosition;
+            var expectedFacing = entity.facing;
+            var hasContinuousPose =
+                snapshot.TryGetUnitContinuousLocomotionPose(entityId, out var continuousPose) &&
+                continuousPose.HasAuthoritativeState;
+            if (hasContinuousPose)
+            {
+                var planeOffset = projector.ResolveKinematicPresentationPlaneOffset(continuousPose.LocalOffset);
+                expectedLocalPosition += projectedPose.LocalRotation * new Vector3(planeOffset.x, planeOffset.y, 0f);
+                if (continuousPose.State.facing != Direction.None)
+                {
+                    expectedFacing = continuousPose.State.facing;
+                }
+            }
+
             Assert.That(
-                projector.TryResolveEntityRotation(entity.position, snapshot.Topology, entity.facing, out var projectedRotation),
+                projector.TryResolveEntityRotation(entity.position, snapshot.Topology, expectedFacing, out var projectedRotation),
                 Is.True);
             Assert.That(
                 view.transform.position,
-                Is.EqualTo(host.BoardRoot.transform.TransformPoint(projectedPose.LocalPosition)));
+                Is.EqualTo(host.BoardRoot.transform.TransformPoint(expectedLocalPosition)));
             Assert.That(
                 Quaternion.Angle(
                     view.transform.rotation,
                     host.BoardRoot.transform.rotation * projectedRotation),
-                Is.LessThan(0.1f));
+                Is.LessThan(0.1f),
+                $"entity={entityId} entityFacing={entity.facing} expectedFacing={expectedFacing} " +
+                $"hasContinuous={hasContinuousPose} continuousFacing={(hasContinuousPose ? continuousPose.State.facing : Direction.None)} " +
+                $"continuousMode={(hasContinuousPose ? continuousPose.Mode : ContinuousLocomotionMode.Idle)} " +
+                $"continuousOffset={(hasContinuousPose ? continuousPose.LocalOffset.ToString() : string.Empty)} " +
+                $"viewEuler={view.transform.rotation.eulerAngles} expectedEuler={(host.BoardRoot.transform.rotation * projectedRotation).eulerAngles}");
         }
 
         private static void AssertViewFacing(GameplaySceneHost host, int entityId, Direction expectedFacing)
