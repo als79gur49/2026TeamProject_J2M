@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void GameplaySimulationTimingPreset_ApplyTo_MatchesLegacyConfigurationAndClonesPlayerControlTiming()
+        public void GameplaySimulationTimingPreset_ApplyTo_MatchesDirectConfigurationAndClonesPlayerControlTiming()
         {
             var sourceTiming = new PlayerControlTimingSettings
             {
@@ -39,7 +39,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var legacyConfiguration = new GameplaySceneHostConfiguration
+                var directConfiguration = new GameplaySceneHostConfiguration
                 {
                     InitialMoveDelaySeconds = 0f,
                     PlayerControlTiming = sourceTiming.Clone(),
@@ -58,19 +58,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presetConfiguration.PlayerRespawnTiming, Is.Not.SameAs(sourceRespawnTiming));
                 Assert.That(presetConfiguration.PlayerRespawnTiming.RespawnDelaySeconds, Is.EqualTo(sourceRespawnTiming.RespawnDelaySeconds));
 
-                var legacyTimingProfile = legacyConfiguration.CreateTimingProfile();
+                var directTimingProfile = directConfiguration.CreateTimingProfile();
                 var presetTimingProfile = presetConfiguration.CreateTimingProfile();
-                Assert.That(presetTimingProfile.InitialMoveDelaySeconds, Is.EqualTo(legacyTimingProfile.InitialMoveDelaySeconds));
-                Assert.That(presetTimingProfile.RepeatedMoveIntervalSeconds, Is.EqualTo(legacyTimingProfile.RepeatedMoveIntervalSeconds));
-                Assert.That(presetTimingProfile.BoxSlideStepIntervalSeconds, Is.EqualTo(legacyTimingProfile.BoxSlideStepIntervalSeconds));
-                Assert.That(presetTimingProfile.ProjectileStepIntervalSeconds, Is.EqualTo(legacyTimingProfile.ProjectileStepIntervalSeconds));
+                Assert.That(presetTimingProfile.InitialMoveDelaySeconds, Is.EqualTo(directTimingProfile.InitialMoveDelaySeconds));
+                Assert.That(presetTimingProfile.RepeatedMoveIntervalSeconds, Is.EqualTo(directTimingProfile.RepeatedMoveIntervalSeconds));
+                Assert.That(presetTimingProfile.BoxSlideStepIntervalSeconds, Is.EqualTo(directTimingProfile.BoxSlideStepIntervalSeconds));
+                Assert.That(presetTimingProfile.ProjectileStepIntervalSeconds, Is.EqualTo(directTimingProfile.ProjectileStepIntervalSeconds));
 
-                var legacySnapshot = legacyConfiguration.CreatePlayerControlTimingSnapshot();
+                var directSnapshot = directConfiguration.CreatePlayerControlTimingSnapshot();
                 var presetSnapshot = presetConfiguration.CreatePlayerControlTimingSnapshot();
-                AssertPlayerControlSnapshotsEqual(legacySnapshot, presetSnapshot);
+                AssertPlayerControlSnapshotsEqual(directSnapshot, presetSnapshot);
                 Assert.That(
                     presetConfiguration.CreatePlayerRespawnTimingSnapshot().RespawnDelayTicks,
-                    Is.EqualTo(legacyConfiguration.CreatePlayerRespawnTimingSnapshot().RespawnDelayTicks));
+                    Is.EqualTo(directConfiguration.CreatePlayerRespawnTimingSnapshot().RespawnDelayTicks));
 
                 presetConfiguration.PlayerControlTiming.MoveCooldownSeconds = 9f;
                 Assert.That(sourceTiming.MoveCooldownSeconds, Is.EqualTo(0.5f));
@@ -85,7 +85,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayPresentationTimingPreset_ApplyTo_PreservesFallbackSemanticsAgainstLegacyConfiguration()
+        public void GameplayPresentationTimingPreset_ApplyTo_PreservesFallbackSemanticsAgainstDirectConfiguration()
         {
             var preset = CreatePresentationTimingPreset(
                 moveMotionDurationSeconds: -1f,
@@ -98,7 +98,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var legacyConfiguration = new GameplaySceneHostConfiguration
+                var directConfiguration = new GameplaySceneHostConfiguration
                 {
                     MoveMotionDurationSeconds = -1f,
                     PushMotionDurationSeconds = 0.3f,
@@ -112,15 +112,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 preset.ApplyTo(presetConfiguration);
 
-                var legacyTimingProfile = legacyConfiguration.CreateTimingProfile();
+                var directTimingProfile = directConfiguration.CreateTimingProfile();
                 var presetTimingProfile = presetConfiguration.CreateTimingProfile();
-                Assert.That(presetTimingProfile.MoveMotionDurationSeconds, Is.EqualTo(legacyTimingProfile.MoveMotionDurationSeconds));
-                Assert.That(presetTimingProfile.PushMotionDurationSeconds, Is.EqualTo(legacyTimingProfile.PushMotionDurationSeconds));
-                Assert.That(presetTimingProfile.FlipMotionDurationSeconds, Is.EqualTo(legacyTimingProfile.FlipMotionDurationSeconds));
-                Assert.That(presetTimingProfile.TopologyMotionDurationSeconds, Is.EqualTo(legacyTimingProfile.TopologyMotionDurationSeconds));
-                Assert.That(presetTimingProfile.ItemConsumeEffectDurationSeconds, Is.EqualTo(legacyTimingProfile.ItemConsumeEffectDurationSeconds));
-                Assert.That(presetTimingProfile.BoxDestroyEffectDurationSeconds, Is.EqualTo(legacyTimingProfile.BoxDestroyEffectDurationSeconds));
-                Assert.That(presetTimingProfile.EnemyDeathEffectDurationSeconds, Is.EqualTo(legacyTimingProfile.EnemyDeathEffectDurationSeconds));
+                Assert.That(presetTimingProfile.MoveMotionDurationSeconds, Is.EqualTo(directTimingProfile.MoveMotionDurationSeconds));
+                Assert.That(presetTimingProfile.PushMotionDurationSeconds, Is.EqualTo(directTimingProfile.PushMotionDurationSeconds));
+                Assert.That(presetTimingProfile.FlipMotionDurationSeconds, Is.EqualTo(directTimingProfile.FlipMotionDurationSeconds));
+                Assert.That(presetTimingProfile.TopologyMotionDurationSeconds, Is.EqualTo(directTimingProfile.TopologyMotionDurationSeconds));
+                Assert.That(presetTimingProfile.ItemConsumeEffectDurationSeconds, Is.EqualTo(directTimingProfile.ItemConsumeEffectDurationSeconds));
+                Assert.That(presetTimingProfile.BoxDestroyEffectDurationSeconds, Is.EqualTo(directTimingProfile.BoxDestroyEffectDurationSeconds));
+                Assert.That(presetTimingProfile.EnemyDeathEffectDurationSeconds, Is.EqualTo(directTimingProfile.EnemyDeathEffectDurationSeconds));
             }
             finally
             {
@@ -199,14 +199,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(configuration.PlayerControlTiming.FlipExecuteDelaySeconds, Is.EqualTo(0.38333333f).Within(0.0000001f));
             Assert.That(configuration.PlayerControlTiming.FlipInputLockDurationSeconds, Is.EqualTo(0.95f).Within(0.0000001f));
             Assert.That(
-                configuration.CreatePlayerKinematicLocomotionTimingSnapshot().TicksPerCell,
+                configuration.CreateUnitKinematicLocomotionTimingSnapshot().TicksPerCell,
                 Is.EqualTo(20));
         }
 
         private static GameplaySimulationTimingPreset CreateSimulationTimingPreset(
             float initialMoveDelaySeconds = 0f,
             PlayerControlTimingSettings playerControlTiming = null,
-            PlayerKinematicLocomotionTimingSettings playerKinematicLocomotionTiming = null,
+            UnitKinematicLocomotionTimingSettings unitKinematicLocomotionTiming = null,
             PlayerRespawnTimingSettings playerRespawnTiming = null,
             float repeatedMoveIntervalSeconds = 0.6f,
             float boxSlideStepIntervalSeconds = 0.2f,
@@ -215,7 +215,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var preset = ScriptableObject.CreateInstance<GameplaySimulationTimingPreset>();
             SetPrivateField(preset, "initialMoveDelaySeconds", initialMoveDelaySeconds);
             SetPrivateField(preset, "playerControlTiming", playerControlTiming ?? PlayerControlTimingSettings.CreateDefault());
-            SetPrivateField(preset, "playerKinematicLocomotionTiming", playerKinematicLocomotionTiming ?? PlayerKinematicLocomotionTimingSettings.CreateDefault());
+            SetPrivateField(preset, "unitKinematicLocomotionTiming", unitKinematicLocomotionTiming ?? UnitKinematicLocomotionTimingSettings.CreateDefault());
             SetPrivateField(preset, "playerRespawnTiming", playerRespawnTiming ?? PlayerRespawnTimingSettings.CreateDefault());
             SetPrivateField(preset, "repeatedMoveIntervalSeconds", repeatedMoveIntervalSeconds);
             SetPrivateField(preset, "boxSlideStepIntervalSeconds", boxSlideStepIntervalSeconds);

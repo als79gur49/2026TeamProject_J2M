@@ -20,8 +20,8 @@ MonoBehaviour:
     PushInputLockDurationSeconds: 0.48333335
     FlipExecuteDelaySeconds: 0.38333333
     FlipInputLockDurationSeconds: 0.95
-  playerKinematicLocomotionTiming:
-    KinematicMoveDurationSeconds: 0.33333334
+  unitKinematicLocomotionTiming:
+    MoveDurationSeconds: 0.33333334
   playerRespawnTiming:
     RespawnDelaySeconds: 0.75
   repeatedMoveIntervalSeconds: 0.6

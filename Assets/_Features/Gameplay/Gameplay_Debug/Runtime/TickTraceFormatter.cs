@@ -176,7 +176,7 @@ namespace Game.Feature.Gameplay.Debug
             {
                 var entry = entries[i];
                 lines.Add(
-                    $"E={entry.EntityId}|Cooldown={entry.State.moveCooldownTicks}|NextMoveAllowed={entry.State.nextMoveAllowedTick}|Action={entry.State.activeAction.kind}|ActionSeq={entry.State.activeAction.sequence}|ActionDirection={entry.State.activeAction.direction}|ActionTarget={entry.State.activeAction.targetEntityId}|Start={entry.State.activeAction.startTick}|Execute={entry.State.activeAction.executeTick}|Recovery={entry.State.activeAction.recoveryEndTick}|Attempted={(entry.State.activeAction.executionAttempted ? 1 : 0)}|QueuedKinematicTurn={entry.State.queuedKinematicTurnDirection}|QueuedFree2DAction={entry.State.queuedFree2DAction.kind}|QueuedFree2DActionDirection={entry.State.queuedFree2DAction.direction}|QueuedFree2DActionTick={entry.State.queuedFree2DAction.requestedTick}");
+                    $"E={entry.EntityId}|Cooldown={entry.State.moveCooldownTicks}|NextMoveAllowed={entry.State.nextMoveAllowedTick}|Action={entry.State.activeAction.kind}|ActionSeq={entry.State.activeAction.sequence}|ActionDirection={entry.State.activeAction.direction}|ActionTarget={entry.State.activeAction.targetEntityId}|Start={entry.State.activeAction.startTick}|Execute={entry.State.activeAction.executeTick}|Recovery={entry.State.activeAction.recoveryEndTick}|Attempted={(entry.State.activeAction.executionAttempted ? 1 : 0)}|QueuedFree2DAction={entry.State.queuedFree2DAction.kind}|QueuedFree2DActionDirection={entry.State.queuedFree2DAction.direction}|QueuedFree2DActionTick={entry.State.queuedFree2DAction.requestedTick}");
             }
 
             return lines;

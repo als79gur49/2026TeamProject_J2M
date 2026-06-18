@@ -109,7 +109,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 build.ObjectiveRuntimeDefinition,
                 allowPlayerRespawn: true,
                 configuration.CreateRuntimeFeatureFlags(),
-                configuration.CreatePlayerKinematicLocomotionTimingSnapshot(),
+                configuration.CreateUnitKinematicLocomotionTimingSnapshot(),
                 configuration.CreatePlayerContinuousLocomotionSnapshot(),
                 build.TileFeatureDefinitions,
                 build.MoonBlockRespawnDefinitions);

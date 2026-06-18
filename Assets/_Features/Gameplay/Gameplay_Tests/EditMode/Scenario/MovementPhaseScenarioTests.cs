@@ -964,10 +964,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var topologyIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(0, 2));
             topologyIntent.AssignIntentId(1);
 
-            AssertLegacyExpansionIntentAllowed(pushWorldState, pushIntent, GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
-            AssertLegacyExpansionIntentAllowed(flipWorldState, flipIntent, GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
-            AssertLegacyExpansionIntentAllowed(itemWorldState, itemIntent, GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
-            AssertLegacyExpansionIntentAllowed(topologyWorldState, topologyIntent, GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+            AssertLegacyExpansionIntentAllowed(pushWorldState, pushIntent, GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            AssertLegacyExpansionIntentAllowed(flipWorldState, flipIntent, GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            AssertLegacyExpansionIntentAllowed(itemWorldState, itemIntent, GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            AssertLegacyExpansionIntentAllowed(topologyWorldState, topologyIntent, GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
         }
 
         [Test]
@@ -985,8 +985,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertLegacyExpansionIntentBlocked(
                 playerWorldState,
                 playerIntent,
-                GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
-                "PlayerCoveredLocomotionReachedLegacyExpansion");
+                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                "PlayerOrdinaryMoveRejectedBeforeLegacyExpansion");
 
             var enemyWorldState = CreateWorldState(new[]
             {
@@ -1038,16 +1038,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertLegacyExpansionIntentBlocked(
                 worldState,
                 free2DIntent,
-                GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
-                "PlayerCoveredLocomotionReachedLegacyExpansion");
+                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                "PlayerOrdinaryMoveRejectedBeforeLegacyExpansion");
 
             var kinematicIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
             kinematicIntent.AssignIntentId(2);
             AssertLegacyExpansionIntentBlocked(
                 worldState,
                 kinematicIntent,
-                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled,
-                "PlayerCoveredLocomotionReachedLegacyExpansion");
+                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                "PlayerOrdinaryMoveRejectedBeforeLegacyExpansion");
 
             var flagOffIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
             flagOffIntent.AssignIntentId(3);
@@ -1063,7 +1063,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 legacyBaselineIntent,
                 GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
-                LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason);
+                LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedReason);
         }
 
         [Test]
@@ -3583,7 +3583,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new[] { definition },
                 resolver,
-                GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled);
+                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
 
             var firstActivation = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
@@ -3947,7 +3947,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(result, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(result, 10);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
         }
 
@@ -5411,7 +5411,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 enemySpawnDefaultsByArchetypeId: null,
                 allowPlayerRespawn: true,
                 runtimeFeatureFlags: runtimeFeatureFlags,
-                playerKinematicLocomotionTiming: default,
+                unitKinematicLocomotionTiming: default,
                 playerContinuousLocomotion: default,
                 tileFeatureDefinitions: tileFeatureDefinitions,
                 moonBlockRespawnDefinitions: null,

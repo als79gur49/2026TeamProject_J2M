@@ -2891,7 +2891,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 enemySpawnDefaultsByArchetypeId: null,
                 allowPlayerRespawn: true,
                 runtimeFeatureFlags: default,
-                playerKinematicLocomotionTiming: default,
+                unitKinematicLocomotionTiming: default,
                 playerContinuousLocomotion: default,
                 tileFeatureDefinitions: tileFeatureDefinitions,
                 tileEffectResolver: null);

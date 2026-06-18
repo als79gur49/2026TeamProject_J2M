@@ -1842,7 +1842,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Player_Free2D_TopologyHandoff_RadiusClampedNonZero_DoesNotHandoff()
+        public void Player_Free2D_TopologyHandoff_RadiusClampedNonZero_UsesNativeFree2D()
         {
             var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
             var worldState = CreateWorldState(
@@ -1855,14 +1855,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
             var snapshot = worldState.CreateSnapshot();
-            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(snapshot.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
-            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
-            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out _), Is.False);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out _), Is.True);
+            Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Kind == FinalizationOperationKind.SetTopology),
-                Is.False);
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition &&
+                    operation.Metadata.BoundaryReason == "Free2DTopologyNativeTransition"),
+                Is.True);
             LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
@@ -2765,31 +2767,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Free2DActionAssist_DoesNotAffectKinematicFallback()
-        {
-            var worldState = CreateWorldState(
-                CreatePlayer(10),
-                CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
-                worldState,
-                CreatePlayerLogics(),
-                GameplayTimingProfile.CreateDefault(),
-                PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
-                    GameplayTimingProfile.DefaultSimulationTicksPerSecond,
-                    GameplayTimingProfile.CreateDefault().RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
-
-            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            pipeline.RunTick(new TickInput(2, PlayerTickCommand.Push(Direction.Right)));
-            var snapshot = worldState.CreateSnapshot();
-
-            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.queuedFree2DAction.IsQueued, Is.False);
-            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out _), Is.False);
-        }
-
-        [Test]
-        [Category("Extended")]
         public void Player_Free2D_Radius_PassiveContactRemainsAnchorBased()
         {
             var worldState = CreateWorldState(
@@ -2975,7 +2952,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Player_Free2D_FlagOff_ExistingKinematicBaseline()
+        public void Player_Free2D_DefaultGameplay_UsesContinuousState()
         {
             var worldState = CreateWorldState(CreatePlayer(10));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -2985,13 +2962,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.CreateDefault().RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.True);
-            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out _), Is.False);
+            Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out _), Is.True);
+            Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
         }
 
         [Test]
@@ -3026,7 +3003,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.CreateDefault().RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
         }
 
         private static TickPipeline CreatePipeline(
@@ -3042,7 +3019,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
@@ -3084,7 +3061,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.CreateDefault().RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
         }
 
         private static TickPipeline CreatePipelineWithCollisionRadius(
@@ -3100,7 +3077,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
                 playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
                 {
                     CollisionRadiusCells = collisionRadiusCells,
@@ -3121,7 +3098,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
                 playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
                 {
                     CollisionRadiusCells = collisionRadiusCells,
@@ -3142,7 +3119,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
                 playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
                 {
                     CollisionRadiusCells = collisionRadiusCells,
@@ -3163,7 +3140,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
                 playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
                 {
                     CollisionRadiusCells = collisionRadiusCells,
@@ -3180,7 +3157,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.CreateDefault().RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DActionAssistEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
         }
 
         private static TickPipeline CreateActionAssistPipelineWithCollisionRadius(
@@ -3196,7 +3173,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DActionAssistEnabled,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
                 playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
                 {
                     CollisionRadiusCells = collisionRadiusCells,

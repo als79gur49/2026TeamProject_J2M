@@ -6978,9 +6978,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var playerTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
-            var kinematicTiming = new PlayerKinematicLocomotionTimingSettings
+            var kinematicTiming = new UnitKinematicLocomotionTimingSettings
             {
-                KinematicMoveDurationSeconds = 1f / timingProfile.SimulationTicksPerSecond,
+                MoveDurationSeconds = 1f / timingProfile.SimulationTicksPerSecond,
             }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
 
             return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
@@ -6989,7 +6989,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 timingProfile,
                 playerTiming,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                playerKinematicLocomotionTiming: kinematicTiming);
+                unitKinematicLocomotionTiming: kinematicTiming);
         }
 
         private static EntityState CreateUnit(

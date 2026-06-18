@@ -36,7 +36,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             var generalTimingProfile = GameplayTimingProfile.CreateDefault();
             var playerControlTiming = CreateDefaultPlayerControlTimingSnapshot(generalTimingProfile);
-            var playerKinematicLocomotionTiming = CreateDefaultPlayerKinematicLocomotionTimingSnapshot(generalTimingProfile);
+            var unitKinematicLocomotionTiming = CreateDefaultUnitKinematicLocomotionTimingSnapshot(generalTimingProfile);
             var playerRespawnDelayTicks = CreateDefaultPlayerRespawnDelayTicks(generalTimingProfile);
             return CreateTickPipeline(
                 worldState,
@@ -44,7 +44,7 @@ namespace Game.Feature.Gameplay.Loop
                 generalTimingProfile,
                 playerControlTiming,
                 playerRespawnDelayTicks,
-                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming);
+                unitKinematicLocomotionTiming: unitKinematicLocomotionTiming);
         }
 
         public TickPipeline CreateTickPipeline(
@@ -56,7 +56,7 @@ namespace Game.Feature.Gameplay.Loop
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
+            UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
             IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null)
@@ -72,7 +72,7 @@ namespace Game.Feature.Gameplay.Loop
                 _spawnDefaultsByArchetypeId,
                 allowPlayerRespawn,
                 runtimeFeatureFlags,
-                playerKinematicLocomotionTiming,
+                unitKinematicLocomotionTiming,
                 playerContinuousLocomotion,
                 tileFeatureDefinitions,
                 moonBlockRespawnDefinitions,
@@ -95,7 +95,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             var generalTimingProfile = GameplayTimingProfile.CreateDefault();
             var playerControlTiming = CreateDefaultPlayerControlTimingSnapshot(generalTimingProfile);
-            var playerKinematicLocomotionTiming = CreateDefaultPlayerKinematicLocomotionTimingSnapshot(generalTimingProfile);
+            var unitKinematicLocomotionTiming = CreateDefaultUnitKinematicLocomotionTimingSnapshot(generalTimingProfile);
             var playerRespawnDelayTicks = CreateDefaultPlayerRespawnDelayTicks(generalTimingProfile);
             return CreateTickRunner(
                 worldState,
@@ -106,7 +106,7 @@ namespace Game.Feature.Gameplay.Loop
                 playerRespawnDelayTicks,
                 objectiveDefinition: null,
                 startTickIndex: startTickIndex,
-                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming,
+                unitKinematicLocomotionTiming: unitKinematicLocomotionTiming,
                 demoGameplayOverrideSnapshotSource: demoGameplayOverrideSnapshotSource);
         }
 
@@ -121,7 +121,7 @@ namespace Game.Feature.Gameplay.Loop
             int startTickIndex = 1,
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
+            UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
             IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null,
@@ -142,7 +142,7 @@ namespace Game.Feature.Gameplay.Loop
                     objectiveDefinition,
                     allowPlayerRespawn,
                     runtimeFeatureFlags,
-                    playerKinematicLocomotionTiming,
+                    unitKinematicLocomotionTiming,
                     playerContinuousLocomotion,
                 tileFeatureDefinitions,
                 moonBlockRespawnDefinitions),
@@ -164,7 +164,7 @@ namespace Game.Feature.Gameplay.Loop
                 generalTimingProfile.RepeatedMoveIntervalSeconds);
         }
 
-        private static PlayerKinematicLocomotionTimingSnapshot CreateDefaultPlayerKinematicLocomotionTimingSnapshot(
+        private static UnitKinematicLocomotionTimingSnapshot CreateDefaultUnitKinematicLocomotionTimingSnapshot(
             GameplayTimingProfile generalTimingProfile)
         {
             if (generalTimingProfile == null)
@@ -172,7 +172,7 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(generalTimingProfile));
             }
 
-            return PlayerKinematicLocomotionTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+            return UnitKinematicLocomotionTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                 generalTimingProfile.SimulationTicksPerSecond);
         }
 

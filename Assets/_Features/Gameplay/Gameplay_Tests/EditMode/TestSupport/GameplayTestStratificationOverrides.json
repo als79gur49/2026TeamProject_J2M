@@ -1238,16 +1238,6 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerKinematicLocomotionScenarioTests.PlayerMovesIntoEnemy_KinematicMidpoint_PassiveContactFiresOnFinalizedSameCellMove",
-      "category": "Core",
-      "contracts": [
-        "damage_affects_movement",
-        "player_kinematic_locomotion_scenario_contract"
-      ],
-      "reason": "Locked Core coverage for player kinematic midpoint contact timing.",
-      "locked": true
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.FlipBlockedFailure_StillEntersRecoveryWithoutReturnTrack",
       "category": "Core",
       "contracts": [

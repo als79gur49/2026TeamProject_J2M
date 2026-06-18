@@ -747,33 +747,6 @@
       "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
     },
     {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerKinematicLocomotionScenarioTests.FlagOff_BaselineContactTiming",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "3ea61fcd7faa33deed1e844dcdb53ebd56dce38ca4cb9f9f94745fe927802691",
-      "firstObserved": "2026-05-09",
-      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerKinematicLocomotionScenarioTests.PlayerSameFaceContinuousLocomotion_FlagOff_UsesLegacyDiscreteMove",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "890dd567f3fc67ac08095274b972845708ae2b01ab7ecfe9d708cb3909194a6f",
-      "firstObserved": "2026-05-09",
-      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
-    },
-    {
-      "testFullName": "Game.Feature.Gameplay.Tests.Scenario.PlayerKinematicLocomotionScenarioTests.PlayerSameFaceContinuousLocomotion_FlagOn_BoxBlocksOrdinaryMove",
-      "assembly": "Game.Integration.Simulation.Tests.dll",
-      "domain": "Simulation",
-      "authoringRelated": false,
-      "failureMessageHash": "cd3c526dd744b289076ecc304cfeb462617bc41cb1c74149aa6e505a51e68007",
-      "firstObserved": "2026-05-09",
-      "notes": "Existing Full EditMode baseline after Campaign Phase 1.1 fixture stabilization"
-    },
-    {
       "testFullName": "Game.Feature.Gameplay.Tests.Scenario.RuntimeBoardBoundsGuardScenarioTests.GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming",
       "assembly": "Game.Integration.Simulation.Tests.dll",
       "domain": "Simulation",

@@ -608,8 +608,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstPlayerReplay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);
             Assert.That(
                 firstPlayerReplay.Any(frame =>
-                    frame.Trace.Contains(LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason, StringComparison.Ordinal) ||
-                    frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason, StringComparison.Ordinal)),
+                    frame.Trace.Contains(LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedReason, StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedReason, StringComparison.Ordinal)),
                 Is.True);
 
             var enemyInputs = new[] { new TickInput(1) };
@@ -889,7 +889,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             AssertChargeReplayHasNoChargeFallback(chargeFlagReplay);
 
             var allKinematicReplay = RunScriptedChargeActiveReplay(
-                GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled,
+                GameplayRuntimeFeatureFlags.AllEnemyKinematicLocomotionEnabled,
                 out var secondAllKinematicReplay);
             AssertReplayBoundaryCanaryEqual(allKinematicReplay, secondAllKinematicReplay);
             AssertChargeReplayHasNoChargeFallback(allKinematicReplay);
@@ -1134,7 +1134,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }),
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 playerInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
             var secondPlayerReplay = harness.Run(
                 GameplayWorldStateTestFactory.CreateBounded(new[]
                 {
@@ -1142,7 +1142,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }),
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 playerInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
 
             AssertReplayBoundaryCanaryEqual(firstPlayerReplay, secondPlayerReplay);
 

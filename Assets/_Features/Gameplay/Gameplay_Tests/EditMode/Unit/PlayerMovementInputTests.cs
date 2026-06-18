@@ -1610,7 +1610,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actual.moveCooldownTicks, Is.EqualTo(expected.moveCooldownTicks));
             Assert.That(actual.nextMoveAllowedTick, Is.EqualTo(expected.nextMoveAllowedTick));
             Assert.That(actual.actionSequenceCounter, Is.EqualTo(expected.actionSequenceCounter));
-            Assert.That(actual.queuedKinematicTurnDirection, Is.EqualTo(expected.queuedKinematicTurnDirection));
             Assert.That(actual.activeAction.kind, Is.EqualTo(expected.activeAction.kind));
             Assert.That(actual.activeAction.sequence, Is.EqualTo(expected.activeAction.sequence));
             Assert.That(actual.activeAction.direction, Is.EqualTo(expected.activeAction.direction));

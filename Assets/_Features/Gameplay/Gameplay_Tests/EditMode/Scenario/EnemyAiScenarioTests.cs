@@ -4112,9 +4112,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             try
             {
                 var timingProfile = GameplayTimingProfile.CreateDefault();
-                var fallbackTiming = new PlayerKinematicLocomotionTimingSettings
+                var fallbackTiming = new UnitKinematicLocomotionTimingSettings
                 {
-                    KinematicMoveDurationSeconds = 6f / timingProfile.SimulationTicksPerSecond,
+                    MoveDurationSeconds = 6f / timingProfile.SimulationTicksPerSecond,
                 }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
                 var pipeline = CreateEnemyPipeline(
                     worldState,
@@ -4366,9 +4366,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     worldState,
                     profile,
                     GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled,
-                    new PlayerKinematicLocomotionTimingSettings
+                    new UnitKinematicLocomotionTimingSettings
                     {
-                        KinematicMoveDurationSeconds = 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                        MoveDurationSeconds = 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
 
                 var firstTick = pipeline.RunTick(new TickInput(1));
@@ -4443,9 +4443,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     worldState,
                     profile,
                     GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled,
-                    new PlayerKinematicLocomotionTimingSettings
+                    new UnitKinematicLocomotionTimingSettings
                     {
-                        KinematicMoveDurationSeconds = 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                        MoveDurationSeconds = 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
 
                 var firstTick = pipeline.RunTick(new TickInput(1));
@@ -4534,9 +4534,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     worldState,
                     profile,
                     GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled,
-                    new PlayerKinematicLocomotionTimingSettings
+                    new UnitKinematicLocomotionTimingSettings
                     {
-                        KinematicMoveDurationSeconds = 4f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                        MoveDurationSeconds = 4f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
 
                 pipeline.RunTick(new TickInput(1));
@@ -4589,9 +4589,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     worldState,
                     profile,
                     GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled,
-                    new PlayerKinematicLocomotionTimingSettings
+                    new UnitKinematicLocomotionTimingSettings
                     {
-                        KinematicMoveDurationSeconds = 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                        MoveDurationSeconds = 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
 
                 pipeline.RunTick(new TickInput(1));
@@ -4641,9 +4641,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     worldState,
                     profile,
                     GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled,
-                    new PlayerKinematicLocomotionTimingSettings
+                    new UnitKinematicLocomotionTimingSettings
                     {
-                        KinematicMoveDurationSeconds = 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                        MoveDurationSeconds = 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
 
                 pipeline.RunTick(new TickInput(1));
@@ -4686,9 +4686,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     worldState,
                     profile,
                     GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled,
-                    new PlayerKinematicLocomotionTimingSettings
+                    new UnitKinematicLocomotionTimingSettings
                     {
-                        KinematicMoveDurationSeconds = 4f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                        MoveDurationSeconds = 4f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
 
                 pipeline.RunTick(new TickInput(1));
@@ -6389,7 +6389,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             snapshot.TryGetEntity(10, out var player);
             snapshot.TryGetEntity(40, out var enemy);
-            var hasPlayerKinematic = snapshot.TryGetUnitKinematicState(10, out var playerKinematic);
+            var hasPlayerContinuous = snapshot.TryGetUnitContinuousLocomotionState(10, out var playerContinuous);
             var hasEnemyKinematic = snapshot.TryGetUnitKinematicState(40, out var enemyKinematic);
             var hasSameCellContact = player.entityId != 0 &&
                                      enemy.entityId != 0 &&
@@ -6399,8 +6399,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             return $"ContactTimingDebug|Tick={tick}|Mover={mover}|MoverId={moverId}|TargetId={targetId}" +
                    $"|MoverAnchor={(moverId == 10 ? player.position.ToString() : enemy.position.ToString())}" +
-                   $"|MoverKinematicMode={(moverId == 10 && hasPlayerKinematic ? playerKinematic.mode.ToString() : moverId == 40 && hasEnemyKinematic ? enemyKinematic.mode.ToString() : "None")}" +
-                   $"|MoverLocal={(moverId == 10 && hasPlayerKinematic ? $"{playerKinematic.localOffset.X.RawValue},{playerKinematic.localOffset.Y.RawValue}" : moverId == 40 && hasEnemyKinematic ? $"{enemyKinematic.localOffset.X.RawValue},{enemyKinematic.localOffset.Y.RawValue}" : "None")}" +
+                   $"|MoverMotionMode={(moverId == 10 && hasPlayerContinuous ? playerContinuous.mode.ToString() : moverId == 40 && hasEnemyKinematic ? enemyKinematic.mode.ToString() : "None")}" +
+                   $"|MoverLocal={(moverId == 10 && hasPlayerContinuous ? $"{playerContinuous.localOffset.X.RawValue},{playerContinuous.localOffset.Y.RawValue}" : moverId == 40 && hasEnemyKinematic ? $"{enemyKinematic.localOffset.X.RawValue},{enemyKinematic.localOffset.Y.RawValue}" : "None")}" +
                    $"|EnemyAnchor={enemy.position}|PlayerAnchor={player.position}|HasSameCellContact={(hasSameCellContact ? 1 : 0)}" +
                    $"|DamageApplied={(damageApplied ? 1 : 0)}|ViewPose={viewPose}|PresentationSource={presentationSource}";
         }
@@ -6568,14 +6568,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile,
                 playerTiming,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                playerKinematicLocomotionTiming: CreateOneTickKinematicTiming(timingProfile));
+                unitKinematicLocomotionTiming: CreateOneTickKinematicTiming(timingProfile));
         }
 
         private static TickPipeline CreateEnemyPipeline(
             WorldState worldState,
             EnemyAiProfile profile,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags,
-            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming,
+            UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming,
             params IEntityLogic[] entityLogics)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
@@ -6589,7 +6589,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile,
                 playerTiming,
                 runtimeFeatureFlags: runtimeFeatureFlags,
-                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming);
+                unitKinematicLocomotionTiming: unitKinematicLocomotionTiming);
         }
 
         private static TickPipeline CreateEnemyPipeline(
@@ -7231,7 +7231,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                playerKinematicLocomotionTiming: CreateOneTickKinematicTiming());
+                unitKinematicLocomotionTiming: CreateOneTickKinematicTiming());
         }
 
         private static TickPipeline CreateEnemyPipeline(
@@ -7246,7 +7246,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                playerKinematicLocomotionTiming: CreateOneTickKinematicTiming());
+                unitKinematicLocomotionTiming: CreateOneTickKinematicTiming());
         }
 
         private static TickPipeline CreateEnemyPipelineWithRespawnDelay(
@@ -7267,7 +7267,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 playerTiming,
                 playerRespawnDelayTicks,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                playerKinematicLocomotionTiming: CreateOneTickKinematicTiming(timingProfile));
+                unitKinematicLocomotionTiming: CreateOneTickKinematicTiming(timingProfile));
         }
 
         private static TickPipeline CreateEnemyPipeline(
@@ -7285,10 +7285,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                         GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds),
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                    playerKinematicLocomotionTiming: CreateOneTickKinematicTiming());
+                    unitKinematicLocomotionTiming: CreateOneTickKinematicTiming());
         }
 
-        private static PlayerKinematicLocomotionTimingSnapshot CreateOneTickKinematicTiming(
+        private static UnitKinematicLocomotionTimingSnapshot CreateOneTickKinematicTiming(
             GameplayTimingProfile timingProfile = null)
         {
             if (timingProfile == null || timingProfile.SimulationTicksPerSecond <= 0)
@@ -7296,9 +7296,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile = GameplayTimingProfile.CreateDefault();
             }
 
-            return new PlayerKinematicLocomotionTimingSettings
+            return new UnitKinematicLocomotionTimingSettings
             {
-                KinematicMoveDurationSeconds = 1f / timingProfile.SimulationTicksPerSecond,
+                MoveDurationSeconds = 1f / timingProfile.SimulationTicksPerSecond,
             }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
         }
 

@@ -617,10 +617,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var configuration = BuildConfiguration(installer);
                 var flags = configuration.CreateRuntimeFeatureFlags();
 
-                Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.True);
-                Assert.That(flags.EnablePlayerFree2DActionAssist, Is.True);
-                Assert.That(flags.EnablePlayerSameFaceContinuousLocomotion, Is.True);
-                Assert.That(flags.EnablePlayerStoppableKinematicLocomotion, Is.True);
                 Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
                 Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.True);
                 Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);

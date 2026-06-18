@@ -44,11 +44,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var fifthTick = pipeline.RunTick(new TickInput(5, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(firstTick, 10);
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(secondTick, 10);
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(thirdTick, 10);
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(fourthTick, 10);
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(fifthTick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(firstTick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(secondTick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(thirdTick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(fourthTick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(fifthTick, 10);
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
@@ -83,9 +83,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var thirdTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(firstTick, 10);
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(secondTick, 10);
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(thirdTick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(firstTick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(secondTick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(thirdTick, 10);
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
@@ -126,7 +126,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(boundarySnapshot.TryGetPlayerControlState(10, out var boundaryControlState), Is.True);
             Assert.That(boundaryControlState.moveCooldownTicks, Is.Zero);
             Assert.That(boundaryControlState.nextMoveAllowedTick, Is.Zero);
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(followupTick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(followupTick, 10);
             Assert.That(followupSnapshot.TryGetPlayerControlState(10, out var followupControlState), Is.True);
             Assert.That(followupControlState.moveCooldownTicks, Is.Zero);
         }
@@ -359,7 +359,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfter = CreateSnapshot(worldState);
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(result, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(result, 10);
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(player.facing, Is.EqualTo(Direction.Right));
@@ -658,7 +658,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var unlockTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Flip(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(moveTick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(moveTick, 10);
             Assert.That(CreateSnapshot(worldState).TryGetEntityExecutionLockState(10, out _), Is.False);
             Assert.That(lockedTick.PresentationData.PlayerActionSignals, Is.Empty);
             Assert.That(unlockTick.PresentationData.PlayerActionSignals, Is.Empty);

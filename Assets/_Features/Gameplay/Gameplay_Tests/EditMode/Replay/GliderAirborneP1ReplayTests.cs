@@ -104,7 +104,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                         GameplayTimingProfile.CreateDefault(),
                         CreatePlayerTiming(),
                         runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
-                        playerKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell: 6));
+                        unitKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell: 6));
                 var hashes = new List<string>();
                 var traces = new List<string>();
 
@@ -264,12 +264,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 timingProfile.RepeatedMoveIntervalSeconds);
         }
 
-        private static PlayerKinematicLocomotionTimingSnapshot CreateKinematicTiming(int ticksPerCell)
+        private static UnitKinematicLocomotionTimingSnapshot CreateKinematicTiming(int ticksPerCell)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return new PlayerKinematicLocomotionTimingSettings
+            return new UnitKinematicLocomotionTimingSettings
             {
-                KinematicMoveDurationSeconds = ticksPerCell / (float)timingProfile.SimulationTicksPerSecond,
+                MoveDurationSeconds = ticksPerCell / (float)timingProfile.SimulationTicksPerSecond,
             }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
         }
 

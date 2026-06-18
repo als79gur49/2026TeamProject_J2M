@@ -75,10 +75,10 @@ namespace Game.Feature.Gameplay.Loop
     public sealed class PlayerContinuousLocomotionSettings
     {
         public const float DefaultMoveDurationSecondsPerCell =
-            PlayerKinematicLocomotionTimingSettings.DefaultKinematicMoveDurationSeconds;
+            UnitKinematicLocomotionTimingSettings.DefaultMoveDurationSeconds;
         public const float DefaultCollisionRadiusCells = 0f;
         public const float DefaultActionAssistSettleWindowCells = 0.125f;
-        public const float MaxMoveDurationSecondsPerCell = PlayerKinematicLocomotionTimingSettings.MaxKinematicMoveDurationSeconds;
+        public const float MaxMoveDurationSecondsPerCell = UnitKinematicLocomotionTimingSettings.MaxMoveDurationSeconds;
         public const int MinTicksPerCell = 2;
 
         public float MoveDurationSecondsPerCell = DefaultMoveDurationSecondsPerCell;

@@ -150,23 +150,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void MoveOwnership_PlayerKinematic_DoesNotEmitEntityMove()
-        {
-            var tick = CreatePipeline(
-                    CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
-                    new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
-                    GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled)
-                .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-
-            Assert.That(tick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 10), Is.True);
-            Assert.That(
-                tick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10),
-                Is.False);
-            LegacyMovementBoundaryAssert.NoCoveredLocomotionLegacyFallback(tick, 10);
-        }
-
-        [Test]
-        [Category("Extended")]
         public void MoveOwnership_EnemyKinematic_DoesNotEmitEntityMove()
         {
             var tick = CreatePipeline(
@@ -211,7 +194,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(playerTick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(playerTick, 10);
             LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(playerTick);
 
             var enemyTick = CreatePipeline(
@@ -250,7 +233,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase2_PlayerLegacyFallback_Free2DFlagOn_BlockedBeforeMovementExpander()
+        public void Phase2_PlayerOrdinaryMove_DefaultGameplay_BlockedBeforeMovementExpander()
         {
             var worldState = CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) });
             worldState.CreateWriteContext().SetPlayerControlState(10, default);
@@ -260,24 +243,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertLegacyExpansionIntentBlocked(
                 worldState,
                 intent,
-                GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
-                "PlayerCoveredLocomotionReachedLegacyExpansion");
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void Phase2_PlayerLegacyFallback_KinematicFlagOn_BlockedBeforeMovementExpander()
-        {
-            var worldState = CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) });
-            worldState.CreateWriteContext().SetPlayerControlState(10, default);
-            var intent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
-            intent.AssignIntentId(1);
-
-            AssertLegacyExpansionIntentBlocked(
-                worldState,
-                intent,
-                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled,
-                "PlayerCoveredLocomotionReachedLegacyExpansion");
+                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                "PlayerOrdinaryMoveRejectedBeforeLegacyExpansion");
         }
 
         [Test]
@@ -298,7 +265,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(tick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(tick, 10);
             LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
         }
 
@@ -342,13 +309,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void Phase4_DefaultGameplay_PlayerFallbackStillAbsent()
         {
             Phase2_PlayerLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback();
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void Phase4_PlayerKinematicFlagOn_NoLegacyFallback()
-        {
-            Phase2_PlayerLegacyFallback_KinematicFlagOn_BlockedBeforeMovementExpander();
         }
 
         [Test]
@@ -676,7 +636,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var tick = CreatePipeline(
                     worldState,
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
-                    GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled)
+                    GameplayRuntimeFeatureFlags.AllEnemyKinematicLocomotionEnabled)
                 .RunTick(new TickInput(1));
 
             Assert.That(
@@ -848,8 +808,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var flags = GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline;
 
             Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
-            Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.False);
-            Assert.That(flags.EnablePlayerFree2DNativeTopologyTransition, Is.False);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.False);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.False);
             Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
@@ -958,7 +916,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var tick = CreatePipeline(
                     worldState,
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
-                    GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled)
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
             LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
@@ -1003,7 +961,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var tick = CreatePipeline(
                     worldState,
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
-                    GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled,
+                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
                     new[] { CreateDefinition(100, TileFeatureActivationRule.BottomFaceOnly) })
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var finalSnapshot = worldState.CreateSnapshot();
@@ -1110,7 +1068,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.AssertPlayerFallbackRemovedFromRuntime(playerTick, 10);
+            LegacyMovementBoundaryAssert.AssertPlayerOrdinaryMoveRejectedBeforeLegacyExpansion(playerTick, 10);
             LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(playerTick);
 
             var enemyTick = CreatePipeline(
@@ -1157,7 +1115,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var canonicalHelperNames = new[]
             {
                 nameof(LegacyMovementBoundaryAssert.AssertCoveredFallbackRemovedDiagnostics),
-                nameof(LegacyMovementBoundaryAssert.AssertPlayerFallbackRemovedFromRuntime),
+                nameof(LegacyMovementBoundaryAssert.AssertPlayerOrdinaryMoveRejectedBeforeLegacyExpansion),
                 nameof(LegacyMovementBoundaryAssert.AssertEnemyFallbackRemovedFromRuntime),
                 nameof(LegacyMovementBoundaryAssert.AssertChargeFallbackRemovedFromRuntime),
             };
@@ -1249,7 +1207,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var scenarioSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/BoundaryInventoryScenarioTests.cs");
             Assert.That(scenarioSource, Does.Not.Contain("FallbackWrapperCleanup_Obsolete" + "AllowsHelpers_HaveNoInternalCallSites"));
             Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertCoveredFallbackRemovedDiagnostics)));
-            Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertPlayerFallbackRemovedFromRuntime)));
+            Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertPlayerOrdinaryMoveRejectedBeforeLegacyExpansion)));
             Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertEnemyFallbackRemovedFromRuntime)));
             Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertChargeFallbackRemovedFromRuntime)));
         }
@@ -1465,7 +1423,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
                 GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
                 GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
-                GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled,
+                GameplayRuntimeFeatureFlags.AllEnemyKinematicLocomotionEnabled,
             };
             var phase8DVocabulary = new[]
             {
@@ -1483,7 +1441,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(GameplayRuntimeFeatureFlags.None.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
+            Assert.That(GameplayRuntimeFeatureFlags.AllEnemyKinematicLocomotionEnabled.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
             Assert.That(phase8DVocabulary, Does.Contain("RemovedLegacyFallbackDiagnosticsEnabled: canonical diagnostic routing helper"));
             Assert.That(phase8DVocabulary.Any(text => text.Contains("fallback allowed", StringComparison.Ordinal)), Is.False);
@@ -1505,7 +1463,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             Assert.That(GameplayRuntimeFeatureFlags.None.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
+            Assert.That(GameplayRuntimeFeatureFlags.AllEnemyKinematicLocomotionEnabled.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
         }
 
         [Test]
@@ -1585,7 +1543,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 GameplayRuntimeFeatureFlags.None,
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled,
+                GameplayRuntimeFeatureFlags.AllEnemyKinematicLocomotionEnabled,
                 GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
                 GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
             };
@@ -1605,7 +1563,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(GameplayRuntimeFeatureFlags.None.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
+            Assert.That(GameplayRuntimeFeatureFlags.AllEnemyKinematicLocomotionEnabled.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
             Assert.That(phase8EVocabulary, Does.Contain("RemovedLegacyFallbackDiagnosticsEnabled: canonical removed-fallback diagnostics field"));
             Assert.That(phase8EVocabulary.Any(text => text.Contains("fallback allowed", StringComparison.Ordinal)), Is.False);
@@ -1916,7 +1874,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(flagOffTick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(flagOffTick, 10);
 
             var defaultTick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
@@ -2252,7 +2210,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         GameplayTimingProfile.CreateDefault(),
                         CreatePlayerTiming(),
                         runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                        playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
+                        unitKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
 
                 _ = glidePipeline.RunTick(new TickInput(1));
                 var activeTick = glidePipeline.RunTick(new TickInput(2));
@@ -2423,7 +2381,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         GameplayTimingProfile.CreateDefault(),
                         CreatePlayerTiming(),
                         runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
-                        playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
+                        unitKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
 
                 _ = glidePipeline.RunTick(new TickInput(1));
                 var activeTick = glidePipeline.RunTick(new TickInput(2));
@@ -2483,7 +2441,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);
             Assert.That(GameplayRuntimeFeatureFlags.None.EnableEnemyGlideKinematicLocomotion, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled.EnableEnemyGlideKinematicLocomotion, Is.True);
-            Assert.That(GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled.EnableEnemyGlideKinematicLocomotion, Is.True);
+            Assert.That(GameplayRuntimeFeatureFlags.AllEnemyKinematicLocomotionEnabled.EnableEnemyGlideKinematicLocomotion, Is.True);
         }
 
         [Test]
@@ -2598,7 +2556,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(flagOffTick, 10);
+            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(flagOffTick, 10);
             LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(flagOffTick);
 
             var itemTick = CreatePipeline(
@@ -2650,13 +2608,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var flagOffFallbacks = new[]
             {
-                "player legacy fallback: removed with PlayerLegacyFallbackRemovedFromRuntime",
+                "player ordinary move: rejected before legacy expansion",
                 "enemy legacy fallback: removed with EnemyLegacyFallbackRemovedFromRuntime",
                 "charge legacy fallback: removed with ChargeLegacyFallbackRemovedFromRuntime",
             };
             var flagOnTargets = new[]
             {
-                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.EnablePlayerFree2DLocalLocomotion,
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.EnableEnemySameFaceContinuousLocomotion,
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.EnableEnemyChargeKinematicLocomotion,
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.EnableEnemyGlideKinematicLocomotion,
@@ -2699,16 +2656,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static void AssertDefaultGameplayLocomotionFlags()
         {
             var flags = GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion;
-            Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.True);
-            Assert.That(flags.EnablePlayerFree2DActionAssist, Is.True);
-            Assert.That(flags.EnablePlayerFree2DNativeTopologyTransition, Is.True);
-            Assert.That(flags.EnablePlayerSameFaceContinuousLocomotion, Is.True);
-            Assert.That(flags.EnablePlayerStoppableKinematicLocomotion, Is.True);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.True);
             Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);
             Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.None.EnablePlayerFree2DLocalLocomotion, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.None.EnableEnemyGlideKinematicLocomotion, Is.False);
             Assert.That(GameplayRuntimeFeatureFlags.None.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
         }
@@ -2721,7 +2672,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     runtimeFeatureFlags)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.AssertPlayerFallbackRemovedFromRuntime(playerTick, 10);
+            LegacyMovementBoundaryAssert.AssertPlayerOrdinaryMoveRejectedBeforeLegacyExpansion(playerTick, 10);
             LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(playerTick);
 
             var enemyTick = CreatePipeline(
@@ -2757,11 +2708,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static void AssertRemovedDiagnosticBaselineShape(GameplayRuntimeFeatureFlags flags)
         {
             Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
-            Assert.That(flags.EnablePlayerSameFaceContinuousLocomotion, Is.False);
-            Assert.That(flags.EnablePlayerStoppableKinematicLocomotion, Is.False);
-            Assert.That(flags.EnablePlayerFree2DLocalLocomotion, Is.False);
-            Assert.That(flags.EnablePlayerFree2DActionAssist, Is.False);
-            Assert.That(flags.EnablePlayerFree2DNativeTopologyTransition, Is.False);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.False);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.False);
             Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
@@ -2774,11 +2720,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 actual.RemovedLegacyFallbackDiagnosticsEnabled,
                 Is.EqualTo(expected.RemovedLegacyFallbackDiagnosticsEnabled));
-            Assert.That(actual.EnablePlayerSameFaceContinuousLocomotion, Is.EqualTo(expected.EnablePlayerSameFaceContinuousLocomotion));
-            Assert.That(actual.EnablePlayerStoppableKinematicLocomotion, Is.EqualTo(expected.EnablePlayerStoppableKinematicLocomotion));
-            Assert.That(actual.EnablePlayerFree2DLocalLocomotion, Is.EqualTo(expected.EnablePlayerFree2DLocalLocomotion));
-            Assert.That(actual.EnablePlayerFree2DActionAssist, Is.EqualTo(expected.EnablePlayerFree2DActionAssist));
-            Assert.That(actual.EnablePlayerFree2DNativeTopologyTransition, Is.EqualTo(expected.EnablePlayerFree2DNativeTopologyTransition));
             Assert.That(actual.EnableEnemySameFaceContinuousLocomotion, Is.EqualTo(expected.EnableEnemySameFaceContinuousLocomotion));
             Assert.That(actual.EnableEnemyChargeKinematicLocomotion, Is.EqualTo(expected.EnableEnemyChargeKinematicLocomotion));
             Assert.That(actual.EnableEnemyGlideKinematicLocomotion, Is.EqualTo(expected.EnableEnemyGlideKinematicLocomotion));
@@ -2852,7 +2793,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayTimingProfile.CreateDefault(),
                     CreatePlayerTiming(),
                     runtimeFeatureFlags: runtimeFeatureFlags,
-                    playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
+                    unitKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
         }
 
         private static PlayerControlTimingAuthoritativeSnapshot CreatePlayerTiming()
@@ -2870,12 +2811,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .SpeedUnitsPerTick;
         }
 
-        private static PlayerKinematicLocomotionTimingSnapshot CreateTwoTickKinematicTiming()
+        private static UnitKinematicLocomotionTimingSnapshot CreateTwoTickKinematicTiming()
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return new PlayerKinematicLocomotionTimingSettings
+            return new UnitKinematicLocomotionTimingSettings
             {
-                KinematicMoveDurationSeconds = 2f / timingProfile.SimulationTicksPerSecond,
+                MoveDurationSeconds = 2f / timingProfile.SimulationTicksPerSecond,
             }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
         }
 

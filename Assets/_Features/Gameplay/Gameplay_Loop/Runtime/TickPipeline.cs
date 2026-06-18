@@ -55,7 +55,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly int _playerRespawnDelayTicks;
         private readonly int _gravityFieldChargeTicks;
         private readonly int _gravityFieldActiveTicks;
-        private readonly PlayerKinematicLocomotionTimingSnapshot _playerKinematicLocomotionTiming;
+        private readonly UnitKinematicLocomotionTimingSnapshot _unitKinematicLocomotionTiming;
         private readonly PlayerContinuousLocomotionSnapshot _playerContinuousLocomotion;
         private readonly bool _allowPlayerRespawn;
         private readonly GameplayRuntimeFeatureFlags _runtimeFeatureFlags;
@@ -82,7 +82,7 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId = null,
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming = default,
+            UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
             : this(
                 worldState,
@@ -95,7 +95,7 @@ namespace Game.Feature.Gameplay.Loop
                 enemySpawnDefaultsByArchetypeId,
                 allowPlayerRespawn,
                 runtimeFeatureFlags,
-                playerKinematicLocomotionTiming,
+                unitKinematicLocomotionTiming,
                 playerContinuousLocomotion,
                 tileFeatureDefinitions: null,
                 tileEffectResolver: null)
@@ -113,7 +113,7 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId,
             bool allowPlayerRespawn,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags,
-            PlayerKinematicLocomotionTimingSnapshot playerKinematicLocomotionTiming,
+            UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming,
             PlayerContinuousLocomotionSnapshot playerContinuousLocomotion,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null,
@@ -151,9 +151,9 @@ namespace Game.Feature.Gameplay.Loop
             _gravityFieldActiveTicks = GameplayTimingProfile.SecondsToCeilTicks(
                 GravityFieldRuntimePolicy.ActiveDurationSeconds,
                 resolvedGeneralTimingProfile.SimulationTicksPerSecond);
-            _playerKinematicLocomotionTiming = playerKinematicLocomotionTiming.IsConfigured
-                ? playerKinematicLocomotionTiming
-                : PlayerKinematicLocomotionTimingSettings.CreateDefault()
+            _unitKinematicLocomotionTiming = unitKinematicLocomotionTiming.IsConfigured
+                ? unitKinematicLocomotionTiming
+                : UnitKinematicLocomotionTimingSettings.CreateDefault()
                     .CreateAuthoritativeSnapshot(resolvedGeneralTimingProfile.SimulationTicksPerSecond);
             _playerContinuousLocomotion = playerContinuousLocomotion.IsConfigured
                 ? playerContinuousLocomotion
@@ -477,7 +477,6 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot snapshot,
             FinalizationBatch batch,
             List<string> eventLogEntries,
-            bool closePlayerKinematics,
             bool closeEnemyGlideKinematics)
         {
             if (snapshot == null)
@@ -509,11 +508,9 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                var hasPlayerControl = snapshot.TryGetPlayerControlState(entity.entityId, out var playerControlState);
-                var canClosePlayer = closePlayerKinematics && hasPlayerControl;
                 var canCloseEnemyGlide = closeEnemyGlideKinematics &&
                                          IsEnemyInterruptedGlideKinematicParticipant(snapshot, entity);
-                if (!canClosePlayer && !canCloseEnemyGlide)
+                if (!canCloseEnemyGlide)
                 {
                     continue;
                 }
@@ -528,18 +525,6 @@ namespace Game.Feature.Gameplay.Loop
                         actionPlanId: 0));
                 eventLogEntries.Add(
                     $"KinematicInterruptClosed|E={entity.entityId}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
-                if (hasPlayerControl &&
-                    PlayerControlQueries.HasQueuedKinematicTurn(playerControlState))
-                {
-                    batch.SetPlayerControlState(
-                        entity.entityId,
-                        PlayerControlQueries.ClearQueuedKinematicTurn(playerControlState),
-                        new FinalizationOperationMetadata(
-                            TickPhase.Plan,
-                            ResolvedActionSemanticKind.Stop,
-                            entity.entityId,
-                            actionPlanId: 0));
-                }
             }
         }
 
@@ -584,14 +569,12 @@ namespace Game.Feature.Gameplay.Loop
 
             var kinematicClosureBatch = new FinalizationBatch();
             var kinematicClosureEvents = new List<string>();
-            if (_runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion ||
-                _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion)
+            if (_runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion)
             {
                 CloseInterruptedUnitKinematics(
                     snapshotAfterEnemyAi,
                     kinematicClosureBatch,
                     kinematicClosureEvents,
-                    closePlayerKinematics: _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion,
                     closeEnemyGlideKinematics: _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion);
                 planFinalizationBatch.MergeFrom(kinematicClosureBatch);
                 CaptureTopologyActivationPreviousSnapshot(
@@ -721,38 +704,24 @@ namespace Game.Feature.Gameplay.Loop
             var kinematicMovementActionPlanPayloads = new Dictionary<int, MovementActionPlanPayload>();
             var playerTopologyTransitionBlockedSignals =
                 new List<TickPlayerTopologyTransitionBlockedSignal>();
-            if (_runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion)
-            {
-                var free2DBatch = new FinalizationBatch();
-                expansionIntents = BuildPlayerFree2DLocalLocomotionPlans(
-                    planSnapshot,
-                    sortedIntents,
-                    input.PlayerCommand,
-                    input.TickIndex,
-                    rejectedReasons,
-                    free2DBatch,
-                    consumedPlayerActionAttemptEntityIds,
-                    playerTopologyTransitionBlockedSignals);
-                planFinalizationBatch.MergeFrom(free2DBatch);
-                CaptureTopologyActivationPreviousSnapshot(
-                    ref topologyActivationPreviousSnapshot,
-                    projectedWorld,
-                    free2DBatch,
-                    ProjectedWorldSnapshotReason.PlanAfterPlayerFree2DLocomotion);
-                projectedWorld.ApplyBatch(free2DBatch, ProjectedWorldBatchReason.PlanPlayerFree2DLocomotion);
-                planSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterPlayerFree2DLocomotion);
-            }
-            else if (_runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion)
-            {
-                expansionIntents = BuildPlayerSameFaceKinematicLocomotionPlans(
-                    planSnapshot,
-                    sortedIntents,
-                    input.PlayerCommand,
-                    input.TickIndex,
-                    rejectedReasons,
-                    consumedPlayerActionAttemptEntityIds,
-                    kinematicMovementActionPlanPayloads);
-            }
+            var free2DBatch = new FinalizationBatch();
+            expansionIntents = BuildPlayerFree2DLocalLocomotionPlans(
+                planSnapshot,
+                sortedIntents,
+                input.PlayerCommand,
+                input.TickIndex,
+                rejectedReasons,
+                free2DBatch,
+                consumedPlayerActionAttemptEntityIds,
+                playerTopologyTransitionBlockedSignals);
+            planFinalizationBatch.MergeFrom(free2DBatch);
+            CaptureTopologyActivationPreviousSnapshot(
+                ref topologyActivationPreviousSnapshot,
+                projectedWorld,
+                free2DBatch,
+                ProjectedWorldSnapshotReason.PlanAfterPlayerFree2DLocomotion);
+            projectedWorld.ApplyBatch(free2DBatch, ProjectedWorldBatchReason.PlanPlayerFree2DLocomotion);
+            planSnapshot = projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.PlanAfterPlayerFree2DLocomotion);
             if (_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion ||
                 _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion)
             {
@@ -1328,20 +1297,15 @@ namespace Game.Feature.Gameplay.Loop
                 attackStageBatch.RemovePendingCellImpact(impactResolution.Impact.ImpactId);
                 attackCommitEvents.Add(BuildPendingCellImpactCommitEvent(impactResolution));
             }
-            var motionInterruptRecords = _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion ||
-                _runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion ||
-                _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion
-                ? MaterializeUnitKinematicMotionInterrupts(
-                    attackSnapshot,
-                    damageResolutions,
-                    destroyResolutions,
-                    attackStageBatch,
-                    attackCommitEvents,
-                    tickIndex,
-                    interruptPlayerKinematics: _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion ||
-                                                _runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion,
-                    interruptEnemyGlideKinematics: _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion)
-                : new List<MotionInterruptRecord>();
+            var motionInterruptRecords = MaterializeUnitKinematicMotionInterrupts(
+                attackSnapshot,
+                damageResolutions,
+                destroyResolutions,
+                attackStageBatch,
+                attackCommitEvents,
+                tickIndex,
+                interruptPlayerMotion: true,
+                interruptEnemyGlideKinematics: _runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion);
             finalizationBatch.MergeFrom(attackStageBatch);
             projectedWorld.ApplyBatch(attackStageBatch);
             AddRange(resolutionRecords, attackResolutionRecords);
@@ -1889,11 +1853,9 @@ namespace Game.Feature.Gameplay.Loop
                                           !isChargeActiveFallback &&
                                           !isActiveGlideFallback;
 
-            if ((_runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion ||
-                 _runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion) &&
-                isPlayerOrdinaryFallback)
+            if (isPlayerOrdinaryFallback)
             {
-                reason = "PlayerCoveredLocomotionReachedLegacyExpansion";
+                reason = "PlayerOrdinaryMoveRejectedBeforeLegacyExpansion";
                 return true;
             }
 
@@ -1925,12 +1887,6 @@ namespace Game.Feature.Gameplay.Loop
                  isChargeActiveFallback))
             {
                 reason = "LegacyOrdinaryFallbackRequiresExplicitBaseline";
-                return true;
-            }
-
-            if (isPlayerOrdinaryFallback)
-            {
-                reason = "PlayerLegacyFallbackRemovedFromRuntime";
                 return true;
             }
 
@@ -2013,124 +1969,11 @@ namespace Game.Feature.Gameplay.Loop
         private string FormatLocomotionFeatureFlags()
         {
             return
-                $"PlayerFree2D={(_runtimeFeatureFlags.EnablePlayerFree2DLocalLocomotion ? 1 : 0)}," +
-                $"PlayerFree2DTopology={(_runtimeFeatureFlags.EnablePlayerFree2DNativeTopologyTransition ? 1 : 0)}," +
-                $"PlayerKinematic={(_runtimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion ? 1 : 0)}," +
-                $"PlayerStoppable={(_runtimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion ? 1 : 0)}," +
+                "PlayerFree2D=1," +
                 $"EnemyKinematic={(_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion ? 1 : 0)}," +
                 $"ChargeKinematic={(_runtimeFeatureFlags.EnableEnemyChargeKinematicLocomotion ? 1 : 0)}," +
                 $"GlideKinematic={(_runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion ? 1 : 0)}," +
                 $"RemovedLegacyFallbackDiagnosticsEnabled={(_runtimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled ? 1 : 0)}";
-        }
-
-        private List<MoveIntent> BuildPlayerSameFaceKinematicLocomotionPlans(
-            WorldSnapshot snapshot,
-            IReadOnlyList<MoveIntent> sortedIntents,
-            PlayerTickCommand playerCommand,
-            int tickIndex,
-            List<string> rejectedReasons,
-            HashSet<int> consumedPlayerActionAttemptEntityIds,
-            Dictionary<int, MovementActionPlanPayload> kinematicPayloads)
-        {
-            var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
-            var kinematicControlledPlayerIds = new HashSet<int>();
-            var entities = new List<EntityState>();
-            snapshot.EnumerateEntitiesOrdered(entities);
-
-            for (var i = 0; i < entities.Count; i++)
-            {
-                var entity = entities[i];
-                if (!snapshot.TryGetPlayerControlState(entity.entityId, out _) ||
-                    !snapshot.TryGetUnitKinematicPose(entity.entityId, out var pose) ||
-                    pose.IsSettledAtAnchor ||
-                    (pose.Mode != MotionMode.Voluntary &&
-                     (!_runtimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion ||
-                      pose.Mode != MotionMode.Held)))
-                {
-                    continue;
-                }
-
-                if (IsConsumedPlayerActionAttemptEntity(consumedPlayerActionAttemptEntityIds, entity.entityId))
-                {
-                    kinematicControlledPlayerIds.Add(entity.entityId);
-                    continue;
-                }
-
-                kinematicControlledPlayerIds.Add(entity.entityId);
-                if (!TryBuildPlayerKinematicContinuationPayload(
-                        snapshot,
-                        entity.entityId,
-                        playerCommand,
-                        tickIndex,
-                        _runtimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion,
-                        rejectedReasons,
-                        out var continuationPayload))
-                {
-                    continue;
-                }
-
-                kinematicPayloads.Add(continuationPayload.ActionPlanId, continuationPayload);
-            }
-
-            if (_runtimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion)
-            {
-                for (var i = 0; i < entities.Count; i++)
-                {
-                    var entity = entities[i];
-                    if (kinematicControlledPlayerIds.Contains(entity.entityId) ||
-                        IsConsumedPlayerActionAttemptEntity(consumedPlayerActionAttemptEntityIds, entity.entityId) ||
-                        !TryBuildPlayerQueuedKinematicTurnStartPayload(
-                            snapshot,
-                            entity.entityId,
-                            tickIndex,
-                            rejectedReasons,
-                            out var queuedTurnPayload))
-                    {
-                        continue;
-                    }
-
-                    kinematicControlledPlayerIds.Add(entity.entityId);
-                    kinematicPayloads.Add(queuedTurnPayload.ActionPlanId, queuedTurnPayload);
-                }
-            }
-
-            for (var i = 0; i < sortedIntents.Count; i++)
-            {
-                var intent = sortedIntents[i];
-                if (kinematicControlledPlayerIds.Contains(intent.SourceId))
-                {
-                    if (intent.CommandKind == Movement.MovementCommandKind.Move)
-                    {
-                        continue;
-                    }
-
-                    legacyIntents.Add(intent);
-                    continue;
-                }
-
-                if (TryBuildPlayerKinematicStartPayload(
-                        snapshot,
-                        intent,
-                        tickIndex,
-                        rejectedReasons,
-                        out var handledByKinematic,
-                        out var startPayload))
-                {
-                    if (startPayload != null)
-                    {
-                        kinematicPayloads.Add(startPayload.ActionPlanId, startPayload);
-                    }
-
-                    if (handledByKinematic)
-                    {
-                        continue;
-                    }
-                }
-
-                legacyIntents.Add(intent);
-            }
-
-            return legacyIntents;
         }
 
         private List<MoveIntent> BuildPlayerFree2DLocalLocomotionPlans(
@@ -2180,17 +2023,15 @@ namespace Game.Feature.Gameplay.Loop
                         continue;
                     }
 
-                    var nativeTopologyDisposition = _runtimeFeatureFlags.EnablePlayerFree2DNativeTopologyTransition
-                        ? TryMaterializePlayerFree2DNativeTopologyTransition(
-                            snapshot,
-                            entity,
-                            playerControlState,
-                            playerCommand,
-                            intent,
-                            rejectedReasons,
-                            batch,
-                            playerTopologyTransitionBlockedSignals)
-                        : PlayerFree2DNativeTopologyDisposition.NotCandidate;
+                    var nativeTopologyDisposition = TryMaterializePlayerFree2DNativeTopologyTransition(
+                        snapshot,
+                        entity,
+                        playerControlState,
+                        playerCommand,
+                        intent,
+                        rejectedReasons,
+                        batch,
+                        playerTopologyTransitionBlockedSignals);
                     if (nativeTopologyDisposition == PlayerFree2DNativeTopologyDisposition.Materialized)
                     {
                         consumedFree2DIntentIds.Add(intent.IntentId);
@@ -2791,8 +2632,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var effectivePlayerControlState = playerControlState;
-            if (_runtimeFeatureFlags.EnablePlayerFree2DActionAssist &&
-                TryQueueFree2DActionAssist(
+            if (TryQueueFree2DActionAssist(
                     snapshot,
                     entity,
                     pose,
@@ -2806,8 +2646,7 @@ namespace Game.Feature.Gameplay.Loop
                 effectivePlayerControlState = queuedPlayerControlState;
             }
 
-            if (_runtimeFeatureFlags.EnablePlayerFree2DActionAssist &&
-                PlayerControlQueries.HasQueuedFree2DAction(effectivePlayerControlState))
+            if (PlayerControlQueries.HasQueuedFree2DAction(effectivePlayerControlState))
             {
                 ResolvePlayerFree2DActionAssistAlign(
                     snapshot,
@@ -3009,8 +2848,7 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                if (_runtimeFeatureFlags.EnablePlayerFree2DActionAssist &&
-                    snapshot.TryGetUnitContinuousLocomotionPose(entity.entityId, out var free2DPose) &&
+                if (snapshot.TryGetUnitContinuousLocomotionPose(entity.entityId, out var free2DPose) &&
                     TryQueueFree2DActionAssist(
                         snapshot,
                         entity,
@@ -3889,7 +3727,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var totalTicks = intent.OrdinaryKinematicMoveTicks > 0
                 ? intent.OrdinaryKinematicMoveTicks
-                : _playerKinematicLocomotionTiming.TicksPerCell;
+                : _unitKinematicLocomotionTiming.TicksPerCell;
             var outcome = CreateKinematicMotionOutcome(
                 sweep,
                 entity.position,
@@ -4804,370 +4642,6 @@ namespace Game.Feature.Gameplay.Loop
             return (activeStepCooldownTicks % 2) == 0
                 ? activeStepCooldownTicks
                 : activeStepCooldownTicks + 1;
-        }
-
-        private bool TryBuildPlayerKinematicStartPayload(
-            WorldSnapshot snapshot,
-            MoveIntent intent,
-            int tickIndex,
-            List<string> rejectedReasons,
-            out bool handledByKinematic,
-            out MovementActionPlanPayload payload)
-        {
-            handledByKinematic = false;
-            payload = null;
-
-            if (intent == null ||
-                intent.CommandKind != Movement.MovementCommandKind.Move ||
-                !snapshot.TryGetPlayerControlState(intent.SourceId, out _) ||
-                !snapshot.TryGetEntity(intent.SourceId, out var entity) ||
-                entity.type != EntityType.Unit ||
-                !snapshot.TryGetUnitKinematicPose(intent.SourceId, out var pose) ||
-                !pose.IsSettledAtAnchor)
-            {
-                return false;
-            }
-
-            var delta = intent.Destination - entity.position.PlanarPosition;
-            if (!TryResolveKinematicVelocity(delta, out var velocity, out var facing))
-            {
-                return false;
-            }
-
-            if (!snapshot.TryResolvePlayerStep(
-                    entity.position,
-                    delta,
-                    out var destination,
-                    out var rotationKind,
-                    out var updatedTopology))
-            {
-                return false;
-            }
-
-            if (rotationKind != CubeRotationKind.None ||
-                destination.face != entity.position.face)
-            {
-                return false;
-            }
-
-            handledByKinematic = true;
-            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
-                snapshot,
-                EntityType.Unit,
-                destination,
-                entity.entityId,
-                snapshot.Topology,
-                CubeRotationKind.None,
-                updatedTopology,
-                tileFeatureDefinitions: _tileFeatureDefinitions);
-            if (legality.Verdict != LegalityVerdict.Allowed)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=KinematicTraversalBlocked|Cell={FormatCell(destination)}|{LegalityDiagnosticsFormatter.FormatStableSummary(legality)}");
-                return true;
-            }
-
-            if (!SurfaceKinematicSweepQueries.TryResolveSameFaceDelta(
-                    snapshot,
-                    entity.entityId,
-                    velocity,
-                    out var sweep,
-                    _tileFeatureDefinitions) ||
-                sweep.Blocked)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=KinematicSweepRejected|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
-                return true;
-            }
-
-            var outcome = CreateKinematicMotionOutcome(
-                sweep,
-                entity.position,
-                sourceState: pose.State,
-                stepDirectionX: delta.x,
-                stepDirectionY: delta.y,
-                elapsedTicks: 1,
-                totalTicks: _playerKinematicLocomotionTiming.TicksPerCell,
-                startedTick: tickIndex);
-            payload = CreateKinematicMovementPayload(
-                _idAllocator.AllocateGroupId(),
-                intent.IntentId,
-                entity.entityId,
-                intent.Priority,
-                outcome,
-                facing,
-                writeFacing: true);
-            return true;
-        }
-
-        private bool TryBuildPlayerKinematicContinuationPayload(
-            WorldSnapshot snapshot,
-            int entityId,
-            PlayerTickCommand playerCommand,
-            int tickIndex,
-            bool enableStoppableLocomotion,
-            List<string> rejectedReasons,
-            out MovementActionPlanPayload payload)
-        {
-            payload = null;
-            if (!snapshot.TryGetPlayerControlState(entityId, out var playerControlState) ||
-                !snapshot.TryGetEntity(entityId, out var entity) ||
-                entity.type != EntityType.Unit ||
-                !snapshot.TryGetUnitKinematicPose(entityId, out var pose) ||
-                pose.IsSettledAtAnchor ||
-                (pose.Mode != MotionMode.Voluntary &&
-                 (!enableStoppableLocomotion || pose.Mode != MotionMode.Held)) ||
-                !TryResolveStepDirection(pose.State, out var stepDirectionX, out var stepDirectionY, out var facing))
-            {
-                return false;
-            }
-
-            if (pose.State.totalTicks < 2 ||
-                (pose.State.totalTicks % 2) != 0 ||
-                pose.State.elapsedTicks <= 0)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=KinematicContinuationCorrupt|Anchor={FormatCell(entity.position)}");
-                return false;
-            }
-
-            if (playerCommand.PushPressed || playerCommand.FlipPressed)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=ActionAttemptConsumesKinematicContinuation|Push={playerCommand.PushPressed}|Flip={playerCommand.FlipPressed}|StepDirection={facing}");
-                return false;
-            }
-
-            if (enableStoppableLocomotion)
-            {
-                var inputMatchesStep = playerCommand.HeldMoveDirection == facing;
-                var hasQueuedTurn = PlayerControlQueries.HasQueuedKinematicTurn(playerControlState);
-                if (pose.Mode == MotionMode.Voluntary && !inputMatchesStep && !hasQueuedTurn)
-                {
-                    if (playerCommand.HeldMoveDirection != Direction.None)
-                    {
-                        rejectedReasons.Add(
-                            $"MovementRejected|Stage=Plan|Source={entityId}|Reason=HeldKinematicDirectionMismatch|HeldDirection={playerCommand.HeldMoveDirection}|StepDirection={facing}");
-                    }
-
-                    var heldState = UnitKinematicRuntimeState.CreateHeldFreeze(pose.State);
-                    var heldOutcome = CreateKinematicStateOnlyOutcome(entityId, pose, heldState);
-                    payload = CreateKinematicMovementPayload(
-                        _idAllocator.AllocateGroupId(),
-                        _idAllocator.AllocateIntentId(),
-                        entityId,
-                        priority: 100,
-                        outcome: heldOutcome,
-                        facing: facing,
-                        writeFacing: false);
-                    return true;
-                }
-
-                if (pose.Mode == MotionMode.Held)
-                {
-                    if (inputMatchesStep)
-                    {
-                        var resumedState = UnitKinematicRuntimeState.CreateVoluntaryResumeFromHeld(
-                            pose.State,
-                            CreateDebugKinematicVelocity(stepDirectionX, stepDirectionY, pose.State.totalTicks));
-                        var resumedOutcome = CreateKinematicStateOnlyOutcome(entityId, pose, resumedState);
-                        payload = CreateKinematicMovementPayload(
-                            _idAllocator.AllocateGroupId(),
-                            _idAllocator.AllocateIntentId(),
-                            entityId,
-                            priority: 100,
-                            outcome: resumedOutcome,
-                            facing: facing,
-                            writeFacing: false);
-                        return true;
-                    }
-
-                    if (playerCommand.HeldMoveDirection == Direction.None ||
-                        playerCommand.PushPressed ||
-                        playerCommand.FlipPressed)
-                    {
-                        if (playerCommand.HeldMoveDirection != Direction.None)
-                        {
-                            rejectedReasons.Add(
-                                $"MovementRejected|Stage=Plan|Source={entityId}|Reason=HeldKinematicDirectionMismatch|HeldDirection={playerCommand.HeldMoveDirection}|StepDirection={facing}");
-                        }
-
-                        return false;
-                    }
-
-                    if (!TryResolveDirectionDelta(playerCommand.HeldMoveDirection, out var heldDirectionDelta))
-                    {
-                        rejectedReasons.Add(
-                            $"MovementRejected|Stage=Plan|Source={entityId}|Reason=HeldKinematicDirectionInvalid|HeldDirection={playerCommand.HeldMoveDirection}|StepDirection={facing}");
-                        return false;
-                    }
-
-                    if (heldDirectionDelta.x == -stepDirectionX &&
-                        heldDirectionDelta.y == -stepDirectionY)
-                    {
-                        if (!KinematicProgressResolver.TryResolveReverseFromHeld(
-                                pose.AnchorCell,
-                                pose.State,
-                                heldDirectionDelta.x,
-                                heldDirectionDelta.y,
-                                out var mirroredAnchor,
-                                out var mirroredState,
-                                out var poseDeltaRawUnits) ||
-                            poseDeltaRawUnits > 1)
-                        {
-                            rejectedReasons.Add(
-                                $"MovementRejected|Stage=Plan|Source={entityId}|Reason=HeldKinematicReverseCorrupt|HeldDirection={playerCommand.HeldMoveDirection}|StepDirection={facing}");
-                            return false;
-                        }
-
-                        var reverseOutcome = CreateKinematicReinterpretOutcome(
-                            entityId,
-                            pose,
-                            mirroredAnchor,
-                            mirroredState,
-                            poseDeltaRawUnits <= 1);
-                        payload = CreateKinematicMovementPayload(
-                            _idAllocator.AllocateGroupId(),
-                            _idAllocator.AllocateIntentId(),
-                            entityId,
-                            priority: 100,
-                            outcome: reverseOutcome,
-                            facing: playerCommand.HeldMoveDirection,
-                            writeFacing: false);
-                        return true;
-                    }
-
-                    if ((Math.Abs(heldDirectionDelta.x) + Math.Abs(heldDirectionDelta.y)) == 1 &&
-                        heldDirectionDelta.x != stepDirectionX &&
-                        heldDirectionDelta.y != stepDirectionY)
-                    {
-                        var resumedState = UnitKinematicRuntimeState.CreateVoluntaryResumeFromHeld(
-                            pose.State,
-                            CreateDebugKinematicVelocity(stepDirectionX, stepDirectionY, pose.State.totalTicks));
-                        var resumedOutcome = CreateKinematicStateOnlyOutcome(entityId, pose, resumedState);
-                        payload = CreateKinematicMovementPayload(
-                            _idAllocator.AllocateGroupId(),
-                            _idAllocator.AllocateIntentId(),
-                            entityId,
-                            priority: 100,
-                            outcome: resumedOutcome,
-                            facing: facing,
-                            writeFacing: false,
-                            playerControlWrites: new[]
-                            {
-                                new PlayerControlWritePayload(
-                                    entityId,
-                                    PlayerControlQueries.QueueKinematicTurn(playerControlState, playerCommand.HeldMoveDirection)),
-                            });
-                        return true;
-                    }
-
-                    rejectedReasons.Add(
-                        $"MovementRejected|Stage=Plan|Source={entityId}|Reason=HeldKinematicDirectionMismatch|HeldDirection={playerCommand.HeldMoveDirection}|StepDirection={facing}");
-                    return false;
-                }
-            }
-
-            var nextElapsedTicks = pose.State.elapsedTicks + 1;
-            if (nextElapsedTicks <= 0)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=KinematicContinuationCorrupt|Anchor={FormatCell(entity.position)}");
-                return false;
-            }
-
-            var outcome = CreateKinematicMotionOutcome(
-                entityId,
-                pose.AnchorCell,
-                pose.LocalOffset,
-                pose.State,
-                stepDirectionX,
-                stepDirectionY,
-                nextElapsedTicks,
-                pose.State.totalTicks,
-                pose.State.startedTick);
-            payload = CreateKinematicMovementPayload(
-                _idAllocator.AllocateGroupId(),
-                _idAllocator.AllocateIntentId(),
-                entityId,
-                priority: 100,
-                outcome: outcome,
-                facing: facing,
-                writeFacing: true);
-
-            return true;
-        }
-
-        private bool TryBuildPlayerQueuedKinematicTurnStartPayload(
-            WorldSnapshot snapshot,
-            int entityId,
-            int tickIndex,
-            List<string> rejectedReasons,
-            out MovementActionPlanPayload payload)
-        {
-            payload = null;
-            if (!snapshot.TryGetPlayerControlState(entityId, out var playerControlState) ||
-                !PlayerControlQueries.HasQueuedKinematicTurn(playerControlState) ||
-                !snapshot.TryGetEntity(entityId, out var entity) ||
-                entity.type != EntityType.Unit ||
-                !snapshot.TryGetUnitKinematicPose(entityId, out var pose) ||
-                !pose.IsSettledAtAnchor)
-            {
-                return false;
-            }
-
-            var queuedDirection = playerControlState.queuedKinematicTurnDirection;
-            var clearedState = PlayerControlQueries.ClearQueuedKinematicTurn(playerControlState);
-            if (playerControlState.activeAction.IsActive ||
-                PlayerControlQueries.IsMoveOnCooldown(playerControlState, tickIndex) ||
-                !TryResolveDirectionDelta(queuedDirection, out var delta))
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=QueuedKinematicTurnRejected|QueuedDirection={queuedDirection}");
-                payload = CreatePlayerControlStateOnlyMovementPayload(
-                    _idAllocator.AllocateGroupId(),
-                    _idAllocator.AllocateIntentId(),
-                    entityId,
-                    priority: 100,
-                    entity.position,
-                    clearedState);
-                return true;
-            }
-
-            var queuedIntent = new MoveIntent(
-                entityId,
-                priority: 100,
-                entity.position.PlanarPosition + delta,
-                localSequence: 0,
-                moveCooldownTicks: 0,
-                ordinaryKinematicMoveTicks: 0);
-            queuedIntent.AssignIntentId(_idAllocator.AllocateIntentId());
-            if (TryBuildPlayerKinematicStartPayload(
-                    snapshot,
-                    queuedIntent,
-                    tickIndex,
-                    rejectedReasons,
-                    out var handledByKinematic,
-                    out var startPayload) &&
-                handledByKinematic &&
-                startPayload != null)
-            {
-                payload = AddPlayerControlWrite(
-                    startPayload,
-                    new PlayerControlWritePayload(entityId, clearedState));
-                return true;
-            }
-
-            rejectedReasons.Add(
-                $"MovementRejected|Stage=Plan|Source={entityId}|Reason=QueuedKinematicTurnRejected|QueuedDirection={queuedDirection}");
-            payload = CreatePlayerControlStateOnlyMovementPayload(
-                _idAllocator.AllocateGroupId(),
-                queuedIntent.IntentId,
-                entityId,
-                priority: 100,
-                entity.position,
-                clearedState);
-            return true;
         }
 
         private static bool TryResolveKinematicVelocity(
@@ -8717,7 +8191,7 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationBatch attackStageBatch,
             List<string> commitEvents,
             int tickIndex,
-            bool interruptPlayerKinematics,
+            bool interruptPlayerMotion,
             bool interruptEnemyGlideKinematics)
         {
             if (attackSnapshot == null)
@@ -8767,7 +8241,7 @@ namespace Game.Feature.Gameplay.Loop
                     damageResolution.LocalActionIndex,
                     damageResolution.SourceKind,
                     tickIndex,
-                    interruptPlayerKinematics,
+                    interruptPlayerMotion,
                     interruptEnemyGlideKinematics,
                     damageResolution.Amount);
             }
@@ -8792,7 +8266,7 @@ namespace Game.Feature.Gameplay.Loop
                     destroyResolution.LocalActionIndex,
                     AttackSourceKind.Combat,
                     tickIndex,
-                    interruptPlayerKinematics,
+                    interruptPlayerMotion,
                     interruptEnemyGlideKinematics,
                     damageAmount: 0);
             }
@@ -8812,7 +8286,7 @@ namespace Game.Feature.Gameplay.Loop
             int localActionIndex,
             AttackSourceKind sourceKind,
             int tickIndex,
-            bool interruptPlayerKinematics,
+            bool interruptPlayerMotion,
             bool interruptEnemyGlideKinematics,
             int damageAmount)
         {
@@ -8827,7 +8301,7 @@ namespace Game.Feature.Gameplay.Loop
                 !pose.IsSettledAtAnchor &&
                 (pose.Mode == MotionMode.Voluntary || pose.Mode == MotionMode.Held))
             {
-                var playerInterrupt = interruptPlayerKinematics && hasPlayerControl;
+                var playerInterrupt = interruptPlayerMotion && hasPlayerControl;
                 var enemyGlideInterrupt = interruptEnemyGlideKinematics &&
                                           pose.Mode == MotionMode.Voluntary &&
                                           attackSnapshot.TryGetEntity(targetEntityId, out var targetEntity) &&
@@ -8865,23 +8339,11 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 if (hasPlayerControl &&
-                    (PlayerControlQueries.HasQueuedKinematicTurn(playerControlState) ||
-                     PlayerControlQueries.HasQueuedFree2DAction(playerControlState)))
+                    PlayerControlQueries.HasQueuedFree2DAction(playerControlState))
                 {
-                    var clearedPlayerControlState = playerControlState;
-                    if (PlayerControlQueries.HasQueuedKinematicTurn(clearedPlayerControlState))
-                    {
-                        clearedPlayerControlState = PlayerControlQueries.ClearQueuedKinematicTurn(clearedPlayerControlState);
-                    }
-
-                    if (PlayerControlQueries.HasQueuedFree2DAction(clearedPlayerControlState))
-                    {
-                        clearedPlayerControlState = PlayerControlQueries.ClearQueuedFree2DAction(clearedPlayerControlState);
-                    }
-
                     attackStageBatch.SetPlayerControlState(
                         targetEntityId,
-                        clearedPlayerControlState,
+                        PlayerControlQueries.ClearQueuedFree2DAction(playerControlState),
                         metadata);
                 }
 

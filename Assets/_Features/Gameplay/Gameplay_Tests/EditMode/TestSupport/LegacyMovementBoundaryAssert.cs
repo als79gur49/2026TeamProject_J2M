@@ -8,7 +8,7 @@ namespace Game.Feature.Gameplay.Tests
     internal static class LegacyMovementBoundaryAssert
     {
         public const string ExplicitLegacyFallbackRequiredReason = "LegacyOrdinaryFallbackRequiresExplicitBaseline";
-        public const string PlayerLegacyFallbackRemovedReason = "PlayerLegacyFallbackRemovedFromRuntime";
+        public const string PlayerOrdinaryMoveRejectedReason = "PlayerOrdinaryMoveRejectedBeforeLegacyExpansion";
         public const string EnemyLegacyFallbackRemovedReason = "EnemyLegacyFallbackRemovedFromRuntime";
         public const string ChargeLegacyFallbackRemovedReason = "ChargeLegacyFallbackRemovedFromRuntime";
 
@@ -94,14 +94,14 @@ namespace Game.Feature.Gameplay.Tests
             }
         }
 
-        public static void PlayerLegacyFallbackRemovedFromRuntime(TickResult result, int playerEntityId)
+        public static void PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(TickResult result, int playerEntityId)
         {
             NoLegacyOrdinaryUnitOperationOrPresentation(result, playerEntityId);
             Assert.That(
                 result.MovementPhaseResult.RejectedReasons.Any(reason =>
                     reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
                     reason.Contains($"E={playerEntityId}", System.StringComparison.Ordinal) &&
-                    reason.Contains(PlayerLegacyFallbackRemovedReason, System.StringComparison.Ordinal)),
+                    reason.Contains(PlayerOrdinaryMoveRejectedReason, System.StringComparison.Ordinal)),
                 Is.True,
                 BuildDebug(result, playerEntityId));
         }
@@ -140,7 +140,7 @@ namespace Game.Feature.Gameplay.Tests
                     result.MovementPhaseResult.RejectedReasons.Any(reason =>
                         reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
                         reason.Contains($"E={entityId}", System.StringComparison.Ordinal) &&
-                        (reason.Contains(PlayerLegacyFallbackRemovedReason, System.StringComparison.Ordinal) ||
+                        (reason.Contains(PlayerOrdinaryMoveRejectedReason, System.StringComparison.Ordinal) ||
                          reason.Contains(EnemyLegacyFallbackRemovedReason, System.StringComparison.Ordinal) ||
                          reason.Contains(ChargeLegacyFallbackRemovedReason, System.StringComparison.Ordinal))),
                     Is.True,
@@ -148,9 +148,9 @@ namespace Game.Feature.Gameplay.Tests
             }
         }
 
-        public static void AssertPlayerFallbackRemovedFromRuntime(TickResult result, int playerEntityId)
+        public static void AssertPlayerOrdinaryMoveRejectedBeforeLegacyExpansion(TickResult result, int playerEntityId)
         {
-            PlayerLegacyFallbackRemovedFromRuntime(result, playerEntityId);
+            PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(result, playerEntityId);
         }
 
         public static void AssertEnemyFallbackRemovedFromRuntime(TickResult result, int enemyEntityId)

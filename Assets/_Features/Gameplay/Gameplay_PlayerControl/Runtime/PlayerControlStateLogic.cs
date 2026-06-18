@@ -267,7 +267,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                     nextState.activeAction,
                     flipResultTurnTransition));
             updates.Add(
-                $"PlayerControlUpdated|E={_entityId}|Cooldown={nextState.moveCooldownTicks}|NextMoveAllowed={nextState.nextMoveAllowedTick}|Action={nextState.activeAction.kind}|ActionSeq={nextState.activeAction.sequence}|ActionDirection={nextState.activeAction.direction}|ActionTarget={nextState.activeAction.targetEntityId}|Start={nextState.activeAction.startTick}|Execute={nextState.activeAction.executeTick}|Recovery={nextState.activeAction.recoveryEndTick}|Attempted={(nextState.activeAction.executionAttempted ? 1 : 0)}|QueuedKinematicTurn={nextState.queuedKinematicTurnDirection}|QueuedFree2DAction={nextState.queuedFree2DAction.kind}|QueuedFree2DActionDirection={nextState.queuedFree2DAction.direction}|QueuedFree2DActionTick={nextState.queuedFree2DAction.requestedTick}");
+                $"PlayerControlUpdated|E={_entityId}|Cooldown={nextState.moveCooldownTicks}|NextMoveAllowed={nextState.nextMoveAllowedTick}|Action={nextState.activeAction.kind}|ActionSeq={nextState.activeAction.sequence}|ActionDirection={nextState.activeAction.direction}|ActionTarget={nextState.activeAction.targetEntityId}|Start={nextState.activeAction.startTick}|Execute={nextState.activeAction.executeTick}|Recovery={nextState.activeAction.recoveryEndTick}|Attempted={(nextState.activeAction.executionAttempted ? 1 : 0)}|QueuedFree2DAction={nextState.queuedFree2DAction.kind}|QueuedFree2DActionDirection={nextState.queuedFree2DAction.direction}|QueuedFree2DActionTick={nextState.queuedFree2DAction.requestedTick}");
         }
 
         private bool TryStartQueuedFree2DAction(
@@ -459,7 +459,6 @@ namespace Game.Feature.Gameplay.PlayerControl
                    left.nextMoveAllowedTick == right.nextMoveAllowedTick &&
                    left.actionSequenceCounter == right.actionSequenceCounter &&
                    AreEqual(left.activeAction, right.activeAction) &&
-                   left.queuedKinematicTurnDirection == right.queuedKinematicTurnDirection &&
                    AreEqual(left.queuedFree2DAction, right.queuedFree2DAction);
         }
 
