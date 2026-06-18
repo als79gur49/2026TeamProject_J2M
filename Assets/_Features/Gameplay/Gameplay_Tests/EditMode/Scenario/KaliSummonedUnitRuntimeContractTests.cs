@@ -145,7 +145,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateWall(92, new SurfaceCell(FaceId.Floor, -1, 0)),
                 },
                 initialTileFeatures: new[] { destroyTile });
-            SeedWindupUtilityState(worldState, windupEndTick: 1);
+            SeedWindupSummonBehaviorState(worldState, windupEndTick: 1);
 
             Assert.That(worldState.CreateSnapshot().TryGetPlacementBlocker(EntityType.Unit, forwardCell, ignoredEntityId: 0, out _), Is.False);
 
@@ -173,7 +173,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static TickResult CommitKaliSummon(TickPipeline pipeline, WorldState worldState)
         {
-            SeedWindupUtilityState(worldState, windupEndTick: 1);
+            SeedWindupSummonBehaviorState(worldState, windupEndTick: 1);
             var tick = pipeline.RunTick(new TickInput(1));
             Assert.That(GetSummonedChildren(worldState), Has.Count.EqualTo(1));
             return tick;
@@ -251,22 +251,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
         }
 
-        private static void SeedWindupUtilityState(WorldState worldState, int windupEndTick)
+        private static void SeedWindupSummonBehaviorState(WorldState worldState, int windupEndTick)
         {
-            worldState.CreateWriteContext().SetEnemyUtilityState(
+            worldState.CreateWriteContext().SetEnemySummonBehaviorState(
                 JPeterId,
-                new EnemyUtilityRuntimeState(
-                    new[]
-                    {
-                        new EnemyUtilityEffectState
-                        {
-                            effectKind = EnemyUtilityEffectKind.SummonMinion,
-                            phase = EnemyUtilityEffectPhase.Windup,
-                            windupStartTick = 0,
-                            windupEndTick = windupEndTick,
-                            activationSequence = 1,
-                        },
-                    }));
+                new EnemySummonBehaviorRuntimeState
+                {
+                    phase = EnemySummonBehaviorPhase.Windup,
+                    windupStartTick = 0,
+                    windupEndTick = windupEndTick,
+                    activationSequence = 1,
+                    movementSuppressionUntilTickInclusive = windupEndTick,
+                });
         }
 
         private static IReadOnlyList<EntityState> GetSummonedChildren(WorldState worldState)
