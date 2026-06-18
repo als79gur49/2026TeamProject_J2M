@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
@@ -1584,31 +1585,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .ToArray();
             CollectionAssert.AreEqual(expectedProfileOverrideIds, actualProfileOverrideIds);
 
-            Assert.That(
-                buildResult.EnemyAiProfileOverrides.Select(profileOverride => profileOverride.Profile.name).ToArray(),
-                Does.Contain("EnemyAi_GlideChaser"));
-            Assert.That(
-                buildResult.EnemyAiProfileOverrides.Select(profileOverride => profileOverride.Profile.name).ToArray(),
-                Does.Contain("EnemyAi_JumpChaser"));
-            Assert.That(
-                buildResult.EnemyAiProfileOverrides.Select(profileOverride => profileOverride.Profile.name).ToArray(),
-                Does.Contain("EnemyAi_Charge"));
-            Assert.That(
-                buildResult.EnemyAiProfileOverrides.Select(profileOverride => profileOverride.Profile.name).ToArray(),
-                Does.Contain("EnemyAi_ArchetypeSummoner"));
+            var actualProfileOverrideExports = buildResult.EnemyAiProfileOverrides
+                .OrderBy(profileOverride => profileOverride.EntityId)
+                .Select(profileOverride => $"{profileOverride.EntityId}:{profileOverride.Profile.name}")
+                .ToArray();
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "55:EnemyAi_PassiveContactPatroller",
+                    "56:EnemyAi_Charger",
+                    "57:EnemyAi_WindupProjectile",
+                    "58:EnemyAi_GlideChaser",
+                    "59:EnemyAi_ArchetypeSummoner",
+                    "60:EnemyAi_WallFollower",
+                    "84:EnemyAi_JumpChaser",
+                    "85:EnemyAi_Charger",
+                    "143:EnemyAi_Charger",
+                    "144:EnemyAi_JumpChaser",
+                    "145:EnemyAi_GravityFieldChaser",
+                    "146:EnemyAi_JumpChaser",
+                    "147:EnemyAi_GravityFieldChaser",
+                    "148:EnemyAi_GlideChaser",
+                    "149:EnemyAi_ArchetypeSummoner",
+                    "150:EnemyAi_WindupProjectile",
+                    "151:EnemyAi_PassiveContactPatroller",
+                },
+                actualProfileOverrideExports);
+
             var utilitySummonerProfile = buildResult.EnemyAiProfileOverrides
                 .Select(profileOverride => profileOverride.Profile)
                 .First(profile => profile.name == "EnemyAi_ArchetypeSummoner");
+            var summonBehaviorModule = utilitySummonerProfile.BehaviorModuleAssets.Single();
+            Assert.That(summonBehaviorModule, Is.TypeOf<EnemySummonBehaviorModuleAsset>());
+            Assert.That(summonBehaviorModule.name, Is.EqualTo("EnemySummonBehaviorModule_ArchetypeSummoner"));
             var utilitySummonerRuntimeDefinition =
                 utilitySummonerProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            Assert.That(utilitySummonerRuntimeDefinition.TryGetSummonBehavior(out _), Is.True);
             Assert.That(utilitySummonerRuntimeDefinition.Capabilities.TryGetUtility(out var utility), Is.True);
-            Assert.That(utility.Effects, Is.Not.Empty);
-            Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion));
+            Assert.That(utility.Effects, Is.Empty);
             Assert.That(
-                utility.Effects[0].Summon.SummonedArchetypeId,
-                Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
-            Assert.That(utility.Effects[0].Summon.OverrideHp, Is.True);
-            Assert.That(utility.Effects[0].Summon.HpOverride, Is.EqualTo(1));
+                utility.Effects.Any(effect => effect.Kind == EnemyUtilityEffectKind.SummonMinion),
+                Is.False);
+            var utilityCapability = utilitySummonerProfile.CapabilityAssets
+                .OfType<EnemyUtilityCapabilityAsset>()
+                .Single(capability => capability.name == "EnemyCapability_ArchetypeSummoner");
+            Assert.That(utilityCapability.Effects, Is.Empty);
+            Assert.That(
+                File.ReadAllText(AssetDatabase.GetAssetPath(utilitySummonerProfile)),
+                Does.Not.Contain("logicModuleAssets"));
 
             var presentationDefinition = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(CombinedPresentationAssetPath);
             Assert.That(
