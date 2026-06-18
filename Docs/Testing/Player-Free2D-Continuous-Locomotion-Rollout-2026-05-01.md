@@ -2,8 +2,8 @@
 
 Date: 2026-05-01
 
-This rollout is guarded by `GameplayRuntimeFeatureFlags.EnablePlayerFree2DLocalLocomotion`.
-Player Free2D Action Assist v1.1 is separately guarded by `GameplayRuntimeFeatureFlags.EnablePlayerFree2DActionAssist`, and that flag is effective only when `EnablePlayerFree2DLocalLocomotion` is also enabled.
+This rollout is guarded by `GameplayRuntimeFeatureFlags.retired player Free2D gate`.
+Player Free2D Action Assist v1.1 is separately guarded by `GameplayRuntimeFeatureFlags.retired player action-assist gate`, and that flag is effective only when `retired player Free2D gate` is also enabled.
 When enabled, player ordinary movement uses `UnitContinuousLocomotionState` before the stoppable kinematic, same-face kinematic, and legacy discrete movement paths. Enemy ordinary movement, charge, jump, phase, forced motion, and existing fallback kinematic behavior remain on `UnitKinematicRuntimeState`.
 
 ## Validation Contract
@@ -48,15 +48,15 @@ When enabled, player ordinary movement uses `UnitContinuousLocomotionState` befo
 
 Player ordinary movement dispatch order:
 
-1. `EnablePlayerFree2DLocalLocomotion`
-2. `EnablePlayerStoppableKinematicLocomotion`
-3. `EnablePlayerSameFaceContinuousLocomotion`
+1. `retired player Free2D gate`
+2. `retired player stoppable locomotion flag`
+3. `retired player same-face locomotion flag`
 4. Legacy discrete movement
 
 Action Assist flag hierarchy:
 
-1. `EnablePlayerFree2DLocalLocomotion`
-2. `EnablePlayerFree2DActionAssist`
+1. `retired player Free2D gate`
+2. `retired player action-assist gate`
 
 The free2D flag is independent of enemy and charge kinematic flags. Turning it off must restore the existing player stoppable/same-face/legacy behavior without changing enemy or charge movement.
 Turning Action Assist off while keeping free2D on restores local-nonzero push/flip rejection without disabling Free2D movement.
@@ -86,11 +86,11 @@ The stabilization suite locks the following acceptance tests:
 
 - Unit/state: `UnitContinuousLocomotionState_IdleZero_OmissionPolicy`, `WorldState_RemoveEntity_PurgesContinuousLocomotionState`, `WorldState_MutualExclusion_KinematicAndContinuous`, `FinalizationBatch_MoveEntityThenSetContinuousState_PreservesNormalizedPose`.
 - Movement/scenario: `Player_Free2D_WallClamp`, `Player_Free2D_TerrainClamp`, retained flag-off topology handoff coverage, native flag-on `Free2DTopology_LateralProgressThenForward_CrossesFace`, `Free2DTopology_WithLeftOffset_CrossesAndPreservesLateralOffset`, `Free2DTopology_WithRightOffset_CrossesAndPreservesLateralOffset`, `Free2DTopology_TargetFaceBox_Blocks`, radius blocker approach coverage, `Player_Free2D_BeforeAnchorBoundary_NoEnemyContact`, `Player_Free2D_AfterAnchorBoundary_EnemyContactPossible`, `Player_Free2D_LocalZero_PushFlipAllowed`, `Player_Free2D_LocalNonZero_ActionPreviewRejected`, `Player_Free2D_HitNonlethal_PreservesPose`, `Player_Free2D_HitLethal_RemovedTerminalPreservesPose`.
-- Action Assist: `Free2DActionAssist_PushQueuedAtLocalNonZero`, `Free2DActionAssist_EmptyFloorWithinSettleWindow_PushDoesNotQueueOrAlign`, `Free2DActionAssist_EmptyFloorWithinSettleWindow_FlipDoesNotQueueOrAlign`, `Free2DActionAssist_NoCandidatePushWithHeldMove_ContinuesFree2DMovement`, `Free2DActionAssist_NoCandidateFlipWithHeldMove_ContinuesFree2DMovement`, `Free2DActionAssist_NoActionCandidate_EmitsDeterministicRejectTrace`, `Free2DActionAssist_BoxWithoutPushCapability_DoesNotQueueOrAlign`, `Free2DActionAssist_AlignsToAnchorWithoutSnap`, `Free2DActionAssist_PushExecutesAfterAlign`, `Free2DActionAssist_FlipExecutesAfterAlign`, `Free2DActionAssist_BoxRadiusClampThenPush`, `Free2DActionAssist_WithinSettleWindow_QueuesAndAligns`, `Free2DActionAssist_OutsideSettleWindow_DoesNotQueueOrAlign`, `Free2DActionAssist_WindowBoundaryInclusive`, `Free2DActionAssist_WindowBoundaryExclusiveAbove`, `Free2DActionAssist_ExistingQueue_IgnoresWindowAndContinuesAlign`, `Free2DActionAssist_ExistingQueue_NoCandidateClearsWithoutAlign`, `Free2DActionAssist_ActionTargetRevalidatedAtExecute`, `Free2DActionAssist_InvalidAfterAlign_ClearsQueue`, `Free2DActionAssist_MovementInputDoesNotCancelQueue`, `Free2DActionAssist_HitClearsQueue`, `Free2DActionAssist_DeathClearsQueue`, `Free2DActionAssist_LocalZero_PushStillImmediate`, `Free2DActionAssist_LocalNonZero_ActionNotExecutedBeforeSettled`, `Free2DActionAssist_FlagOff_Baseline`, and `Free2DActionAssist_DoesNotAffectKinematicFallback`.
+- Action Assist: `Free2DActionAssist_PushQueuedAtLocalNonZero`, `Free2DActionAssist_EmptyFloorWithinSettleWindow_PushDoesNotQueueOrAlign`, `Free2DActionAssist_EmptyFloorWithinSettleWindow_FlipDoesNotQueueOrAlign`, `Free2DActionAssist_NoCandidatePushWithHeldMove_EmitsFakeAttemptAndConsumesMovement`, `Free2DActionAssist_NoCandidateFlipWithHeldMove_EmitsFakeAttemptAndConsumesMovement`, `Free2DActionAssist_NoActionCandidate_EmitsDeterministicRejectTrace`, `Free2DActionAssist_BoxWithoutPushCapability_DoesNotQueueOrAlign`, `Free2DActionAssist_AlignsToAnchorWithoutSnap`, `Free2DActionAssist_PushExecutesAfterAlign`, `Free2DActionAssist_FlipExecutesAfterAlign`, `Free2DActionAssist_BoxRadiusClampThenPush`, `Free2DActionAssist_WithinSettleWindow_QueuesAndAligns`, `Free2DActionAssist_OutsideSettleWindow_DoesNotQueueOrAlign`, `Free2DActionAssist_WindowBoundaryInclusive`, `Free2DActionAssist_WindowBoundaryExclusiveAbove`, `Free2DActionAssist_ExistingQueue_IgnoresWindowAndContinuesAlign`, `Free2DActionAssist_ExistingQueue_NoCandidateClearsWithoutAlign`, `Free2DActionAssist_ActionTargetRevalidatedAtExecute`, `Free2DActionAssist_InvalidAfterAlign_ClearsQueue`, `Free2DActionAssist_MovementInputDoesNotCancelQueue`, `Free2DActionAssist_HitClearsQueue`, `Free2DActionAssist_DeathClearsQueue`, `Free2DActionAssist_LocalZero_PushStillImmediate`, `Free2DActionAssist_LocalNonZero_ActionNotExecutedBeforeSettled`, and `Free2DActionAssist_FlagOff_Baseline`.
 - Presentation: `GameplayTickViewPresenter_ContinuousPose_AppliesAnchorPlusLocalOffset`, `GameplayTickViewPresenter_ContinuousIdleNonZero_DoesNotSnapToAnchor`, `GameplayTickViewPresenter_ContinuousRemovedTerminal_RetainsPose`.
 - Replay: `Replay_PlayerFree2D_StopTurnClamp_IsDeterministic`, `Replay_PlayerFree2D_RadiusApproachBlocker_IsDeterministic`, `Replay_PlayerFree2D_AnchorNormalizeContact_IsDeterministic`, `Replay_PlayerFree2D_TopologyApproachHandoff_IsDeterministic`, `Replay_PlayerFree2D_HitDeath_IsDeterministic`, `Replay_Free2DActionAssist_QueueAlignExecute_IsDeterministic`, `Replay_Free2DActionAssist_OutsideWindowReject_IsDeterministic`, `Replay_Free2DActionAssist_NoCandidateReject_IsDeterministic`.
-- Boundary v1 / deprecation Phase 1: `TickPipeline_ValidateLegacyExpansionIntents_BlocksFlagOnUnitOrdinaryMove`, `DeprecationPhase1_DefaultGameplayLocomotion_PlayerEnemyCharge_NoLegacyFallback`, `Replay_DeprecationPhase1_DefaultGameplayLocomotion_NoCoveredLegacyFallback`, and `Boundary_UnknownInventory_NormalGameplayHasNoUnexpectedUnknownMovement` verify that flag-on Free2D ordinary movement does not leak into legacy ordinary Unit movement. Topology grid handoff remains retained for compatibility when native topology transition is off; with `EnablePlayerFree2DNativeTopologyTransition`, player Free2D topology crossing is continuous locomotion and suppresses duplicate entity Move presentation.
-- Baseline: `Player_Free2D_FlagOff_ExistingKinematicBaseline`, `Player_Free2D_DoesNotAffectEnemyOrCharge`.
+- Boundary v1 / deprecation Phase 1: `TickPipeline_ValidateLegacyExpansionIntents_BlocksFlagOnUnitOrdinaryMove`, `DeprecationPhase1_DefaultGameplayLocomotion_PlayerEnemyCharge_NoLegacyFallback`, `Replay_DeprecationPhase1_DefaultGameplayLocomotion_NoCoveredLegacyFallback`, and `Boundary_UnknownInventory_NormalGameplayHasNoUnexpectedUnknownMovement` verify that flag-on Free2D ordinary movement does not leak into legacy ordinary Unit movement. Topology grid handoff remains retained for compatibility when native topology transition is off; with `retired player topology gate`, player Free2D topology crossing is continuous locomotion and suppresses duplicate entity Move presentation.
+- Baseline: `Player_Free2D_DefaultGameplay_UsesContinuousState`, `Player_Free2D_DoesNotAffectEnemyOrCharge`.
 
 ## Golden Policy
 
@@ -102,7 +102,7 @@ The stabilization suite locks the following acceptance tests:
 
 ## Rollback
 
-First set `EnablePlayerFree2DActionAssist` to false to restore settled-only local-nonzero push/flip rejection while keeping Free2D movement enabled.
-If the full Free2D movement rollout must be disabled, set `EnablePlayerFree2DLocalLocomotion` to false.
-The player ordinary movement path then falls back to `EnablePlayerStoppableKinematicLocomotion`, then `EnablePlayerSameFaceContinuousLocomotion`, then legacy discrete movement. No data migration is required because continuous local-zero idle is represented by absent state.
+First set `retired player action-assist gate` to false to restore settled-only local-nonzero push/flip rejection while keeping Free2D movement enabled.
+If the full Free2D movement rollout must be disabled, set `retired player Free2D gate` to false.
+The player ordinary movement path then falls back to `retired player stoppable locomotion flag`, then `retired player same-face locomotion flag`, then legacy discrete movement. No data migration is required because continuous local-zero idle is represented by absent state.
 No data migration is required for Action Assist because the default queued action is `None`.

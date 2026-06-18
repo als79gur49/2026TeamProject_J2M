@@ -18,7 +18,7 @@ This phase does not delete the player fallback branch, enemy ordinary fallback b
 | `DefaultGameplayLocomotion` | false | true | false |
 | `RemovedLegacyFallbackDiagnosticBaseline` | true | false | false |
 | `RemovedLegacyFallbackDiagnosticBaseline` | true | false | false |
-| `AllKinematicLocomotionEnabled` | false | true | true |
+| `AllEnemyKinematicLocomotionEnabled` | false | true | true |
 
 `GameplaySceneHostConfiguration` does not expose `RemovedLegacyFallbackDiagnosticsEnabled`. Scene-authored hosts cannot enable this fallback accidentally; tests and migration replay helpers must pass the preset directly.
 
@@ -26,7 +26,7 @@ This phase does not delete the player fallback branch, enemy ordinary fallback b
 
 `TickPipeline.ValidateLegacyExpansionIntents` rejects covered player ordinary, enemy ordinary, and Charge active fallback when `RemovedLegacyFallbackDiagnosticsEnabled` is false. The diagnostic reason is `LegacyOrdinaryFallbackRequiresExplicitBaseline`.
 
-Phase 4 supersedes the player portion of this policy. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` no longer authorizes player ordinary fallback; player attempts are rejected with `PlayerLegacyFallbackRemovedFromRuntime`.
+Phase 4 supersedes the player portion of this policy. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` no longer authorizes player ordinary fallback; player attempts are rejected with `PlayerOrdinaryMoveRejectedBeforeLegacyExpansion`.
 
 Phase 5 supersedes the enemy portion of this policy. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` no longer authorizes enemy ordinary fallback; enemy attempts are rejected with `EnemyLegacyFallbackRemovedFromRuntime`.
 

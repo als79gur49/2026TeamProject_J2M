@@ -6,7 +6,7 @@ Date: 2026-05-02
 
 Phase 8D added `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` as the canonical helper property for removed-fallback diagnostic routing. The old helper alias has since been removed. Phase 8E makes `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` the canonical runtime field and removes old-name compatibility projection.
 
-Runtime validation semantics are unchanged. When the diagnostic helper is false, covered player, enemy, and Charge fallback attempts still reject with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. When the diagnostic helper is true, those attempts route to `PlayerLegacyFallbackRemovedFromRuntime`, `EnemyLegacyFallbackRemovedFromRuntime`, or `ChargeLegacyFallbackRemovedFromRuntime`. No covered fallback is authorized.
+Runtime validation semantics are unchanged. When the diagnostic helper is false, covered player, enemy, and Charge fallback attempts still reject with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. When the diagnostic helper is true, those attempts route to `PlayerOrdinaryMoveRejectedBeforeLegacyExpansion`, `EnemyLegacyFallbackRemovedFromRuntime`, or `ChargeLegacyFallbackRemovedFromRuntime`. No covered fallback is authorized.
 
 `TickPipeline`, `MovementExpander`, `MoveEntity`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, glide retained fallback, replay assets, and golden files are not semantically changed in Phase 8D.
 
@@ -18,7 +18,7 @@ Runtime validation semantics are unchanged. When the diagnostic helper is false,
 | `DefaultGameplayLocomotion` | `false` | `false` | `false` | no covered fallback |
 | `RemovedLegacyFallbackDiagnosticBaseline` | `true` | `true` | `true` | removed-specific diagnostics only |
 | `RemovedLegacyFallbackDiagnosticBaseline` | `true` | `true` | removed | removed-specific diagnostics only |
-| `AllKinematicLocomotionEnabled` | `false` | `false` | `false` | no diagnostic compatibility routing |
+| `AllEnemyKinematicLocomotionEnabled` | `false` | `false` | `false` | no diagnostic compatibility routing |
 
 ## Field Rename Inventory
 

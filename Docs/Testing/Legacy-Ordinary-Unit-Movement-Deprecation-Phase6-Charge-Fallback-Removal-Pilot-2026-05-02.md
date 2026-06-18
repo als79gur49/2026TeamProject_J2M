@@ -15,7 +15,7 @@ This is a Charge-only removal pilot. Player ordinary fallback remains removed fr
 - `DefaultGameplayLocomotion` and Charge kinematic-on lanes keep `ChargeCoveredKinematicReachedLegacyExpansion` for synthetic leaks.
 - `GameplayRuntimeFeatureFlags.None` keeps the Phase 3 `LegacyOrdinaryFallbackRequiresExplicitBaseline` reason.
 - `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` now rejects Charge active fallback with `ChargeLegacyFallbackRemovedFromRuntime`.
-- Player ordinary fallback continues to reject with `PlayerLegacyFallbackRemovedFromRuntime`.
+- Player ordinary fallback continues to reject with `PlayerOrdinaryMoveRejectedBeforeLegacyExpansion`.
 - Enemy ordinary fallback continues to reject with `EnemyLegacyFallbackRemovedFromRuntime`.
 
 Phase 8B/8C adds `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical name for this removed-diagnostic preset. Old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.

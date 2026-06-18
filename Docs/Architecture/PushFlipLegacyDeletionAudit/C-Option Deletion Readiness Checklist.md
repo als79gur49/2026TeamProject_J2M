@@ -18,7 +18,7 @@ Keep:
 - `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`
 - `removedLegacyFallbackDiagnosticsEnabled`
 - `RemovedLegacyFallbackDiagnosticsEnabled=`
-- `PlayerLegacyFallbackRemovedFromRuntime`
+- `PlayerOrdinaryMoveRejectedBeforeLegacyExpansion`
 - `EnemyLegacyFallbackRemovedFromRuntime`
 - `ChargeLegacyFallbackRemovedFromRuntime`
 - retained grid/glide boundary vocabulary where current tests require it

@@ -2,28 +2,28 @@
 
 Date: 2026-04-29
 
-This rollout is guarded by `GameplayRuntimeFeatureFlags.EnablePlayerSameFaceContinuousLocomotion`.
+This rollout is guarded by `GameplayRuntimeFeatureFlags.retired player same-face locomotion flag`.
 The default remains off for scene hosts, composition-root helpers, replay harnesses, and tests.
-If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement is dispatched to `UnitContinuousLocomotionState` first and this same-face kinematic path remains available only as fallback/legacy coverage.
+If `retired player Free2D gate` is enabled, player ordinary movement is dispatched to `UnitContinuousLocomotionState` first and this same-face kinematic path remains available only as fallback/legacy coverage.
 `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` includes this fallback flag for explicit default gameplay host adoption, but it does not change replay harness, composition-root, historical, or golden defaults. Those paths continue to use `GameplayRuntimeFeatureFlags.None` unless a test or host opts in directly.
 
 ## Validation Contract
 
 - Flag off: existing discrete player movement remains the baseline and existing goldens should not be regenerated.
-- Flag on: player same-face voluntary moves advance using `PlayerKinematicLocomotionTimingSettings`.
+- Flag on: player same-face voluntary moves advance using `UnitKinematicLocomotionTimingSettings`.
 - Flag on: player ordinary movement must not reach the legacy ordinary `MoveIntent` -> `MovementExpander` -> `TickEntityMotionKind.Move` path.
 - `MoveEntity` midpoint anchor commit is classified as a grid transaction primitive, not legacy ordinary Unit movement.
 - Boundary v1 suppresses legacy `TickEntityMotionKind.Move` only for locomotion anchor commits and ordinary Unit locomotion leaks. Box/action/topology/spawn/respawn grid transactions retain their existing presentation paths.
 - Boundary metadata is trace-only diagnostic data and must not enter canonical replay hashes.
 - Boundary v1 / deprecation Phase 1 stabilization adds direct canaries that block flag-on covered ordinary Unit `Move` leaks, allow retained grid transactions, and assert normal movement/finalization traces do not contain unexpected `Boundary=Unknown`. The Phase 1 targeted Unity XML canaries are runtime green, but this is fallback isolation, not legacy branch deletion.
 - Same-destination ordinary Unit stacking remains the current gameplay contract. Priority-winner regression coverage is asserted through blocking grid transaction candidates in `MovementPhase_SameDestination_OnlyHigherPriorityWins_BoundaryInvariant`.
-- Default `KinematicMoveDurationSeconds` is `1f / 3f`, quantized with even ceil. At 60 TPS this is 20 ticks with midpoint anchor commit at tick 10.
+- Default `MoveDurationSeconds` is `1f / 3f`, quantized with even ceil. At 60 TPS this is 20 ticks with midpoint anchor commit at tick 10.
 - Mid-motion hashes are expected to include the `UnitKinematics` determinism section.
 - Mid-motion accepted damage interrupts voluntary locomotion with a `MotionMode.Interrupted` kinematic state; the next flag-on plan tick clears surviving interrupted state to settled-zero.
 - Lethal mid-motion damage preserves the interrupted pose until cleanup and then removes the entity plus its kinematic state through `WorldState.RemoveEntity`.
 - Settled final hashes are expected to omit settled-zero kinematics.
-- Unity scenario coverage lives in `PlayerKinematicLocomotionScenarioTests`.
-- Replay determinism coverage lives in `PlayerKinematicLocomotionReplayTests`.
+- Unity scenario coverage lives in `deleted player Kinematic scenario tests`.
+- Replay determinism coverage lives in `deleted player Kinematic replay tests`.
 
 ## Golden Policy
 
@@ -34,9 +34,9 @@ If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement is d
 
 ## Rollback
 
-Set `EnablePlayerSameFaceContinuousLocomotion` to false or pass `GameplayRuntimeFeatureFlags.None`.
+Set `retired player same-face locomotion flag` to false or pass `GameplayRuntimeFeatureFlags.None`.
 The legacy `MovementExpander` path remains present for retained grid transactions. It is not migrated in-place.
 Phase 4 removes player legacy ordinary fallback from the runtime path. Phase 5/6 remove enemy and Charge covered fallback authorization too. After Phase 8B/8C, current removed diagnostics use the canonical `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`; old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code. `MoveEntity`, `MovementExpander`, retained grid transactions, and glide retained fallback stay retained.
 Scoped deletion preparation for the player branch is now covered by `Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved`; player legacy discrete fallback is no longer a supported runtime fallback after Phase 4.
 To reproduce the old 4tick flag-on cadence for migration comparison, set
-`PlayerKinematicLocomotionTiming.KinematicMoveDurationSeconds` to `4f / SimulationTicksPerSecond`.
+`UnitKinematicLocomotionTiming.MoveDurationSeconds` to `4f / SimulationTicksPerSecond`.

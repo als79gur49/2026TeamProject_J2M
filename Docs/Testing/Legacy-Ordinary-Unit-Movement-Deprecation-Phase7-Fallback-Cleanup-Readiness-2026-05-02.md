@@ -2,7 +2,7 @@
 
 ## Decision
 
-Phase 7 does not delete additional runtime branches. Its diagnostic preset is now `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` after Phase 8B/8C. The preset authorizes no covered player, enemy, or Charge fallback after Phase 6. Player attempts reject with `PlayerLegacyFallbackRemovedFromRuntime`, enemy attempts reject with `EnemyLegacyFallbackRemovedFromRuntime`, and Charge attempts reject with `ChargeLegacyFallbackRemovedFromRuntime`.
+Phase 7 does not delete additional runtime branches. Its diagnostic preset is now `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` after Phase 8B/8C. The preset authorizes no covered player, enemy, or Charge fallback after Phase 6. Player attempts reject with `PlayerOrdinaryMoveRejectedBeforeLegacyExpansion`, enemy attempts reject with `EnemyLegacyFallbackRemovedFromRuntime`, and Charge attempts reject with `ChargeLegacyFallbackRemovedFromRuntime`.
 
 `MoveEntity`, `MovementExpander`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, and flag-off glide retained fallback are not deletion targets in this phase. Golden and replay assets are not rewritten.
 

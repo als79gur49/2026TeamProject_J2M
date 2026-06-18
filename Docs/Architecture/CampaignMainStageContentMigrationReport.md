@@ -358,9 +358,9 @@ The historical inventory below was captured before Phase 1.1 fixture stabilizati
   - `PlayerControl_MoveCooldown_CannotBeBypassedByTapSpam`: expected true, actual false.
   - `PlayerControl_MoveCooldown_OneTick_BlocksImmediateNextTick`: expected true, actual false.
   - `PlayerControl_MoveOccupancy_BlocksFlipStartUntilFirstUnlockedTick`: expected true, actual false.
-- `PlayerKinematicLocomotionScenarioTests` (3):
+- `deleted player Kinematic scenario tests` (3):
   - `FlagOff_BaselineContactTiming`: contact timing debug expectation mismatch.
-  - `PlayerSameFaceContinuousLocomotion_FlagOff_UsesLegacyDiscreteMove`: expected `Floor(1,0)`, actual `Floor(0,0)`.
+  - `PlayerSameFaceContinuousLocomotion_retired flag-off legacy discrete case`: expected `Floor(1,0)`, actual `Floor(0,0)`.
   - `PlayerSameFaceContinuousLocomotion_FlagOn_BoxBlocksOrdinaryMove`: expected true, actual false.
 - `RuntimeBoardBoundsGuardScenarioTests` (1):
   - `GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming`: expected one `MoveCommitted` event, actual empty collection.

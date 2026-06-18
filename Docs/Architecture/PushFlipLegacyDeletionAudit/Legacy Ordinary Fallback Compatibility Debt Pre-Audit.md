@@ -14,7 +14,7 @@ Canonical removed-fallback governance remains active:
 - `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`
 - `removedLegacyFallbackDiagnosticsEnabled`
 - `RemovedLegacyFallbackDiagnosticsEnabled=`
-- `PlayerLegacyFallbackRemovedFromRuntime`
+- `PlayerOrdinaryMoveRejectedBeforeLegacyExpansion`
 - `EnemyLegacyFallbackRemovedFromRuntime`
 - `ChargeLegacyFallbackRemovedFromRuntime`
 

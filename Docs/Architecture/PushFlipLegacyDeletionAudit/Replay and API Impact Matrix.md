@@ -7,7 +7,7 @@ Current production API surface stays canonical:
 - `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`
 - `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`
 - `removedLegacyFallbackDiagnosticsEnabled`
-- `PlayerLegacyFallbackRemovedFromRuntime`
+- `PlayerOrdinaryMoveRejectedBeforeLegacyExpansion`
 - `EnemyLegacyFallbackRemovedFromRuntime`
 - `ChargeLegacyFallbackRemovedFromRuntime`
 

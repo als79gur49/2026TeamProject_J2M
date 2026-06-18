@@ -8,6 +8,8 @@
   - gameplay authoritative boundary를 UI layer까지 확장한 canonical UI architecture spec
 - [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md)
   - Push/Flip 등 gameplay rule appendix
+- [Player-Free2D-Locomotion-Canonical-Spec.md](./Player-Free2D-Locomotion-Canonical-Spec.md)
+  - player ordinary locomotion의 Free2D-only canonical spec
 - [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
   - boundary/IR visibility 관련 현재 결정
 

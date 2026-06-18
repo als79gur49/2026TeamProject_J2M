@@ -12,7 +12,7 @@ This flag does not authorize covered player ordinary, enemy ordinary, or Charge 
 It only controls removed-fallback diagnostic routing:
 
 - `false` routes covered fallback attempts to `LegacyOrdinaryFallbackRequiresExplicitBaseline`.
-- `true` routes covered fallback attempts to `PlayerLegacyFallbackRemovedFromRuntime`, `EnemyLegacyFallbackRemovedFromRuntime`, or `ChargeLegacyFallbackRemovedFromRuntime`.
+- `true` routes covered fallback attempts to `PlayerOrdinaryMoveRejectedBeforeLegacyExpansion`, `EnemyLegacyFallbackRemovedFromRuntime`, or `ChargeLegacyFallbackRemovedFromRuntime`.
 
 ## Current State
 

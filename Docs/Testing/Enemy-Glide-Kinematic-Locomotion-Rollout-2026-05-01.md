@@ -28,7 +28,7 @@ Glide default adoption v2 adds `EnableEnemyGlideKinematicLocomotion` to `Gamepla
 Default gameplay now includes player modern locomotion, enemy ordinary kinematic locomotion, Charge kinematic locomotion, and active glide kinematic locomotion.
 This is default bundle adoption, not fallback deletion.
 `GameplayRuntimeFeatureFlags.None` and explicit flag-off configurations keep the active glide fallback as the rollback and historical baseline.
-`AllKinematicLocomotionEnabled` continues to include glide.
+`AllEnemyKinematicLocomotionEnabled` continues to include glide.
 
 `StageBackedGameplaySceneInstaller` uses `DefaultGameplayLocomotion`, so active glide kinematic locomotion is enabled in the showcase through the default bundle.
 Campaign and development gameplay hosts that apply `DefaultGameplayLocomotion` get active glide kinematic locomotion through the same bundle.

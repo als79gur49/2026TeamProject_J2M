@@ -18,9 +18,9 @@ Phase 8B/8C names the current diagnostic preset `GameplayRuntimeFeatureFlags.Rem
 
 `TickPipeline.ValidateLegacyExpansionIntents` is the Phase 4 enforcement point.
 
-- `DefaultGameplayLocomotion`, Free2D-on, and player kinematic-on lanes keep the existing `PlayerCoveredLocomotionReachedLegacyExpansion` leak reason.
+- `DefaultGameplayLocomotion`, Free2D-on, and player kinematic-on lanes keep the existing `PlayerOrdinaryMoveRejectedBeforeLegacyExpansion` leak reason.
 - `GameplayRuntimeFeatureFlags.None` keeps the Phase 3 `LegacyOrdinaryFallbackRequiresExplicitBaseline` reason.
-- `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` now rejects player ordinary fallback with `PlayerLegacyFallbackRemovedFromRuntime`.
+- `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` now rejects player ordinary fallback with `PlayerOrdinaryMoveRejectedBeforeLegacyExpansion`.
 - At Phase 4, enemy ordinary fallback and Charge active fallback remained allowed when `RemovedLegacyFallbackDiagnosticsEnabled` was true. Phase 5/6 supersede those allowances.
 
 Retained grid transactions still pass the grid transaction allowlist before player fallback removal applies. Topology handoff, box/action materialization, spawn, respawn, cleanup, scripted relocation, anchor normalization, `MoveEntity`, and the `MovementExpander` grid branch are not deletion targets.
@@ -35,7 +35,7 @@ Phase 4 canonical canaries:
 - `Phase4_PlayerKinematicFlagOn_NoLegacyFallback`
 - `Phase4_PlayerTopologyHandoff_StillGridTransaction`
 
-`Phase4_PlayerTopologyHandoff_StillGridTransaction` documents the compatibility path. Native Player Free2D topology transition is gated separately by `EnablePlayerFree2DNativeTopologyTransition` and uses `Free2DTopologyTransition` boundary metadata when enabled.
+`Phase4_PlayerTopologyHandoff_StillGridTransaction` documents the compatibility path. Native Player Free2D topology transition is gated separately by `retired player topology gate` and uses `Free2DTopologyTransition` boundary metadata when enabled.
 - `Phase4_MovementExpander_GridBranchStillAllowed`
 - `Phase5_LegacyBaseline_EnemyFallbackRemovedByPhase5`
 - `Phase4_LegacyBaseline_ChargeFallbackRemovedByPhase6`
