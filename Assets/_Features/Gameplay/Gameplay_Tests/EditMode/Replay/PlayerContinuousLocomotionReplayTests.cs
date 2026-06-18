@@ -60,10 +60,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 .ToArray();
             var harness = new TickReplayHarness();
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            var playerContinuousLocomotion = new PlayerContinuousLocomotionSettings
-            {
-                CollisionRadiusCells = 0.1875f,
-            }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
+            var playerFree2DAuthoring = PlayerFree2DLocomotionAuthoring.CreateDefault();
+            playerFree2DAuthoring.CollisionRadiusCells = 0.1875f;
+            var playerFree2DLocomotion = playerFree2DAuthoring.Compile(timingProfile.SimulationTicksPerSecond);
 
             var firstReplay = harness.Run(
                 CreateWorldState(
@@ -72,7 +71,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreatePlayerLogics(),
                 inputs,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                playerContinuousLocomotion: playerContinuousLocomotion);
+                playerFree2DLocomotion: playerFree2DLocomotion);
             var secondReplay = harness.Run(
                 CreateWorldState(
                     CreatePlayer(10),
@@ -80,7 +79,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreatePlayerLogics(),
                 inputs,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                playerContinuousLocomotion: playerContinuousLocomotion);
+                playerFree2DLocomotion: playerFree2DLocomotion);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay[firstReplay.Count - 1].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3"));

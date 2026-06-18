@@ -57,7 +57,7 @@ namespace Game.Feature.Gameplay.Loop
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
-            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
+            PlayerFree2DLocomotionSettings playerFree2DLocomotion = default,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
             IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null)
         {
@@ -73,7 +73,7 @@ namespace Game.Feature.Gameplay.Loop
                 allowPlayerRespawn,
                 runtimeFeatureFlags,
                 unitKinematicLocomotionTiming,
-                playerContinuousLocomotion,
+                playerFree2DLocomotion,
                 tileFeatureDefinitions,
                 moonBlockRespawnDefinitions,
                 tileEffectResolver: null);
@@ -122,7 +122,7 @@ namespace Game.Feature.Gameplay.Loop
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
-            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
+            PlayerFree2DLocomotionSettings playerFree2DLocomotion = default,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
             IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null,
             IDemoGameplayOverrideSnapshotSource demoGameplayOverrideSnapshotSource = null)
@@ -143,7 +143,7 @@ namespace Game.Feature.Gameplay.Loop
                     allowPlayerRespawn,
                     runtimeFeatureFlags,
                     unitKinematicLocomotionTiming,
-                    playerContinuousLocomotion,
+                    playerFree2DLocomotion,
                 tileFeatureDefinitions,
                 moonBlockRespawnDefinitions),
                 inputBuffer,

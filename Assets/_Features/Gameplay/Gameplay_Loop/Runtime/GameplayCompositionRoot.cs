@@ -103,7 +103,7 @@ namespace Game.Feature.Gameplay.Loop
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
-            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
+            PlayerFree2DLocomotionSettings playerFree2DLocomotion = default)
         {
             return CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
@@ -114,7 +114,7 @@ namespace Game.Feature.Gameplay.Loop
                 objectiveDefinition,
                 runtimeFeatureFlags: runtimeFeatureFlags,
                 unitKinematicLocomotionTiming: unitKinematicLocomotionTiming,
-                playerContinuousLocomotion: playerContinuousLocomotion);
+                playerFree2DLocomotion: playerFree2DLocomotion);
         }
 
         public static TickRunner CreateTickRunner(
@@ -150,7 +150,7 @@ namespace Game.Feature.Gameplay.Loop
             int startTickIndex = 1,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
-            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default,
+            PlayerFree2DLocomotionSettings playerFree2DLocomotion = default,
             IDemoGameplayOverrideSnapshotSource demoGameplayOverrideSnapshotSource = null)
         {
             return CreateDefaultBootstrapper().CreateTickRunner(
@@ -164,7 +164,7 @@ namespace Game.Feature.Gameplay.Loop
                 startTickIndex,
                 runtimeFeatureFlags: runtimeFeatureFlags,
                 unitKinematicLocomotionTiming: unitKinematicLocomotionTiming,
-                playerContinuousLocomotion: playerContinuousLocomotion,
+                playerFree2DLocomotion: playerFree2DLocomotion,
                 demoGameplayOverrideSnapshotSource: demoGameplayOverrideSnapshotSource);
         }
     }

@@ -56,7 +56,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly int _gravityFieldChargeTicks;
         private readonly int _gravityFieldActiveTicks;
         private readonly UnitKinematicLocomotionTimingSnapshot _unitKinematicLocomotionTiming;
-        private readonly PlayerContinuousLocomotionSnapshot _playerContinuousLocomotion;
+        private readonly PlayerFree2DLocomotionSettings _playerFree2DLocomotion;
         private readonly bool _allowPlayerRespawn;
         private readonly GameplayRuntimeFeatureFlags _runtimeFeatureFlags;
         private readonly int _slidingStateTimerTicks;
@@ -83,7 +83,7 @@ namespace Game.Feature.Gameplay.Loop
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
-            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
+            PlayerFree2DLocomotionSettings playerFree2DLocomotion = default)
             : this(
                 worldState,
                 entityLogics,
@@ -96,7 +96,7 @@ namespace Game.Feature.Gameplay.Loop
                 allowPlayerRespawn,
                 runtimeFeatureFlags,
                 unitKinematicLocomotionTiming,
-                playerContinuousLocomotion,
+                playerFree2DLocomotion,
                 tileFeatureDefinitions: null,
                 tileEffectResolver: null)
         {
@@ -114,7 +114,7 @@ namespace Game.Feature.Gameplay.Loop
             bool allowPlayerRespawn,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming,
-            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion,
+            PlayerFree2DLocomotionSettings playerFree2DLocomotion,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null,
             ITileEffectResolver tileEffectResolver = null)
@@ -155,10 +155,10 @@ namespace Game.Feature.Gameplay.Loop
                 ? unitKinematicLocomotionTiming
                 : UnitKinematicLocomotionTimingSettings.CreateDefault()
                     .CreateAuthoritativeSnapshot(resolvedGeneralTimingProfile.SimulationTicksPerSecond);
-            _playerContinuousLocomotion = playerContinuousLocomotion.IsConfigured
-                ? playerContinuousLocomotion
-                : PlayerContinuousLocomotionSettings.CreateDefault()
-                    .CreateAuthoritativeSnapshot(resolvedGeneralTimingProfile.SimulationTicksPerSecond);
+            _playerFree2DLocomotion = playerFree2DLocomotion.IsConfigured
+                ? playerFree2DLocomotion
+                : PlayerFree2DLocomotionAuthoring.CreateDefault()
+                    .Compile(resolvedGeneralTimingProfile.SimulationTicksPerSecond);
             _tileFeatureDefinitions = tileFeatureDefinitions == null
                 ? Array.Empty<TileFeatureRuntimeDefinition>()
                 : new List<TileFeatureRuntimeDefinition>(tileFeatureDefinitions).AsReadOnly();
@@ -2176,7 +2176,7 @@ namespace Game.Feature.Gameplay.Loop
                     entity.entityId,
                     directionDelta,
                     delta,
-                    _playerContinuousLocomotion.CollisionRadiusUnits,
+                    _playerFree2DLocomotion.CollisionRadiusUnits,
                     out var transition,
                     _tileFeatureDefinitions))
             {
@@ -2225,7 +2225,7 @@ namespace Game.Feature.Gameplay.Loop
                 lastMoveDirection = playerCommand.HeldMoveDirection == Direction.None
                     ? facing
                     : playerCommand.HeldMoveDirection,
-                speedUnitsPerTick = _playerContinuousLocomotion.SpeedUnitsPerTick,
+                speedUnitsPerTick = _playerFree2DLocomotion.SpeedUnitsPerTick,
                 mode = transition.TargetVelocity.IsZero
                     ? ContinuousLocomotionMode.Idle
                     : ContinuousLocomotionMode.Moving,
@@ -2597,7 +2597,7 @@ namespace Game.Feature.Gameplay.Loop
                 velocity = KinematicVelocity2.Zero,
                 facing = facing,
                 lastMoveDirection = facing == Direction.None ? null : facing,
-                speedUnitsPerTick = _playerContinuousLocomotion.SpeedUnitsPerTick,
+                speedUnitsPerTick = _playerFree2DLocomotion.SpeedUnitsPerTick,
                 mode = ContinuousLocomotionMode.Idle,
                 sequenceId = pose.State.sequenceId + 1,
             }.NormalizedForStorage();
@@ -2723,7 +2723,7 @@ namespace Game.Feature.Gameplay.Loop
                     snapshot,
                     entity.entityId,
                     delta,
-                    _playerContinuousLocomotion.CollisionRadiusUnits,
+                    _playerFree2DLocomotion.CollisionRadiusUnits,
                     out var sweep,
                     _tileFeatureDefinitions,
                     BlocksPlayerVoluntaryFree2DDestroyTile))
@@ -2923,8 +2923,8 @@ namespace Game.Feature.Gameplay.Loop
                                                 free2DPose.Value.State.localOffset.IsZero ||
                                                 IsWithinFree2DActionAssistSettleWindow(
                                                     free2DPose.Value.State.localOffset,
-                                                    PlayerContinuousLocomotionSettings.CreateDefault()
-                                                        .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+                                                    PlayerFree2DLocomotionAuthoring.CreateDefault()
+                                                        .Compile(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
                                                         .ActionAssistSettleWindowUnits);
                 if (withinAssistAttemptWindow &&
                     PlayerControlQueries.TryResolveBoxInteractionLockedTarget(
@@ -3194,7 +3194,7 @@ namespace Game.Feature.Gameplay.Loop
             if (!IsWithinFree2DActionAssistSettleWindow(pose.State.localOffset))
             {
                 rejectedReasons.Add(
-                    $"Free2DActionAssistRejected|Stage=Plan|Reason=OutsideSettleWindow|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|Offset={pose.LocalOffset}|Window={_playerContinuousLocomotion.ActionAssistSettleWindowUnits}");
+                    $"Free2DActionAssistRejected|Stage=Plan|Reason=OutsideSettleWindow|Source={entity.entityId}|Kind={actionKind}|Direction={playerCommand.MoveDirection}|Offset={pose.LocalOffset}|Window={_playerFree2DLocomotion.ActionAssistSettleWindowUnits}");
                 return false;
             }
 
@@ -3244,7 +3244,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private bool IsWithinFree2DActionAssistSettleWindow(KinematicOffset2 localOffset)
         {
-            var windowUnits = Math.Max(0, _playerContinuousLocomotion.ActionAssistSettleWindowUnits);
+            var windowUnits = Math.Max(0, _playerFree2DLocomotion.ActionAssistSettleWindowUnits);
             return Math.Abs(localOffset.X.RawValue) <= windowUnits &&
                 Math.Abs(localOffset.Y.RawValue) <= windowUnits;
         }
@@ -3417,12 +3417,12 @@ namespace Game.Feature.Gameplay.Loop
                 return 0;
             }
 
-            var rawUnits = _playerContinuousLocomotion.SpeedUnitsPerTick;
-            axisRemainder += _playerContinuousLocomotion.UnitsPerTickRemainder;
-            if (axisRemainder >= _playerContinuousLocomotion.TicksPerCell)
+            var rawUnits = _playerFree2DLocomotion.SpeedUnitsPerTick;
+            axisRemainder += _playerFree2DLocomotion.UnitsPerTickRemainder;
+            if (axisRemainder >= _playerFree2DLocomotion.TicksPerCell)
             {
                 rawUnits++;
-                axisRemainder -= _playerContinuousLocomotion.TicksPerCell;
+                axisRemainder -= _playerFree2DLocomotion.TicksPerCell;
             }
 
             var step = Math.Min(Math.Abs(offsetRaw), rawUnits);
@@ -3463,14 +3463,14 @@ namespace Game.Feature.Gameplay.Loop
         {
             nextRemainderX = sourceState.subUnitRemainderX;
             nextRemainderY = sourceState.subUnitRemainderY;
-            var rawUnits = _playerContinuousLocomotion.SpeedUnitsPerTick;
+            var rawUnits = _playerFree2DLocomotion.SpeedUnitsPerTick;
             if (directionDelta.x != 0)
             {
-                nextRemainderX += _playerContinuousLocomotion.UnitsPerTickRemainder;
-                if (nextRemainderX >= _playerContinuousLocomotion.TicksPerCell)
+                nextRemainderX += _playerFree2DLocomotion.UnitsPerTickRemainder;
+                if (nextRemainderX >= _playerFree2DLocomotion.TicksPerCell)
                 {
                     rawUnits++;
-                    nextRemainderX -= _playerContinuousLocomotion.TicksPerCell;
+                    nextRemainderX -= _playerFree2DLocomotion.TicksPerCell;
                 }
 
                 facing = directionDelta.x > 0 ? Direction.Right : Direction.Left;
@@ -3479,11 +3479,11 @@ namespace Game.Feature.Gameplay.Loop
                     KinematicFixed.Zero);
             }
 
-            nextRemainderY += _playerContinuousLocomotion.UnitsPerTickRemainder;
-            if (nextRemainderY >= _playerContinuousLocomotion.TicksPerCell)
+            nextRemainderY += _playerFree2DLocomotion.UnitsPerTickRemainder;
+            if (nextRemainderY >= _playerFree2DLocomotion.TicksPerCell)
             {
                 rawUnits++;
-                nextRemainderY -= _playerContinuousLocomotion.TicksPerCell;
+                nextRemainderY -= _playerFree2DLocomotion.TicksPerCell;
             }
 
             facing = directionDelta.y > 0 ? Direction.Up : Direction.Down;

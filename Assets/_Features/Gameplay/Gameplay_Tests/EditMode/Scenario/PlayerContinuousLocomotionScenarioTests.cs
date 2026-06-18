@@ -2147,8 +2147,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(clampedState.localOffset.X.RawValue, Is.GreaterThan(0));
             Assert.That(
                 clampedState.localOffset.X.RawValue,
-                Is.LessThanOrEqualTo(PlayerContinuousLocomotionSettings.CreateDefault()
-                    .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+                Is.LessThanOrEqualTo(PlayerFree2DLocomotionAuthoring.CreateDefault()
+                    .Compile(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
                     .ActionAssistSettleWindowUnits));
 
             pipeline.RunTick(new TickInput(3, PlayerTickCommand.Push(Direction.Right)));
@@ -3078,10 +3078,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
-                {
-                    CollisionRadiusCells = collisionRadiusCells,
-                }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond));
+                playerFree2DLocomotion: CreatePlayerFree2DLocomotion(collisionRadiusCells, timingProfile.SimulationTicksPerSecond));
         }
 
         private static TickPipeline CreatePipelineWithCollisionRadius(
@@ -3099,10 +3096,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
-                {
-                    CollisionRadiusCells = collisionRadiusCells,
-                }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond),
+                playerFree2DLocomotion: CreatePlayerFree2DLocomotion(collisionRadiusCells, timingProfile.SimulationTicksPerSecond),
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
@@ -3120,10 +3114,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
-                {
-                    CollisionRadiusCells = collisionRadiusCells,
-                }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond));
+                playerFree2DLocomotion: CreatePlayerFree2DLocomotion(collisionRadiusCells, timingProfile.SimulationTicksPerSecond));
         }
 
         private static TickPipeline CreateNativeTopologyPipelineWithCollisionRadius(
@@ -3141,10 +3132,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
-                {
-                    CollisionRadiusCells = collisionRadiusCells,
-                }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond),
+                playerFree2DLocomotion: CreatePlayerFree2DLocomotion(collisionRadiusCells, timingProfile.SimulationTicksPerSecond),
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
@@ -3174,10 +3162,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                playerContinuousLocomotion: new PlayerContinuousLocomotionSettings
-                {
-                    CollisionRadiusCells = collisionRadiusCells,
-                }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond));
+                playerFree2DLocomotion: CreatePlayerFree2DLocomotion(collisionRadiusCells, timingProfile.SimulationTicksPerSecond));
         }
 
         private static void SetPlayerContinuousLocalOffset(
@@ -3204,9 +3189,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static int DefaultFree2DSpeedUnitsPerTick()
         {
-            return PlayerContinuousLocomotionSettings.CreateDefault()
-                .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+            return PlayerFree2DLocomotionAuthoring.CreateDefault()
+                .Compile(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
                 .SpeedUnitsPerTick;
+        }
+
+        private static PlayerFree2DLocomotionSettings CreatePlayerFree2DLocomotion(
+            float collisionRadiusCells,
+            int simulationTicksPerSecond)
+        {
+            var playerFree2DLocomotion = PlayerFree2DLocomotionAuthoring.CreateDefault();
+            playerFree2DLocomotion.CollisionRadiusCells = collisionRadiusCells;
+            return playerFree2DLocomotion.Compile(simulationTicksPerSecond);
         }
 
         private static int BoundaryFootprintRadiusUnits()
@@ -3239,10 +3233,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int radiusUnits,
             int speedUnitsPerTick)
         {
-            var configuredRadius = new PlayerContinuousLocomotionSettings
-            {
-                CollisionRadiusCells = BoundaryFootprintRadiusCells(),
-            }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond).CollisionRadiusUnits;
+            var configuredRadius = CreatePlayerFree2DLocomotion(
+                BoundaryFootprintRadiusCells(),
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond).CollisionRadiusUnits;
             Assert.That(configuredRadius, Is.EqualTo(radiusUnits));
 
             var sourceThresholdY = KinematicFixed.HalfCellUnits - radiusUnits;

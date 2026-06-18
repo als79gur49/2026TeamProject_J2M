@@ -70,7 +70,7 @@ namespace Game.Feature.Gameplay.Host
             var generalTimingProfile = configuration.CreateTimingProfile();
             var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
             var unitKinematicLocomotionTiming = configuration.CreateUnitKinematicLocomotionTimingSnapshot();
-            var playerContinuousLocomotion = configuration.CreatePlayerContinuousLocomotionSnapshot();
+            var playerFree2DLocomotion = configuration.CreatePlayerFree2DLocomotionSettings();
             var playerRespawnTiming = configuration.CreatePlayerRespawnTimingSnapshot();
             var enemyAiRuntime = configuration.CreateEnemyAiRuntimeSnapshot();
             var enemyPresentationArchetypeRegistry = configuration.CreateEnemyPresentationArchetypeRegistry(enemyAiRuntime);
@@ -115,7 +115,7 @@ namespace Game.Feature.Gameplay.Host
                 allowPlayerRespawn: !configuration.DisablePlayerRespawn,
                 runtimeFeatureFlags: configuration.CreateRuntimeFeatureFlags(),
                 unitKinematicLocomotionTiming: unitKinematicLocomotionTiming,
-                playerContinuousLocomotion: playerContinuousLocomotion,
+                playerFree2DLocomotion: playerFree2DLocomotion,
                 tileFeatureDefinitions: tileFeatureDefinitions,
                 moonBlockRespawnDefinitions: moonBlockRespawnDefinitions,
                 demoGameplayOverrideSnapshotSource: demoGameplayOverrideRuntime);

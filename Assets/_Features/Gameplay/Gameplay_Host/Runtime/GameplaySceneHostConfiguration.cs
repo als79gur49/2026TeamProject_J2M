@@ -159,8 +159,8 @@ namespace Game.Feature.Gameplay.Host
         public PlayerControlTimingSettings PlayerControlTiming = PlayerControlTimingSettings.CreateDefault();
         public UnitKinematicLocomotionTimingSettings UnitKinematicLocomotionTiming =
             UnitKinematicLocomotionTimingSettings.CreateDefault();
-        public PlayerContinuousLocomotionSettings PlayerContinuousLocomotion =
-            PlayerContinuousLocomotionSettings.CreateDefault();
+        public PlayerFree2DLocomotionAuthoring PlayerFree2DLocomotion =
+            PlayerFree2DLocomotionAuthoring.CreateDefault();
         public PlayerRespawnTimingSettings PlayerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();
         public float MoveMotionDurationSeconds = -1f;
         public float PushMotionDurationSeconds = -1f;
@@ -242,10 +242,10 @@ namespace Game.Feature.Gameplay.Host
                 .CreateAuthoritativeSnapshot(SimulationTicksPerSecond);
         }
 
-        public PlayerContinuousLocomotionSnapshot CreatePlayerContinuousLocomotionSnapshot()
+        public PlayerFree2DLocomotionSettings CreatePlayerFree2DLocomotionSettings()
         {
-            return ResolvePlayerContinuousLocomotionSettings()
-                .CreateAuthoritativeSnapshot(SimulationTicksPerSecond);
+            return ResolvePlayerFree2DLocomotionAuthoring()
+                .Compile(SimulationTicksPerSecond);
         }
 
         public GameplayRuntimeFeatureFlags CreateRuntimeFeatureFlags()
@@ -412,10 +412,9 @@ namespace Game.Feature.Gameplay.Host
                    UnitKinematicLocomotionTimingSettings.CreateDefault();
         }
 
-        private PlayerContinuousLocomotionSettings ResolvePlayerContinuousLocomotionSettings()
+        private PlayerFree2DLocomotionAuthoring ResolvePlayerFree2DLocomotionAuthoring()
         {
-            return PlayerContinuousLocomotion?.Clone() ??
-                   PlayerContinuousLocomotionSettings.CreateDefault();
+            return PlayerFree2DLocomotion;
         }
 
         private PlayerRespawnTimingSettings ResolvePlayerRespawnTimingSettings()

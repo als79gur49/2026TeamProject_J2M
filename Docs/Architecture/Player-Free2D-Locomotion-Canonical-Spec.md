@@ -13,3 +13,5 @@ Push and Flip are explicit player actions, not ordinary Move modes. Their input 
 Topology transition presentation lock remains an input admission boundary. While topology presentation is locked, additional tick input is not admitted.
 
 Allowed uses of Kinematic terminology are non-player ordinary locomotion scopes: shared fixed-point motion state, enemy ordinary/charge/glide locomotion, and presentation-only helpers. Player ordinary locomotion must not add a Kinematic fallback, Discrete fallback, locomotion mode enum, or runtime feature flag.
+
+Player Free2D owns its authoring values, runtime settings, defaults, validation, production serialized configuration, and host composition snapshot. `PlayerFree2DLocomotionAuthoring` serializes Player Free2D policy and compiles to `PlayerFree2DLocomotionSettings`; it must not use `UnitKinematicLocomotionTimingSettings`, `EnemyLocomotionTimingSettings`, or enemy presets as defaults or fallback sources. Equal numeric timing values between Player and non-player locomotion do not imply shared policy ownership.

@@ -199,7 +199,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 allowPlayerRespawn: true,
                 runtimeFeatureFlags: default,
                 unitKinematicLocomotionTiming: default,
-                playerContinuousLocomotion: default,
+                playerFree2DLocomotion: default,
                 tileFeatureDefinitions: tileFeatureDefinitions,
                 tileEffectResolver: tileEffectResolver);
         }

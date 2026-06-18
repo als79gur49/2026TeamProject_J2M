@@ -15,6 +15,8 @@ namespace Game.Feature.Gameplay.Timing
         [SerializeField] private PlayerControlTimingSettings playerControlTiming = PlayerControlTimingSettings.CreateDefault();
         [SerializeField] private UnitKinematicLocomotionTimingSettings unitKinematicLocomotionTiming =
             UnitKinematicLocomotionTimingSettings.CreateDefault();
+        [SerializeField] private PlayerFree2DLocomotionAuthoring playerFree2DLocomotion =
+            PlayerFree2DLocomotionAuthoring.CreateDefault();
         [SerializeField] private PlayerRespawnTimingSettings playerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();
         [SerializeField] private float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds;
         [SerializeField] private float boxSlideStepIntervalSeconds = GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
@@ -32,6 +34,7 @@ namespace Game.Feature.Gameplay.Timing
             configuration.InitialMoveDelaySeconds = initialMoveDelaySeconds;
             configuration.PlayerControlTiming = playerControlTiming.Clone();
             configuration.UnitKinematicLocomotionTiming = unitKinematicLocomotionTiming.Clone();
+            configuration.PlayerFree2DLocomotion = playerFree2DLocomotion;
             configuration.PlayerRespawnTiming = playerRespawnTiming.Clone();
             configuration.RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds;
             configuration.BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds;
@@ -71,6 +74,7 @@ namespace Game.Feature.Gameplay.Timing
 
             playerControlTiming.Validate(repeatedMoveIntervalSeconds);
             unitKinematicLocomotionTiming.Validate();
+            playerFree2DLocomotion.Validate();
             playerRespawnTiming.Validate();
         }
 

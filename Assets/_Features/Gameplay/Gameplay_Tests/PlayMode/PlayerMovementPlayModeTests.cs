@@ -479,7 +479,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 },
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             var firstTick = host.InputHost.RunSingleTick();
@@ -493,8 +493,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));
             Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
 
-            var ticksPerCell = PlayerContinuousLocomotionSettings.CreateDefault()
-                .CreateAuthoritativeSnapshot(host.TimingProfile.SimulationTicksPerSecond)
+            var ticksPerCell = PlayerFree2DLocomotionAuthoring.CreateDefault()
+                .Compile(host.TimingProfile.SimulationTicksPerSecond)
                 .TicksPerCell;
             RunTicksAssertingNoBlockingPresentation(host, ticksPerCell - 2);
             AssertAuthoritativePosition(host, entityId: 10, new SurfaceCell(FaceId.Floor, 1, 0));
@@ -1377,7 +1377,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 playerControlTiming: CreateFlipTimingSettings(
                     flipExecuteDelayTicks: 1,
                     flipInputLockDurationTicks: 1),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
 
             host.InputHost.SetRawMoveInput(Vector2.left);
             host.InputHost.BufferFlip();
@@ -1408,8 +1408,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(followupMoveTick, Is.Not.Null);
             host.Presenter.UpdatePresentation(0f);
             Assert.That(driver.CurrentState, Is.Not.EqualTo(PlayerViewAnimationState.Flip));
-            RunTicksAssertingNoBlockingPresentation(host, PlayerContinuousLocomotionSettings.CreateDefault()
-                .CreateAuthoritativeSnapshot(host.TimingProfile.SimulationTicksPerSecond)
+            RunTicksAssertingNoBlockingPresentation(host, PlayerFree2DLocomotionAuthoring.CreateDefault()
+                .Compile(host.TimingProfile.SimulationTicksPerSecond)
                 .TicksPerCell - 1);
 
             var snapshot = CaptureAuthoritativeSnapshot(host);

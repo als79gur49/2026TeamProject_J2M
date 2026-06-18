@@ -19,7 +19,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             IReadOnlyList<TickInput> inputs,
             IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects = null,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
+            PlayerFree2DLocomotionSettings playerFree2DLocomotion = default)
         {
             var entityLogicList = new List<IEntityLogic>(entityLogics);
             var timingProfile = GameplayTimingProfile.CreateDefault();
@@ -35,7 +35,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     timingProfile,
                     playerControlTiming,
                     runtimeFeatureFlags: runtimeFeatureFlags,
-                    playerContinuousLocomotion: playerContinuousLocomotion);
+                    playerFree2DLocomotion: playerFree2DLocomotion);
                 return Run(pipeline, entityLogicList, inputs, initialDelayedAttackEffects);
             }
             finally
@@ -51,7 +51,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             IReadOnlyList<TickInput> inputs,
             IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects = null,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            PlayerContinuousLocomotionSnapshot playerContinuousLocomotion = default)
+            PlayerFree2DLocomotionSettings playerFree2DLocomotion = default)
         {
             if (bootstrapper == null)
             {
@@ -69,7 +69,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 timingProfile,
                 playerControlTiming,
                 runtimeFeatureFlags: runtimeFeatureFlags,
-                playerContinuousLocomotion: playerContinuousLocomotion);
+                playerFree2DLocomotion: playerFree2DLocomotion);
             return Run(pipeline, entityLogicList, inputs, initialDelayedAttackEffects);
         }
 

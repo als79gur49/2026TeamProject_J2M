@@ -29,9 +29,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 RespawnDelaySeconds = 0.45f,
             };
+            var sourcePlayerFree2DLocomotion = PlayerFree2DLocomotionAuthoring.CreateDefault();
+            sourcePlayerFree2DLocomotion.SecondsPerCellAtFullSpeed = 0.4f;
+            sourcePlayerFree2DLocomotion.CollisionRadiusCells = 0.125f;
+            sourcePlayerFree2DLocomotion.ActionAssistSettleWindowCells = 0.1875f;
             var preset = CreateSimulationTimingPreset(
                 initialMoveDelaySeconds: 0f,
                 playerControlTiming: sourceTiming,
+                playerFree2DLocomotion: sourcePlayerFree2DLocomotion,
                 playerRespawnTiming: sourceRespawnTiming,
                 repeatedMoveIntervalSeconds: 0.6f,
                 boxSlideStepIntervalSeconds: 0.2f,
@@ -43,6 +48,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     InitialMoveDelaySeconds = 0f,
                     PlayerControlTiming = sourceTiming.Clone(),
+                    PlayerFree2DLocomotion = sourcePlayerFree2DLocomotion,
                     PlayerRespawnTiming = sourceRespawnTiming.Clone(),
                     RepeatedMoveIntervalSeconds = 0.6f,
                     BoxSlideStepIntervalSeconds = 0.2f,
@@ -71,6 +77,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     presetConfiguration.CreatePlayerRespawnTimingSnapshot().RespawnDelayTicks,
                     Is.EqualTo(directConfiguration.CreatePlayerRespawnTimingSnapshot().RespawnDelayTicks));
+                AssertPlayerFree2DLocomotionSettingsEqual(
+                    directConfiguration.CreatePlayerFree2DLocomotionSettings(),
+                    presetConfiguration.CreatePlayerFree2DLocomotionSettings());
 
                 presetConfiguration.PlayerControlTiming.MoveCooldownSeconds = 9f;
                 Assert.That(sourceTiming.MoveCooldownSeconds, Is.EqualTo(0.5f));
@@ -162,6 +171,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplaySimulationTimingPreset_PlayerFree2DTiming_IsIndependentFromUnitKinematicTiming()
+        {
+            var playerFree2DLocomotion = PlayerFree2DLocomotionAuthoring.CreateDefault();
+            playerFree2DLocomotion.SecondsPerCellAtFullSpeed = 0.33333334f;
+            var unitKinematicLocomotionTiming = new UnitKinematicLocomotionTimingSettings
+            {
+                MoveDurationSeconds = 0.5f,
+            };
+            var preset = CreateSimulationTimingPreset(
+                playerFree2DLocomotion: playerFree2DLocomotion,
+                unitKinematicLocomotionTiming: unitKinematicLocomotionTiming);
+
+            try
+            {
+                var configuration = new GameplaySceneHostConfiguration();
+
+                preset.ApplyTo(configuration);
+
+                Assert.That(configuration.CreatePlayerFree2DLocomotionSettings().TicksPerCell, Is.EqualTo(20));
+                Assert.That(configuration.CreateUnitKinematicLocomotionTimingSnapshot().TicksPerCell, Is.EqualTo(30));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(preset);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PlayerControlTimingSettings_CreateDefault_UsesPhaseAlignedExecuteAndRecoveryWindows()
         {
             var snapshot = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
@@ -201,12 +239,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 configuration.CreateUnitKinematicLocomotionTimingSnapshot().TicksPerCell,
                 Is.EqualTo(20));
+            Assert.That(
+                configuration.CreatePlayerFree2DLocomotionSettings().SecondsPerCellAtFullSpeed,
+                Is.EqualTo(0.33333334f));
+            Assert.That(
+                configuration.CreatePlayerFree2DLocomotionSettings().TicksPerCell,
+                Is.EqualTo(20));
+            Assert.That(
+                configuration.CreatePlayerFree2DLocomotionSettings().SpeedUnitsPerTick,
+                Is.EqualTo(204));
         }
 
         private static GameplaySimulationTimingPreset CreateSimulationTimingPreset(
             float initialMoveDelaySeconds = 0f,
             PlayerControlTimingSettings playerControlTiming = null,
             UnitKinematicLocomotionTimingSettings unitKinematicLocomotionTiming = null,
+            PlayerFree2DLocomotionAuthoring? playerFree2DLocomotion = null,
             PlayerRespawnTimingSettings playerRespawnTiming = null,
             float repeatedMoveIntervalSeconds = 0.6f,
             float boxSlideStepIntervalSeconds = 0.2f,
@@ -216,6 +264,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(preset, "initialMoveDelaySeconds", initialMoveDelaySeconds);
             SetPrivateField(preset, "playerControlTiming", playerControlTiming ?? PlayerControlTimingSettings.CreateDefault());
             SetPrivateField(preset, "unitKinematicLocomotionTiming", unitKinematicLocomotionTiming ?? UnitKinematicLocomotionTimingSettings.CreateDefault());
+            SetPrivateField(preset, "playerFree2DLocomotion", playerFree2DLocomotion ?? PlayerFree2DLocomotionAuthoring.CreateDefault());
             SetPrivateField(preset, "playerRespawnTiming", playerRespawnTiming ?? PlayerRespawnTimingSettings.CreateDefault());
             SetPrivateField(preset, "repeatedMoveIntervalSeconds", repeatedMoveIntervalSeconds);
             SetPrivateField(preset, "boxSlideStepIntervalSeconds", boxSlideStepIntervalSeconds);
@@ -270,6 +319,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actual.FlipInputLockDurationTicks, Is.EqualTo(expected.FlipInputLockDurationTicks));
             Assert.That(actual.FlipWindupTicks, Is.EqualTo(expected.FlipWindupTicks));
             Assert.That(actual.FlipRecoveryTicks, Is.EqualTo(expected.FlipRecoveryTicks));
+        }
+
+        private static void AssertPlayerFree2DLocomotionSettingsEqual(
+            PlayerFree2DLocomotionSettings expected,
+            PlayerFree2DLocomotionSettings actual)
+        {
+            Assert.That(actual.SecondsPerCellAtFullSpeed, Is.EqualTo(expected.SecondsPerCellAtFullSpeed));
+            Assert.That(actual.TicksPerCell, Is.EqualTo(expected.TicksPerCell));
+            Assert.That(actual.SpeedUnitsPerTick, Is.EqualTo(expected.SpeedUnitsPerTick));
+            Assert.That(actual.UnitsPerTickRemainder, Is.EqualTo(expected.UnitsPerTickRemainder));
+            Assert.That(actual.CollisionRadiusUnits, Is.EqualTo(expected.CollisionRadiusUnits));
+            Assert.That(actual.ActionAssistSettleWindowUnits, Is.EqualTo(expected.ActionAssistSettleWindowUnits));
         }
     }
 }

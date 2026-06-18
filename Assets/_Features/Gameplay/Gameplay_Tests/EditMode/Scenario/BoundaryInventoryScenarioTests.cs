@@ -2806,8 +2806,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static int DefaultFree2DSpeedUnitsPerTick()
         {
-            return PlayerContinuousLocomotionSettings.CreateDefault()
-                .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+            return PlayerFree2DLocomotionAuthoring.CreateDefault()
+                .Compile(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
                 .SpeedUnitsPerTick;
         }
 

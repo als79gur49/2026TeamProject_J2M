@@ -3,15 +3,24 @@ using Game.Feature.Gameplay.BoardState;
 
 namespace Game.Feature.Gameplay.Loop
 {
-    public readonly struct PlayerContinuousLocomotionSnapshot
+    public static class PlayerFree2DLocomotionDefaults
     {
-        public PlayerContinuousLocomotionSnapshot(
-            float moveDurationSecondsPerCell,
+        public const float SecondsPerCellAtFullSpeed = 0.33333334f;
+        public const float MaxSecondsPerCellAtFullSpeed = 2f;
+        public const float CollisionRadiusCells = 0f;
+        public const float ActionAssistSettleWindowCells = 0.125f;
+        public const int MinTicksPerCell = 2;
+    }
+
+    public readonly struct PlayerFree2DLocomotionSettings
+    {
+        public PlayerFree2DLocomotionSettings(
+            float secondsPerCellAtFullSpeed,
             int ticksPerCell,
             int speedUnitsPerTick,
             int unitsPerTickRemainder)
             : this(
-                moveDurationSecondsPerCell,
+                secondsPerCellAtFullSpeed,
                 ticksPerCell,
                 speedUnitsPerTick,
                 unitsPerTickRemainder,
@@ -19,14 +28,14 @@ namespace Game.Feature.Gameplay.Loop
         {
         }
 
-        public PlayerContinuousLocomotionSnapshot(
-            float moveDurationSecondsPerCell,
+        public PlayerFree2DLocomotionSettings(
+            float secondsPerCellAtFullSpeed,
             int ticksPerCell,
             int speedUnitsPerTick,
             int unitsPerTickRemainder,
             int collisionRadiusUnits)
             : this(
-                moveDurationSecondsPerCell,
+                secondsPerCellAtFullSpeed,
                 ticksPerCell,
                 speedUnitsPerTick,
                 unitsPerTickRemainder,
@@ -35,15 +44,15 @@ namespace Game.Feature.Gameplay.Loop
         {
         }
 
-        public PlayerContinuousLocomotionSnapshot(
-            float moveDurationSecondsPerCell,
+        public PlayerFree2DLocomotionSettings(
+            float secondsPerCellAtFullSpeed,
             int ticksPerCell,
             int speedUnitsPerTick,
             int unitsPerTickRemainder,
             int collisionRadiusUnits,
             int actionAssistSettleWindowUnits)
         {
-            MoveDurationSecondsPerCell = moveDurationSecondsPerCell;
+            SecondsPerCellAtFullSpeed = secondsPerCellAtFullSpeed;
             TicksPerCell = ticksPerCell;
             SpeedUnitsPerTick = speedUnitsPerTick;
             UnitsPerTickRemainder = unitsPerTickRemainder;
@@ -51,7 +60,7 @@ namespace Game.Feature.Gameplay.Loop
             ActionAssistSettleWindowUnits = Math.Max(0, actionAssistSettleWindowUnits);
         }
 
-        public float MoveDurationSecondsPerCell { get; }
+        public float SecondsPerCellAtFullSpeed { get; }
 
         public int TicksPerCell { get; }
 
@@ -66,56 +75,44 @@ namespace Game.Feature.Gameplay.Loop
         public bool IsConfigured => TicksPerCell > 0 && SpeedUnitsPerTick > 0;
 
         private static int DefaultActionAssistSettleWindowUnits => (int)Math.Round(
-            PlayerContinuousLocomotionSettings.DefaultActionAssistSettleWindowCells *
+            PlayerFree2DLocomotionDefaults.ActionAssistSettleWindowCells *
             KinematicFixed.UnitsPerCell,
             MidpointRounding.AwayFromZero);
     }
 
     [Serializable]
-    public sealed class PlayerContinuousLocomotionSettings
+    public struct PlayerFree2DLocomotionAuthoring
     {
-        public const float DefaultMoveDurationSecondsPerCell =
-            UnitKinematicLocomotionTimingSettings.DefaultMoveDurationSeconds;
-        public const float DefaultCollisionRadiusCells = 0f;
-        public const float DefaultActionAssistSettleWindowCells = 0.125f;
-        public const float MaxMoveDurationSecondsPerCell = UnitKinematicLocomotionTimingSettings.MaxMoveDurationSeconds;
-        public const int MinTicksPerCell = 2;
+        public float SecondsPerCellAtFullSpeed;
+        public float CollisionRadiusCells;
+        public float ActionAssistSettleWindowCells;
 
-        public float MoveDurationSecondsPerCell = DefaultMoveDurationSecondsPerCell;
-        public float CollisionRadiusCells = DefaultCollisionRadiusCells;
-        public float ActionAssistSettleWindowCells = DefaultActionAssistSettleWindowCells;
-
-        public static PlayerContinuousLocomotionSettings CreateDefault()
+        public static PlayerFree2DLocomotionAuthoring CreateDefault()
         {
-            return new PlayerContinuousLocomotionSettings();
-        }
-
-        public PlayerContinuousLocomotionSettings Clone()
-        {
-            return new PlayerContinuousLocomotionSettings
+            return new PlayerFree2DLocomotionAuthoring
             {
-                MoveDurationSecondsPerCell = MoveDurationSecondsPerCell,
-                CollisionRadiusCells = CollisionRadiusCells,
-                ActionAssistSettleWindowCells = ActionAssistSettleWindowCells,
+                SecondsPerCellAtFullSpeed = PlayerFree2DLocomotionDefaults.SecondsPerCellAtFullSpeed,
+                CollisionRadiusCells = PlayerFree2DLocomotionDefaults.CollisionRadiusCells,
+                ActionAssistSettleWindowCells = PlayerFree2DLocomotionDefaults.ActionAssistSettleWindowCells,
             };
         }
 
         public void Validate()
         {
-            if (float.IsNaN(MoveDurationSecondsPerCell) ||
-                float.IsInfinity(MoveDurationSecondsPerCell) ||
-                MoveDurationSecondsPerCell <= 0f)
+            if (float.IsNaN(SecondsPerCellAtFullSpeed) ||
+                float.IsInfinity(SecondsPerCellAtFullSpeed) ||
+                SecondsPerCellAtFullSpeed <= 0f)
             {
                 throw new ArgumentOutOfRangeException(
-                    nameof(MoveDurationSecondsPerCell),
-                    "Player continuous move duration must be greater than zero.");
+                    nameof(SecondsPerCellAtFullSpeed),
+                    "Player Free2D seconds per cell at full speed must be greater than zero.");
             }
 
-            if (MoveDurationSecondsPerCell > MaxMoveDurationSecondsPerCell)
+            if (SecondsPerCellAtFullSpeed > PlayerFree2DLocomotionDefaults.MaxSecondsPerCellAtFullSpeed)
             {
                 throw new ArgumentOutOfRangeException(
-                    nameof(MoveDurationSecondsPerCell),
-                    "Player continuous move duration exceeds the supported maximum.");
+                    nameof(SecondsPerCellAtFullSpeed),
+                    "Player Free2D seconds per cell at full speed exceeds the supported maximum.");
             }
 
             if (float.IsNaN(CollisionRadiusCells) ||
@@ -124,14 +121,14 @@ namespace Game.Feature.Gameplay.Loop
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(CollisionRadiusCells),
-                    "Player continuous collision radius must be zero or greater.");
+                    "Player Free2D collision radius must be zero or greater.");
             }
 
             if (CollisionRadiusCells >= 0.5f)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(CollisionRadiusCells),
-                    "Player continuous collision radius must be less than half a cell.");
+                    "Player Free2D collision radius must be less than half a cell.");
             }
 
             if (float.IsNaN(ActionAssistSettleWindowCells) ||
@@ -140,26 +137,26 @@ namespace Game.Feature.Gameplay.Loop
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(ActionAssistSettleWindowCells),
-                    "Player continuous action assist settle window must be zero or greater.");
+                    "Player Free2D action assist settle window must be zero or greater.");
             }
 
             if (ActionAssistSettleWindowCells >= 0.5f)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(ActionAssistSettleWindowCells),
-                    "Player continuous action assist settle window must be less than half a cell.");
+                    "Player Free2D action assist settle window must be less than half a cell.");
             }
         }
 
-        public PlayerContinuousLocomotionSnapshot CreateAuthoritativeSnapshot(
+        public PlayerFree2DLocomotionSettings Compile(
             int simulationTicksPerSecond)
         {
             Validate();
 
             var ticksPerCell = GameplayTimingProfile.SecondsToEvenCeilTicks(
-                MoveDurationSecondsPerCell,
+                SecondsPerCellAtFullSpeed,
                 simulationTicksPerSecond,
-                MinTicksPerCell);
+                PlayerFree2DLocomotionDefaults.MinTicksPerCell);
             var speedUnitsPerTick = Math.Max(1, KinematicFixed.UnitsPerCell / ticksPerCell);
             var remainder = KinematicFixed.UnitsPerCell % ticksPerCell;
             var collisionRadiusUnits = (int)Math.Round(
@@ -168,8 +165,8 @@ namespace Game.Feature.Gameplay.Loop
             var actionAssistSettleWindowUnits = (int)Math.Round(
                 ActionAssistSettleWindowCells * KinematicFixed.UnitsPerCell,
                 MidpointRounding.AwayFromZero);
-            return new PlayerContinuousLocomotionSnapshot(
-                MoveDurationSecondsPerCell,
+            return new PlayerFree2DLocomotionSettings(
+                SecondsPerCellAtFullSpeed,
                 ticksPerCell,
                 speedUnitsPerTick,
                 remainder,

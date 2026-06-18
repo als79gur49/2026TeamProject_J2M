@@ -476,7 +476,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     allowPlayerRespawn: true,
                     runtimeFeatureFlags: default,
                     unitKinematicLocomotionTiming: default,
-                    playerContinuousLocomotion: default,
+                    playerFree2DLocomotion: default,
                     tileFeatureDefinitions: CreateTileFeatureDefinitions(),
                     moonBlockRespawnDefinitions: new[] { CreateRespawnDefinition(template) });
         }

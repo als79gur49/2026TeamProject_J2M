@@ -5412,7 +5412,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 allowPlayerRespawn: true,
                 runtimeFeatureFlags: runtimeFeatureFlags,
                 unitKinematicLocomotionTiming: default,
-                playerContinuousLocomotion: default,
+                playerFree2DLocomotion: default,
                 tileFeatureDefinitions: tileFeatureDefinitions,
                 moonBlockRespawnDefinitions: null,
                 tileEffectResolver: tileEffectResolver);

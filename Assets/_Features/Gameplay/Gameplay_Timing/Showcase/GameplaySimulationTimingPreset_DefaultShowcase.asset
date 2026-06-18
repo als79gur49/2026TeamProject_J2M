@@ -22,6 +22,10 @@ MonoBehaviour:
     FlipInputLockDurationSeconds: 0.95
   unitKinematicLocomotionTiming:
     MoveDurationSeconds: 0.33333334
+  playerFree2DLocomotion:
+    SecondsPerCellAtFullSpeed: 0.33333334
+    CollisionRadiusCells: 0
+    ActionAssistSettleWindowCells: 0.125
   playerRespawnTiming:
     RespawnDelaySeconds: 0.75
   repeatedMoveIntervalSeconds: 0.6

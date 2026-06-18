@@ -1447,8 +1447,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static int BoundaryRadiusSpeedUnitsPerTick()
         {
-            return PlayerContinuousLocomotionSettings.CreateDefault()
-                .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+            return PlayerFree2DLocomotionAuthoring.CreateDefault()
+                .Compile(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
                 .SpeedUnitsPerTick;
         }
 
@@ -1457,10 +1457,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int radiusUnits,
             int speedUnitsPerTick)
         {
-            var configuredRadius = new PlayerContinuousLocomotionSettings
-            {
-                CollisionRadiusCells = BoundaryFootprintRadiusCells(),
-            }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond).CollisionRadiusUnits;
+            var playerFree2DLocomotion = PlayerFree2DLocomotionAuthoring.CreateDefault();
+            playerFree2DLocomotion.CollisionRadiusCells = BoundaryFootprintRadiusCells();
+            var configuredRadius = playerFree2DLocomotion
+                .Compile(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+                .CollisionRadiusUnits;
             Assert.That(configuredRadius, Is.EqualTo(radiusUnits));
 
             var sourceThresholdY = KinematicFixed.HalfCellUnits - radiusUnits;
