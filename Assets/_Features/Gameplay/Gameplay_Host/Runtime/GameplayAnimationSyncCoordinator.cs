@@ -604,8 +604,7 @@ namespace Game.Feature.Gameplay.Host
                 completedThisTick: false,
                 canceledThisTick: request.AnimationPayload.PhaseKind == PresentationAnimationPhaseKind.Failed,
                 shouldPlayWalkLoop: false,
-                isRecoveryPhase: phase == PlayerPresentationPhase.PushRecovery ||
-                                 phase == PlayerPresentationPhase.FlipRecovery,
+                isRecoveryPhase: request.AnimationPayload.PhaseKind == PresentationAnimationPhaseKind.Recovery,
                 didDie: false,
                 didDieThisTick: false,
                 tookDamageThisTick: false,
