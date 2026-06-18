@@ -406,15 +406,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             WorldState worldState,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags)
         {
+            var profile = EnemyAiProfileTestFactory.CreateNonAttacking();
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateTickPipeline(
-                worldState,
-                Array.Empty<IEntityLogic>(),
-                timingProfile,
-                PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
-                    timingProfile.SimulationTicksPerSecond,
-                    timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: runtimeFeatureFlags);
+            try
+            {
+                return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+                    worldState,
+                    Array.Empty<IEntityLogic>(),
+                    timingProfile,
+                    PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                        timingProfile.SimulationTicksPerSecond,
+                        timingProfile.RepeatedMoveIntervalSeconds),
+                    runtimeFeatureFlags: runtimeFeatureFlags);
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
         }
 
         private static TickPipeline CreatePipeline(WorldState worldState, EnemyAiProfile profile)
