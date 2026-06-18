@@ -438,6 +438,7 @@ namespace Game.Feature.Gameplay.Host
             GameplayTimingProfile timingProfile)
         {
             var signals = result.PresentationData.PlayerFlipResultTurnSignals;
+            RemoveSupersededPlayerFlipResultTurnTracks(signals);
             for (var i = 0; i < signals.Count; i++)
             {
                 var signal = signals[i];
@@ -483,6 +484,39 @@ namespace Game.Feature.Gameplay.Host
 
                 track.Append(RotationClip.Create(contactPose.Rotation, resultPose.Rotation, durationSeconds));
                 _trackState.PlayerFlipResultTurnTracks[signal.EntityId] = track;
+            }
+        }
+
+        private void RemoveSupersededPlayerFlipResultTurnTracks(
+            IReadOnlyList<TickPlayerFlipResultTurnSignal> signals)
+        {
+            if (_trackState.PlayerFlipResultTurnTracks.Count == 0)
+            {
+                return;
+            }
+
+            var signalEntityIds = new HashSet<int>();
+            for (var i = 0; i < signals.Count; i++)
+            {
+                signalEntityIds.Add(signals[i].EntityId);
+            }
+
+            var supersededEntityIds = new List<int>();
+            foreach (var pair in _trackState.PlayerFlipResultTurnTracks)
+            {
+                if (signalEntityIds.Contains(pair.Key) ||
+                    !_stateStore.CommittedLocalTargetPoses.TryGetValue(pair.Key, out var committedPose) ||
+                    Quaternion.Angle(committedPose.Rotation, pair.Value.TailEndValue) <= 0.01f)
+                {
+                    continue;
+                }
+
+                supersededEntityIds.Add(pair.Key);
+            }
+
+            for (var i = 0; i < supersededEntityIds.Count; i++)
+            {
+                _trackState.PlayerFlipResultTurnTracks.Remove(supersededEntityIds[i]);
             }
         }
 
