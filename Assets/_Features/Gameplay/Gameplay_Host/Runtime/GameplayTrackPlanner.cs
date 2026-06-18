@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
 using UnityEngine;
 
@@ -819,7 +820,16 @@ namespace Game.Feature.Gameplay.Host
                 var motion = presentationData.EntityMotions[i];
                 if (suppressBoxMotionTracks && IsBoxMotionFamily(motion.MotionKind))
                 {
+                    _trackState.BoxMotionTelemetry.RecordLegacyBoxSourcePlanningSkipped(
+                        ToBoxMotionFactKind(motion.MotionKind),
+                        tickIndex: 0,
+                        motion.EntityId);
                     continue;
+                }
+
+                if (suppressBoxMotionTracks)
+                {
+                    _trackState.BoxMotionTelemetry.RecordLegacyUnrelatedMotionTrackRetained();
                 }
 
                 if (kinematicEntityIds != null &&
@@ -1729,6 +1739,19 @@ namespace Game.Feature.Gameplay.Host
                    motionKind == TickEntityMotionKind.Flip;
         }
 
+        private static PresentationMotionFactKind ToBoxMotionFactKind(TickEntityMotionKind motionKind)
+        {
+            switch (motionKind)
+            {
+                case TickEntityMotionKind.BoxSlide:
+                    return PresentationMotionFactKind.BoxSlide;
+                case TickEntityMotionKind.Flip:
+                    return PresentationMotionFactKind.BoxFlip;
+                default:
+                    return PresentationMotionFactKind.None;
+            }
+        }
+
         private void RefreshOriginalViewMotionTracks(
             TickResult result,
             GameplayCubeProjector projector,
@@ -1778,6 +1801,11 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (suppressBoxMotionTracks)
                 {
+                    var skippedSignal = flipImpactSignals[i];
+                    _trackState.BoxMotionTelemetry.RecordLegacyBoxSourcePlanningSkipped(
+                        PresentationMotionFactKind.BoxFlipImpact,
+                        result.TickIndex,
+                        skippedSignal.BoxEntityId);
                     continue;
                 }
 

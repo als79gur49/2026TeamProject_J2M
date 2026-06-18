@@ -69,6 +69,125 @@ namespace Game.Feature.Gameplay.Host
         public GameplayMotionTrackPlannerPlaybackPortDiagnostics DefaultAdapterDiagnostics { get; }
     }
 
+    internal readonly struct BoxMotionProductionTelemetrySnapshot
+    {
+        public BoxMotionProductionTelemetrySnapshot(
+            BoxMotionPresentationExecutionMode currentMode,
+            bool isProductionDefaultOwner,
+            BoxMotionPresentationExecutionMode productionDefaultMode,
+            BoxMotionPresentationExecutionMode rollbackMode,
+            int lastTickIndex,
+            PresentationMotionCueKey lastCueKey,
+            int lastDedupeKey,
+            int lastTargetEntityId,
+            PresentationMotionFactKind lastMotionFactKind,
+            BoxMotionTelemetryFailureReason lastFailureReason,
+            BoxMotionTelemetryCleanupReason lastCleanupReason,
+            int legacyOwnerAttemptCount,
+            int legacyOwnerSkippedByPolicyCount,
+            int executorOwnerAttemptCount,
+            int executorOwnerExecutedCount,
+            int duplicateOwnerAttemptCount,
+            int duplicateSuppressedCount,
+            int playbackTrackPlannedCount,
+            int playbackTrackRequestedCount,
+            int playbackTrackStartedCount,
+            int playbackTrackCompletedCount,
+            int playbackTrackCanceledCount,
+            int playbackTrackIgnoredCount,
+            int activeTrackCount,
+            int pendingTrackCount,
+            int completedTrackKeyCount,
+            GameplayMotionTrackPlannerPlaybackPortDiagnostics adapterDiagnostics,
+            BoxMotionCleanupDiagnostics cleanupDiagnostics,
+            int targetMissingCount,
+            int anchorMissingCount,
+            int bindingMissingCount,
+            int driverMissingCount,
+            int portMissingCount,
+            int unsupportedSemanticCount,
+            int legacyBoxSourcePlanningSkippedCount,
+            int legacyUnrelatedMotionTrackRetainedCount,
+            IReadOnlyList<BoxMotionSemanticDiagnostics> semanticDiagnostics)
+        {
+            CurrentMode = currentMode;
+            IsProductionDefaultOwner = isProductionDefaultOwner;
+            ProductionDefaultMode = productionDefaultMode;
+            RollbackMode = rollbackMode;
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastCueKey = lastCueKey;
+            LastDedupeKey = lastDedupeKey;
+            LastTargetEntityId = Math.Max(0, lastTargetEntityId);
+            LastMotionFactKind = lastMotionFactKind;
+            LastFailureReason = lastFailureReason;
+            LastCleanupReason = lastCleanupReason;
+            LegacyOwnerAttemptCount = Math.Max(0, legacyOwnerAttemptCount);
+            LegacyOwnerSkippedByPolicyCount = Math.Max(0, legacyOwnerSkippedByPolicyCount);
+            ExecutorOwnerAttemptCount = Math.Max(0, executorOwnerAttemptCount);
+            ExecutorOwnerExecutedCount = Math.Max(0, executorOwnerExecutedCount);
+            DuplicateOwnerAttemptCount = Math.Max(0, duplicateOwnerAttemptCount);
+            DuplicateSuppressedCount = Math.Max(0, duplicateSuppressedCount);
+            PlaybackTrackPlannedCount = Math.Max(0, playbackTrackPlannedCount);
+            PlaybackTrackRequestedCount = Math.Max(0, playbackTrackRequestedCount);
+            PlaybackTrackStartedCount = Math.Max(0, playbackTrackStartedCount);
+            PlaybackTrackCompletedCount = Math.Max(0, playbackTrackCompletedCount);
+            PlaybackTrackCanceledCount = Math.Max(0, playbackTrackCanceledCount);
+            PlaybackTrackIgnoredCount = Math.Max(0, playbackTrackIgnoredCount);
+            ActiveTrackCount = Math.Max(0, activeTrackCount);
+            PendingTrackCount = Math.Max(0, pendingTrackCount);
+            CompletedTrackKeyCount = Math.Max(0, completedTrackKeyCount);
+            AdapterDiagnostics = adapterDiagnostics;
+            CleanupDiagnostics = cleanupDiagnostics;
+            TargetMissingCount = Math.Max(0, targetMissingCount);
+            AnchorMissingCount = Math.Max(0, anchorMissingCount);
+            BindingMissingCount = Math.Max(0, bindingMissingCount);
+            DriverMissingCount = Math.Max(0, driverMissingCount);
+            PortMissingCount = Math.Max(0, portMissingCount);
+            UnsupportedSemanticCount = Math.Max(0, unsupportedSemanticCount);
+            LegacyBoxSourcePlanningSkippedCount = Math.Max(0, legacyBoxSourcePlanningSkippedCount);
+            LegacyUnrelatedMotionTrackRetainedCount = Math.Max(0, legacyUnrelatedMotionTrackRetainedCount);
+            SemanticDiagnostics = semanticDiagnostics ?? Array.Empty<BoxMotionSemanticDiagnostics>();
+        }
+
+        public BoxMotionPresentationExecutionMode CurrentMode { get; }
+        public bool IsProductionDefaultOwner { get; }
+        public BoxMotionPresentationExecutionMode ProductionDefaultMode { get; }
+        public BoxMotionPresentationExecutionMode RollbackMode { get; }
+        public int LastTickIndex { get; }
+        public PresentationMotionCueKey LastCueKey { get; }
+        public int LastDedupeKey { get; }
+        public int LastTargetEntityId { get; }
+        public PresentationMotionFactKind LastMotionFactKind { get; }
+        public BoxMotionTelemetryFailureReason LastFailureReason { get; }
+        public BoxMotionTelemetryCleanupReason LastCleanupReason { get; }
+        public int LegacyOwnerAttemptCount { get; }
+        public int LegacyOwnerSkippedByPolicyCount { get; }
+        public int ExecutorOwnerAttemptCount { get; }
+        public int ExecutorOwnerExecutedCount { get; }
+        public int DuplicateOwnerAttemptCount { get; }
+        public int DuplicateSuppressedCount { get; }
+        public int PlaybackTrackPlannedCount { get; }
+        public int PlaybackTrackRequestedCount { get; }
+        public int PlaybackTrackStartedCount { get; }
+        public int PlaybackTrackCompletedCount { get; }
+        public int PlaybackTrackCanceledCount { get; }
+        public int PlaybackTrackIgnoredCount { get; }
+        public int ActiveTrackCount { get; }
+        public int PendingTrackCount { get; }
+        public int CompletedTrackKeyCount { get; }
+        public GameplayMotionTrackPlannerPlaybackPortDiagnostics AdapterDiagnostics { get; }
+        public BoxMotionCleanupDiagnostics CleanupDiagnostics { get; }
+        public int TargetMissingCount { get; }
+        public int AnchorMissingCount { get; }
+        public int BindingMissingCount { get; }
+        public int DriverMissingCount { get; }
+        public int PortMissingCount { get; }
+        public int UnsupportedSemanticCount { get; }
+        public int LegacyBoxSourcePlanningSkippedCount { get; }
+        public int LegacyUnrelatedMotionTrackRetainedCount { get; }
+        public IReadOnlyList<BoxMotionSemanticDiagnostics> SemanticDiagnostics { get; }
+    }
+
     public sealed class GameplayTickPresentationCoordinator
     {
         private static readonly IReadOnlyList<TilePresentationRequest> EmptyTilePresentationRequests =
@@ -327,7 +446,10 @@ namespace Game.Feature.Gameplay.Host
                 _exitPresentationController,
                 _moonBlockDestructionPresentationController,
                 _entityPresentationApplier);
-            _boxMotionTrackPlannerPlaybackPort = new GameplayMotionTrackPlannerPlaybackPort(_planner, _stateStore);
+            _boxMotionTrackPlannerPlaybackPort = new GameplayMotionTrackPlannerPlaybackPort(
+                _planner,
+                _stateStore,
+                _trackState);
             _playerActionAnimationSyncPlaybackPort =
                 new GameplayAnimationSyncPlaybackPort(_animationSync, _stateStore);
             _enemyPresentationSyncPlaybackPort =
@@ -496,6 +618,9 @@ namespace Game.Feature.Gameplay.Host
                 _trackState.FlipInteractionResetRequests.Count,
                 _trackState.CompletedFlipInteractionTrackIds.Count,
                 _boxMotionTrackPlannerPlaybackPort?.Diagnostics ?? default);
+
+        internal BoxMotionProductionTelemetrySnapshot BoxMotionProductionTelemetrySnapshot =>
+            BuildBoxMotionProductionTelemetrySnapshot();
 
         internal GameplayAnimationExecutorDiagnostics PlayerActionAnimationExecutorDiagnostics =>
             ResolvePlayerActionAnimationExecutorDiagnostics();
@@ -854,7 +979,7 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
-            ClearBoxMotionPresentationRuntimeState();
+            ClearBoxMotionPresentationRuntimeState(BoxMotionTelemetryCleanupReason.ResetSession);
             _trackState.ResetSession();
             _utilityWindupVfxPresenter.Initialize(viewBinder.SearchRoot);
             _animationSync.Reset();
@@ -1748,7 +1873,7 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
-            ClearBoxMotionPresentationRuntimeState();
+            ClearBoxMotionPresentationRuntimeState(BoxMotionTelemetryCleanupReason.PresentInitial);
             _trackState.ResetSession();
             _exitPresentationController.Reset();
             _moonBlockDestructionPresentationController.ResetSession();
@@ -2336,7 +2461,7 @@ namespace Game.Feature.Gameplay.Host
             _actionAudioExecutionGuard.ResetSession();
             _enemyAudioExecutionPipeline?.HardCleanup();
             _enemyAudioExecutionGuard.ResetSession();
-            ClearBoxMotionPresentationRuntimeState();
+            ClearBoxMotionPresentationRuntimeState(BoxMotionTelemetryCleanupReason.HardCleanupPresentationExtensions);
             _presentationPipeline?.HardCleanup();
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
@@ -2344,9 +2469,9 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void ClearBoxMotionPresentationRuntimeState()
+        private void ClearBoxMotionPresentationRuntimeState(BoxMotionTelemetryCleanupReason reason)
         {
-            _entityPresentationApplier.ResetBoxFlipInteractionsForKnownViews();
+            var resetResult = _entityPresentationApplier.ResetBoxFlipInteractionsForKnownViews();
             _trackState.FlipInteractionResetRequests.Clear();
 
             var boxEntityIds = new List<int>();
@@ -2358,16 +2483,27 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
+            var staleTrackClearedCount = 0;
+            var staleCompletedKeyClearedCount = 0;
             for (var i = 0; i < boxEntityIds.Count; i++)
             {
                 var entityId = boxEntityIds[i];
-                _trackState.LocalMotionTracks.Remove(entityId);
+                if (_trackState.LocalMotionTracks.Remove(entityId))
+                {
+                    staleTrackClearedCount++;
+                }
+
                 _trackState.MotionVisualScaleEntityIds.Remove(entityId);
-                _trackState.OriginalViewMotionTracks.Remove(entityId);
+                if (_trackState.OriginalViewMotionTracks.Remove(entityId))
+                {
+                    staleTrackClearedCount++;
+                }
+
                 _trackState.CompletedMotionTrackIds.Remove(entityId);
                 _trackState.CompletedMotionVisualScaleEntityIds.Remove(entityId);
                 _trackState.CompletedOriginalViewMotionTrackIds.Remove(entityId);
-                _trackState.CompletedPresentationMotionKeys.RemoveWhere(key => key.EntityId == entityId);
+                staleCompletedKeyClearedCount +=
+                    _trackState.CompletedPresentationMotionKeys.RemoveWhere(key => key.EntityId == entityId);
             }
 
             _trackState.CompletedFlipInteractionTrackIds.Clear();
@@ -2381,10 +2517,18 @@ namespace Game.Feature.Gameplay.Host
 
             for (var i = 0; i < _trackState.CompletedFlipInteractionTrackIds.Count; i++)
             {
-                _trackState.FlipInteractionTracks.Remove(_trackState.CompletedFlipInteractionTrackIds[i]);
+                if (_trackState.FlipInteractionTracks.Remove(_trackState.CompletedFlipInteractionTrackIds[i]))
+                {
+                    staleTrackClearedCount++;
+                }
             }
 
             _trackState.CompletedFlipInteractionTrackIds.Clear();
+            _trackState.BoxMotionTelemetry.RecordCleanup(
+                reason,
+                resetResult,
+                staleTrackClearedCount,
+                staleCompletedKeyClearedCount);
         }
 
         private void PresentDiagnosticsPipelineIfEnabled(TickResult result)
@@ -2714,6 +2858,132 @@ namespace Game.Feature.Gameplay.Host
                 if (executors[i] is GameplayMotionPresentationExecutor executor)
                 {
                     return executor.Diagnostics;
+                }
+            }
+
+            return default;
+        }
+
+        private BoxMotionProductionTelemetrySnapshot BuildBoxMotionProductionTelemetrySnapshot()
+        {
+            var ownership = _boxMotionExecutionGuard.Diagnostics;
+            var executor = ResolveBoxMotionExecutorDiagnostics();
+            var runtime = BoxMotionRuntimeDebugSnapshot;
+            var telemetry = _trackState.BoxMotionTelemetry;
+            var cleanup = telemetry.CleanupDiagnostics;
+            var plannedCount = executor.ObservedTrackCount;
+            var requestedCount = executor.PlaybackRequestedCount;
+            var startedCount = executor.TrackStartedCount;
+            var activeTrackCount =
+                runtime.ActiveLocalMotionTrackCount +
+                runtime.ActiveOriginalViewMotionTrackCount +
+                runtime.FlipInteractionTrackCount;
+            var pendingTrackCount = Math.Max(0, requestedCount - startedCount);
+
+            return new BoxMotionProductionTelemetrySnapshot(
+                _boxMotionExecutionMode,
+                _boxMotionExecutionMode == BoxMotionPresentationExecutionDefaults.ProductionDefault,
+                BoxMotionPresentationExecutionDefaults.ProductionDefault,
+                BoxMotionPresentationExecutionDefaults.LegacyFallback,
+                executor.LastTickIndex,
+                executor.LastCueKey,
+                executor.LastDedupeKey,
+                executor.LastTargetEntityId,
+                executor.LastMotionFactKind,
+                executor.LastFailureReason,
+                cleanup.LastCleanupReason,
+                ownership.LegacyAttemptCount,
+                ownership.SkippedLegacyBecauseExecutorOwnerCount,
+                ownership.ExecutorAttemptCount,
+                ownership.ExecutedByExecutorCount,
+                ownership.DuplicateAttemptCount,
+                Math.Max(executor.DuplicateSuppressedCount, ownership.DuplicateAttemptCount),
+                plannedCount,
+                requestedCount,
+                startedCount,
+                telemetry.PlaybackTrackCompletedCount,
+                telemetry.PlaybackTrackCanceledCount,
+                telemetry.PlaybackTrackIgnoredCount,
+                activeTrackCount,
+                pendingTrackCount,
+                runtime.CompletedPresentationMotionKeyCount,
+                runtime.DefaultAdapterDiagnostics,
+                cleanup,
+                executor.TargetMissingCount,
+                executor.AnchorMissingCount,
+                executor.BindingMissingCount,
+                executor.DriverMissingCount,
+                executor.MissingPortCount,
+                executor.UnsupportedSemanticCount,
+                telemetry.LegacyBoxSourcePlanningSkippedCount,
+                telemetry.LegacyUnrelatedMotionTrackRetainedCount,
+                MergeBoxMotionSemanticDiagnostics(executor.SemanticDiagnostics, telemetry.SemanticDiagnostics));
+        }
+
+        private static IReadOnlyList<BoxMotionSemanticDiagnostics> MergeBoxMotionSemanticDiagnostics(
+            IReadOnlyList<BoxMotionSemanticDiagnostics> executorDiagnostics,
+            IReadOnlyList<BoxMotionSemanticDiagnostics> runtimeDiagnostics)
+        {
+            var result = new BoxMotionSemanticDiagnostics[3];
+            result[0] = MergeBoxMotionSemanticDiagnostics(
+                PresentationMotionFactKind.BoxSlide,
+                PresentationMotionCueKey.BoxSlide,
+                executorDiagnostics,
+                runtimeDiagnostics);
+            result[1] = MergeBoxMotionSemanticDiagnostics(
+                PresentationMotionFactKind.BoxFlip,
+                PresentationMotionCueKey.BoxFlip,
+                executorDiagnostics,
+                runtimeDiagnostics);
+            result[2] = MergeBoxMotionSemanticDiagnostics(
+                PresentationMotionFactKind.BoxFlipImpact,
+                PresentationMotionCueKey.BoxFlipImpact,
+                executorDiagnostics,
+                runtimeDiagnostics);
+            return result;
+        }
+
+        private static BoxMotionSemanticDiagnostics MergeBoxMotionSemanticDiagnostics(
+            PresentationMotionFactKind semantic,
+            PresentationMotionCueKey cueKey,
+            IReadOnlyList<BoxMotionSemanticDiagnostics> executorDiagnostics,
+            IReadOnlyList<BoxMotionSemanticDiagnostics> runtimeDiagnostics)
+        {
+            var executor = FindBoxMotionSemanticDiagnostics(executorDiagnostics, semantic);
+            var runtime = FindBoxMotionSemanticDiagnostics(runtimeDiagnostics, semantic);
+            var lastTickIndex = runtime.LastTickIndex > 0 ? runtime.LastTickIndex : executor.LastTickIndex;
+            var lastEntityId = runtime.LastEntityId > 0 ? runtime.LastEntityId : executor.LastEntityId;
+            var lastDedupeKey = runtime.LastDedupeKey != 0 ? runtime.LastDedupeKey : executor.LastDedupeKey;
+
+            return new BoxMotionSemanticDiagnostics(
+                semantic,
+                cueKey,
+                executor.PlannedCount,
+                executor.RequestedCount,
+                executor.StartedCount,
+                runtime.CompletedCount,
+                executor.DuplicateSuppressedCount,
+                executor.MissingDependencyCount + runtime.MissingDependencyCount,
+                runtime.CleanupCount,
+                lastTickIndex,
+                lastEntityId,
+                lastDedupeKey);
+        }
+
+        private static BoxMotionSemanticDiagnostics FindBoxMotionSemanticDiagnostics(
+            IReadOnlyList<BoxMotionSemanticDiagnostics> diagnostics,
+            PresentationMotionFactKind semantic)
+        {
+            if (diagnostics == null)
+            {
+                return default;
+            }
+
+            for (var i = 0; i < diagnostics.Count; i++)
+            {
+                if (diagnostics[i].Semantic == semantic)
+                {
+                    return diagnostics[i];
                 }
             }
 

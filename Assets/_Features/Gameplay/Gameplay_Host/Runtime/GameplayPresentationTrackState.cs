@@ -141,6 +141,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _playerLocomotionSignalsByEntityId = new();
         private readonly HashSet<int> _visibleEntityIds = new();
         private readonly Dictionary<int, VisibilityTrack> _visibilityTracks = new();
+        private readonly BoxMotionProductionTelemetryState _boxMotionTelemetry = new();
 
         public List<int> CompletedFlipInteractionTrackIds => _completedFlipInteractionTrackIds;
 
@@ -212,6 +213,8 @@ namespace Game.Feature.Gameplay.Host
         public HashSet<int> VisibleEntityIds => _visibleEntityIds;
 
         public Dictionary<int, VisibilityTrack> VisibilityTracks => _visibilityTracks;
+
+        public BoxMotionProductionTelemetryState BoxMotionTelemetry => _boxMotionTelemetry;
 
         public void ClearAirborneJumpTrackKeys(int entityId)
         {

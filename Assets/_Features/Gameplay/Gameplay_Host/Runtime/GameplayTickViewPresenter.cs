@@ -338,6 +338,9 @@ namespace Game.Feature.Gameplay.Host
         internal BoxMotionPresentationRuntimeDebugSnapshot BoxMotionRuntimeDebugSnapshot =>
             _presentationCoordinator.BoxMotionRuntimeDebugSnapshot;
 
+        internal BoxMotionProductionTelemetrySnapshot BoxMotionProductionTelemetrySnapshot =>
+            _presentationCoordinator.BoxMotionProductionTelemetrySnapshot;
+
         internal void DebugHardCleanupPresentationExtensions()
         {
             _presentationCoordinator.HardCleanupPresentationExtensions();
