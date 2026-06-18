@@ -1949,6 +1949,36 @@ namespace Game.Feature.Gameplay.Loop
             return (targetSemantic.Entity.boxCapabilities & BoxCapabilities.Item) == BoxCapabilities.Item;
         }
 
+        private static bool IsPlayerItemGridTransactionIntent(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            MoveIntent intent)
+        {
+            if (snapshot == null ||
+                intent == null ||
+                intent.CommandKind != Movement.MovementCommandKind.Move ||
+                intent.SourceId != entity.entityId)
+            {
+                return false;
+            }
+
+            var delta = intent.Destination - entity.position.PlanarPosition;
+            if (!snapshot.TryResolveUnitStep(
+                    entity.position,
+                    delta,
+                    out var destination,
+                    out var rotationKind,
+                    out var updatedTopology) ||
+                rotationKind != CubeRotationKind.None ||
+                !snapshot.TryGetSolidSemanticAt(updatedTopology, destination, out var targetSemantic) ||
+                targetSemantic.Kind != SolidKind.Box)
+            {
+                return false;
+            }
+
+            return (targetSemantic.Entity.boxCapabilities & BoxCapabilities.Item) == BoxCapabilities.Item;
+        }
+
         private bool HasDifferentUnitAt(
             WorldSnapshot snapshot,
             CubeTopologyState topology,
@@ -2087,6 +2117,12 @@ namespace Game.Feature.Gameplay.Loop
                         }
 
                         consumedFree2DIntentIds.Add(intent.IntentId);
+                        continue;
+                    }
+
+                    if (IsPlayerItemGridTransactionIntent(snapshot, entity, intent))
+                    {
+                        topologyHandoffPlayerIds.Add(entity.entityId);
                         continue;
                     }
 

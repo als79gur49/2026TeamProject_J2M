@@ -945,7 +945,19 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 itemConsumeEffectDurationSeconds: 0.3f);
 
             host.InputHost.SetRawMoveInput(Vector2.right);
-            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            TickResult consumeTick = null;
+            for (var i = 0; i < 40; i++)
+            {
+                consumeTick = host.InputHost.RunSingleTick();
+                Assert.That(consumeTick, Is.Not.Null);
+                if (!CaptureAuthoritativeSnapshot(host).TryGetEntity(30, out _))
+                {
+                    break;
+                }
+            }
+
+            Assert.That(consumeTick, Is.Not.Null);
+            Assert.That(CaptureAuthoritativeSnapshot(host).TryGetEntity(30, out _), Is.False);
             Assert.That(host.ViewRegistry.TryGetView(30, out var itemView), Is.True);
             Assert.That(itemView.gameObject.activeSelf, Is.False);
 
