@@ -27,8 +27,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var baselineWorld = CreateWorldState(initialEntities);
             var presentedWorld = CreateWorldState(initialEntities);
             var profile = EnemyAiProfileTestFactory.CreateNonAttacking();
-            var baselinePipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(baselineWorld);
-            var presentedPipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(presentedWorld);
+            var baselinePipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(baselineWorld);
+            var presentedPipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(presentedWorld);
             var rootObject = new GameObject("EnemyViewIsolationTests_Presenter");
 
             try
@@ -96,8 +96,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             };
             var baselineWorld = CreateWorldState(initialEntities);
             var presentedWorld = CreateWorldState(initialEntities);
-            var baselinePipeline = GameplayCompositionRoot.CreateTickPipeline(baselineWorld, CreateEnemyProfile(windupTicks: 1));
-            var presentedPipeline = GameplayCompositionRoot.CreateTickPipeline(presentedWorld, CreateEnemyProfile(windupTicks: 1));
+            var baselinePipeline = GameplayTestRuntimeFactory.CreateTickPipeline(baselineWorld, CreateEnemyProfile(windupTicks: 1));
+            var presentedPipeline = GameplayTestRuntimeFactory.CreateTickPipeline(presentedWorld, CreateEnemyProfile(windupTicks: 1));
             var rootObject = new GameObject("EnemyViewIsolationTests_Presenter_Windup");
 
             try
@@ -173,8 +173,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var presentedWorld = CreateWorldState(initialEntities);
             var baselineProfile = CreateChargingEnemyProfile(moveCooldownTicks: 2);
             var presentedProfile = CreateChargingEnemyProfile(moveCooldownTicks: 2);
-            var baselinePipeline = GameplayCompositionRoot.CreateTickPipeline(baselineWorld, baselineProfile);
-            var presentedPipeline = GameplayCompositionRoot.CreateTickPipeline(presentedWorld, presentedProfile);
+            var baselinePipeline = GameplayTestRuntimeFactory.CreateTickPipeline(baselineWorld, baselineProfile);
+            var presentedPipeline = GameplayTestRuntimeFactory.CreateTickPipeline(presentedWorld, presentedProfile);
             var rootObject = new GameObject("EnemyViewIsolationTests_Presenter_MotionAuthoring");
 
             try
@@ -348,7 +348,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
         }
 
-        private static GameplayBootstrapper CreateArchetypeBootstrapper(
+        private static GameplayTestBootstrapper CreateArchetypeBootstrapper(
             EnemyAiProfile defaultProfile,
             EnemyAiProfile summonerProfile,
             EnemyUnitArchetypeCatalog archetypeCatalog)
@@ -368,7 +368,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 EnemyUnitArchetypeCatalog = archetypeCatalog,
             }.CreateEnemyAiRuntimeSnapshot();
 
-            return new GameplayBootstrapper(
+            return new GameplayTestBootstrapper(
                 GameplayEntityLogicProviderFactory.CreateDefault(
                     runtimeSnapshot.DefaultDefinition,
                     runtimeSnapshot.DefinitionsByEntityId,

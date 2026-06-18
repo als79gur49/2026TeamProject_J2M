@@ -1820,7 +1820,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-                var bootstrapper = new GameplayBootstrapper(
+                var bootstrapper = new GameplayTestBootstrapper(
                     GameplayEntityLogicProviderFactory.CreateDefault(
                         definition,
                         definitionsByArchetypeId: new Dictionary<EnemyUnitArchetypeId, EnemyAiRuntimeDefinition>(EnemyUnitArchetypeId.EqualityComparer)
@@ -3071,7 +3071,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return effect;
         }
 
-        private static GameplayBootstrapper CreateSharedSummonBootstrapper(
+        private static GameplayTestBootstrapper CreateSharedSummonBootstrapper(
             EnemyAiProfile summonerProfile,
             out EnemyAiProfile defaultProfile,
             out EnemyUnitArchetypeCatalog archetypeCatalog)
@@ -3081,7 +3081,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return CreateArchetypeBootstrapper(defaultProfile, summonerProfile, archetypeCatalog);
         }
 
-        private static GameplayBootstrapper CreateArchetypeBootstrapper(
+        private static GameplayTestBootstrapper CreateArchetypeBootstrapper(
             EnemyAiProfile defaultProfile,
             EnemyAiProfile summonerProfile,
             EnemyUnitArchetypeCatalog archetypeCatalog)
@@ -3101,7 +3101,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 EnemyUnitArchetypeCatalog = archetypeCatalog,
             }.CreateEnemyAiRuntimeSnapshot();
 
-            return new GameplayBootstrapper(
+            return new GameplayTestBootstrapper(
                 GameplayEntityLogicProviderFactory.CreateDefault(
                     runtimeSnapshot.DefaultDefinition,
                     runtimeSnapshot.DefinitionsByEntityId,
@@ -3133,19 +3133,19 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         private static TickPipeline CreateReplayTickPipeline(WorldState worldState, params IEntityLogic[] entityLogics)
         {
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(GetReplayDefaultProfile())
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(GetReplayDefaultProfile())
                 .CreateTickPipeline(worldState, entityLogics ?? Array.Empty<IEntityLogic>());
         }
 
         private static TickPipeline CreateReplayTickPipeline(WorldState worldState, IReadOnlyList<IEntityLogic> entityLogics)
         {
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(GetReplayDefaultProfile())
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(GetReplayDefaultProfile())
                 .CreateTickPipeline(worldState, entityLogics ?? Array.Empty<IEntityLogic>());
         }
 
         private static TickPipeline CreateReplayTickPipeline(WorldState worldState, EnemyAiProfile profile)
         {
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
         }
 
         private static EnemyAiProfile GetReplayDefaultProfile()

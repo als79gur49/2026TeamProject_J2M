@@ -1037,7 +1037,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static TickPipeline CreateEnemyPipeline(WorldState worldState, EnemyAiProfile profile)
         {
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
         }
 
         private static UnitKinematicRuntimeState CreateNonSettledKinematicState()

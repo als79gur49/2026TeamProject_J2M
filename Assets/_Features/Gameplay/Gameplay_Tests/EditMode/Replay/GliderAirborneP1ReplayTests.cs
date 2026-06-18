@@ -58,7 +58,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 return harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateActiveSolidOverlapWorld(lockExecution: true),
                     entityLogics: Array.Empty<IEntityLogic>(),
                     Enumerable.Range(1, 4).Select(tick => new TickInput(tick)).ToArray(),
@@ -78,7 +78,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 return harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateExpiredActiveOnSolidWorld(),
                     entityLogics: Array.Empty<IEntityLogic>(),
                     Enumerable.Range(3, 8).Select(tick => new TickInput(tick)).ToArray(),
@@ -97,7 +97,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var worldState = CreateActiveSolidOverlapWorld(glideMoveTicks: 6, activeUntilTickExclusive: 2, wantsRecover: true);
-                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                var pipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile)
                     .CreateTickPipeline(
                         worldState,
                         Array.Empty<IEntityLogic>(),

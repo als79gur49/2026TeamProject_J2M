@@ -769,7 +769,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             GameplayTimingProfile timingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming)
         {
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 entityLogics,
                 timingProfile,

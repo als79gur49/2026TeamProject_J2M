@@ -156,7 +156,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var profile = LoadSecbotProfile();
             var timingProfile = GameplayTimingProfile.CreateDefault();
 
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,

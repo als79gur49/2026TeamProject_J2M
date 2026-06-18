@@ -202,7 +202,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 EnemyUnitArchetypeCatalog = catalog,
             }.CreateEnemyAiRuntimeSnapshot();
 
-            return new GameplayBootstrapper(
+            return new GameplayTestBootstrapper(
                     GameplayEntityLogicProviderFactory.CreateDefault(
                         runtimeSnapshot.DefaultDefinition,
                         runtimeSnapshot.DefinitionsByEntityId,

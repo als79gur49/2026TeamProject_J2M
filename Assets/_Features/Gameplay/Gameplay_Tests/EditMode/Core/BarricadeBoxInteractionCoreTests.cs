@@ -213,8 +213,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                 allowPlayerRespawn: true,
                 runtimeFeatureFlags: default,
                 unitKinematicLocomotionTiming: default,
-                playerFree2DLocomotion: PlayerFree2DLocomotionAuthoring.CreateDefault()
-                    .Compile(timingProfile.SimulationTicksPerSecond),
+                playerFree2DLocomotion: PlayerFree2DTestSettingsFactory.CreateDefault(
+                    timingProfile.SimulationTicksPerSecond),
                 tileFeatureDefinitions: tileFeatureDefinitions,
                 tileEffectResolver: null);
         }

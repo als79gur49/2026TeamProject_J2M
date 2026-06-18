@@ -1439,7 +1439,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 auraPipeline.RunTick(new TickInput(2));
                 auraPipeline.RunTick(new TickInput(3));
 
-                GameplayCompositionRoot.CreateTickPipeline(staticWorldState).RunTick(new TickInput(3));
+                GameplayTestRuntimeFactory.CreateTickPipeline(staticWorldState).RunTick(new TickInput(3));
 
                 var auraSnapshot = auraWorldState.CreateSnapshot();
                 var staticSnapshot = staticWorldState.CreateSnapshot();
@@ -1655,7 +1655,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 1, aiMode: EnemyAiMode.None, facing: Direction.Left),
                 });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -6562,7 +6562,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
 
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,
@@ -6583,7 +6583,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
 
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 entityLogics ?? Array.Empty<IEntityLogic>(),
                 timingProfile,
@@ -6617,7 +6617,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
 
-            return new GameplayBootstrapper(
+            return new GameplayTestBootstrapper(
                     GameplayEntityLogicProviderFactory.CreateDefault(runtimeDefinition))
                 .CreateTickPipeline(
                     worldState,
@@ -7223,7 +7223,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             EnemyAiProfile profile,
             params IEntityLogic[] entityLogics)
         {
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 entityLogics ?? Array.Empty<IEntityLogic>(),
                 GameplayTimingProfile.CreateDefault(),
@@ -7238,7 +7238,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             WorldState worldState,
             params IEntityLogic[] entityLogics)
         {
-            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
                 entityLogics ?? Array.Empty<IEntityLogic>(),
                 GameplayTimingProfile.CreateDefault(),
@@ -7260,7 +7260,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
 
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 entityLogics ?? Array.Empty<IEntityLogic>(),
                 timingProfile,
@@ -7275,7 +7275,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             EnemyAiRuntimeDefinition runtimeDefinition,
             params IEntityLogic[] entityLogics)
         {
-            return new GameplayBootstrapper(
+            return new GameplayTestBootstrapper(
                 GameplayEntityLogicProviderFactory.CreateDefault(runtimeDefinition))
                 .CreateTickPipeline(
                     worldState,
@@ -7389,7 +7389,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 EnemyUnitArchetypeCatalog = archetypeCatalog,
             }.CreateEnemyAiRuntimeSnapshot();
 
-            return new GameplayBootstrapper(
+            return new GameplayTestBootstrapper(
                 GameplayEntityLogicProviderFactory.CreateDefault(
                     runtimeSnapshot.DefaultDefinition,
                     runtimeSnapshot.DefinitionsByEntityId,
@@ -7399,7 +7399,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .CreateTickPipeline(worldState);
         }
 
-        private static GameplayBootstrapper CreateSharedSummonBootstrapper(
+        private static GameplayTestBootstrapper CreateSharedSummonBootstrapper(
             EnemyAiProfile summonerProfile,
             out EnemyAiProfile defaultProfile,
             out EnemyUnitArchetypeCatalog archetypeCatalog,
@@ -7423,7 +7423,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 EnemyUnitArchetypeCatalog = archetypeCatalog,
             }.CreateEnemyAiRuntimeSnapshot();
 
-            return new GameplayBootstrapper(
+            return new GameplayTestBootstrapper(
                 GameplayEntityLogicProviderFactory.CreateDefault(
                     runtimeSnapshot.DefaultDefinition,
                     runtimeSnapshot.DefinitionsByEntityId,

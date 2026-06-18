@@ -6983,7 +6983,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 MoveDurationSeconds = 1f / timingProfile.SimulationTicksPerSecond,
             }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
 
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,

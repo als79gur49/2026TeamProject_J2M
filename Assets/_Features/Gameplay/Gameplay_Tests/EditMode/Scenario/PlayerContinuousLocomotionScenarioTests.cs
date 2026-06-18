@@ -2955,7 +2955,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void Player_Free2D_DefaultGameplay_UsesContinuousState()
         {
             var worldState = CreateWorldState(CreatePlayer(10));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 CreatePlayerLogics(),
                 GameplayTimingProfile.CreateDefault(),
@@ -2996,7 +2996,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static TickPipeline CreatePipeline(WorldState worldState, params IEntityLogic[] extraLogics)
         {
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 CreatePlayerLogics(extraLogics),
                 GameplayTimingProfile.CreateDefault(),
@@ -3012,7 +3012,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             params IEntityLogic[] extraLogics)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
                 CreatePlayerLogics(extraLogics),
                 timingProfile,
@@ -3025,7 +3025,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static TickPipeline CreateDefaultGameplayPipeline(WorldState worldState, params IEntityLogic[] extraLogics)
         {
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 CreatePlayerLogics(extraLogics),
                 GameplayTimingProfile.CreateDefault(),
@@ -3041,7 +3041,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             params IEntityLogic[] extraLogics)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
                 CreatePlayerLogics(extraLogics),
                 timingProfile,
@@ -3054,7 +3054,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static TickPipeline CreateNativeTopologyPipeline(WorldState worldState, params IEntityLogic[] extraLogics)
         {
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 CreatePlayerLogics(extraLogics),
                 GameplayTimingProfile.CreateDefault(),
@@ -3070,7 +3070,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             params IEntityLogic[] extraLogics)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 CreatePlayerLogics(extraLogics),
                 timingProfile,
@@ -3088,7 +3088,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             params IEntityLogic[] extraLogics)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
                 CreatePlayerLogics(extraLogics),
                 timingProfile,
@@ -3106,7 +3106,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             params IEntityLogic[] extraLogics)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 CreatePlayerLogics(extraLogics),
                 timingProfile,
@@ -3124,7 +3124,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             params IEntityLogic[] extraLogics)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
                 CreatePlayerLogics(extraLogics),
                 timingProfile,
@@ -3138,7 +3138,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static TickPipeline CreateActionAssistPipeline(WorldState worldState, params IEntityLogic[] extraLogics)
         {
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 CreatePlayerLogics(extraLogics),
                 GameplayTimingProfile.CreateDefault(),
@@ -3154,7 +3154,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             params IEntityLogic[] extraLogics)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 CreatePlayerLogics(extraLogics),
                 timingProfile,

@@ -162,6 +162,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 typeof(ISnapshotEntityLogicProvider),
                 typeof(GameplayTimingProfile),
                 typeof(PlayerControlTimingAuthoritativeSnapshot),
+                typeof(PlayerFree2DLocomotionSettings),
             };
             var constructor = typeof(TickPipeline)
                 .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
@@ -194,87 +195,93 @@ namespace Game.Feature.Gameplay.Tests.Core
                     typeof(ISnapshotEntityLogicProvider),
                     typeof(GameplayTimingProfile),
                     typeof(PlayerControlTimingAuthoritativeSnapshot),
+                    typeof(PlayerFree2DLocomotionSettings),
                 },
-                parameters.Take(5).Select(parameter => parameter.ParameterType).ToArray());
-            Assert.That(parameters.Skip(5).All(parameter => parameter.IsOptional), Is.True);
+                parameters.Take(6).Select(parameter => parameter.ParameterType).ToArray());
+            Assert.That(parameters[5].IsOptional, Is.False);
+            Assert.That(parameters.Skip(6).All(parameter => parameter.IsOptional), Is.True);
         }
 
         [Test]
         [Category("Extended")]
-        public void GameplayCompositionRoot_ExposesDefaultPipelineAssemblyApi()
+        public void GameplayCompositionRoot_DoesNotExposeDefaultPipelineAssemblyApi()
         {
             var defaultBootstrapperFactory = typeof(GameplayCompositionRoot).GetMethod(
-                nameof(GameplayCompositionRoot.CreateDefaultBootstrapper),
+                "CreateDefaultBootstrapper",
                 BindingFlags.Static | BindingFlags.Public,
                 binder: null,
                 types: Type.EmptyTypes,
                 modifiers: null);
             var defaultBootstrapperWithProfileFactory = typeof(GameplayCompositionRoot).GetMethod(
-                nameof(GameplayCompositionRoot.CreateDefaultBootstrapper),
+                "CreateDefaultBootstrapper",
                 BindingFlags.Static | BindingFlags.Public,
                 binder: null,
                 types: new[] { typeof(EnemyAiProfile) },
                 modifiers: null);
             var worldOnlyFactory = typeof(GameplayCompositionRoot).GetMethod(
-                nameof(GameplayCompositionRoot.CreateTickPipeline),
+                "CreateTickPipeline",
                 BindingFlags.Static | BindingFlags.Public,
                 binder: null,
                 types: new[] { typeof(WorldState) },
                 modifiers: null);
             var worldAndLogicFactory = typeof(GameplayCompositionRoot).GetMethod(
-                nameof(GameplayCompositionRoot.CreateTickPipeline),
+                "CreateTickPipeline",
                 BindingFlags.Static | BindingFlags.Public,
                 binder: null,
                 types: new[] { typeof(WorldState), typeof(IEnumerable<IEntityLogic>) },
                 modifiers: null);
             var runnerFactory = typeof(GameplayCompositionRoot).GetMethod(
-                nameof(GameplayCompositionRoot.CreateTickRunner),
+                "CreateTickRunner",
                 BindingFlags.Static | BindingFlags.Public,
                 binder: null,
                 types: new[] { typeof(WorldState), typeof(TickInputBuffer) },
                 modifiers: null);
             var runnerWithLogicFactory = typeof(GameplayCompositionRoot).GetMethod(
-                nameof(GameplayCompositionRoot.CreateTickRunner),
+                "CreateTickRunner",
                 BindingFlags.Static | BindingFlags.Public,
                 binder: null,
                 types: new[] { typeof(WorldState), typeof(IEnumerable<IEntityLogic>), typeof(TickInputBuffer), typeof(int) },
                 modifiers: null);
 
-            Assert.That(defaultBootstrapperFactory, Is.Not.Null);
-            Assert.That(defaultBootstrapperFactory.ReturnType, Is.EqualTo(typeof(GameplayBootstrapper)));
-            Assert.That(defaultBootstrapperWithProfileFactory, Is.Not.Null);
-            Assert.That(defaultBootstrapperWithProfileFactory.ReturnType, Is.EqualTo(typeof(GameplayBootstrapper)));
-            Assert.That(worldOnlyFactory, Is.Not.Null);
-            Assert.That(worldOnlyFactory.ReturnType, Is.EqualTo(typeof(TickPipeline)));
-            Assert.That(worldAndLogicFactory, Is.Not.Null);
-            Assert.That(worldAndLogicFactory.ReturnType, Is.EqualTo(typeof(TickPipeline)));
-            Assert.That(runnerFactory, Is.Not.Null);
-            Assert.That(runnerFactory.ReturnType, Is.EqualTo(typeof(TickRunner)));
-            Assert.That(runnerWithLogicFactory, Is.Not.Null);
-            Assert.That(runnerWithLogicFactory.ReturnType, Is.EqualTo(typeof(TickRunner)));
+            Assert.That(defaultBootstrapperFactory, Is.Null);
+            Assert.That(defaultBootstrapperWithProfileFactory, Is.Null);
+            Assert.That(worldOnlyFactory, Is.Null);
+            Assert.That(worldAndLogicFactory, Is.Null);
+            Assert.That(runnerFactory, Is.Null);
+            Assert.That(runnerWithLogicFactory, Is.Null);
         }
 
         [Test]
         [Category("Extended")]
-        public void GameplayBootstrapper_ExposesRunnerCreationApi()
+        public void GameplayBootstrapper_RequiresPlayerFree2DSettingsForRunnerCreationApi()
         {
-            var runnerFactory = typeof(GameplayBootstrapper).GetMethod(
+            var worldOnlyRunnerFactory = typeof(GameplayBootstrapper).GetMethod(
                 nameof(GameplayBootstrapper.CreateTickRunner),
                 BindingFlags.Instance | BindingFlags.Public,
                 binder: null,
                 types: new[] { typeof(WorldState), typeof(TickInputBuffer) },
                 modifiers: null);
-            var runnerWithLogicFactory = typeof(GameplayBootstrapper).GetMethod(
+            var runnerWithLogicOnlyFactory = typeof(GameplayBootstrapper).GetMethod(
                 nameof(GameplayBootstrapper.CreateTickRunner),
                 BindingFlags.Instance | BindingFlags.Public,
                 binder: null,
                 types: new[] { typeof(WorldState), typeof(IEnumerable<IEntityLogic>), typeof(TickInputBuffer), typeof(int) },
                 modifiers: null);
+            var explicitRunnerFactory = FindMethodWithLeadingParameterTypes(
+                typeof(GameplayBootstrapper),
+                nameof(GameplayBootstrapper.CreateTickRunner),
+                BindingFlags.Instance | BindingFlags.Public,
+                typeof(WorldState),
+                typeof(IEnumerable<IEntityLogic>),
+                typeof(TickInputBuffer),
+                typeof(GameplayTimingProfile),
+                typeof(PlayerControlTimingAuthoritativeSnapshot),
+                typeof(PlayerFree2DLocomotionSettings));
 
-            Assert.That(runnerFactory, Is.Not.Null);
-            Assert.That(runnerFactory.ReturnType, Is.EqualTo(typeof(TickRunner)));
-            Assert.That(runnerWithLogicFactory, Is.Not.Null);
-            Assert.That(runnerWithLogicFactory.ReturnType, Is.EqualTo(typeof(TickRunner)));
+            Assert.That(worldOnlyRunnerFactory, Is.Null);
+            Assert.That(runnerWithLogicOnlyFactory, Is.Null);
+            Assert.That(explicitRunnerFactory, Is.Not.Null);
+            Assert.That(explicitRunnerFactory.ReturnType, Is.EqualTo(typeof(TickRunner)));
         }
 
         [Test]
@@ -304,25 +311,8 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Extended")]
-        public void GameplayCompositionRoot_AndBootstrapper_ExposeExplicitGeneralAndPlayerTimingOverloads()
+        public void GameplayBootstrapper_ExposesExplicitPlayerFree2DSettingsOverloads()
         {
-            var compositionRootPipelineFactory = FindMethodWithLeadingParameterTypes(
-                typeof(GameplayCompositionRoot),
-                nameof(GameplayCompositionRoot.CreateTickPipeline),
-                BindingFlags.Static | BindingFlags.Public,
-                typeof(WorldState),
-                typeof(IEnumerable<IEntityLogic>),
-                typeof(GameplayTimingProfile),
-                typeof(PlayerControlTimingAuthoritativeSnapshot));
-            var compositionRootRunnerFactory = FindMethodWithLeadingParameterTypes(
-                typeof(GameplayCompositionRoot),
-                nameof(GameplayCompositionRoot.CreateTickRunner),
-                BindingFlags.Static | BindingFlags.Public,
-                typeof(WorldState),
-                typeof(IEnumerable<IEntityLogic>),
-                typeof(TickInputBuffer),
-                typeof(GameplayTimingProfile),
-                typeof(PlayerControlTimingAuthoritativeSnapshot));
             var bootstrapperPipelineFactory = FindMethodWithLeadingParameterTypes(
                 typeof(GameplayBootstrapper),
                 nameof(GameplayBootstrapper.CreateTickPipeline),
@@ -330,7 +320,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                 typeof(WorldState),
                 typeof(IEnumerable<IEntityLogic>),
                 typeof(GameplayTimingProfile),
-                typeof(PlayerControlTimingAuthoritativeSnapshot));
+                typeof(PlayerControlTimingAuthoritativeSnapshot),
+                typeof(PlayerFree2DLocomotionSettings));
             var bootstrapperRunnerFactory = FindMethodWithLeadingParameterTypes(
                 typeof(GameplayBootstrapper),
                 nameof(GameplayBootstrapper.CreateTickRunner),
@@ -339,10 +330,9 @@ namespace Game.Feature.Gameplay.Tests.Core
                 typeof(IEnumerable<IEntityLogic>),
                 typeof(TickInputBuffer),
                 typeof(GameplayTimingProfile),
-                typeof(PlayerControlTimingAuthoritativeSnapshot));
+                typeof(PlayerControlTimingAuthoritativeSnapshot),
+                typeof(PlayerFree2DLocomotionSettings));
 
-            Assert.That(compositionRootPipelineFactory, Is.Not.Null);
-            Assert.That(compositionRootRunnerFactory, Is.Not.Null);
             Assert.That(bootstrapperPipelineFactory, Is.Not.Null);
             Assert.That(bootstrapperRunnerFactory, Is.Not.Null);
         }
@@ -352,7 +342,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         public void GameplayCompositionRoot_AndBootstrapper_DoNotExposeGeneralTimingOnlyOverloads()
         {
             var compositionRootPipelineFactory = typeof(GameplayCompositionRoot).GetMethod(
-                nameof(GameplayCompositionRoot.CreateTickPipeline),
+                "CreateTickPipeline",
                 BindingFlags.Static | BindingFlags.Public,
                 binder: null,
                 types: new[]
@@ -363,7 +353,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 },
                 modifiers: null);
             var compositionRootRunnerFactory = typeof(GameplayCompositionRoot).GetMethod(
-                nameof(GameplayCompositionRoot.CreateTickRunner),
+                "CreateTickRunner",
                 BindingFlags.Static | BindingFlags.Public,
                 binder: null,
                 types: new[]

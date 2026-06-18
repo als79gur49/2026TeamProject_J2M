@@ -49,7 +49,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(2, 0), hp: 2),
             }, timingProfile);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -114,7 +114,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(2, 0), hp: 2),
             }, timingProfile);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -178,7 +178,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: stackedCell, hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: stackedCell, hp: 2),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -306,7 +306,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     position: new SurfaceCell(FaceId.Floor, 1, 0),
                     capabilities: BoxCapabilities.Push | BoxCapabilities.Item),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -343,7 +343,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 2, 0), hp: 3),
                 CreateUnit(entityId: 50, teamId: 2, position: new SurfaceCell(FaceId.Floor, 1, 1), hp: 3),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -479,7 +479,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(2, 0), hp: 3),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -521,7 +521,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
             pipeline.EnqueueDelayedAttackEffect(
                 new DelayedAttackEffectRecord(
                     sourceId: 10,
@@ -794,7 +794,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void PlayerInvincible_WhenOn_EnemyDamageStillApplies()
         {
             var worldState = CreatePlayerPassiveContactWorld(playerHp: 5, enemyHp: 3);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -1039,7 +1039,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(2, 0), hp: 3),
                 CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), hp: 1),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -1124,7 +1124,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static TickPipeline CreatePassiveContactPipeline(WorldState worldState, int damage)
         {
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {

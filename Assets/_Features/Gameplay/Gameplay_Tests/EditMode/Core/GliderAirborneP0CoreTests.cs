@@ -510,7 +510,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 cooldownTicks: 0,
                 glideMoveTicks: glideMoveTicks);
             var definition = CreateGlideDefinition(timing);
-            return new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault(definition))
+            return new GameplayTestBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault(definition))
                 .CreateTickPipeline(
                     worldState,
                     Array.Empty<IEntityLogic>(),

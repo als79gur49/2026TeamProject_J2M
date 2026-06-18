@@ -431,7 +431,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
 
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,

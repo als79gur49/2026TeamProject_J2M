@@ -27,7 +27,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void RunTick_CompletesPlanResolveFinalizeCleanupRespawn()
         {
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>()));
 
             var result = pipeline.RunTick(new TickInput(7));
@@ -94,7 +94,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new StubEntityLogic(new RawMovementIntent(20, 10, new Vector2Int(3, 0)), new RawAttackIntent(20, 10, 10)),
                 new StubEntityLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0)), new RawAttackIntent(10, 5, 20)),
             };
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, entityLogics);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState, entityLogics);
 
             var result = pipeline.RunTick(new TickInput(12));
 
@@ -149,7 +149,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new StubEntityLogic(null, new RawAttackIntent(10, 5, 20)),
                 new StubEntityLogic(null, new RawAttackIntent(30, 1, 10)),
             };
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, entityLogics);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState, entityLogics);
 
             var result = pipeline.RunTick(new TickInput(13));
 
@@ -185,13 +185,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     type = EntityType.Unit,
                 },
             });
+            var timingProfile = GameplayTimingProfile.CreateDefault();
             var pipeline = new TickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 new StubEntityLogicProvider(
                     new StubEntityLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0)), null)),
-                GameplayTimingProfile.CreateDefault(),
-                CreateDefaultPlayerControlTimingSnapshot());
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(),
+                PlayerFree2DTestSettingsFactory.CreateDefault(timingProfile.SimulationTicksPerSecond));
 
             var result = pipeline.RunTick(new TickInput(3));
 
@@ -212,7 +214,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var inputBuffer = new TickInputBuffer();
             var runner = new TickRunner(
-                GameplayCompositionRoot.CreateTickPipeline(GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>())),
+                GameplayTestRuntimeFactory.CreateTickPipeline(GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>())),
                 inputBuffer,
                 startTickIndex: 4);
 
@@ -230,7 +232,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void TickRunner_RunTick_RejectsOutOfOrderTickIndex()
         {
             var runner = new TickRunner(
-                GameplayCompositionRoot.CreateTickPipeline(GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>())),
+                GameplayTestRuntimeFactory.CreateTickPipeline(GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>())),
                 new TickInputBuffer(),
                 startTickIndex: 3);
 
@@ -254,7 +256,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
                 new CubeTopologyState(FaceId.Floor));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(1));
 
@@ -290,7 +292,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     direction: Direction.Up,
                     startTick: 0,
                     executeTick: 1));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -495,7 +497,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 DefaultBoardBounds,
                 new CubeTopologyState(FaceId.Floor),
                 timingProfile);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,
@@ -556,7 +558,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 DefaultBoardBounds,
                 new CubeTopologyState(FaceId.Floor),
                 timingProfile);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,

@@ -2033,7 +2033,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         landingTick = 1,
                     });
                 jumpWriteContext.SetBoardPresence(40, EntityBoardPresence.Detached);
-                var jumpTick = GameplayCompositionRoot.CreateDefaultBootstrapper(jumpProfile)
+                var jumpTick = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(jumpProfile)
                     .CreateTickPipeline(jumpWorld, Array.Empty<IEntityLogic>())
                     .RunTick(new TickInput(1));
                 LegacyMovementBoundaryAssert.HasOperationBoundary(
@@ -2057,7 +2057,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayer(10, new SurfaceCell(FaceId.Floor, 2, 0)),
                     CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
                 });
-                var glideTick = GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile)
+                var glideTick = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(glideProfile)
                     .CreateTickPipeline(
                         glideWorld,
                         Array.Empty<IEntityLogic>(),
@@ -2101,7 +2101,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     });
                 jumpWriteContext.SetBoardPresence(40, EntityBoardPresence.Detached);
 
-                var jumpTick = GameplayCompositionRoot.CreateDefaultBootstrapper(jumpProfile)
+                var jumpTick = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(jumpProfile)
                     .CreateTickPipeline(jumpWorld, Array.Empty<IEntityLogic>())
                     .RunTick(new TickInput(1));
 
@@ -2136,7 +2136,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayer(10, new SurfaceCell(FaceId.Floor, 2, 0)),
                     CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
                 });
-                var glideTick = GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile)
+                var glideTick = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(glideProfile)
                     .CreateTickPipeline(
                         glideWorld,
                         Array.Empty<IEntityLogic>(),
@@ -2167,7 +2167,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayer(10, new SurfaceCell(FaceId.Floor, 3, 0)),
                     CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
                 });
-                var glidePipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile)
+                var glidePipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(glideProfile)
                     .CreateTickPipeline(
                         glideWorld,
                         Array.Empty<IEntityLogic>(),
@@ -2203,7 +2203,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayer(10, new SurfaceCell(FaceId.Floor, 3, 0)),
                     CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
                 });
-                var glidePipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile)
+                var glidePipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(glideProfile)
                     .CreateTickPipeline(
                         glideWorld,
                         Array.Empty<IEntityLogic>(),
@@ -2340,7 +2340,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayer(10, new SurfaceCell(FaceId.Floor, 3, 0)),
                     CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
                 });
-                var glidePipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile)
+                var glidePipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(glideProfile)
                     .CreateTickPipeline(
                         glideWorld,
                         Array.Empty<IEntityLogic>(),
@@ -2374,7 +2374,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayer(10, new SurfaceCell(FaceId.Floor, 3, 0)),
                     CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
                 });
-                var glidePipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile)
+                var glidePipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(glideProfile)
                     .CreateTickPipeline(
                         glideWorld,
                         Array.Empty<IEntityLogic>(),
@@ -2737,7 +2737,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             GameplayRuntimeFeatureFlags runtimeFeatureFlags,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(ResolveDefaultEnemyProfile(worldState)).CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(ResolveDefaultEnemyProfile(worldState)).CreateTickPipeline(
                 worldState,
                 entityLogics,
                 GameplayTimingProfile.CreateDefault(),
@@ -2785,7 +2785,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             IEnumerable<IEntityLogic> entityLogics,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags)
         {
-            return new GameplayBootstrapper(
+            return new GameplayTestBootstrapper(
                     new SnapshotEntityLogicProvider(Array.Empty<IEntityLogicFactory>()))
                 .CreateTickPipeline(
                     worldState,

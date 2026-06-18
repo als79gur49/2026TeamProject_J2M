@@ -15,6 +15,7 @@
     "Game.Feature.Flow.Audio",
     "Game.Feature.Stages",
     "Game.Shared.Audio",
+    "Game.Feature.Gameplay.Tests",
     "Game.TestSupport.Pure"
   ],
   "includePlatforms": [

@@ -1897,7 +1897,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                var pipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile)
                     .CreateTickPipeline(
                         worldState,
                         Array.Empty<IEntityLogic>(),
@@ -2105,7 +2105,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                var pipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile)
                     .CreateTickPipeline(
                         worldState,
                         Array.Empty<IEntityLogic>(),
@@ -2151,7 +2151,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                var pipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile)
                     .CreateTickPipeline(
                         worldState,
                         Array.Empty<IEntityLogic>(),
@@ -2264,7 +2264,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                var pipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile)
                     .CreateTickPipeline(
                         worldState,
                         Array.Empty<IEntityLogic>(),
@@ -2634,7 +2634,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var profile = EnemyAiProfileTestFactory.CreatePassiveContact();
             try
             {
-                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                var pipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile)
                     .CreateTickPipeline(
                         worldState,
                         Array.Empty<IEntityLogic>(),
@@ -2688,7 +2688,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int ticksPerCell,
             params IEntityLogic[] extraLogics)
         {
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile)
                 .CreateTickPipeline(
                     worldState,
                     extraLogics ?? Array.Empty<IEntityLogic>(),
@@ -2704,7 +2704,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IReadOnlyList<TileFeatureRuntimeDefinition> tileDefinitions,
             IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions)
         {
-            return new GameplayBootstrapper(
+            return new GameplayTestBootstrapper(
                     new SnapshotEntityLogicProvider(Array.Empty<IEntityLogicFactory>()))
                 .CreateTickPipeline(
                     worldState,
@@ -2842,7 +2842,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             WorldState worldState,
             params IEntityLogic[] extraLogics)
         {
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile)
                 .CreateTickPipeline(
                     worldState,
                     extraLogics ?? Array.Empty<IEntityLogic>(),
@@ -2856,7 +2856,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             WorldState worldState,
             params IEntityLogic[] staticLogics)
         {
-            return new GameplayBootstrapper(
+            return new GameplayTestBootstrapper(
                     new SnapshotEntityLogicProvider(Array.Empty<IEntityLogicFactory>()))
                 .CreateTickPipeline(
                     worldState,

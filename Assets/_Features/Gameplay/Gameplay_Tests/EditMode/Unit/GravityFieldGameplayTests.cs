@@ -44,7 +44,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 1, 1), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Charging, timerTicks: 1),
             });
 
-            var result = GameplayCompositionRoot.CreateTickPipeline(worldState)
+            var result = GameplayTestRuntimeFactory.CreateTickPipeline(worldState)
                 .RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
 
             Assert.That(TryGetEntity(worldState, 30, out var emitter), Is.True);
@@ -90,7 +90,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
             });
 
-            var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+            var result = GameplayTestRuntimeFactory.CreateTickPipeline(worldState).RunTick(new TickInput(1));
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetActiveBoxInteractionLockState(20, 1, out _), Is.True);
@@ -159,7 +159,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(50, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
             });
 
-            var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+            var result = GameplayTestRuntimeFactory.CreateTickPipeline(worldState).RunTick(new TickInput(1));
 
             Assert.That(result.PresentationData.GravityFieldVisualStates, Has.Count.EqualTo(1));
             Assert.That(
@@ -178,7 +178,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 1),
             });
 
-            var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+            var result = GameplayTestRuntimeFactory.CreateTickPipeline(worldState).RunTick(new TickInput(1));
 
             Assert.That(TryGetEntity(worldState, 30, out var emitter), Is.True);
             Assert.That(emitter.gravityFieldPhase, Is.EqualTo(GravityFieldPhase.Charging));
@@ -212,7 +212,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 emitter,
             });
 
-            var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+            var result = GameplayTestRuntimeFactory.CreateTickPipeline(worldState).RunTick(new TickInput(1));
 
             Assert.That(TryGetEntity(worldState, 30, out var updatedEmitter), Is.True);
             Assert.That(updatedEmitter.gravityFieldPhase, Is.EqualTo(GravityFieldPhase.Charging));
@@ -232,7 +232,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(30, new SurfaceCell(FaceId.Front, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
             });
 
-            var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+            var result = GameplayTestRuntimeFactory.CreateTickPipeline(worldState).RunTick(new TickInput(1));
 
             Assert.That(TryGetEntity(worldState, 30, out var updatedEmitter), Is.True);
             Assert.That(updatedEmitter.gravityFieldPhase, Is.EqualTo(GravityFieldPhase.Active));
@@ -256,7 +256,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxArchetype.Normal, BoxCapabilities.Push),
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Charging, timerTicks: 1),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
 
             worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Back));
             var suspended = pipeline.RunTick(new TickInput(1));
@@ -292,7 +292,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxArchetype.Normal, BoxCapabilities.Push),
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 5),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
 
             var firstActive = pipeline.RunTick(new TickInput(1));
             worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Back));
@@ -323,7 +323,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Charging, timerTicks: 2),
             });
 
-            var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+            var result = GameplayTestRuntimeFactory.CreateTickPipeline(worldState).RunTick(new TickInput(1));
 
             Assert.That(TryGetEntity(worldState, 30, out var emitter), Is.True);
             Assert.That(emitter.gravityFieldPhase, Is.EqualTo(GravityFieldPhase.Charging));
@@ -343,7 +343,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxArchetype.Normal, BoxCapabilities.Push),
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 3),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
 
             var firstActive = pipeline.RunTick(new TickInput(1));
             var secondActive = pipeline.RunTick(new TickInput(2));
@@ -364,7 +364,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Charging, timerTicks: 1),
             });
 
-            var nextWindow = GameplayCompositionRoot.CreateTickPipeline(nextWindowWorldState).RunTick(new TickInput(4));
+            var nextWindow = GameplayTestRuntimeFactory.CreateTickPipeline(nextWindowWorldState).RunTick(new TickInput(4));
 
             Assert.That(
                 nextWindow.PresentationData.GravityFieldVisualStates.Single().LockedTargetEntityIds.ToArray(),
@@ -381,7 +381,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxArchetype.Normal, BoxCapabilities.Push),
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 5),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
 
             var firstActive = pipeline.RunTick(new TickInput(1));
             var retained = pipeline.RunTick(new TickInput(2));
@@ -411,7 +411,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 3),
                 CreateBox(31, new SurfaceCell(FaceId.Floor, 2, 1), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 3),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
 
             var firstActive = pipeline.RunTick(new TickInput(1));
             var retained = pipeline.RunTick(new TickInput(2));
@@ -449,7 +449,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
             });
 
-            var result = GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+            var result = GameplayTestRuntimeFactory.CreateTickPipeline(worldState).RunTick(new TickInput(1));
 
             Assert.That(LockedBoxTargetIds(result.PresentationData.GravityFieldEvents), Is.Empty);
         }
@@ -464,7 +464,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxArchetype.Normal, BoxCapabilities.Push),
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 4),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
 
             var firstActive = pipeline.RunTick(new TickInput(1));
             ((IMovementCommitContext)worldState.CreateWriteContext()).ApplyStateChange(30, EntityPhaseState.Sliding, stateTimer: 1);
@@ -491,7 +491,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateBox(30, new SurfaceCell(FaceId.Floor, 1, 1), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
                 });
 
-            GameplayCompositionRoot.CreateTickPipeline(worldState)
+            GameplayTestRuntimeFactory.CreateTickPipeline(worldState)
                 .RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
 
             Assert.That(TryGetEntity(worldState, 20, out var target), Is.True);
@@ -510,7 +510,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 1, 1), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
             });
 
-            GameplayCompositionRoot.CreateTickPipeline(worldState)
+            GameplayTestRuntimeFactory.CreateTickPipeline(worldState)
                 .RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
 
             var snapshot = worldState.CreateSnapshot();
@@ -530,7 +530,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(31, new SurfaceCell(FaceId.Floor, 2, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
             });
 
-            GameplayCompositionRoot.CreateTickPipeline(worldState).RunTick(new TickInput(1));
+            GameplayTestRuntimeFactory.CreateTickPipeline(worldState).RunTick(new TickInput(1));
 
             Assert.That(worldState.CreateSnapshot().TryGetActiveBoxInteractionLockState(20, 1, out var lockState), Is.True);
             Assert.That(lockState.SourceEntityId, Is.EqualTo(30));
@@ -556,8 +556,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(30, new SurfaceCell(FaceId.Floor, 0, 0), BoxArchetype.GravityField, BoxCapabilities.Push, GravityFieldPhase.Active, timerTicks: 2),
             });
 
-            var baselineResult = GameplayCompositionRoot.CreateTickPipeline(baseline).RunTick(new TickInput(1));
-            var activeResult = GameplayCompositionRoot.CreateTickPipeline(active).RunTick(new TickInput(1));
+            var baselineResult = GameplayTestRuntimeFactory.CreateTickPipeline(baseline).RunTick(new TickInput(1));
+            var activeResult = GameplayTestRuntimeFactory.CreateTickPipeline(active).RunTick(new TickInput(1));
 
             Assert.That(activeResult.DeterminismHash, Is.Not.EqualTo(baselineResult.DeterminismHash));
             Assert.That(activeResult.Trace.Text, Does.Contain("GravityFieldPhase=Active"));

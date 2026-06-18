@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void IdleTick_SnapshotMaterializationBudget_RemainsPinned()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>());
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
 
             SnapshotMaterializationCounts counts;
             using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
@@ -38,14 +38,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void SnapshotDiagnosticsCapture_DoesNotChangeDeterminismHash()
         {
-            var uncapturedResult = GameplayCompositionRoot
+            var uncapturedResult = GameplayTestRuntimeFactory
                 .CreateTickPipeline(GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>()))
                 .RunTick(new TickInput(7));
 
             TickResult capturedResult;
             using (SnapshotMaterializationDiagnostics.BeginCapture())
             {
-                capturedResult = GameplayCompositionRoot
+                capturedResult = GameplayTestRuntimeFactory
                     .CreateTickPipeline(GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>()))
                     .RunTick(new TickInput(7));
             }
@@ -74,7 +74,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 },
             });
             worldState.CreateWriteContext().SetPlayerControlState(10, default);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[] { new PlayerLogic(10) });
 

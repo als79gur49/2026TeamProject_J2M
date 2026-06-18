@@ -326,7 +326,7 @@ namespace Game.Feature.Gameplay.Tests.Core
         private static TickPipeline CreatePipeline(WorldState worldState, EnemyAiRuntimeDefinition enemyAiRuntime)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault(enemyAiRuntime)).CreateTickPipeline(
+            return new GameplayTestBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault(enemyAiRuntime)).CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,

@@ -1,24 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
-using Game.Feature.Gameplay.Entities;
-using Game.Feature.Gameplay.Objectives;
-using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
 {
     public static class GameplayCompositionRoot
     {
-        public static GameplayBootstrapper CreateDefaultBootstrapper()
-        {
-            return new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault());
-        }
-
-        public static GameplayBootstrapper CreateDefaultBootstrapper(EnemyAiProfile enemyAiProfile)
-        {
-            return new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault(enemyAiProfile));
-        }
-
         public static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds)
@@ -73,99 +60,6 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return worldState.CreateSnapshot();
-        }
-
-        public static TickPipeline CreateTickPipeline(WorldState worldState)
-        {
-            return CreateDefaultBootstrapper().CreateTickPipeline(worldState);
-        }
-
-        public static TickPipeline CreateTickPipeline(
-            WorldState worldState,
-            EnemyAiProfile enemyAiProfile)
-        {
-            return CreateDefaultBootstrapper(enemyAiProfile).CreateTickPipeline(worldState);
-        }
-
-        public static TickPipeline CreateTickPipeline(
-            WorldState worldState,
-            IEnumerable<IEntityLogic> entityLogics)
-        {
-            return CreateDefaultBootstrapper().CreateTickPipeline(worldState, entityLogics);
-        }
-
-        public static TickPipeline CreateTickPipeline(
-            WorldState worldState,
-            IEnumerable<IEntityLogic> entityLogics,
-            GameplayTimingProfile generalTimingProfile,
-            PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
-            int playerRespawnDelayTicks = 1,
-            StageObjectiveRuntimeDefinition objectiveDefinition = null,
-            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
-            PlayerFree2DLocomotionSettings playerFree2DLocomotion = default)
-        {
-            return CreateDefaultBootstrapper().CreateTickPipeline(
-                worldState,
-                entityLogics,
-                generalTimingProfile,
-                playerControlTiming,
-                playerRespawnDelayTicks,
-                objectiveDefinition,
-                runtimeFeatureFlags: runtimeFeatureFlags,
-                unitKinematicLocomotionTiming: unitKinematicLocomotionTiming,
-                playerFree2DLocomotion: playerFree2DLocomotion);
-        }
-
-        public static TickRunner CreateTickRunner(
-            WorldState worldState,
-            TickInputBuffer inputBuffer)
-        {
-            return CreateDefaultBootstrapper().CreateTickRunner(worldState, inputBuffer);
-        }
-
-        public static TickRunner CreateTickRunner(
-            WorldState worldState,
-            IEnumerable<IEntityLogic> entityLogics,
-            TickInputBuffer inputBuffer,
-            int startTickIndex = 1,
-            IDemoGameplayOverrideSnapshotSource demoGameplayOverrideSnapshotSource = null)
-        {
-            return CreateDefaultBootstrapper().CreateTickRunner(
-                worldState,
-                entityLogics,
-                inputBuffer,
-                startTickIndex,
-                demoGameplayOverrideSnapshotSource);
-        }
-
-        public static TickRunner CreateTickRunner(
-            WorldState worldState,
-            IEnumerable<IEntityLogic> entityLogics,
-            TickInputBuffer inputBuffer,
-            GameplayTimingProfile generalTimingProfile,
-            PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
-            int playerRespawnDelayTicks = 1,
-            StageObjectiveRuntimeDefinition objectiveDefinition = null,
-            int startTickIndex = 1,
-            GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
-            UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
-            PlayerFree2DLocomotionSettings playerFree2DLocomotion = default,
-            IDemoGameplayOverrideSnapshotSource demoGameplayOverrideSnapshotSource = null)
-        {
-            return CreateDefaultBootstrapper().CreateTickRunner(
-                worldState,
-                entityLogics,
-                inputBuffer,
-                generalTimingProfile,
-                playerControlTiming,
-                playerRespawnDelayTicks,
-                objectiveDefinition,
-                startTickIndex,
-                runtimeFeatureFlags: runtimeFeatureFlags,
-                unitKinematicLocomotionTiming: unitKinematicLocomotionTiming,
-                playerFree2DLocomotion: playerFree2DLocomotion,
-                demoGameplayOverrideSnapshotSource: demoGameplayOverrideSnapshotSource);
         }
     }
 }

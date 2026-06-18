@@ -1111,7 +1111,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void SnapshotMaterializationDiagnostics_ResolveReasons_AreSeparated()
         {
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(CreateWorldState(new[]
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(CreateWorldState(new[]
             {
                 CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right),
             }));

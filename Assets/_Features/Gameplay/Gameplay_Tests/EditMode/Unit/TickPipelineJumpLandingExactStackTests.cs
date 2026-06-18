@@ -89,7 +89,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateBox(50, stalePlanBoxCell, BoxCapabilities.JumpCrushable),
                 CreateBox(51, targetCell, BoxCapabilities.JumpCrushable),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
             var snapshot = worldState.CreateSnapshot();
             var actionPlanId = 7;
             var contestId = 3;
@@ -196,7 +196,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(40, firstSourceCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
                 CreateUnit(41, secondSourceCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
             var snapshot = worldState.CreateSnapshot();
             var firstSuccessState = CreateJumpState(firstSourceCell, targetCell, EnemyJumpPhase.Cooldown, sequence: 1);
             var firstRetryState = CreateJumpState(firstSourceCell, targetCell, EnemyJumpPhase.Airborne, sequence: 1, retryCount: 1);
@@ -273,7 +273,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(40, sourceCell, teamId: 2, boardPresence: EntityBoardPresence.Detached),
                 CreateBox(50, targetCell, BoxCapabilities.JumpCrushable),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
             var snapshot = worldState.CreateSnapshot();
             var successState = CreateJumpState(sourceCell, targetCell, EnemyJumpPhase.Cooldown, sequence: 1);
             var retryState = CreateJumpState(sourceCell, targetCell, EnemyJumpPhase.Airborne, sequence: 1, retryCount: 1);

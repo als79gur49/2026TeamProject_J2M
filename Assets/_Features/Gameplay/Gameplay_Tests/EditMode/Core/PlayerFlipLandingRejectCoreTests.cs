@@ -128,7 +128,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                     blocksPush: true,
                     blocksFlip: true));
 
-            var result = GameplayCompositionRoot.CreateTickPipeline(
+            var result = GameplayTestRuntimeFactory.CreateTickPipeline(
                     worldState,
                     new IEntityLogic[]
                     {
@@ -165,7 +165,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                     blocksPush: true,
                     blocksFlip: true));
 
-            var result = GameplayCompositionRoot.CreateTickPipeline(
+            var result = GameplayTestRuntimeFactory.CreateTickPipeline(
                     worldState,
                     new IEntityLogic[]
                     {
@@ -220,7 +220,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 Is.True);
             Assert.That(blockedTarget.TargetEntityId, Is.EqualTo(20));
 
-            var result = GameplayCompositionRoot.CreateTickPipeline(
+            var result = GameplayTestRuntimeFactory.CreateTickPipeline(
                     worldState,
                     new IEntityLogic[]
                     {
@@ -259,7 +259,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 5,
                 PhasedRuntimeStateQueries.ForceDebug(default, tickIndex: 1));
 
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -304,7 +304,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 5,
                 PhasedRuntimeStateQueries.ForceDebug(default, tickIndex: 1));
 
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {

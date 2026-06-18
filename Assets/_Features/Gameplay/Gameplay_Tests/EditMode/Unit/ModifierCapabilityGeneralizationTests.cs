@@ -450,7 +450,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
                 });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -486,7 +486,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
                     CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Flip),
                 });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -525,7 +525,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
                     CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Flip),
                 });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {

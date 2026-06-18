@@ -25,48 +25,20 @@ namespace Game.Feature.Gameplay.Loop
             _spawnDefaultsByArchetypeId = spawnDefaultsByArchetypeId;
         }
 
-        public TickPipeline CreateTickPipeline(WorldState worldState)
-        {
-            return CreateTickPipeline(worldState, Array.Empty<IEntityLogic>());
-        }
-
-        public TickPipeline CreateTickPipeline(
-            WorldState worldState,
-            IEnumerable<IEntityLogic> entityLogics)
-        {
-            var generalTimingProfile = GameplayTimingProfile.CreateDefault();
-            var playerControlTiming = CreateDefaultPlayerControlTimingSnapshot(generalTimingProfile);
-            var unitKinematicLocomotionTiming = CreateDefaultUnitKinematicLocomotionTimingSnapshot(generalTimingProfile);
-            var playerFree2DLocomotion = CreateDefaultPlayerFree2DLocomotionSettings(generalTimingProfile);
-            var playerRespawnDelayTicks = CreateDefaultPlayerRespawnDelayTicks(generalTimingProfile);
-            return CreateTickPipeline(
-                worldState,
-                entityLogics,
-                generalTimingProfile,
-                playerControlTiming,
-                playerRespawnDelayTicks,
-                unitKinematicLocomotionTiming: unitKinematicLocomotionTiming,
-                playerFree2DLocomotion: playerFree2DLocomotion);
-        }
-
         public TickPipeline CreateTickPipeline(
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
+            PlayerFree2DLocomotionSettings playerFree2DLocomotionSettings,
             int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
-            PlayerFree2DLocomotionSettings playerFree2DLocomotion = default,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
             IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null)
         {
-            var resolvedPlayerFree2DLocomotion = playerFree2DLocomotion.IsConfigured
-                ? playerFree2DLocomotion
-                : CreateDefaultPlayerFree2DLocomotionSettings(generalTimingProfile);
-
             return new TickPipeline(
                 worldState,
                 entityLogics,
@@ -79,43 +51,10 @@ namespace Game.Feature.Gameplay.Loop
                 allowPlayerRespawn,
                 runtimeFeatureFlags,
                 unitKinematicLocomotionTiming,
-                resolvedPlayerFree2DLocomotion,
+                playerFree2DLocomotionSettings,
                 tileFeatureDefinitions,
                 moonBlockRespawnDefinitions,
                 tileEffectResolver: null);
-        }
-
-        public TickRunner CreateTickRunner(
-            WorldState worldState,
-            TickInputBuffer inputBuffer)
-        {
-            return CreateTickRunner(worldState, Array.Empty<IEntityLogic>(), inputBuffer);
-        }
-
-        public TickRunner CreateTickRunner(
-            WorldState worldState,
-            IEnumerable<IEntityLogic> entityLogics,
-            TickInputBuffer inputBuffer,
-            int startTickIndex = 1,
-            IDemoGameplayOverrideSnapshotSource demoGameplayOverrideSnapshotSource = null)
-        {
-            var generalTimingProfile = GameplayTimingProfile.CreateDefault();
-            var playerControlTiming = CreateDefaultPlayerControlTimingSnapshot(generalTimingProfile);
-            var unitKinematicLocomotionTiming = CreateDefaultUnitKinematicLocomotionTimingSnapshot(generalTimingProfile);
-            var playerFree2DLocomotion = CreateDefaultPlayerFree2DLocomotionSettings(generalTimingProfile);
-            var playerRespawnDelayTicks = CreateDefaultPlayerRespawnDelayTicks(generalTimingProfile);
-            return CreateTickRunner(
-                worldState,
-                entityLogics,
-                inputBuffer,
-                generalTimingProfile,
-                playerControlTiming,
-                playerRespawnDelayTicks,
-                objectiveDefinition: null,
-                startTickIndex: startTickIndex,
-                unitKinematicLocomotionTiming: unitKinematicLocomotionTiming,
-                playerFree2DLocomotion: playerFree2DLocomotion,
-                demoGameplayOverrideSnapshotSource: demoGameplayOverrideSnapshotSource);
         }
 
         public TickRunner CreateTickRunner(
@@ -124,13 +63,13 @@ namespace Game.Feature.Gameplay.Loop
             TickInputBuffer inputBuffer,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
+            PlayerFree2DLocomotionSettings playerFree2DLocomotionSettings,
             int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             int startTickIndex = 1,
             bool allowPlayerRespawn = true,
             GameplayRuntimeFeatureFlags runtimeFeatureFlags = default,
             UnitKinematicLocomotionTimingSnapshot unitKinematicLocomotionTiming = default,
-            PlayerFree2DLocomotionSettings playerFree2DLocomotion = default,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
             IReadOnlyList<MoonBlockRespawnDefinition> moonBlockRespawnDefinitions = null,
             IDemoGameplayOverrideSnapshotSource demoGameplayOverrideSnapshotSource = null)
@@ -146,67 +85,17 @@ namespace Game.Feature.Gameplay.Loop
                     entityLogics,
                     generalTimingProfile,
                     playerControlTiming,
+                    playerFree2DLocomotionSettings,
                     playerRespawnDelayTicks,
                     objectiveDefinition,
                     allowPlayerRespawn,
                     runtimeFeatureFlags,
                     unitKinematicLocomotionTiming,
-                    playerFree2DLocomotion,
                     tileFeatureDefinitions,
                     moonBlockRespawnDefinitions),
                 inputBuffer,
                 startTickIndex,
                 demoGameplayOverrideSnapshotSource);
-        }
-
-        private static PlayerControlTimingAuthoritativeSnapshot CreateDefaultPlayerControlTimingSnapshot(
-            GameplayTimingProfile generalTimingProfile)
-        {
-            if (generalTimingProfile == null)
-            {
-                throw new ArgumentNullException(nameof(generalTimingProfile));
-            }
-
-            return PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
-                generalTimingProfile.SimulationTicksPerSecond,
-                generalTimingProfile.RepeatedMoveIntervalSeconds);
-        }
-
-        private static UnitKinematicLocomotionTimingSnapshot CreateDefaultUnitKinematicLocomotionTimingSnapshot(
-            GameplayTimingProfile generalTimingProfile)
-        {
-            if (generalTimingProfile == null)
-            {
-                throw new ArgumentNullException(nameof(generalTimingProfile));
-            }
-
-            return UnitKinematicLocomotionTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
-                generalTimingProfile.SimulationTicksPerSecond);
-        }
-
-        private static PlayerFree2DLocomotionSettings CreateDefaultPlayerFree2DLocomotionSettings(
-            GameplayTimingProfile generalTimingProfile)
-        {
-            if (generalTimingProfile == null)
-            {
-                throw new ArgumentNullException(nameof(generalTimingProfile));
-            }
-
-            return PlayerFree2DLocomotionAuthoring.CreateDefault()
-                .Compile(generalTimingProfile.SimulationTicksPerSecond);
-        }
-
-        private static int CreateDefaultPlayerRespawnDelayTicks(
-            GameplayTimingProfile generalTimingProfile)
-        {
-            if (generalTimingProfile == null)
-            {
-                throw new ArgumentNullException(nameof(generalTimingProfile));
-            }
-
-            return GameplayTimingProfile.SecondsToCeilTicks(
-                GameplayTimingProfile.DefaultPlayerRespawnDelaySeconds,
-                generalTimingProfile.SimulationTicksPerSecond);
         }
     }
 }

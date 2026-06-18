@@ -341,7 +341,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var playerControlTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,
@@ -391,7 +391,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 1, 1), hp: 5),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
 
             worldState.CreateWriteContext().ApplyDamage(10, amount: 5);
 
@@ -421,7 +421,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var playerControlTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
-            var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,
@@ -466,7 +466,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var playerControlTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,
@@ -982,7 +982,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var playerControlTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,

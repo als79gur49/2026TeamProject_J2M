@@ -642,7 +642,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(JumpChaserProfilePath);
             Assert.That(profile, Is.Not.Null, $"Missing Astreton JumpChaser profile at '{JumpChaserProfilePath}'.");
 
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 entityLogics ?? Array.Empty<IEntityLogic>(),
                 GameplayTimingProfile.CreateDefault(),

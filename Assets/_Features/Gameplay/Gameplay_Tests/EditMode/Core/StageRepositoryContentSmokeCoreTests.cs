@@ -98,7 +98,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 enemyRuntime.DefinitionsByEntityId,
                 enemyRuntime.DefinitionsByArchetypeId,
                 enemyRuntime.HasDefaultDefinition);
-            var bootstrapper = new GameplayBootstrapper(provider, enemyRuntime.SpawnDefaultsByArchetypeId);
+            var bootstrapper = new GameplayTestBootstrapper(provider, enemyRuntime.SpawnDefaultsByArchetypeId);
             var respawnTiming = configuration.CreatePlayerRespawnTimingSnapshot();
             var pipeline = bootstrapper.CreateTickPipeline(
                 worldState,

@@ -26,7 +26,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateWall(entityId: 50, position: targetCell),
                 });
             var profile = CreateJumpChaserProfile();
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState, profile);
             PrimePlayerControlState(worldState, 10);
 
             try
@@ -77,7 +77,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 60, teamId: 1, position: targetCell, boardPresence: EntityBoardPresence.Detached),
                 });
             var profile = CreateJumpChaserProfile();
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState, profile);
             PrimePlayerControlState(worldState, 10);
 
             try

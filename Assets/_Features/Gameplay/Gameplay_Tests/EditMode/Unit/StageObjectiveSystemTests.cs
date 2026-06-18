@@ -2892,7 +2892,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 allowPlayerRespawn: true,
                 runtimeFeatureFlags: default,
                 unitKinematicLocomotionTiming: default,
-                playerFree2DLocomotion: default,
+                playerFree2DLocomotion: PlayerFree2DTestSettingsFactory.CreateDefault(timingProfile.SimulationTicksPerSecond),
                 tileFeatureDefinitions: tileFeatureDefinitions,
                 tileEffectResolver: null);
         }

@@ -193,7 +193,7 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         private static TickPipeline CreatePlayerPipeline(WorldState worldState)
         {
-            return new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault(CreateNonAttackingRuntime()))
+            return new GameplayTestBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault(CreateNonAttackingRuntime()))
                 .CreateTickPipeline(
                     worldState,
                     new IEntityLogic[]

@@ -28,13 +28,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateContactWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
                 var secondReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateContactWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
@@ -68,13 +68,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateContactWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
                 var secondReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateContactWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
@@ -108,13 +108,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var fastReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(fastProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(fastProfile),
                     CreateContactWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
                 var slowReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(slowProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(slowProfile),
                     CreateContactWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
@@ -143,13 +143,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateDeathWorldState(),
                     new IEntityLogic[] { new ScriptedAttackLogic(10, 40) },
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
                 var secondReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateDeathWorldState(),
                     new IEntityLogic[] { new ScriptedAttackLogic(10, 40) },
                     inputs,
@@ -181,13 +181,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateGlideWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
                 var secondReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateGlideWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
@@ -226,13 +226,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstLandingReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateGlideLandingWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
                 var secondLandingReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateGlideLandingWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
@@ -275,13 +275,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateExpiredActiveOnSolidWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled);
                 var secondReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateExpiredActiveOnSolidWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
@@ -311,13 +311,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateChargeSettleWaitWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled);
                 var secondReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateChargeSettleWaitWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
@@ -350,13 +350,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateChargeSettleWaitWorldState(),
                     entityLogics: new IEntityLogic[] { new TickScriptedMovementLogic(10, scriptedMoves) },
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled);
                 var secondReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateChargeSettleWaitWorldState(),
                     entityLogics: new IEntityLogic[] { new TickScriptedMovementLogic(10, scriptedMoves) },
                     inputs,
@@ -411,13 +411,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstEnemyReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(enemyProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(enemyProfile),
                     CreateContactWorldState(),
                     entityLogics: new IEntityLogic[0],
                     enemyInputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
                 var secondEnemyReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(enemyProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(enemyProfile),
                     CreateContactWorldState(),
                     entityLogics: new IEntityLogic[0],
                     enemyInputs,
@@ -438,13 +438,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstChargeReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(chargeProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(chargeProfile),
                     CreateChargeSettleWaitWorldState(),
                     entityLogics: new IEntityLogic[0],
                     chargeInputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
                 var secondChargeReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(chargeProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(chargeProfile),
                     CreateChargeSettleWaitWorldState(),
                     entityLogics: new IEntityLogic[0],
                     chargeInputs,
@@ -929,13 +929,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var replay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateChargeSettleWaitWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled);
                 var secondReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(profile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile),
                     CreateChargeSettleWaitWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
@@ -968,13 +968,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(glideProfile),
                     CreateGlideWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: flags);
                 var secondReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(glideProfile),
                     CreateGlideWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
@@ -1015,13 +1015,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(glideProfile),
                     CreateGlideWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: flags);
                 var secondReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(glideProfile),
                     CreateGlideWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
@@ -1062,13 +1062,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             {
                 var inputs = new[] { new TickInput(1) };
                 var firstReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(jumpProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(jumpProfile),
                     CreateJumpLandingWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
                 var secondReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(jumpProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(jumpProfile),
                     CreateJumpLandingWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
@@ -1092,13 +1092,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     .Select(tick => new TickInput(tick))
                     .ToArray();
                 var firstReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(glideProfile),
                     CreateGlideWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
                 var secondReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(glideProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(glideProfile),
                     CreateGlideWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
@@ -1153,13 +1153,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstEnemyReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(enemyProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(enemyProfile),
                     CreateContactWorldState(),
                     entityLogics: new IEntityLogic[0],
                     enemyInputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled);
                 var secondEnemyReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(enemyProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(enemyProfile),
                     CreateContactWorldState(),
                     entityLogics: new IEntityLogic[0],
                     enemyInputs,
@@ -1179,13 +1179,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             try
             {
                 var firstChargeReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(chargeProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(chargeProfile),
                     CreateChargeSettleWaitWorldState(),
                     entityLogics: new IEntityLogic[0],
                     chargeInputs,
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyAndChargeKinematicLocomotionEnabled);
                 var secondChargeReplay = harness.Run(
-                    GameplayCompositionRoot.CreateDefaultBootstrapper(chargeProfile),
+                    GameplayTestRuntimeFactory.CreateDefaultBootstrapper(chargeProfile),
                     CreateChargeSettleWaitWorldState(),
                     entityLogics: new IEntityLogic[0],
                     chargeInputs,

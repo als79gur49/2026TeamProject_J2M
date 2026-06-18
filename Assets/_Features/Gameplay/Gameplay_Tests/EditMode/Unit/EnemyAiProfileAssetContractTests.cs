@@ -304,7 +304,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             worldState.CreateWriteContext().SetPhasedState(
                 5,
                 PhasedRuntimeStateQueries.ForceDebug(default, tickIndex: 1));
-            var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {

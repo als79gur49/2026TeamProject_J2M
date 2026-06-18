@@ -29,7 +29,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var profile = EnemyAiProfileTestFactory.CreateNonAttacking();
             try
             {
-                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+                var pipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                     worldState,
                     entityLogicList,
                     timingProfile,
@@ -45,7 +45,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         public IReadOnlyList<TickReplayFrame> Run(
-            GameplayBootstrapper bootstrapper,
+            GameplayTestBootstrapper bootstrapper,
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics,
             IReadOnlyList<TickInput> inputs,

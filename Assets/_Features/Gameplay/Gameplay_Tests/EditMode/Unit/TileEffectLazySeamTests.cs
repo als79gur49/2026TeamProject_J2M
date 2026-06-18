@@ -35,7 +35,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var tileFeature = CreateTileFeature(10);
             var worldState = CreateWorldState(tileFeature);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState);
 
             SnapshotMaterializationCounts counts;
             using (var capture = SnapshotMaterializationDiagnostics.BeginCapture())
@@ -199,7 +199,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 allowPlayerRespawn: true,
                 runtimeFeatureFlags: default,
                 unitKinematicLocomotionTiming: default,
-                playerFree2DLocomotion: default,
+                playerFree2DLocomotion: PlayerFree2DTestSettingsFactory.CreateDefault(timingProfile.SimulationTicksPerSecond),
                 tileFeatureDefinitions: tileFeatureDefinitions,
                 tileEffectResolver: tileEffectResolver);
         }

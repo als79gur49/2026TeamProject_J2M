@@ -98,7 +98,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                         CreateUnit(EnemyId, 2, cell, UnitRole.Enemy, EnemyAiMode.Patrol),
                     },
                     new CubeTopologyState(FaceId.Floor));
-                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState, profile);
                 var frames = new List<ReplayCaptureFrame>();
 
                 frames.Add(Capture(pipeline.RunTick(new TickInput(1)), worldState));
@@ -123,7 +123,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateUnit(EnemyId, 2, new SurfaceCell(FaceId.Floor, 0, 0), UnitRole.Enemy, EnemyAiMode.Attack),
                 },
                 new CubeTopologyState(FaceId.Floor));
-            var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
             var frames = new List<ReplayCaptureFrame>();
 
             frames.Add(Capture(pipeline.RunTick(new TickInput(1)), worldState));
@@ -164,7 +164,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     landingTick = 3,
                 });
 
-            var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(LoadJumpChaserProfile()).CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(LoadJumpChaserProfile()).CreateTickPipeline(worldState);
             var frames = new List<ReplayCaptureFrame>();
 
             frames.Add(Capture(pipeline.RunTick(new TickInput(1)), worldState));
@@ -477,7 +477,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 EnemyUnitArchetypeCatalog = catalog,
             }.CreateEnemyAiRuntimeSnapshot();
 
-            return new GameplayBootstrapper(
+            return new GameplayTestBootstrapper(
                 GameplayEntityLogicProviderFactory.CreateDefault(
                     runtimeSnapshot.DefaultDefinition,
                     runtimeSnapshot.DefinitionsByEntityId,

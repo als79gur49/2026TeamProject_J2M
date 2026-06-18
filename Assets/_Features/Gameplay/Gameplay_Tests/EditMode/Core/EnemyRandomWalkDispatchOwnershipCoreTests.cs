@@ -90,7 +90,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             worldState.CreateWriteContext().SetPhasedState(
                 5,
                 PhasedRuntimeStateQueries.ForceDebug(default, tickIndex: 1));
-            var pipeline = new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault(CreateRandomWalkRuntime()))
+            var pipeline = new GameplayTestBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault(CreateRandomWalkRuntime()))
                 .CreateTickPipeline(
                     worldState,
                     new IEntityLogic[]

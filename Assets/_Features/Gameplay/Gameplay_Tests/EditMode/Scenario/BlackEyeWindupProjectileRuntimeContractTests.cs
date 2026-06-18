@@ -191,7 +191,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var profile = LoadProfile();
             var worldState = CreateCombatWorld(new SurfaceCell(FaceId.Floor, 4, 0));
-            var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
+            var pipeline = GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(worldState);
 
             pipeline.RunTick(new TickInput(1));
             var startedAction = GetEnemyActionState(worldState);
@@ -788,7 +788,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
 
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(LoadProfile()).CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(LoadProfile()).CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,

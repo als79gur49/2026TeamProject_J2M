@@ -23,7 +23,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
                 });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {

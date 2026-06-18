@@ -34,7 +34,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -555,7 +555,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -593,7 +593,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateUnit(entityId: 20, position: new Vector2Int(2, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -637,7 +637,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
             });
             var timingProfile = CreateTimingProfile();
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -666,7 +666,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0), teamId: 2),
             });
             var timingProfile = CreateTimingProfile();
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -707,7 +707,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0), teamId: 2, facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -742,7 +742,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push, facing: Direction.Left),
                 CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(4, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -813,7 +813,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push, facing: Direction.Left),
                 CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(4, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -845,7 +845,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
                 CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip, facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -877,7 +877,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -1230,7 +1230,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
                 CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
             });
-            var pushResult = GameplayCompositionRoot.CreateTickPipeline(
+            var pushResult = GameplayTestRuntimeFactory.CreateTickPipeline(
                     pushWorldState,
                     new IEntityLogic[] { CreateImmediatePushPlayerLogic(10) })
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
@@ -1241,7 +1241,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
             });
-            var flipResult = GameplayCompositionRoot.CreateTickPipeline(
+            var flipResult = GameplayTestRuntimeFactory.CreateTickPipeline(
                     flipWorldState,
                     new IEntityLogic[] { CreateImmediateFlipPlayerLogic(10) })
                 .RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
@@ -1252,7 +1252,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item),
             });
-            var itemResult = GameplayCompositionRoot.CreateTickPipeline(
+            var itemResult = GameplayTestRuntimeFactory.CreateTickPipeline(
                     itemWorldState,
                     new IEntityLogic[] { new PlayerLogic(10) })
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
@@ -1264,7 +1264,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
-            var topologyResult = GameplayCompositionRoot.CreateTickPipeline(
+            var topologyResult = GameplayTestRuntimeFactory.CreateTickPipeline(
                     topologyWorldState,
                     new IEntityLogic[] { new PlayerLogic(10) })
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
@@ -1372,7 +1372,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(4, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -1474,7 +1474,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 40, position: new Vector2Int(4, 0), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -1523,7 +1523,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateNonUnitBlocker(entityId: 90, position: new SurfaceCell(FaceId.Front, 0, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>());
 
@@ -1559,7 +1559,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -1621,7 +1621,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -1681,7 +1681,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 40, position: new Vector2Int(4, 0), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -1721,7 +1721,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -1761,7 +1761,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -1803,7 +1803,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 CreateUnit(entityId: 30, position: new Vector2Int(2, 0), hp: 3, teamId: 2),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -1850,7 +1850,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 CreateUnit(entityId: 30, position: new Vector2Int(2, 0), hp: 1, teamId: 2),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -1972,7 +1972,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 CreateUnit(entityId: 30, position: new Vector2Int(2, 0), hp: 3, teamId: 1),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2000,7 +2000,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 30, position: new Vector2Int(2, 0), hp: 3, teamId: 2),
                 CreateUnit(entityId: 40, position: new Vector2Int(2, 0), hp: 3, teamId: 1),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2041,7 +2041,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 30, position: new Vector2Int(2, 0), hp: 1, teamId: 2),
                 CreateUnit(entityId: 40, position: new Vector2Int(2, 0), hp: 3, teamId: 1),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2085,7 +2085,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 CreateBox(entityId: 30, position: new Vector2Int(2, 0), capabilities: BoxCapabilities.Push),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2126,7 +2126,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 40, position: new Vector2Int(2, 0), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2160,7 +2160,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(2, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>());
 
@@ -2179,7 +2179,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2280,7 +2280,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     position: new SurfaceCell(FaceId.Floor, 1, 0),
                     capabilities: BoxCapabilities.Item | BoxCapabilities.Push | BoxCapabilities.Flip),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2331,7 +2331,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     position: new SurfaceCell(FaceId.Floor, 1, 0),
                     capabilities: BoxCapabilities.Item | BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2397,7 +2397,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.None),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2431,7 +2431,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0), teamId: 2),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2465,7 +2465,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
                 CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip, facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2527,7 +2527,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 3, teamId: 2),
                 CreateUnit(entityId: 21, position: new Vector2Int(1, 0), hp: 3, teamId: 1),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2606,7 +2606,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 1, teamId: 2),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2662,7 +2662,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 1, teamId: 2),
                 CreateUnit(entityId: 21, position: new Vector2Int(1, 0), hp: 1, teamId: 2),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2750,7 +2750,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             worldState.CreateWriteContext().SetEnemyJumpState(
                 20,
                 CreateEnemyJumpState(EnemyJumpPhase.Cooldown, sequence: 41));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2782,7 +2782,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             worldState.CreateWriteContext().SetEnemyJumpState(
                 20,
                 CreateEnemyJumpState(EnemyJumpPhase.Cooldown, sequence: 43));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2813,7 +2813,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 1, teamId: 2),
                 CreateUnit(entityId: 21, position: new Vector2Int(1, 0), hp: 3, teamId: 2),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2853,7 +2853,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateBox(entityId: 20, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.None),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2889,7 +2889,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateUnit(entityId: 20, position: new Vector2Int(-1, 0), teamId: 2),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2928,7 +2928,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     capabilities: BoxCapabilities.Item | BoxCapabilities.Flip | BoxCapabilities.Destroy,
                     facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -2974,7 +2974,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
                 CreateNonUnitBlocker(entityId: 20, position: new Vector2Int(1, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3009,7 +3009,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
                 CreateNonUnitBlocker(entityId: 20, position: new Vector2Int(1, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3058,7 +3058,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 CreateUnit(entityId: 40, position: new Vector2Int(3, 0), hp: 3, teamId: 2),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3123,7 +3123,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 CreateUnit(entityId: 40, position: new Vector2Int(3, 0), hp: 1, teamId: 2),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3183,7 +3183,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 40, position: new Vector2Int(3, 0), hp: 1, teamId: 2),
                 CreateUnit(entityId: 50, position: new Vector2Int(3, 0), hp: 3, teamId: 1),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3368,7 +3368,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
                 },
                 new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(3, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3395,7 +3395,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Flip),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3429,7 +3429,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3656,7 +3656,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Floor, 2, 0), teamId: 2, facing: Direction.Left),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3694,7 +3694,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Floor, 2, 0), teamId: 2, facing: Direction.Left),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3731,7 +3731,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateNonUnitBlocker(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3766,7 +3766,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3810,7 +3810,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Back, 0, 1), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3854,7 +3854,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3878,7 +3878,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3902,7 +3902,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3934,7 +3934,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -3962,7 +3962,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Item),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4001,7 +4001,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4038,7 +4038,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4086,7 +4086,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 30, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 1, teamId: 2),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4153,7 +4153,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 30, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3, teamId: 2),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4203,7 +4203,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 30, position: new SurfaceCell(FaceId.Front, 0, 1), hp: 3, teamId: 2),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4265,7 +4265,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4311,7 +4311,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Destroy),
                 CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(2, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4362,7 +4362,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(3, 0)),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(5, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4421,7 +4421,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
                 CreateUnit(entityId: 20, position: new Vector2Int(2, 0), teamId: 2),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4469,7 +4469,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateUnit(entityId: 20, position: new Vector2Int(2, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4524,7 +4524,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 20, position: new Vector2Int(4, 0), facing: Direction.Left),
                 CreateBox(entityId: 40, position: new Vector2Int(3, 0), capabilities: BoxCapabilities.Push),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4578,7 +4578,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4648,7 +4648,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Front, 1, 0), hp: 3, teamId: 2),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, Array.Empty<IEntityLogic>());
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(worldState, Array.Empty<IEntityLogic>());
             var snapshot = CreateSnapshot(worldState);
             var group = new ActionGroup(intentId: 1, sourceId: 10, priority: 5, ActionGroupKind.BoxImpact);
             group.AssignGroupId(1);
@@ -4699,7 +4699,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateUnit(entityId: 20, position: new Vector2Int(2, 0)),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -4776,7 +4776,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             GameplayRuntimeFeatureFlags runtimeFeatureFlags)
         {
             var timingProfile = CreateTimingProfile();
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,
@@ -5382,7 +5382,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             IReadOnlyList<IEntityLogic> entityLogics)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
                 entityLogics,
                 timingProfile,
@@ -5412,7 +5412,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 allowPlayerRespawn: true,
                 runtimeFeatureFlags: runtimeFeatureFlags,
                 unitKinematicLocomotionTiming: default,
-                playerFree2DLocomotion: default,
+                playerFree2DLocomotion: PlayerFree2DTestSettingsFactory.CreateDefault(timingProfile.SimulationTicksPerSecond),
                 tileFeatureDefinitions: tileFeatureDefinitions,
                 moonBlockRespawnDefinitions: null,
                 tileEffectResolver: tileEffectResolver);

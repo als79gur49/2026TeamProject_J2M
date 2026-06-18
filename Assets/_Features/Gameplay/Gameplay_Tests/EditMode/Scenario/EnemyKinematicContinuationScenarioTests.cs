@@ -407,7 +407,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             GameplayRuntimeFeatureFlags runtimeFeatureFlags)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,
@@ -420,7 +420,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static TickPipeline CreatePipeline(WorldState worldState, EnemyAiProfile profile)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,

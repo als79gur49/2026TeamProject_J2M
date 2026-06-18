@@ -77,6 +77,7 @@ namespace Game.Feature.Gameplay.Loop
             ISnapshotEntityLogicProvider entityLogicProvider,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
+            PlayerFree2DLocomotionSettings playerFree2DLocomotionSettings,
             int playerRespawnDelayTicks = 1,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> enemySpawnDefaultsByArchetypeId = null,
@@ -96,7 +97,7 @@ namespace Game.Feature.Gameplay.Loop
                 allowPlayerRespawn,
                 runtimeFeatureFlags,
                 unitKinematicLocomotionTiming,
-                playerFree2DLocomotion,
+                playerFree2DLocomotionSettings,
                 tileFeatureDefinitions: null,
                 tileEffectResolver: null)
         {

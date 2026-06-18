@@ -463,7 +463,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickPipeline CreatePipeline(WorldState worldState, EntityState template)
         {
             var timing = GameplayTimingProfile.CreateDefault();
-            return new GameplayBootstrapper(EmptyEntityLogicProvider.Instance)
+            return new GameplayTestBootstrapper(EmptyEntityLogicProvider.Instance)
                 .CreateTickPipeline(
                     worldState,
                     Array.Empty<IEntityLogic>(),
@@ -476,7 +476,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     allowPlayerRespawn: true,
                     runtimeFeatureFlags: default,
                     unitKinematicLocomotionTiming: default,
-                    playerFree2DLocomotion: default,
+                    playerFree2DLocomotion: PlayerFree2DTestSettingsFactory.CreateDefault(timing.SimulationTicksPerSecond),
                     tileFeatureDefinitions: CreateTileFeatureDefinitions(),
                     moonBlockRespawnDefinitions: new[] { CreateRespawnDefinition(template) });
         }

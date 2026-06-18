@@ -45,7 +45,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return GameplayCompositionRoot.CreateDefaultBootstrapper().CreateTickPipeline(
+            return GameplayTestRuntimeFactory.CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
                 timingProfile,
