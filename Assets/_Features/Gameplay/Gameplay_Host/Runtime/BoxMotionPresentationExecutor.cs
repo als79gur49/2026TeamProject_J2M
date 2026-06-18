@@ -387,6 +387,61 @@ namespace Game.Feature.Gameplay.Host
         void HardCleanup();
     }
 
+    internal readonly struct GameplayMotionTrackPlannerPlaybackPortDiagnostics
+    {
+        public GameplayMotionTrackPlannerPlaybackPortDiagnostics(
+            int beginTickContextCount,
+            int tryPlayCallCount,
+            int startedCount,
+            int requestedCount,
+            int targetMissingCount,
+            int anchorMissingCount,
+            int bindingMissingCount,
+            int driverMissingCount,
+            int legacyOwnerActiveCount,
+            int resetSessionCallCount,
+            int hardCleanupCallCount,
+            bool hasTickContext)
+        {
+            BeginTickContextCount = Math.Max(0, beginTickContextCount);
+            TryPlayCallCount = Math.Max(0, tryPlayCallCount);
+            StartedCount = Math.Max(0, startedCount);
+            RequestedCount = Math.Max(0, requestedCount);
+            TargetMissingCount = Math.Max(0, targetMissingCount);
+            AnchorMissingCount = Math.Max(0, anchorMissingCount);
+            BindingMissingCount = Math.Max(0, bindingMissingCount);
+            DriverMissingCount = Math.Max(0, driverMissingCount);
+            LegacyOwnerActiveCount = Math.Max(0, legacyOwnerActiveCount);
+            ResetSessionCallCount = Math.Max(0, resetSessionCallCount);
+            HardCleanupCallCount = Math.Max(0, hardCleanupCallCount);
+            HasTickContext = hasTickContext;
+        }
+
+        public int BeginTickContextCount { get; }
+
+        public int TryPlayCallCount { get; }
+
+        public int StartedCount { get; }
+
+        public int RequestedCount { get; }
+
+        public int TargetMissingCount { get; }
+
+        public int AnchorMissingCount { get; }
+
+        public int BindingMissingCount { get; }
+
+        public int DriverMissingCount { get; }
+
+        public int LegacyOwnerActiveCount { get; }
+
+        public int ResetSessionCallCount { get; }
+
+        public int HardCleanupCallCount { get; }
+
+        public bool HasTickContext { get; }
+    }
+
     internal delegate GameplayPresentationPipeline BoxMotionExecutionPipelineFactory(
         BoxMotionPresentationExecutionMode mode,
         IGameplayMotionPlaybackPort playbackPort,
@@ -668,6 +723,17 @@ namespace Game.Feature.Gameplay.Host
         private CubeTopologyState _previousCommittedTopology;
         private GameplayCubeProjector _projector;
         private GameplayTimingProfile _timingProfile;
+        private int _beginTickContextCount;
+        private int _tryPlayCallCount;
+        private int _startedCount;
+        private int _requestedCount;
+        private int _targetMissingCount;
+        private int _anchorMissingCount;
+        private int _bindingMissingCount;
+        private int _driverMissingCount;
+        private int _legacyOwnerActiveCount;
+        private int _resetSessionCallCount;
+        private int _hardCleanupCallCount;
 
         public GameplayMotionTrackPlannerPlaybackPort(
             GameplayTrackPlanner trackPlanner,
@@ -689,18 +755,39 @@ namespace Game.Feature.Gameplay.Host
             _previousCommittedTopology = previousCommittedTopology;
             _projector = projector;
             _timingProfile = timingProfile;
+            _beginTickContextCount++;
         }
+
+        internal GameplayMotionTrackPlannerPlaybackPortDiagnostics Diagnostics =>
+            new(
+                _beginTickContextCount,
+                _tryPlayCallCount,
+                _startedCount,
+                _requestedCount,
+                _targetMissingCount,
+                _anchorMissingCount,
+                _bindingMissingCount,
+                _driverMissingCount,
+                _legacyOwnerActiveCount,
+                _resetSessionCallCount,
+                _hardCleanupCallCount,
+                _result != null ||
+                _previousCommittedLocalTargetPoses != null ||
+                _projector != null ||
+                _timingProfile != null);
 
         public bool TryPlayBoxMotion(
             in GameplayMotionPlaybackRequest request,
             out GameplayMotionPlaybackResult result)
         {
+            _tryPlayCallCount++;
             if (_result == null ||
                 _previousCommittedLocalTargetPoses == null ||
                 _projector == null ||
                 _timingProfile == null)
             {
                 result = new GameplayMotionPlaybackResult(GameplayMotionPlaybackResultKind.BindingMissing);
+                RecordResult(result.Kind);
                 return false;
             }
 
@@ -708,6 +795,7 @@ namespace Game.Feature.Gameplay.Host
                 request.Target.EntityId <= 0)
             {
                 result = new GameplayMotionPlaybackResult(GameplayMotionPlaybackResultKind.TargetMissing);
+                RecordResult(result.Kind);
                 return false;
             }
 
@@ -715,6 +803,7 @@ namespace Game.Feature.Gameplay.Host
                 request.Anchor.Kind != PresentationAnchorKind.EntityCenter)
             {
                 result = new GameplayMotionPlaybackResult(GameplayMotionPlaybackResultKind.AnchorMissing);
+                RecordResult(result.Kind);
                 return false;
             }
 
@@ -722,6 +811,7 @@ namespace Game.Feature.Gameplay.Host
                 view == null)
             {
                 result = new GameplayMotionPlaybackResult(GameplayMotionPlaybackResultKind.BindingMissing);
+                RecordResult(result.Kind);
                 return false;
             }
 
@@ -730,6 +820,7 @@ namespace Game.Feature.Gameplay.Host
                 !view.TryGetComponent<BoxFlipInteractionDriver>(out _))
             {
                 result = new GameplayMotionPlaybackResult(GameplayMotionPlaybackResultKind.DriverMissing);
+                RecordResult(result.Kind);
                 return false;
             }
 
@@ -742,6 +833,7 @@ namespace Game.Feature.Gameplay.Host
                 _timingProfile,
                 out var resultKind);
             result = new GameplayMotionPlaybackResult(resultKind);
+            RecordResult(result.Kind);
             return started;
         }
 
@@ -751,12 +843,42 @@ namespace Game.Feature.Gameplay.Host
 
         public void ResetSession()
         {
+            _resetSessionCallCount++;
             ClearTickContext();
         }
 
         public void HardCleanup()
         {
+            _hardCleanupCallCount++;
             ClearTickContext();
+        }
+
+        private void RecordResult(GameplayMotionPlaybackResultKind kind)
+        {
+            switch (kind)
+            {
+                case GameplayMotionPlaybackResultKind.Started:
+                    _startedCount++;
+                    break;
+                case GameplayMotionPlaybackResultKind.Requested:
+                    _requestedCount++;
+                    break;
+                case GameplayMotionPlaybackResultKind.TargetMissing:
+                    _targetMissingCount++;
+                    break;
+                case GameplayMotionPlaybackResultKind.AnchorMissing:
+                    _anchorMissingCount++;
+                    break;
+                case GameplayMotionPlaybackResultKind.BindingMissing:
+                    _bindingMissingCount++;
+                    break;
+                case GameplayMotionPlaybackResultKind.DriverMissing:
+                    _driverMissingCount++;
+                    break;
+                case GameplayMotionPlaybackResultKind.LegacyOwnerActive:
+                    _legacyOwnerActiveCount++;
+                    break;
+            }
         }
 
         private void ClearTickContext()

@@ -117,6 +117,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 AssertUiBootstrap(scenePath);
                 AssertTopologyBootstrap(scenePath, host);
                 AssertDamageDeathVfxBootstrap(scenePath, host);
+                AssertPresentationDefaultBootstrap(scenePath, host);
                 if (assertDirectPlayEvidence)
                 {
                     AssertStage1_1DirectPlayEvidence(scenePath, stageId, host);
@@ -206,6 +207,26 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 host.GetComponent<GameplayVfxProductionRuntime>(),
                 Is.Not.Null,
                 $"{scenePath} must keep Gameplay_Vfx production runtime on the gameplay root.");
+        }
+
+        private static void AssertPresentationDefaultBootstrap(string scenePath, GameplaySceneHost host)
+        {
+            Assert.That(
+                host.Presenter.BoxMotionPresentationExecutionMode,
+                Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner),
+                $"{scenePath} must not switch Box motion production ownership.");
+            Assert.That(
+                host.Presenter.TopologyPresentationExecutionMode,
+                Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator),
+                $"{scenePath} must keep topology on the current legacy production owner.");
+            Assert.That(
+                host.Presenter.PlayerActionAnimationExecutionMode,
+                Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync),
+                $"{scenePath} must keep player action animation on the current legacy production owner.");
+            Assert.That(
+                host.Presenter.EnemyPresentationExecutionMode,
+                Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper),
+                $"{scenePath} must keep enemy presentation on the current legacy production owner.");
         }
 
         private static void AssertStage1_1DirectPlayEvidence(

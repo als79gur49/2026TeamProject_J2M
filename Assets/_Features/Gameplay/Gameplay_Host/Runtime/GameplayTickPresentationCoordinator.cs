@@ -22,6 +22,53 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    internal readonly struct BoxMotionPresentationRuntimeDebugSnapshot
+    {
+        public BoxMotionPresentationRuntimeDebugSnapshot(
+            int activeLocalMotionTrackCount,
+            int activeOriginalViewMotionTrackCount,
+            int completedPresentationMotionKeyCount,
+            int completedMotionTrackCount,
+            int completedOriginalViewMotionTrackCount,
+            int motionVisualScaleEntityCount,
+            int flipInteractionTrackCount,
+            int flipInteractionResetRequestCount,
+            int completedFlipInteractionTrackCount,
+            GameplayMotionTrackPlannerPlaybackPortDiagnostics defaultAdapterDiagnostics)
+        {
+            ActiveLocalMotionTrackCount = Math.Max(0, activeLocalMotionTrackCount);
+            ActiveOriginalViewMotionTrackCount = Math.Max(0, activeOriginalViewMotionTrackCount);
+            CompletedPresentationMotionKeyCount = Math.Max(0, completedPresentationMotionKeyCount);
+            CompletedMotionTrackCount = Math.Max(0, completedMotionTrackCount);
+            CompletedOriginalViewMotionTrackCount = Math.Max(0, completedOriginalViewMotionTrackCount);
+            MotionVisualScaleEntityCount = Math.Max(0, motionVisualScaleEntityCount);
+            FlipInteractionTrackCount = Math.Max(0, flipInteractionTrackCount);
+            FlipInteractionResetRequestCount = Math.Max(0, flipInteractionResetRequestCount);
+            CompletedFlipInteractionTrackCount = Math.Max(0, completedFlipInteractionTrackCount);
+            DefaultAdapterDiagnostics = defaultAdapterDiagnostics;
+        }
+
+        public int ActiveLocalMotionTrackCount { get; }
+
+        public int ActiveOriginalViewMotionTrackCount { get; }
+
+        public int CompletedPresentationMotionKeyCount { get; }
+
+        public int CompletedMotionTrackCount { get; }
+
+        public int CompletedOriginalViewMotionTrackCount { get; }
+
+        public int MotionVisualScaleEntityCount { get; }
+
+        public int FlipInteractionTrackCount { get; }
+
+        public int FlipInteractionResetRequestCount { get; }
+
+        public int CompletedFlipInteractionTrackCount { get; }
+
+        public GameplayMotionTrackPlannerPlaybackPortDiagnostics DefaultAdapterDiagnostics { get; }
+    }
+
     public sealed class GameplayTickPresentationCoordinator
     {
         private static readonly IReadOnlyList<TilePresentationRequest> EmptyTilePresentationRequests =
@@ -119,6 +166,7 @@ namespace Game.Feature.Gameplay.Host
         private IDamageDeathVfxPlaybackPort _damageDeathVfxPlaybackPort;
         private IGameplayMotionPlaybackPort _boxMotionPlaybackPort;
         private GameplayMotionTrackPlannerPlaybackPort _boxMotionTrackPlannerPlaybackPort;
+        private bool _boxMotionUseDefaultPlaybackPort = true;
         private IGameplayAnimationPlaybackPort _playerActionAnimationPlaybackPort;
         private GameplayAnimationSyncPlaybackPort _playerActionAnimationSyncPlaybackPort;
         private IGameplayEnemyPresentationPlaybackPort _enemyPresentationPlaybackPort;
@@ -436,6 +484,19 @@ namespace Game.Feature.Gameplay.Host
         internal GameplayMotionExecutorDiagnostics BoxMotionExecutorDiagnostics =>
             ResolveBoxMotionExecutorDiagnostics();
 
+        internal BoxMotionPresentationRuntimeDebugSnapshot BoxMotionRuntimeDebugSnapshot =>
+            new(
+                _trackState.LocalMotionTracks.Count,
+                _trackState.OriginalViewMotionTracks.Count,
+                _trackState.CompletedPresentationMotionKeys.Count,
+                _trackState.CompletedMotionTrackIds.Count,
+                _trackState.CompletedOriginalViewMotionTrackIds.Count,
+                _trackState.MotionVisualScaleEntityIds.Count,
+                _trackState.FlipInteractionTracks.Count,
+                _trackState.FlipInteractionResetRequests.Count,
+                _trackState.CompletedFlipInteractionTrackIds.Count,
+                _boxMotionTrackPlannerPlaybackPort?.Diagnostics ?? default);
+
         internal GameplayAnimationExecutorDiagnostics PlayerActionAnimationExecutorDiagnostics =>
             ResolvePlayerActionAnimationExecutorDiagnostics();
 
@@ -468,10 +529,12 @@ namespace Game.Feature.Gameplay.Host
 
         internal void ConfigureBoxMotionPresentationExecution(
             BoxMotionPresentationExecutionMode mode,
-            IGameplayMotionPlaybackPort playbackPort = null)
+            IGameplayMotionPlaybackPort playbackPort = null,
+            bool useDefaultPlaybackPort = true)
         {
             _boxMotionExecutionMode = NormalizeBoxMotionPresentationExecutionMode(mode);
             _boxMotionPlaybackPort = playbackPort;
+            _boxMotionUseDefaultPlaybackPort = useDefaultPlaybackPort;
             _boxMotionExecutionGuard.Configure(_boxMotionExecutionMode);
             _boxMotionExecutionGuard.ResetSession();
             _boxMotionExecutionPipeline = _boxMotionExecutionPipelineFactory(
@@ -1140,7 +1203,8 @@ namespace Game.Feature.Gameplay.Host
 
         private IGameplayMotionPlaybackPort ResolveBoxMotionPlaybackPort()
         {
-            return _boxMotionPlaybackPort ?? _boxMotionTrackPlannerPlaybackPort;
+            return _boxMotionPlaybackPort ??
+                   (_boxMotionUseDefaultPlaybackPort ? _boxMotionTrackPlannerPlaybackPort : null);
         }
 
         private IGameplayAnimationPlaybackPort ResolvePlayerActionAnimationPlaybackPort()

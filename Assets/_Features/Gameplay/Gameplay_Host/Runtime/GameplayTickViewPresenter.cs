@@ -209,9 +209,13 @@ namespace Game.Feature.Gameplay.Host
 
         internal void ConfigureBoxMotionPresentationExecution(
             BoxMotionPresentationExecutionMode mode,
-            IGameplayMotionPlaybackPort playbackPort = null)
+            IGameplayMotionPlaybackPort playbackPort = null,
+            bool useDefaultPlaybackPort = true)
         {
-            _presentationCoordinator.ConfigureBoxMotionPresentationExecution(mode, playbackPort);
+            _presentationCoordinator.ConfigureBoxMotionPresentationExecution(
+                mode,
+                playbackPort,
+                useDefaultPlaybackPort);
         }
 
         internal void ConfigurePlayerActionAnimationExecution(
@@ -330,6 +334,14 @@ namespace Game.Feature.Gameplay.Host
 
         internal GameplayMotionExecutorDiagnostics BoxMotionExecutorDiagnostics =>
             _presentationCoordinator.BoxMotionExecutorDiagnostics;
+
+        internal BoxMotionPresentationRuntimeDebugSnapshot BoxMotionRuntimeDebugSnapshot =>
+            _presentationCoordinator.BoxMotionRuntimeDebugSnapshot;
+
+        internal void DebugHardCleanupPresentationExtensions()
+        {
+            _presentationCoordinator.HardCleanupPresentationExtensions();
+        }
 
         internal PlayerActionAnimationExecutionMode PlayerActionAnimationExecutionMode =>
             _presentationCoordinator.PlayerActionAnimationExecutionMode;

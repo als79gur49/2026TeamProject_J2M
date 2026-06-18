@@ -73,14 +73,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "OrchestrationMotionExecutor",
                 true,
                 true,
-                "BoxMotion_Readiness_DuplicateGuardNormalAndForced",
-                "BoxMotion_Readiness_IsDeterminismNeutral",
-                "BoxMotion_Readiness_LifecycleCleanupClearsState",
+                "BoxMotionReadiness_PlayMode_DuplicateGuardNormalAndForced",
+                "BoxMotionReadiness_PlayMode_IsNonAuthoritative",
+                "BoxMotionReadiness_PlayMode_LifecycleCleanupClearsTrackAndPose",
                 "BoxMotionExecutionSwitch_DoesNotLeakIntoInputOrVfxContracts",
                 "Medium: motion can affect perceived input timing.",
                 "Low",
                 "Set BoxMotionPresentationExecutionMode.LegacyTrackPlanner.",
-                ProductionSwitchRecommendedStatus.ReadinessHardened),
+                ProductionSwitchRecommendedStatus.CandidateForNextPR),
             new(
                 "Player action animation",
                 typeof(PlayerActionAnimationExecutionMode),
@@ -435,7 +435,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionSwitchReadiness_ReflectsBoxMotionHardening()
+        public void ProductionSwitchReadiness_ReflectsBoxMotionPlayModeEvidence()
         {
             var coreSfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode));
             var damageDeathVfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(DamageDeathVfxExecutionMode));
@@ -464,10 +464,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(boxMotion.CurrentDefault, Is.EqualTo(boxMotion.LegacyOwner));
             Assert.That(boxMotion.DefaultIsLegacy, Is.True);
             Assert.That(boxMotion.InvalidModeNormalizesToLegacy, Is.True);
-            Assert.That(boxMotion.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ReadinessHardened));
-            Assert.That(readinessDocument, Does.Contain("Phase 9G"));
-            Assert.That(readinessDocument, Does.Contain("ReadinessHardened"));
-            Assert.That(readinessDocument, Does.Contain("BoxMotion_Readiness_ControlledHostRoutesSlideFlipImpact"));
+            Assert.That(boxMotion.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.CandidateForNextPR));
+            Assert.That(readinessDocument, Does.Contain("Phase 9I"));
+            Assert.That(readinessDocument, Does.Contain("CandidateForNextPR"));
+            Assert.That(readinessDocument, Does.Contain("BoxMotionReadiness_PlayMode_ControlledOrchestrationRoutesSlideFlipImpact"));
+            Assert.That(readinessDocument, Does.Contain("BoxMotionReadiness_PlayMode_ConcreteAdapterStartsAndCompletesTracks"));
+            Assert.That(readinessDocument, Does.Contain("BoxMotionReadiness_PlayMode_FlipPoseAndVisualRootReset"));
             Assert.That(readinessDocument, Does.Contain("GameplayInputHost_BoxSlidePresentation_DoesNotBlockSimulationTicks"));
             Assert.That(readinessDocument, Does.Contain("GameplayInputHost_FlipPresentation_DoesNotBlockSubsequentTicks"));
 
@@ -537,13 +539,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void ProductionSwitchCandidate_CountIsZeroAfterDamageDeathVfxSwitch()
+        public void ProductionSwitchCandidate_ContainsOnlyBoxMotionAfterPhase9IPlayModeEvidence()
         {
             var candidates = ReadinessMatrix
                 .Where(row => row.RecommendedStatus == ProductionSwitchRecommendedStatus.CandidateForNextPR)
                 .ToArray();
 
-            Assert.That(candidates, Is.Empty);
+            Assert.That(candidates.Select(row => row.ExecutionModeType), Is.EqualTo(new[] { typeof(BoxMotionPresentationExecutionMode) }));
+            Assert.That(candidates.Single().CurrentDefault, Is.EqualTo(candidates.Single().LegacyOwner));
         }
 
         [Test]
