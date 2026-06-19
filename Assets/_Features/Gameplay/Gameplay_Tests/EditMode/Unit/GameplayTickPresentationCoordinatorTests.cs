@@ -1333,6 +1333,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(telemetry.LastOutcomeKind, Is.EqualTo(PresentationAnimationOutcomeKind.Failed));
                 Assert.That(telemetry.LastFailureReason, Is.EqualTo(PlayerActionAnimationTelemetryFailureReason.None));
                 Assert.That(telemetry.LastCleanupReason, Is.EqualTo(PlayerActionAnimationTelemetryCleanupReason.None));
+                Assert.That(telemetry.SemanticDiagnostics.Count, Is.EqualTo(12));
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    telemetry,
+                    PresentationAnimationCueKey.PlayerPushWindup,
+                    planned: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    telemetry,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    planned: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    telemetry,
+                    PresentationAnimationCueKey.PlayerFlipFailed,
+                    planned: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    telemetry,
+                    PresentationAnimationCueKey.PlayerFlipImpactContact,
+                    planned: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
             }
             finally
             {
@@ -13293,6 +13322,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(semantic.LastDedupeKey, Is.GreaterThan(0));
             Assert.That(semantic.LastTargetEntityId, Is.EqualTo(entityId));
             Assert.That(semantic.LastAnchorKind, Is.EqualTo(anchorKind));
+        }
+
+        private static void AssertPlayerActionAnimationSemanticTelemetry(
+            PlayerActionAnimationProductionTelemetrySnapshot telemetry,
+            PresentationAnimationCueKey cueKey,
+            int planned,
+            int requested,
+            int applied,
+            int ignored)
+        {
+            var semantic = telemetry.SemanticDiagnostics.Single(candidate => candidate.CueKey == cueKey);
+            Assert.That(semantic.PlannedCount, Is.EqualTo(planned), cueKey.ToString());
+            Assert.That(semantic.RequestedCount, Is.EqualTo(requested), cueKey.ToString());
+            Assert.That(semantic.AppliedCount, Is.EqualTo(applied), cueKey.ToString());
+            Assert.That(semantic.IgnoredCount, Is.EqualTo(ignored), cueKey.ToString());
         }
 
         private static DamageDeathVfxExecutorDiagnostics PlayDamageDeathVfxCueDirectly(PresentationCue cue)
