@@ -307,8 +307,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 Assert.That(context.Host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
                 Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
-                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
+                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
+                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
 
                 context.Host.Presenter.Present(CreateDamageDeathVfxResult(
                     tickIndex: 21,

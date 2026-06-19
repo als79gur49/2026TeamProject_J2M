@@ -46,11 +46,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(context.Host.Presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
                 Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(context.Host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
-                Assert.That(context.Host.Presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+                Assert.That(context.Host.Presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
                 Assert.That(context.Host.Presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
-                Assert.That(context.Host.Presenter.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
-                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
-                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
+                Assert.That(context.Host.Presenter.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
+                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
+                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
                 Assert.That(
                     typeof(GameplaySceneHostConfiguration).GetField("BoxMotionPresentationExecutionMode"),
                     Is.Null,
@@ -483,8 +483,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(context.Host.Presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
                 Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(context.Host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
-                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
-                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
+                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
+                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
                 yield return null;
             }
             finally

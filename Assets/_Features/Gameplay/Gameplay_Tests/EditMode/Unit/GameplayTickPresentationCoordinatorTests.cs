@@ -218,8 +218,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var legacySnapshot = legacyCoordinator.TopologyProductionTelemetrySnapshot;
                 Assert.That(legacySnapshot.CurrentMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
-                Assert.That(legacySnapshot.IsProductionDefaultOwner, Is.True);
-                Assert.That(legacySnapshot.ProductionDefaultMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+                Assert.That(legacySnapshot.IsProductionDefaultOwner, Is.False);
+                Assert.That(legacySnapshot.ProductionDefaultMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
                 Assert.That(legacySnapshot.RollbackMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
                 Assert.That(legacySnapshot.LastTickIndex, Is.EqualTo(17));
                 Assert.That(legacySnapshot.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.LegacyCoordinator));
@@ -246,8 +246,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var executorSnapshot = executorCoordinator.TopologyProductionTelemetrySnapshot;
                 Assert.That(executorSnapshot.CurrentMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
-                Assert.That(executorSnapshot.IsProductionDefaultOwner, Is.False);
-                Assert.That(executorSnapshot.ProductionDefaultMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+                Assert.That(executorSnapshot.IsProductionDefaultOwner, Is.True);
+                Assert.That(executorSnapshot.ProductionDefaultMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
                 Assert.That(executorSnapshot.RollbackMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
                 Assert.That(executorSnapshot.LastTickIndex, Is.EqualTo(18));
                 Assert.That(executorSnapshot.LastSourceTopology, Is.EqualTo(initialTopology));

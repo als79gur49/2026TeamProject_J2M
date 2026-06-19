@@ -169,12 +169,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 $"{scenePath} must report Core SFX production default owner telemetry at bootstrap.");
             Assert.That(
                 host.Presenter.ActionAudioExecutionMode,
-                Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController),
-                $"{scenePath} must not switch action audio production ownership.");
+                Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge),
+                $"{scenePath} must boot action audio with the production orchestration owner.");
             Assert.That(
                 host.Presenter.EnemyAudioExecutionMode,
-                Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController),
-                $"{scenePath} must not switch enemy audio production ownership.");
+                Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge),
+                $"{scenePath} must boot enemy audio one-shot playback with the production orchestration owner.");
         }
 
         private static void AssertUiBootstrap(string scenePath)
@@ -217,16 +217,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 $"{scenePath} must boot Box motion with the production orchestration owner.");
             Assert.That(
                 host.Presenter.TopologyPresentationExecutionMode,
-                Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator),
-                $"{scenePath} must keep topology on the current legacy production owner.");
+                Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge),
+                $"{scenePath} must boot topology visuals with the production executor bridge owner.");
             Assert.That(
                 host.Presenter.PlayerActionAnimationExecutionMode,
                 Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor),
                 $"{scenePath} must boot player action animation with the production orchestration owner.");
             Assert.That(
                 host.Presenter.EnemyPresentationExecutionMode,
-                Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper),
-                $"{scenePath} must keep enemy presentation on the current legacy production owner.");
+                Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor),
+                $"{scenePath} must boot enemy presentation with the production orchestration owner.");
         }
 
         private static void AssertStage1_1DirectPlayEvidence(

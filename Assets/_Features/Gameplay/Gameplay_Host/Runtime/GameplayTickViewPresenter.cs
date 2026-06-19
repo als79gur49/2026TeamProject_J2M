@@ -89,7 +89,7 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
             EnemyInactiveVisualSettings enemyInactiveVisualSettings = null,
             TopologyPresentationExecutionMode topologyPresentationExecutionMode =
-                TopologyPresentationExecutionMode.LegacyCoordinator)
+                TopologyPresentationExecutionDefaults.ProductionDefault)
         {
             _presentationCoordinator.Initialize(
                 viewBinder,

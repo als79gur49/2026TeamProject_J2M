@@ -1298,8 +1298,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var telemetry = presenter.ActionAudioProductionTelemetrySnapshot;
                 Assert.That(telemetry.CurrentMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
-                Assert.That(telemetry.IsProductionDefaultOwner, Is.False);
-                Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
+                Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
                 Assert.That(telemetry.RollbackMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
                 Assert.That(telemetry.LastTickIndex, Is.EqualTo(24));
                 Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationActionAudioCueKey.PlayerFlipAssistOutOfRange));

@@ -8,6 +8,14 @@ using Game.Feature.Gameplay.PresentationRuntime;
 
 namespace Game.Feature.Gameplay.Host
 {
+    internal static class TopologyPresentationExecutionDefaults
+    {
+        public const TopologyPresentationExecutionMode LegacyFallback =
+            TopologyPresentationExecutionMode.LegacyCoordinator;
+        public const TopologyPresentationExecutionMode ProductionDefault =
+            TopologyPresentationExecutionMode.ExecutorBridge;
+    }
+
     internal readonly struct TopologyProductionTelemetrySnapshot
     {
         public TopologyProductionTelemetrySnapshot(
@@ -134,9 +142,9 @@ namespace Game.Feature.Gameplay.Host
 
             return new TopologyProductionTelemetrySnapshot(
                 mode,
-                mode == TopologyPresentationExecutionMode.LegacyCoordinator,
-                TopologyPresentationExecutionMode.LegacyCoordinator,
-                TopologyPresentationExecutionMode.LegacyCoordinator,
+                mode == TopologyPresentationExecutionDefaults.ProductionDefault,
+                TopologyPresentationExecutionDefaults.ProductionDefault,
+                TopologyPresentationExecutionDefaults.LegacyFallback,
                 lastTickIndex,
                 executor.LastSourceTopology,
                 executor.LastDestinationTopology,

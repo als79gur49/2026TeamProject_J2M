@@ -464,8 +464,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var telemetry = presenter.EnemyAudioProductionTelemetrySnapshot;
                 Assert.That(telemetry.CurrentMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
-                Assert.That(telemetry.IsProductionDefaultOwner, Is.False);
-                Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
+                Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
                 Assert.That(telemetry.RollbackMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
                 Assert.That(telemetry.LastTickIndex, Is.EqualTo(8));
                 Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationEnemyAudioCueKey.Active));

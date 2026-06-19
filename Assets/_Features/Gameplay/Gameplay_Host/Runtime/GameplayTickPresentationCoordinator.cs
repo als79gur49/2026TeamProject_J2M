@@ -267,21 +267,21 @@ namespace Game.Feature.Gameplay.Host
         private GameplayPresentationPipeline _actionAudioExecutionPipeline;
         private GameplayPresentationPipeline _enemyAudioExecutionPipeline;
         private TopologyPresentationExecutionMode _topologyExecutionMode =
-            TopologyPresentationExecutionMode.LegacyCoordinator;
+            TopologyPresentationExecutionPolicy.ProductionDefault;
         private DamageDeathVfxExecutionMode _damageDeathVfxExecutionMode =
-            DamageDeathVfxExecutionMode.OrchestrationExecutor;
+            DamageDeathVfxExecutionPolicy.ProductionDefault;
         private BoxMotionPresentationExecutionMode _boxMotionExecutionMode =
-            BoxMotionPresentationExecutionDefaults.ProductionDefault;
+            BoxMotionExecutionPolicy.ProductionDefault;
         private PlayerActionAnimationExecutionMode _playerActionAnimationExecutionMode =
-            PlayerActionAnimationExecutionDefaults.ProductionDefault;
+            PlayerActionAnimationExecutionPolicy.ProductionDefault;
         private EnemyPresentationExecutionMode _enemyPresentationExecutionMode =
-            EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper;
+            EnemyPresentationExecutionPolicy.ProductionDefault;
         private CoreGameplaySfxExecutionMode _coreGameplaySfxExecutionMode =
-            CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor;
+            CoreGameplaySfxExecutionPolicy.ProductionDefault;
         private ActionAudioExecutionMode _actionAudioExecutionMode =
-            ActionAudioExecutionMode.LegacyActionAudioController;
+            ActionAudioExecutionPolicy.ProductionDefault;
         private EnemyAudioExecutionMode _enemyAudioExecutionMode =
-            EnemyAudioExecutionMode.LegacyEnemyAudioController;
+            EnemyAudioExecutionPolicy.ProductionDefault;
         private IDamageDeathVfxPlaybackPort _damageDeathVfxPlaybackPort;
         private IGameplayMotionPlaybackPort _boxMotionPlaybackPort;
         private GameplayMotionTrackPlannerPlaybackPort _boxMotionTrackPlannerPlaybackPort;
@@ -922,7 +922,7 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
             EnemyInactiveVisualSettings enemyInactiveVisualSettings = null,
             TopologyPresentationExecutionMode topologyPresentationExecutionMode =
-                TopologyPresentationExecutionMode.LegacyCoordinator)
+                TopologyPresentationExecutionPolicy.ProductionDefault)
         {
             if (viewBinder == null)
             {
@@ -2770,9 +2770,7 @@ namespace Game.Feature.Gameplay.Host
         private static TopologyPresentationExecutionMode NormalizeTopologyPresentationExecutionMode(
             TopologyPresentationExecutionMode mode)
         {
-            return Enum.IsDefined(typeof(TopologyPresentationExecutionMode), mode)
-                ? mode
-                : TopologyPresentationExecutionMode.LegacyCoordinator;
+            return TopologyPresentationExecutionPolicy.Normalize(mode);
         }
 
         private void RefreshPresentationMotionVfx(int tickIndex)
@@ -3141,57 +3139,43 @@ namespace Game.Feature.Gameplay.Host
         private static DamageDeathVfxExecutionMode NormalizeDamageDeathVfxExecutionMode(
             DamageDeathVfxExecutionMode mode)
         {
-            return Enum.IsDefined(typeof(DamageDeathVfxExecutionMode), mode)
-                ? mode
-                : DamageDeathVfxExecutionMode.LegacyExtension;
+            return DamageDeathVfxExecutionPolicy.Normalize(mode);
         }
 
         private static BoxMotionPresentationExecutionMode NormalizeBoxMotionPresentationExecutionMode(
             BoxMotionPresentationExecutionMode mode)
         {
-            return Enum.IsDefined(typeof(BoxMotionPresentationExecutionMode), mode)
-                ? mode
-                : BoxMotionPresentationExecutionDefaults.LegacyFallback;
+            return BoxMotionExecutionPolicy.Normalize(mode);
         }
 
         private static PlayerActionAnimationExecutionMode NormalizePlayerActionAnimationExecutionMode(
             PlayerActionAnimationExecutionMode mode)
         {
-            return Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), mode)
-                ? mode
-                : PlayerActionAnimationExecutionDefaults.LegacyFallback;
+            return PlayerActionAnimationExecutionPolicy.Normalize(mode);
         }
 
         private static EnemyPresentationExecutionMode NormalizeEnemyPresentationExecutionMode(
             EnemyPresentationExecutionMode mode)
         {
-            return Enum.IsDefined(typeof(EnemyPresentationExecutionMode), mode)
-                ? mode
-                : EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper;
+            return EnemyPresentationExecutionPolicy.Normalize(mode);
         }
 
         private static CoreGameplaySfxExecutionMode NormalizeCoreGameplaySfxExecutionMode(
             CoreGameplaySfxExecutionMode mode)
         {
-            return Enum.IsDefined(typeof(CoreGameplaySfxExecutionMode), mode)
-                ? mode
-                : CoreGameplaySfxExecutionMode.LegacyGameplayAudioController;
+            return CoreGameplaySfxExecutionPolicy.Normalize(mode);
         }
 
         private static ActionAudioExecutionMode NormalizeActionAudioExecutionMode(
             ActionAudioExecutionMode mode)
         {
-            return Enum.IsDefined(typeof(ActionAudioExecutionMode), mode)
-                ? mode
-                : ActionAudioExecutionMode.LegacyActionAudioController;
+            return ActionAudioExecutionPolicy.Normalize(mode);
         }
 
         private static EnemyAudioExecutionMode NormalizeEnemyAudioExecutionMode(
             EnemyAudioExecutionMode mode)
         {
-            return Enum.IsDefined(typeof(EnemyAudioExecutionMode), mode)
-                ? mode
-                : EnemyAudioExecutionMode.LegacyEnemyAudioController;
+            return EnemyAudioExecutionPolicy.Normalize(mode);
         }
 
         private void TraceStep(string stepName)

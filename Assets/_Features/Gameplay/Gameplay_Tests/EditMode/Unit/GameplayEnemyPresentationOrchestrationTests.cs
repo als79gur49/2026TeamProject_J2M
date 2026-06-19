@@ -148,8 +148,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var telemetry = coordinator.EnemyPresentationProductionTelemetrySnapshot;
                 Assert.That(telemetry.CurrentMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
-                Assert.That(telemetry.IsProductionDefaultOwner, Is.False);
-                Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
+                Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
                 Assert.That(telemetry.RollbackMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
                 Assert.That(telemetry.LastTickIndex, Is.EqualTo(TickIndex));
                 Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationAnimationCueKey.EnemyDeath));

@@ -15,6 +15,14 @@ namespace Game.Feature.Gameplay.Host
         OrchestrationEnemyAudioBridge = 1,
     }
 
+    internal static class EnemyAudioExecutionDefaults
+    {
+        public const EnemyAudioExecutionMode LegacyFallback =
+            EnemyAudioExecutionMode.LegacyEnemyAudioController;
+        public const EnemyAudioExecutionMode ProductionDefault =
+            EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge;
+    }
+
     internal enum EnemyAudioExecutionOwner
     {
         None = 0,
@@ -196,9 +204,9 @@ namespace Game.Feature.Gameplay.Host
 
             return new EnemyAudioProductionTelemetrySnapshot(
                 mode,
-                mode == EnemyAudioExecutionMode.LegacyEnemyAudioController,
-                EnemyAudioExecutionMode.LegacyEnemyAudioController,
-                EnemyAudioExecutionMode.LegacyEnemyAudioController,
+                mode == EnemyAudioExecutionDefaults.ProductionDefault,
+                EnemyAudioExecutionDefaults.ProductionDefault,
+                EnemyAudioExecutionDefaults.LegacyFallback,
                 executor.LastTickIndex,
                 executor.LastCueKey,
                 executor.LastDedupeKey,

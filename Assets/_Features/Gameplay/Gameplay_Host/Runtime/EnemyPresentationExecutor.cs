@@ -13,6 +13,14 @@ namespace Game.Feature.Gameplay.Host
         OrchestrationEnemyPresentationExecutor = 1,
     }
 
+    internal static class EnemyPresentationExecutionDefaults
+    {
+        public const EnemyPresentationExecutionMode LegacyFallback =
+            EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper;
+        public const EnemyPresentationExecutionMode ProductionDefault =
+            EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor;
+    }
+
     internal enum EnemyPresentationExecutionOwner
     {
         None = 0,
@@ -210,9 +218,9 @@ namespace Game.Feature.Gameplay.Host
 
             return new EnemyPresentationProductionTelemetrySnapshot(
                 mode,
-                mode == EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper,
-                EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper,
-                EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper,
+                mode == EnemyPresentationExecutionDefaults.ProductionDefault,
+                EnemyPresentationExecutionDefaults.ProductionDefault,
+                EnemyPresentationExecutionDefaults.LegacyFallback,
                 executor.LastTickIndex,
                 executor.LastCueKey,
                 executor.LastDedupeKey,

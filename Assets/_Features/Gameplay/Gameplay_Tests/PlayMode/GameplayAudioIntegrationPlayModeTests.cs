@@ -355,9 +355,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     Assert.That(diagnostics.LethalEnemyDamageSuppressedByDeathCount, Is.EqualTo(1));
                     Assert.That(diagnostics.PlaybackNoOpFallbackCount, Is.EqualTo(2));
                     Assert.That(diagnostics.DuplicateSuppressedCount, Is.Zero);
-                    Assert.That(lethalContext.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
-                    Assert.That(lethalContext.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
-                    Assert.That(lethalContext.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+                    Assert.That(lethalContext.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
+                    Assert.That(lethalContext.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
+                    Assert.That(lethalContext.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
                 }
                 finally
                 {
@@ -469,8 +469,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             try
             {
                 Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
-                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
+                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
+                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
                 Assert.That(context.Host.GetComponent<Game.Feature.Flow.Audio.GlobalAudioFlowBootstrap>(), Is.Null);
                 context.Host.Presenter.Present(CreateTickResult(CreatePlayerDamagePresentationData(10), tickIndex: 71));
                 yield return null;

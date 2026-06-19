@@ -15,6 +15,14 @@ namespace Game.Feature.Gameplay.Host
         OrchestrationActionAudioBridge = 1,
     }
 
+    internal static class ActionAudioExecutionDefaults
+    {
+        public const ActionAudioExecutionMode LegacyFallback =
+            ActionAudioExecutionMode.LegacyActionAudioController;
+        public const ActionAudioExecutionMode ProductionDefault =
+            ActionAudioExecutionMode.OrchestrationActionAudioBridge;
+    }
+
     internal enum ActionAudioExecutionOwner
     {
         None = 0,
@@ -194,9 +202,9 @@ namespace Game.Feature.Gameplay.Host
 
             return new ActionAudioProductionTelemetrySnapshot(
                 mode,
-                mode == ActionAudioExecutionMode.LegacyActionAudioController,
-                ActionAudioExecutionMode.LegacyActionAudioController,
-                ActionAudioExecutionMode.LegacyActionAudioController,
+                mode == ActionAudioExecutionDefaults.ProductionDefault,
+                ActionAudioExecutionDefaults.ProductionDefault,
+                ActionAudioExecutionDefaults.LegacyFallback,
                 executor.LastTickIndex,
                 executor.LastCueKey,
                 executor.LastDedupeKey,
