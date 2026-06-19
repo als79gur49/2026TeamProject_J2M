@@ -8346,12 +8346,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     1,
                     new[] { CreateEnemyUnit(20, bottomCell) },
                     topology,
-                    CreateEnemyUtilityPresentationData(new[]
+                    CreateEnemySummonPresentationData(new[]
                     {
-                        new TickEnemyUtilityPresentationSignal(
+                        new TickEnemySummonPresentationSignal(
                             20,
-                            EnemyUtilityPresentationKind.SummonMinion,
-                            EnemyUtilityPresentationPhase.WindupStarted,
+                            EnemySummonPresentationPhase.WindupStarted,
                             startTick: 1,
                             executeTick: 2,
                             durationTicks: 10),
@@ -8422,12 +8421,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     1,
                     new[] { CreateEnemyUnit(20, bottomCell) },
                     topology,
-                    CreateEnemyUtilityPresentationData(new[]
+                    CreateEnemySummonPresentationData(new[]
                     {
-                        new TickEnemyUtilityPresentationSignal(
+                        new TickEnemySummonPresentationSignal(
                             20,
-                            EnemyUtilityPresentationKind.SummonMinion,
-                            EnemyUtilityPresentationPhase.WindupStarted,
+                            EnemySummonPresentationPhase.WindupStarted,
                             startTick: 1,
                             executeTick: 2,
                             durationTicks: 10),
@@ -8442,12 +8440,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     2,
                     new[] { CreateEnemyUnit(20, bottomCell) },
                     topology,
-                    CreateEnemyUtilityPresentationData(new[]
+                    CreateEnemySummonPresentationData(new[]
                     {
-                        new TickEnemyUtilityPresentationSignal(
+                        new TickEnemySummonPresentationSignal(
                             20,
-                            EnemyUtilityPresentationKind.SummonMinion,
-                            EnemyUtilityPresentationPhase.Canceled,
+                            EnemySummonPresentationPhase.Canceled,
                             startTick: 2,
                             executeTick: 2,
                             durationTicks: 0),
@@ -11374,6 +11371,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
                 summonedEnemyPresentationBindings: Array.Empty<TickSummonedEnemyPresentationBinding>(),
                 enemyUtilitySignals: enemyUtilitySignals);
+        }
+
+        private static TickPresentationData CreateEnemySummonPresentationData(
+            IReadOnlyList<TickEnemySummonPresentationSignal> enemySummonSignals)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>(),
+                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                enemyChargeSignals: Array.Empty<TickEnemyChargePresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
+                flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
+                summonedEnemyPresentationBindings: Array.Empty<TickSummonedEnemyPresentationBinding>(),
+                enemySummonSignals: enemySummonSignals);
         }
 
         private static TickSummonWindupWarningSignal CreateSummonWindupWarningSignal(

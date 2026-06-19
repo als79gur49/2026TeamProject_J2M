@@ -261,7 +261,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyViewPresentationMapper_MapsSummonUtilityWindupAndRecoverWithoutAttackSemantic()
+        public void EnemyViewPresentationMapper_MapsSummonWindupAndRecoverWithoutAttackSemantic()
         {
             const int enemyId = 40;
             var mapper = new EnemyViewPresentationMapper();
@@ -273,10 +273,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateResult(
                     tickIndex: 1,
                     enemy,
-                    new TickEnemyUtilityPresentationSignal(
+                    new TickEnemySummonPresentationSignal(
                         enemyId,
-                        EnemyUtilityPresentationKind.SummonMinion,
-                        EnemyUtilityPresentationPhase.WindupStarted,
+                        EnemySummonPresentationPhase.WindupStarted,
                         startTick: 1,
                         executeTick: 103,
                         durationTicks: 102)),
@@ -284,8 +283,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 states);
 
             Assert.That(states.TryGetValue(enemyId, out var windupState), Is.True);
-            Assert.That(windupState.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.SummonMinion));
-            Assert.That(windupState.StartedUtilityWindupThisTick, Is.True);
+            Assert.That(windupState.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.None));
+            Assert.That(windupState.StartedSummonWindupThisTick, Is.True);
             Assert.That(windupState.StartedRecoveryThisTick, Is.False);
             Assert.That(windupState.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
             Assert.That(windupState.StartedWindupThisTick, Is.False);
@@ -294,10 +293,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateResult(
                     tickIndex: 103,
                     enemy,
-                    new TickEnemyUtilityPresentationSignal(
+                    new TickEnemySummonPresentationSignal(
                         enemyId,
-                        EnemyUtilityPresentationKind.SummonMinion,
-                        EnemyUtilityPresentationPhase.RecoverStarted,
+                        EnemySummonPresentationPhase.RecoverStarted,
                         startTick: 103,
                         executeTick: 145,
                         durationTicks: 42)),
@@ -305,9 +303,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 states);
 
             Assert.That(states.TryGetValue(enemyId, out var recoverState), Is.True);
-            Assert.That(recoverState.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.SummonMinion));
-            Assert.That(recoverState.StartedUtilityWindupThisTick, Is.False);
-            Assert.That(recoverState.StartedUtilityRecoverThisTick, Is.True);
+            Assert.That(recoverState.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.None));
+            Assert.That(recoverState.StartedSummonWindupThisTick, Is.False);
+            Assert.That(recoverState.StartedSummonRecoverThisTick, Is.True);
             Assert.That(recoverState.StartedRecoveryThisTick, Is.True);
             Assert.That(recoverState.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
             Assert.That(recoverState.ExecutedThisTick, Is.False);
@@ -397,7 +395,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         new TickEnemyUtilityPhasePresentationState(
                             enemyId,
-                            EnemyUtilityPresentationKind.SummonMinion,
+                            EnemyUtilityPresentationKind.GravityFieldAura,
                             EnemyUtilityEffectPhase.Windup,
                             phaseElapsedTicks: 2,
                             phaseDurationTicks: 5,
@@ -452,8 +450,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     startedChargeRecoverThisTick: false,
                     tookDamage: false,
                     didDie: false,
-                    utilityPresentationKind: EnemyUtilityPresentationKind.SummonMinion,
-                    startedUtilityWindupThisTick: true));
+                    startedSummonWindupThisTick: true));
 
                 driver.Advance(1.05f);
                 Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(1.1f).Within(0.0001f));
@@ -483,8 +480,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     startedChargeRecoverThisTick: false,
                     tookDamage: false,
                     didDie: false,
-                    utilityPresentationKind: EnemyUtilityPresentationKind.SummonMinion,
-                    startedUtilityWindupThisTick: false));
+                    startedSummonRecoverThisTick: true));
 
                 driver.Advance(0.7f);
                 Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(1f).Within(0.0001f));
@@ -509,7 +505,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
                 var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
 
-                driver.Apply(CreateSummonUtilityState(startedUtilityWindupThisTick: true));
+                driver.Apply(CreateSummonState(startedSummonWindupThisTick: true));
                 driver.Advance(0.5f);
 
                 var frozenMultiplier = driver.CurrentScaleMultiplier;
@@ -549,7 +545,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
                 var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
 
-                driver.Apply(CreateSummonUtilityState(startedUtilityWindupThisTick: true));
+                driver.Apply(CreateSummonState(startedSummonWindupThisTick: true));
                 driver.Advance(0.5f);
                 Assert.That(modelRoot.localScale.x, Is.Not.EqualTo(0.4f).Within(0.0001f));
 
@@ -586,12 +582,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
                 var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
 
-                driver.Apply(CreateSummonUtilityState(startedUtilityWindupThisTick: true));
+                driver.Apply(CreateSummonState(startedSummonWindupThisTick: true));
                 driver.Advance(1.7f);
                 Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(0.75f).Within(0.0001f));
                 Assert.That(driver.IsPlaying, Is.False);
 
-                driver.Apply(CreateSummonUtilityState(utilityCanceledThisTick: true, tickIndex: 2));
+                driver.Apply(CreateSummonState(summonCanceledThisTick: true, tickIndex: 2));
 
                 Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(1f).Within(0.0001f));
                 Assert.That(modelRoot.localScale.x, Is.EqualTo(0.4f).Within(0.0001f));
@@ -744,6 +740,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickResult CreateResult(
             int tickIndex,
             EntityState enemy,
+            TickEnemySummonPresentationSignal summonSignal)
+        {
+            return new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                new[] { enemy },
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(),
+                    Array.Empty<TickPlayerDeathPresentationSignal>(),
+                    Array.Empty<TickEnemyDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(),
+                    Array.Empty<TickEnemyChargePresentationSignal>(),
+                    Array.Empty<TickEntityExitPresentationSignal>(),
+                    Array.Empty<TickImpactTransientPresentationSignal>(),
+                    Array.Empty<FlipImpactPresentationSignal>(),
+                    enemySummonSignals: new[] { summonSignal }),
+                string.Empty,
+                TickTrace.Empty);
+        }
+
+        private static TickResult CreateResult(
+            int tickIndex,
+            EntityState enemy,
             TickEnemyUtilityPhasePresentationState utilityPhaseState)
         {
             return CreateResult(tickIndex, enemy, new[] { utilityPhaseState });
@@ -802,11 +833,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
-        private static EnemyViewPresentationState CreateSummonUtilityState(
-            bool startedUtilityWindupThisTick = false,
+        private static EnemyViewPresentationState CreateSummonState(
+            bool startedSummonWindupThisTick = false,
             bool startedRecoveryThisTick = false,
             bool didDie = false,
-            bool utilityCanceledThisTick = false,
+            bool summonCanceledThisTick = false,
             int tickIndex = 1)
         {
             return new EnemyViewPresentationState(
@@ -829,9 +860,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 startedChargeRecoverThisTick: false,
                 tookDamage: false,
                 didDie: didDie,
-                utilityPresentationKind: EnemyUtilityPresentationKind.SummonMinion,
-                startedUtilityWindupThisTick: startedUtilityWindupThisTick,
-                utilityCanceledThisTick: utilityCanceledThisTick);
+                startedSummonWindupThisTick: startedSummonWindupThisTick,
+                summonCanceledThisTick: summonCanceledThisTick);
         }
     }
 }

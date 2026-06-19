@@ -1352,6 +1352,49 @@ namespace Game.Feature.Gameplay.Loop
         public int PresentationSeed { get; }
     }
 
+    public enum EnemySummonPresentationPhase
+    {
+        None = 0,
+        WindupStarted = 1,
+        RecoverStarted = 2,
+        Canceled = 3,
+    }
+
+    public readonly struct TickEnemySummonPresentationSignal
+    {
+        public TickEnemySummonPresentationSignal(
+            int entityId,
+            EnemySummonPresentationPhase phase,
+            int startTick,
+            int executeTick,
+            int durationTicks,
+            int effectIndex = 0,
+            int activationSequence = 0)
+        {
+            EntityId = entityId;
+            Phase = phase;
+            StartTick = startTick;
+            ExecuteTick = executeTick;
+            DurationTicks = Math.Max(0, durationTicks);
+            EffectIndex = effectIndex;
+            ActivationSequence = Math.Max(0, activationSequence);
+        }
+
+        public int EntityId { get; }
+
+        public EnemySummonPresentationPhase Phase { get; }
+
+        public int StartTick { get; }
+
+        public int ExecuteTick { get; }
+
+        public int DurationTicks { get; }
+
+        public int EffectIndex { get; }
+
+        public int ActivationSequence { get; }
+    }
+
     public readonly struct TickPlayerActionPresentationSignal
     {
         public TickPlayerActionPresentationSignal(
@@ -1913,7 +1956,6 @@ namespace Game.Feature.Gameplay.Loop
         None = 0,
         RetiredLockNearbyBoxes = 1,
         GravityFieldAura = 2,
-        SummonMinion = 3,
     }
 
     public enum EnemyUtilityPresentationPhase
@@ -2790,6 +2832,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickEnemyJumpPresentationSignal> _enemyJumpSignals;
         private readonly ReadOnlyCollection<TickEnemyChargePresentationSignal> _enemyChargeSignals;
         private readonly ReadOnlyCollection<TickEnemyGlidePresentationSignal> _enemyGlideSignals;
+        private readonly ReadOnlyCollection<TickEnemySummonPresentationSignal> _enemySummonSignals;
         private readonly ReadOnlyCollection<TickEnemyUtilityPresentationSignal> _enemyUtilitySignals;
         private readonly ReadOnlyCollection<TickEnemyUtilityPhasePresentationState> _enemyUtilityPhaseStates;
         private readonly ReadOnlyCollection<TickEnemyUtilityCooldownPresentationSignal> _enemyUtilityCooldownSignals;
@@ -3176,7 +3219,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
             IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
-            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null,
+            IEnumerable<TickEnemySummonPresentationSignal> enemySummonSignals = null)
         {
             if (entityMotions == null)
             {
@@ -3311,6 +3355,9 @@ namespace Game.Feature.Gameplay.Loop
             _enemyGlideSignals = new ReadOnlyCollection<TickEnemyGlidePresentationSignal>(
                 new List<TickEnemyGlidePresentationSignal>(
                     enemyGlideSignals ?? Array.Empty<TickEnemyGlidePresentationSignal>()));
+            _enemySummonSignals = new ReadOnlyCollection<TickEnemySummonPresentationSignal>(
+                new List<TickEnemySummonPresentationSignal>(
+                    enemySummonSignals ?? Array.Empty<TickEnemySummonPresentationSignal>()));
             _enemyUtilitySignals = new ReadOnlyCollection<TickEnemyUtilityPresentationSignal>(
                 new List<TickEnemyUtilityPresentationSignal>(
                     enemyUtilitySignals ?? Array.Empty<TickEnemyUtilityPresentationSignal>()));
@@ -3404,7 +3451,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
             IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
-            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null,
+            IEnumerable<TickEnemySummonPresentationSignal> enemySummonSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3442,7 +3490,8 @@ namespace Game.Feature.Gameplay.Loop
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
                 enemyUtilityPhaseStates: enemyUtilityPhaseStates,
-                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals)
+                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals,
+                enemySummonSignals: enemySummonSignals)
         {
         }
 
@@ -3522,7 +3571,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
             IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
-            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null,
+            IEnumerable<TickEnemySummonPresentationSignal> enemySummonSignals = null)
             : this(
                 entityMotions,
                 topologyMotion,
@@ -3564,7 +3614,8 @@ namespace Game.Feature.Gameplay.Loop
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
                 enemyUtilityPhaseStates: enemyUtilityPhaseStates,
-                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals)
+                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals,
+                enemySummonSignals: enemySummonSignals)
         {
             if (impactTransientSignals == null)
             {
@@ -3619,7 +3670,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntitySpawnPresentationSignal> entitySpawnSignals = null,
             IEnumerable<TickPlayerOutcomePresentationSignal> playerOutcomeSignals = null,
             IEnumerable<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates = null,
-            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
+            IEnumerable<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null,
+            IEnumerable<TickEnemySummonPresentationSignal> enemySummonSignals = null)
             : this(
                 entityMotions: entityMotions,
                 topologyMotion: topologyMotion,
@@ -3662,7 +3714,8 @@ namespace Game.Feature.Gameplay.Loop
                 entitySpawnSignals: entitySpawnSignals,
                 playerOutcomeSignals: playerOutcomeSignals,
                 enemyUtilityPhaseStates: enemyUtilityPhaseStates,
-                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals)
+                playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals,
+                enemySummonSignals: enemySummonSignals)
         {
             if (summonedEnemyPresentationBindings == null)
             {
@@ -3733,6 +3786,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickEnemyChargePresentationSignal> EnemyChargeSignals => _enemyChargeSignals;
 
         public IReadOnlyList<TickEnemyGlidePresentationSignal> EnemyGlideSignals => _enemyGlideSignals;
+
+        public IReadOnlyList<TickEnemySummonPresentationSignal> EnemySummonSignals => _enemySummonSignals;
 
         public IReadOnlyList<TickEnemyUtilityPresentationSignal> EnemyUtilitySignals => _enemyUtilitySignals;
 

@@ -722,6 +722,7 @@ namespace Game.Feature.Gameplay.Loop
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
             var enemyChargeSignals = new List<TickEnemyChargePresentationSignal>();
             var enemyGlideSignals = new List<TickEnemyGlidePresentationSignal>();
+            var enemySummonSignals = new List<TickEnemySummonPresentationSignal>();
             var enemyUtilitySignals = new List<TickEnemyUtilityPresentationSignal>();
             var enemyUtilityPhaseStates = new List<TickEnemyUtilityPhasePresentationState>();
             var enemyUtilityCooldownSignals = new List<TickEnemyUtilityCooldownPresentationSignal>();
@@ -807,6 +808,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildEnemyUtilityWindupPresentation(
                 context,
                 summonWindupWarnings,
+                enemySummonSignals,
                 enemyUtilitySignals,
                 enemyUtilityPhaseStates,
                 enemyUtilityCooldownSignals,
@@ -822,6 +824,7 @@ namespace Game.Feature.Gameplay.Loop
                           enemyJumpSignals.Count == 0 &&
                           enemyChargeSignals.Count == 0 &&
                           enemyGlideSignals.Count == 0 &&
+                          enemySummonSignals.Count == 0 &&
                           enemyUtilitySignals.Count == 0 &&
                           enemyUtilityPhaseStates.Count == 0 &&
                           enemyUtilityCooldownSignals.Count == 0 &&
@@ -863,50 +866,51 @@ namespace Game.Feature.Gameplay.Loop
             var presentationData = isEmpty
                 ? TickPresentationData.Empty
                 : new TickPresentationData(
-                    entityMotions,
-                    topologyMotion,
-                    visibilityChanges,
-                    transitionVisibilityChanges,
-                    playerActionSignals,
-                    playerLocomotionSignals,
-                    playerDamageSignals,
-                    playerDeathSignals,
-                    enemyDamageSignals,
-                    enemyActionSignals,
-                    enemyJumpSignals,
-                    enemyChargeSignals,
-                    entityExitSignals,
-                    impactTransientSignals,
-                    flipImpactSignals,
-                    summonedEnemyPresentationBindings,
-                    summonWindupWarnings,
-                    kinematicMotionTracks,
-                    playerDeathHoldSignals,
-                    continuousLocomotionTracks,
-                    enemyGlideSignals,
-                    tileEvents,
-                    gravityFieldEvents,
-                    gravityFieldVisualStates,
-                    playerActionAttemptSignals,
-                    boxSlideStopSignals,
-                    enemyUtilitySignals,
-                    enemyUtilityCooldownSignals,
-                    enemyGravityFieldAuraVisualStates,
-                    boxSlideStartSignals,
-                    tileFeatureVisualStates,
-                    tileFeatureVisibleVisualStates,
-                    tileFeatureActiveVisualStates,
-                    playerFlipResultTurnSignals,
-                    flipFloorImpactSignals,
-                    forwardCellImpactSignals,
-                    forwardCellProjectileArrivalSignals,
-                    forwardCellProjectileWindupSignals,
-                    forwardCellProjectileReleaseSignals,
-                    forwardCellProjectileClearSignals,
-                    entitySpawnSignals,
-                    playerOutcomeSignals,
-                    enemyUtilityPhaseStates,
-                    playerTopologyTransitionBlockedSignals);
+                    entityMotions: entityMotions,
+                    topologyMotion: topologyMotion,
+                    visibilityChanges: visibilityChanges,
+                    transitionVisibilityChanges: transitionVisibilityChanges,
+                    playerActionSignals: playerActionSignals,
+                    playerLocomotionSignals: playerLocomotionSignals,
+                    playerDamageSignals: playerDamageSignals,
+                    playerDeathSignals: playerDeathSignals,
+                    enemyDamageSignals: enemyDamageSignals,
+                    enemyActionSignals: enemyActionSignals,
+                    enemyJumpSignals: enemyJumpSignals,
+                    enemyChargeSignals: enemyChargeSignals,
+                    entityExitSignals: entityExitSignals,
+                    impactTransientSignals: impactTransientSignals,
+                    flipImpactSignals: flipImpactSignals,
+                    summonedEnemyPresentationBindings: summonedEnemyPresentationBindings,
+                    summonWindupWarnings: summonWindupWarnings,
+                    kinematicMotionTracks: kinematicMotionTracks,
+                    playerDeathHoldSignals: playerDeathHoldSignals,
+                    continuousLocomotionTracks: continuousLocomotionTracks,
+                    enemyGlideSignals: enemyGlideSignals,
+                    tileEvents: tileEvents,
+                    gravityFieldEvents: gravityFieldEvents,
+                    gravityFieldVisualStates: gravityFieldVisualStates,
+                    playerActionAttemptSignals: playerActionAttemptSignals,
+                    boxSlideStopSignals: boxSlideStopSignals,
+                    enemyUtilitySignals: enemyUtilitySignals,
+                    enemyUtilityCooldownSignals: enemyUtilityCooldownSignals,
+                    enemyGravityFieldAuraVisualStates: enemyGravityFieldAuraVisualStates,
+                    boxSlideStartSignals: boxSlideStartSignals,
+                    tileFeatureVisualStates: tileFeatureVisualStates,
+                    tileFeatureVisibleVisualStates: tileFeatureVisibleVisualStates,
+                    tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
+                    playerFlipResultTurnSignals: playerFlipResultTurnSignals,
+                    flipFloorImpactSignals: flipFloorImpactSignals,
+                    forwardCellImpactSignals: forwardCellImpactSignals,
+                    forwardCellProjectileArrivalSignals: forwardCellProjectileArrivalSignals,
+                    forwardCellProjectileWindupSignals: forwardCellProjectileWindupSignals,
+                    forwardCellProjectileReleaseSignals: forwardCellProjectileReleaseSignals,
+                    forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
+                    entitySpawnSignals: entitySpawnSignals,
+                    playerOutcomeSignals: playerOutcomeSignals,
+                    enemyUtilityPhaseStates: enemyUtilityPhaseStates,
+                    playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals,
+                    enemySummonSignals: enemySummonSignals);
             return presentationData;
         }
 
@@ -2253,6 +2257,7 @@ namespace Game.Feature.Gameplay.Loop
         private static void BuildEnemyUtilityWindupPresentation(
             in TickPresentationBuildContext context,
             List<TickSummonWindupWarningSignal> summonWindupWarnings,
+            List<TickEnemySummonPresentationSignal> enemySummonSignals,
             List<TickEnemyUtilityPresentationSignal> enemyUtilitySignals,
             List<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates,
             List<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals,
@@ -2344,14 +2349,14 @@ namespace Game.Feature.Gameplay.Loop
             AddEnemySummonBehaviorPresentation(
                 context,
                 summonWindupWarnings,
-                enemyUtilitySignals);
+                enemySummonSignals);
             AddEnemyGravityFieldAuraFieldPresentation(context, enemyGravityFieldAuraVisualStates);
         }
 
         private static void AddEnemySummonBehaviorPresentation(
             in TickPresentationBuildContext context,
             List<TickSummonWindupWarningSignal> summonWindupWarnings,
-            List<TickEnemyUtilityPresentationSignal> enemyUtilitySignals)
+            List<TickEnemySummonPresentationSignal> enemySummonSignals)
         {
             const int compatibilityEffectIndex = 0;
             var entries = new List<EnemySummonBehaviorSnapshotEntry>();
@@ -2386,11 +2391,10 @@ namespace Game.Feature.Gameplay.Loop
                                 entry.State.activationSequence)));
                     if (context.CurrentTickIndex == entry.State.windupStartTick)
                     {
-                        enemyUtilitySignals.Add(
-                            new TickEnemyUtilityPresentationSignal(
+                        enemySummonSignals.Add(
+                            new TickEnemySummonPresentationSignal(
                                 entry.EntityId,
-                                EnemyUtilityPresentationKind.SummonMinion,
-                                EnemyUtilityPresentationPhase.WindupStarted,
+                                EnemySummonPresentationPhase.WindupStarted,
                                 entry.State.windupStartTick,
                                 entry.State.windupEndTick,
                                 Math.Max(0, entry.State.windupEndTick - entry.State.windupStartTick),
@@ -2404,11 +2408,10 @@ namespace Game.Feature.Gameplay.Loop
                 if (entry.State.phase == EnemySummonBehaviorPhase.Recover &&
                     context.CurrentTickIndex == entry.State.recoverStartTick)
                 {
-                    enemyUtilitySignals.Add(
-                        new TickEnemyUtilityPresentationSignal(
+                    enemySummonSignals.Add(
+                        new TickEnemySummonPresentationSignal(
                             entry.EntityId,
-                            EnemyUtilityPresentationKind.SummonMinion,
-                            EnemyUtilityPresentationPhase.RecoverStarted,
+                            EnemySummonPresentationPhase.RecoverStarted,
                             entry.State.recoverStartTick,
                             entry.State.recoverEndTickExclusive,
                             Math.Max(0, entry.State.recoverEndTickExclusive - entry.State.recoverStartTick),
@@ -2420,11 +2423,10 @@ namespace Game.Feature.Gameplay.Loop
                 if (entry.State.phase == EnemySummonBehaviorPhase.None &&
                     WasEnemySummonBehaviorCanceledThisTick(context, entry.EntityId, compatibilityEffectIndex))
                 {
-                    enemyUtilitySignals.Add(
-                        new TickEnemyUtilityPresentationSignal(
+                    enemySummonSignals.Add(
+                        new TickEnemySummonPresentationSignal(
                             entry.EntityId,
-                            EnemyUtilityPresentationKind.SummonMinion,
-                            EnemyUtilityPresentationPhase.Canceled,
+                            EnemySummonPresentationPhase.Canceled,
                             context.CurrentTickIndex,
                             context.CurrentTickIndex,
                             durationTicks: 0,

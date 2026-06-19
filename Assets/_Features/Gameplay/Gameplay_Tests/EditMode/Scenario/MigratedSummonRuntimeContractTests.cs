@@ -80,7 +80,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(state.cooldownTicksRemaining, Is.GreaterThan(0));
             Assert.That(GetSummonedChildren(worldState), Is.Empty);
             Assert.That(canceledTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
-            Assert.That(canceledTick.PresentationData.EnemyUtilitySignals.Single().Phase, Is.EqualTo(EnemyUtilityPresentationPhase.Canceled));
+            var summonSignal = canceledTick.PresentationData.EnemySummonSignals.Single();
+            Assert.That(summonSignal.Phase, Is.EqualTo(EnemySummonPresentationPhase.Canceled));
+            Assert.That(summonSignal.EffectIndex, Is.EqualTo(0));
         }
 
         [Test]

@@ -1177,12 +1177,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(warning.ActivationSequence, Is.EqualTo(1));
                 Assert.That(warning.TickIndex, Is.EqualTo(1));
                 Assert.That(warning.PresentationSeed, Is.Not.Zero);
+                Assert.That(windupTick.PresentationData.EnemyUtilitySignals, Is.Empty);
                 Assert.That(
-                    windupTick.PresentationData.EnemyUtilitySignals.Select(signal =>
-                        (signal.EntityId, signal.Kind, signal.Phase, signal.EffectIndex, signal.ActivationSequence)).ToArray(),
+                    windupTick.PresentationData.EnemySummonSignals.Select(signal =>
+                        (signal.EntityId, signal.Phase, signal.EffectIndex, signal.ActivationSequence)).ToArray(),
                     Is.EqualTo(new[]
                     {
-                        (40, EnemyUtilityPresentationKind.SummonMinion, EnemyUtilityPresentationPhase.WindupStarted, 0, 1),
+                        (40, EnemySummonPresentationPhase.WindupStarted, 0, 1),
                     }));
             }
             finally

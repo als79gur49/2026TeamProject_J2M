@@ -8,9 +8,11 @@ namespace Game.Feature.Gameplay.Host
         MonoBehaviour,
         IEnemyVisualSemanticPresentationDriver
     {
+        private const int LegacySummonPresentationKindValue = 3;
         private const float MinimumDurationSeconds = 0.0001f;
 
-        [SerializeField] private EnemyUtilityPresentationKind utilityKind = EnemyUtilityPresentationKind.SummonMinion;
+        [SerializeField] private EnemyUtilityPresentationKind utilityKind =
+            (EnemyUtilityPresentationKind)LegacySummonPresentationKindValue;
         [SerializeField] private float windupDurationSeconds = 1.7f;
         [SerializeField] private float windupPeakTimeSeconds = 1.05f;
         [SerializeField] private float recoverDurationSeconds = 0.7f;
@@ -50,23 +52,29 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            if (state.UtilityPresentationKind != utilityKind)
+            if (!MatchesPresentationKind(state))
             {
                 return;
             }
 
-            if (state.UtilityCanceledThisTick)
+            if (IsSummonPresentationKind
+                    ? state.SummonCanceledThisTick
+                    : state.UtilityCanceledThisTick)
             {
                 NormalizeToBaseScale();
                 return;
             }
 
-            if (state.StartedUtilityWindupThisTick)
+            if (IsSummonPresentationKind
+                    ? state.StartedSummonWindupThisTick
+                    : state.StartedUtilityWindupThisTick)
             {
                 BeginWindup();
             }
 
-            if (state.StartedRecoveryThisTick)
+            if (IsSummonPresentationKind
+                    ? state.StartedSummonRecoverThisTick
+                    : state.StartedRecoveryThisTick)
             {
                 BeginRecover();
             }
@@ -114,6 +122,18 @@ namespace Game.Feature.Gameplay.Host
 
             _modelRoot.localScale = _baseLocalScale;
             ResetState();
+        }
+
+        private bool IsSummonPresentationKind =>
+            (int)utilityKind == LegacySummonPresentationKindValue;
+
+        private bool MatchesPresentationKind(in EnemyViewPresentationState state)
+        {
+            return IsSummonPresentationKind
+                ? state.StartedSummonWindupThisTick ||
+                  state.StartedSummonRecoverThisTick ||
+                  state.SummonCanceledThisTick
+                : state.UtilityPresentationKind == utilityKind;
         }
 
         private void BeginWindup()
