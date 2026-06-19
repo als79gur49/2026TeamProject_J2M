@@ -1277,6 +1277,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(startTick.PresentationData.PlayerFlipResultTurnSignals[0].ResultFacing, Is.EqualTo(Direction.Right));
             Assert.That(startSnapshot.TryGetEntity(10, out var startPlayer), Is.True);
             Assert.That(startPlayer.facing, Is.EqualTo(Direction.Left));
+            host.Presenter.UpdatePresentation(0f);
+            AssertViewFacing(host, entityId: 10, expectedFacing: Direction.Left);
 
             host.InputHost.SetRawMoveInput(Vector2.zero);
             var executeTick = RunTicksUntil(
@@ -1288,6 +1290,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(executeTick, Is.Not.Null, "Player_S1 Flip never reached the result-facing commit tick.");
             Assert.That(executeSnapshot.TryGetEntity(10, out var executePlayer), Is.True);
             Assert.That(executePlayer.facing, Is.EqualTo(Direction.Right));
+            AdvancePresentation(
+                host,
+                ResolvePlayerPresentationPhaseDurationSecondsForTest(host, 10, PlayerPresentationPhase.FlipWindup) +
+                ResolvePlayerPresentationPhaseDurationSecondsForTest(host, 10, PlayerPresentationPhase.FlipRecovery) * 0.5f);
+            AssertViewRotationBetweenFacings(
+                host,
+                entityId: 10,
+                sourceFacing: Direction.Left,
+                targetFacing: Direction.Right);
 
             var cleanupTick = RunTicksUntil(
                 host,
@@ -2213,6 +2224,52 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
         }
 
+        private static float ResolvePlayerPresentationPhaseDurationSecondsForTest(
+            GameplaySceneHost host,
+            int entityId,
+            PlayerPresentationPhase phase)
+        {
+            var actionKind = phase switch
+            {
+                PlayerPresentationPhase.PushWindup => PlayerActionKind.Push,
+                PlayerPresentationPhase.PushRecovery => PlayerActionKind.Push,
+                PlayerPresentationPhase.FlipWindup => PlayerActionKind.Flip,
+                PlayerPresentationPhase.FlipRecovery => PlayerActionKind.Flip,
+                _ => PlayerActionKind.None,
+            };
+            var resolvedActionDurationSeconds = actionKind switch
+            {
+                PlayerActionKind.Push => host.TimingProfile.PushMotionDurationSeconds,
+                PlayerActionKind.Flip => host.TimingProfile.FlipMotionDurationSeconds,
+                _ => 0f,
+            };
+
+            if (host.ViewRegistry.TryGetView(entityId, out var view) &&
+                view != null &&
+                view.TryGetComponent<PlayerAnimationTimingAuthoring>(out var authoring) &&
+                authoring != null)
+            {
+                var snapshot = authoring.CreateSnapshot();
+                if (snapshot.TryGetAnimatorDurationOverride(phase, out var phaseDurationSeconds))
+                {
+                    return phaseDurationSeconds;
+                }
+
+                if (actionKind != PlayerActionKind.None &&
+                    snapshot.TryGetLegacyAnimatorDurationOverride(actionKind, out var legacyActionDurationSeconds))
+                {
+                    return Mathf.Max(0.0001f, legacyActionDurationSeconds * 0.5f);
+                }
+            }
+
+            if (resolvedActionDurationSeconds > 0f)
+            {
+                return Mathf.Max(0.0001f, resolvedActionDurationSeconds * 0.5f);
+            }
+
+            return host.TimingProfile.SimulationTickIntervalSeconds;
+        }
+
         private static void RunTicksAssertingNoBlockingPresentation(GameplaySceneHost host, int tickCount)
         {
             for (var i = 0; i < tickCount; i++)
@@ -2315,6 +2372,36 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     view.transform.rotation,
                     host.BoardRoot.transform.rotation * projectedRotation),
                 Is.LessThan(0.1f));
+        }
+
+        private static void AssertViewRotationBetweenFacings(
+            GameplaySceneHost host,
+            int entityId,
+            Direction sourceFacing,
+            Direction targetFacing)
+        {
+            var snapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(snapshot.TryGetEntity(entityId, out var entity), Is.True);
+            var projector = new GameplayCubeProjector(snapshot.BoardBounds, 1f);
+            Assert.That(host.ViewRegistry.TryGetView(entityId, out var view), Is.True);
+            Assert.That(
+                projector.TryResolveEntityRotation(entity.position, snapshot.Topology, sourceFacing, out var sourceRotation),
+                Is.True);
+            Assert.That(
+                projector.TryResolveEntityRotation(entity.position, snapshot.Topology, targetFacing, out var targetRotation),
+                Is.True);
+
+            var sourceWorldRotation = host.BoardRoot.transform.rotation * sourceRotation;
+            var targetWorldRotation = host.BoardRoot.transform.rotation * targetRotation;
+            Assert.That(Quaternion.Angle(sourceWorldRotation, targetWorldRotation), Is.GreaterThan(1f));
+            Assert.That(
+                Quaternion.Angle(view.transform.rotation, sourceWorldRotation),
+                Is.GreaterThan(0.5f),
+                "Recovery midpoint should have advanced away from the contact-facing rotation.");
+            Assert.That(
+                Quaternion.Angle(view.transform.rotation, targetWorldRotation),
+                Is.GreaterThan(0.5f),
+                "Recovery midpoint should not snap directly to the result-facing rotation.");
         }
 
         private static WorldSnapshot CaptureAuthoritativeSnapshot(GameplaySceneHost host)

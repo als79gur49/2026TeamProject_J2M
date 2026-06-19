@@ -308,6 +308,7 @@ namespace Game.Feature.Gameplay.Host
             _trackState.JumpTracks.Remove(entityId);
             _trackState.JumpTopologySuspendedEntityIds.Remove(entityId);
             _trackState.OriginalViewMotionTracks.Remove(entityId);
+            _trackState.PlayerFlipResultTurnTracks.Remove(entityId);
             _trackState.VisibilityTracks.Remove(entityId);
             _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
             _stateStore.TransitionVisibilityStates.Remove(entityId);
@@ -356,6 +357,7 @@ namespace Game.Feature.Gameplay.Host
             _trackState.JumpTopologySuspendedEntityIds.Remove(entityId);
             _trackState.LocalMotionTracks.Remove(entityId);
             _trackState.OriginalViewMotionTracks.Remove(entityId);
+            _trackState.PlayerFlipResultTurnTracks.Remove(entityId);
             _trackState.VisibilityTracks.Remove(entityId);
             _trackState.DeferredExitRetainedEntityIds.Remove(entityId);
             _stateStore.CommittedLocalTargetPoses.Remove(entityId);
@@ -429,6 +431,7 @@ namespace Game.Feature.Gameplay.Host
             _trackState.JumpTopologySuspendedEntityIds.Remove(entityId);
             _trackState.LocalMotionTracks.Remove(entityId);
             _trackState.OriginalViewMotionTracks.Remove(entityId);
+            _trackState.PlayerFlipResultTurnTracks.Remove(entityId);
             _trackState.VisibilityTracks.Remove(entityId);
             _trackState.ContactDelayedRetainedEntityIds.Remove(entityId);
             _trackState.DeathPresentationPlayingEntityIds.Remove(entityId);

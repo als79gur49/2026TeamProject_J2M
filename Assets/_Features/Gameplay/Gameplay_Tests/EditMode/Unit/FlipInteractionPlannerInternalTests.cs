@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
@@ -314,6 +316,324 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void GameplayTrackPlanner_PlayerFlipResultTurnSignal_CreatesOwnedEntry()
+        {
+            var rootObject = new GameObject("GameplayTrackPlanner_PlayerFlipResultTurnSignal_CreatesOwnedEntry");
+            try
+            {
+                var (planner, stateStore, trackState, projector, timingProfile) = CreatePlannerHarness(rootObject);
+                var entityId = 10;
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                stateStore.ViewsByEntityId[entityId] = CreateEntityView(rootObject.transform, entityId);
+
+                planner.RefreshTracks(
+                    CreateTickResult(
+                        CreatePresentationData(
+                            resultTurnSignals: new[]
+                            {
+                                CreateResultTurnSignal(entityId, actionSequence: 7, contactFacing: Direction.Left, resultFacing: Direction.Right),
+                            }),
+                        new[] { CreatePlayerEntity(entityId, cell, Direction.Left) }),
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile);
+
+                Assert.That(trackState.PlayerFlipResultTurnTracks.TryGetValue(entityId, out var entry), Is.True);
+                Assert.That(entry.ActionSequence, Is.EqualTo(7));
+                Assert.That(entry.StartTick, Is.EqualTo(11));
+                Assert.That(entry.ContactFacing, Is.EqualTo(Direction.Left));
+                Assert.That(entry.ResultFacing, Is.EqualTo(Direction.Right));
+                Assert.That(entry.Track.HasClips, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTrackPlanner_PlayerFlipResultTurnTrack_SignalAbsentNextRefreshKeepsActiveTrack()
+        {
+            var rootObject = new GameObject("GameplayTrackPlanner_PlayerFlipResultTurnTrack_SignalAbsentNextRefreshKeepsActiveTrack");
+            try
+            {
+                var (planner, stateStore, trackState, projector, timingProfile) = CreatePlannerHarness(rootObject);
+                var entityId = 10;
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                stateStore.ViewsByEntityId[entityId] = CreateEntityView(rootObject.transform, entityId);
+                stateStore.CommittedLocalTargetPoses[entityId] = new GameplayEntityPose(
+                    Vector3.zero,
+                    ResolveRotation(projector, cell, Direction.Left));
+
+                var signal = CreateResultTurnSignal(entityId, actionSequence: 7, contactFacing: Direction.Left, resultFacing: Direction.Right);
+                planner.RefreshTracks(
+                    CreateTickResult(
+                        CreatePresentationData(resultTurnSignals: new[] { signal }),
+                        new[] { CreatePlayerEntity(entityId, cell, Direction.Left) }),
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile);
+                Assert.That(trackState.PlayerFlipResultTurnTracks.TryGetValue(entityId, out var originalEntry), Is.True);
+
+                planner.RefreshTracks(
+                    CreateTickResult(
+                        CreatePresentationData(),
+                        new[] { CreatePlayerEntity(entityId, cell, Direction.Left) }),
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile);
+
+                Assert.That(trackState.PlayerFlipResultTurnTracks.TryGetValue(entityId, out var retainedEntry), Is.True);
+                Assert.That(retainedEntry, Is.SameAs(originalEntry));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTrackPlanner_PlayerFlipResultTurnTrack_DuplicateSignalDoesNotRestartTrack()
+        {
+            var rootObject = new GameObject("GameplayTrackPlanner_PlayerFlipResultTurnTrack_DuplicateSignalDoesNotRestartTrack");
+            try
+            {
+                var (planner, stateStore, trackState, projector, timingProfile) = CreatePlannerHarness(rootObject);
+                var entityId = 10;
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                stateStore.ViewsByEntityId[entityId] = CreateEntityView(rootObject.transform, entityId);
+                var signal = CreateResultTurnSignal(entityId, actionSequence: 7, contactFacing: Direction.Left, resultFacing: Direction.Right);
+
+                planner.RefreshTracks(
+                    CreateTickResult(
+                        CreatePresentationData(resultTurnSignals: new[] { signal }),
+                        new[] { CreatePlayerEntity(entityId, cell, Direction.Left) }),
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile);
+                Assert.That(trackState.PlayerFlipResultTurnTracks.TryGetValue(entityId, out var originalEntry), Is.True);
+
+                originalEntry.Track.SampleAndAdvance(
+                    1f / timingProfile.SimulationTicksPerSecond,
+                    ResolveRotation(projector, cell, Direction.Left));
+
+                planner.RefreshTracks(
+                    CreateTickResult(
+                        CreatePresentationData(resultTurnSignals: new[] { signal }),
+                        new[] { CreatePlayerEntity(entityId, cell, Direction.Left) }),
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile);
+
+                Assert.That(trackState.PlayerFlipResultTurnTracks.TryGetValue(entityId, out var duplicateEntry), Is.True);
+                Assert.That(duplicateEntry, Is.SameAs(originalEntry));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTrackPlanner_PlayerFlipResultTurnTrack_OlderSignalDoesNotReplaceNewerTrack()
+        {
+            var rootObject = new GameObject("GameplayTrackPlanner_PlayerFlipResultTurnTrack_OlderSignalDoesNotReplaceNewerTrack");
+            try
+            {
+                var (planner, stateStore, trackState, projector, timingProfile) = CreatePlannerHarness(rootObject);
+                var entityId = 10;
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                stateStore.ViewsByEntityId[entityId] = CreateEntityView(rootObject.transform, entityId);
+
+                planner.RefreshTracks(
+                    CreateTickResult(
+                        CreatePresentationData(
+                            resultTurnSignals: new[]
+                            {
+                                CreateResultTurnSignal(entityId, actionSequence: 7, contactFacing: Direction.Left, resultFacing: Direction.Right),
+                            }),
+                        new[] { CreatePlayerEntity(entityId, cell, Direction.Left) }),
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile);
+                Assert.That(trackState.PlayerFlipResultTurnTracks.TryGetValue(entityId, out var originalEntry), Is.True);
+
+                planner.RefreshTracks(
+                    CreateTickResult(
+                        CreatePresentationData(
+                            resultTurnSignals: new[]
+                            {
+                                CreateResultTurnSignal(entityId, actionSequence: 6, contactFacing: Direction.Up, resultFacing: Direction.Down),
+                            }),
+                        new[] { CreatePlayerEntity(entityId, cell, Direction.Left) }),
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile);
+
+                Assert.That(trackState.PlayerFlipResultTurnTracks.TryGetValue(entityId, out var retainedEntry), Is.True);
+                Assert.That(retainedEntry, Is.SameAs(originalEntry));
+                Assert.That(retainedEntry.ActionSequence, Is.EqualTo(7));
+                Assert.That(retainedEntry.ContactFacing, Is.EqualTo(Direction.Left));
+                Assert.That(retainedEntry.ResultFacing, Is.EqualTo(Direction.Right));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTrackPlanner_PlayerFlipResultTurnTrack_NewerActionCancelsOlderTrack()
+        {
+            var rootObject = new GameObject("GameplayTrackPlanner_PlayerFlipResultTurnTrack_NewerActionCancelsOlderTrack");
+            try
+            {
+                var (planner, stateStore, trackState, projector, timingProfile) = CreatePlannerHarness(rootObject);
+                var entityId = 10;
+                var cell = new SurfaceCell(FaceId.Floor, 1, 1);
+                stateStore.ViewsByEntityId[entityId] = CreateEntityView(rootObject.transform, entityId);
+                stateStore.CommittedLocalTargetPoses[entityId] = new GameplayEntityPose(
+                    Vector3.zero,
+                    ResolveRotation(projector, cell, Direction.Right));
+
+                planner.RefreshTracks(
+                    CreateTickResult(
+                        CreatePresentationData(
+                            resultTurnSignals: new[]
+                            {
+                                CreateResultTurnSignal(entityId, actionSequence: 7, contactFacing: Direction.Left, resultFacing: Direction.Right),
+                            }),
+                        new[] { CreatePlayerEntity(entityId, cell, Direction.Right) }),
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile);
+                Assert.That(trackState.PlayerFlipResultTurnTracks.ContainsKey(entityId), Is.True);
+
+                planner.RefreshTracks(
+                    CreateTickResult(
+                        CreatePresentationData(
+                            resultTurnSignals: new[]
+                            {
+                                CreateResultTurnSignal(entityId, actionSequence: 6, contactFacing: Direction.Left, resultFacing: Direction.Right),
+                            },
+                            playerActionSignals: new[]
+                            {
+                                new TickPlayerActionPresentationSignal(
+                                    entityId,
+                                    PlayerActionKind.Flip,
+                                    activeActionSequence: 8,
+                                    startedThisTick: true,
+                                    completedThisTick: false,
+                                    canceledThisTick: false,
+                                    direction: Direction.Up),
+                            }),
+                        new[] { CreatePlayerEntity(entityId, cell, Direction.Right) }),
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile);
+
+                Assert.That(trackState.PlayerFlipResultTurnTracks.ContainsKey(entityId), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTrackPlanner_PlayerFlipResultTurnTrack_EntityExitRemovesOnlyTargetTrack()
+        {
+            var rootObject = new GameObject("GameplayTrackPlanner_PlayerFlipResultTurnTrack_EntityExitRemovesOnlyTargetTrack");
+            try
+            {
+                var (planner, stateStore, trackState, projector, timingProfile) = CreatePlannerHarness(rootObject);
+                var firstEntityId = 10;
+                var secondEntityId = 11;
+                var firstCell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var secondCell = new SurfaceCell(FaceId.Floor, 2, 1);
+                stateStore.ViewsByEntityId[firstEntityId] = CreateEntityView(rootObject.transform, firstEntityId);
+                stateStore.ViewsByEntityId[secondEntityId] = CreateEntityView(rootObject.transform, secondEntityId);
+
+                planner.RefreshTracks(
+                    CreateTickResult(
+                        CreatePresentationData(
+                            resultTurnSignals: new[]
+                            {
+                                CreateResultTurnSignal(firstEntityId, actionSequence: 7, contactFacing: Direction.Left, resultFacing: Direction.Right),
+                                CreateResultTurnSignal(secondEntityId, actionSequence: 3, contactFacing: Direction.Up, resultFacing: Direction.Down),
+                            }),
+                        new[]
+                        {
+                            CreatePlayerEntity(firstEntityId, firstCell, Direction.Left),
+                            CreatePlayerEntity(secondEntityId, secondCell, Direction.Up),
+                        }),
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile);
+
+                planner.RefreshTracks(
+                    CreateTickResult(
+                        CreatePresentationData(
+                            resultTurnSignals: new[]
+                            {
+                                CreateResultTurnSignal(firstEntityId, actionSequence: 8, contactFacing: Direction.Left, resultFacing: Direction.Right),
+                            },
+                            exitSignals: new[]
+                            {
+                                CreateExitSignal(firstEntityId, firstCell, Direction.Left),
+                            }),
+                        new[] { CreatePlayerEntity(secondEntityId, secondCell, Direction.Up) }),
+                    stateStore.CommittedLocalTargetPoses,
+                    stateStore.CommittedTopology,
+                    projector,
+                    timingProfile);
+
+                Assert.That(trackState.PlayerFlipResultTurnTracks.ContainsKey(firstEntityId), Is.False);
+                Assert.That(trackState.PlayerFlipResultTurnTracks.ContainsKey(secondEntityId), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayPresentationTrackState_PlayerFlipResultTurnTracks_UsesOwnedEntry()
+        {
+            var property = typeof(GameplayPresentationTrackState).GetProperty(nameof(GameplayPresentationTrackState.PlayerFlipResultTurnTracks));
+
+            Assert.That(property, Is.Not.Null);
+            Assert.That(property.PropertyType, Is.EqualTo(typeof(Dictionary<int, PlayerFlipResultTurnTrackEntry>)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTrackPlanner_PlayerFlipResultTurnCancellation_DoesNotUseGeometryFreshness()
+        {
+            var source = File.ReadAllText("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTrackPlanner.cs");
+
+            Assert.That(source, Does.Not.Contain("RemoveSupersededPlayerFlipResultTurnTracks"));
+            Assert.That(source, Does.Not.Contain("TailEndValue"));
+        }
+
         private static (GameplayTrackPlanner Planner, GameplayPresentationStateStore StateStore, GameplayPresentationTrackState TrackState, GameplayCubeProjector Projector, GameplayTimingProfile TimingProfile)
             CreatePlannerHarness(GameObject rootObject)
         {
@@ -359,18 +679,105 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static TickResult CreateTickResult(TickPresentationData presentationData)
         {
+            return CreateTickResult(presentationData, Array.Empty<EntityState>());
+        }
+
+        private static TickResult CreateTickResult(
+            TickPresentationData presentationData,
+            IReadOnlyList<EntityState> finalEntities)
+        {
             return new TickResult(
                 tickIndex: 1,
                 Array.Empty<TickPhase>(),
                 Array.Empty<string>(),
                 MovementPhaseResult.Empty,
                 AttackPhaseResult.Empty,
-                Array.Empty<EntityState>(),
+                finalEntities,
                 Array.Empty<string>(),
                 new CubeTopologyState(FaceId.Floor),
                 presentationData,
                 string.Empty,
                 TickTrace.Empty);
+        }
+
+        private static TickPresentationData CreatePresentationData(
+            IEnumerable<TickPlayerFlipResultTurnSignal> resultTurnSignals = null,
+            IEnumerable<TickPlayerActionPresentationSignal> playerActionSignals = null,
+            IEnumerable<TickEntityExitPresentationSignal> exitSignals = null)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals ?? Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickPlayerDeathPresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                exitSignals ?? Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>(),
+                playerFlipResultTurnSignals: resultTurnSignals ?? Array.Empty<TickPlayerFlipResultTurnSignal>());
+        }
+
+        private static TickPlayerFlipResultTurnSignal CreateResultTurnSignal(
+            int entityId,
+            int actionSequence,
+            Direction contactFacing,
+            Direction resultFacing)
+        {
+            return new TickPlayerFlipResultTurnSignal(
+                entityId,
+                actionSequence,
+                Direction.Right,
+                contactFacing,
+                resultFacing,
+                startTick: 11,
+                PlayerFlipResultTurnStartReason.ImmediateFlip);
+        }
+
+        private static TickEntityExitPresentationSignal CreateExitSignal(
+            int entityId,
+            SurfaceCell sourceCell,
+            Direction facing)
+        {
+            return new TickEntityExitPresentationSignal(
+                entityId,
+                TickEntityExitCause.OutOfBounds,
+                sourceCell,
+                new CubeTopologyState(FaceId.Floor),
+                facing,
+                EntityType.Unit);
+        }
+
+        private static EntityState CreatePlayerEntity(int entityId, SurfaceCell position, Direction facing)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 3,
+                maxHp = 3,
+                teamId = 1,
+                type = EntityType.Unit,
+                unitRole = UnitRole.Player,
+                state = EntityPhaseState.Idle,
+                facing = facing,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
+        private static Quaternion ResolveRotation(
+            GameplayCubeProjector projector,
+            SurfaceCell cell,
+            Direction facing)
+        {
+            Assert.That(
+                projector.TryResolveEntityRotation(cell, new CubeTopologyState(FaceId.Floor), facing, out var rotation),
+                Is.True);
+            return rotation;
         }
     }
 }

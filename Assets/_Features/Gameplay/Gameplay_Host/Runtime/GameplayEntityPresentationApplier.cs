@@ -392,11 +392,11 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 if (_trackState.PlayerFlipResultTurnTracks.TryGetValue(entityId, out var playerFlipResultTurnTrack) &&
-                    playerFlipResultTurnTrack.HasClips)
+                    playerFlipResultTurnTrack.Track.HasClips)
                 {
-                    var rotation = playerFlipResultTurnTrack.SampleAndAdvance(deltaTime, localPose.Rotation);
+                    var rotation = playerFlipResultTurnTrack.Track.SampleAndAdvance(deltaTime, localPose.Rotation);
                     localPose = new GameplayEntityPose(localPose.Position, rotation);
-                    if (!playerFlipResultTurnTrack.HasClips)
+                    if (!playerFlipResultTurnTrack.Track.HasClips)
                     {
                         _trackState.CompletedPlayerFlipResultTurnTrackIds.Add(entityId);
                     }
