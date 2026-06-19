@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
@@ -241,28 +240,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void InvalidPresentationExecutionModes_NormalizeToLegacy()
         {
             Assert.That(
-                InvokeCoordinatorNormalize("NormalizeTopologyPresentationExecutionMode", (TopologyPresentationExecutionMode)999),
+                TopologyPresentationExecutionPolicy.Normalize((TopologyPresentationExecutionMode)999),
                 Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
             Assert.That(
-                InvokeCoordinatorNormalize("NormalizeDamageDeathVfxExecutionMode", (DamageDeathVfxExecutionMode)999),
+                DamageDeathVfxExecutionPolicy.Normalize((DamageDeathVfxExecutionMode)999),
                 Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
             Assert.That(
-                InvokeCoordinatorNormalize("NormalizeBoxMotionPresentationExecutionMode", (BoxMotionPresentationExecutionMode)999),
+                BoxMotionExecutionPolicy.Normalize((BoxMotionPresentationExecutionMode)999),
                 Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
             Assert.That(
-                InvokeCoordinatorNormalize("NormalizePlayerActionAnimationExecutionMode", (PlayerActionAnimationExecutionMode)999),
+                PlayerActionAnimationExecutionPolicy.Normalize((PlayerActionAnimationExecutionMode)999),
                 Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
             Assert.That(
-                InvokeCoordinatorNormalize("NormalizeEnemyPresentationExecutionMode", (EnemyPresentationExecutionMode)999),
+                EnemyPresentationExecutionPolicy.Normalize((EnemyPresentationExecutionMode)999),
                 Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
             Assert.That(
-                InvokeCoordinatorNormalize("NormalizeCoreGameplaySfxExecutionMode", (CoreGameplaySfxExecutionMode)999),
+                CoreGameplaySfxExecutionPolicy.Normalize((CoreGameplaySfxExecutionMode)999),
                 Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
             Assert.That(
-                InvokeCoordinatorNormalize("NormalizeActionAudioExecutionMode", (ActionAudioExecutionMode)999),
+                ActionAudioExecutionPolicy.Normalize((ActionAudioExecutionMode)999),
                 Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
             Assert.That(
-                InvokeCoordinatorNormalize("NormalizeEnemyAudioExecutionMode", (EnemyAudioExecutionMode)999),
+                EnemyAudioExecutionPolicy.Normalize((EnemyAudioExecutionMode)999),
                 Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
 
             Assert.That(default(TopologyPresentationExecutionMode), Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
@@ -528,7 +527,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(
-                    InvokeCoordinatorNormalize("NormalizeCoreGameplaySfxExecutionMode", (CoreGameplaySfxExecutionMode)999),
+                    CoreGameplaySfxExecutionPolicy.Normalize((CoreGameplaySfxExecutionMode)999),
                     Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
             }
             finally
@@ -599,15 +598,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(authoritativeSource, Does.Not.Contain(row.ExecutionModeType.Name), row.ExecutionModeType.Name);
                 Assert.That(authoritativeSource, Does.Not.Contain(row.OrchestrationOwner), row.Domain);
             }
-        }
-
-        private static object InvokeCoordinatorNormalize(string methodName, object value)
-        {
-            var method = typeof(GameplayTickPresentationCoordinator).GetMethod(
-                methodName,
-                BindingFlags.NonPublic | BindingFlags.Static);
-            Assert.That(method, Is.Not.Null, methodName);
-            return method.Invoke(null, new[] { value });
         }
 
         private static IEnumerable<string> EnumerateProductionConfigFiles()

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Game.Feature.Gameplay.ActionAudio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
@@ -41,7 +40,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(
-                    InvokeCoordinatorNormalize((PlayerActionAnimationExecutionMode)999),
+                    PlayerActionAnimationExecutionPolicy.Normalize((PlayerActionAnimationExecutionMode)999),
                     Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
                 Assert.That(
                     typeof(GameplaySceneHostConfiguration).GetField(nameof(PlayerActionAnimationExecutionMode)),
@@ -805,16 +804,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var store = new GameplayPresentationStateStore();
             store.ViewsByEntityId[view.EntityId] = view;
             return store;
-        }
-
-        private static PlayerActionAnimationExecutionMode InvokeCoordinatorNormalize(
-            PlayerActionAnimationExecutionMode mode)
-        {
-            var method = typeof(GameplayTickPresentationCoordinator).GetMethod(
-                "NormalizePlayerActionAnimationExecutionMode",
-                BindingFlags.NonPublic | BindingFlags.Static);
-            Assert.That(method, Is.Not.Null);
-            return (PlayerActionAnimationExecutionMode)method.Invoke(null, new object[] { mode });
         }
 
         private static string ReadDirectory(string relativePath)
