@@ -1,7 +1,16 @@
 using System.Collections;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
+using System;
+using System.Reflection;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Flow.Audio;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.Vfx.Host;
 using Game.Feature.Stages;
 using Game.Feature.UI.Composition;
@@ -10,6 +19,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using Object = UnityEngine.Object;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -75,6 +85,130 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 UIAudioScenePath,
                 StageId.CreateOrThrow("stage-1-1"),
                 assertDirectPlayEvidence: true);
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator ActualSceneBootstrap_UIAudioScene_TopologyRuntimeGate_ProductionBridgeLockCleanupAndDeterminism()
+        {
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+            StageLaunchContextStore.SetCurrent(stageId);
+            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            yield return LoadScene(UIAudioScenePath);
+
+            var host = Object.FindObjectsByType<GameplaySceneHost>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .Single();
+            AssertAudioBootstrap(UIAudioScenePath, host);
+            AssertUiBootstrap(UIAudioScenePath);
+            AssertTopologyBootstrap(UIAudioScenePath, host);
+            AssertPresentationDefaultBootstrap(UIAudioScenePath, host);
+
+            var boardSurface = host.BoardRoot.BoardSurfaceRenderer;
+            var cameraRig = host.GetComponent<GameplayCameraRig>();
+            var postFx = host.GetComponent<TopologyTransitionPostFxController>();
+            Assert.That(boardSurface, Is.Not.Null, "UIAudioScene must expose the board surface renderer.");
+            Assert.That(boardSurface.SteadyTileCount, Is.GreaterThan(0), "UIAudioScene must render steady board-surface content.");
+            Assert.That(cameraRig, Is.Not.Null, "UIAudioScene must expose the camera orbit rig.");
+            Assert.That(postFx, Is.Not.Null, "UIAudioScene must expose topology post-fx.");
+
+            var sourceTopology = host.Presenter.CurrentTopology;
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+            var baselineTick = host.InputHost.RunSingleTick();
+            yield return null;
+            Assert.That(baselineTick, Is.Not.Null, "UIAudioScene must produce a baseline tick before topology presentation injection.");
+            var finalEntities = baselineTick.FinalEntities.ToArray();
+            var eventLog = new[] { "TopologyRuntimeGate|BeforePresentation" };
+            var result = CreateTopologyTransitionTickResult(
+                tickIndex: 701,
+                sourceTopology,
+                destinationTopology,
+                CubeRotationKind.Forward,
+                finalEntities,
+                eventLog,
+                determinismHash: "TOPOLOGY-RUNTIME-GATE");
+
+            host.Presenter.Present(result);
+            yield return null;
+
+            var startTelemetry = host.Presenter.TopologyProductionTelemetrySnapshot;
+            Assert.That(host.Presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+            Assert.That(startTelemetry.IsProductionDefaultOwner, Is.True);
+            Assert.That(startTelemetry.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
+            Assert.That(startTelemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
+            Assert.That(startTelemetry.ExecutorOwnerExecutedCount, Is.EqualTo(1));
+            Assert.That(startTelemetry.ObservedTrackCount, Is.EqualTo(1));
+            Assert.That(startTelemetry.RouteCount, Is.EqualTo(1));
+            Assert.That(startTelemetry.HasBlockingPresentation, Is.True);
+            Assert.That(startTelemetry.IsTopologyTransitionActive, Is.True);
+            Assert.That(startTelemetry.BlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.True);
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+            Assert.That(boardSurface.IsTopologyTransitionActive, Is.True);
+            Assert.That(boardSurface.TransitionTileCount, Is.GreaterThan(0));
+            Assert.That(host.InputHost.RunSingleTick(), Is.Null, "Topology presentation lock must block input ticks.");
+
+            host.Presenter.Present(result);
+            Assert.That(
+                host.Presenter.TopologyPresentationOwnershipDiagnostics.DuplicateAttemptCount,
+                Is.EqualTo(1),
+                "Repeated topology presentation for the same tick/source must be duplicate-suppressed.");
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.5f);
+            yield return null;
+
+            var midState = host.Presenter.CurrentTopologyTransitionVisualState;
+            Assert.That(midState.IsActive, Is.True);
+            Assert.That(midState.Progress01, Is.GreaterThan(0f));
+            Assert.That(midState.Progress01, Is.LessThan(1f));
+            Assert.That(Quaternion.Angle(cameraRig.PresentedTopologyOrbit, Quaternion.identity), Is.GreaterThan(0.01f));
+            Assert.That(float.IsNaN(cameraRig.TopologyTransitionShakeLocalPosition.x), Is.False);
+            if (postFx.MotionBlurOverride != null)
+            {
+                Assert.That(postFx.MotionBlurOverride.intensity.value, Is.GreaterThanOrEqualTo(0f));
+            }
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds);
+            yield return null;
+
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
+            Assert.That(boardSurface.IsTopologyTransitionActive, Is.False);
+            Assert.That(host.Presenter.TopologyProductionTelemetrySnapshot.BlockingSnapshot.HasActiveBlockingPresentation, Is.False);
+            if (postFx.MotionBlurOverride != null)
+            {
+                Assert.That(postFx.MotionBlurOverride.intensity.value, Is.EqualTo(0f).Within(0.0001f));
+            }
+
+            var unlockedTick = host.InputHost.RunSingleTick();
+            Assert.That(unlockedTick, Is.Not.Null, "Topology lock must release after completion.");
+
+            var repeatResult = CreateTopologyTransitionTickResult(
+                tickIndex: 702,
+                destinationTopology,
+                sourceTopology,
+                CubeRotationKind.Backward,
+                finalEntities,
+                eventLog,
+                determinismHash: "TOPOLOGY-RUNTIME-GATE-REPEAT");
+            host.Presenter.Present(repeatResult);
+            yield return null;
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+
+            host.Presenter.PresentInitial(finalEntities, sourceTopology);
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
+            Assert.That(boardSurface.IsTopologyTransitionActive, Is.False);
+
+            host.Presenter.Present(repeatResult);
+            yield return null;
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+            host.Presenter.DebugHardCleanupPresentationExtensions();
+            yield return null;
+            Assert.That(host.Presenter.TopologyProductionTelemetrySnapshot.BlockingSnapshot.HasActiveBlockingPresentation, Is.False);
+
+            Assert.That(result.DeterminismHash, Is.EqualTo("TOPOLOGY-RUNTIME-GATE"));
+            Assert.That(result.EventLog, Is.EqualTo(eventLog));
+            Assert.That(result.FinalEntities, Is.EqualTo(finalEntities));
         }
 
         private static IEnumerator AssertSceneBootstrapFirstFiveTicks(
@@ -304,6 +438,56 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return total;
         }
 #endif
+
+        private static TickResult CreateTopologyTransitionTickResult(
+            int tickIndex,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            CubeRotationKind rotationKind,
+            IReadOnlyList<EntityState> finalEntities,
+            IReadOnlyList<string> eventLog,
+            string determinismHash)
+        {
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                new TickTopologyMotion(sourceTopology, destinationTopology, rotationKind),
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>());
+
+            var result = new TickResult(
+                tickIndex,
+                new[] { TickPhase.Plan },
+                Array.Empty<string>());
+            SetSerializedField(typeof(TickResult), result, "<PresentationData>k__BackingField", presentationData);
+            SetSerializedField(typeof(TickResult), result, "<FinalTopology>k__BackingField", destinationTopology);
+            SetSerializedField(typeof(TickResult), result, "<DeterminismHash>k__BackingField", determinismHash);
+            SetSerializedField(typeof(TickResult), result, "<ObjectiveResult>k__BackingField", StageObjectiveTickResult.NoObjective);
+            SetSerializedField(
+                typeof(TickResult),
+                result,
+                "_finalEntities",
+                new ReadOnlyCollection<EntityState>(new List<EntityState>(finalEntities ?? Array.Empty<EntityState>())));
+            SetSerializedField(
+                typeof(TickResult),
+                result,
+                "_eventLog",
+                new ReadOnlyCollection<string>(new List<string>(eventLog ?? Array.Empty<string>())));
+            return result;
+        }
+
+        private static void SetSerializedField(Type declaringType, object target, string fieldName, object value)
+        {
+            var field = declaringType.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {declaringType.Name}.");
+            field.SetValue(target, value);
+        }
 
         private static IEnumerator LoadScene(string scenePath)
         {

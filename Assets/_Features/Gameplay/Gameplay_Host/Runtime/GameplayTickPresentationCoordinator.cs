@@ -2504,6 +2504,7 @@ namespace Game.Feature.Gameplay.Host
             _actionAudioExecutionGuard.ResetSession();
             _enemyAudioExecutionPipeline?.HardCleanup();
             _enemyAudioExecutionGuard.ResetSession();
+            _enemyChargeLoopAudioPresentationController.ResetSession();
             ClearBoxMotionPresentationRuntimeState(BoxMotionTelemetryCleanupReason.HardCleanupPresentationExtensions);
             _presentationPipeline?.HardCleanup();
             for (var i = 0; i < _presentationExtensions.Count; i++)

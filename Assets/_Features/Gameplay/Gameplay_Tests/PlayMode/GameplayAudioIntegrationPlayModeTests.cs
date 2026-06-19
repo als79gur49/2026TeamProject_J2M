@@ -18,6 +18,7 @@ using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
+using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
 using Game.Feature.Gameplay.PresentationPlayback;
 using Game.Feature.Gameplay.TileFeatureAudio;
@@ -27,10 +28,26 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 namespace Game.Feature.Gameplay.Tests.PlayMode
 {
     public sealed class GameplayAudioIntegrationPlayModeTests
     {
+        private const string PlayerPrefabPath = "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab";
+        private const string PlayerActionAudioProfilePath =
+            "Assets/_Features/Gameplay/Gameplay_ActionAudio/Profiles/Player_S1_GameplayActionAudioProfile.asset";
+        private const string RocketFacePrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_RocketFace.prefab";
+        private const string RocketFaceEnemyAudioProfilePath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioProfiles/EnemyAudioProfile_RocketFace.asset";
+        private const string RocketFaceEnemyAudioRequirementBindingPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioRequirementBindings/EnemyAudioRequirementBinding_RocketFace.asset";
+        private const string ChargeLoopEnemyAudioRequirementPolicyPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioRequirementPolicies/EnemyAudioRequirementPolicy_ChargeLoop.asset";
+
         [UnityTest]
         [Category("Full")]
         public IEnumerator GameplaySceneHost_GameplaySfx_RespectsMasterAndSfxMix_AndIgnoresBgmMix()
@@ -150,6 +167,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(snapshots, Has.Length.EqualTo(1));
                 Assert.That(snapshots[0].LeafChannel, Is.EqualTo(AudioChannel.Sfx));
                 Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
+                Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
 
                 // One-shot action SFX may naturally complete before the next frame in batchmode.
                 yield return null;
@@ -164,6 +186,353 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                         UnityEngine.Object.Destroy(trackedObjects[i]);
                     }
                 }
+            }
+        }
+
+#if UNITY_EDITOR
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator GameplaySceneHost_ActionAudioSerializedPlayerPrefab_ProductionBridgeReachesSharedAudioService()
+        {
+            var playerPrefab = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(PlayerPrefabPath);
+            Assert.That(playerPrefab, Is.Not.Null, $"Missing prefab at '{PlayerPrefabPath}'.");
+            var authoring = playerPrefab.GetComponent<GameplayActionAudioAuthoring>();
+            Assert.That(authoring, Is.Not.Null, $"Missing {nameof(GameplayActionAudioAuthoring)} on '{PlayerPrefabPath}'.");
+            Assert.That(AssetDatabase.GetAssetPath(authoring.Profile), Is.EqualTo(PlayerActionAudioProfilePath));
+            Assert.That(authoring.Profile.TryResolve(GameplayActionKind.Push, GameplayActionAudioMoment.Windup, out _), Is.True);
+
+            var playerEntity = CreatePlayerEntityState();
+            var context = CreateSerializedPlayerPrefabActionAudioHostContext(
+                nameof(GameplaySceneHost_ActionAudioSerializedPlayerPrefab_ProductionBridgeReachesSharedAudioService),
+                playerPrefab,
+                playerEntity);
+            try
+            {
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreatePlayerActionPresentationData(
+                        new TickPlayerActionPresentationSignal(
+                            entityId: playerEntity.entityId,
+                            activeActionKind: PlayerActionKind.Push,
+                            activeActionSequence: 51,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false,
+                            direction: Direction.Right,
+                            actionPlanId: 510)),
+                    new[] { playerEntity },
+                    tickIndex: 151));
+
+                var snapshots = context.Manager.CaptureLivePlaybackSnapshots();
+                var telemetry = context.Host.Presenter.ActionAudioProductionTelemetrySnapshot;
+                Assert.That(snapshots, Has.Length.EqualTo(1));
+                Assert.That(snapshots[0].LeafChannel, Is.EqualTo(AudioChannel.Sfx));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
+                Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationActionAudioCueKey.PlayerPushWindup));
+                Assert.That(telemetry.LastOwnerEntityId, Is.EqualTo(playerEntity.entityId));
+                Assert.That(telemetry.LastAction, Is.EqualTo(GameplayActionKind.Push));
+                Assert.That(telemetry.LastMoment, Is.EqualTo(GameplayActionAudioMoment.Windup));
+                Assert.That(telemetry.ObservedCueCount, Is.EqualTo(1));
+                Assert.That(telemetry.RequestPlannedCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(1));
+                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+
+                yield return null;
+            }
+            finally
+            {
+                context.Dispose();
+            }
+        }
+#endif
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator GameplaySceneHost_ActionAudioProductionBridge_SameTickLayeringResetHardCleanupAndFallback()
+        {
+            var trackedObjects = new List<UnityEngine.Object>();
+            var actionProfile = CreateActionAudioProfile(trackedObjects);
+            var playerEntity = CreatePlayerEntityState();
+            var context = CreateActionAudioHostContext(
+                nameof(GameplaySceneHost_ActionAudioProductionBridge_SameTickLayeringResetHardCleanupAndFallback),
+                new RuntimeActionAudioViewFactory(actionProfile),
+                playerEntity);
+            try
+            {
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreatePlayerActionPresentationData(
+                        new TickPlayerActionPresentationSignal(
+                            entityId: playerEntity.entityId,
+                            activeActionKind: PlayerActionKind.Push,
+                            activeActionSequence: 61,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false),
+                        new TickPlayerActionPresentationSignal(
+                            entityId: playerEntity.entityId,
+                            activeActionKind: PlayerActionKind.Flip,
+                            activeActionSequence: 62,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false)),
+                    new[] { playerEntity },
+                    tickIndex: 161));
+
+                Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.EqualTo(2));
+                Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.ObservedCueCount, Is.EqualTo(2));
+                Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(2));
+                Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(2));
+                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+
+                context.Host.Presenter.PresentInitial(new[] { playerEntity }, new CubeTopologyState(FaceId.Floor));
+                Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(context.Host.Presenter.ActionAudioProductionTelemetrySnapshot.LastCleanupReason, Is.EqualTo(ActionAudioTelemetryCleanupReason.ResetSession));
+
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreatePlayerActionPresentationData(
+                        new TickPlayerActionPresentationSignal(
+                            entityId: 999,
+                            activeActionKind: PlayerActionKind.Push,
+                            activeActionSequence: 63,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false)),
+                    new[] { playerEntity },
+                    tickIndex: 162));
+                Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.OwnerViewMissingCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.ActionAudioProductionTelemetrySnapshot.LastFailureReason, Is.EqualTo(ActionAudioTelemetryFailureReason.OwnerViewMissing));
+
+                context.Host.Presenter.DebugHardCleanupPresentationExtensions();
+                Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(context.Host.Presenter.ActionAudioProductionTelemetrySnapshot.LastCleanupReason, Is.EqualTo(ActionAudioTelemetryCleanupReason.HardCleanupPresentationExtensions));
+
+                yield return null;
+            }
+            finally
+            {
+                context.Dispose();
+                for (var i = trackedObjects.Count - 1; i >= 0; i--)
+                {
+                    if (trackedObjects[i] != null)
+                    {
+                        UnityEngine.Object.Destroy(trackedObjects[i]);
+                    }
+                }
+            }
+        }
+
+#if UNITY_EDITOR
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplaySceneHost_EnemyAudioSerializedRocketFacePrefab_ProfileBindingAndChargeLoopPolicyWiring()
+        {
+            var rocketFacePrefab = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(RocketFacePrefabPath);
+            var rocketFaceProfile = AssetDatabase.LoadAssetAtPath<EnemyAudioProfile>(RocketFaceEnemyAudioProfilePath);
+            var rocketFaceBinding =
+                AssetDatabase.LoadAssetAtPath<EnemyAudioRequirementBinding>(RocketFaceEnemyAudioRequirementBindingPath);
+            var chargeLoopPolicy =
+                AssetDatabase.LoadAssetAtPath<EnemyAudioRequirementPolicy>(ChargeLoopEnemyAudioRequirementPolicyPath);
+
+            Assert.That(rocketFacePrefab, Is.Not.Null, $"Missing prefab at '{RocketFacePrefabPath}'.");
+            Assert.That(rocketFaceProfile, Is.Not.Null, $"Missing profile at '{RocketFaceEnemyAudioProfilePath}'.");
+            Assert.That(rocketFaceBinding, Is.Not.Null, $"Missing binding at '{RocketFaceEnemyAudioRequirementBindingPath}'.");
+            Assert.That(chargeLoopPolicy, Is.Not.Null, $"Missing policy at '{ChargeLoopEnemyAudioRequirementPolicyPath}'.");
+
+            var authoring = rocketFacePrefab.GetComponent<EnemyAudioAuthoring>();
+            Assert.That(authoring, Is.Not.Null, $"Missing {nameof(EnemyAudioAuthoring)} on '{RocketFacePrefabPath}'.");
+            Assert.That(authoring.Profile, Is.SameAs(rocketFaceProfile));
+            Assert.That(rocketFaceBinding.TargetProfile, Is.SameAs(rocketFaceProfile));
+            Assert.That(rocketFaceBinding.Policy, Is.SameAs(chargeLoopPolicy));
+            Assert.That(
+                rocketFaceBinding.GetEffectiveRequirement(EnemyAudioCue.ChargeActiveLoop),
+                Is.EqualTo(EnemyAudioCueRequirement.Required));
+            Assert.That(rocketFaceProfile.TryResolve(EnemyAudioCue.ChargeActiveLoop, out var loopBinding), Is.True);
+            Assert.That(loopBinding.Definition.Loop, Is.True);
+            Assert.That(loopBinding.HasAttachmentSlot, Is.True);
+
+            yield return null;
+        }
+#endif
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplaySceneHost_EnemyAudioProductionBridge_OneShotDoesNotStartChargeLoop()
+        {
+            var profileBundle = CreateEnemyAudioProfileBundle(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Active, loop: false, hasAttachmentSlot: false));
+            var enemy = CreateUnit(20, UnitRole.Enemy, new SurfaceCell(FaceId.Floor, 0, 0));
+            var context = CreateHostContext(
+                nameof(GameplaySceneHost_EnemyAudioProductionBridge_OneShotDoesNotStartChargeLoop),
+                initialEntities: new[] { enemy },
+                autoCreateViews: true,
+                enemyAudioProfile: profileBundle.Profile);
+            try
+            {
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreateEnemyActionPresentationData(enemy.entityId),
+                    new[] { enemy },
+                    tickIndex: 201,
+                    determinismHash: "enemy-audio-one-shot"));
+                yield return null;
+
+                var snapshots = context.Manager.CaptureLivePlaybackSnapshots();
+                var diagnostics = context.Host.Presenter.EnemyAudioExecutorDiagnostics;
+                var telemetry = context.Host.Presenter.EnemyAudioProductionTelemetrySnapshot;
+                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
+                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(diagnostics.RequestPlannedCount, Is.EqualTo(1));
+                Assert.That(diagnostics.PlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(diagnostics.PlaybackSucceededCount, Is.EqualTo(1));
+                Assert.That(diagnostics.UnsupportedLoopSemanticCount, Is.Zero);
+                Assert.That(snapshots, Has.Length.EqualTo(1));
+                Assert.That(snapshots[0].Source.loop, Is.False);
+                Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationEnemyAudioCueKey.Active));
+                Assert.That(telemetry.LastOriginKind, Is.EqualTo(PresentationEnemyAudioOriginKind.Action));
+                Assert.That(telemetry.LastPhase, Is.EqualTo(PresentationEnemyAudioPhase.Active));
+
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreateEnemyActionPresentationData(enemy.entityId),
+                    new[] { enemy },
+                    tickIndex: 201,
+                    determinismHash: "enemy-audio-one-shot"));
+
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.DuplicateSuppressedCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.DuplicateAttemptCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                context.Dispose();
+                profileBundle.Dispose();
+            }
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplaySceneHost_EnemyAudioChargeActiveLoop_RefreshStopCleanupAndNoBridgeLoopRoute()
+        {
+            var profileBundle = CreateEnemyAudioProfileBundle(
+                new EnemyAudioEntrySpec(EnemyAudioCue.ChargeActiveLoop, loop: true, hasAttachmentSlot: true));
+            var enemy = CreateUnit(30, UnitRole.Enemy, new SurfaceCell(FaceId.Floor, 0, 0));
+            var context = CreateHostContext(
+                nameof(GameplaySceneHost_EnemyAudioChargeActiveLoop_RefreshStopCleanupAndNoBridgeLoopRoute),
+                initialEntities: new[] { enemy },
+                autoCreateViews: true,
+                enemyAudioProfile: profileBundle.Profile);
+            try
+            {
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreateEnemyChargePresentationData(enemy.entityId, sequence: 7, active: true),
+                    new[] { enemy },
+                    tickIndex: 211,
+                    determinismHash: "enemy-audio-loop-start"));
+                yield return null;
+
+                var startSnapshots = context.Manager.CaptureLivePlaybackSnapshots();
+                Assert.That(startSnapshots, Has.Length.EqualTo(1));
+                Assert.That(startSnapshots[0].Source.loop, Is.True);
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.Zero);
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.UnsupportedLoopSemanticCount, Is.Zero);
+                Assert.That(
+                    context.Host.Presenter.EnemyAudioExecutorDiagnostics.OptionalProfileEntryMissingNoOpCount,
+                    Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreateEnemyChargePresentationData(enemy.entityId, sequence: 7, active: true),
+                    new[] { enemy },
+                    tickIndex: 212,
+                    determinismHash: "enemy-audio-loop-refresh"));
+                yield return null;
+
+                var refreshSnapshots = context.Manager.CaptureLivePlaybackSnapshots();
+                Assert.That(refreshSnapshots, Has.Length.EqualTo(1));
+                Assert.That(refreshSnapshots[0].Source, Is.SameAs(startSnapshots[0].Source));
+
+                context.Host.Presenter.Present(CreateTickResult(
+                    TickPresentationData.Empty,
+                    new[] { enemy },
+                    tickIndex: 213,
+                    determinismHash: "enemy-audio-loop-stop"));
+                yield return null;
+
+                Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.Zero);
+
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreateEnemyChargePresentationData(enemy.entityId, sequence: 8, active: true),
+                    new[] { enemy },
+                    tickIndex: 214,
+                    determinismHash: "enemy-audio-loop-hard-cleanup"));
+                yield return null;
+                Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
+
+                context.Host.Presenter.DebugHardCleanupPresentationExtensions();
+                yield return null;
+
+                Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.Zero);
+                Assert.That(
+                    context.Host.Presenter.EnemyAudioProductionTelemetrySnapshot.LastCleanupReason,
+                    Is.EqualTo(EnemyAudioTelemetryCleanupReason.HardCleanupPresentationExtensions));
+            }
+            finally
+            {
+                context.Dispose();
+                profileBundle.Dispose();
+            }
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplaySceneHost_EnemyAudioProductionBridge_MissingDependencyFallbackAndExplicitRollback()
+        {
+            var profileBundle = CreateEnemyAudioProfileBundle(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Active, loop: false, hasAttachmentSlot: false));
+            var enemy = CreateUnit(40, UnitRole.Enemy, new SurfaceCell(FaceId.Floor, 0, 0));
+            var context = CreateHostContext(
+                nameof(GameplaySceneHost_EnemyAudioProductionBridge_MissingDependencyFallbackAndExplicitRollback),
+                initialEntities: new[] { enemy },
+                autoCreateViews: true,
+                enemyAudioProfile: profileBundle.Profile);
+            try
+            {
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreateEnemyActionPresentationData(ownerEntityId: 999),
+                    new[] { enemy },
+                    tickIndex: 221,
+                    determinismHash: "enemy-audio-missing-owner"));
+
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.OwnerViewMissingCount, Is.EqualTo(1));
+                Assert.That(
+                    context.Host.Presenter.EnemyAudioProductionTelemetrySnapshot.LastFailureReason,
+                    Is.EqualTo(EnemyAudioTelemetryFailureReason.OwnerViewMissing));
+                Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.Zero);
+
+                context.Host.Presenter.ConfigureEnemyAudioExecution((EnemyAudioExecutionMode)999);
+                Assert.That(
+                    context.Host.Presenter.EnemyAudioExecutionMode,
+                    Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
+
+                context.Host.Presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                context.Host.Presenter.ConfigureEnemyAudioExecution(EnemyAudioExecutionMode.LegacyEnemyAudioController);
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreateEnemyActionPresentationData(enemy.entityId),
+                    new[] { enemy },
+                    tickIndex: 222,
+                    determinismHash: "enemy-audio-rollback"));
+                yield return null;
+
+                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
+            }
+            finally
+            {
+                context.Dispose();
+                profileBundle.Dispose();
             }
         }
 
@@ -569,6 +938,48 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return new HostAudioIntegrationContext(hostObject, host, installer, manager, mapBundle, new RecordingAudioSettingsPersistenceStore());
         }
 
+#if UNITY_EDITOR
+        private static HostAudioIntegrationContext CreateSerializedPlayerPrefabActionAudioHostContext(
+            string rootName,
+            GameplayEntityView playerViewPrefab,
+            EntityState playerEntity)
+        {
+            var hostObject = new GameObject(rootName);
+            hostObject.SetActive(false);
+
+            var installer = hostObject.AddComponent<AudioRuntimeInstaller>();
+            SetSerializedField(typeof(AudioRuntimeInstaller), installer, "installOnAwake", false);
+
+            var runtimeRootObject = new GameObject("AudioRuntimeRoot");
+            runtimeRootObject.transform.SetParent(hostObject.transform, worldPositionStays: false);
+            var runtimeRoot = runtimeRootObject.AddComponent<AudioRuntimeRoot>();
+            var manager = runtimeRootObject.AddComponent<AudioManager>();
+
+            var host = hostObject.AddComponent<GameplaySceneHost>();
+            var mapBundle = CreateGameplayAudioMapBundle();
+
+            hostObject.SetActive(true);
+            host.Initialize(new GameplaySceneHostConfiguration
+            {
+                AutoAdvanceTicks = false,
+                AutoCreateViews = true,
+                InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
+                InitialEntities = new[] { playerEntity },
+                InitialTopology = new CubeTopologyState(FaceId.Floor),
+                GameplayPresentationAudioConfig = mapBundle.Config,
+                TopologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault(),
+                ViewFactory = new DefaultGameplayEntityViewFactory(
+                    hostObject.transform,
+                    1f,
+                    playerEntity.entityId,
+                    playerViewPrefab),
+            });
+
+            Assert.That(installer.RuntimeRoot, Is.SameAs(runtimeRoot));
+            return new HostAudioIntegrationContext(hostObject, host, installer, manager, mapBundle, new RecordingAudioSettingsPersistenceStore());
+        }
+#endif
+
         private static GameplaySceneHostConfiguration CreateHostConfiguration(
             GameplayPresentationAudioConfig audioConfig,
             IReadOnlyList<EntityState> initialEntities = null,
@@ -669,6 +1080,71 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                         EntityType.Unit,
                         sourceActorEntityId: 10),
                 });
+        }
+
+        private static TickPresentationData CreateEnemyActionPresentationData(int ownerEntityId)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                new[]
+                {
+                    new TickEnemyActionPresentationSignal(
+                        ownerEntityId,
+                        EnemyActionKind.Melee,
+                        activeActionSequence: 3,
+                        startedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        startedRecoveryThisTick: false,
+                        EnemyActionPresentationSource.Combat,
+                        EnemyActionPresentationOutcome.Executed),
+                },
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>());
+        }
+
+        private static TickPresentationData CreateEnemyChargePresentationData(
+            int ownerEntityId,
+            int sequence,
+            bool active)
+        {
+            var chargeSignals = new[]
+            {
+                new TickEnemyChargePresentationSignal(
+                    ownerEntityId,
+                    sequence,
+                    active ? EnemyChargePhase.Active : EnemyChargePhase.Recover,
+                    startedWindupThisTick: false,
+                    startedActiveThisTick: active,
+                    startedRecoverThisTick: !active,
+                    lockedDirection: Direction.Right),
+            };
+            var data = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>());
+            SetSerializedField(
+                typeof(TickPresentationData),
+                data,
+                "_enemyChargeSignals",
+                new ReadOnlyCollection<TickEnemyChargePresentationSignal>(
+                    new List<TickEnemyChargePresentationSignal>(chargeSignals)));
+            return data;
         }
 
         private static TickPresentationData CreateCoreSfxPresentationData(int playerEntityId, int exitedEnemyEntityId)
@@ -958,6 +1434,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     Binding = binding,
                     IsOptional = false,
                 },
+                new GameplayActionAudioEntry
+                {
+                    Action = GameplayActionKind.Flip,
+                    Moment = GameplayActionAudioMoment.Windup,
+                    Binding = binding,
+                    IsOptional = false,
+                },
             };
             SetSerializedField(typeof(GameplayActionAudioProfile), profile, "entries", entries);
             return profile;
@@ -988,6 +1471,44 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             };
             SetSerializedField(typeof(EnemyAudioProfile), profile, "entries", entries);
             return new EnemyAudioProfileBundle(profile, definition, clip);
+        }
+
+        private static EnemyAudioProfileBundle CreateEnemyAudioProfileBundle(params EnemyAudioEntrySpec[] specs)
+        {
+            var ownedObjects = new List<UnityEngine.Object>();
+            var profile = ScriptableObject.CreateInstance<EnemyAudioProfile>();
+            profile.name = "EnemyAudioProfile_PlayMode_Runtime_Test";
+            var entries = new EnemyAudioEntry[specs?.Length ?? 0];
+            for (var i = 0; i < entries.Length; i++)
+            {
+                var spec = specs[i];
+                var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+                var clip = AudioClip.Create($"EnemyAudio_{spec.Cue}", 4410, 1, 44100, false);
+                definition.name = $"EnemyAudio_{spec.Cue}_Def";
+                ConfigureDefinition(definition, clip, spec.Loop, AudioCategory.Sfx);
+                ownedObjects.Add(definition);
+                ownedObjects.Add(clip);
+
+                var binding = new AudioBinding();
+                SetSerializedField(typeof(AudioBinding), binding, "definition", definition);
+                SetSerializedField(
+                    typeof(AudioBinding),
+                    binding,
+                    "attachmentSlot",
+                    spec.HasAttachmentSlot ? AudioAttachmentSlot.FromId("body") : default(AudioAttachmentSlot));
+                SetSerializedField(typeof(AudioBinding), binding, "policy", null);
+
+                entries[i] = new EnemyAudioEntry
+                {
+                    Cue = spec.Cue,
+                    Binding = binding,
+                    IsOptional = false,
+                };
+            }
+
+            SetSerializedField(typeof(EnemyAudioProfile), profile, "entries", entries);
+            profile.ValidateOrThrow();
+            return new EnemyAudioProfileBundle(profile, ownedObjects.ToArray());
         }
 
         private static void ConfigureDefinition(
@@ -1047,6 +1568,25 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             trackedObjects.Add(unityObject);
             return unityObject;
+        }
+
+        private readonly struct EnemyAudioEntrySpec
+        {
+            public EnemyAudioEntrySpec(
+                EnemyAudioCue cue,
+                bool loop,
+                bool hasAttachmentSlot)
+            {
+                Cue = cue;
+                Loop = loop;
+                HasAttachmentSlot = hasAttachmentSlot;
+            }
+
+            public EnemyAudioCue Cue { get; }
+
+            public bool Loop { get; }
+
+            public bool HasAttachmentSlot { get; }
         }
 
         private sealed class HostAudioIntegrationContext : IDisposable
