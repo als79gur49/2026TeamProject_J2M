@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -137,6 +138,63 @@ namespace Game.Feature.Gameplay.Tests.Core
             Assert.That(executeResult.AttackPhaseResult.DrainedImpactReservations, Has.Count.EqualTo(1));
             Assert.That(executeResult.PresentationData.FlipImpactSignals, Has.Count.EqualTo(1));
             Assert.That(executeResult.PresentationData.FlipImpactSignals[0].ImpactTargetEntityId, Is.EqualTo(5));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PendingFlip_LethalFollowThrough_FinalPlayerFacing_IsResultFacing()
+        {
+            var worldState = CreateStandardWorld();
+            var pipeline = CreatePlayerPipeline(worldState);
+
+            var startResult = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+            worldState.CreateWriteContext().SpawnEntity(CreateEnemy(5, LandingCell, hp: 1));
+            var executeResult = pipeline.RunTick(new TickInput(2));
+            var finalSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(startResult.PresentationData.PlayerFlipResultTurnSignals, Has.Count.EqualTo(1));
+            Assert.That(startResult.PresentationData.PlayerFlipResultTurnSignals[0].ContactFacing, Is.EqualTo(Direction.Left));
+            Assert.That(startResult.PresentationData.PlayerFlipResultTurnSignals[0].ResultFacing, Is.EqualTo(Direction.Right));
+            Assert.That(executeResult.Trace.Text, Does.Contain("FlipResultFacingCommitted"));
+            Assert.That(finalSnapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.facing, Is.EqualTo(Direction.Right));
+            Assert.That(executeResult.FinalEntities.Single(entity => entity.entityId == 10).facing, Is.EqualTo(Direction.Right));
+            Assert.That(finalSnapshot.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(LandingCell));
+            Assert.That(box.facing, Is.EqualTo(Direction.Right));
+            Assert.That(finalSnapshot.TryGetEntity(5, out _), Is.False);
+            Assert.That(executeResult.MovementPhaseResult.ImpactDispositionRecords.Single().DispositionKind, Is.EqualTo(ImpactDispositionKind.FollowThrough));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PendingFlip_LethalFollowThrough_DoesNotWriteActorContactFacing()
+        {
+            var worldState = CreateStandardWorld();
+            var pipeline = CreatePlayerPipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+            worldState.CreateWriteContext().SpawnEntity(CreateEnemy(5, LandingCell, hp: 1));
+            var executeResult = pipeline.RunTick(new TickInput(2));
+
+            Assert.That(
+                executeResult.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.SetFacing &&
+                    operation.EntityId == 10 &&
+                    operation.Facing == Direction.Left),
+                Is.False);
+            Assert.That(
+                executeResult.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.EntityId == 20 &&
+                    operation.Destination == LandingCell),
+                Is.True);
+            Assert.That(
+                executeResult.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.SetFacing &&
+                    operation.EntityId == 20 &&
+                    operation.Facing == Direction.Right),
+                Is.True);
         }
 
         [Test]

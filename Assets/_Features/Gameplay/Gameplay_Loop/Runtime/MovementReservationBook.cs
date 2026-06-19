@@ -245,24 +245,24 @@ namespace Game.Feature.Gameplay.Loop
         private void ReserveImpactPayloadCore(MovementImpactReservationPayload payload, int actionPlanId)
         {
             AddDestinationReservation(
-                payload.ContingentDestinationCell,
-                payload.SourceEntityId,
-                EntityType.None,
+                payload.Travel.FollowThroughCell,
+                payload.Participants.ImpactSourceEntityId,
+                EntityType.Box,
                 blocksUnitSharedSettlement: true);
-            _reservedBlockingDestinations.Add(payload.ContingentDestinationCell);
-            _reservedAffectedEntities.Add(payload.SourceEntityId);
+            _reservedBlockingDestinations.Add(payload.Travel.FollowThroughCell);
+            _reservedAffectedEntities.Add(payload.Participants.ImpactSourceEntityId);
 
-            if (Math.Abs(payload.ContingentDestinationCell.x - payload.ContingentSourceCell.x) +
-                Math.Abs(payload.ContingentDestinationCell.y - payload.ContingentSourceCell.y) > 1 ||
-                payload.ContingentDestinationCell == payload.ContingentSourceCell)
+            if (Math.Abs(payload.Travel.FollowThroughCell.x - payload.Travel.SourceCell.x) +
+                Math.Abs(payload.Travel.FollowThroughCell.y - payload.Travel.SourceCell.y) > 1 ||
+                payload.Travel.FollowThroughCell == payload.Travel.SourceCell)
             {
                 return;
             }
 
             var edgeReservation = new EdgeReservation(
-                payload.SourceEntityId,
-                payload.ContingentSourceCell,
-                payload.ContingentDestinationCell,
+                payload.Participants.ImpactSourceEntityId,
+                payload.Travel.SourceCell,
+                payload.Travel.FollowThroughCell,
                 actionPlanId);
             var edgeKey = UndirectedEdgeKey.Create(edgeReservation.From, edgeReservation.To);
             _reservedEdges[edgeKey] = edgeReservation;
@@ -437,12 +437,12 @@ namespace Game.Feature.Gameplay.Loop
             out SurfaceCell conflictingDestination)
         {
             conflictingDestination = default;
-            if (!reservedDestinations.Contains(payload.ContingentDestinationCell))
+            if (!reservedDestinations.Contains(payload.Travel.FollowThroughCell))
             {
                 return false;
             }
 
-            conflictingDestination = payload.ContingentDestinationCell;
+            conflictingDestination = payload.Travel.FollowThroughCell;
             return true;
         }
 
@@ -452,14 +452,14 @@ namespace Game.Feature.Gameplay.Loop
             out UndirectedEdgeKey conflictingEdge)
         {
             conflictingEdge = default;
-            if (Math.Abs(payload.ContingentDestinationCell.x - payload.ContingentSourceCell.x) +
-                Math.Abs(payload.ContingentDestinationCell.y - payload.ContingentSourceCell.y) > 1 ||
-                payload.ContingentDestinationCell == payload.ContingentSourceCell)
+            if (Math.Abs(payload.Travel.FollowThroughCell.x - payload.Travel.SourceCell.x) +
+                Math.Abs(payload.Travel.FollowThroughCell.y - payload.Travel.SourceCell.y) > 1 ||
+                payload.Travel.FollowThroughCell == payload.Travel.SourceCell)
             {
                 return false;
             }
 
-            var edge = UndirectedEdgeKey.Create(payload.ContingentSourceCell, payload.ContingentDestinationCell);
+            var edge = UndirectedEdgeKey.Create(payload.Travel.SourceCell, payload.Travel.FollowThroughCell);
             if (!reservedEdges.ContainsKey(edge))
             {
                 return false;

@@ -182,10 +182,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(rejectReason, Is.EqualTo(ImpactGeometryRejectReason.None));
             Assert.That(geometry.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(geometry.ImpactCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
-            Assert.That(geometry.MoveFacing, Is.EqualTo(Direction.Up));
-            Assert.That(geometry.IsFlipImpact, Is.False);
-            Assert.That(geometry.HasSourceFacing, Is.False);
-            Assert.That(geometry.SourceFacing, Is.EqualTo(Direction.None));
+            Assert.That(geometry.FollowThroughCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
+            Assert.That(geometry.TravelDirection, Is.EqualTo(Direction.Up));
         }
 
         [Test]
@@ -220,8 +218,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(rejectReason, Is.EqualTo(ImpactGeometryRejectReason.None));
             Assert.That(geometry.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
             Assert.That(geometry.ImpactCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
-            Assert.That(geometry.MoveFacing, Is.EqualTo(Direction.Up));
-            Assert.That(geometry.IsFlipImpact, Is.False);
+            Assert.That(geometry.FollowThroughCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(geometry.TravelDirection, Is.EqualTo(Direction.Up));
         }
 
         [Test]
@@ -240,8 +238,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(rejectReason, Is.EqualTo(ImpactGeometryRejectReason.None));
             Assert.That(geometry.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(geometry.ImpactCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
-            Assert.That(geometry.MoveFacing, Is.EqualTo(Direction.Down));
-            Assert.That(geometry.IsFlipImpact, Is.False);
+            Assert.That(geometry.FollowThroughCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(geometry.TravelDirection, Is.EqualTo(Direction.Down));
         }
 
         [Test]

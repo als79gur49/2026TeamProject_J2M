@@ -103,10 +103,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
             Direction facing,
             bool hasStateChange,
             EntityPhaseState state,
-            int stateTimer,
-            bool hasSourceFacing,
-            int sourceFacingEntityId,
-            Direction sourceFacing)
+            int stateTimer)
         {
             GroupId = groupId;
             EntityId = entityId;
@@ -116,9 +113,6 @@ namespace Game.Feature.Gameplay.Movement.Commit
             HasStateChange = hasStateChange;
             State = state;
             StateTimer = stateTimer;
-            HasSourceFacing = hasSourceFacing;
-            SourceFacingEntityId = sourceFacingEntityId;
-            SourceFacing = sourceFacing;
         }
 
         public int GroupId { get; }
@@ -136,12 +130,6 @@ namespace Game.Feature.Gameplay.Movement.Commit
         public EntityPhaseState State { get; }
 
         public int StateTimer { get; }
-
-        public bool HasSourceFacing { get; }
-
-        public int SourceFacingEntityId { get; }
-
-        public Direction SourceFacing { get; }
     }
 
     internal sealed class MovementCommitter
@@ -327,14 +315,6 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     impactSpaceResolutions,
                     group.GroupId,
                     out var impactSpaceResolution);
-
-                if (hasImpactSpaceResolution &&
-                    impactSpaceResolution.HasSourceFacing)
-                {
-                    writeContext.SetFacing(impactSpaceResolution.SourceFacingEntityId, impactSpaceResolution.SourceFacing);
-                    commitEvents.Add(
-                        $"FacingCommitted|G={group.GroupId}|I={group.IntentId}|E={impactSpaceResolution.SourceFacingEntityId}|Facing={impactSpaceResolution.SourceFacing}");
-                }
 
                 if (hasImpactSpaceResolution &&
                     impactSpaceResolution.HasStateChange)
@@ -577,24 +557,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
                 throw new ArgumentNullException(nameof(selectedGroups));
             }
 
-            var facingResolutions = new List<MovementFacingResolutionRecord>();
-
-            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
-            {
-                var group = selectedGroups[groupIndex];
-                if (group.GroupKind != ActionGroupKind.Flip)
-                {
-                    continue;
-                }
-
-                facingResolutions.Add(
-                    new MovementFacingResolutionRecord(
-                        group.GroupId,
-                        group.SourceId,
-                        ResolveFlipSourceFacing(snapshot, sortedIntents, group)));
-            }
-
-            return facingResolutions;
+            return new List<MovementFacingResolutionRecord>();
         }
 
         internal List<MovementExecutionLockResolutionRecord> ResolveExecutionLockResolutions(
@@ -854,18 +817,20 @@ namespace Game.Feature.Gameplay.Movement.Commit
                 return false;
             }
 
+            var isLongRangeSameFaceImpact =
+                impactSourceBox.position.face == impactReservation.ImpactCell.face &&
+                Math.Abs(impactReservation.ImpactCell.x - impactSourceBox.position.x) +
+                Math.Abs(impactReservation.ImpactCell.y - impactSourceBox.position.y) > 1;
+
             resolution = new MovementImpactSpaceResolutionRecord(
                 group.GroupId,
                 impactSourceBox.entityId,
                 impactSourceBox.position,
-                geometry.ImpactCell,
-                geometry.MoveFacing,
-                hasStateChange: !geometry.IsFlipImpact,
+                geometry.FollowThroughCell,
+                geometry.TravelDirection,
+                hasStateChange: !isLongRangeSameFaceImpact,
                 state: EntityPhaseState.Sliding,
-                stateTimer: !geometry.IsFlipImpact ? _slidingStateTimerTicks : 0,
-                geometry.HasSourceFacing,
-                sourceFacingEntityId: geometry.HasSourceFacing ? group.SourceId : 0,
-                geometry.SourceFacing);
+                stateTimer: !isLongRangeSameFaceImpact ? _slidingStateTimerTicks : 0);
             return true;
         }
 
@@ -1096,55 +1061,6 @@ namespace Game.Feature.Gameplay.Movement.Commit
             }
 
             return null;
-        }
-
-        private static Direction ResolveFlipSourceFacing(
-            WorldSnapshot snapshot,
-            IReadOnlyList<MoveIntent> sortedIntents,
-            ActionGroup group)
-        {
-            if (!snapshot.TryGetEntity(group.SourceId, out var source))
-            {
-                throw new InvalidOperationException(
-                    $"Flip group references a missing source entity. Source={group.SourceId}, Intent={group.IntentId}");
-            }
-
-            var intent = FindIntent(sortedIntents, group.IntentId);
-            if (intent == null)
-            {
-                throw new InvalidOperationException(
-                    $"Flip group is missing its movement intent. Source={group.SourceId}, Intent={group.IntentId}");
-            }
-
-            var delta = intent.Destination - source.position;
-            var actionDirection = ResolveFlipActionDirection(delta, group);
-            return DirectionUtility.Opposite(actionDirection);
-        }
-
-        private static Direction ResolveFlipActionDirection(Vector2Int delta, ActionGroup group)
-        {
-            if (delta.x == 0 && delta.y == 1)
-            {
-                return Direction.Up;
-            }
-
-            if (delta.x == 1 && delta.y == 0)
-            {
-                return Direction.Right;
-            }
-
-            if (delta.x == 0 && delta.y == -1)
-            {
-                return Direction.Down;
-            }
-
-            if (delta.x == -1 && delta.y == 0)
-            {
-                return Direction.Left;
-            }
-
-            throw new InvalidOperationException(
-                $"Flip group requires an orthogonal adjacent direction. Source={group.SourceId}, Intent={group.IntentId}");
         }
 
         private static string FormatCell(SurfaceCell cell)

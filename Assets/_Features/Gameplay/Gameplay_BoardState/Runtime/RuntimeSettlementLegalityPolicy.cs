@@ -496,15 +496,15 @@ namespace Game.Feature.Gameplay.BoardState
             return EvaluateImpactFollowThrough(
                 new SettlementContext(
                     attackSnapshot,
-                    BuildActorRef(attackSnapshot, payload.SourceEntityId, EntityType.Box),
-                    payload.ContingentDestinationCell,
+                    BuildActorRef(attackSnapshot, payload.Participants.ImpactSourceEntityId, EntityType.Box),
+                    payload.Travel.FollowThroughCell,
                     attackSnapshot.Topology,
                     SpatialState.Anchored,
                     reservationStatus,
                     tileFeatureDefinitions),
                 new ImpactFollowThroughEvidence(
-                    payload.AttackSourceEntityId,
-                    payload.TargetEntityIds,
+                    payload.Attack.AttackSourceEntityId,
+                    payload.Participants.TargetEntityIds,
                     destroyResolutions));
         }
 
