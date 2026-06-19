@@ -411,13 +411,18 @@ namespace Game.Feature.Gameplay.Host
                     state.StartedChargeWindupThisTick ||
                     state.StartedChargeActiveThisTick ||
                     state.StartedChargeRecoverThisTick;
+                var hasJumpPresentation =
+                    state.StartedJumpWindupThisTick ||
+                    state.StartedJumpAirborneThisTick ||
+                    state.LandedFromJumpThisTick ||
+                    state.RetryingJumpAirborneThisTick;
                 states[entityId] = new EnemyViewPresentationState(
                     state.EntityId,
                     state.TickIndex,
                     state.AiMode,
                     state.ActiveActionKind,
-                    EnemyJumpPhase.None,
-                    EnemyChargePhase.None,
+                    hasJumpPresentation ? EnemyJumpPhase.None : state.JumpPhase,
+                    hasChargePresentation ? EnemyChargePhase.None : state.ChargePhase,
                     state.IsMoving,
                     hasChargePresentation ? false : state.StartedWindupThisTick,
                     state.ExecutedThisTick,
@@ -1583,13 +1588,14 @@ namespace Game.Feature.Gameplay.Host
             {
                 var change = visibilityChanges[i];
                 if (change.ChangeKind != TickVisibilityChangeKind.Spawn ||
-                    !TryGetPlayerAnimatorDriver(change.EntityId, viewsByEntityId, out _))
+                    !TryGetPlayerAnimatorDriver(change.EntityId, viewsByEntityId, out var driver))
                 {
                     continue;
                 }
 
                 _playerDeathVisualOverrideEntityIds.Remove(change.EntityId);
                 _playerVisualHoldStates.Remove(change.EntityId);
+                driver.ResetDeathPresentationForRespawn();
             }
         }
 

@@ -208,6 +208,27 @@ namespace Game.Feature.Gameplay.Host
             IsVisible = false;
         }
 
+        public void ResetDeathPresentationForRespawn()
+        {
+            _pendingRestart = false;
+            _pendingHitTrigger = false;
+            _pendingExecuteActionKind = PlayerActionKind.None;
+            CurrentState = PlayerViewAnimationState.Idle;
+            CurrentPresentationPhase = PlayerPresentationPhase.None;
+            _hasDrivenResolvedState = false;
+
+            var targetAnimator = ResolveAnimator();
+            if (CanDriveAnimator(targetAnimator))
+            {
+                ApplyResolvedState(
+                    targetAnimator,
+                    PlayerViewAnimationState.Idle,
+                    restart: true,
+                    PlayerActionKind.None,
+                    resolvedMotionDurationSeconds: 0f);
+            }
+        }
+
         public float GetPresentationDurationSeconds(
             PlayerActionKind actionKind,
             float resolvedMotionDurationSeconds = 0f)
