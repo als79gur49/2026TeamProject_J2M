@@ -169,27 +169,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var runtimeDefinition = summonerProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
-            Assert.That(runtimeDefinition.Capabilities.TryGetUtility(out var utility), Is.True);
-            Assert.That(utility.Effects, Is.Not.Empty);
-            Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion));
+            Assert.That(runtimeDefinition.Capabilities.TryGetUtility(out _), Is.False);
+            Assert.That(runtimeDefinition.TryGetSummonBehavior(out var summon), Is.True);
+            Assert.That(summon.SummonedArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
+            Assert.That(summon.OverrideHp, Is.True);
+            Assert.That(summon.HpOverride, Is.EqualTo(1));
             Assert.That(
-                utility.Effects[0].Summon.SummonedArchetypeId,
-                Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
-            Assert.That(utility.Effects[0].Summon.OverrideHp, Is.True);
-            Assert.That(utility.Effects[0].Summon.HpOverride, Is.EqualTo(1));
-            Assert.That(
-                utility.Effects[0].Summon.WindupTicks,
+                summon.WindupTicks,
                 Is.EqualTo(GameplayTimingProfile.SecondsToTicks(
                     1.7f,
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond)));
             Assert.That(
-                utility.Effects[0].Summon.RecoveryTicks,
+                summon.RecoveryTicks,
                 Is.EqualTo(GameplayTimingProfile.SecondsToTicks(
                     0.7f,
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     allowZero: true)));
-            Assert.That(utility.Effects[0].Summon.SuppressMovementDuringWindup, Is.True);
-            Assert.That(utility.Effects[0].Summon.SuppressMovementDuringRecover, Is.True);
+            Assert.That(summon.SuppressMovementDuringWindup, Is.True);
+            Assert.That(summon.SuppressMovementDuringRecover, Is.True);
         }
 
         [Test]
@@ -997,11 +994,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profile.BehaviorModuleAssets.OfType<EnemySummonBehaviorModuleAsset>(), Is.Not.Empty);
             Assert.That(
                 profile.CapabilityAssets
-                    .OfType<EnemyUtilityCapabilityAsset>()
-                    .SelectMany(capability => capability.Effects)
-                    .Where(effect => effect != null)
-                    .Any(effect => effect.Kind == EnemyUtilityEffectKind.SummonMinion),
-                Is.False);
+                    .OfType<EnemyUtilityCapabilityAsset>(),
+                Is.Empty);
             Assert.That(ProfileUsesSummonArchetype(profile), Is.True);
         }
 
@@ -1027,18 +1021,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
 
             Assert.That(ProfileUsesSummonArchetype(profile), Is.False);
-        }
-
-        [Test]
-        [Category("Full")]
-        public void StageUsesSummonArchetype_RecognizesLegacyUtilitySummonEffect()
-        {
-            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
-            {
-                UtilityEffects = new[] { CreateUtilityEffect(EnemyUtilityEffectKind.SummonMinion) },
-            });
-
-            Assert.That(ProfileUsesSummonArchetype(profile), Is.True);
         }
 
         [Test]
@@ -1091,35 +1073,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 for (var moduleIndex = 0; moduleIndex < behaviorModules.Count; moduleIndex++)
                 {
                     if (behaviorModules[moduleIndex] is EnemySummonBehaviorModuleAsset)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            var capabilities = profile.CapabilityAssets;
-            if (capabilities == null)
-            {
-                return false;
-            }
-
-            for (var capabilityIndex = 0; capabilityIndex < capabilities.Count; capabilityIndex++)
-            {
-                if (!(capabilities[capabilityIndex] is EnemyUtilityCapabilityAsset utility))
-                {
-                    continue;
-                }
-
-                var effects = utility.Effects;
-                if (effects == null)
-                {
-                    continue;
-                }
-
-                for (var effectIndex = 0; effectIndex < effects.Count; effectIndex++)
-                {
-                    var effect = effects[effectIndex];
-                    if (effect != null && effect.Kind == EnemyUtilityEffectKind.SummonMinion)
                     {
                         return true;
                     }

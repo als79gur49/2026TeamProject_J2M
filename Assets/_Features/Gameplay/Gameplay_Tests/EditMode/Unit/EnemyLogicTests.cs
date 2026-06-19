@@ -3960,31 +3960,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_CompilesSummonEffectAndTicks()
+        public void EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_RetiredSummonMinionFailsFast()
         {
-            var profile = CreateUtilitySummonerProfile(
-                CreateSummonUtilityEffect(
-                    initialDelaySeconds: 0.2f,
-                    cooldownSeconds: 0.5f,
-                    spawnCountPerTrigger: 2,
-                    maxAliveChildren: 4,
-                    overrideHp: true,
-                    hpOverride: 3));
+            var profile = CreateUtilityProfile(CreateRetiredSummonUtilityEffect());
 
             try
             {
-                var definition = profile.CreateRuntimeDefinition(10);
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(10));
 
-                Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True);
-                Assert.That(utility.Effects, Has.Count.EqualTo(1));
-                Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion));
-                Assert.That(utility.Effects[0].InitialDelayTicks, Is.EqualTo(2));
-                Assert.That(utility.Effects[0].CooldownTicks, Is.EqualTo(5));
-                Assert.That(utility.Effects[0].Summon.SpawnCountPerTrigger, Is.EqualTo(2));
-                Assert.That(utility.Effects[0].Summon.MaxAliveChildren, Is.EqualTo(4));
-                Assert.That(utility.Effects[0].Summon.SummonedArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
-                Assert.That(utility.Effects[0].Summon.OverrideHp, Is.True);
-                Assert.That(utility.Effects[0].Summon.HpOverride, Is.EqualTo(3));
+                Assert.That(exception.Message, Does.Contain("Utility Summon is retired"));
+                Assert.That(exception.Message, Does.Contain(nameof(EnemySummonBehaviorModuleAsset)));
             }
             finally
             {
@@ -3996,6 +3981,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyUtilityEffectKind_RetiredLockNearbyBoxes_PreservesCompatibilitySlot()
         {
+            Assert.That((int)EnemyUtilityEffectKind.RetiredSummonMinion, Is.EqualTo(0));
             Assert.That((int)EnemyUtilityEffectKind.RetiredLockNearbyBoxes, Is.EqualTo(1));
             Assert.That((int)EnemyUtilityEffectKind.GravityFieldAura, Is.EqualTo(2));
         }
@@ -4022,7 +4008,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
             });
-            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
+            var profile = CreateUtilityProfile(CreateGravityFieldAuraUtilityEffect());
 
             try
             {
@@ -4049,7 +4035,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.RetiredLockNearbyBoxes);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", 0f);
             EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", 1f);
-            var profile = CreateUtilitySummonerProfile(effect);
+            var profile = CreateUtilityProfile(effect);
 
             try
             {
@@ -4209,7 +4195,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_DuplicateArchetypeId_Throws()
         {
             var firstProfile = CreateNonAttackingEnemyProfile();
-            var secondProfile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
+            var secondProfile = CreateNonAttackingEnemyProfile();
             var first = CreateEnemyUnitArchetypeAsset("DuplicateMinion", firstProfile, hp: 3, initialAiMode: EnemyAiMode.Patrol);
             var second = CreateEnemyUnitArchetypeAsset("DuplicateMinion", secondProfile, hp: 5, initialAiMode: EnemyAiMode.Chase);
             var catalog = CreateEnemyUnitArchetypeCatalog(first, second);
@@ -4240,8 +4226,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var defaultProfile = CreateNonAttackingEnemyProfile();
             var orphanedArchetypeProfile = CreateNonAttackingEnemyProfile();
             var orphanedArchetype = CreateEnemyUnitArchetypeAsset("OrphanedMinion", orphanedArchetypeProfile, hp: 3, initialAiMode: EnemyAiMode.Patrol);
-            var summonerProfile = CreateUtilitySummonerProfile(
-                CreateArchetypeSummonUtilityEffect(orphanedArchetype));
+            var summonerProfile = CreateBehaviorSummonProfile(orphanedArchetype);
 
             try
             {
@@ -4286,7 +4271,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new EnemyAiProfileOverride
                     {
                         EntityId = 40,
-                        Profile = CreateUtilitySummonerProfile(CreateArchetypeSummonUtilityEffect(archetype)),
+                        Profile = CreateBehaviorSummonProfile(archetype),
                     },
                 },
                 EnemyUnitArchetypeCatalog = gameplayCatalog,
@@ -4330,7 +4315,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new EnemyAiProfileOverride
                     {
                         EntityId = 40,
-                        Profile = CreateUtilitySummonerProfile(CreateArchetypeSummonUtilityEffect(archetype)),
+                        Profile = CreateBehaviorSummonProfile(archetype),
                     },
                 },
                 EnemyUnitArchetypeCatalog = gameplayCatalog,
@@ -4377,7 +4362,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new EnemyAiProfileOverride
                     {
                         EntityId = 40,
-                        Profile = CreateUtilitySummonerProfile(CreateArchetypeSummonUtilityEffect(archetype)),
+                        Profile = CreateBehaviorSummonProfile(archetype),
                     },
                 },
                 EnemyUnitArchetypeCatalog = gameplayCatalog,
@@ -4422,7 +4407,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new EnemyAiProfileOverride
                     {
                         EntityId = 40,
-                        Profile = CreateUtilitySummonerProfile(CreateArchetypeSummonUtilityEffect(archetype)),
+                        Profile = CreateBehaviorSummonProfile(archetype),
                     },
                 },
                 EnemyUnitArchetypeCatalog = gameplayCatalog,
@@ -4453,7 +4438,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void EnemyEntityLogicFactory_ResolveDefinition_EntityOverrideWinsOverArchetypeBinding()
         {
             var defaultProfile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile();
-            var overrideProfile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
+            var overrideProfile = CreateUtilityProfile(CreateGravityFieldAuraUtilityEffect());
             var archetypeProfile = CreateNonAttackingEnemyProfile();
 
             try
@@ -4497,7 +4482,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void EnemyEntityLogicFactory_ResolveDefinition_ArchetypeBindingWinsOverDefault()
         {
             var defaultProfile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile();
-            var archetypeProfile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
+            var archetypeProfile = CreateUtilityProfile(CreateGravityFieldAuraUtilityEffect());
 
             try
             {
@@ -4534,7 +4519,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void EnemyEntityLogicFactory_ResolveDefinition_NoBindingFallsBackToDefault()
         {
             var defaultProfile = EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile();
-            var archetypeProfile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
+            var archetypeProfile = CreateUtilityProfile(CreateGravityFieldAuraUtilityEffect());
 
             try
             {
@@ -4612,7 +4597,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void GameplayEntityLogicProviderFactory_ArchetypeBoundUtilityOnlyEntity_OmitsCombatLanes()
         {
             var defaultProfile = CreateNonAttackingEnemyProfile();
-            var utilityProfile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
+            var utilityProfile = CreateUtilityProfile(CreateGravityFieldAuraUtilityEffect());
 
             try
             {
@@ -4708,7 +4693,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyAiProfileCompiler_UtilityCapability_NegativeInitialDelay_Throws()
         {
-            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect(initialDelaySeconds: -0.1f));
+            var profile = CreateUtilityProfile(CreateGravityFieldAuraUtilityEffect(initialDelaySeconds: -0.1f));
 
             try
             {
@@ -4724,61 +4709,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyAiProfileCompiler_UtilityCapability_NonPositiveCooldown_Throws()
         {
-            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect(cooldownSeconds: 0f));
-
-            try
-            {
-                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void EnemyAiProfileCompiler_UtilityCapability_NonPositiveSpawnCount_Throws()
-        {
-            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect(spawnCountPerTrigger: 0));
-
-            try
-            {
-                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void EnemyAiProfileCompiler_UtilityCapability_NonPositiveMaxAliveChildren_Throws()
-        {
-            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect(maxAliveChildren: 0));
-
-            try
-            {
-                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
-            }
-            finally
-            {
-                DestroyProfile(profile);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void EnemyAiProfileCompiler_UtilityCapability_MissingSummonedArchetype_Throws()
-        {
-            var effect = new EnemyUtilityEffectAuthoring();
-            var summon = CreateSummonMinionAuthoring(includeSummonedArchetype: false);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", 0f);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", 1f);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
-            var profile = CreateUtilitySummonerProfile(effect);
+            var profile = CreateUtilityProfile(CreateGravityFieldAuraUtilityEffect(cooldownSeconds: 0f));
 
             try
             {
@@ -4794,13 +4725,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyAiProfileCompiler_UtilityCapability_DuplicateFamily_Throws()
         {
-            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
+            var profile = CreateUtilityProfile(CreateGravityFieldAuraUtilityEffect());
             var duplicateUtility = ScriptableObject.CreateInstance<EnemyUtilityCapabilityAsset>();
             duplicateUtility.hideFlags = HideFlags.HideAndDontSave;
             EnemyAiProfileTestFactory.SetSerializedField(
                 duplicateUtility,
                 "effects",
-                new[] { CreateSummonUtilityEffect(cooldownSeconds: 2f) });
+                new[] { CreateGravityFieldAuraUtilityEffect(cooldownSeconds: 2f) });
 
             try
             {
@@ -6770,7 +6701,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
         }
 
-        private static EnemyAiProfile CreateUtilitySummonerProfile(EnemyUtilityEffectAuthoring effect)
+        private static EnemyAiProfile CreateUtilityProfile(EnemyUtilityEffectAuthoring effect)
         {
             return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
             {
@@ -6781,56 +6712,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
         }
 
-        private static EnemyUtilityEffectAuthoring CreateSummonUtilityEffect(
-            float initialDelaySeconds = 0f,
-            float cooldownSeconds = 1f,
-            int spawnCountPerTrigger = 1,
-            int maxAliveChildren = 3,
-            EnemyUnitArchetypeAsset summonedArchetype = null,
-            bool overrideHp = false,
-            int hpOverride = 1,
-            bool requireNoUnitAtSpawnCell = true,
-            bool requireNoSolidAtSpawnCell = true)
+        private static EnemyAiProfile CreateBehaviorSummonProfile(EnemyUnitArchetypeAsset summonedArchetype)
         {
-            var summon = new SummonMinionAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(summon, "spawnCountPerTrigger", spawnCountPerTrigger);
-            EnemyAiProfileTestFactory.SetSerializedField(summon, "maxAliveChildren", maxAliveChildren);
-            EnemyAiProfileTestFactory.SetSerializedField(summon, "candidatePattern", SummonCandidatePattern.OrthogonalAdjacent4);
-            EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoUnitAtSpawnCell", requireNoUnitAtSpawnCell);
-            EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoSolidAtSpawnCell", requireNoSolidAtSpawnCell);
-            EnemyAiProfileTestFactory.SetSerializedField(summon, "summonedArchetype", summonedArchetype != null ? summonedArchetype : GetSharedSummonedArchetype());
-            EnemyAiProfileTestFactory.SetSerializedField(summon, "overrideHp", overrideHp);
-            EnemyAiProfileTestFactory.SetSerializedField(summon, "hpOverride", hpOverride);
+            var profile = CreateNonAttackingEnemyProfile();
+            EnemyAiProfileTestFactory.SetSerializedField(
+                profile,
+                "behaviorModuleAssets",
+                new List<EnemyBehaviorModuleAsset>
+                {
+                    CreateSummonBehaviorModule(summonedArchetype),
+                });
+            return profile;
+        }
 
+        private static EnemySummonBehaviorModuleAsset CreateSummonBehaviorModule(EnemyUnitArchetypeAsset summonedArchetype)
+        {
+            var module = ScriptableObject.CreateInstance<EnemySummonBehaviorModuleAsset>();
+            module.hideFlags = HideFlags.HideAndDontSave;
+            EnemyAiProfileTestFactory.SetSerializedField(module, "initialDelaySeconds", 0f);
+            EnemyAiProfileTestFactory.SetSerializedField(module, "cooldownSeconds", 1f);
+            EnemyAiProfileTestFactory.SetSerializedField(
+                module,
+                "summon",
+                CreateSummonMinionAuthoring(summonedArchetype: summonedArchetype));
+            return module;
+        }
+
+        private static EnemyUtilityEffectAuthoring CreateRetiredSummonUtilityEffect()
+        {
             var effect = new EnemyUtilityEffectAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", initialDelaySeconds);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", cooldownSeconds);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.RetiredSummonMinion);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", 0f);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", 1f);
             return effect;
         }
 
-        private static EnemyUtilityEffectAuthoring CreateArchetypeSummonUtilityEffect(
-            EnemyUnitArchetypeAsset summonedArchetype,
+        private static EnemyUtilityEffectAuthoring CreateGravityFieldAuraUtilityEffect(
             float initialDelaySeconds = 0f,
-            float cooldownSeconds = 1f,
-            int spawnCountPerTrigger = 1,
-            int maxAliveChildren = 3,
-            bool overrideHp = false,
-            int hpOverride = 1,
-            bool requireNoUnitAtSpawnCell = true,
-            bool requireNoSolidAtSpawnCell = true)
+            float cooldownSeconds = 1f)
         {
-            return CreateSummonUtilityEffect(
-                initialDelaySeconds,
-                cooldownSeconds,
-                spawnCountPerTrigger,
-                maxAliveChildren,
-                summonedArchetype,
-                overrideHp,
-                hpOverride,
-                requireNoUnitAtSpawnCell,
-                requireNoSolidAtSpawnCell);
+            var gravityFieldAura = new EnemyGravityFieldAuraAuthoring();
+
+            var effect = new EnemyUtilityEffectAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.GravityFieldAura);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", initialDelaySeconds);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "cooldownSeconds", cooldownSeconds);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "gravityFieldAura", gravityFieldAura);
+            return effect;
         }
 
         private static SummonMinionAuthoring CreateSummonMinionAuthoring(

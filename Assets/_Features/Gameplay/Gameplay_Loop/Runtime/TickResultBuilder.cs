@@ -2292,22 +2292,8 @@ namespace Game.Feature.Gameplay.Loop
 
                     if (effectState.phase == EnemyUtilityEffectPhase.Recover)
                     {
-                        if (effectState.effectKind == EnemyUtilityEffectKind.SummonMinion &&
+                        if (effectState.effectKind == EnemyUtilityEffectKind.GravityFieldAura &&
                             context.CurrentTickIndex == effectState.recoverStartTick)
-                        {
-                            enemyUtilitySignals.Add(
-                                new TickEnemyUtilityPresentationSignal(
-                                    entry.EntityId,
-                                    EnemyUtilityPresentationKind.SummonMinion,
-                                    EnemyUtilityPresentationPhase.RecoverStarted,
-                                    effectState.recoverStartTick,
-                                    effectState.recoverEndTickExclusive,
-                                    Math.Max(0, effectState.recoverEndTickExclusive - effectState.recoverStartTick),
-                                    effectIndex,
-                                    effectState.activationSequence));
-                        }
-                        else if (effectState.effectKind == EnemyUtilityEffectKind.GravityFieldAura &&
-                                 context.CurrentTickIndex == effectState.recoverStartTick)
                         {
                             var recoverDurationTicks = Math.Max(0, effectState.recoverEndTickExclusive - effectState.recoverStartTick);
                             enemyUtilitySignals.Add(
@@ -2352,39 +2338,6 @@ namespace Game.Feature.Gameplay.Loop
                         continue;
                     }
 
-                    if (effectState.effectKind == EnemyUtilityEffectKind.SummonMinion)
-                    {
-                        summonWindupWarnings.Add(
-                            new TickSummonWindupWarningSignal(
-                                entry.EntityId,
-                                effectIndex,
-                                source.position,
-                                context.FinalAuthoritativeSnapshot.Topology,
-                                source.facing,
-                                effectState.windupStartTick,
-                                effectState.windupEndTick,
-                                effectState.activationSequence,
-                                context.CurrentTickIndex,
-                                BuildUtilityWarningPresentationSeed(
-                                    context.CurrentTickIndex,
-                                    entry.EntityId,
-                                    effectIndex,
-                                    source.position,
-                                    effectState.activationSequence)));
-                        if (context.CurrentTickIndex == effectState.windupStartTick)
-                        {
-                            enemyUtilitySignals.Add(
-                                new TickEnemyUtilityPresentationSignal(
-                                    entry.EntityId,
-                                    EnemyUtilityPresentationKind.SummonMinion,
-                                    EnemyUtilityPresentationPhase.WindupStarted,
-                                    effectState.windupStartTick,
-                                    effectState.windupEndTick,
-                                    Math.Max(0, effectState.windupEndTick - effectState.windupStartTick),
-                                    effectIndex,
-                                    effectState.activationSequence));
-                        }
-                    }
                 }
             }
 
@@ -2549,11 +2502,6 @@ namespace Game.Feature.Gameplay.Loop
             in EnemyUtilityEffectState effectState,
             List<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals)
         {
-            if (effectState.effectKind == EnemyUtilityEffectKind.SummonMinion)
-            {
-                return;
-            }
-
             if (!TryResolveEnemyUtilityPresentationKind(effectState.effectKind, out var presentationKind) ||
                 effectState.phase == EnemyUtilityEffectPhase.Windup ||
                 effectState.phase == EnemyUtilityEffectPhase.Active ||
@@ -2735,9 +2683,6 @@ namespace Game.Feature.Gameplay.Loop
             {
                 case EnemyUtilityEffectKind.GravityFieldAura:
                     presentationKind = EnemyUtilityPresentationKind.GravityFieldAura;
-                    return true;
-                case EnemyUtilityEffectKind.SummonMinion:
-                    presentationKind = EnemyUtilityPresentationKind.SummonMinion;
                     return true;
                 default:
                     presentationKind = EnemyUtilityPresentationKind.None;

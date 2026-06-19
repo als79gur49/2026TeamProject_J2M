@@ -381,10 +381,9 @@ namespace Game.Feature.Gameplay.Entities
     [Serializable]
     public sealed class EnemyUtilityEffectAuthoring
     {
-        [SerializeField] private EnemyUtilityEffectKind kind = EnemyUtilityEffectKind.SummonMinion;
+        [SerializeField] private EnemyUtilityEffectKind kind = EnemyUtilityEffectKind.GravityFieldAura;
         [SerializeField] private float initialDelaySeconds = 0f;
         [SerializeField] private float cooldownSeconds = 1f;
-        [SerializeField] private SummonMinionAuthoring summon = new();
         [SerializeField] private EnemyGravityFieldAuraAuthoring gravityFieldAura = new();
 
         public EnemyUtilityEffectKind Kind => kind;
@@ -392,8 +391,6 @@ namespace Game.Feature.Gameplay.Entities
         public float InitialDelaySeconds => initialDelaySeconds;
 
         public float CooldownSeconds => cooldownSeconds;
-
-        public SummonMinionAuthoring Summon => summon;
 
         public EnemyGravityFieldAuraAuthoring GravityFieldAura => gravityFieldAura;
 
@@ -411,11 +408,9 @@ namespace Game.Feature.Gameplay.Entities
 
             return kind switch
             {
-                EnemyUtilityEffectKind.SummonMinion => new EnemyUtilityEffectRuntime(
-                    kind,
-                    GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),
-                    GameplayTimingProfile.SecondsToTicks(cooldownSeconds, simulationTicksPerSecond),
-                    summon: (summon ?? throw new ArgumentException("Summon utility effect requires summon authoring data.", nameof(summon))).Compile(simulationTicksPerSecond)),
+                EnemyUtilityEffectKind.RetiredSummonMinion => throw new ArgumentException(
+                    "Utility Summon is retired; use EnemySummonBehaviorModuleAsset.",
+                    nameof(kind)),
                 EnemyUtilityEffectKind.GravityFieldAura => new EnemyUtilityEffectRuntime(
                     kind,
                     GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),

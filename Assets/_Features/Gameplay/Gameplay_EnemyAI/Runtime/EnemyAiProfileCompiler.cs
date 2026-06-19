@@ -41,9 +41,7 @@ namespace Game.Feature.Gameplay.Entities
             var behaviors = CompileBehaviors(
                 profile.name,
                 profile.BehaviorModuleAssets,
-                simulationTicksPerSecond,
-                out var summonBehaviorModuleName);
-            ValidateNoDuplicateSummonSources(profile.name, capabilities, behaviors, summonBehaviorModuleName);
+                simulationTicksPerSecond);
             ValidateBehaviorRequirements(profile, behaviors);
             return new EnemyAiRuntimeDefinition(core, brain, capabilities, behaviors);
         }
@@ -144,12 +142,11 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyBehaviorRuntimeSet CompileBehaviors(
             string profileName,
             IReadOnlyList<EnemyBehaviorModuleAsset> behaviorModuleAssets,
-            int simulationTicksPerSecond,
-            out string summonBehaviorModuleName)
+            int simulationTicksPerSecond)
         {
             EnemyChargeBehaviorRuntime charge = null;
             EnemySummonBehaviorRuntime summon = null;
-            summonBehaviorModuleName = null;
+            string summonBehaviorModuleName = null;
             var behaviorCount = behaviorModuleAssets?.Count ?? 0;
             var context = new EnemyBehaviorModuleCompileContext(profileName, simulationTicksPerSecond);
 
@@ -211,45 +208,6 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return new EnemyBehaviorRuntimeSet(charge, summon);
-        }
-
-        private static void ValidateNoDuplicateSummonSources(
-            string profileName,
-            in EnemyCapabilityRuntimeSet capabilities,
-            in EnemyBehaviorRuntimeSet behaviors,
-            string summonBehaviorModuleName)
-        {
-            if (!behaviors.HasSummon ||
-                !TryFindUtilitySummonMinion(capabilities, out var utilityEffectIndex))
-            {
-                return;
-            }
-
-            throw new ArgumentException(
-                $"Enemy AI profile '{profileName}' cannot author both Utility SummonMinion effect at Utility.effects[{utilityEffectIndex}] and Behavior {EnemyBehaviorModuleKey.Summon} module '{summonBehaviorModuleName}'. Summon migration must be asset-scoped; remove one source before compile.",
-                nameof(capabilities));
-        }
-
-        private static bool TryFindUtilitySummonMinion(
-            in EnemyCapabilityRuntimeSet capabilities,
-            out int effectIndex)
-        {
-            effectIndex = -1;
-            if (!capabilities.TryGetUtility(out var utility))
-            {
-                return false;
-            }
-
-            for (var i = 0; i < utility.Effects.Count; i++)
-            {
-                if (utility.Effects[i].Kind == EnemyUtilityEffectKind.SummonMinion)
-                {
-                    effectIndex = i;
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private static void ValidateBehaviorRequirements(

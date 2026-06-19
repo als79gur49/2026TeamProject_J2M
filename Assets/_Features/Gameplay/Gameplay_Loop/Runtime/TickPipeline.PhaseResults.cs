@@ -574,8 +574,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var batch = new FinalizationBatch();
             var eventLogEntries = new List<string>();
-            if (triggerIntents.Count == 0 &&
-                summonBehaviorTriggerIntents.Count == 0)
+            if (summonBehaviorTriggerIntents.Count == 0)
             {
                 return new EnemyUtilityResolveResult(batch, eventLogEntries);
             }
@@ -584,28 +583,6 @@ namespace Game.Feature.Gameplay.Loop
             var summonedEntries = new List<SummonedEntitySnapshotEntry>();
             postAttackSnapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
             var plannedChildrenBySource = new Dictionary<SourceEffectKey, int>();
-
-            for (var intentIndex = 0; intentIndex < triggerIntents.Count; intentIndex++)
-            {
-                var triggerIntent = triggerIntents[intentIndex];
-                if (triggerIntent.EffectKind != EnemyUtilityEffectKind.SummonMinion)
-                {
-                    continue;
-                }
-
-                ResolveSummonMinion(
-                    postAttackSnapshot,
-                    triggerIntent,
-                    tickIndex,
-                    entityIdAllocator,
-                    spawnDefaultsByArchetypeId,
-                    summonedEntries,
-                    plannedChildrenBySource,
-                    reservedSpawnCells,
-                    tileFeatureDefinitions,
-                    batch,
-                    eventLogEntries);
-            }
 
             for (var intentIndex = 0; intentIndex < summonBehaviorTriggerIntents.Count; intentIndex++)
             {
@@ -792,77 +769,6 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static void ResolveSummonMinion(
-            WorldSnapshot snapshot,
-            in EnemyUtilityTriggerIntent triggerIntent,
-            int tickIndex,
-            EntityIdAllocator entityIdAllocator,
-            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId,
-            IReadOnlyList<SummonedEntitySnapshotEntry> summonedEntries,
-            IDictionary<SourceEffectKey, int> plannedChildrenBySource,
-            ISet<SurfaceCell> reservedSpawnCells,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
-            FinalizationBatch batch,
-            List<string> eventLogEntries)
-        {
-            if (!TryGetValidSource(snapshot, triggerIntent.SourceEntityId, out var source))
-            {
-                AppendSkipEvent(eventLogEntries, triggerIntent, tickIndex, spawnIndex: 0, SummonSkipReason.SourceInvalid);
-                return;
-            }
-
-            var summonRuntime = triggerIntent.EffectRuntime.Summon;
-            var spawnDefaults = EntitySpawnMaterializer.ResolveSummonSpawnDefaults(
-                summonRuntime.SummonedArchetypeId,
-                spawnDefaultsByArchetypeId);
-            var sourceKey = new SourceEffectKey(triggerIntent.SourceEntityId, triggerIntent.EffectIndex);
-            for (var spawnIndex = 0; spawnIndex < summonRuntime.SpawnCountPerTrigger; spawnIndex++)
-            {
-                var plannedChildren = plannedChildrenBySource.TryGetValue(sourceKey, out var currentPlannedChildren)
-                    ? currentPlannedChildren
-                    : 0;
-                if (EnemyUtilitySummonPolicy.IsMaxAliveReached(
-                        snapshot,
-                        summonedEntries,
-                        triggerIntent.SourceEntityId,
-                        triggerIntent.EffectIndex,
-                        summonRuntime,
-                        plannedChildren))
-                {
-                    AppendSkipEvent(eventLogEntries, triggerIntent, tickIndex, spawnIndex, SummonSkipReason.MaxAliveReached);
-                    continue;
-                }
-
-                var spawnRequest = new EntitySpawnRequest(
-                    EntitySpawnRequestKind.Summon,
-                    new EntitySpawnRequestSource(
-                        triggerIntent.SourceEntityId,
-                        triggerIntent.EffectIndex,
-                        triggerIntent.TriggerTick,
-                        source.position,
-                        source.facing,
-                        source.teamId),
-                    spawnIndex,
-                    tickIndex,
-                    summonRuntime,
-                    spawnDefaults);
-                var spawnResult = EntitySpawnMaterializer.Materialize(
-                        snapshot,
-                        spawnRequest,
-                        entityIdAllocator,
-                        tileFeatureDefinitions,
-                        reservedSpawnCells,
-                        batch,
-                        eventLogEntries);
-                if (!spawnResult.Succeeded)
-                {
-                    continue;
-                }
-
-                plannedChildrenBySource[sourceKey] = plannedChildren + 1;
-            }
-        }
-
         private static void ResolveBehaviorSummon(
             WorldSnapshot snapshot,
             in EnemySummonBehaviorTriggerIntent triggerIntent,
@@ -1028,17 +934,6 @@ namespace Game.Feature.Gameplay.Loop
             in BoxInteractionLockState right)
         {
             return BoxInteractionLockMerge.AreEqual(left, right);
-        }
-
-        private static void AppendSkipEvent(
-            List<string> eventLogEntries,
-            in EnemyUtilityTriggerIntent triggerIntent,
-            int tickIndex,
-            int spawnIndex,
-            SummonSkipReason reason)
-        {
-            eventLogEntries.Add(
-                $"SummonSkipped|Source={triggerIntent.SourceEntityId}|Effect={triggerIntent.EffectIndex}|SpawnIndex={spawnIndex}|Reason={reason}|Tick={tickIndex}");
         }
 
         private static void AppendBehaviorSummonSkipEvent(

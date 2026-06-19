@@ -695,8 +695,6 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var utilityState = GetUtilityStateForStartPrediction(snapshot);
-            List<SummonedEntitySnapshotEntry> summonedEntries = null;
-            var hasEnumeratedSummonedEntries = false;
             for (var effectIndex = 0; effectIndex < _utilityCapability.Effects.Count; effectIndex++)
             {
                 var effectRuntime = _utilityCapability.Effects[effectIndex];
@@ -705,26 +703,6 @@ namespace Game.Feature.Gameplay.Entities
                 if (!CanStartDelayedUtilityWindupThisTick(effectRuntime, effectState))
                 {
                     continue;
-                }
-
-                if (effectRuntime.Kind == EnemyUtilityEffectKind.SummonMinion)
-                {
-                    summonedEntries ??= new List<SummonedEntitySnapshotEntry>();
-                    if (!hasEnumeratedSummonedEntries)
-                    {
-                        snapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
-                        hasEnumeratedSummonedEntries = true;
-                    }
-
-                    if (EnemyUtilitySummonPolicy.IsMaxAliveReached(
-                            snapshot,
-                            summonedEntries,
-                            source.entityId,
-                            effectIndex,
-                            effectRuntime.Summon))
-                    {
-                        continue;
-                    }
                 }
 
                 return true;
@@ -1704,8 +1682,6 @@ namespace Game.Feature.Gameplay.Entities
 
             var nextEffectStates = new EnemyUtilityEffectState[currentState.EffectStates.Count];
             var hasAnyChange = false;
-            List<SummonedEntitySnapshotEntry> summonedEntries = null;
-            var hasEnumeratedSummonedEntries = false;
 
             for (var effectIndex = 0; effectIndex < currentState.EffectStates.Count; effectIndex++)
             {
@@ -1819,84 +1795,6 @@ namespace Game.Feature.Gameplay.Entities
                     }
 
                     continue;
-                }
-
-                if (effectRuntime.Kind == EnemyUtilityEffectKind.SummonMinion)
-                {
-                    if (nextEffectState.phase == EnemyUtilityEffectPhase.Windup)
-                    {
-                        if (input.TickIndex >= nextEffectState.windupEndTick)
-                        {
-                            triggered = true;
-                            EmitEnemyUtilityTriggerIntent(writeContext, effectIndex, effectRuntime, input.TickIndex);
-
-                            EnterUtilityRecoverOrClear(effectRuntime, input.TickIndex, ref nextEffectState);
-                            updates.Add(
-                                $"EnemyUtilityWindupCommitted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Tick={input.TickIndex}");
-                        }
-                    }
-                    else
-                    {
-                        if (nextEffectState.cooldownTicksRemaining > 0)
-                        {
-                            nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
-                        }
-
-                        if (nextEffectState.cooldownTicksRemaining == 0)
-                        {
-                            summonedEntries ??= new List<SummonedEntitySnapshotEntry>();
-                            if (!hasEnumeratedSummonedEntries)
-                            {
-                                snapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
-                                hasEnumeratedSummonedEntries = true;
-                            }
-
-                            if (!EnemyUtilitySummonPolicy.IsMaxAliveReached(
-                                    snapshot,
-                                    summonedEntries,
-                                    source.entityId,
-                                    effectIndex,
-                                    effectRuntime.Summon))
-                            {
-                                nextEffectState.phase = EnemyUtilityEffectPhase.Windup;
-                                nextEffectState.windupStartTick = input.TickIndex;
-                                nextEffectState.windupEndTick = input.TickIndex + effectRuntime.Summon.WindupTicks;
-                                nextEffectState.recoverStartTick = 0;
-                                nextEffectState.recoverEndTickExclusive = 0;
-                                nextEffectState.activationSequence = Math.Max(0, nextEffectState.activationSequence) + 1;
-                                if (effectRuntime.Summon.SuppressMovementDuringWindup)
-                                {
-                                    nextEffectState.movementSuppressionUntilTickInclusive = nextEffectState.windupEndTick;
-                                }
-
-                                updates.Add(
-                                    $"EnemyUtilityWindupStarted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Start={nextEffectState.windupStartTick}|End={nextEffectState.windupEndTick}");
-                            }
-                        }
-                    }
-
-                    nextEffectStates[effectIndex] = nextEffectState;
-                    if (!AreEqual(previousEffectState, nextEffectState))
-                    {
-                        hasAnyChange = true;
-                        updates.Add(
-                            $"EnemyUtilityCooldownUpdated|E={_entityId}|Effect={effectIndex}|From={previousEffectState.cooldownTicksRemaining}|To={nextEffectState.cooldownTicksRemaining}|Triggered={(triggered ? 1 : 0)}");
-                    }
-
-                    continue;
-                }
-
-                if (nextEffectState.cooldownTicksRemaining > 0)
-                {
-                    nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
-                }
-
-                triggered = nextEffectState.cooldownTicksRemaining == 0;
-                if (triggered)
-                {
-                    EmitEnemyUtilityTriggerIntent(writeContext, effectIndex, effectRuntime, input.TickIndex);
-
-                    EnterUtilityRecoverOrClear(effectRuntime, input.TickIndex, ref nextEffectState);
                 }
 
                 nextEffectStates[effectIndex] = nextEffectState;
@@ -2147,7 +2045,6 @@ namespace Game.Feature.Gameplay.Entities
         {
             return effectRuntime.Kind switch
             {
-                EnemyUtilityEffectKind.SummonMinion => effectRuntime.Summon.RecoveryTicks,
                 EnemyUtilityEffectKind.GravityFieldAura => effectRuntime.GravityFieldAura.RecoveryTicks,
                 _ => 0,
             };
@@ -2188,7 +2085,6 @@ namespace Game.Feature.Gameplay.Entities
         {
             return effectRuntime.Kind switch
             {
-                EnemyUtilityEffectKind.SummonMinion => effectRuntime.Summon.SuppressMovementDuringWindup,
                 EnemyUtilityEffectKind.GravityFieldAura => effectRuntime.GravityFieldAura.SuppressMovementDuringWindup,
                 _ => false,
             };
@@ -2198,7 +2094,6 @@ namespace Game.Feature.Gameplay.Entities
         {
             return effectRuntime.Kind switch
             {
-                EnemyUtilityEffectKind.SummonMinion => effectRuntime.Summon.SuppressMovementDuringRecover,
                 EnemyUtilityEffectKind.GravityFieldAura => effectRuntime.GravityFieldAura.SuppressMovementDuringRecover,
                 _ => false,
             };
@@ -2208,7 +2103,6 @@ namespace Game.Feature.Gameplay.Entities
         {
             return effectRuntime.Kind switch
             {
-                EnemyUtilityEffectKind.SummonMinion => true,
                 EnemyUtilityEffectKind.GravityFieldAura => true,
                 _ => throw new ArgumentOutOfRangeException(
                     nameof(effectRuntime.Kind),

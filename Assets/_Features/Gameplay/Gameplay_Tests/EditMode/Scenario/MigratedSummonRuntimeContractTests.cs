@@ -27,7 +27,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_WindupArmsSummonEffectButDoesNotCreateSummoned()
+        public void MigratedSummon_JPeterProfile_WindupArmsSummonEffectButDoesNotCreateSummoned()
         {
             var worldState = CreateWorldState(CreateJpeter());
             SeedReadyUtilityState(worldState);
@@ -45,7 +45,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_RecoverSuppressesImmediateReenter()
+        public void MigratedSummon_JPeterProfile_RecoverSuppressesImmediateReenter()
         {
             var worldState = CreateWorldState(CreateJpeter());
             SeedWindupUtilityState(worldState, windupEndTick: 1);
@@ -65,7 +65,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_WindupDetachedCancelsWithoutSummon()
+        public void MigratedSummon_JPeterProfile_WindupDetachedCancelsWithoutSummon()
         {
             var worldState = CreateWorldState(CreateJpeter());
             SeedReadyUtilityState(worldState);
@@ -85,7 +85,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_SummonPlacementUsesSurfaceCellFaceAfterTopologyRotation()
+        public void MigratedSummon_JPeterProfile_SummonPlacementUsesSurfaceCellFaceAfterTopologyRotation()
         {
             var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
             var worldState = CreateWorldState(
@@ -109,28 +109,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_MarkedForDeathDuringWindupDoesNotCreateSummoned()
+        public void MigratedSummon_JPeterProfile_MarkedForDeathDuringWindupDoesNotCreateSummoned()
         {
             AssertInvalidatedWindupDoesNotSummon("MarkedForDeath");
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_HpZeroDuringWindupDoesNotCreateSummoned()
+        public void MigratedSummon_JPeterProfile_HpZeroDuringWindupDoesNotCreateSummoned()
         {
             AssertInvalidatedWindupDoesNotSummon("HpZero");
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_DeadDuringWindupDoesNotCreateSummoned()
+        public void MigratedSummon_JPeterProfile_DeadDuringWindupDoesNotCreateSummoned()
         {
             AssertInvalidatedWindupDoesNotSummon("Dead");
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_SourceDeathAfterSummonLeavesExistingChildLifecycleDocumented()
+        public void MigratedSummon_JPeterProfile_SourceDeathAfterSummonLeavesExistingChildLifecycleDocumented()
         {
             var worldState = CreateWorldState(CreateJpeter());
             SeedWindupUtilityState(worldState, windupEndTick: 1);
@@ -150,7 +150,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileDoesNotHardBlockSummonPlacement()
+        public void MigratedSummon_JPeterProfile_ActivatedDestroyTileDoesNotHardBlockSummonPlacement()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var destroyTile = CreateTileFeature(100, forwardCell, TileFeatureKind.Destroy);
@@ -177,7 +177,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedBarricadeOnSummonCellBlocksPlacementWithoutGhost()
+        public void MigratedSummon_JPeterProfile_ActivatedBarricadeOnSummonCellBlocksPlacementWithoutGhost()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var barricade = CreateTileFeature(101, forwardCell, TileFeatureKind.Barricade);
@@ -202,7 +202,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_InactiveBarricadeOnSummonCellDoesNotBlockPlacement()
+        public void MigratedSummon_JPeterProfile_InactiveBarricadeOnSummonCellDoesNotBlockPlacement()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var barricade = CreateTileFeature(121, forwardCell, TileFeatureKind.Barricade);
@@ -229,7 +229,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_GeneratedMoonBlockSolidBlocksSummonPlacementAndUsesFallback()
+        public void MigratedSummon_JPeterProfile_GeneratedMoonBlockSolidBlocksSummonPlacementAndUsesFallback()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
@@ -252,7 +252,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_SolidOnSamePlanarOtherFaceDoesNotAffectSummonPlacementSurfaceCell()
+        public void MigratedSummon_JPeterProfile_SolidOnSamePlanarOtherFaceDoesNotAffectSummonPlacementSurfaceCell()
         {
             var floorForward = new SurfaceCell(FaceId.Floor, 1, 0);
             var frontSamePlanar = new SurfaceCell(FaceId.Front, 1, 0);
@@ -273,7 +273,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileAppearsDuringWindup_RevalidatesPlacementWithSummonedAirMobility()
+        public void MigratedSummon_JPeterProfile_ActivatedDestroyTileAppearsDuringWindup_RevalidatesPlacementWithSummonedAirMobility()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var destroyTile = CreateTileFeature(110, forwardCell, TileFeatureKind.Destroy);
@@ -294,7 +294,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedBarricadeAppearsDuringWindup_RevalidatesPlacementAndBlocksAtResolve()
+        public void MigratedSummon_JPeterProfile_ActivatedBarricadeAppearsDuringWindup_RevalidatesPlacementAndBlocksAtResolve()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
@@ -315,7 +315,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_InactiveBarricadeAppearsDuringWindup_RevalidatesAsNonBlocking()
+        public void MigratedSummon_JPeterProfile_InactiveBarricadeAppearsDuringWindup_RevalidatesAsNonBlocking()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var barricade = CreateTileFeature(122, forwardCell, TileFeatureKind.Barricade);
@@ -337,7 +337,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_GeneratedMoonBlockSolidAppearsDuringWindup_RevalidatesPlacementAndBlocksAtResolve()
+        public void MigratedSummon_JPeterProfile_GeneratedMoonBlockSolidAppearsDuringWindup_RevalidatesPlacementAndBlocksAtResolve()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
@@ -359,7 +359,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileOnSamePlanarOtherFaceDoesNotAffectSummonPlacementSurfaceCell()
+        public void MigratedSummon_JPeterProfile_ActivatedDestroyTileOnSamePlanarOtherFaceDoesNotAffectSummonPlacementSurfaceCell()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
@@ -378,7 +378,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedBarricadeOnSamePlanarOtherFaceDoesNotBlockSummonPlacementSurfaceCell()
+        public void MigratedSummon_JPeterProfile_ActivatedBarricadeOnSamePlanarOtherFaceDoesNotBlockSummonPlacementSurfaceCell()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
@@ -397,7 +397,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileSummonCandidateIsNeutralForSummonedAirMobility()
+        public void MigratedSummon_JPeterProfile_ActivatedDestroyTileSummonCandidateIsNeutralForSummonedAirMobility()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var destroyTile = CreateTileFeature(116, forwardCell, TileFeatureKind.Destroy);
@@ -417,7 +417,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_BlockedByActivatedBarricadeConsumesRecoverWithoutSummoned()
+        public void MigratedSummon_JPeterProfile_BlockedByActivatedBarricadeConsumesRecoverWithoutSummoned()
         {
             var candidates = GetSummonCandidateCells();
             var barricades = candidates
@@ -439,7 +439,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_GeneratedMoonBlockSolidOnSamePlanarOtherFaceDoesNotAffectSummonPlacement()
+        public void MigratedSummon_JPeterProfile_GeneratedMoonBlockSolidOnSamePlanarOtherFaceDoesNotAffectSummonPlacement()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
@@ -461,7 +461,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_BlockedSummonDoesNotCreateGhostEntityOrOccupancy()
+        public void MigratedSummon_JPeterProfile_BlockedSummonDoesNotCreateGhostEntityOrOccupancy()
         {
             var worldState = CreateFullyBlockedSummonWorld();
 
@@ -476,7 +476,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_BlockedSummonStillCompletesOrRecoversAccordingToCurrentPolicy()
+        public void MigratedSummon_JPeterProfile_BlockedSummonStillCompletesOrRecoversAccordingToCurrentPolicy()
         {
             var worldState = CreateFullyBlockedSummonWorld();
 

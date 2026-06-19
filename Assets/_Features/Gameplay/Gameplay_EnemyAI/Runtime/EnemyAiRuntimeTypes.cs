@@ -91,7 +91,7 @@ namespace Game.Feature.Gameplay.Entities
 
     public enum EnemyUtilityEffectKind
     {
-        SummonMinion = 0,
+        RetiredSummonMinion = 0,
         RetiredLockNearbyBoxes = 1,
         GravityFieldAura = 2,
     }
@@ -882,13 +882,11 @@ namespace Game.Feature.Gameplay.Entities
             EnemyUtilityEffectKind kind,
             int initialDelayTicks,
             int cooldownTicks,
-            SummonMinionRuntime summon = default,
             EnemyGravityFieldAuraRuntime gravityFieldAura = default)
         {
             Kind = kind;
             InitialDelayTicks = initialDelayTicks;
             CooldownTicks = cooldownTicks;
-            Summon = summon;
             GravityFieldAura = gravityFieldAura;
             Validate(nameof(EnemyUtilityEffectRuntime));
         }
@@ -898,8 +896,6 @@ namespace Game.Feature.Gameplay.Entities
         public int InitialDelayTicks { get; }
 
         public int CooldownTicks { get; }
-
-        public SummonMinionRuntime Summon { get; }
 
         public EnemyGravityFieldAuraRuntime GravityFieldAura { get; }
 
@@ -917,9 +913,10 @@ namespace Game.Feature.Gameplay.Entities
 
             switch (Kind)
             {
-                case EnemyUtilityEffectKind.SummonMinion:
-                    Summon.Validate(paramName);
-                    break;
+                case EnemyUtilityEffectKind.RetiredSummonMinion:
+                    throw new ArgumentException(
+                        "Utility Summon is retired; use EnemySummonBehaviorModuleAsset.",
+                        paramName);
 
                 case EnemyUtilityEffectKind.GravityFieldAura:
                     GravityFieldAura.Validate(paramName);

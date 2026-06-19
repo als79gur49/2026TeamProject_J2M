@@ -254,7 +254,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
             var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
             var archetypeCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
-            var summonerProfile = CreateUtilitySummonProfile(initialDelayTicks: 0, cooldownTicks: 10, summonedArchetype: archetype);
+            var summonerProfile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 10, summonedArchetype: archetype);
             var baselinePipeline = CreateArchetypeBootstrapper(defaultProfile, summonerProfile, archetypeCatalog).CreateTickPipeline(baselineWorld);
             var presentedPipeline = CreateArchetypeBootstrapper(defaultProfile, summonerProfile, archetypeCatalog).CreateTickPipeline(presentedWorld);
             var rootObject = new GameObject("EnemyViewIsolationTests_SummonedPresenter");
@@ -438,28 +438,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
         }
 
-        private static EnemyAiProfile CreateUtilitySummonProfile(
+        private static EnemyAiProfile CreateBehaviorSummonProfile(
             int initialDelayTicks,
             int cooldownTicks,
             EnemyUnitArchetypeAsset summonedArchetype)
         {
-            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
             {
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 DetectionStrategyKind = DetectionStrategyKind.None,
                 PatrolStrategyKind = PatrolStrategyKind.Stationary,
-                UtilityEffects = new[]
-                {
-                    CreateSummonUtilityEffect(initialDelayTicks, cooldownTicks, summonedArchetype),
-                },
             });
-        }
-
-        private static EnemyUtilityEffectAuthoring CreateSummonUtilityEffect(
-            int initialDelayTicks,
-            int cooldownTicks,
-            EnemyUnitArchetypeAsset summonedArchetype)
-        {
             var summon = new SummonMinionAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(summon, "spawnCountPerTrigger", 1);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "maxAliveChildren", 3);
@@ -472,18 +461,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 "windupSeconds",
                 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
-            var effect = new EnemyUtilityEffectAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
+            var module = ScriptableObject.CreateInstance<EnemySummonBehaviorModuleAsset>();
+            module.hideFlags = HideFlags.HideAndDontSave;
             EnemyAiProfileTestFactory.SetSerializedField(
-                effect,
+                module,
                 "initialDelaySeconds",
                 initialDelayTicks / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             EnemyAiProfileTestFactory.SetSerializedField(
-                effect,
+                module,
                 "cooldownSeconds",
                 cooldownTicks / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
-            return effect;
+            EnemyAiProfileTestFactory.SetSerializedField(module, "summon", summon);
+            EnemyAiProfileTestFactory.SetSerializedField(
+                profile,
+                "behaviorModuleAssets",
+                new List<EnemyBehaviorModuleAsset> { module });
+            return profile;
         }
 
         private static EnemyUnitArchetypeAsset CreateEnemyUnitArchetypeAsset(

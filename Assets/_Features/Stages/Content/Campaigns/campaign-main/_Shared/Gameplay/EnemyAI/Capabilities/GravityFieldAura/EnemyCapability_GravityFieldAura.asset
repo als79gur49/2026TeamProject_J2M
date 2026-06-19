@@ -16,19 +16,6 @@ MonoBehaviour:
   - kind: 2
     initialDelaySeconds: 7
     cooldownSeconds: 7
-    summon:
-      spawnCountPerTrigger: 1
-      maxAliveChildren: 3
-      candidatePattern: 0
-      requireNoUnitAtSpawnCell: 1
-      requireNoSolidAtSpawnCell: 1
-      summonedArchetype: {fileID: 0}
-      overrideHp: 0
-      hpOverride: 1
-      windupSeconds: 1
-      suppressMovementDuringWindup: 0
-      recoverySeconds: 0
-      suppressMovementDuringRecover: 0
     gravityFieldAura:
       radius: 1
       windupSeconds: 0.5

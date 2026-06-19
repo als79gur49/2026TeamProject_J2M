@@ -287,15 +287,12 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
-        public void EnemyAiProfileCompiler_UtilitySummonAndBehaviorSummon_FailsDuplicateSourceGuard()
+        public void EnemyAiProfileCompiler_RetiredSummonMinion_FailsWithBehaviorMigrationGuidance()
         {
             var minionProfile = CreateProfile();
             var archetype = CreateArchetype("BehaviorMinion", minionProfile);
-            var utility = CreateUtilityCapability(CreateUtilityEffect(EnemyUtilityEffectKind.SummonMinion, archetype));
-            var summonModule = CreateSummonBehaviorModule(archetype, moduleName: "Test_SummonBehaviorModule");
-            var profile = CreateProfile(
-                capabilities: new EnemyCapabilityAsset[] { utility },
-                behaviors: new EnemyBehaviorModuleAsset[] { summonModule });
+            var utility = CreateUtilityCapability(CreateUtilityEffect(EnemyUtilityEffectKind.RetiredSummonMinion, archetype));
+            var profile = CreateProfile(capabilities: new EnemyCapabilityAsset[] { utility });
 
             try
             {
@@ -303,16 +300,12 @@ namespace Game.Feature.Gameplay.Tests.Core
 
                 AssertGuardMessage(
                     exception,
-                    "Utility SummonMinion",
-                    "Utility.effects[0]",
-                    EnemyBehaviorModuleKey.Summon.ToString(),
-                    "Test_SummonBehaviorModule",
-                    "asset-scoped");
+                    "Utility Summon is retired",
+                    nameof(EnemySummonBehaviorModuleAsset));
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(profile);
-                UnityEngine.Object.DestroyImmediate(summonModule);
                 UnityEngine.Object.DestroyImmediate(utility);
                 UnityEngine.Object.DestroyImmediate(archetype);
                 UnityEngine.Object.DestroyImmediate(minionProfile);
@@ -546,7 +539,6 @@ namespace Game.Feature.Gameplay.Tests.Core
             SetSerializedField(effect, "kind", kind);
             SetSerializedField(effect, "initialDelaySeconds", 0f);
             SetSerializedField(effect, "cooldownSeconds", 1f);
-            SetSerializedField(effect, "summon", CreateSummonAuthoring(summonArchetype));
             return effect;
         }
 
