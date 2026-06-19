@@ -2360,10 +2360,27 @@ namespace Game.Feature.Gameplay.Loop
         {
             const int compatibilityEffectIndex = 0;
             var entries = new List<EnemySummonBehaviorSnapshotEntry>();
+            var emittedCanceledSignals = new HashSet<(int EntityId, int EffectIndex)>();
             context.FinalAuthoritativeSnapshot.EnumerateEnemySummonBehaviorStatesOrdered(entries);
             for (var i = 0; i < entries.Count; i++)
             {
                 var entry = entries[i];
+                if (entry.State.phase == EnemySummonBehaviorPhase.None &&
+                    WasEnemySummonBehaviorCanceledThisTick(context, entry.EntityId, compatibilityEffectIndex))
+                {
+                    emittedCanceledSignals.Add((entry.EntityId, compatibilityEffectIndex));
+                    enemySummonSignals.Add(
+                        new TickEnemySummonPresentationSignal(
+                            entry.EntityId,
+                            EnemySummonPresentationPhase.Canceled,
+                            context.CurrentTickIndex,
+                            context.CurrentTickIndex,
+                            durationTicks: 0,
+                            compatibilityEffectIndex,
+                            entry.State.activationSequence));
+                    continue;
+                }
+
                 if (!context.FinalAuthoritativeSnapshot.TryGetEntity(entry.EntityId, out var source) ||
                     !EntityRolePolicy.IsEnemyUnit(source))
                 {
@@ -2419,21 +2436,16 @@ namespace Game.Feature.Gameplay.Loop
                             entry.State.activationSequence));
                     continue;
                 }
-
-                if (entry.State.phase == EnemySummonBehaviorPhase.None &&
-                    WasEnemySummonBehaviorCanceledThisTick(context, entry.EntityId, compatibilityEffectIndex))
-                {
-                    enemySummonSignals.Add(
-                        new TickEnemySummonPresentationSignal(
-                            entry.EntityId,
-                            EnemySummonPresentationPhase.Canceled,
-                            context.CurrentTickIndex,
-                            context.CurrentTickIndex,
-                            durationTicks: 0,
-                            compatibilityEffectIndex,
-                            entry.State.activationSequence));
-                }
             }
+
+            AddEnemySummonBehaviorCanceledPresentationSignalsFromUpdates(
+                context,
+                enemySummonSignals,
+                emittedCanceledSignals);
+            AddEnemySummonBehaviorSourceInvalidSkipCanceledSignals(
+                context,
+                enemySummonSignals,
+                emittedCanceledSignals);
         }
 
         private static bool WasEnemySummonBehaviorCanceledThisTick(
@@ -2452,6 +2464,92 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return false;
+        }
+
+        private static void AddEnemySummonBehaviorCanceledPresentationSignalsFromUpdates(
+            in TickPresentationBuildContext context,
+            List<TickEnemySummonPresentationSignal> enemySummonSignals,
+            HashSet<(int EntityId, int EffectIndex)> emittedCanceledSignals)
+        {
+            const string prefix = "EnemySummonBehaviorWindupCanceled|";
+            var updates = context.PreMovementStatePhaseResult.Updates;
+            for (var i = 0; i < updates.Count; i++)
+            {
+                var update = updates[i];
+                if (!update.StartsWith(prefix, StringComparison.Ordinal) ||
+                    !TryReadIntUpdateField(update, "E=", out var entityId) ||
+                    !TryReadIntUpdateField(update, "Effect=", out var effectIndex) ||
+                    !emittedCanceledSignals.Add((entityId, effectIndex)))
+                {
+                    continue;
+                }
+
+                _ = TryReadIntUpdateField(update, "Sequence=", out var activationSequence);
+                enemySummonSignals.Add(
+                    new TickEnemySummonPresentationSignal(
+                        entityId,
+                        EnemySummonPresentationPhase.Canceled,
+                        context.CurrentTickIndex,
+                        context.CurrentTickIndex,
+                        durationTicks: 0,
+                        effectIndex,
+                        activationSequence));
+            }
+        }
+
+        private static bool TryReadIntUpdateField(string update, string fieldPrefix, out int value)
+        {
+            value = 0;
+            var marker = "|" + fieldPrefix;
+            var startIndex = update.IndexOf(marker, StringComparison.Ordinal);
+            if (startIndex < 0)
+            {
+                return false;
+            }
+
+            startIndex += marker.Length;
+            var endIndex = update.IndexOf('|', startIndex);
+            var length = (endIndex < 0 ? update.Length : endIndex) - startIndex;
+            return length > 0 &&
+                   int.TryParse(update.Substring(startIndex, length), out value);
+        }
+
+        private static void AddEnemySummonBehaviorSourceInvalidSkipCanceledSignals(
+            in TickPresentationBuildContext context,
+            List<TickEnemySummonPresentationSignal> enemySummonSignals,
+            HashSet<(int EntityId, int EffectIndex)> emittedCanceledSignals)
+        {
+            const string prefix = "SummonSkipped|";
+            const string sourceInvalidReason = "|Reason=SourceInvalid|";
+            var eventLogEntries = context.AttackPhaseResult.EventLogEntries;
+            for (var i = 0; i < eventLogEntries.Count; i++)
+            {
+                var eventLogEntry = eventLogEntries[i];
+                if (!eventLogEntry.StartsWith(prefix, StringComparison.Ordinal) ||
+                    eventLogEntry.IndexOf(sourceInvalidReason, StringComparison.Ordinal) < 0 ||
+                    !TryReadIntUpdateField(eventLogEntry, "Source=", out var entityId) ||
+                    !TryReadIntUpdateField(eventLogEntry, "Effect=", out var effectIndex) ||
+                    !emittedCanceledSignals.Add((entityId, effectIndex)))
+                {
+                    continue;
+                }
+
+                var activationSequence = 0;
+                if (context.PreMovementSnapshot.TryGetEnemySummonBehaviorState(entityId, out var previousState))
+                {
+                    activationSequence = previousState.activationSequence;
+                }
+
+                enemySummonSignals.Add(
+                    new TickEnemySummonPresentationSignal(
+                        entityId,
+                        EnemySummonPresentationPhase.Canceled,
+                        context.CurrentTickIndex,
+                        context.CurrentTickIndex,
+                        durationTicks: 0,
+                        effectIndex,
+                        activationSequence));
+            }
         }
 
         private static void AddEnemyUtilityCanceledPresentationSignal(

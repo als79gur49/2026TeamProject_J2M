@@ -1196,6 +1196,71 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void BehaviorSummon_WindupStartedSignal_EmitsOnceWhileWarningPersists()
+        {
+            var profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 2);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+                var windupStartTick = pipeline.RunTick(new TickInput(1));
+                var windupHoldTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(windupStartTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(windupHoldTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(
+                    windupStartTick.PresentationData.EnemySummonSignals.Select(signal => signal.Phase).ToArray(),
+                    Is.EqualTo(new[] { EnemySummonPresentationPhase.WindupStarted }));
+                Assert.That(windupHoldTick.PresentationData.EnemySummonSignals, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_RecoverStartedSignal_EmitsOnce()
+        {
+            var profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 1, recoveryTicks: 2);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+                pipeline.RunTick(new TickInput(1));
+                var recoverStartTick = pipeline.RunTick(new TickInput(2));
+                var recoverHoldTick = pipeline.RunTick(new TickInput(3));
+
+                Assert.That(
+                    recoverStartTick.PresentationData.EnemySummonSignals.Select(signal => signal.Phase).ToArray(),
+                    Is.EqualTo(new[] { EnemySummonPresentationPhase.RecoverStarted }));
+                Assert.That(recoverHoldTick.PresentationData.EnemySummonSignals, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void BehaviorSummon_SourceDeathCancelsWindupPresentation()
         {
             var profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 1);
@@ -1218,6 +1283,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var canceledTick = pipeline.RunTick(new TickInput(2));
 
                 Assert.That(canceledTick.PresentationData.SummonWindupWarnings, Is.Empty);
+                Assert.That(
+                    canceledTick.PresentationData.EnemySummonSignals.Select(signal => signal.Phase).ToArray(),
+                    Is.EqualTo(new[] { EnemySummonPresentationPhase.Canceled }));
                 AssertNoSpawnPresentationAudioOrVfx(canceledTick);
                 Assert.That(
                     canceledTick.EventLog,
@@ -1393,6 +1461,38 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 Assert.That(GetEnemyAudioRequests(windupStartTick), Is.EqualTo(new[] { (40, EnemyAudioCue.Windup) }));
                 Assert.That(GetEnemyAudioRequests(windupHoldTick), Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BehaviorSummon_WindupWarningAndSummonSignal_DoNotDoubleEmitAudioOrVfx()
+        {
+            var profile = CreateBehaviorSummonProfile(initialDelayTicks: 0, cooldownTicks: 5, windupTicks: 2);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = CreateSharedSummonTickPipeline(profile, worldState, out defaultProfile, out archetypeCatalog);
+                var windupTick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(windupTick.PresentationData.SummonWindupWarnings, Has.Count.EqualTo(1));
+                Assert.That(windupTick.PresentationData.EnemySummonSignals, Has.Count.EqualTo(1));
+                Assert.That(GetEnemyAudioRequests(windupTick), Is.EqualTo(new[] { (40, EnemyAudioCue.Windup) }));
+                Assert.That(PlanEnemyVfxRequests(windupTick).Where(IsUtilityWindupRequest).ToArray(), Has.Length.EqualTo(1));
+                Assert.That(GetEnemyAudioRequests(windupTick).Any(request => request.Cue == EnemyAudioCue.Active), Is.False);
+                Assert.That(PlanEnemyVfxRequests(windupTick).Any(IsUtilitySummonSpawnRequest), Is.False);
             }
             finally
             {

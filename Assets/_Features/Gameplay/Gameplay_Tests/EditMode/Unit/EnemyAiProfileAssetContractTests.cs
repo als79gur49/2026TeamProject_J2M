@@ -364,29 +364,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var definition = LoadRequiredProfile(ArchetypeSummonerProfilePath)
                 .CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
-            Assert.That(module, Is.Not.Null, ArchetypeSummonerSummonBehaviorModulePath);
-            Assert.That(module.Key, Is.EqualTo(EnemyBehaviorModuleKey.Summon));
-            Assert.That(module.InitialDelaySeconds, Is.EqualTo(10f).Within(0.0001f));
-            Assert.That(module.CooldownSeconds, Is.EqualTo(10f).Within(0.0001f));
-            Assert.That(module.Summon.SpawnCountPerTrigger, Is.EqualTo(1));
-            Assert.That(module.Summon.MaxAliveChildren, Is.EqualTo(2));
-            Assert.That(module.Summon.CandidatePattern, Is.EqualTo(SummonCandidatePattern.OrthogonalAdjacent4));
-            Assert.That(module.Summon.RequireNoUnitAtSpawnCell, Is.True);
-            Assert.That(module.Summon.RequireNoSolidAtSpawnCell, Is.True);
-            Assert.That(AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(module.Summon.SummonedArchetype)), Is.EqualTo("8da265900dc94540a0e150fa08ff4c7f"));
-            Assert.That(module.Summon.OverrideHp, Is.True);
-            Assert.That(module.Summon.HpOverride, Is.EqualTo(1));
-            Assert.That(module.Summon.WindupSeconds, Is.EqualTo(1.7f).Within(0.0001f));
-            Assert.That(module.Summon.SuppressMovementDuringWindup, Is.True);
-            Assert.That(module.Summon.RecoverySeconds, Is.EqualTo(0.7f).Within(0.0001f));
-            Assert.That(module.Summon.SuppressMovementDuringRecover, Is.True);
+            AssertArchetypeSummonerSummonModule(module);
             Assert.That(definition.TryGetSummonBehavior(out var summon), Is.True);
             Assert.That(summon.InitialDelayTicks, Is.EqualTo(600));
             Assert.That(summon.CooldownTicks, Is.EqualTo(600));
-            Assert.That(summon.WindupTicks, Is.EqualTo(102));
-            Assert.That(summon.RecoveryTicks, Is.EqualTo(42));
-            Assert.That(summon.MaxAliveChildren, Is.EqualTo(2));
+            Assert.That(summon.SpawnCountPerTrigger, Is.EqualTo(1));
+            Assert.That(summon.CandidatePattern, Is.EqualTo(SummonCandidatePattern.OrthogonalAdjacent4));
+            Assert.That(summon.RequireNoUnitAtSpawnCell, Is.True);
+            Assert.That(summon.RequireNoSolidAtSpawnCell, Is.True);
+            Assert.That(summon.SummonedArchetypeId.Value, Is.EqualTo("PassiveContactMinion"));
+            Assert.That(summon.OverrideHp, Is.True);
             Assert.That(summon.HpOverride, Is.EqualTo(1));
+            Assert.That(summon.WindupTicks, Is.EqualTo(102));
+            Assert.That(summon.SuppressMovementDuringWindup, Is.True);
+            Assert.That(summon.RecoveryTicks, Is.EqualTo(42));
+            Assert.That(summon.SuppressMovementDuringRecover, Is.True);
+            Assert.That(summon.MaxAliveChildren, Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MigratedSummon_ProductionAssetReimport_KeepsYamlAndMetaStable()
+        {
+            var assetPath = GetAbsoluteAssetPath(ArchetypeSummonerSummonBehaviorModulePath);
+            var metaPath = assetPath + ".meta";
+            var yamlBefore = File.ReadAllText(assetPath);
+            var metaBefore = File.ReadAllText(metaPath);
+            var moduleBefore = AssetDatabase.LoadAssetAtPath<EnemySummonBehaviorModuleAsset>(
+                ArchetypeSummonerSummonBehaviorModulePath);
+
+            AssertArchetypeSummonerSummonModule(moduleBefore);
+            Assert.That(yamlBefore, Does.Contain("m_Script: {fileID: 11500000, guid: 94344f6fd7714fd6954a260a1d8a68c3"));
+            Assert.That(metaBefore, Does.Contain("guid: a73bf2a62ddc4cc88cc8587d38288135"));
+            Assert.That(yamlBefore, Does.Not.Contain("managedReferences"));
+            Assert.That(yamlBefore, Does.Not.Contain(nameof(EnemySummonAuthoring)));
+            Assert.That(yamlBefore, Does.Not.Contain(nameof(EnemySummonCompiledConfig)));
+
+            AssetDatabase.ImportAsset(ArchetypeSummonerSummonBehaviorModulePath, ImportAssetOptions.ForceUpdate);
+            AssetDatabase.Refresh();
+
+            var moduleAfter = AssetDatabase.LoadAssetAtPath<EnemySummonBehaviorModuleAsset>(
+                ArchetypeSummonerSummonBehaviorModulePath);
+
+            AssertArchetypeSummonerSummonModule(moduleAfter);
+            Assert.That(File.ReadAllText(assetPath), Is.EqualTo(yamlBefore));
+            Assert.That(File.ReadAllText(metaPath), Is.EqualTo(metaBefore));
         }
 
         [Test]
@@ -741,6 +763,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 yaml,
                 $"^  {Regex.Escape(key)}:",
                 RegexOptions.Multiline | RegexOptions.CultureInvariant);
+        }
+
+        private static void AssertArchetypeSummonerSummonModule(EnemySummonBehaviorModuleAsset module)
+        {
+            Assert.That(module, Is.Not.Null, ArchetypeSummonerSummonBehaviorModulePath);
+            Assert.That(module.Key, Is.EqualTo(EnemyBehaviorModuleKey.Summon));
+            Assert.That(module.InitialDelaySeconds, Is.EqualTo(10f).Within(0.0001f));
+            Assert.That(module.CooldownSeconds, Is.EqualTo(10f).Within(0.0001f));
+            Assert.That(module.Summon.SpawnCountPerTrigger, Is.EqualTo(1));
+            Assert.That(module.Summon.MaxAliveChildren, Is.EqualTo(2));
+            Assert.That(module.Summon.CandidatePattern, Is.EqualTo(SummonCandidatePattern.OrthogonalAdjacent4));
+            Assert.That(module.Summon.RequireNoUnitAtSpawnCell, Is.True);
+            Assert.That(module.Summon.RequireNoSolidAtSpawnCell, Is.True);
+            Assert.That(
+                AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(module.Summon.SummonedArchetype)),
+                Is.EqualTo("8da265900dc94540a0e150fa08ff4c7f"));
+            Assert.That(module.Summon.OverrideHp, Is.True);
+            Assert.That(module.Summon.HpOverride, Is.EqualTo(1));
+            Assert.That(module.Summon.WindupSeconds, Is.EqualTo(1.7f).Within(0.0001f));
+            Assert.That(module.Summon.SuppressMovementDuringWindup, Is.True);
+            Assert.That(module.Summon.RecoverySeconds, Is.EqualTo(0.7f).Within(0.0001f));
+            Assert.That(module.Summon.SuppressMovementDuringRecover, Is.True);
         }
 
         private static string GetAbsoluteAssetPath(string assetPath)
