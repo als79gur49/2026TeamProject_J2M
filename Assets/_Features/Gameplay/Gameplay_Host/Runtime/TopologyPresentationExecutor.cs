@@ -8,6 +8,163 @@ using Game.Feature.Gameplay.PresentationRuntime;
 
 namespace Game.Feature.Gameplay.Host
 {
+    internal readonly struct TopologyProductionTelemetrySnapshot
+    {
+        public TopologyProductionTelemetrySnapshot(
+            TopologyPresentationExecutionMode currentMode,
+            bool isProductionDefaultOwner,
+            TopologyPresentationExecutionMode productionDefaultMode,
+            TopologyPresentationExecutionMode rollbackMode,
+            int lastTickIndex,
+            CubeTopologyState lastSourceTopology,
+            CubeTopologyState lastDestinationTopology,
+            CubeRotationKind lastRotationKind,
+            int lastSourceTickIndex,
+            bool lastHasSourceMetadata,
+            int lastSourceMetadataKey,
+            TopologyPresentationExecutionOwner lastExecutionOwner,
+            int legacyOwnerAttemptCount,
+            int legacyOwnerExecutedCount,
+            int legacyOwnerSkippedByPolicyCount,
+            int executorOwnerAttemptCount,
+            int executorOwnerExecutedCount,
+            int executorOwnerSkippedByPolicyCount,
+            int duplicateOwnerAttemptCount,
+            int observedTrackCount,
+            int routeCount,
+            int ignoredCount,
+            int invalidTrackCount,
+            int missingPortCount,
+            bool hasBlockingPresentation,
+            bool isTopologyTransitionActive,
+            PresentationBlockingSnapshot blockingSnapshot)
+        {
+            CurrentMode = currentMode;
+            IsProductionDefaultOwner = isProductionDefaultOwner;
+            ProductionDefaultMode = productionDefaultMode;
+            RollbackMode = rollbackMode;
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastSourceTopology = lastSourceTopology;
+            LastDestinationTopology = lastDestinationTopology;
+            LastRotationKind = lastRotationKind;
+            LastSourceTickIndex = Math.Max(0, lastSourceTickIndex);
+            LastHasSourceMetadata = lastHasSourceMetadata;
+            LastSourceMetadataKey = Math.Max(0, lastSourceMetadataKey);
+            LastExecutionOwner = lastExecutionOwner;
+            LegacyOwnerAttemptCount = Math.Max(0, legacyOwnerAttemptCount);
+            LegacyOwnerExecutedCount = Math.Max(0, legacyOwnerExecutedCount);
+            LegacyOwnerSkippedByPolicyCount = Math.Max(0, legacyOwnerSkippedByPolicyCount);
+            ExecutorOwnerAttemptCount = Math.Max(0, executorOwnerAttemptCount);
+            ExecutorOwnerExecutedCount = Math.Max(0, executorOwnerExecutedCount);
+            ExecutorOwnerSkippedByPolicyCount = Math.Max(0, executorOwnerSkippedByPolicyCount);
+            DuplicateOwnerAttemptCount = Math.Max(0, duplicateOwnerAttemptCount);
+            ObservedTrackCount = Math.Max(0, observedTrackCount);
+            RouteCount = Math.Max(0, routeCount);
+            IgnoredCount = Math.Max(0, ignoredCount);
+            InvalidTrackCount = Math.Max(0, invalidTrackCount);
+            MissingPortCount = Math.Max(0, missingPortCount);
+            HasBlockingPresentation = hasBlockingPresentation;
+            IsTopologyTransitionActive = isTopologyTransitionActive;
+            BlockingSnapshot = blockingSnapshot;
+        }
+
+        public TopologyPresentationExecutionMode CurrentMode { get; }
+        public bool IsProductionDefaultOwner { get; }
+        public TopologyPresentationExecutionMode ProductionDefaultMode { get; }
+        public TopologyPresentationExecutionMode RollbackMode { get; }
+        public int LastTickIndex { get; }
+        public CubeTopologyState LastSourceTopology { get; }
+        public CubeTopologyState LastDestinationTopology { get; }
+        public CubeRotationKind LastRotationKind { get; }
+        public int LastSourceTickIndex { get; }
+        public bool LastHasSourceMetadata { get; }
+        public int LastSourceMetadataKey { get; }
+        public TopologyPresentationExecutionOwner LastExecutionOwner { get; }
+        public int LegacyOwnerAttemptCount { get; }
+        public int LegacyOwnerExecutedCount { get; }
+        public int LegacyOwnerSkippedByPolicyCount { get; }
+        public int ExecutorOwnerAttemptCount { get; }
+        public int ExecutorOwnerExecutedCount { get; }
+        public int ExecutorOwnerSkippedByPolicyCount { get; }
+        public int DuplicateOwnerAttemptCount { get; }
+        public int ObservedTrackCount { get; }
+        public int RouteCount { get; }
+        public int IgnoredCount { get; }
+        public int InvalidTrackCount { get; }
+        public int MissingPortCount { get; }
+        public bool HasBlockingPresentation { get; }
+        public bool IsTopologyTransitionActive { get; }
+        public PresentationBlockingSnapshot BlockingSnapshot { get; }
+    }
+
+    internal static class TopologyProductionTelemetryBuilder
+    {
+        public static TopologyExecutorDiagnostics ResolveExecutorDiagnostics(GameplayPresentationPipeline pipeline)
+        {
+            if (pipeline == null)
+            {
+                return default;
+            }
+
+            var executors = pipeline.Executors;
+            for (var i = 0; i < executors.Count; i++)
+            {
+                if (executors[i] is TopologyPresentationExecutor executor)
+                {
+                    return executor.Diagnostics;
+                }
+            }
+
+            return default;
+        }
+
+        public static TopologyProductionTelemetrySnapshot Build(
+            TopologyPresentationExecutionMode mode,
+            TopologyPresentationOwnershipDiagnostics ownership,
+            GameplayPresentationPipeline pipeline,
+            bool hasBlockingPresentation,
+            bool isTopologyTransitionActive,
+            PresentationBlockingSnapshot presentationBlockingSnapshot,
+            PresentationBlockingSnapshot topologyExecutionBlockingSnapshot)
+        {
+            var executor = ResolveExecutorDiagnostics(pipeline);
+            var lastTickIndex = executor.LastTickIndex > 0
+                ? executor.LastTickIndex
+                : ownership.LastExecutionTickIndex;
+
+            return new TopologyProductionTelemetrySnapshot(
+                mode,
+                mode == TopologyPresentationExecutionMode.LegacyCoordinator,
+                TopologyPresentationExecutionMode.LegacyCoordinator,
+                TopologyPresentationExecutionMode.LegacyCoordinator,
+                lastTickIndex,
+                executor.LastSourceTopology,
+                executor.LastDestinationTopology,
+                executor.LastRotationKind,
+                executor.LastSourceTickIndex,
+                executor.LastHasSourceMetadata || ownership.LastExecutionHasSourceMetadata,
+                Math.Max(executor.LastSourceMetadataKey, ownership.LastExecutionSourceMetadataKey),
+                ownership.LastExecutionOwner,
+                ownership.LegacyAttemptCount,
+                ownership.ExecutedByLegacyCount,
+                ownership.SkippedLegacyBecauseExecutorOwnerCount,
+                ownership.ExecutorAttemptCount,
+                ownership.ExecutedByExecutorCount,
+                ownership.SkippedExecutorBecauseLegacyOwnerCount,
+                ownership.DuplicateAttemptCount,
+                executor.ObservedTrackCount,
+                executor.RouteCount,
+                executor.IgnoredCount,
+                executor.InvalidTrackCount,
+                executor.MissingPortCount,
+                hasBlockingPresentation,
+                isTopologyTransitionActive,
+                mode == TopologyPresentationExecutionMode.ExecutorBridge
+                    ? topologyExecutionBlockingSnapshot
+                    : presentationBlockingSnapshot);
+        }
+    }
+
     public enum TopologyPresentationExecutionMode
     {
         LegacyCoordinator = 0,
@@ -311,13 +468,27 @@ namespace Game.Feature.Gameplay.Host
             int routeCount,
             int ignoredCount,
             int invalidTrackCount,
-            int missingPortCount)
+            int missingPortCount,
+            int lastTickIndex = 0,
+            CubeTopologyState lastSourceTopology = default,
+            CubeTopologyState lastDestinationTopology = default,
+            CubeRotationKind lastRotationKind = CubeRotationKind.None,
+            int lastSourceTickIndex = 0,
+            bool lastHasSourceMetadata = false,
+            int lastSourceMetadataKey = 0)
         {
             ObservedTrackCount = Math.Max(0, observedTrackCount);
             RouteCount = Math.Max(0, routeCount);
             IgnoredCount = Math.Max(0, ignoredCount);
             InvalidTrackCount = Math.Max(0, invalidTrackCount);
             MissingPortCount = Math.Max(0, missingPortCount);
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastSourceTopology = lastSourceTopology;
+            LastDestinationTopology = lastDestinationTopology;
+            LastRotationKind = lastRotationKind;
+            LastSourceTickIndex = Math.Max(0, lastSourceTickIndex);
+            LastHasSourceMetadata = lastHasSourceMetadata;
+            LastSourceMetadataKey = Math.Max(0, lastSourceMetadataKey);
         }
 
         public int ObservedTrackCount { get; }
@@ -329,6 +500,20 @@ namespace Game.Feature.Gameplay.Host
         public int InvalidTrackCount { get; }
 
         public int MissingPortCount { get; }
+
+        public int LastTickIndex { get; }
+
+        public CubeTopologyState LastSourceTopology { get; }
+
+        public CubeTopologyState LastDestinationTopology { get; }
+
+        public CubeRotationKind LastRotationKind { get; }
+
+        public int LastSourceTickIndex { get; }
+
+        public bool LastHasSourceMetadata { get; }
+
+        public int LastSourceMetadataKey { get; }
     }
 
     internal interface ITopologyTransitionPlaybackPort
@@ -388,6 +573,8 @@ namespace Game.Feature.Gameplay.Host
             var ignoredCount = 0;
             var invalidTrackCount = 0;
             var missingPortCount = 0;
+            var lastRequest = default(TopologyTransitionPlaybackRequest);
+            var hasLastRequest = false;
 
             for (var i = 0; i < plan.Tracks.Count; i++)
             {
@@ -411,6 +598,9 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
+                lastRequest = request;
+                hasLastRequest = true;
+
                 if (_playbackPort == null)
                 {
                     missingPortCount++;
@@ -428,7 +618,14 @@ namespace Game.Feature.Gameplay.Host
                 routeCount,
                 ignoredCount,
                 invalidTrackCount,
-                missingPortCount);
+                missingPortCount,
+                hasLastRequest ? lastRequest.TickIndex : 0,
+                hasLastRequest ? lastRequest.SourceTopology : default,
+                hasLastRequest ? lastRequest.DestinationTopology : default,
+                hasLastRequest ? lastRequest.RotationKind : CubeRotationKind.None,
+                hasLastRequest ? lastRequest.SourceTickIndex : 0,
+                hasLastRequest && lastRequest.HasSourceMetadata,
+                hasLastRequest ? lastRequest.SourceMetadataKey : 0);
         }
 
         public void Update(float deltaTime)

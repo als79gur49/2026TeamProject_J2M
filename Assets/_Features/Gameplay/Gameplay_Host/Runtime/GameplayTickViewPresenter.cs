@@ -311,6 +311,9 @@ namespace Game.Feature.Gameplay.Host
         internal TopologyPresentationOwnershipDiagnostics TopologyPresentationOwnershipDiagnostics =>
             _presentationCoordinator.TopologyPresentationOwnershipDiagnostics;
 
+        internal TopologyProductionTelemetrySnapshot TopologyProductionTelemetrySnapshot =>
+            _presentationCoordinator.TopologyProductionTelemetrySnapshot;
+
         internal DamageDeathVfxExecutionMode DamageDeathVfxExecutionMode =>
             _presentationCoordinator.DamageDeathVfxExecutionMode;
 
@@ -320,7 +323,7 @@ namespace Game.Feature.Gameplay.Host
         internal PresentationBlockingSnapshot DamageDeathVfxExecutionPipelineBlockingSnapshot =>
             _presentationCoordinator.DamageDeathVfxExecutionPipelineBlockingSnapshot;
 
-        internal GameplayVfxExecutorDiagnostics DamageDeathVfxExecutorDiagnostics =>
+        internal DamageDeathVfxExecutorDiagnostics DamageDeathVfxExecutorDiagnostics =>
             _presentationCoordinator.DamageDeathVfxExecutorDiagnostics;
 
         internal BoxMotionPresentationExecutionMode BoxMotionPresentationExecutionMode =>
@@ -358,6 +361,9 @@ namespace Game.Feature.Gameplay.Host
         internal GameplayAnimationExecutorDiagnostics PlayerActionAnimationExecutorDiagnostics =>
             _presentationCoordinator.PlayerActionAnimationExecutorDiagnostics;
 
+        internal PlayerActionAnimationProductionTelemetrySnapshot PlayerActionAnimationProductionTelemetrySnapshot =>
+            _presentationCoordinator.PlayerActionAnimationProductionTelemetrySnapshot;
+
         internal EnemyPresentationExecutionMode EnemyPresentationExecutionMode =>
             _presentationCoordinator.EnemyPresentationExecutionMode;
 
@@ -369,6 +375,9 @@ namespace Game.Feature.Gameplay.Host
 
         internal GameplayEnemyPresentationExecutorDiagnostics EnemyPresentationExecutorDiagnostics =>
             _presentationCoordinator.EnemyPresentationExecutorDiagnostics;
+
+        internal EnemyPresentationProductionTelemetrySnapshot EnemyPresentationProductionTelemetrySnapshot =>
+            _presentationCoordinator.EnemyPresentationProductionTelemetrySnapshot;
 
         internal CoreGameplaySfxExecutionMode CoreGameplaySfxExecutionMode =>
             _presentationCoordinator.CoreGameplaySfxExecutionMode;
@@ -394,6 +403,9 @@ namespace Game.Feature.Gameplay.Host
         internal GameplayActionAudioExecutorDiagnostics ActionAudioExecutorDiagnostics =>
             _presentationCoordinator.ActionAudioExecutorDiagnostics;
 
+        internal ActionAudioProductionTelemetrySnapshot ActionAudioProductionTelemetrySnapshot =>
+            _presentationCoordinator.ActionAudioProductionTelemetrySnapshot;
+
         internal EnemyAudioExecutionMode EnemyAudioExecutionMode =>
             _presentationCoordinator.EnemyAudioExecutionMode;
 
@@ -405,6 +417,9 @@ namespace Game.Feature.Gameplay.Host
 
         internal GameplayEnemyAudioExecutorDiagnostics EnemyAudioExecutorDiagnostics =>
             _presentationCoordinator.EnemyAudioExecutorDiagnostics;
+
+        internal EnemyAudioProductionTelemetrySnapshot EnemyAudioProductionTelemetrySnapshot =>
+            _presentationCoordinator.EnemyAudioProductionTelemetrySnapshot;
 
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {

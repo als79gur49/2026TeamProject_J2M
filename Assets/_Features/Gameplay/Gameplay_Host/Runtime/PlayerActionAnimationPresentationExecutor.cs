@@ -44,6 +44,187 @@ namespace Game.Feature.Gameplay.Host
         IgnoredByPolicy = 9,
     }
 
+    internal enum PlayerActionAnimationTelemetryFailureReason
+    {
+        None = 0,
+        TargetMissing = 1,
+        AnchorMissing = 2,
+        BindingMissing = 3,
+        DriverMissing = 4,
+        AnimatorMissing = 5,
+        PortMissing = 6,
+        DuplicateSuppressed = 7,
+        LegacyOwnerActive = 8,
+        IgnoredByPolicy = 9,
+    }
+
+    internal enum PlayerActionAnimationTelemetryCleanupReason
+    {
+        None = 0,
+        ResetSession = 1,
+        HardCleanupPresentationExtensions = 2,
+    }
+
+    internal readonly struct PlayerActionAnimationProductionTelemetrySnapshot
+    {
+        public PlayerActionAnimationProductionTelemetrySnapshot(
+            PlayerActionAnimationExecutionMode currentMode,
+            bool isProductionDefaultOwner,
+            PlayerActionAnimationExecutionMode productionDefaultMode,
+            PlayerActionAnimationExecutionMode rollbackMode,
+            int lastTickIndex,
+            PresentationAnimationCueKey lastCueKey,
+            int lastDedupeKey,
+            int lastPlayerEntityId,
+            PresentationAnimationActionKind lastActionKind,
+            PresentationAnimationPhaseKind lastPhaseKind,
+            PresentationAnimationOutcomeKind lastOutcomeKind,
+            PlayerActionAnimationTelemetryFailureReason lastFailureReason,
+            PlayerActionAnimationTelemetryCleanupReason lastCleanupReason,
+            int legacyOwnerAttemptCount,
+            int legacyOwnerSkippedByPolicyCount,
+            int executorOwnerAttemptCount,
+            int executorOwnerExecutedCount,
+            int duplicateOwnerAttemptCount,
+            int duplicateSuppressedCount,
+            int observedCueCount,
+            int playbackCommandRequestedCount,
+            int playbackCommandAppliedCount,
+            int playbackCommandIgnoredByPolicyCount,
+            int executeCueMappedToLegacyCommandCount,
+            int targetMissingCount,
+            int anchorMissingCount,
+            int bindingMissingCount,
+            int driverMissingCount,
+            int animatorMissingCount,
+            int portMissingCount)
+        {
+            CurrentMode = currentMode;
+            IsProductionDefaultOwner = isProductionDefaultOwner;
+            ProductionDefaultMode = productionDefaultMode;
+            RollbackMode = rollbackMode;
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastCueKey = lastCueKey;
+            LastDedupeKey = lastDedupeKey;
+            LastPlayerEntityId = Math.Max(0, lastPlayerEntityId);
+            LastActionKind = lastActionKind;
+            LastPhaseKind = lastPhaseKind;
+            LastOutcomeKind = lastOutcomeKind;
+            LastFailureReason = lastFailureReason;
+            LastCleanupReason = lastCleanupReason;
+            LegacyOwnerAttemptCount = Math.Max(0, legacyOwnerAttemptCount);
+            LegacyOwnerSkippedByPolicyCount = Math.Max(0, legacyOwnerSkippedByPolicyCount);
+            ExecutorOwnerAttemptCount = Math.Max(0, executorOwnerAttemptCount);
+            ExecutorOwnerExecutedCount = Math.Max(0, executorOwnerExecutedCount);
+            DuplicateOwnerAttemptCount = Math.Max(0, duplicateOwnerAttemptCount);
+            DuplicateSuppressedCount = Math.Max(0, duplicateSuppressedCount);
+            ObservedCueCount = Math.Max(0, observedCueCount);
+            PlaybackCommandRequestedCount = Math.Max(0, playbackCommandRequestedCount);
+            PlaybackCommandAppliedCount = Math.Max(0, playbackCommandAppliedCount);
+            PlaybackCommandIgnoredByPolicyCount = Math.Max(0, playbackCommandIgnoredByPolicyCount);
+            ExecuteCueMappedToLegacyCommandCount = Math.Max(0, executeCueMappedToLegacyCommandCount);
+            TargetMissingCount = Math.Max(0, targetMissingCount);
+            AnchorMissingCount = Math.Max(0, anchorMissingCount);
+            BindingMissingCount = Math.Max(0, bindingMissingCount);
+            DriverMissingCount = Math.Max(0, driverMissingCount);
+            AnimatorMissingCount = Math.Max(0, animatorMissingCount);
+            PortMissingCount = Math.Max(0, portMissingCount);
+        }
+
+        public PlayerActionAnimationExecutionMode CurrentMode { get; }
+        public bool IsProductionDefaultOwner { get; }
+        public PlayerActionAnimationExecutionMode ProductionDefaultMode { get; }
+        public PlayerActionAnimationExecutionMode RollbackMode { get; }
+        public int LastTickIndex { get; }
+        public PresentationAnimationCueKey LastCueKey { get; }
+        public int LastDedupeKey { get; }
+        public int LastPlayerEntityId { get; }
+        public PresentationAnimationActionKind LastActionKind { get; }
+        public PresentationAnimationPhaseKind LastPhaseKind { get; }
+        public PresentationAnimationOutcomeKind LastOutcomeKind { get; }
+        public PlayerActionAnimationTelemetryFailureReason LastFailureReason { get; }
+        public PlayerActionAnimationTelemetryCleanupReason LastCleanupReason { get; }
+        public int LegacyOwnerAttemptCount { get; }
+        public int LegacyOwnerSkippedByPolicyCount { get; }
+        public int ExecutorOwnerAttemptCount { get; }
+        public int ExecutorOwnerExecutedCount { get; }
+        public int DuplicateOwnerAttemptCount { get; }
+        public int DuplicateSuppressedCount { get; }
+        public int ObservedCueCount { get; }
+        public int PlaybackCommandRequestedCount { get; }
+        public int PlaybackCommandAppliedCount { get; }
+        public int PlaybackCommandIgnoredByPolicyCount { get; }
+        public int ExecuteCueMappedToLegacyCommandCount { get; }
+        public int TargetMissingCount { get; }
+        public int AnchorMissingCount { get; }
+        public int BindingMissingCount { get; }
+        public int DriverMissingCount { get; }
+        public int AnimatorMissingCount { get; }
+        public int PortMissingCount { get; }
+    }
+
+    internal static class PlayerActionAnimationProductionTelemetryBuilder
+    {
+        public static GameplayAnimationExecutorDiagnostics ResolveExecutorDiagnostics(GameplayPresentationPipeline pipeline)
+        {
+            if (pipeline == null)
+            {
+                return default;
+            }
+
+            var executors = pipeline.Executors;
+            for (var i = 0; i < executors.Count; i++)
+            {
+                if (executors[i] is GameplayAnimationPresentationExecutor executor)
+                {
+                    return executor.Diagnostics;
+                }
+            }
+
+            return default;
+        }
+
+        public static PlayerActionAnimationProductionTelemetrySnapshot Build(
+            PlayerActionAnimationExecutionMode mode,
+            PlayerActionAnimationOwnershipDiagnostics ownership,
+            GameplayPresentationPipeline pipeline)
+        {
+            var executor = ResolveExecutorDiagnostics(pipeline);
+
+            return new PlayerActionAnimationProductionTelemetrySnapshot(
+                mode,
+                mode == PlayerActionAnimationExecutionDefaults.ProductionDefault,
+                PlayerActionAnimationExecutionDefaults.ProductionDefault,
+                PlayerActionAnimationExecutionDefaults.LegacyFallback,
+                executor.LastTickIndex,
+                executor.LastCueKey,
+                executor.LastDedupeKey,
+                executor.LastPlayerEntityId,
+                executor.LastActionKind,
+                executor.LastPhaseKind,
+                executor.LastOutcomeKind,
+                executor.LastFailureReason,
+                executor.LastCleanupReason,
+                ownership.LegacyAttemptCount,
+                ownership.SkippedLegacyBecauseExecutorOwnerCount,
+                ownership.ExecutorAttemptCount,
+                ownership.ExecutedByExecutorCount,
+                ownership.DuplicateAttemptCount,
+                Math.Max(executor.DuplicateSuppressedCount, ownership.DuplicateAttemptCount),
+                executor.ObservedCueCount,
+                executor.CommandRequestedCount,
+                executor.CommandAppliedCount,
+                executor.CommandIgnoredByPolicyCount,
+                executor.ExecuteCueMappedToLegacyCommandCount,
+                executor.TargetMissingCount,
+                executor.AnchorMissingCount,
+                executor.BindingMissingCount,
+                executor.DriverMissingCount,
+                executor.AnimatorMissingCount,
+                executor.MissingPortCount);
+        }
+    }
+
     internal readonly struct PlayerActionAnimationPlaybackKey : IEquatable<PlayerActionAnimationPlaybackKey>
     {
         public PlayerActionAnimationPlaybackKey(
@@ -357,7 +538,18 @@ namespace Game.Feature.Gameplay.Host
             int commandAppliedCount,
             int commandIgnoredByPolicyCount,
             int missingPortCount,
-            int executeCueMappedToLegacyCommandCount)
+            int executeCueMappedToLegacyCommandCount,
+            int lastTickIndex = 0,
+            PresentationAnimationCueKey lastCueKey = PresentationAnimationCueKey.None,
+            int lastDedupeKey = 0,
+            int lastPlayerEntityId = 0,
+            PresentationAnimationActionKind lastActionKind = PresentationAnimationActionKind.None,
+            PresentationAnimationPhaseKind lastPhaseKind = PresentationAnimationPhaseKind.None,
+            PresentationAnimationOutcomeKind lastOutcomeKind = PresentationAnimationOutcomeKind.None,
+            PlayerActionAnimationTelemetryFailureReason lastFailureReason =
+                PlayerActionAnimationTelemetryFailureReason.None,
+            PlayerActionAnimationTelemetryCleanupReason lastCleanupReason =
+                PlayerActionAnimationTelemetryCleanupReason.None)
         {
             ObservedCueCount = Math.Max(0, observedCueCount);
             LegacyOwnerNoOpCount = Math.Max(0, legacyOwnerNoOpCount);
@@ -372,6 +564,15 @@ namespace Game.Feature.Gameplay.Host
             CommandIgnoredByPolicyCount = Math.Max(0, commandIgnoredByPolicyCount);
             MissingPortCount = Math.Max(0, missingPortCount);
             ExecuteCueMappedToLegacyCommandCount = Math.Max(0, executeCueMappedToLegacyCommandCount);
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastCueKey = lastCueKey;
+            LastDedupeKey = lastDedupeKey;
+            LastPlayerEntityId = Math.Max(0, lastPlayerEntityId);
+            LastActionKind = lastActionKind;
+            LastPhaseKind = lastPhaseKind;
+            LastOutcomeKind = lastOutcomeKind;
+            LastFailureReason = lastFailureReason;
+            LastCleanupReason = lastCleanupReason;
         }
 
         public int ObservedCueCount { get; }
@@ -399,6 +600,24 @@ namespace Game.Feature.Gameplay.Host
         public int MissingPortCount { get; }
 
         public int ExecuteCueMappedToLegacyCommandCount { get; }
+
+        public int LastTickIndex { get; }
+
+        public PresentationAnimationCueKey LastCueKey { get; }
+
+        public int LastDedupeKey { get; }
+
+        public int LastPlayerEntityId { get; }
+
+        public PresentationAnimationActionKind LastActionKind { get; }
+
+        public PresentationAnimationPhaseKind LastPhaseKind { get; }
+
+        public PresentationAnimationOutcomeKind LastOutcomeKind { get; }
+
+        public PlayerActionAnimationTelemetryFailureReason LastFailureReason { get; }
+
+        public PlayerActionAnimationTelemetryCleanupReason LastCleanupReason { get; }
     }
 
     internal interface IGameplayAnimationPlaybackPort
@@ -463,6 +682,14 @@ namespace Game.Feature.Gameplay.Host
             var commandIgnoredByPolicyCount = 0;
             var missingPortCount = 0;
             var executeCueMappedToLegacyCommandCount = 0;
+            var lastTickIndex = 0;
+            var lastCueKey = PresentationAnimationCueKey.None;
+            var lastDedupeKey = 0;
+            var lastPlayerEntityId = 0;
+            var lastActionKind = PresentationAnimationActionKind.None;
+            var lastPhaseKind = PresentationAnimationPhaseKind.None;
+            var lastOutcomeKind = PresentationAnimationOutcomeKind.None;
+            var lastFailureReason = PlayerActionAnimationTelemetryFailureReason.None;
 
             for (var i = 0; i < plan.Cues.Count; i++)
             {
@@ -473,9 +700,19 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 observedCueCount++;
+                CaptureLastCue(
+                    playbackCue,
+                    ref lastTickIndex,
+                    ref lastCueKey,
+                    ref lastDedupeKey,
+                    ref lastPlayerEntityId,
+                    ref lastActionKind,
+                    ref lastPhaseKind,
+                    ref lastOutcomeKind);
                 if (_mode != PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor)
                 {
                     legacyOwnerNoOpCount++;
+                    lastFailureReason = PlayerActionAnimationTelemetryFailureReason.LegacyOwnerActive;
                     continue;
                 }
 
@@ -488,6 +725,7 @@ namespace Game.Feature.Gameplay.Host
                         ref bindingMissingCount,
                         ref driverMissingCount,
                         ref animatorMissingCount);
+                    lastFailureReason = ToTelemetryFailureReason(missingKind);
                     continue;
                 }
 
@@ -498,10 +736,12 @@ namespace Game.Feature.Gameplay.Host
                     if (duplicateAfter > duplicateBefore)
                     {
                         duplicateSuppressedCount++;
+                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.DuplicateSuppressed;
                     }
                     else
                     {
                         legacyOwnerNoOpCount++;
+                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.LegacyOwnerActive;
                     }
 
                     continue;
@@ -510,6 +750,7 @@ namespace Game.Feature.Gameplay.Host
                 if (_playbackPort == null)
                 {
                     missingPortCount++;
+                    lastFailureReason = PlayerActionAnimationTelemetryFailureReason.PortMissing;
                     continue;
                 }
 
@@ -525,27 +766,35 @@ namespace Game.Feature.Gameplay.Host
                     case GameplayAnimationPlaybackResultKind.Applied:
                     case GameplayAnimationPlaybackResultKind.Requested:
                         commandAppliedCount++;
+                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.None;
                         break;
                     case GameplayAnimationPlaybackResultKind.TargetMissing:
                         targetMissingCount++;
+                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.TargetMissing;
                         break;
                     case GameplayAnimationPlaybackResultKind.AnchorMissing:
                         anchorMissingCount++;
+                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.AnchorMissing;
                         break;
                     case GameplayAnimationPlaybackResultKind.BindingMissing:
                         bindingMissingCount++;
+                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.BindingMissing;
                         break;
                     case GameplayAnimationPlaybackResultKind.DriverMissing:
                         driverMissingCount++;
+                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.DriverMissing;
                         break;
                     case GameplayAnimationPlaybackResultKind.AnimatorMissing:
                         animatorMissingCount++;
+                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.AnimatorMissing;
                         break;
                     case GameplayAnimationPlaybackResultKind.LegacyOwnerActive:
                         legacyOwnerNoOpCount++;
+                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.LegacyOwnerActive;
                         break;
                     case GameplayAnimationPlaybackResultKind.IgnoredByPolicy:
                         commandIgnoredByPolicyCount++;
+                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.IgnoredByPolicy;
                         break;
                 }
             }
@@ -563,7 +812,15 @@ namespace Game.Feature.Gameplay.Host
                 commandAppliedCount,
                 commandIgnoredByPolicyCount,
                 missingPortCount,
-                executeCueMappedToLegacyCommandCount);
+                executeCueMappedToLegacyCommandCount,
+                lastTickIndex,
+                lastCueKey,
+                lastDedupeKey,
+                lastPlayerEntityId,
+                lastActionKind,
+                lastPhaseKind,
+                lastOutcomeKind,
+                lastFailureReason);
         }
 
         public void Update(float deltaTime)
@@ -576,7 +833,21 @@ namespace Game.Feature.Gameplay.Host
 
         public void ResetSession()
         {
-            Diagnostics = default;
+            Diagnostics = new GameplayAnimationExecutorDiagnostics(
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                lastCleanupReason: PlayerActionAnimationTelemetryCleanupReason.ResetSession);
             if (_mode == PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor)
             {
                 _playbackPort?.ResetSession();
@@ -585,7 +856,21 @@ namespace Game.Feature.Gameplay.Host
 
         public void HardCleanup()
         {
-            Diagnostics = default;
+            Diagnostics = new GameplayAnimationExecutorDiagnostics(
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                lastCleanupReason: PlayerActionAnimationTelemetryCleanupReason.HardCleanupPresentationExtensions);
             if (_mode == PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor)
             {
                 _playbackPort?.HardCleanup();
@@ -687,6 +972,46 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private static void CaptureLastCue(
+            in PresentationPlaybackCue playbackCue,
+            ref int lastTickIndex,
+            ref PresentationAnimationCueKey lastCueKey,
+            ref int lastDedupeKey,
+            ref int lastPlayerEntityId,
+            ref PresentationAnimationActionKind lastActionKind,
+            ref PresentationAnimationPhaseKind lastPhaseKind,
+            ref PresentationAnimationOutcomeKind lastOutcomeKind)
+        {
+            var cue = playbackCue.Cue;
+            lastTickIndex = cue.Source.TickIndex;
+            lastDedupeKey = playbackCue.Policy.DedupeKey;
+            lastPlayerEntityId = Math.Max(cue.Target.EntityId, cue.AnimationPayload.EntityId);
+            lastActionKind = cue.AnimationPayload.ActionKind;
+            lastPhaseKind = cue.AnimationPayload.PhaseKind;
+            lastOutcomeKind = cue.AnimationPayload.OutcomeKind;
+            lastCueKey = cue.Key.TryGetAnimationCueKey(out var cueKey)
+                ? cueKey
+                : PresentationAnimationCueKey.None;
+        }
+
+        private static PlayerActionAnimationTelemetryFailureReason ToTelemetryFailureReason(
+            GameplayAnimationPlaybackResultKind resultKind)
+        {
+            switch (resultKind)
+            {
+                case GameplayAnimationPlaybackResultKind.TargetMissing:
+                    return PlayerActionAnimationTelemetryFailureReason.TargetMissing;
+                case GameplayAnimationPlaybackResultKind.AnchorMissing:
+                    return PlayerActionAnimationTelemetryFailureReason.AnchorMissing;
+                case GameplayAnimationPlaybackResultKind.DriverMissing:
+                    return PlayerActionAnimationTelemetryFailureReason.DriverMissing;
+                case GameplayAnimationPlaybackResultKind.AnimatorMissing:
+                    return PlayerActionAnimationTelemetryFailureReason.AnimatorMissing;
+                default:
+                    return PlayerActionAnimationTelemetryFailureReason.BindingMissing;
+            }
+        }
+
         private static PlayerActionAnimationExecutionMode NormalizeMode(PlayerActionAnimationExecutionMode mode)
         {
             return Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), mode)
@@ -698,14 +1023,17 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class GameplayAnimationSyncPlaybackPort : IGameplayAnimationPlaybackPort
     {
         private readonly GameplayAnimationSyncCoordinator _animationSync;
+        private readonly Func<int, PlayerActionKind, float> _resolvePlayerMotionDurationSeconds;
         private readonly GameplayPresentationStateStore _stateStore;
 
         public GameplayAnimationSyncPlaybackPort(
             GameplayAnimationSyncCoordinator animationSync,
-            GameplayPresentationStateStore stateStore)
+            GameplayPresentationStateStore stateStore,
+            Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds = null)
         {
             _animationSync = animationSync ?? throw new ArgumentNullException(nameof(animationSync));
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
+            _resolvePlayerMotionDurationSeconds = resolvePlayerMotionDurationSeconds;
         }
 
         public bool TryPlayPlayerActionAnimation(
@@ -715,6 +1043,7 @@ namespace Game.Feature.Gameplay.Host
             return _animationSync.TryApplyPlayerActionAnimationPlayback(
                 request,
                 _stateStore.ViewsByEntityId,
+                _resolvePlayerMotionDurationSeconds,
                 out result);
         }
 

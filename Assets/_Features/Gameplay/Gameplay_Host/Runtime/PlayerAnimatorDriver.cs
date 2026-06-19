@@ -161,6 +161,22 @@ namespace Game.Feature.Gameplay.Host
             var targetAnimator = ResolveAnimator();
             if (!CanDriveAnimator(targetAnimator))
             {
+                var fallbackRestart = _pendingRestart || request.Restart;
+                var fallbackExecuteActionKind = _pendingExecuteActionKind;
+                var previousState = CurrentState;
+                var previousPhase = CurrentPresentationPhase;
+                CurrentState = request.State;
+                CurrentPresentationPhase = request.PhaseOverride != PlayerPresentationPhase.None
+                    ? request.PhaseOverride
+                    : ResolveTargetPresentationPhase(
+                        request.State,
+                        fallbackRestart,
+                        fallbackExecuteActionKind,
+                        previousState,
+                        previousPhase);
+                _pendingRestart = false;
+                _pendingHitTrigger = false;
+                _pendingExecuteActionKind = PlayerActionKind.None;
                 return;
             }
 

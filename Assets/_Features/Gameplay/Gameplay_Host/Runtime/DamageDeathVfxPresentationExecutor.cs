@@ -336,12 +336,12 @@ namespace Game.Feature.Gameplay.Host
         public GameplayVfxPlaybackResultKind Kind { get; }
     }
 
-    internal readonly struct GameplayVfxExecutorDiagnostics
+    internal readonly struct DamageDeathVfxExecutorDiagnostics
     {
         private static readonly IReadOnlyList<DamageDeathVfxSemanticDiagnostics> EmptySemanticDiagnostics =
             Array.Empty<DamageDeathVfxSemanticDiagnostics>();
 
-        public GameplayVfxExecutorDiagnostics(
+        public DamageDeathVfxExecutorDiagnostics(
             int observedCueCount,
             int legacyOwnerNoOpCount,
             int targetMissingCount,
@@ -379,7 +379,7 @@ namespace Game.Feature.Gameplay.Host
         {
         }
 
-        public GameplayVfxExecutorDiagnostics(
+        public DamageDeathVfxExecutorDiagnostics(
             DamageDeathVfxExecutionMode currentMode,
             bool isProductionDefaultOwner,
             int legacyOwnerSkippedByPolicyCount,
@@ -548,6 +548,48 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
+    internal static class DamageDeathVfxProductionTelemetryBuilder
+    {
+        public static DamageDeathVfxExecutorDiagnostics ResolveExecutorDiagnostics(
+            GameplayPresentationPipeline pipeline)
+        {
+            if (pipeline == null)
+            {
+                return default;
+            }
+
+            var executors = pipeline.Executors;
+            for (var i = 0; i < executors.Count; i++)
+            {
+                if (executors[i] is GameplayVfxPresentationExecutor executor)
+                {
+                    return executor.Diagnostics;
+                }
+            }
+
+            return default;
+        }
+
+        public static void RecordSameTickDamageHitSuppressedByDeath(
+            GameplayPresentationPipeline pipeline,
+            int suppressedByDeathCount)
+        {
+            if (pipeline == null || suppressedByDeathCount <= 0)
+            {
+                return;
+            }
+
+            var executors = pipeline.Executors;
+            for (var i = 0; i < executors.Count; i++)
+            {
+                if (executors[i] is GameplayVfxPresentationExecutor executor)
+                {
+                    executor.RecordSameTickDamageHitSuppressedByDeath(suppressedByDeathCount);
+                }
+            }
+        }
+    }
+
     internal interface IDamageDeathVfxPlaybackPort
     {
         bool TryPlayDamageDeathVfx(
@@ -652,7 +694,7 @@ namespace Game.Feature.Gameplay.Host
             _executionGuard = executionGuard;
         }
 
-        public GameplayVfxExecutorDiagnostics Diagnostics { get; private set; }
+        public DamageDeathVfxExecutorDiagnostics Diagnostics { get; private set; }
 
         public void RecordSameTickDamageHitSuppressedByDeath(int count)
         {
@@ -919,7 +961,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void RefreshDiagnostics()
         {
-            Diagnostics = new GameplayVfxExecutorDiagnostics(
+            Diagnostics = new DamageDeathVfxExecutorDiagnostics(
                 currentMode: _mode,
                 isProductionDefaultOwner: _mode == DamageDeathVfxExecutionMode.OrchestrationExecutor,
                 legacyOwnerSkippedByPolicyCount: _executionGuard?.Diagnostics.SkippedLegacyBecauseExecutorOwnerCount ?? 0,

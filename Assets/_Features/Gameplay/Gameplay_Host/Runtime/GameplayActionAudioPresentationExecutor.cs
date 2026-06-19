@@ -37,6 +37,195 @@ namespace Game.Feature.Gameplay.Host
         LegacyOwnerActive = 10,
     }
 
+    internal enum ActionAudioTelemetryFailureReason
+    {
+        None = 0,
+        OwnerViewMissing = 1,
+        AuthoringMissing = 2,
+        ProfileMissing = 3,
+        BindingMissing = 4,
+        UnsupportedMoment = 5,
+        PortMissing = 6,
+        DuplicateSuppressed = 7,
+        LegacyOwnerActive = 8,
+        OptionalProfileEntryMissing = 9,
+    }
+
+    internal enum ActionAudioTelemetryCleanupReason
+    {
+        None = 0,
+        ResetSession = 1,
+        HardCleanupPresentationExtensions = 2,
+    }
+
+    internal readonly struct ActionAudioProductionTelemetrySnapshot
+    {
+        public ActionAudioProductionTelemetrySnapshot(
+            ActionAudioExecutionMode currentMode,
+            bool isProductionDefaultOwner,
+            ActionAudioExecutionMode productionDefaultMode,
+            ActionAudioExecutionMode rollbackMode,
+            int lastTickIndex,
+            PresentationActionAudioCueKey lastCueKey,
+            int lastDedupeKey,
+            int lastOwnerEntityId,
+            GameplayActionKind lastAction,
+            GameplayActionAudioMoment lastMoment,
+            PresentationActionAudioOutcomeKind lastOutcome,
+            ActionAudioTelemetryFailureReason lastFailureReason,
+            ActionAudioTelemetryCleanupReason lastCleanupReason,
+            int legacyOwnerAttemptCount,
+            int legacyOwnerSkippedByPolicyCount,
+            int executorOwnerAttemptCount,
+            int executorOwnerExecutedCount,
+            int duplicateOwnerAttemptCount,
+            int duplicateSuppressedCount,
+            int observedCueCount,
+            int requestPlannedCount,
+            int playbackRequestedCount,
+            int playbackSucceededCount,
+            int optionalProfileEntryMissingNoOpCount,
+            int ownerViewMissingCount,
+            int authoringMissingCount,
+            int profileMissingCount,
+            int bindingMissingCount,
+            int unsupportedMomentCount,
+            int portMissingCount)
+        {
+            CurrentMode = currentMode;
+            IsProductionDefaultOwner = isProductionDefaultOwner;
+            ProductionDefaultMode = productionDefaultMode;
+            RollbackMode = rollbackMode;
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastCueKey = lastCueKey;
+            LastDedupeKey = lastDedupeKey;
+            LastOwnerEntityId = Math.Max(0, lastOwnerEntityId);
+            LastAction = lastAction;
+            LastMoment = lastMoment;
+            LastOutcome = lastOutcome;
+            LastFailureReason = lastFailureReason;
+            LastCleanupReason = lastCleanupReason;
+            LegacyOwnerAttemptCount = Math.Max(0, legacyOwnerAttemptCount);
+            LegacyOwnerSkippedByPolicyCount = Math.Max(0, legacyOwnerSkippedByPolicyCount);
+            ExecutorOwnerAttemptCount = Math.Max(0, executorOwnerAttemptCount);
+            ExecutorOwnerExecutedCount = Math.Max(0, executorOwnerExecutedCount);
+            DuplicateOwnerAttemptCount = Math.Max(0, duplicateOwnerAttemptCount);
+            DuplicateSuppressedCount = Math.Max(0, duplicateSuppressedCount);
+            ObservedCueCount = Math.Max(0, observedCueCount);
+            RequestPlannedCount = Math.Max(0, requestPlannedCount);
+            PlaybackRequestedCount = Math.Max(0, playbackRequestedCount);
+            PlaybackSucceededCount = Math.Max(0, playbackSucceededCount);
+            OptionalProfileEntryMissingNoOpCount = Math.Max(0, optionalProfileEntryMissingNoOpCount);
+            OwnerViewMissingCount = Math.Max(0, ownerViewMissingCount);
+            AuthoringMissingCount = Math.Max(0, authoringMissingCount);
+            ProfileMissingCount = Math.Max(0, profileMissingCount);
+            BindingMissingCount = Math.Max(0, bindingMissingCount);
+            UnsupportedMomentCount = Math.Max(0, unsupportedMomentCount);
+            PortMissingCount = Math.Max(0, portMissingCount);
+        }
+
+        public ActionAudioExecutionMode CurrentMode { get; }
+        public bool IsProductionDefaultOwner { get; }
+        public ActionAudioExecutionMode ProductionDefaultMode { get; }
+        public ActionAudioExecutionMode RollbackMode { get; }
+        public int LastTickIndex { get; }
+        public PresentationActionAudioCueKey LastCueKey { get; }
+        public int LastDedupeKey { get; }
+        public int LastOwnerEntityId { get; }
+        public GameplayActionKind LastAction { get; }
+        public GameplayActionAudioMoment LastMoment { get; }
+        public PresentationActionAudioOutcomeKind LastOutcome { get; }
+        public ActionAudioTelemetryFailureReason LastFailureReason { get; }
+        public ActionAudioTelemetryCleanupReason LastCleanupReason { get; }
+        public int LegacyOwnerAttemptCount { get; }
+        public int LegacyOwnerSkippedByPolicyCount { get; }
+        public int ExecutorOwnerAttemptCount { get; }
+        public int ExecutorOwnerExecutedCount { get; }
+        public int DuplicateOwnerAttemptCount { get; }
+        public int DuplicateSuppressedCount { get; }
+        public int ObservedCueCount { get; }
+        public int RequestPlannedCount { get; }
+        public int PlaybackRequestedCount { get; }
+        public int PlaybackSucceededCount { get; }
+        public int OptionalProfileEntryMissingNoOpCount { get; }
+        public int OwnerViewMissingCount { get; }
+        public int AuthoringMissingCount { get; }
+        public int ProfileMissingCount { get; }
+        public int BindingMissingCount { get; }
+        public int UnsupportedMomentCount { get; }
+        public int PortMissingCount { get; }
+    }
+
+    internal static class ActionAudioProductionTelemetryBuilder
+    {
+        public static GameplayActionAudioExecutorDiagnostics ResolveExecutorDiagnostics(GameplayPresentationPipeline pipeline)
+        {
+            if (pipeline == null)
+            {
+                return default;
+            }
+
+            var executors = pipeline.Executors;
+            for (var i = 0; i < executors.Count; i++)
+            {
+                if (executors[i] is GameplayActionAudioPresentationExecutor executor)
+                {
+                    return executor.Diagnostics;
+                }
+            }
+
+            return default;
+        }
+
+        public static ActionAudioProductionTelemetrySnapshot Build(
+            ActionAudioExecutionMode mode,
+            ActionAudioOwnershipDiagnostics ownership,
+            GameplayPresentationPipeline pipeline)
+        {
+            var executor = ResolveExecutorDiagnostics(pipeline);
+            var duplicateSuppressedCount = Math.Max(
+                executor.DuplicateSuppressedCount,
+                ownership.DuplicateAttemptCount);
+            var lastFailureReason =
+                duplicateSuppressedCount > executor.DuplicateSuppressedCount &&
+                executor.LastFailureReason == ActionAudioTelemetryFailureReason.None
+                    ? ActionAudioTelemetryFailureReason.DuplicateSuppressed
+                    : executor.LastFailureReason;
+
+            return new ActionAudioProductionTelemetrySnapshot(
+                mode,
+                mode == ActionAudioExecutionMode.LegacyActionAudioController,
+                ActionAudioExecutionMode.LegacyActionAudioController,
+                ActionAudioExecutionMode.LegacyActionAudioController,
+                executor.LastTickIndex,
+                executor.LastCueKey,
+                executor.LastDedupeKey,
+                executor.LastOwnerEntityId,
+                executor.LastAction,
+                executor.LastMoment,
+                executor.LastOutcome,
+                lastFailureReason,
+                executor.LastCleanupReason,
+                ownership.LegacyAttemptCount,
+                ownership.SkippedLegacyBecauseExecutorOwnerCount,
+                ownership.ExecutorAttemptCount,
+                ownership.ExecutedByExecutorCount,
+                ownership.DuplicateAttemptCount,
+                duplicateSuppressedCount,
+                executor.ObservedCueCount,
+                executor.RequestPlannedCount,
+                executor.PlaybackRequestedCount,
+                executor.PlaybackSucceededCount,
+                executor.OptionalProfileEntryMissingNoOpCount,
+                executor.OwnerViewMissingCount,
+                executor.AuthoringMissingCount,
+                executor.ProfileMissingCount,
+                executor.BindingMissingCount,
+                executor.UnsupportedMomentCount,
+                executor.PortMissingCount);
+        }
+    }
+
     internal readonly struct ActionAudioPlaybackKey : IEquatable<ActionAudioPlaybackKey>
     {
         public ActionAudioPlaybackKey(
@@ -367,7 +556,18 @@ namespace Game.Feature.Gameplay.Host
             int requestPlannedCount,
             int playbackRequestedCount,
             int playbackSucceededCount,
-            int optionalProfileEntryMissingNoOpCount)
+            int optionalProfileEntryMissingNoOpCount,
+            int lastTickIndex = 0,
+            PresentationActionAudioCueKey lastCueKey = PresentationActionAudioCueKey.None,
+            int lastDedupeKey = 0,
+            int lastOwnerEntityId = 0,
+            GameplayActionKind lastAction = default,
+            GameplayActionAudioMoment lastMoment = default,
+            PresentationActionAudioOutcomeKind lastOutcome = PresentationActionAudioOutcomeKind.None,
+            ActionAudioTelemetryFailureReason lastFailureReason =
+                ActionAudioTelemetryFailureReason.None,
+            ActionAudioTelemetryCleanupReason lastCleanupReason =
+                ActionAudioTelemetryCleanupReason.None)
         {
             ObservedCueCount = Math.Max(0, observedCueCount);
             OwnerViewMissingCount = Math.Max(0, ownerViewMissingCount);
@@ -382,6 +582,15 @@ namespace Game.Feature.Gameplay.Host
             PlaybackRequestedCount = Math.Max(0, playbackRequestedCount);
             PlaybackSucceededCount = Math.Max(0, playbackSucceededCount);
             OptionalProfileEntryMissingNoOpCount = Math.Max(0, optionalProfileEntryMissingNoOpCount);
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastCueKey = lastCueKey;
+            LastDedupeKey = lastDedupeKey;
+            LastOwnerEntityId = Math.Max(0, lastOwnerEntityId);
+            LastAction = lastAction;
+            LastMoment = lastMoment;
+            LastOutcome = lastOutcome;
+            LastFailureReason = lastFailureReason;
+            LastCleanupReason = lastCleanupReason;
         }
 
         public int ObservedCueCount { get; }
@@ -409,6 +618,24 @@ namespace Game.Feature.Gameplay.Host
         public int PlaybackSucceededCount { get; }
 
         public int OptionalProfileEntryMissingNoOpCount { get; }
+
+        public int LastTickIndex { get; }
+
+        public PresentationActionAudioCueKey LastCueKey { get; }
+
+        public int LastDedupeKey { get; }
+
+        public int LastOwnerEntityId { get; }
+
+        public GameplayActionKind LastAction { get; }
+
+        public GameplayActionAudioMoment LastMoment { get; }
+
+        public PresentationActionAudioOutcomeKind LastOutcome { get; }
+
+        public ActionAudioTelemetryFailureReason LastFailureReason { get; }
+
+        public ActionAudioTelemetryCleanupReason LastCleanupReason { get; }
     }
 
     internal interface IGameplayActionAudioPlaybackPort
@@ -498,6 +725,14 @@ namespace Game.Feature.Gameplay.Host
             var playbackRequestedCount = 0;
             var playbackSucceededCount = 0;
             var optionalProfileEntryMissingNoOpCount = 0;
+            var lastTickIndex = 0;
+            var lastCueKey = PresentationActionAudioCueKey.None;
+            var lastDedupeKey = 0;
+            var lastOwnerEntityId = 0;
+            var lastAction = default(GameplayActionKind);
+            var lastMoment = default(GameplayActionAudioMoment);
+            var lastOutcome = PresentationActionAudioOutcomeKind.None;
+            var lastFailureReason = ActionAudioTelemetryFailureReason.None;
 
             for (var i = 0; i < plan.Cues.Count; i++)
             {
@@ -509,9 +744,19 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 observedCueCount++;
+                CaptureLastCue(
+                    playbackCue,
+                    ref lastTickIndex,
+                    ref lastCueKey,
+                    ref lastDedupeKey,
+                    ref lastOwnerEntityId,
+                    ref lastAction,
+                    ref lastMoment,
+                    ref lastOutcome);
                 if (_mode != ActionAudioExecutionMode.OrchestrationActionAudioBridge)
                 {
                     legacyOwnerNoOpCount++;
+                    lastFailureReason = ActionAudioTelemetryFailureReason.LegacyOwnerActive;
                     continue;
                 }
 
@@ -528,6 +773,7 @@ namespace Game.Feature.Gameplay.Host
                         ref legacyOwnerNoOpCount,
                         ref playbackSucceededCount,
                         ref optionalProfileEntryMissingNoOpCount);
+                    lastFailureReason = ToTelemetryFailureReason(missingKind);
                     continue;
                 }
 
@@ -539,10 +785,12 @@ namespace Game.Feature.Gameplay.Host
                     if (duplicateAfter > duplicateBefore)
                     {
                         duplicateSuppressedCount++;
+                        lastFailureReason = ActionAudioTelemetryFailureReason.DuplicateSuppressed;
                     }
                     else
                     {
                         legacyOwnerNoOpCount++;
+                        lastFailureReason = ActionAudioTelemetryFailureReason.LegacyOwnerActive;
                     }
 
                     continue;
@@ -551,6 +799,7 @@ namespace Game.Feature.Gameplay.Host
                 if (_playbackPort == null)
                 {
                     portMissingCount++;
+                    lastFailureReason = ActionAudioTelemetryFailureReason.PortMissing;
                     continue;
                 }
 
@@ -567,6 +816,7 @@ namespace Game.Feature.Gameplay.Host
                     ref legacyOwnerNoOpCount,
                     ref playbackSucceededCount,
                     ref optionalProfileEntryMissingNoOpCount);
+                lastFailureReason = ToTelemetryFailureReason(result.Kind);
             }
 
             Diagnostics = new GameplayActionAudioExecutorDiagnostics(
@@ -582,7 +832,15 @@ namespace Game.Feature.Gameplay.Host
                 requestPlannedCount,
                 playbackRequestedCount,
                 playbackSucceededCount,
-                optionalProfileEntryMissingNoOpCount);
+                optionalProfileEntryMissingNoOpCount,
+                lastTickIndex,
+                lastCueKey,
+                lastDedupeKey,
+                lastOwnerEntityId,
+                lastAction,
+                lastMoment,
+                lastOutcome,
+                lastFailureReason);
         }
 
         public void Update(float deltaTime)
@@ -595,14 +853,42 @@ namespace Game.Feature.Gameplay.Host
 
         public void ResetSession()
         {
-            Diagnostics = default;
+            Diagnostics = new GameplayActionAudioExecutorDiagnostics(
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                lastCleanupReason: ActionAudioTelemetryCleanupReason.ResetSession);
             _executionGuard?.ResetSession();
             _playbackPort?.ResetSession();
         }
 
         public void HardCleanup()
         {
-            Diagnostics = default;
+            Diagnostics = new GameplayActionAudioExecutorDiagnostics(
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                lastCleanupReason: ActionAudioTelemetryCleanupReason.HardCleanupPresentationExtensions);
             _executionGuard?.ResetSession();
             _playbackPort?.HardCleanup();
         }
@@ -708,6 +994,32 @@ namespace Game.Feature.Gameplay.Host
             return $"Action:{action}:{moment}";
         }
 
+        private static void CaptureLastCue(
+            in PresentationPlaybackCue playbackCue,
+            ref int lastTickIndex,
+            ref PresentationActionAudioCueKey lastCueKey,
+            ref int lastDedupeKey,
+            ref int lastOwnerEntityId,
+            ref GameplayActionKind lastAction,
+            ref GameplayActionAudioMoment lastMoment,
+            ref PresentationActionAudioOutcomeKind lastOutcome)
+        {
+            var cue = playbackCue.Cue;
+            lastTickIndex = cue.Source.TickIndex;
+            lastDedupeKey = playbackCue.Policy.DedupeKey;
+            lastOwnerEntityId = cue.ActionAudioPayload.OwnerEntityId;
+            lastOutcome = cue.ActionAudioPayload.OutcomeKind;
+            lastCueKey = cue.Key.TryGetActionAudioCueKey(out var cueKey)
+                ? cueKey
+                : PresentationActionAudioCueKey.None;
+            lastAction = TryResolveAction(cue.ActionAudioPayload.ActionKind, out var action)
+                ? action
+                : default;
+            lastMoment = TryResolveMoment(cue.ActionAudioPayload.Moment, out var moment)
+                ? moment
+                : default;
+        }
+
         private static void RecordResult(
             GameplayActionAudioPlaybackResultKind resultKind,
             ref int ownerViewMissingCount,
@@ -750,6 +1062,32 @@ namespace Game.Feature.Gameplay.Host
                 case GameplayActionAudioPlaybackResultKind.LegacyOwnerActive:
                     legacyOwnerNoOpCount++;
                     break;
+            }
+        }
+
+        private static ActionAudioTelemetryFailureReason ToTelemetryFailureReason(
+            GameplayActionAudioPlaybackResultKind resultKind)
+        {
+            switch (resultKind)
+            {
+                case GameplayActionAudioPlaybackResultKind.OwnerViewMissing:
+                    return ActionAudioTelemetryFailureReason.OwnerViewMissing;
+                case GameplayActionAudioPlaybackResultKind.AuthoringMissing:
+                    return ActionAudioTelemetryFailureReason.AuthoringMissing;
+                case GameplayActionAudioPlaybackResultKind.ProfileMissing:
+                    return ActionAudioTelemetryFailureReason.ProfileMissing;
+                case GameplayActionAudioPlaybackResultKind.BindingMissing:
+                    return ActionAudioTelemetryFailureReason.BindingMissing;
+                case GameplayActionAudioPlaybackResultKind.UnsupportedMoment:
+                    return ActionAudioTelemetryFailureReason.UnsupportedMoment;
+                case GameplayActionAudioPlaybackResultKind.PortMissing:
+                    return ActionAudioTelemetryFailureReason.PortMissing;
+                case GameplayActionAudioPlaybackResultKind.OptionalProfileEntryMissing:
+                    return ActionAudioTelemetryFailureReason.OptionalProfileEntryMissing;
+                case GameplayActionAudioPlaybackResultKind.LegacyOwnerActive:
+                    return ActionAudioTelemetryFailureReason.LegacyOwnerActive;
+                default:
+                    return ActionAudioTelemetryFailureReason.None;
             }
         }
 

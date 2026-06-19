@@ -179,6 +179,7 @@ namespace Game.Feature.Gameplay.Host
         internal bool TryApplyPlayerActionAnimationPlayback(
             in GameplayAnimationPlaybackRequest request,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
+            Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds,
             out GameplayAnimationPlaybackResult result)
         {
             if (viewsByEntityId == null)
@@ -214,12 +215,6 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            if (!driver.CanDriveCurrentAnimator)
-            {
-                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.AnimatorMissing);
-                return false;
-            }
-
             if (!TryMapPlayerActionAnimationPlayback(
                     request.AnimationPayload,
                     out var animationState,
@@ -233,7 +228,19 @@ namespace Game.Feature.Gameplay.Host
 
             var presentationState = CreatePlayerActionAnimationPresentationState(request, phase, restart);
             _playerViewPresentationStates[request.PlayerEntityId] = presentationState;
+            UpdatePlayerVisualHold(
+                request.PlayerEntityId,
+                presentationState,
+                driver,
+                resolvePlayerMotionDurationSeconds);
             driver.Apply(presentationState);
+
+            if (!driver.CanDriveCurrentAnimator)
+            {
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.AnimatorMissing);
+                return false;
+            }
+
             SyncPlayerRuntimeState(
                 request.PlayerEntityId,
                 isVisible: true,

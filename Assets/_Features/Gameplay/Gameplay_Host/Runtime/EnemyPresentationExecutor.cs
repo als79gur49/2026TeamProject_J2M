@@ -43,6 +43,208 @@ namespace Game.Feature.Gameplay.Host
         Death = 3,
     }
 
+    internal enum EnemyPresentationTelemetryFailureReason
+    {
+        None = 0,
+        TargetMissing = 1,
+        AnchorMissing = 2,
+        BindingMissing = 3,
+        MapperMissing = 4,
+        DriverMissing = 5,
+        AnimatorMissing = 6,
+        PortMissing = 7,
+        DuplicateSuppressed = 8,
+        LegacyOwnerActive = 9,
+        IgnoredByPolicy = 10,
+    }
+
+    internal enum EnemyPresentationTelemetryCleanupReason
+    {
+        None = 0,
+        ResetSession = 1,
+        HardCleanupPresentationExtensions = 2,
+    }
+
+    internal readonly struct EnemyPresentationProductionTelemetrySnapshot
+    {
+        public EnemyPresentationProductionTelemetrySnapshot(
+            EnemyPresentationExecutionMode currentMode,
+            bool isProductionDefaultOwner,
+            EnemyPresentationExecutionMode productionDefaultMode,
+            EnemyPresentationExecutionMode rollbackMode,
+            int lastTickIndex,
+            PresentationAnimationCueKey lastCueKey,
+            int lastDedupeKey,
+            int lastEnemyEntityId,
+            PresentationEnemyPresentationKind lastPresentationKind,
+            PresentationEnemyPresentationPhase lastPresentationPhase,
+            PresentationEnemyPresentationOutcome lastPresentationOutcome,
+            EnemyPresentationTelemetryFailureReason lastFailureReason,
+            EnemyPresentationTelemetryCleanupReason lastCleanupReason,
+            int legacyOwnerAttemptCount,
+            int legacyOwnerSkippedByPolicyCount,
+            int executorOwnerAttemptCount,
+            int executorOwnerExecutedCount,
+            int duplicateOwnerAttemptCount,
+            int duplicateSuppressedCount,
+            int observedCueCount,
+            int playbackCommandRequestedCount,
+            int playbackCommandAppliedCount,
+            int playbackCommandIgnoredByPolicyCount,
+            int enemyJumpCueMappedToLegacyCommandCount,
+            int enemyChargeCueMappedToLegacyCommandCount,
+            int enemyDeathCueMappedToLegacyCommandCount,
+            int targetMissingCount,
+            int anchorMissingCount,
+            int bindingMissingCount,
+            int mapperMissingCount,
+            int driverMissingCount,
+            int animatorMissingCount,
+            int portMissingCount)
+        {
+            CurrentMode = currentMode;
+            IsProductionDefaultOwner = isProductionDefaultOwner;
+            ProductionDefaultMode = productionDefaultMode;
+            RollbackMode = rollbackMode;
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastCueKey = lastCueKey;
+            LastDedupeKey = lastDedupeKey;
+            LastEnemyEntityId = Math.Max(0, lastEnemyEntityId);
+            LastPresentationKind = lastPresentationKind;
+            LastPresentationPhase = lastPresentationPhase;
+            LastPresentationOutcome = lastPresentationOutcome;
+            LastFailureReason = lastFailureReason;
+            LastCleanupReason = lastCleanupReason;
+            LegacyOwnerAttemptCount = Math.Max(0, legacyOwnerAttemptCount);
+            LegacyOwnerSkippedByPolicyCount = Math.Max(0, legacyOwnerSkippedByPolicyCount);
+            ExecutorOwnerAttemptCount = Math.Max(0, executorOwnerAttemptCount);
+            ExecutorOwnerExecutedCount = Math.Max(0, executorOwnerExecutedCount);
+            DuplicateOwnerAttemptCount = Math.Max(0, duplicateOwnerAttemptCount);
+            DuplicateSuppressedCount = Math.Max(0, duplicateSuppressedCount);
+            ObservedCueCount = Math.Max(0, observedCueCount);
+            PlaybackCommandRequestedCount = Math.Max(0, playbackCommandRequestedCount);
+            PlaybackCommandAppliedCount = Math.Max(0, playbackCommandAppliedCount);
+            PlaybackCommandIgnoredByPolicyCount = Math.Max(0, playbackCommandIgnoredByPolicyCount);
+            EnemyJumpCueMappedToLegacyCommandCount = Math.Max(0, enemyJumpCueMappedToLegacyCommandCount);
+            EnemyChargeCueMappedToLegacyCommandCount = Math.Max(0, enemyChargeCueMappedToLegacyCommandCount);
+            EnemyDeathCueMappedToLegacyCommandCount = Math.Max(0, enemyDeathCueMappedToLegacyCommandCount);
+            TargetMissingCount = Math.Max(0, targetMissingCount);
+            AnchorMissingCount = Math.Max(0, anchorMissingCount);
+            BindingMissingCount = Math.Max(0, bindingMissingCount);
+            MapperMissingCount = Math.Max(0, mapperMissingCount);
+            DriverMissingCount = Math.Max(0, driverMissingCount);
+            AnimatorMissingCount = Math.Max(0, animatorMissingCount);
+            PortMissingCount = Math.Max(0, portMissingCount);
+        }
+
+        public EnemyPresentationExecutionMode CurrentMode { get; }
+        public bool IsProductionDefaultOwner { get; }
+        public EnemyPresentationExecutionMode ProductionDefaultMode { get; }
+        public EnemyPresentationExecutionMode RollbackMode { get; }
+        public int LastTickIndex { get; }
+        public PresentationAnimationCueKey LastCueKey { get; }
+        public int LastDedupeKey { get; }
+        public int LastEnemyEntityId { get; }
+        public PresentationEnemyPresentationKind LastPresentationKind { get; }
+        public PresentationEnemyPresentationPhase LastPresentationPhase { get; }
+        public PresentationEnemyPresentationOutcome LastPresentationOutcome { get; }
+        public EnemyPresentationTelemetryFailureReason LastFailureReason { get; }
+        public EnemyPresentationTelemetryCleanupReason LastCleanupReason { get; }
+        public int LegacyOwnerAttemptCount { get; }
+        public int LegacyOwnerSkippedByPolicyCount { get; }
+        public int ExecutorOwnerAttemptCount { get; }
+        public int ExecutorOwnerExecutedCount { get; }
+        public int DuplicateOwnerAttemptCount { get; }
+        public int DuplicateSuppressedCount { get; }
+        public int ObservedCueCount { get; }
+        public int PlaybackCommandRequestedCount { get; }
+        public int PlaybackCommandAppliedCount { get; }
+        public int PlaybackCommandIgnoredByPolicyCount { get; }
+        public int EnemyJumpCueMappedToLegacyCommandCount { get; }
+        public int EnemyChargeCueMappedToLegacyCommandCount { get; }
+        public int EnemyDeathCueMappedToLegacyCommandCount { get; }
+        public int TargetMissingCount { get; }
+        public int AnchorMissingCount { get; }
+        public int BindingMissingCount { get; }
+        public int MapperMissingCount { get; }
+        public int DriverMissingCount { get; }
+        public int AnimatorMissingCount { get; }
+        public int PortMissingCount { get; }
+    }
+
+    internal static class EnemyPresentationProductionTelemetryBuilder
+    {
+        public static GameplayEnemyPresentationExecutorDiagnostics ResolveExecutorDiagnostics(GameplayPresentationPipeline pipeline)
+        {
+            if (pipeline == null)
+            {
+                return default;
+            }
+
+            var executors = pipeline.Executors;
+            for (var i = 0; i < executors.Count; i++)
+            {
+                if (executors[i] is GameplayEnemyPresentationExecutor executor)
+                {
+                    return executor.Diagnostics;
+                }
+            }
+
+            return default;
+        }
+
+        public static EnemyPresentationProductionTelemetrySnapshot Build(
+            EnemyPresentationExecutionMode mode,
+            EnemyPresentationOwnershipDiagnostics ownership,
+            GameplayPresentationPipeline pipeline)
+        {
+            var executor = ResolveExecutorDiagnostics(pipeline);
+            var duplicateSuppressedCount = Math.Max(
+                executor.DuplicateSuppressedCount,
+                ownership.DuplicateAttemptCount);
+            var lastFailureReason =
+                duplicateSuppressedCount > executor.DuplicateSuppressedCount &&
+                executor.LastFailureReason == EnemyPresentationTelemetryFailureReason.None
+                    ? EnemyPresentationTelemetryFailureReason.DuplicateSuppressed
+                    : executor.LastFailureReason;
+
+            return new EnemyPresentationProductionTelemetrySnapshot(
+                mode,
+                mode == EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper,
+                EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper,
+                EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper,
+                executor.LastTickIndex,
+                executor.LastCueKey,
+                executor.LastDedupeKey,
+                executor.LastEnemyEntityId,
+                executor.LastPresentationKind,
+                executor.LastPresentationPhase,
+                executor.LastPresentationOutcome,
+                lastFailureReason,
+                executor.LastCleanupReason,
+                ownership.LegacyAttemptCount,
+                ownership.SkippedLegacyBecauseExecutorOwnerCount,
+                ownership.ExecutorAttemptCount,
+                ownership.ExecutedByExecutorCount,
+                ownership.DuplicateAttemptCount,
+                duplicateSuppressedCount,
+                executor.ObservedCueCount,
+                executor.CommandRequestedCount,
+                executor.CommandAppliedCount,
+                executor.CommandIgnoredByPolicyCount,
+                executor.EnemyJumpCueMappedToLegacyCommandCount,
+                executor.EnemyChargeCueMappedToLegacyCommandCount,
+                executor.EnemyDeathCueMappedToLegacyCommandCount,
+                executor.TargetMissingCount,
+                executor.AnchorMissingCount,
+                executor.BindingMissingCount,
+                executor.MapperMissingCount,
+                executor.DriverMissingCount,
+                executor.AnimatorMissingCount,
+                executor.MissingPortCount);
+        }
+    }
+
     internal readonly struct EnemyPresentationPlaybackKey : IEquatable<EnemyPresentationPlaybackKey>
     {
         public EnemyPresentationPlaybackKey(
@@ -362,7 +564,18 @@ namespace Game.Feature.Gameplay.Host
             int missingPortCount,
             int enemyJumpCueMappedToLegacyCommandCount,
             int enemyChargeCueMappedToLegacyCommandCount,
-            int enemyDeathCueMappedToLegacyCommandCount)
+            int enemyDeathCueMappedToLegacyCommandCount,
+            int lastTickIndex = 0,
+            PresentationAnimationCueKey lastCueKey = PresentationAnimationCueKey.None,
+            int lastDedupeKey = 0,
+            int lastEnemyEntityId = 0,
+            PresentationEnemyPresentationKind lastPresentationKind = PresentationEnemyPresentationKind.None,
+            PresentationEnemyPresentationPhase lastPresentationPhase = PresentationEnemyPresentationPhase.None,
+            PresentationEnemyPresentationOutcome lastPresentationOutcome = PresentationEnemyPresentationOutcome.None,
+            EnemyPresentationTelemetryFailureReason lastFailureReason =
+                EnemyPresentationTelemetryFailureReason.None,
+            EnemyPresentationTelemetryCleanupReason lastCleanupReason =
+                EnemyPresentationTelemetryCleanupReason.None)
         {
             ObservedCueCount = Math.Max(0, observedCueCount);
             LegacyOwnerNoOpCount = Math.Max(0, legacyOwnerNoOpCount);
@@ -380,6 +593,15 @@ namespace Game.Feature.Gameplay.Host
             EnemyJumpCueMappedToLegacyCommandCount = Math.Max(0, enemyJumpCueMappedToLegacyCommandCount);
             EnemyChargeCueMappedToLegacyCommandCount = Math.Max(0, enemyChargeCueMappedToLegacyCommandCount);
             EnemyDeathCueMappedToLegacyCommandCount = Math.Max(0, enemyDeathCueMappedToLegacyCommandCount);
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastCueKey = lastCueKey;
+            LastDedupeKey = lastDedupeKey;
+            LastEnemyEntityId = Math.Max(0, lastEnemyEntityId);
+            LastPresentationKind = lastPresentationKind;
+            LastPresentationPhase = lastPresentationPhase;
+            LastPresentationOutcome = lastPresentationOutcome;
+            LastFailureReason = lastFailureReason;
+            LastCleanupReason = lastCleanupReason;
         }
 
         public int ObservedCueCount { get; }
@@ -413,6 +635,24 @@ namespace Game.Feature.Gameplay.Host
         public int EnemyChargeCueMappedToLegacyCommandCount { get; }
 
         public int EnemyDeathCueMappedToLegacyCommandCount { get; }
+
+        public int LastTickIndex { get; }
+
+        public PresentationAnimationCueKey LastCueKey { get; }
+
+        public int LastDedupeKey { get; }
+
+        public int LastEnemyEntityId { get; }
+
+        public PresentationEnemyPresentationKind LastPresentationKind { get; }
+
+        public PresentationEnemyPresentationPhase LastPresentationPhase { get; }
+
+        public PresentationEnemyPresentationOutcome LastPresentationOutcome { get; }
+
+        public EnemyPresentationTelemetryFailureReason LastFailureReason { get; }
+
+        public EnemyPresentationTelemetryCleanupReason LastCleanupReason { get; }
     }
 
     internal interface IGameplayEnemyPresentationPlaybackPort
@@ -480,6 +720,14 @@ namespace Game.Feature.Gameplay.Host
             var enemyJumpCueMappedToLegacyCommandCount = 0;
             var enemyChargeCueMappedToLegacyCommandCount = 0;
             var enemyDeathCueMappedToLegacyCommandCount = 0;
+            var lastTickIndex = 0;
+            var lastCueKey = PresentationAnimationCueKey.None;
+            var lastDedupeKey = 0;
+            var lastEnemyEntityId = 0;
+            var lastPresentationKind = PresentationEnemyPresentationKind.None;
+            var lastPresentationPhase = PresentationEnemyPresentationPhase.None;
+            var lastPresentationOutcome = PresentationEnemyPresentationOutcome.None;
+            var lastFailureReason = EnemyPresentationTelemetryFailureReason.None;
 
             for (var i = 0; i < plan.Cues.Count; i++)
             {
@@ -490,9 +738,19 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 observedCueCount++;
+                CaptureLastCue(
+                    playbackCue,
+                    ref lastTickIndex,
+                    ref lastCueKey,
+                    ref lastDedupeKey,
+                    ref lastEnemyEntityId,
+                    ref lastPresentationKind,
+                    ref lastPresentationPhase,
+                    ref lastPresentationOutcome);
                 if (_mode != EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor)
                 {
                     legacyOwnerNoOpCount++;
+                    lastFailureReason = EnemyPresentationTelemetryFailureReason.LegacyOwnerActive;
                     continue;
                 }
 
@@ -506,6 +764,7 @@ namespace Game.Feature.Gameplay.Host
                         ref mapperMissingCount,
                         ref driverMissingCount,
                         ref animatorMissingCount);
+                    lastFailureReason = ToTelemetryFailureReason(missingKind);
                     continue;
                 }
 
@@ -516,10 +775,12 @@ namespace Game.Feature.Gameplay.Host
                     if (duplicateAfter > duplicateBefore)
                     {
                         duplicateSuppressedCount++;
+                        lastFailureReason = EnemyPresentationTelemetryFailureReason.DuplicateSuppressed;
                     }
                     else
                     {
                         legacyOwnerNoOpCount++;
+                        lastFailureReason = EnemyPresentationTelemetryFailureReason.LegacyOwnerActive;
                     }
 
                     continue;
@@ -528,6 +789,7 @@ namespace Game.Feature.Gameplay.Host
                 if (_playbackPort == null)
                 {
                     missingPortCount++;
+                    lastFailureReason = EnemyPresentationTelemetryFailureReason.PortMissing;
                     continue;
                 }
 
@@ -543,30 +805,39 @@ namespace Game.Feature.Gameplay.Host
                     case GameplayEnemyPresentationPlaybackResultKind.Applied:
                     case GameplayEnemyPresentationPlaybackResultKind.Requested:
                         commandAppliedCount++;
+                        lastFailureReason = EnemyPresentationTelemetryFailureReason.None;
                         break;
                     case GameplayEnemyPresentationPlaybackResultKind.TargetMissing:
                         targetMissingCount++;
+                        lastFailureReason = EnemyPresentationTelemetryFailureReason.TargetMissing;
                         break;
                     case GameplayEnemyPresentationPlaybackResultKind.AnchorMissing:
                         anchorMissingCount++;
+                        lastFailureReason = EnemyPresentationTelemetryFailureReason.AnchorMissing;
                         break;
                     case GameplayEnemyPresentationPlaybackResultKind.BindingMissing:
                         bindingMissingCount++;
+                        lastFailureReason = EnemyPresentationTelemetryFailureReason.BindingMissing;
                         break;
                     case GameplayEnemyPresentationPlaybackResultKind.MapperMissing:
                         mapperMissingCount++;
+                        lastFailureReason = EnemyPresentationTelemetryFailureReason.MapperMissing;
                         break;
                     case GameplayEnemyPresentationPlaybackResultKind.DriverMissing:
                         driverMissingCount++;
+                        lastFailureReason = EnemyPresentationTelemetryFailureReason.DriverMissing;
                         break;
                     case GameplayEnemyPresentationPlaybackResultKind.AnimatorMissing:
                         animatorMissingCount++;
+                        lastFailureReason = EnemyPresentationTelemetryFailureReason.AnimatorMissing;
                         break;
                     case GameplayEnemyPresentationPlaybackResultKind.LegacyOwnerActive:
                         legacyOwnerNoOpCount++;
+                        lastFailureReason = EnemyPresentationTelemetryFailureReason.LegacyOwnerActive;
                         break;
                     case GameplayEnemyPresentationPlaybackResultKind.IgnoredByPolicy:
                         commandIgnoredByPolicyCount++;
+                        lastFailureReason = EnemyPresentationTelemetryFailureReason.IgnoredByPolicy;
                         break;
                 }
             }
@@ -587,7 +858,15 @@ namespace Game.Feature.Gameplay.Host
                 missingPortCount,
                 enemyJumpCueMappedToLegacyCommandCount,
                 enemyChargeCueMappedToLegacyCommandCount,
-                enemyDeathCueMappedToLegacyCommandCount);
+                enemyDeathCueMappedToLegacyCommandCount,
+                lastTickIndex,
+                lastCueKey,
+                lastDedupeKey,
+                lastEnemyEntityId,
+                lastPresentationKind,
+                lastPresentationPhase,
+                lastPresentationOutcome,
+                lastFailureReason);
         }
 
         public void Update(float deltaTime)
@@ -600,7 +879,24 @@ namespace Game.Feature.Gameplay.Host
 
         public void ResetSession()
         {
-            Diagnostics = default;
+            Diagnostics = new GameplayEnemyPresentationExecutorDiagnostics(
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                lastCleanupReason: EnemyPresentationTelemetryCleanupReason.ResetSession);
             if (_mode == EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor)
             {
                 _playbackPort?.ResetSession();
@@ -609,7 +905,24 @@ namespace Game.Feature.Gameplay.Host
 
         public void HardCleanup()
         {
-            Diagnostics = default;
+            Diagnostics = new GameplayEnemyPresentationExecutorDiagnostics(
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                lastCleanupReason: EnemyPresentationTelemetryCleanupReason.HardCleanupPresentationExtensions);
             if (_mode == EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor)
             {
                 _playbackPort?.HardCleanup();
@@ -751,6 +1064,48 @@ namespace Game.Feature.Gameplay.Host
                 case GameplayEnemyPresentationLegacyCommandMappingKind.Death:
                     enemyDeathCueMappedToLegacyCommandCount++;
                     break;
+            }
+        }
+
+        private static void CaptureLastCue(
+            in PresentationPlaybackCue playbackCue,
+            ref int lastTickIndex,
+            ref PresentationAnimationCueKey lastCueKey,
+            ref int lastDedupeKey,
+            ref int lastEnemyEntityId,
+            ref PresentationEnemyPresentationKind lastPresentationKind,
+            ref PresentationEnemyPresentationPhase lastPresentationPhase,
+            ref PresentationEnemyPresentationOutcome lastPresentationOutcome)
+        {
+            var cue = playbackCue.Cue;
+            lastTickIndex = cue.Source.TickIndex;
+            lastDedupeKey = playbackCue.Policy.DedupeKey;
+            lastEnemyEntityId = Math.Max(cue.Target.EntityId, cue.EnemyPayload.EnemyEntityId);
+            lastPresentationKind = cue.EnemyPayload.Kind;
+            lastPresentationPhase = cue.EnemyPayload.Phase;
+            lastPresentationOutcome = cue.EnemyPayload.Outcome;
+            lastCueKey = cue.Key.TryGetAnimationCueKey(out var cueKey)
+                ? cueKey
+                : PresentationAnimationCueKey.None;
+        }
+
+        private static EnemyPresentationTelemetryFailureReason ToTelemetryFailureReason(
+            GameplayEnemyPresentationPlaybackResultKind resultKind)
+        {
+            switch (resultKind)
+            {
+                case GameplayEnemyPresentationPlaybackResultKind.TargetMissing:
+                    return EnemyPresentationTelemetryFailureReason.TargetMissing;
+                case GameplayEnemyPresentationPlaybackResultKind.AnchorMissing:
+                    return EnemyPresentationTelemetryFailureReason.AnchorMissing;
+                case GameplayEnemyPresentationPlaybackResultKind.MapperMissing:
+                    return EnemyPresentationTelemetryFailureReason.MapperMissing;
+                case GameplayEnemyPresentationPlaybackResultKind.DriverMissing:
+                    return EnemyPresentationTelemetryFailureReason.DriverMissing;
+                case GameplayEnemyPresentationPlaybackResultKind.AnimatorMissing:
+                    return EnemyPresentationTelemetryFailureReason.AnimatorMissing;
+                default:
+                    return EnemyPresentationTelemetryFailureReason.BindingMissing;
             }
         }
 

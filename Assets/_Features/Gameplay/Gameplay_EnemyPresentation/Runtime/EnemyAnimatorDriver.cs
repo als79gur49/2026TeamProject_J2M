@@ -525,7 +525,7 @@ namespace Game.Feature.Gameplay.Host
                 ? 0f
                 : resolvedSpeed;
 
-            if (driveAnimator && CanDriveAnimator(targetAnimator))
+            if (driveAnimator && CanSetAnimatorSpeed(targetAnimator))
             {
                 targetAnimator.speed = targetSpeed;
             }
@@ -1149,6 +1149,8 @@ namespace Game.Feature.Gameplay.Host
             var resolvedDurationSeconds = hasOverride
                 ? Mathf.Max(0f, crossFadeDurationSeconds)
                 : 0f;
+            LastCrossFadeDurationSeconds = resolvedDurationSeconds;
+            LastCrossFadedStateName = stateName;
 
             if (!CanDriveAnimator(targetAnimator))
             {
@@ -1161,8 +1163,6 @@ namespace Game.Feature.Gameplay.Host
             targetAnimator.CrossFadeInFixedTime(
                 stateHash,
                 resolvedDurationSeconds);
-            LastCrossFadeDurationSeconds = resolvedDurationSeconds;
-            LastCrossFadedStateName = stateName;
             ClearPendingNamedStateCrossFade(stateName);
             return true;
         }
@@ -1213,8 +1213,13 @@ namespace Game.Feature.Gameplay.Host
 
         private static bool CanDriveAnimator(Animator targetAnimator)
         {
+            return CanSetAnimatorSpeed(targetAnimator) &&
+                   targetAnimator.runtimeAnimatorController != null;
+        }
+
+        private static bool CanSetAnimatorSpeed(Animator targetAnimator)
+        {
             return targetAnimator != null &&
-                   targetAnimator.runtimeAnimatorController != null &&
                    targetAnimator.enabled &&
                    targetAnimator.isActiveAndEnabled &&
                    targetAnimator.gameObject.activeInHierarchy;

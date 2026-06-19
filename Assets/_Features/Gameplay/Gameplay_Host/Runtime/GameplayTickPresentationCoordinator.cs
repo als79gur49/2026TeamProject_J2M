@@ -451,7 +451,13 @@ namespace Game.Feature.Gameplay.Host
                 _stateStore,
                 _trackState);
             _playerActionAnimationSyncPlaybackPort =
-                new GameplayAnimationSyncPlaybackPort(_animationSync, _stateStore);
+                new GameplayAnimationSyncPlaybackPort(
+                    _animationSync,
+                    _stateStore,
+                    (entityId, actionKind) => _motionTimingResolver.ResolvePlayerMotionDurationSeconds(
+                        entityId,
+                        actionKind,
+                        _timingProfile));
             _enemyPresentationSyncPlaybackPort =
                 new GameplayEnemyPresentationSyncPlaybackPort(_animationSync, _stateStore);
             _coreGameplaySfxPlaybackPortAdapter = new GameplaySfxPlaybackPortAdapter(_stateStore);
@@ -539,6 +545,19 @@ namespace Game.Feature.Gameplay.Host
         internal TopologyPresentationOwnershipDiagnostics TopologyPresentationOwnershipDiagnostics =>
             _topologyExecutionGuard.Diagnostics;
 
+        internal TopologyExecutorDiagnostics TopologyExecutorDiagnostics =>
+            TopologyProductionTelemetryBuilder.ResolveExecutorDiagnostics(_topologyExecutionPipeline);
+
+        internal TopologyProductionTelemetrySnapshot TopologyProductionTelemetrySnapshot =>
+            TopologyProductionTelemetryBuilder.Build(
+                _topologyExecutionMode,
+                _topologyExecutionGuard.Diagnostics,
+                _topologyExecutionPipeline,
+                HasBlockingPresentation,
+                IsTopologyTransitionActive,
+                PresentationPipelineBlockingSnapshot,
+                TopologyExecutionPipelineBlockingSnapshot);
+
         internal DamageDeathVfxExecutionMode DamageDeathVfxExecutionMode => _damageDeathVfxExecutionMode;
 
         internal DamageDeathVfxOwnershipDiagnostics DamageDeathVfxOwnershipDiagnostics =>
@@ -600,8 +619,8 @@ namespace Game.Feature.Gameplay.Host
         internal PresentationBlockingSnapshot EnemyAudioExecutionPipelineBlockingSnapshot =>
             _enemyAudioExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
-        internal GameplayVfxExecutorDiagnostics DamageDeathVfxExecutorDiagnostics =>
-            ResolveDamageDeathVfxExecutorDiagnostics();
+        internal DamageDeathVfxExecutorDiagnostics DamageDeathVfxExecutorDiagnostics =>
+            DamageDeathVfxProductionTelemetryBuilder.ResolveExecutorDiagnostics(_damageDeathVfxExecutionPipeline);
 
         internal GameplayMotionExecutorDiagnostics BoxMotionExecutorDiagnostics =>
             ResolveBoxMotionExecutorDiagnostics();
@@ -623,19 +642,43 @@ namespace Game.Feature.Gameplay.Host
             BuildBoxMotionProductionTelemetrySnapshot();
 
         internal GameplayAnimationExecutorDiagnostics PlayerActionAnimationExecutorDiagnostics =>
-            ResolvePlayerActionAnimationExecutorDiagnostics();
+            PlayerActionAnimationProductionTelemetryBuilder.ResolveExecutorDiagnostics(_playerActionAnimationExecutionPipeline);
+
+        internal PlayerActionAnimationProductionTelemetrySnapshot PlayerActionAnimationProductionTelemetrySnapshot =>
+            PlayerActionAnimationProductionTelemetryBuilder.Build(
+                _playerActionAnimationExecutionMode,
+                _playerActionAnimationExecutionGuard.Diagnostics,
+                _playerActionAnimationExecutionPipeline);
 
         internal GameplayEnemyPresentationExecutorDiagnostics EnemyPresentationExecutorDiagnostics =>
-            ResolveEnemyPresentationExecutorDiagnostics();
+            EnemyPresentationProductionTelemetryBuilder.ResolveExecutorDiagnostics(_enemyPresentationExecutionPipeline);
+
+        internal EnemyPresentationProductionTelemetrySnapshot EnemyPresentationProductionTelemetrySnapshot =>
+            EnemyPresentationProductionTelemetryBuilder.Build(
+                _enemyPresentationExecutionMode,
+                _enemyPresentationExecutionGuard.Diagnostics,
+                _enemyPresentationExecutionPipeline);
 
         internal GameplaySfxExecutorDiagnostics CoreGameplaySfxExecutorDiagnostics =>
             ResolveCoreGameplaySfxExecutorDiagnostics();
 
         internal GameplayActionAudioExecutorDiagnostics ActionAudioExecutorDiagnostics =>
-            ResolveActionAudioExecutorDiagnostics();
+            ActionAudioProductionTelemetryBuilder.ResolveExecutorDiagnostics(_actionAudioExecutionPipeline);
+
+        internal ActionAudioProductionTelemetrySnapshot ActionAudioProductionTelemetrySnapshot =>
+            ActionAudioProductionTelemetryBuilder.Build(
+                _actionAudioExecutionMode,
+                _actionAudioExecutionGuard.Diagnostics,
+                _actionAudioExecutionPipeline);
 
         internal GameplayEnemyAudioExecutorDiagnostics EnemyAudioExecutorDiagnostics =>
-            ResolveEnemyAudioExecutorDiagnostics();
+            EnemyAudioProductionTelemetryBuilder.ResolveExecutorDiagnostics(_enemyAudioExecutionPipeline);
+
+        internal EnemyAudioProductionTelemetrySnapshot EnemyAudioProductionTelemetrySnapshot =>
+            EnemyAudioProductionTelemetryBuilder.Build(
+                _enemyAudioExecutionMode,
+                _enemyAudioExecutionGuard.Diagnostics,
+                _enemyAudioExecutionPipeline);
 
         internal void ConfigureDamageDeathVfxExecution(
             DamageDeathVfxExecutionMode mode,
@@ -2801,25 +2844,6 @@ namespace Game.Feature.Gameplay.Host
             return GameplayPresentationPhase.Idle;
         }
 
-        private GameplayVfxExecutorDiagnostics ResolveDamageDeathVfxExecutorDiagnostics()
-        {
-            if (_damageDeathVfxExecutionPipeline == null)
-            {
-                return default;
-            }
-
-            var executors = _damageDeathVfxExecutionPipeline.Executors;
-            for (var i = 0; i < executors.Count; i++)
-            {
-                if (executors[i] is GameplayVfxPresentationExecutor executor)
-                {
-                    return executor.Diagnostics;
-                }
-            }
-
-            return default;
-        }
-
         private void ApplyDamageDeathVfxPlannerSuppressionDiagnostics()
         {
             if (_damageDeathVfxExecutionPipeline?.LastCueFrame == null)
@@ -2835,14 +2859,9 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            var executors = _damageDeathVfxExecutionPipeline.Executors;
-            for (var i = 0; i < executors.Count; i++)
-            {
-                if (executors[i] is GameplayVfxPresentationExecutor executor)
-                {
-                    executor.RecordSameTickDamageHitSuppressedByDeath(suppressedByDeath);
-                }
-            }
+            DamageDeathVfxProductionTelemetryBuilder.RecordSameTickDamageHitSuppressedByDeath(
+                _damageDeathVfxExecutionPipeline,
+                suppressedByDeath);
         }
 
         private GameplayMotionExecutorDiagnostics ResolveBoxMotionExecutorDiagnostics()
@@ -2990,44 +3009,6 @@ namespace Game.Feature.Gameplay.Host
             return default;
         }
 
-        private GameplayAnimationExecutorDiagnostics ResolvePlayerActionAnimationExecutorDiagnostics()
-        {
-            if (_playerActionAnimationExecutionPipeline == null)
-            {
-                return default;
-            }
-
-            var executors = _playerActionAnimationExecutionPipeline.Executors;
-            for (var i = 0; i < executors.Count; i++)
-            {
-                if (executors[i] is GameplayAnimationPresentationExecutor executor)
-                {
-                    return executor.Diagnostics;
-                }
-            }
-
-            return default;
-        }
-
-        private GameplayEnemyPresentationExecutorDiagnostics ResolveEnemyPresentationExecutorDiagnostics()
-        {
-            if (_enemyPresentationExecutionPipeline == null)
-            {
-                return default;
-            }
-
-            var executors = _enemyPresentationExecutionPipeline.Executors;
-            for (var i = 0; i < executors.Count; i++)
-            {
-                if (executors[i] is GameplayEnemyPresentationExecutor executor)
-                {
-                    return executor.Diagnostics;
-                }
-            }
-
-            return default;
-        }
-
         private GameplaySfxExecutorDiagnostics ResolveCoreGameplaySfxExecutorDiagnostics()
         {
             var ownershipDiagnostics = _coreGameplaySfxExecutionGuard.Diagnostics;
@@ -3155,44 +3136,6 @@ namespace Game.Feature.Gameplay.Host
                 lastSemanticKey,
                 lastFallbackReason,
                 executorDiagnostics.SemanticDiagnostics);
-        }
-
-        private GameplayActionAudioExecutorDiagnostics ResolveActionAudioExecutorDiagnostics()
-        {
-            if (_actionAudioExecutionPipeline == null)
-            {
-                return default;
-            }
-
-            var executors = _actionAudioExecutionPipeline.Executors;
-            for (var i = 0; i < executors.Count; i++)
-            {
-                if (executors[i] is GameplayActionAudioPresentationExecutor executor)
-                {
-                    return executor.Diagnostics;
-                }
-            }
-
-            return default;
-        }
-
-        private GameplayEnemyAudioExecutorDiagnostics ResolveEnemyAudioExecutorDiagnostics()
-        {
-            if (_enemyAudioExecutionPipeline == null)
-            {
-                return default;
-            }
-
-            var executors = _enemyAudioExecutionPipeline.Executors;
-            for (var i = 0; i < executors.Count; i++)
-            {
-                if (executors[i] is GameplayEnemyAudioPresentationExecutor executor)
-                {
-                    return executor.Diagnostics;
-                }
-            }
-
-            return default;
         }
 
         private static DamageDeathVfxExecutionMode NormalizeDamageDeathVfxExecutionMode(

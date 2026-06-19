@@ -1587,8 +1587,7 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            if ((request.CueKey == PresentationMotionCueKey.BoxFlip ||
-                 request.CueKey == PresentationMotionCueKey.BoxFlipImpact) &&
+            if (request.CueKey == PresentationMotionCueKey.BoxFlipImpact &&
                 !view.TryGetComponent<BoxFlipInteractionDriver>(out _))
             {
                 result = new GameplayMotionPlaybackResult(GameplayMotionPlaybackResultKind.DriverMissing);
