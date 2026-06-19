@@ -1,15 +1,80 @@
 # Enemy AI Summon Internal Type Decoupling Closeout
 
-Last audited revision: `f46cea2f7a10fcde3c32753d1f34a27e9619a0a4` on branch `pr/enemy-ai-retired-melee-runtime-removal`.
+Last audited revision: `5074716539da093e92adb4503a3f05591865659c` on branch `pr/enemy-ai-retired-melee-runtime-removal`.
 
 ## Status
 
-Slice B code is implemented, but Slice B is not accepted until the current revision has both:
+Slice B code is implemented and focused automated validation is green on the current revision, but Slice B is not accepted until the current revision has production manual play smoke evidence.
 
 - production manual play smoke on a stage containing `EnemyAi_ArchetypeSummoner`
-- fresh unfiltered `./run_tests.sh full` evidence preserved from this revision
 
-Until those gates run, the correct closeout state is: **Slice B code implemented; validation gaps must be closed**.
+Fresh unfiltered `./run_tests.sh full` evidence is preserved from this revision. The full lane is red with the same failure identities as the previous preserved full, and no new Slice B touched-cluster identity was found. Because production manual play was not executed in this CLI session, the correct closeout state is: **Slice B code implemented and focused-green; acceptance remains pending required manual validation**.
+
+## 2026-06-20 Acceptance Run
+
+Revision/worktree:
+
+- HEAD: `5074716539da093e92adb4503a3f05591865659c`
+- branch: `pr/enemy-ai-retired-melee-runtime-removal`
+- diff hash: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+- tracked source/asset diff at run start: none
+- production asset, prefab, scene, and `.meta` diff at run start: none
+
+Static residue:
+
+- active old DTO source/test references: `0`
+- active `EnemyUtilityPresentationKind.SummonMinion` references: `0`
+- `RetiredSummonMinion` references are bounded to tombstone declaration, compiler/runtime rejection, authoring rejection, and retired guard tests
+- production prefab raw `utilityKind: 3` remains serialized and is handled only by the bounded `EnemyUtilityScalePulsePresentationDriver` compatibility adapter
+
+Focused validation results:
+
+- `git diff --check`: passed
+- `./run_tests.sh full --filter EnemyAiProfileAssetContractTests`: EditMode `25` total, `0` failed; production reimport/YAML/meta stability passed
+- `./run_tests.sh full --filter EnemyAiRuntimeDefinitionGuardTests`: EditMode `18` total, `0` failed
+- `./run_tests.sh --integration-simulation --filter BehaviorSummon`: EditMode `31` total, `0` failed
+- `./run_tests.sh --integration-simulation --filter MigratedSummon`: EditMode `24` total, `0` failed
+- `./run_tests.sh --integration-replay --filter MigratedSummon`: EditMode `1` total, `0` failed
+- `./run_tests.sh full --filter EnemyViewPresentationMapperTests`: EditMode `20` total, `0` failed
+- `./run_tests.sh full --filter EnemyAudio`: EditMode `101` total, `0` failed
+- `./run_tests.sh full --filter GameplayVfx`: EditMode `778` total, `0` failed; PlayMode `5` total, `0` failed
+- `./run_tests.sh full --filter EntitySpawnMaterializer`: EditMode `1` total, `0` failed
+- `./run_tests.sh full --filter StageRuntimeBuilderTests`: EditMode `69` total, `0` failed
+- `./run_tests.sh full --filter CampaignStageAssets_WithSummonArchetypes_HaveRuntimeAndPresentationArchetypeCatalogs`: EditMode `1` total, `0` failed
+- `./run_tests.sh --integration-simulation --filter GravityFieldAura`: EditMode `18` total, `0` failed
+- `./run_tests.sh full --filter ChargePassiveContact_StillUsesTargetSelection`: EditMode `1` total, `0` failed
+- `./run_tests.sh full --filter RocketFaceChargeRuntimeContractTests`: EditMode `17` total, `0` failed
+- `./run_tests.sh core`: EditMode `189` total, `0` failed; PlayMode `33` total, `0` failed
+
+B1/B2 automated evidence:
+
+- production serialized values and compiled parity remained pinned by `EnemyAiProfileAssetContractTests`
+- ForceUpdate reimport produced no production `.asset` or `.meta` dirty state
+- `WindupStarted` one-shot, `RecoverStarted` one-shot, source-invalid `Canceled` one-shot, blocked non-cancel, max-alive non-cancel, and cancel dedupe are covered by focused behavior/presentation tests
+- `EnemySummonSignals` remains the Summon view lifecycle carrier; `SummonWindupWarnings` remains the warning/audio/VFX compatibility carrier
+- audio/VFX duplicate and ghost cue/spawn surfaces are covered by focused `EnemyAudio`, `GameplayVfx`, `BehaviorSummon`, and `MigratedSummon` tests
+- legacy raw `utilityKind: 3` maps to Summon pulse; `GravityFieldAura` and unknown raw values do not map to Summon pulse
+
+Fresh unfiltered full:
+
+- command: `./run_tests.sh full`
+- preserved folder: `TestResults/Preserved/post-summon-slice-b-acceptance-50747165-20260620-021032/`
+- result: exit code `1`
+- EditMode: `5736` total, `5685` passed, `36` failed, `15` skipped
+- PlayMode: not run because EditMode failed; no stale PlayMode artifact was copied
+- previous comparison baseline: `TestResults/Preserved/post-utility-summon-code-retirement-fdc9bf5a-20260619-214829/`
+- failure identity comparison: previous `36`, current `36`, matched `36`, new `0`, removed `0`, message drift `0`
+- new Slice B touched-cluster failure identities: `0`
+
+Manual play:
+
+- not run in this CLI session
+- Slice B must remain pending until production manual play smoke records stage, Summoner entity ids, console/log evidence, capture evidence, and scenario results for normal lifecycle, source invalidation, blocked spawn, max alive, two Summoners, legacy raw adapter, Gravity, Charge, and PassiveContact
+
+Remaining debt:
+
+- introduce a typed `SummonSkipReason` / `SummonMaterializationOutcome` carrier to replace the bounded string fallback used for `SummonSkipped|Reason=SourceInvalid`
+- keep Slice C vocabulary/schema migration deferred until Slice B acceptance is complete
 
 ## Slice A Baseline
 
