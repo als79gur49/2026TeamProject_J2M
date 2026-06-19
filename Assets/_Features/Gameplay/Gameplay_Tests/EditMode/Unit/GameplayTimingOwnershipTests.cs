@@ -1294,9 +1294,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var rootObject = new GameObject("GameplayHostPresentationFeed_StageClearVictoryDelay_DefersStageClearedFrame");
             var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplayHostPresentationFeed_Victory_PlayerPrefab");
+            StageContentEntry stageContentEntry = null;
 
             try
             {
+                stageContentEntry = CreateStageContentEntry("stage-clear-victory-delay-test");
                 var authoring = playerViewPrefab.GetComponent<PlayerAnimationTimingAuthoring>();
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stageClearVictoryAnimatorDurationSeconds", 0.5f);
 
@@ -1319,7 +1321,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GameplayTimingProfile.CreateDefault());
                 presenter.PresentInitial(new[] { CreatePlayerEntity() }, topology);
 
-                var feed = new GameplayHostPresentationFeed(inputHost, presenter);
+                var feed = new GameplayHostPresentationFeed(inputHost, presenter, stageContentEntry);
                 var frames = new List<GameplayPresentationFrame>();
                 feed.FramePublished += frames.Add;
                 var result = CreateStageClearVictoryTickResult(tickIndex: 7);
@@ -1344,6 +1346,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(stageContentEntry);
                 UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }

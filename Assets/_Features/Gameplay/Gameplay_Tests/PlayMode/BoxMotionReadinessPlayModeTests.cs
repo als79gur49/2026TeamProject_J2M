@@ -328,7 +328,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 attachBoxDriver: false);
             try
             {
-                driverMissingContext.Host.Presenter.Present(CreateFlipResult(83, includeActiveFlipSignal: false));
+                driverMissingContext.Host.Presenter.Present(CreateFlipImpactResult(83));
                 Assert.That(driverMissingContext.Host.Presenter.BoxMotionExecutorDiagnostics.DriverMissingCount, Is.EqualTo(1));
                 Assert.That(driverMissingContext.Host.Presenter.BoxMotionProductionTelemetrySnapshot.DriverMissingCount, Is.EqualTo(1));
                 Assert.That(driverMissingContext.Host.Presenter.BoxMotionRuntimeDebugSnapshot.ActiveLocalMotionTrackCount, Is.Zero);
@@ -622,6 +622,30 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                             direction: Direction.Up,
                             actionPlanId: 510,
                             flipOutcome: TickPlayerFlipOutcomeKind.FollowThrough),
+                    }));
+        }
+
+        private static TickResult CreateFlipImpactResult(int tickIndex)
+        {
+            return CreateTickResult(
+                tickIndex,
+                finalBoxCell: FlipDestinationCell,
+                presentationData: CreatePresentationData(
+                    flipImpactSignals: new[]
+                    {
+                        new FlipImpactPresentationSignal(
+                            sourceActionPlanId: 710 + tickIndex,
+                            BoxEntityId,
+                            ImpactTargetEntityId,
+                            PlayerEntityId,
+                            FlipDestinationCell,
+                            ImpactCell,
+                            Topology,
+                            Direction.Up,
+                            Direction.Right,
+                            FlipImpactPresentationDisposition.Stay,
+                            hasLandingCell: true,
+                            landingCell: FlipDestinationCell),
                     }));
         }
 

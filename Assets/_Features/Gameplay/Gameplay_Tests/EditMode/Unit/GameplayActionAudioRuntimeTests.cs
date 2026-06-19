@@ -1258,6 +1258,73 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void ActionAudio_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues()
+        {
+            var rootObject = new GameObject(nameof(ActionAudio_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues));
+            using var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new ActionAudioViewFactory(rootObject.transform));
+                var bridgePort = new RecordingGameplayActionAudioPlaybackPort();
+
+                presenter.ConfigureActionAudioExecution(ActionAudioExecutionMode.OrchestrationActionAudioBridge, bridgePort);
+                presenter.AttachGameplayAudioRuntime(new RecordingGameplayAudioPlaybackPort(), mapBundle.Map);
+                presenter.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePresentationData(
+                    new[]
+                    {
+                        new TickPlayerActionPresentationSignal(
+                            entityId: 10,
+                            activeActionKind: PlayerActionKind.Push,
+                            activeActionSequence: 11,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false,
+                            targetEntityId: 20,
+                            direction: Direction.Right,
+                            actionPlanId: 101),
+                    },
+                    new[]
+                    {
+                        new TickPlayerActionAttemptPresentationSignal(
+                            12,
+                            PlayerActionKind.Flip,
+                            Direction.Down,
+                            PlayerActionAttemptFeedbackKind.AssistOutOfRange,
+                            targetEntityId: 30,
+                            hasTarget: true),
+                    }),
+                    tickIndex: 24));
+
+                var telemetry = presenter.ActionAudioProductionTelemetrySnapshot;
+                Assert.That(telemetry.CurrentMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.False);
+                Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
+                Assert.That(telemetry.RollbackMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
+                Assert.That(telemetry.LastTickIndex, Is.EqualTo(24));
+                Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationActionAudioCueKey.PlayerFlipAssistOutOfRange));
+                Assert.That(telemetry.LastOwnerEntityId, Is.EqualTo(12));
+                Assert.That(telemetry.LastAction, Is.EqualTo(GameplayActionKind.Flip));
+                Assert.That(telemetry.LastMoment, Is.EqualTo(GameplayActionAudioMoment.AssistOutOfRange));
+                Assert.That(telemetry.LastOutcome, Is.EqualTo(PresentationActionAudioOutcomeKind.AttemptFeedback));
+                Assert.That(telemetry.LastFailureReason, Is.EqualTo(ActionAudioTelemetryFailureReason.None));
+                Assert.That(telemetry.LegacyOwnerAttemptCount, Is.EqualTo(2));
+                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(2));
+                Assert.That(telemetry.ExecutorOwnerAttemptCount, Is.EqualTo(2));
+                Assert.That(telemetry.ExecutorOwnerExecutedCount, Is.EqualTo(2));
+                Assert.That(telemetry.ObservedCueCount, Is.EqualTo(2));
+                Assert.That(telemetry.RequestPlannedCount, Is.EqualTo(2));
+                Assert.That(telemetry.PlaybackRequestedCount, Is.EqualTo(2));
+                Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void ActionAudio_OrchestrationBridgeMode_DefaultAdapterUsesControllerProfileResolution()
         {
             var rootObject = new GameObject(nameof(ActionAudio_OrchestrationBridgeMode_DefaultAdapterUsesControllerProfileResolution));
@@ -1404,6 +1471,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(coordinator.ActionAudioOwnershipDiagnostics.DuplicateAttemptCount, Is.EqualTo(1));
                 Assert.That(coordinator.ActionAudioExecutorDiagnostics.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(coordinator.ActionAudioProductionTelemetrySnapshot.DuplicateOwnerAttemptCount, Is.EqualTo(1));
+                Assert.That(coordinator.ActionAudioProductionTelemetrySnapshot.DuplicateSuppressedCount, Is.EqualTo(1));
+                Assert.That(coordinator.ActionAudioProductionTelemetrySnapshot.LastFailureReason, Is.EqualTo(ActionAudioTelemetryFailureReason.DuplicateSuppressed));
             }
             finally
             {
@@ -1424,32 +1494,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateActionAudioCueFrame().Cues,
                 playbackPort: null,
                 diagnostics => diagnostics.PortMissingCount,
-                expectedCount: 1);
+                expectedCount: 1,
+                ActionAudioTelemetryFailureReason.PortMissing);
             AssertActionAudioExecutorDiagnostic(
                 CreateActionAudioCueFrame().Cues,
                 new RecordingGameplayActionAudioPlaybackPort(GameplayActionAudioPlaybackResultKind.OwnerViewMissing),
                 diagnostics => diagnostics.OwnerViewMissingCount,
-                expectedCount: 1);
+                expectedCount: 1,
+                ActionAudioTelemetryFailureReason.OwnerViewMissing);
             AssertActionAudioExecutorDiagnostic(
                 CreateActionAudioCueFrame().Cues,
                 new RecordingGameplayActionAudioPlaybackPort(GameplayActionAudioPlaybackResultKind.AuthoringMissing),
                 diagnostics => diagnostics.AuthoringMissingCount,
-                expectedCount: 1);
+                expectedCount: 1,
+                ActionAudioTelemetryFailureReason.AuthoringMissing);
             AssertActionAudioExecutorDiagnostic(
                 CreateActionAudioCueFrame().Cues,
                 new RecordingGameplayActionAudioPlaybackPort(GameplayActionAudioPlaybackResultKind.ProfileMissing),
                 diagnostics => diagnostics.ProfileMissingCount,
-                expectedCount: 1);
+                expectedCount: 1,
+                ActionAudioTelemetryFailureReason.ProfileMissing);
             AssertActionAudioExecutorDiagnostic(
                 CreateActionAudioCueFrame().Cues,
                 new RecordingGameplayActionAudioPlaybackPort(GameplayActionAudioPlaybackResultKind.BindingMissing),
                 diagnostics => diagnostics.BindingMissingCount,
-                expectedCount: 1);
+                expectedCount: 1,
+                ActionAudioTelemetryFailureReason.BindingMissing);
             AssertActionAudioExecutorDiagnostic(
                 CreateActionAudioCueFrame().Cues,
                 new RecordingGameplayActionAudioPlaybackPort(GameplayActionAudioPlaybackResultKind.OptionalProfileEntryMissing),
                 diagnostics => diagnostics.OptionalProfileEntryMissingNoOpCount,
-                expectedCount: 1);
+                expectedCount: 1,
+                ActionAudioTelemetryFailureReason.OptionalProfileEntryMissing);
         }
 
         [Test]
@@ -1533,6 +1609,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.ActionAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
                 Assert.That(coordinator.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
                 Assert.That(bridgePort.ResetSessionCallCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(coordinator.ActionAudioProductionTelemetrySnapshot.LastCleanupReason, Is.EqualTo(ActionAudioTelemetryCleanupReason.ResetSession));
 
                 coordinator.Present(CreateTickResult(CreatePresentationData(
                     new TickPlayerActionPresentationSignal(
@@ -1547,6 +1624,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.ActionAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
                 Assert.That(coordinator.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
                 Assert.That(bridgePort.HardCleanupCallCount, Is.EqualTo(1));
+                Assert.That(coordinator.ActionAudioProductionTelemetrySnapshot.LastCleanupReason, Is.EqualTo(ActionAudioTelemetryCleanupReason.HardCleanupPresentationExtensions));
                 Assert.That(
                     typeof(PresentationCue).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                         .Select(field => field.FieldType),
@@ -1742,7 +1820,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IReadOnlyList<PresentationCue> cues,
             IGameplayActionAudioPlaybackPort playbackPort,
             Func<GameplayActionAudioExecutorDiagnostics, int> selector,
-            int expectedCount)
+            int expectedCount,
+            ActionAudioTelemetryFailureReason expectedFailureReason =
+                ActionAudioTelemetryFailureReason.UnsupportedMoment)
         {
             var plan = new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
                 tickIndex: 51,
@@ -1756,6 +1836,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             executor.Play(plan);
 
             Assert.That(selector(executor.Diagnostics), Is.EqualTo(expectedCount));
+            Assert.That(executor.Diagnostics.LastFailureReason, Is.EqualTo(expectedFailureReason));
         }
 
         private static void AssertActionAudioAdapterDiagnostic(

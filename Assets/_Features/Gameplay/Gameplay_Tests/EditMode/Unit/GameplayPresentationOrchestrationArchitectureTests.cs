@@ -176,12 +176,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(uiApplicationSource, Does.Not.Contain("PresentationPlaybackScheduler"));
             Assert.That(uiApplicationSource, Does.Not.Contain("PresentationBlockingSnapshot"));
             Assert.That(uiApplicationSource, Does.Not.Contain("TopologyPresentationOwnershipDiagnostics"));
+            Assert.That(uiApplicationSource, Does.Not.Contain("TopologyProductionTelemetrySnapshot"));
             Assert.That(uiApplicationSource, Does.Not.Contain("TopologyPresentationExecutionMode"));
             Assert.That(uiApplicationSource, Does.Not.Contain("GameplayMotionExecutorDiagnostics"));
             Assert.That(uiApplicationSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
             Assert.That(uiApplicationSource, Does.Not.Contain("GameplayAnimationExecutorDiagnostics"));
+            Assert.That(uiApplicationSource, Does.Not.Contain("PlayerActionAnimationProductionTelemetrySnapshot"));
             Assert.That(uiApplicationSource, Does.Not.Contain("PlayerActionAnimationExecutionMode"));
             Assert.That(uiApplicationSource, Does.Not.Contain("EnemyPresentationExecutionMode"));
+            Assert.That(uiApplicationSource, Does.Not.Contain("EnemyPresentationProductionTelemetrySnapshot"));
+            Assert.That(uiApplicationSource, Does.Not.Contain("ActionAudioProductionTelemetrySnapshot"));
+            Assert.That(uiApplicationSource, Does.Not.Contain("EnemyAudioProductionTelemetrySnapshot"));
         }
 
         [Test]
@@ -251,6 +256,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(hostRuntimeSource, Does.Contain("ITopologyTransitionPlaybackPort"));
             Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutionGuard"));
             Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutionMode"));
+            Assert.That(hostRuntimeSource, Does.Contain("TopologyProductionTelemetrySnapshot"));
             Assert.That(topologyExecutorSource, Does.Contain("GameplayTopologyTransitionPlaybackPort"));
             Assert.That(topologyExecutorSource, Does.Contain("GameplayTopologyTransitionController controller"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("FindObjectOfType"));
@@ -344,6 +350,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(authoritativeSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
             Assert.That(authoritativeSource, Does.Not.Contain("GameplayMotionPresentationExecutor"));
             Assert.That(authoritativeSource, Does.Not.Contain("BoxMotionProductionTelemetrySnapshot"));
+            Assert.That(authoritativeSource, Does.Not.Contain("PlayerActionAnimationProductionTelemetrySnapshot"));
+            Assert.That(authoritativeSource, Does.Not.Contain("EnemyPresentationProductionTelemetrySnapshot"));
+            Assert.That(authoritativeSource, Does.Not.Contain("ActionAudioProductionTelemetrySnapshot"));
+            Assert.That(authoritativeSource, Does.Not.Contain("EnemyAudioProductionTelemetrySnapshot"));
         }
 
         [Test]
@@ -389,6 +399,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Audio/Runtime"), Does.Not.Contain("GameplayAnimationPresentationExecutor"));
             Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_ActionAudio/Runtime"), Does.Not.Contain("PlayerActionAnimationExecutionMode"));
             Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_ActionAudio/Runtime"), Does.Not.Contain("PresentationAnimationCueKey"));
+            Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_ActionAudio/Runtime"), Does.Not.Contain("PlayerActionAnimationProductionTelemetrySnapshot"));
+            Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_ActionAudio/Runtime"), Does.Not.Contain("EnemyPresentationProductionTelemetrySnapshot"));
         }
 
         [Test]
@@ -424,6 +436,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(uiSource, Does.Not.Contain("ActionAudioCuePlanner"));
             Assert.That(uiSource, Does.Not.Contain("ActionAudioExecutionMode"));
             Assert.That(uiSource, Does.Not.Contain("GameplayActionAudioExecutorDiagnostics"));
+            Assert.That(uiSource, Does.Not.Contain("ActionAudioProductionTelemetrySnapshot"));
+            Assert.That(uiSource, Does.Not.Contain("EnemyAudioProductionTelemetrySnapshot"));
         }
 
         [Test]
@@ -453,6 +467,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(hostRuntimeSource, Does.Contain("GameplayActionAudioPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("IGameplayActionAudioPlaybackPort"));
             Assert.That(hostRuntimeSource, Does.Contain("ActionAudioExecutionGuard"));
+            Assert.That(hostRuntimeSource, Does.Contain("ActionAudioProductionTelemetrySnapshot"));
             Assert.That(actionAudioExecutorSource, Does.Contain("GameplayActionAudioPlaybackPortAdapter"));
             Assert.That(actionAudioExecutorSource, Does.Contain("GameplayActionAudioPresentationController controller"));
             Assert.That(actionAudioExecutorSource, Does.Not.Contain("FindObjectOfType"));
@@ -492,6 +507,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(hostRuntimeSource, Does.Contain("IGameplayEnemyPresentationPlaybackPort"));
             Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationExecutionGuard"));
             Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationExecutionMode"));
+            Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationProductionTelemetrySnapshot"));
             Assert.That(enemyExecutorSource, Does.Contain("GameplayEnemyPresentationSyncPlaybackPort"));
             Assert.That(enemyExecutorSource, Does.Contain("GameplayAnimationSyncCoordinator animationSync"));
             Assert.That(enemyExecutorSource, Does.Not.Contain("FindObjectOfType"));
@@ -501,7 +517,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(enemyExecutorSource, Does.Not.Contain("Play2D"));
             Assert.That(enemyExecutorSource, Does.Not.Contain("EnemyAudioPresentationController"));
             Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime"), Does.Not.Contain("EnemyPresentationExecutionMode"));
+            Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_Vfx/Runtime"), Does.Not.Contain("EnemyPresentationProductionTelemetrySnapshot"));
             Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_EnemyAudio/Runtime"), Does.Not.Contain("GameplayEnemyPresentationExecutor"));
+            Assert.That(ReadDirectorySource("Assets/_Features/Gameplay/Gameplay_EnemyAudio/Runtime"), Does.Not.Contain("EnemyPresentationProductionTelemetrySnapshot"));
         }
 
         [Test]
@@ -773,6 +791,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinator.PresentationPipelineNoOpSchedulerAcceptCount, Is.Zero);
             Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
             Assert.That(coordinator.TopologyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+            Assert.That(coordinator.TopologyProductionTelemetrySnapshot.CurrentMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+            Assert.That(coordinator.TopologyProductionTelemetrySnapshot.RollbackMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
             Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
             Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
             Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
@@ -1384,6 +1404,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(enemyAudioExecutorSource, Does.Not.Contain("AudioManager"));
             Assert.That(enemyAudioExecutorSource, Does.Not.Contain("PresentationSfxCueKey"));
             Assert.That(enemyAudioExecutorSource, Does.Not.Contain("PresentationActionAudioCueKey"));
+            Assert.That(hostRuntimeSource, Does.Contain("EnemyAudioProductionTelemetrySnapshot"));
+            Assert.That(uiSource, Does.Not.Contain("EnemyAudioProductionTelemetrySnapshot"));
 
             Assert.That(planningSource, Does.Not.Contain("PresentationSfxCueKey.ForwardCellImpact"));
             Assert.That(planningSource, Does.Not.Contain("PresentationActionAudioCueKey.Enemy"));
@@ -1636,7 +1658,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeSource, Does.Not.Contain("GameplayVfxProductionRuntime"));
             Assert.That(runtimeSource, Does.Not.Contain("AudioManager"));
             Assert.That(uiSource, Does.Not.Contain("PresentationVfxCueKey"));
-            Assert.That(uiSource, Does.Not.Contain("GameplayVfxExecutorDiagnostics"));
+            Assert.That(uiSource, Does.Not.Contain("DamageDeathVfxExecutorDiagnostics"));
             Assert.That(uiSource, Does.Not.Contain("DamageDeathVfxSemanticDiagnostics"));
             Assert.That(uiSource, Does.Not.Contain("DamageDeathVfxSuppressionReason"));
             Assert.That(uiSource, Does.Not.Contain("DamageHitSuppressedByEnemyDeathCount"));

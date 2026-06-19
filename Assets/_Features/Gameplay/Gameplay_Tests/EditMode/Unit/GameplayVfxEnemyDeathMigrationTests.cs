@@ -290,8 +290,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePolicyFilterRequest(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup), sequenceId: 6),
                 });
 
-                var baseline = InvokeFilterByEnabledCues(runtime, plan, suppressDamageDeathRequests: false);
-                var filtered = InvokeFilterByEnabledCues(runtime, plan, suppressDamageDeathRequests: true);
+                var baseline = InvokeFilterByEnabledCues(runtime, plan, filterDamageDeathExecutorOwnedRequests: false);
+                var filtered = InvokeFilterByEnabledCues(runtime, plan, filterDamageDeathExecutorOwnedRequests: true);
                 var baselineCueIds = ToCueIds(baseline);
                 var cueIds = ToCueIds(filtered);
 
@@ -308,7 +308,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)), Is.False);
                 Assert.That(runtime.LegacyDamageCueSuppressedCount, Is.EqualTo(1));
                 Assert.That(runtime.LegacyDeathCueSuppressedCount, Is.EqualTo(1));
-                Assert.That(runtime.LastLegacySuppressFilteredRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.LastDamageDeathExecutorOwnedFilteredRequestCount, Is.EqualTo(2));
                 Assert.That(runtime.LegacyDamageDeathUnrelatedCueRetainedCount, Is.EqualTo(3));
                 Assert.That(IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)), Is.False);
                 Assert.That(IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)), Is.False);
@@ -559,7 +559,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static GameplayVfxRequestPlan InvokeFilterByEnabledCues(
             GameplayVfxProductionRuntime runtime,
             GameplayVfxRequestPlan plan,
-            bool suppressDamageDeathRequests)
+            bool filterDamageDeathExecutorOwnedRequests)
         {
             var method = typeof(GameplayVfxProductionRuntime).GetMethod(
                 "FilterByEnabledCues",
@@ -568,7 +568,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[] { typeof(GameplayVfxRequestPlan), typeof(bool) },
                 null);
             Assert.That(method, Is.Not.Null);
-            return (GameplayVfxRequestPlan)method.Invoke(runtime, new object[] { plan, suppressDamageDeathRequests });
+            return (GameplayVfxRequestPlan)method.Invoke(runtime, new object[] { plan, filterDamageDeathExecutorOwnedRequests });
         }
 
         private static bool IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId cueId)

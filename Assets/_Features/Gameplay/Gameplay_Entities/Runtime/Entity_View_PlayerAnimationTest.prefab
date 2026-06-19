@@ -79,7 +79,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5d61d20915b944faabca806869d9edba, type: 3}
   m_Name: 
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayEntityView
   entityId: 0
   modelRoot: {fileID: 400001}
 --- !u!114 &11400001
@@ -93,7 +93,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1c4a2f7bf37431fa19e2d57c1d803aa, type: 3}
   m_Name: 
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.UnitLocomotionPresentationAuthoring
   moveMotionDurationSeconds: -1
 --- !u!114 &11400002
 MonoBehaviour:
@@ -106,7 +106,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bf764d3025b64c238c5ffede82e69859, type: 3}
   m_Name: 
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EntityMotionPresentationAuthoring
   moveMotionDurationSeconds: -1
   pushMotionDurationSeconds: 0.6
   flipMotionDurationSeconds: 2
@@ -121,7 +121,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 862dd910f7114661a6f9b0cf732ec497, type: 3}
   m_Name: 
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.PlayerAnimationTimingAuthoring
   pushWindupAnimatorDurationSeconds: -1
   pushRecoveryAnimatorDurationSeconds: -1
   flipWindupAnimatorDurationSeconds: -1

@@ -423,10 +423,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("Phase 9K"));
             Assert.That(document, Does.Contain("Phase 9L"));
             Assert.That(document, Does.Contain("Phase 9M"));
+            Assert.That(document, Does.Contain("Phase 9N"));
             Assert.That(document, Does.Contain("Player action animation"));
             Assert.That(document, Does.Contain("LegacyAnimationSync"));
             Assert.That(document, Does.Contain("AcceptedTemporaryAdapterContract"));
-            Assert.That(document, Does.Contain("ProductionDefaultOnPendingTelemetry"));
+            Assert.That(document, Does.Contain("ProductionDefaultOnTelemetryHardened"));
             Assert.That(document, Does.Contain("PlayerPushExecute -> PlayerPresentationPhase.PushRecovery"));
             Assert.That(document, Does.Contain("PlayerFlipExecute -> PlayerPresentationPhase.FlipRecovery"));
             Assert.That(document, Does.Contain("Player action animation production default is now `OrchestrationAnimationExecutor`"));
@@ -484,9 +485,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(actionAudio, Does.Not.Contain("PresentationAnimationCueKey"));
             Assert.That(actionAudio, Does.Not.Contain("GameplayAnimationExecutorDiagnostics"));
+            Assert.That(actionAudio, Does.Not.Contain("PlayerActionAnimationProductionTelemetrySnapshot"));
             Assert.That(ui, Does.Not.Contain("GameplayAnimationExecutorDiagnostics"));
+            Assert.That(ui, Does.Not.Contain("PlayerActionAnimationProductionTelemetrySnapshot"));
             Assert.That(simulation, Does.Not.Contain("PlayerActionAnimationExecutionMode"));
             Assert.That(simulation, Does.Not.Contain("GameplayAnimationPresentationExecutor"));
+            Assert.That(simulation, Does.Not.Contain("PlayerActionAnimationProductionTelemetrySnapshot"));
         }
 
         private static GameplayAnimationPresentationExecutor CreateOrchestrationExecutor(

@@ -433,6 +433,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void EnemyAudio_ProductionTelemetry_CoversOneShotOwnerSemanticLoopAndRollbackValues()
+        {
+            var rootObject = new GameObject(nameof(EnemyAudio_ProductionTelemetry_CoversOneShotOwnerSemanticLoopAndRollbackValues));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateEnemyAudioProfile(
+                new EnemyAudioEntrySpec(EnemyAudioCue.Active, CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var bridgePort = new RecordingEnemyAudioPlaybackPort();
+                var enemy = CreateUnit(60, UnitRole.Enemy);
+
+                presenter.ConfigureEnemyAudioExecution(
+                    EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge,
+                    bridgePort);
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(
+                    CreatePresentationData(enemyActionSignals: new[]
+                    {
+                        CreateEnemyActionExecutedSignal(
+                            enemy.entityId,
+                            EnemyActionPresentationSource.Combat,
+                            EnemyActionPresentationOutcome.Executed),
+                    }),
+                    new[] { enemy },
+                    tickIndex: 8));
+
+                var telemetry = presenter.EnemyAudioProductionTelemetrySnapshot;
+                Assert.That(telemetry.CurrentMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.False);
+                Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
+                Assert.That(telemetry.RollbackMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
+                Assert.That(telemetry.LastTickIndex, Is.EqualTo(8));
+                Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationEnemyAudioCueKey.Active));
+                Assert.That(telemetry.LastOwnerEntityId, Is.EqualTo(enemy.entityId));
+                Assert.That(telemetry.LastOriginKind, Is.EqualTo(PresentationEnemyAudioOriginKind.Action));
+                Assert.That(telemetry.LastPhase, Is.EqualTo(PresentationEnemyAudioPhase.Active));
+                Assert.That(telemetry.LastFailureReason, Is.EqualTo(EnemyAudioTelemetryFailureReason.None));
+                Assert.That(telemetry.LegacyOwnerAttemptCount, Is.EqualTo(1));
+                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
+                Assert.That(telemetry.ExecutorOwnerAttemptCount, Is.EqualTo(1));
+                Assert.That(telemetry.ExecutorOwnerExecutedCount, Is.EqualTo(1));
+                Assert.That(telemetry.ObservedCueCount, Is.EqualTo(1));
+                Assert.That(telemetry.RequestPlannedCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyAudio_OrchestrationBridgeMode_DefaultAdapterUsesExistingControllerBoundary()
         {
             var rootObject = new GameObject(nameof(EnemyAudio_OrchestrationBridgeMode_DefaultAdapterUsesExistingControllerBoundary));
@@ -498,6 +555,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(playbackPlan.Cues.Count(cue => cue.Cue.Domain == PresentationDomain.EnemyAudio), Is.EqualTo(2));
             Assert.That(bridgePort.Requests, Has.Count.EqualTo(1));
             Assert.That(executor.Diagnostics.DuplicateSuppressedCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.LastFailureReason, Is.EqualTo(EnemyAudioTelemetryFailureReason.DuplicateSuppressed));
             Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
         }
 
@@ -538,12 +596,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }))));
 
             Assert.That(portMissingExecutor.Diagnostics.PortMissingCount, Is.EqualTo(1));
+            Assert.That(portMissingExecutor.Diagnostics.LastFailureReason, Is.EqualTo(EnemyAudioTelemetryFailureReason.PortMissing));
             AssertEnemyAudioExecutorPortResult(
                 GameplayEnemyAudioPlaybackResultKind.BindingMissing,
-                diagnostics => diagnostics.BindingMissingCount);
+                diagnostics => diagnostics.BindingMissingCount,
+                EnemyAudioTelemetryFailureReason.BindingMissing);
             AssertEnemyAudioExecutorPortResult(
                 GameplayEnemyAudioPlaybackResultKind.UnsupportedSemantic,
-                diagnostics => diagnostics.UnsupportedSemanticCount);
+                diagnostics => diagnostics.UnsupportedSemanticCount,
+                EnemyAudioTelemetryFailureReason.UnsupportedSemantic);
         }
 
         [Test]
@@ -574,6 +635,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             executor.Play(CreateManualEnemyAudioPlaybackPlan(PresentationEnemyAudioCueKey.ChargeActiveLoop));
 
             Assert.That(executor.Diagnostics.UnsupportedLoopSemanticCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.LastFailureReason, Is.EqualTo(EnemyAudioTelemetryFailureReason.UnsupportedLoopSemantic));
             Assert.That(bridgePort.Requests.Select(request => request.CueKey).ToArray(), Is.EqualTo(new[]
             {
                 PresentationEnemyAudioCueKey.Active,
@@ -618,6 +680,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
                 Assert.That(presenter.EnemyAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
+                Assert.That(presenter.EnemyAudioProductionTelemetrySnapshot.LastCleanupReason, Is.EqualTo(EnemyAudioTelemetryCleanupReason.ResetSession));
                 Assert.That(bridgePort.ResetCount, Is.GreaterThanOrEqualTo(1));
 
                 var cleanupPort = new RecordingEnemyAudioPlaybackPort();
@@ -641,6 +704,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cleanupExecutor.HardCleanup();
 
                 Assert.That(cleanupExecutor.Diagnostics.ObservedCueCount, Is.Zero);
+                Assert.That(cleanupExecutor.Diagnostics.LastCleanupReason, Is.EqualTo(EnemyAudioTelemetryCleanupReason.HardCleanupPresentationExtensions));
                 Assert.That(cleanupPort.HardCleanupCount, Is.EqualTo(1));
             }
             finally
@@ -3147,7 +3211,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertEnemyAudioExecutorPortResult(
             GameplayEnemyAudioPlaybackResultKind resultKind,
-            Func<GameplayEnemyAudioExecutorDiagnostics, int> expected)
+            Func<GameplayEnemyAudioExecutorDiagnostics, int> expected,
+            EnemyAudioTelemetryFailureReason expectedFailureReason)
         {
             var playbackPlan = CreateEnemyAudioPlaybackPlan(CreateTickResult(
                 CreatePresentationData(enemyActionSignals: new[]
@@ -3165,6 +3230,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             executor.Play(playbackPlan);
 
             Assert.That(expected(executor.Diagnostics), Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.LastFailureReason, Is.EqualTo(expectedFailureReason));
         }
 
         private static GameplayTimingProfile CreateTimingProfile()

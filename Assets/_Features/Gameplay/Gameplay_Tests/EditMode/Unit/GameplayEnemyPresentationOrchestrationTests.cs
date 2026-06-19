@@ -131,6 +131,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void EnemyPresentation_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues()
+        {
+            var rootObject = new GameObject(nameof(EnemyPresentation_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues));
+            var port = new RecordingEnemyPresentationPlaybackPort();
+
+            try
+            {
+                var coordinator = CreateInitializedCoordinator(
+                    rootObject,
+                    EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
+                    port,
+                    new EnemyPresentationViewFactory(rootObject.transform, addDriver: true));
+
+                coordinator.Present(CreateEnemyPresentationTickResult());
+
+                var telemetry = coordinator.EnemyPresentationProductionTelemetrySnapshot;
+                Assert.That(telemetry.CurrentMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.False);
+                Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
+                Assert.That(telemetry.RollbackMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
+                Assert.That(telemetry.LastTickIndex, Is.EqualTo(TickIndex));
+                Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationAnimationCueKey.EnemyDeath));
+                Assert.That(telemetry.LastEnemyEntityId, Is.EqualTo(DeathEnemyId));
+                Assert.That(telemetry.LastPresentationKind, Is.EqualTo(PresentationEnemyPresentationKind.Death));
+                Assert.That(telemetry.LastPresentationPhase, Is.EqualTo(PresentationEnemyPresentationPhase.Death));
+                Assert.That(telemetry.LastPresentationOutcome, Is.EqualTo(PresentationEnemyPresentationOutcome.Death));
+                Assert.That(telemetry.LastFailureReason, Is.EqualTo(EnemyPresentationTelemetryFailureReason.None));
+                Assert.That(telemetry.LegacyOwnerAttemptCount, Is.EqualTo(7));
+                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(7));
+                Assert.That(telemetry.ExecutorOwnerAttemptCount, Is.EqualTo(7));
+                Assert.That(telemetry.ExecutorOwnerExecutedCount, Is.EqualTo(7));
+                Assert.That(telemetry.DuplicateOwnerAttemptCount, Is.Zero);
+                Assert.That(telemetry.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(telemetry.ObservedCueCount, Is.EqualTo(7));
+                Assert.That(telemetry.PlaybackCommandRequestedCount, Is.EqualTo(7));
+                Assert.That(telemetry.PlaybackCommandAppliedCount, Is.EqualTo(7));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyPresentation_LegacyMapperAndOrchestrationRequests_AreSemanticallyEquivalent()
         {
             var result = CreateEnemyPresentationTickResult();
@@ -226,6 +271,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(duplicatePort.TryPlayCallCount, Is.EqualTo(7));
                 Assert.That(duplicateCoordinator.EnemyPresentationOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(7));
                 Assert.That(duplicateCoordinator.EnemyPresentationOwnershipDiagnostics.DuplicateAttemptCount, Is.EqualTo(7));
+                Assert.That(duplicateCoordinator.EnemyPresentationProductionTelemetrySnapshot.DuplicateOwnerAttemptCount, Is.EqualTo(7));
+                Assert.That(duplicateCoordinator.EnemyPresentationProductionTelemetrySnapshot.DuplicateSuppressedCount, Is.EqualTo(7));
+                Assert.That(duplicateCoordinator.EnemyPresentationProductionTelemetrySnapshot.LastFailureReason, Is.EqualTo(EnemyPresentationTelemetryFailureReason.DuplicateSuppressed));
             }
             finally
             {
@@ -256,6 +304,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(targetAnchorCoordinator.EnemyPresentationExecutorDiagnostics.TargetMissingCount, Is.EqualTo(1));
                 Assert.That(targetAnchorCoordinator.EnemyPresentationExecutorDiagnostics.AnchorMissingCount, Is.EqualTo(1));
                 Assert.That(targetAnchorCoordinator.EnemyPresentationExecutorDiagnostics.CommandRequestedCount, Is.Zero);
+                Assert.That(targetAnchorCoordinator.EnemyPresentationProductionTelemetrySnapshot.LastFailureReason, Is.EqualTo(EnemyPresentationTelemetryFailureReason.AnchorMissing));
 
                 AssertExecutorPortDiagnostic(GameplayEnemyPresentationPlaybackResultKind.BindingMissing, diagnostics => diagnostics.BindingMissingCount);
                 AssertExecutorPortDiagnostic(GameplayEnemyPresentationPlaybackResultKind.MapperMissing, diagnostics => diagnostics.MapperMissingCount);
@@ -293,6 +342,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(port.TryPlayCallCount, Is.Zero);
                 Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
                 Assert.That(coordinator.EnemyPresentationExecutorDiagnostics.CommandRequestedCount, Is.Zero);
+                Assert.That(coordinator.EnemyPresentationProductionTelemetrySnapshot.LastCleanupReason, Is.EqualTo(EnemyPresentationTelemetryCleanupReason.ResetSession));
                 Assert.That(GetEnemyDriver(rootObject, DeathEnemyId).LastPresentationState.DidDie, Is.False);
 
                 coordinator.Present(CreateEnemyPresentationTickResult());
@@ -301,6 +351,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(port.TryPlayCallCount, Is.Zero);
                 Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
                 Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(coordinator.EnemyPresentationProductionTelemetrySnapshot.LastCleanupReason, Is.EqualTo(EnemyPresentationTelemetryCleanupReason.HardCleanupPresentationExtensions));
             }
             finally
             {
@@ -791,6 +842,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(coordinator.EnemyPresentationExecutorDiagnostics.MissingPortCount, Is.EqualTo(7));
                 Assert.That(coordinator.EnemyPresentationExecutorDiagnostics.CommandRequestedCount, Is.Zero);
+                Assert.That(coordinator.EnemyPresentationProductionTelemetrySnapshot.LastFailureReason, Is.EqualTo(EnemyPresentationTelemetryFailureReason.PortMissing));
             }
             finally
             {

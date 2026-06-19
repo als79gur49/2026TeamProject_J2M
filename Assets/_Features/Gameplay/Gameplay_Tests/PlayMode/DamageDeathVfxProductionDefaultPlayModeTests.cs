@@ -209,7 +209,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(context.VfxRuntime, Is.Not.Null);
                 Assert.That(context.VfxRuntime.LegacyDamageCueSuppressedCount, Is.EqualTo(1));
                 Assert.That(context.VfxRuntime.LegacyDeathCueSuppressedCount, Is.EqualTo(1));
-                Assert.That(context.VfxRuntime.LastLegacySuppressFilteredRequestCount, Is.EqualTo(2));
+                Assert.That(context.VfxRuntime.LastDamageDeathExecutorOwnedFilteredRequestCount, Is.EqualTo(2));
                 Assert.That(context.VfxRuntime.LegacyDamageDeathUnrelatedCueRetainedCount, Is.EqualTo(1));
                 Assert.That(context.Host.Presenter.DamageDeathVfxExecutorDiagnostics.DuplicateSuppressedCount, Is.Zero);
                 Assert.That(context.Host.Presenter.DamageDeathVfxOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
@@ -602,7 +602,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         private static void AssertSemanticTelemetry(
-            GameplayVfxExecutorDiagnostics diagnostics,
+            DamageDeathVfxExecutorDiagnostics diagnostics,
             PresentationVfxCueKey cueKey,
             int entityId,
             PresentationAnchorKind anchorKind)
@@ -630,7 +630,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(ContainsFieldAssignableTo(typeof(PresentationCue), handleType), Is.False);
             Assert.That(ContainsFieldAssignableTo(typeof(PresentationPlaybackPlan), handleType), Is.False);
             Assert.That(ContainsFieldAssignableTo(typeof(GameplayVfxPlaybackRequest), handleType), Is.False);
-            Assert.That(ContainsFieldAssignableTo(typeof(GameplayVfxExecutorDiagnostics), handleType), Is.False);
+            Assert.That(ContainsFieldAssignableTo(typeof(DamageDeathVfxExecutorDiagnostics), handleType), Is.False);
         }
 
         private static Type ResolveType(string fullName)

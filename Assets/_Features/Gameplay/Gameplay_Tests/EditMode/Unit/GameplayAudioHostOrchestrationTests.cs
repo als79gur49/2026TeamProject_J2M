@@ -1201,6 +1201,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = CreatePresenter(rootObject);
+                presenter.ConfigureCoreGameplaySfxExecution(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController);
                 presenter.AttachGameplayAudioRuntime(new RecordingGameplayAudioPlaybackPort(), mapBundle.Map);
                 presenter.DebugRefreshGameplayAudioPlan(CreateTickResult(CreatePlayerDamagePresentationData(10)));
 
