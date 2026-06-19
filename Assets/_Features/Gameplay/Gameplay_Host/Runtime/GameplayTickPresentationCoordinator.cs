@@ -1152,16 +1152,14 @@ namespace Game.Feature.Gameplay.Host
                 _projector,
                 _timingProfile,
                 suppressBoxMotionTracks:
-                    BoxMotionPresentationExecutionMode == BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor);
+                    GameplayPresentationExecutionRouter.UseBoxMotionExecutor(BoxMotionPresentationExecutionMode));
             RetainTopologyMoonBlockGeneratedPoses(result.PresentationData);
             _lastPresentedTickIndex = result.TickIndex;
             RefreshPresentationMotionVfx(result.TickIndex);
             var suppressLegacyPlayerActionAnimations =
-                PlayerActionAnimationExecutionMode ==
-                PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor;
+                GameplayPresentationExecutionRouter.UsePlayerActionAnimationExecutor(PlayerActionAnimationExecutionMode);
             var suppressLegacyEnemyPresentationAnimations =
-                EnemyPresentationExecutionMode ==
-                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor;
+                GameplayPresentationExecutionRouter.UseEnemyPresentationExecutor(EnemyPresentationExecutionMode);
             _animationSync.ApplyTickPresentation(
                 result,
                 _stateStore.ViewsByEntityId,
@@ -1257,7 +1255,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void RefreshTopologyExecution(TickResult result)
         {
-            if (TopologyPresentationExecutionMode == TopologyPresentationExecutionMode.ExecutorBridge)
+            if (GameplayPresentationExecutionRouter.UseTopologyExecutor(TopologyPresentationExecutionMode))
             {
                 ExecuteExecutorBridgeTopologyPath(result);
                 return;
@@ -1291,7 +1289,7 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
             CubeTopologyState previousCommittedTopology)
         {
-            if (BoxMotionPresentationExecutionMode == BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor)
+            if (GameplayPresentationExecutionRouter.UseBoxMotionExecutor(BoxMotionPresentationExecutionMode))
             {
                 RecordBoxMotionLegacySkippedByPolicy(result);
                 var playbackPort = ResolveBoxMotionPlaybackPort();
@@ -1419,8 +1417,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            if (PlayerActionAnimationExecutionMode ==
-                PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor)
+            if (GameplayPresentationExecutionRouter.UsePlayerActionAnimationExecutor(PlayerActionAnimationExecutionMode))
             {
                 RecordPlayerActionAnimationLegacySkippedByPolicy(result);
                 _playerActionAnimationExecutionPipeline ??= _playerActionAnimationExecutionPipelineFactory(
@@ -1492,8 +1489,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            if (EnemyPresentationExecutionMode ==
-                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor)
+            if (GameplayPresentationExecutionRouter.UseEnemyPresentationExecutor(EnemyPresentationExecutionMode))
             {
                 RecordEnemyPresentationLegacySkippedByPolicy(result);
                 _enemyPresentationExecutionPipeline ??= _enemyPresentationExecutionPipelineFactory(
@@ -1580,7 +1576,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var keys = BuildDamageDeathVfxPlaybackKeys(result);
-            if (DamageDeathVfxExecutionMode == DamageDeathVfxExecutionMode.OrchestrationExecutor)
+            if (GameplayPresentationExecutionRouter.UseDamageDeathVfxExecutor(DamageDeathVfxExecutionMode))
             {
                 for (var i = 0; i < keys.Count; i++)
                 {
@@ -1608,7 +1604,7 @@ namespace Game.Feature.Gameplay.Host
         private void RefreshCoreGameplaySfxExecution(TickResult result)
         {
             if (result == null ||
-                CoreGameplaySfxExecutionMode != CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor)
+                !GameplayPresentationExecutionRouter.UseCoreGameplaySfxExecutor(CoreGameplaySfxExecutionMode))
             {
                 return;
             }
@@ -1623,7 +1619,7 @@ namespace Game.Feature.Gameplay.Host
         private void RefreshActionAudioExecution(TickResult result)
         {
             if (result == null ||
-                ActionAudioExecutionMode != ActionAudioExecutionMode.OrchestrationActionAudioBridge)
+                !GameplayPresentationExecutionRouter.UseActionAudioExecutor(ActionAudioExecutionMode))
             {
                 return;
             }
@@ -1638,7 +1634,7 @@ namespace Game.Feature.Gameplay.Host
         private void RefreshEnemyAudioExecution(TickResult result)
         {
             if (result == null ||
-                EnemyAudioExecutionMode != EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge)
+                !GameplayPresentationExecutionRouter.UseEnemyAudioExecutor(EnemyAudioExecutionMode))
             {
                 return;
             }
@@ -2158,7 +2154,7 @@ namespace Game.Feature.Gameplay.Host
                 gameplayAudioRequests,
                 playableDeathCueEntityIds);
 
-            if (CoreGameplaySfxExecutionMode == CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor)
+            if (GameplayPresentationExecutionRouter.UseCoreGameplaySfxExecutor(CoreGameplaySfxExecutionMode))
             {
                 var coreSfxKeys = BuildCoreGameplaySfxPlaybackKeys(result);
                 for (var i = 0; i < coreSfxKeys.Count; i++)
@@ -2183,7 +2179,7 @@ namespace Game.Feature.Gameplay.Host
 
             var actionAudioRequests = _actionAudioRequestPlanner.BuildRequests(result);
             var actionAudioKeys = BuildActionAudioPlaybackKeys(result);
-            if (ActionAudioExecutionMode == ActionAudioExecutionMode.OrchestrationActionAudioBridge)
+            if (GameplayPresentationExecutionRouter.UseActionAudioExecutor(ActionAudioExecutionMode))
             {
                 for (var i = 0; i < actionAudioKeys.Count; i++)
                 {
@@ -2207,7 +2203,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var enemyAudioKeys = BuildEnemyAudioPlaybackKeys(result);
-            if (EnemyAudioExecutionMode == EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge)
+            if (GameplayPresentationExecutionRouter.UseEnemyAudioExecutor(EnemyAudioExecutionMode))
             {
                 for (var i = 0; i < enemyAudioKeys.Count; i++)
                 {
@@ -3186,5 +3182,48 @@ namespace Game.Feature.Gameplay.Host
         public float AnimatorNormalizedTime { get; }
 
         public int DeathTriggerCount { get; }
+    }
+
+    internal static class GameplayPresentationExecutionRouter
+    {
+        public static bool UseTopologyExecutor(TopologyPresentationExecutionMode mode)
+        {
+            return mode == TopologyPresentationExecutionMode.ExecutorBridge;
+        }
+
+        public static bool UseDamageDeathVfxExecutor(DamageDeathVfxExecutionMode mode)
+        {
+            return mode == DamageDeathVfxExecutionMode.OrchestrationExecutor;
+        }
+
+        public static bool UseBoxMotionExecutor(BoxMotionPresentationExecutionMode mode)
+        {
+            return mode == BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor;
+        }
+
+        public static bool UsePlayerActionAnimationExecutor(PlayerActionAnimationExecutionMode mode)
+        {
+            return mode == PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor;
+        }
+
+        public static bool UseEnemyPresentationExecutor(EnemyPresentationExecutionMode mode)
+        {
+            return mode == EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor;
+        }
+
+        public static bool UseCoreGameplaySfxExecutor(CoreGameplaySfxExecutionMode mode)
+        {
+            return mode == CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor;
+        }
+
+        public static bool UseActionAudioExecutor(ActionAudioExecutionMode mode)
+        {
+            return mode == ActionAudioExecutionMode.OrchestrationActionAudioBridge;
+        }
+
+        public static bool UseEnemyAudioExecutor(EnemyAudioExecutionMode mode)
+        {
+            return mode == EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge;
+        }
     }
 }

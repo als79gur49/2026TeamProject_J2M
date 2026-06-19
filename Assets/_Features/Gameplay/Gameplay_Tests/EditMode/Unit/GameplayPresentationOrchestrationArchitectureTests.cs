@@ -212,13 +212,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void TopologyAndInputLockExistingPath_RemainsOwnedByCoordinator()
         {
             var coordinatorSource = ReadRepoFile(CoordinatorPath);
+            var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
             var inputHostSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayInputHost.cs");
 
             Assert.That(coordinatorSource, Does.Contain("GameplayTopologyTransitionController _topologyTransitionController"));
             Assert.That(coordinatorSource, Does.Contain("_topologyTransitionController.RefreshTopologyTrack"));
             Assert.That(coordinatorSource, Does.Contain("_topologyTransitionController.RefreshBoardSurfaceTransition"));
-            Assert.That(coordinatorSource, Does.Contain("TopologyPresentationExecutionMode.LegacyCoordinator"));
+            Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutionMode.LegacyCoordinator"));
             Assert.That(coordinatorSource, Does.Contain("TopologyPresentationExecutionMode.ExecutorBridge"));
+            Assert.That(coordinatorSource, Does.Contain("GameplayPresentationExecutionRouter.UseTopologyExecutor"));
             Assert.That(coordinatorSource, Does.Contain("ExecuteLegacyTopologyPath"));
             Assert.That(coordinatorSource, Does.Contain("ExecuteExecutorBridgeTopologyPath"));
             Assert.That(coordinatorSource, Does.Contain("public bool IsTopologyTransitionActive => CurrentPresentationPhase == GameplayPresentationPhase.TopologyTransition;"));
@@ -377,8 +379,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("MonoBehaviour"));
             Assert.That(runtimeSource, Does.Not.Contain("GameplayAnimationSyncCoordinator"));
             Assert.That(runtimeSource, Does.Not.Contain("PlayerAnimatorDriver"));
-            Assert.That(coordinatorSource, Does.Contain("PlayerActionAnimationExecutionDefaults.LegacyFallback"));
+            Assert.That(hostRuntimeSource, Does.Contain("PlayerActionAnimationExecutionDefaults.LegacyFallback"));
             Assert.That(coordinatorSource, Does.Contain("PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor"));
+            Assert.That(coordinatorSource, Does.Contain("GameplayPresentationExecutionRouter.UsePlayerActionAnimationExecutor"));
             Assert.That(coordinatorSource, Does.Contain("suppressLegacyPlayerActionAnimations"));
             Assert.That(hostRuntimeSource, Does.Contain("GameplayAnimationPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("IGameplayAnimationPlaybackPort"));
@@ -461,8 +464,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AudioSource"));
             Assert.That(runtimeSource, Does.Not.Contain("GameplayActionAudioPresentationController"));
             Assert.That(runtimeSource, Does.Not.Contain("GameplayActionAudioPresentationExecutor"));
-            Assert.That(coordinatorSource, Does.Contain("ActionAudioExecutionMode.LegacyActionAudioController"));
+            Assert.That(hostRuntimeSource, Does.Contain("ActionAudioExecutionMode.LegacyActionAudioController"));
             Assert.That(coordinatorSource, Does.Contain("ActionAudioExecutionMode.OrchestrationActionAudioBridge"));
+            Assert.That(coordinatorSource, Does.Contain("GameplayPresentationExecutionRouter.UseActionAudioExecutor"));
             Assert.That(coordinatorSource, Does.Contain("_actionAudioPresentationController.ReplacePendingPlan"));
             Assert.That(hostRuntimeSource, Does.Contain("GameplayActionAudioPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("IGameplayActionAudioPlaybackPort"));
@@ -500,8 +504,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("MonoBehaviour"));
             Assert.That(runtimeSource, Does.Not.Contain("EnemyViewPresentationMapper"));
             Assert.That(runtimeSource, Does.Not.Contain("EnemyAnimatorDriver"));
-            Assert.That(coordinatorSource, Does.Contain("EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper"));
+            Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper"));
             Assert.That(coordinatorSource, Does.Contain("EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor"));
+            Assert.That(coordinatorSource, Does.Contain("GameplayPresentationExecutionRouter.UseEnemyPresentationExecutor"));
             Assert.That(coordinatorSource, Does.Contain("suppressLegacyEnemyPresentationAnimations"));
             Assert.That(hostRuntimeSource, Does.Contain("GameplayEnemyPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("IGameplayEnemyPresentationPlaybackPort"));
@@ -789,15 +794,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(coordinator.IsPresentationPipelineDiagnosticsEnabled, Is.False);
             Assert.That(coordinator.PresentationPipelineNoOpSchedulerAcceptCount, Is.Zero);
-            Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
-            Assert.That(coordinator.TopologyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
-            Assert.That(coordinator.TopologyProductionTelemetrySnapshot.CurrentMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+            Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+            Assert.That(coordinator.TopologyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+            Assert.That(coordinator.TopologyProductionTelemetrySnapshot.CurrentMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
             Assert.That(coordinator.TopologyProductionTelemetrySnapshot.RollbackMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
-            Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
-            Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
+            Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
+            Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
             Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
             Assert.That(coordinator.CoreGameplaySfxOwnershipDiagnostics.Mode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-            Assert.That(new GameplaySceneHostConfiguration().TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+            Assert.That(new GameplaySceneHostConfiguration().TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
         }
 
         [Test]
@@ -1393,8 +1398,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeSource, Does.Not.Contain("EnemyAudioProfile"));
             Assert.That(runtimeSource, Does.Not.Contain("AudioManager"));
 
-            Assert.That(coordinatorSource, Does.Contain("EnemyAudioExecutionMode.LegacyEnemyAudioController"));
+            Assert.That(hostRuntimeSource, Does.Contain("EnemyAudioExecutionMode.LegacyEnemyAudioController"));
             Assert.That(coordinatorSource, Does.Contain("EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge"));
+            Assert.That(coordinatorSource, Does.Contain("GameplayPresentationExecutionRouter.UseEnemyAudioExecutor"));
             Assert.That(coordinatorSource, Does.Contain("ConfigureEnemyAudioExecution"));
             Assert.That(hostRuntimeSource, Does.Contain("GameplayEnemyAudioPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("IGameplayEnemyAudioPlaybackPort"));
