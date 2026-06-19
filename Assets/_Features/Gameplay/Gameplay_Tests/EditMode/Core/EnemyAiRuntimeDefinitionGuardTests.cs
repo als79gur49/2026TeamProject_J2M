@@ -393,27 +393,27 @@ namespace Game.Feature.Gameplay.Tests.Core
                     "requires summon authoring data"),
                 (
                     "missing archetype",
-                    module => SetSerializedField(module, "summon", CreateSummonAuthoring(null)),
+                    module => SetSerializedField(module, "summon", CreateEnemySummonAuthoring(null)),
                     "summoned archetype asset"),
                 (
                     "non-positive spawn count",
-                    module => SetSerializedField(module, "summon", CreateSummonAuthoring(archetype, spawnCountPerTrigger: 0)),
+                    module => SetSerializedField(module, "summon", CreateEnemySummonAuthoring(archetype, spawnCountPerTrigger: 0)),
                     "positive spawn count"),
                 (
                     "non-positive max alive",
-                    module => SetSerializedField(module, "summon", CreateSummonAuthoring(archetype, maxAliveChildren: 0)),
+                    module => SetSerializedField(module, "summon", CreateEnemySummonAuthoring(archetype, maxAliveChildren: 0)),
                     "positive max alive child count"),
                 (
                     "invalid hp override",
-                    module => SetSerializedField(module, "summon", CreateSummonAuthoring(archetype, overrideHp: true, hpOverride: 0)),
+                    module => SetSerializedField(module, "summon", CreateEnemySummonAuthoring(archetype, overrideHp: true, hpOverride: 0)),
                     "HP override"),
                 (
                     "non-positive windup",
-                    module => SetSerializedField(module, "summon", CreateSummonAuthoring(archetype, windupSeconds: 0f)),
+                    module => SetSerializedField(module, "summon", CreateEnemySummonAuthoring(archetype, windupSeconds: 0f)),
                     "positive windup duration"),
                 (
                     "negative recovery",
-                    module => SetSerializedField(module, "summon", CreateSummonAuthoring(archetype, recoverySeconds: -0.1f)),
+                    module => SetSerializedField(module, "summon", CreateEnemySummonAuthoring(archetype, recoverySeconds: -0.1f)),
                     "non-negative recovery duration"),
             };
 
@@ -493,7 +493,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             SetSerializedField(
                 module,
                 "summon",
-                CreateSummonAuthoring(
+                CreateEnemySummonAuthoring(
                     archetype,
                     spawnCountPerTrigger,
                     maxAliveChildren,
@@ -504,7 +504,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             return module;
         }
 
-        private static SummonMinionAuthoring CreateSummonAuthoring(
+        private static EnemySummonAuthoring CreateEnemySummonAuthoring(
             EnemyUnitArchetypeAsset archetype,
             int spawnCountPerTrigger = 1,
             int maxAliveChildren = 3,
@@ -513,7 +513,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             float windupSeconds = 1f,
             float recoverySeconds = 0f)
         {
-            var summon = new SummonMinionAuthoring();
+            var summon = new EnemySummonAuthoring();
             SetSerializedField(summon, "spawnCountPerTrigger", spawnCountPerTrigger);
             SetSerializedField(summon, "maxAliveChildren", maxAliveChildren);
             SetSerializedField(summon, "summonedArchetype", archetype);

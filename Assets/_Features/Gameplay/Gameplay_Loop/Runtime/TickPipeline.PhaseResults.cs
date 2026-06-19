@@ -797,7 +797,7 @@ namespace Game.Feature.Gameplay.Loop
                 var plannedChildren = plannedChildrenBySource.TryGetValue(sourceKey, out var currentPlannedChildren)
                     ? currentPlannedChildren
                     : 0;
-                if (EnemyUtilitySummonPolicy.IsMaxAliveReached(
+                if (EnemySummonChildLimitPolicy.IsMaxAliveReached(
                         snapshot,
                         summonedEntries,
                         triggerIntent.SourceEntityId,

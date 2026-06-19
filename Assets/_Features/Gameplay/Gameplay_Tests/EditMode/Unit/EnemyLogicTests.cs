@@ -4051,14 +4051,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void SummonMinionAuthoring_Compile_StoresStableArchetypePayloadOnly()
+        public void EnemySummonAuthoring_Compile_StoresStableArchetypePayloadOnly()
         {
             var profile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset("HeavyMinion", profile, hp: 7, initialAiMode: EnemyAiMode.Patrol);
 
             try
             {
-                var authoring = CreateSummonMinionAuthoring(
+                var authoring = CreateEnemySummonAuthoring(
                     spawnCountPerTrigger: 2,
                     maxAliveChildren: 4,
                     summonedArchetype: archetype,
@@ -4066,7 +4066,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     hpOverride: 5);
 
                 var runtime = authoring.Compile();
-                var runtimeFields = typeof(SummonMinionRuntime).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                var runtimeFields = typeof(EnemySummonCompiledConfig).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
 
                 Assert.That(runtime.SpawnCountPerTrigger, Is.EqualTo(2));
                 Assert.That(runtime.MaxAliveChildren, Is.EqualTo(4));
@@ -4090,9 +4090,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void SummonMinionRuntime_DoesNotExposeLegacyDefinitionModeOrMinionHpFields()
+        public void EnemySummonCompiledConfig_DoesNotExposeLegacyDefinitionModeOrMinionHpFields()
         {
-            var runtimeFields = typeof(SummonMinionRuntime).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+            var runtimeFields = typeof(EnemySummonCompiledConfig).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
 
             Assert.That(runtimeFields.Any(field => field.Name == "DefinitionMode"), Is.False);
             Assert.That(runtimeFields.Any(field => field.Name == "MinionHp"), Is.False);
@@ -4100,23 +4100,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void SummonMinionAuthoring_Compile_NullSummonedArchetype_Throws()
+        public void EnemySummonAuthoring_Compile_NullSummonedArchetype_Throws()
         {
-            var authoring = CreateSummonMinionAuthoring(includeSummonedArchetype: false);
+            var authoring = CreateEnemySummonAuthoring(includeSummonedArchetype: false);
 
             Assert.Throws<ArgumentException>(() => authoring.Compile());
         }
 
         [Test]
         [Category("Core")]
-        public void SummonMinionAuthoring_Compile_EmptyArchetypeId_Throws()
+        public void EnemySummonAuthoring_Compile_EmptyArchetypeId_Throws()
         {
             var profile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset(string.Empty, profile, hp: 3, initialAiMode: EnemyAiMode.Patrol);
 
             try
             {
-                var authoring = CreateSummonMinionAuthoring(
+                var authoring = CreateEnemySummonAuthoring(
                     summonedArchetype: archetype);
 
                 Assert.Throws<ArgumentException>(() => authoring.Compile());
@@ -4130,14 +4130,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void SummonMinionAuthoring_Compile_InvalidHpOverride_Throws()
+        public void EnemySummonAuthoring_Compile_InvalidHpOverride_Throws()
         {
             var profile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", profile, hp: 3, initialAiMode: EnemyAiMode.Patrol);
 
             try
             {
-                var authoring = CreateSummonMinionAuthoring(
+                var authoring = CreateEnemySummonAuthoring(
                     summonedArchetype: archetype,
                     overrideHp: true,
                     hpOverride: 0);
@@ -6734,7 +6734,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiProfileTestFactory.SetSerializedField(
                 module,
                 "summon",
-                CreateSummonMinionAuthoring(summonedArchetype: summonedArchetype));
+                CreateEnemySummonAuthoring(summonedArchetype: summonedArchetype));
             return module;
         }
 
@@ -6761,7 +6761,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return effect;
         }
 
-        private static SummonMinionAuthoring CreateSummonMinionAuthoring(
+        private static EnemySummonAuthoring CreateEnemySummonAuthoring(
             int spawnCountPerTrigger = 1,
             int maxAliveChildren = 3,
             bool requireNoUnitAtSpawnCell = true,
@@ -6771,7 +6771,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             bool overrideHp = false,
             int hpOverride = 1)
         {
-            var summon = new SummonMinionAuthoring();
+            var summon = new EnemySummonAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(summon, "spawnCountPerTrigger", spawnCountPerTrigger);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "maxAliveChildren", maxAliveChildren);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "candidatePattern", SummonCandidatePattern.OrthogonalAdjacent4);

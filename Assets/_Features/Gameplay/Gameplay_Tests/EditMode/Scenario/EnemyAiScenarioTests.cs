@@ -531,7 +531,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     sourceTeamId: 2),
                 spawnIndex: 0,
                 tickIndex: 2,
-                summon: new SummonMinionRuntime(
+                summon: new EnemySummonCompiledConfig(
                     spawnCountPerTrigger: 1,
                     candidatePattern: SummonCandidatePattern.OrthogonalAdjacent4,
                     requireNoUnitAtSpawnCell: true,
@@ -6761,7 +6761,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int recoveryTicks,
             bool suppressMovementDuringRecover)
         {
-            var summon = new SummonMinionAuthoring();
+            var summon = new EnemySummonAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(summon, "spawnCountPerTrigger", spawnCountPerTrigger);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "maxAliveChildren", maxAliveChildren);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "candidatePattern", SummonCandidatePattern.OrthogonalAdjacent4);

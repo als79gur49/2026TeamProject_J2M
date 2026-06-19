@@ -449,7 +449,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 DetectionStrategyKind = DetectionStrategyKind.None,
                 PatrolStrategyKind = PatrolStrategyKind.Stationary,
             });
-            var summon = new SummonMinionAuthoring();
+            var summon = new EnemySummonAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(summon, "spawnCountPerTrigger", 1);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "maxAliveChildren", 3);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "candidatePattern", SummonCandidatePattern.OrthogonalAdjacent4);

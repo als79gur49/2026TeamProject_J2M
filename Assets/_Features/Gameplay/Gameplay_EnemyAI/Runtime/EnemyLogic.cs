@@ -793,7 +793,7 @@ namespace Game.Feature.Gameplay.Entities
 
             var summonedEntries = new List<SummonedEntitySnapshotEntry>();
             snapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
-            return !EnemyUtilitySummonPolicy.IsMaxAliveReached(
+            return !EnemySummonChildLimitPolicy.IsMaxAliveReached(
                 snapshot,
                 summonedEntries,
                 source.entityId,
@@ -1399,7 +1399,7 @@ namespace Game.Feature.Gameplay.Entities
                 {
                     var summonedEntries = new List<SummonedEntitySnapshotEntry>();
                     snapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
-                    if (!EnemyUtilitySummonPolicy.IsMaxAliveReached(
+                    if (!EnemySummonChildLimitPolicy.IsMaxAliveReached(
                             snapshot,
                             summonedEntries,
                             source.entityId,

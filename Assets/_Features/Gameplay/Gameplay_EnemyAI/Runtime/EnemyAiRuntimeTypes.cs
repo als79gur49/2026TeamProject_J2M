@@ -674,132 +674,6 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    public readonly struct SummonMinionRuntime
-    {
-        public SummonMinionRuntime(
-            int spawnCountPerTrigger,
-            SummonCandidatePattern candidatePattern,
-            bool requireNoUnitAtSpawnCell,
-            bool requireNoSolidAtSpawnCell,
-            int maxAliveChildren,
-            EnemyUnitArchetypeId summonedArchetypeId,
-            bool overrideHp = false,
-            int hpOverride = 1,
-            int windupTicks = 1,
-            bool suppressMovementDuringWindup = false,
-            int recoveryTicks = 0,
-            bool suppressMovementDuringRecover = false)
-        {
-            SpawnCountPerTrigger = spawnCountPerTrigger;
-            CandidatePattern = candidatePattern;
-            RequireNoUnitAtSpawnCell = requireNoUnitAtSpawnCell;
-            RequireNoSolidAtSpawnCell = requireNoSolidAtSpawnCell;
-            MaxAliveChildren = maxAliveChildren;
-            SummonedArchetypeId = summonedArchetypeId;
-            OverrideHp = overrideHp;
-            HpOverride = hpOverride;
-            WindupTicks = windupTicks;
-            SuppressMovementDuringWindup = suppressMovementDuringWindup;
-            RecoveryTicks = recoveryTicks;
-            SuppressMovementDuringRecover = suppressMovementDuringRecover;
-            Validate(nameof(SummonMinionRuntime));
-        }
-
-        public int SpawnCountPerTrigger { get; }
-
-        public SummonCandidatePattern CandidatePattern { get; }
-
-        public bool RequireNoUnitAtSpawnCell { get; }
-
-        public bool RequireNoSolidAtSpawnCell { get; }
-
-        public int MaxAliveChildren { get; }
-
-        public EnemyUnitArchetypeId SummonedArchetypeId { get; }
-
-        public bool OverrideHp { get; }
-
-        public int HpOverride { get; }
-
-        public int WindupTicks { get; }
-
-        public bool SuppressMovementDuringWindup { get; }
-
-        public int RecoveryTicks { get; }
-
-        public bool SuppressMovementDuringRecover { get; }
-
-        public void Validate(string paramName)
-        {
-            if (SpawnCountPerTrigger <= 0)
-            {
-                throw new ArgumentException("Summon minion runtime requires a positive spawn count.", paramName);
-            }
-
-            if (MaxAliveChildren <= 0)
-            {
-                throw new ArgumentException("Summon minion runtime requires a positive max alive child count.", paramName);
-            }
-
-            SummonedArchetypeId.Validate(paramName);
-            if (OverrideHp && HpOverride <= 0)
-            {
-                throw new ArgumentException("Summon minion runtime HP override must be positive when enabled.", paramName);
-            }
-
-            if (WindupTicks <= 0)
-            {
-                throw new ArgumentException("Summon minion runtime requires a positive windup duration.", paramName);
-            }
-
-            if (RecoveryTicks < 0)
-            {
-                throw new ArgumentException("Summon minion runtime requires a non-negative recovery duration.", paramName);
-            }
-        }
-    }
-
-    internal static class EnemyUtilitySummonPolicy
-    {
-        public static bool IsMaxAliveReached(
-            WorldSnapshot snapshot,
-            IReadOnlyList<SummonedEntitySnapshotEntry> summonedEntries,
-            int sourceEntityId,
-            int effectIndex,
-            in SummonMinionRuntime summonRuntime,
-            int plannedChildren = 0)
-        {
-            return CountAliveChildren(snapshot, summonedEntries, sourceEntityId, effectIndex) + plannedChildren >=
-                   summonRuntime.MaxAliveChildren;
-        }
-
-        public static int CountAliveChildren(
-            WorldSnapshot snapshot,
-            IReadOnlyList<SummonedEntitySnapshotEntry> summonedEntries,
-            int sourceEntityId,
-            int effectIndex)
-        {
-            var aliveCount = 0;
-            for (var i = 0; i < summonedEntries.Count; i++)
-            {
-                var entry = summonedEntries[i];
-                if (entry.State.SourceEntityId != sourceEntityId ||
-                    entry.State.SourceEffectIndex != effectIndex ||
-                    !snapshot.TryGetEntity(entry.EntityId, out var child) ||
-                    child.hp <= 0 ||
-                    child.markedForDeath ||
-                    child.boardPresence != EntityBoardPresence.Occupying)
-                {
-                    continue;
-                }
-
-                aliveCount++;
-            }
-
-            return aliveCount;
-        }
-    }
-
     public readonly struct EnemyGravityFieldAuraRuntime
     {
         public EnemyGravityFieldAuraRuntime(
@@ -1096,7 +970,7 @@ namespace Game.Feature.Gameplay.Entities
         public EnemySummonBehaviorRuntime(
             int initialDelayTicks,
             int cooldownTicks,
-            SummonMinionRuntime summon)
+            EnemySummonCompiledConfig summon)
             : base(EnemyBehaviorModuleKey.Summon)
         {
             InitialDelayTicks = initialDelayTicks;
@@ -1109,7 +983,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public int CooldownTicks { get; }
 
-        public SummonMinionRuntime Summon { get; }
+        public EnemySummonCompiledConfig Summon { get; }
 
         public int SpawnCountPerTrigger => Summon.SpawnCountPerTrigger;
 
@@ -1453,7 +1327,7 @@ namespace Game.Feature.Gameplay.Entities
             SurfaceCell originCell,
             Direction sourceFacing,
             int sourceTeamId,
-            SummonMinionRuntime summon)
+            EnemySummonCompiledConfig summon)
         {
             SourceEntityId = sourceEntityId;
             SourceEffectIndex = sourceEffectIndex;
@@ -1476,7 +1350,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public int SourceTeamId { get; }
 
-        public SummonMinionRuntime Summon { get; }
+        public EnemySummonCompiledConfig Summon { get; }
     }
 
     internal sealed class EnemySummonBehaviorTriggerIntentComparer : IComparer<EnemySummonBehaviorTriggerIntent>

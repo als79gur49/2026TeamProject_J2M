@@ -172,7 +172,7 @@ namespace Game.Feature.Gameplay.Loop
             SurfaceCell originCell,
             Direction sourceFacing,
             UnitMobilityKind summonedUnitMobilityKind,
-            in SummonMinionRuntime summonRuntime,
+            in EnemySummonCompiledConfig summonRuntime,
             ISet<SurfaceCell> reservedSpawnCells,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
             out SurfaceCell spawnCell)

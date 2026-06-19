@@ -46,7 +46,7 @@ namespace Game.Feature.Gameplay.Loop
             EntitySpawnRequestSource source,
             int spawnIndex,
             int tickIndex,
-            SummonMinionRuntime summon,
+            EnemySummonCompiledConfig summon,
             EnemyUnitSpawnDefaultsRuntime spawnDefaults)
         {
             Kind = kind;
@@ -65,7 +65,7 @@ namespace Game.Feature.Gameplay.Loop
 
         public int TickIndex { get; }
 
-        public SummonMinionRuntime Summon { get; }
+        public EnemySummonCompiledConfig Summon { get; }
 
         public EnemyUnitSpawnDefaultsRuntime SpawnDefaults { get; }
     }
