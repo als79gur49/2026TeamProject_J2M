@@ -1371,6 +1371,138 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void PlayerActionAnimation_SemanticTelemetry_CoversAllPushFlipSemanticsWithPlannerOwnedPlannedCount()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_SemanticTelemetry_CoversAllPushFlipSemanticsWithPlannerOwnedPlannedCount));
+            var port = new RecordingGameplayAnimationPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology);
+                var result = CreateAllPlayerActionAnimationSemanticResult(tickIndex: 133, topology);
+
+                coordinator.Present(result);
+
+                var telemetry = coordinator.PlayerActionAnimationProductionTelemetrySnapshot;
+                Assert.That(telemetry.SemanticDiagnostics.Count, Is.EqualTo(12));
+                Assert.That(telemetry.ObservedCueCount, Is.EqualTo(12));
+                Assert.That(telemetry.PlaybackCommandRequestedCount, Is.EqualTo(12));
+                Assert.That(telemetry.PlaybackCommandAppliedCount, Is.EqualTo(12));
+
+                foreach (var cueKey in PlayerActionAnimationSemanticCueKeys())
+                {
+                    AssertPlayerActionAnimationSemanticTelemetry(
+                        telemetry,
+                        cueKey,
+                        planned: 1,
+                        requested: 1,
+                        applied: 1,
+                        ignored: 0,
+                        observed: 1);
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_SemanticTelemetry_RequestedResultDoesNotCountAsApplied()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_SemanticTelemetry_RequestedResultDoesNotCountAsApplied));
+            var port = new RecordingGameplayAnimationPlaybackPort(
+                GameplayAnimationPlaybackResultKind.Requested);
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology);
+                var result = CreateSinglePlayerActionAnimationResult(
+                    tickIndex: 134,
+                    topology,
+                    PlayerActionKind.Push,
+                    sequenceId: 134,
+                    executedThisTick: true);
+
+                coordinator.Present(result);
+
+                var telemetry = coordinator.PlayerActionAnimationProductionTelemetrySnapshot;
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    telemetry,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    planned: 1,
+                    requested: 1,
+                    applied: 0,
+                    ignored: 0,
+                    observed: 1);
+                Assert.That(telemetry.PlaybackCommandRequestedCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackCommandAppliedCount, Is.Zero);
+                Assert.That(telemetry.LastFailureReason, Is.EqualTo(PlayerActionAnimationTelemetryFailureReason.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_SemanticTelemetry_IgnoredTerminalResultDoesNotCountAsAppliedAcrossPushFlip()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_SemanticTelemetry_IgnoredTerminalResultDoesNotCountAsAppliedAcrossPushFlip));
+            var port = new RecordingGameplayAnimationPlaybackPort(
+                GameplayAnimationPlaybackResultKind.IgnoredByPolicy);
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology);
+                var result = CreateAllPlayerActionAnimationSemanticResult(tickIndex: 135, topology);
+
+                coordinator.Present(result);
+
+                var telemetry = coordinator.PlayerActionAnimationProductionTelemetrySnapshot;
+                Assert.That(telemetry.ObservedCueCount, Is.EqualTo(12));
+                Assert.That(telemetry.PlaybackCommandRequestedCount, Is.EqualTo(12));
+                Assert.That(telemetry.PlaybackCommandAppliedCount, Is.Zero);
+                Assert.That(telemetry.PlaybackCommandIgnoredByPolicyCount, Is.EqualTo(12));
+                Assert.That(telemetry.LastFailureReason, Is.EqualTo(PlayerActionAnimationTelemetryFailureReason.IgnoredByPolicy));
+
+                foreach (var cueKey in PlayerActionAnimationSemanticCueKeys())
+                {
+                    AssertPlayerActionAnimationSemanticTelemetry(
+                        telemetry,
+                        cueKey,
+                        planned: 1,
+                        requested: 1,
+                        applied: 0,
+                        ignored: 1,
+                        observed: 1);
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests()
         {
             var legacyRoot = new GameObject(nameof(PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests) + "_Legacy");
@@ -1613,7 +1745,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 malformedCoordinator.Present(CreateTickResult(34, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
                 adapterCoordinator.Present(CreateTickResult(35, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
-                missingPortExecutor.Play(new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
+                missingPortExecutor.Play(CreatePlayerActionAnimationPlanFromStaticPlanner(
                     36,
                     new[]
                     {
@@ -1623,22 +1755,69 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             PresentationAnimationOutcomeKind.Started,
                             tickIndex: 36,
                             sequenceId: 601),
-                    },
-                    new PresentationCueFrameDiagnostics(1, 1, 0))));
+                    }));
 
                 Assert.That(malformedCoordinator.PlayerActionAnimationExecutorDiagnostics.TargetMissingCount, Is.EqualTo(1));
                 Assert.That(malformedCoordinator.PlayerActionAnimationExecutorDiagnostics.AnchorMissingCount, Is.EqualTo(1));
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    malformedCoordinator.PlayerActionAnimationProductionTelemetrySnapshot,
+                    PresentationAnimationCueKey.PlayerPushWindup,
+                    planned: 1,
+                    requested: 0,
+                    applied: 0,
+                    ignored: 1,
+                    observed: 1);
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    malformedCoordinator.PlayerActionAnimationProductionTelemetrySnapshot,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    planned: 1,
+                    requested: 0,
+                    applied: 0,
+                    ignored: 1,
+                    observed: 1);
                 Assert.That(
                     malformedCoordinator.PlayerActionAnimationProductionTelemetrySnapshot.LastFailureReason,
                     Is.EqualTo(PlayerActionAnimationTelemetryFailureReason.AnchorMissing));
                 Assert.That(adapterCoordinator.PlayerActionAnimationExecutorDiagnostics.BindingMissingCount, Is.EqualTo(1));
                 Assert.That(adapterCoordinator.PlayerActionAnimationExecutorDiagnostics.DriverMissingCount, Is.EqualTo(1));
                 Assert.That(adapterCoordinator.PlayerActionAnimationExecutorDiagnostics.AnimatorMissingCount, Is.EqualTo(1));
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    adapterCoordinator.PlayerActionAnimationProductionTelemetrySnapshot,
+                    PresentationAnimationCueKey.PlayerPushWindup,
+                    planned: 1,
+                    requested: 1,
+                    applied: 0,
+                    ignored: 1,
+                    observed: 1);
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    adapterCoordinator.PlayerActionAnimationProductionTelemetrySnapshot,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    planned: 1,
+                    requested: 1,
+                    applied: 0,
+                    ignored: 1,
+                    observed: 1);
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    adapterCoordinator.PlayerActionAnimationProductionTelemetrySnapshot,
+                    PresentationAnimationCueKey.PlayerPushRecovery,
+                    planned: 1,
+                    requested: 1,
+                    applied: 0,
+                    ignored: 1,
+                    observed: 1);
                 Assert.That(
                     adapterCoordinator.PlayerActionAnimationProductionTelemetrySnapshot.LastFailureReason,
                     Is.EqualTo(PlayerActionAnimationTelemetryFailureReason.AnimatorMissing));
                 Assert.That(missingPortExecutor.Diagnostics.MissingPortCount, Is.EqualTo(1));
                 Assert.That(missingPortExecutor.Diagnostics.LastFailureReason, Is.EqualTo(PlayerActionAnimationTelemetryFailureReason.PortMissing));
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    missingPortExecutor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerFlipWindup,
+                    planned: 1,
+                    observed: 1,
+                    requested: 0,
+                    applied: 0,
+                    ignored: 1);
                 Assert.That(malformedCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
                 Assert.That(adapterCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
                 Assert.That(missingPortGuard.Diagnostics.DuplicateAttemptCount, Is.Zero);
@@ -1734,7 +1913,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     port,
                     PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
                     guard);
-                var plan = new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
+                var plan = CreatePlayerActionAnimationPlanFromStaticPlanner(
                     38,
                     new[]
                     {
@@ -1750,8 +1929,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             PresentationAnimationOutcomeKind.Executed,
                             tickIndex: 38,
                             sequenceId: 802),
-                    },
-                    new PresentationCueFrameDiagnostics(2, 2, 1)));
+                    });
 
                 sync.CacheDrivers(10, view);
                 executor.Play(plan);
@@ -1759,9 +1937,105 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(2));
                 Assert.That(executor.Diagnostics.CommandAppliedCount, Is.EqualTo(2));
                 Assert.That(executor.Diagnostics.ExecuteCueMappedToLegacyCommandCount, Is.EqualTo(2));
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    executor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    planned: 1,
+                    observed: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    executor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerFlipExecute,
+                    planned: 1,
+                    observed: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    executor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerPushRecovery,
+                    planned: 0,
+                    observed: 0,
+                    requested: 0,
+                    applied: 0,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    executor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerFlipRecovery,
+                    planned: 0,
+                    observed: 0,
+                    requested: 0,
+                    applied: 0,
+                    ignored: 0);
                 Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.FlipRecovery));
                 Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Flip_Recovery"));
                 Assert.That(driver.ActionExecuteSignalCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_RecoveryCueTelemetry_DoesNotIncrementExecuteOrLoweringCounters()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject(
+                nameof(PlayerActionAnimation_RecoveryCueTelemetry_DoesNotIncrementExecuteOrLoweringCounters));
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                var sync = new GameplayAnimationSyncCoordinator();
+                var port = new GameplayAnimationSyncPlaybackPort(
+                    sync,
+                    CreateStateStoreWithView(view));
+                var guard = new PlayerActionAnimationExecutionGuard(
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
+                var executor = new GameplayAnimationPresentationExecutor(
+                    port,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    guard);
+                var plan = CreatePlayerActionAnimationPlanFromStaticPlanner(
+                    39,
+                    new[]
+                    {
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushRecovery,
+                            PresentationAnimationPhaseKind.Recovery,
+                            PresentationAnimationOutcomeKind.Recovery,
+                            tickIndex: 39,
+                            sequenceId: 803),
+                    });
+
+                sync.CacheDrivers(10, view);
+                executor.Play(plan);
+
+                Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(1));
+                Assert.That(executor.Diagnostics.CommandAppliedCount, Is.EqualTo(1));
+                Assert.That(executor.Diagnostics.ExecuteCueMappedToLegacyCommandCount, Is.Zero);
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    executor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerPushRecovery,
+                    planned: 1,
+                    observed: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    executor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    planned: 0,
+                    observed: 0,
+                    requested: 0,
+                    applied: 0,
+                    ignored: 0);
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushRecovery));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Recovery"));
             }
             finally
             {
@@ -13080,6 +13354,162 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationData);
         }
 
+        private static TickResult CreateAllPlayerActionAnimationSemanticResult(
+            int tickIndex,
+            CubeTopologyState topology)
+        {
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                new[]
+                {
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        301,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        direction: Direction.Right,
+                        actionPlanId: 3001),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        302,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Success,
+                        targetEntityId: 40,
+                        direction: Direction.Right,
+                        actionPlanId: 3002),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        303,
+                        startedThisTick: false,
+                        completedThisTick: true,
+                        canceledThisTick: false,
+                        isRecoveryPhase: true,
+                        direction: Direction.Right,
+                        actionPlanId: 3003),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        304,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Blocked,
+                        targetEntityId: 40,
+                        direction: Direction.Right,
+                        actionPlanId: 3004),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        305,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Impact,
+                        targetEntityId: 40,
+                        direction: Direction.Right,
+                        actionPlanId: 3005),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        401,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        direction: Direction.Up,
+                        actionPlanId: 4001),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        402,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Success,
+                        targetEntityId: 40,
+                        direction: Direction.Up,
+                        actionPlanId: 4002),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        403,
+                        startedThisTick: false,
+                        completedThisTick: true,
+                        canceledThisTick: false,
+                        isRecoveryPhase: true,
+                        direction: Direction.Up,
+                        actionPlanId: 4003),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        404,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Blocked,
+                        targetEntityId: 40,
+                        direction: Direction.Up,
+                        actionPlanId: 4004),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        405,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Impact,
+                        targetEntityId: 40,
+                        direction: Direction.Up,
+                        actionPlanId: 4005),
+                },
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                playerActionAttemptSignals: new[]
+                {
+                    new TickPlayerActionAttemptPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        Direction.Right,
+                        PlayerActionAttemptFeedbackKind.Invalid,
+                        targetEntityId: 40,
+                        hasTarget: true),
+                    new TickPlayerActionAttemptPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        Direction.Up,
+                        PlayerActionAttemptFeedbackKind.Invalid,
+                        targetEntityId: 40,
+                        hasTarget: true),
+                });
+
+            return CreateTickResult(
+                tickIndex,
+                new[]
+                {
+                    CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 1, 1)),
+                },
+                topology,
+                presentationData);
+        }
+
         private static TickResult CreateSinglePlayerActionAnimationResult(
             int tickIndex,
             CubeTopologyState topology,
@@ -13330,13 +13760,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int planned,
             int requested,
             int applied,
-            int ignored)
+            int ignored,
+            int? observed = null)
         {
             var semantic = telemetry.SemanticDiagnostics.Single(candidate => candidate.CueKey == cueKey);
             Assert.That(semantic.PlannedCount, Is.EqualTo(planned), cueKey.ToString());
+            Assert.That(semantic.ObservedCount, Is.EqualTo(observed ?? planned), cueKey.ToString());
             Assert.That(semantic.RequestedCount, Is.EqualTo(requested), cueKey.ToString());
             Assert.That(semantic.AppliedCount, Is.EqualTo(applied), cueKey.ToString());
             Assert.That(semantic.IgnoredCount, Is.EqualTo(ignored), cueKey.ToString());
+        }
+
+        private static void AssertPlayerActionAnimationSemanticDiagnostics(
+            GameplayAnimationExecutorDiagnostics diagnostics,
+            PresentationAnimationCueKey cueKey,
+            int planned,
+            int observed,
+            int requested,
+            int applied,
+            int ignored)
+        {
+            var semantic = diagnostics.SemanticDiagnostics.Single(candidate => candidate.CueKey == cueKey);
+            Assert.That(semantic.PlannedCount, Is.EqualTo(planned), cueKey.ToString());
+            Assert.That(semantic.ObservedCount, Is.EqualTo(observed), cueKey.ToString());
+            Assert.That(semantic.RequestedCount, Is.EqualTo(requested), cueKey.ToString());
+            Assert.That(semantic.AppliedCount, Is.EqualTo(applied), cueKey.ToString());
+            Assert.That(semantic.IgnoredCount, Is.EqualTo(ignored), cueKey.ToString());
+        }
+
+        private static IEnumerable<PresentationAnimationCueKey> PlayerActionAnimationSemanticCueKeys()
+        {
+            yield return PresentationAnimationCueKey.PlayerPushWindup;
+            yield return PresentationAnimationCueKey.PlayerPushExecute;
+            yield return PresentationAnimationCueKey.PlayerPushRecovery;
+            yield return PresentationAnimationCueKey.PlayerPushBlocked;
+            yield return PresentationAnimationCueKey.PlayerPushImpactContact;
+            yield return PresentationAnimationCueKey.PlayerPushFailed;
+            yield return PresentationAnimationCueKey.PlayerFlipWindup;
+            yield return PresentationAnimationCueKey.PlayerFlipExecute;
+            yield return PresentationAnimationCueKey.PlayerFlipRecovery;
+            yield return PresentationAnimationCueKey.PlayerFlipBlocked;
+            yield return PresentationAnimationCueKey.PlayerFlipImpactContact;
+            yield return PresentationAnimationCueKey.PlayerFlipFailed;
+        }
+
+        private static PresentationPlaybackPlan CreatePlayerActionAnimationPlanFromStaticPlanner(
+            int tickIndex,
+            IReadOnlyList<PresentationCue> cues)
+        {
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new StaticAnimationCuePlanner(cues),
+            }).Plan(PresentationFactFrame.Empty(tickIndex));
+            return new PresentationPlaybackPlanner().Plan(cueFrame);
         }
 
         private static DamageDeathVfxExecutorDiagnostics PlayDamageDeathVfxCueDirectly(PresentationCue cue)
@@ -13762,6 +14238,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 for (var i = 0; i < _cues.Count; i++)
                 {
                     builder.Add(_cues[i]);
+                    if (_cues[i].Key.TryGetAnimationCueKey(out var cueKey))
+                    {
+                        builder.RecordPlayerActionAnimationPlanned(cueKey);
+                    }
                 }
             }
         }

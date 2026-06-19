@@ -475,13 +475,16 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             int plannedCueCount,
             int plannerCount,
             int suppressedCueCount = 0,
-            int damageHitSuppressedByEnemyDeathCount = 0)
+            int damageHitSuppressedByEnemyDeathCount = 0,
+            IReadOnlyList<PresentationAnimationCuePlanningCount> playerActionAnimationPlannedCounts = null)
         {
             SourceFactCount = Math.Max(0, sourceFactCount);
             PlannedCueCount = Math.Max(0, plannedCueCount);
             PlannerCount = Math.Max(0, plannerCount);
             SuppressedCueCount = Math.Max(0, suppressedCueCount);
             DamageHitSuppressedByEnemyDeathCount = Math.Max(0, damageHitSuppressedByEnemyDeathCount);
+            PlayerActionAnimationPlannedCounts = playerActionAnimationPlannedCounts ??
+                                                 Array.Empty<PresentationAnimationCuePlanningCount>();
         }
 
         public int SourceFactCount { get; }
@@ -493,6 +496,21 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         public int SuppressedCueCount { get; }
 
         public int DamageHitSuppressedByEnemyDeathCount { get; }
+
+        public IReadOnlyList<PresentationAnimationCuePlanningCount> PlayerActionAnimationPlannedCounts { get; }
+    }
+
+    public readonly struct PresentationAnimationCuePlanningCount
+    {
+        public PresentationAnimationCuePlanningCount(PresentationAnimationCueKey cueKey, int plannedCount)
+        {
+            CueKey = cueKey;
+            PlannedCount = Math.Max(0, plannedCount);
+        }
+
+        public PresentationAnimationCueKey CueKey { get; }
+
+        public int PlannedCount { get; }
     }
 
     public sealed class PresentationCueFrame
@@ -530,7 +548,24 @@ namespace Game.Feature.Gameplay.PresentationPlanning
 
     public sealed class PresentationCueFrameBuilder
     {
+        private static readonly PresentationAnimationCueKey[] PlayerActionAnimationCueKeys =
+        {
+            PresentationAnimationCueKey.PlayerPushWindup,
+            PresentationAnimationCueKey.PlayerPushExecute,
+            PresentationAnimationCueKey.PlayerPushRecovery,
+            PresentationAnimationCueKey.PlayerPushBlocked,
+            PresentationAnimationCueKey.PlayerPushImpactContact,
+            PresentationAnimationCueKey.PlayerPushFailed,
+            PresentationAnimationCueKey.PlayerFlipWindup,
+            PresentationAnimationCueKey.PlayerFlipExecute,
+            PresentationAnimationCueKey.PlayerFlipRecovery,
+            PresentationAnimationCueKey.PlayerFlipBlocked,
+            PresentationAnimationCueKey.PlayerFlipImpactContact,
+            PresentationAnimationCueKey.PlayerFlipFailed,
+        };
+
         private readonly List<PresentationCue> _cues = new();
+        private readonly Dictionary<PresentationAnimationCueKey, int> _playerActionAnimationPlannedCounts = new();
         private readonly int _sourceFactCount;
         private int _plannerCount;
         private int _suppressedCueCount;
@@ -567,6 +602,17 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             _damageHitSuppressedByEnemyDeathCount++;
         }
 
+        public void RecordPlayerActionAnimationPlanned(PresentationAnimationCueKey cueKey)
+        {
+            if (!IsPlayerActionAnimationCueKey(cueKey))
+            {
+                return;
+            }
+
+            _playerActionAnimationPlannedCounts.TryGetValue(cueKey, out var count);
+            _playerActionAnimationPlannedCounts[cueKey] = count + 1;
+        }
+
         public PresentationCueFrame Build()
         {
             return new PresentationCueFrame(
@@ -577,7 +623,39 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                     _cues.Count,
                     _plannerCount,
                     _suppressedCueCount,
-                    _damageHitSuppressedByEnemyDeathCount));
+                    _damageHitSuppressedByEnemyDeathCount,
+                    BuildPlayerActionAnimationPlannedCounts()));
+        }
+
+        private IReadOnlyList<PresentationAnimationCuePlanningCount> BuildPlayerActionAnimationPlannedCounts()
+        {
+            if (_playerActionAnimationPlannedCounts.Count == 0)
+            {
+                return Array.Empty<PresentationAnimationCuePlanningCount>();
+            }
+
+            var counts = new List<PresentationAnimationCuePlanningCount>(PlayerActionAnimationCueKeys.Length);
+            for (var i = 0; i < PlayerActionAnimationCueKeys.Length; i++)
+            {
+                var cueKey = PlayerActionAnimationCueKeys[i];
+                _playerActionAnimationPlannedCounts.TryGetValue(cueKey, out var count);
+                counts.Add(new PresentationAnimationCuePlanningCount(cueKey, count));
+            }
+
+            return new ReadOnlyCollection<PresentationAnimationCuePlanningCount>(counts);
+        }
+
+        private static bool IsPlayerActionAnimationCueKey(PresentationAnimationCueKey cueKey)
+        {
+            for (var i = 0; i < PlayerActionAnimationCueKeys.Length; i++)
+            {
+                if (PlayerActionAnimationCueKeys[i] == cueKey)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 
@@ -851,6 +929,10 @@ namespace Game.Feature.Gameplay.PresentationPlanning
                 if (TryPlanAnimation(fact, out var cue))
                 {
                     builder.Add(cue);
+                    if (cue.Key.TryGetAnimationCueKey(out var cueKey))
+                    {
+                        builder.RecordPlayerActionAnimationPlanned(cueKey);
+                    }
                 }
             }
         }

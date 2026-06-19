@@ -70,12 +70,14 @@ namespace Game.Feature.Gameplay.Host
         public PlayerActionAnimationSemanticDiagnostics(
             PresentationAnimationCueKey cueKey,
             int plannedCount,
+            int observedCount,
             int requestedCount,
             int appliedCount,
             int ignoredCount)
         {
             CueKey = cueKey;
             PlannedCount = Math.Max(0, plannedCount);
+            ObservedCount = Math.Max(0, observedCount);
             RequestedCount = Math.Max(0, requestedCount);
             AppliedCount = Math.Max(0, appliedCount);
             IgnoredCount = Math.Max(0, ignoredCount);
@@ -84,6 +86,8 @@ namespace Game.Feature.Gameplay.Host
         public PresentationAnimationCueKey CueKey { get; }
 
         public int PlannedCount { get; }
+
+        public int ObservedCount { get; }
 
         public int RequestedCount { get; }
 
@@ -676,19 +680,34 @@ namespace Game.Feature.Gameplay.Host
 
         private readonly Dictionary<PresentationAnimationCueKey, Counter> _counters = new();
 
-        public PlayerActionAnimationSemanticTelemetryAccumulator()
+        public PlayerActionAnimationSemanticTelemetryAccumulator(
+            IReadOnlyList<PresentationAnimationCuePlanningCount> plannedCounts = null)
         {
             for (var i = 0; i < OrderedCueKeys.Length; i++)
             {
                 _counters[OrderedCueKeys[i]] = new Counter();
             }
+
+            if (plannedCounts == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < plannedCounts.Count; i++)
+            {
+                var planned = plannedCounts[i];
+                if (_counters.TryGetValue(planned.CueKey, out var counter))
+                {
+                    counter.PlannedCount += planned.PlannedCount;
+                }
+            }
         }
 
-        public void RecordPlanned(PresentationAnimationCueKey cueKey)
+        public void RecordObserved(PresentationAnimationCueKey cueKey)
         {
             if (_counters.TryGetValue(cueKey, out var counter))
             {
-                counter.PlannedCount++;
+                counter.ObservedCount++;
             }
         }
 
@@ -726,6 +745,7 @@ namespace Game.Feature.Gameplay.Host
                 diagnostics[i] = new PlayerActionAnimationSemanticDiagnostics(
                     cueKey,
                     counter.PlannedCount,
+                    counter.ObservedCount,
                     counter.RequestedCount,
                     counter.AppliedCount,
                     counter.IgnoredCount);
@@ -737,6 +757,7 @@ namespace Game.Feature.Gameplay.Host
         private sealed class Counter
         {
             public int PlannedCount;
+            public int ObservedCount;
             public int RequestedCount;
             public int AppliedCount;
             public int IgnoredCount;
@@ -813,7 +834,9 @@ namespace Game.Feature.Gameplay.Host
             var lastPhaseKind = PresentationAnimationPhaseKind.None;
             var lastOutcomeKind = PresentationAnimationOutcomeKind.None;
             var lastFailureReason = PlayerActionAnimationTelemetryFailureReason.None;
-            var semanticTelemetry = new PlayerActionAnimationSemanticTelemetryAccumulator();
+            var semanticTelemetry =
+                new PlayerActionAnimationSemanticTelemetryAccumulator(
+                    plan.Diagnostics.PlayerActionAnimationPlannedCounts);
 
             for (var i = 0; i < plan.Cues.Count; i++)
             {
@@ -827,7 +850,7 @@ namespace Game.Feature.Gameplay.Host
                 var currentCueKey = playbackCue.Cue.Key.TryGetAnimationCueKey(out var resolvedCueKey)
                     ? resolvedCueKey
                     : PresentationAnimationCueKey.None;
-                semanticTelemetry.RecordPlanned(currentCueKey);
+                semanticTelemetry.RecordObserved(currentCueKey);
                 CaptureLastCue(
                     playbackCue,
                     ref lastTickIndex,
@@ -897,30 +920,37 @@ namespace Game.Feature.Gameplay.Host
                 switch (result.Kind)
                 {
                     case GameplayAnimationPlaybackResultKind.Applied:
-                    case GameplayAnimationPlaybackResultKind.Requested:
                         commandAppliedCount++;
                         lastFailureReason = PlayerActionAnimationTelemetryFailureReason.None;
                         semanticTelemetry.RecordApplied(currentCueKey);
                         break;
+                    case GameplayAnimationPlaybackResultKind.Requested:
+                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.None;
+                        break;
                     case GameplayAnimationPlaybackResultKind.TargetMissing:
                         targetMissingCount++;
                         lastFailureReason = PlayerActionAnimationTelemetryFailureReason.TargetMissing;
+                        semanticTelemetry.RecordIgnored(currentCueKey);
                         break;
                     case GameplayAnimationPlaybackResultKind.AnchorMissing:
                         anchorMissingCount++;
                         lastFailureReason = PlayerActionAnimationTelemetryFailureReason.AnchorMissing;
+                        semanticTelemetry.RecordIgnored(currentCueKey);
                         break;
                     case GameplayAnimationPlaybackResultKind.BindingMissing:
                         bindingMissingCount++;
                         lastFailureReason = PlayerActionAnimationTelemetryFailureReason.BindingMissing;
+                        semanticTelemetry.RecordIgnored(currentCueKey);
                         break;
                     case GameplayAnimationPlaybackResultKind.DriverMissing:
                         driverMissingCount++;
                         lastFailureReason = PlayerActionAnimationTelemetryFailureReason.DriverMissing;
+                        semanticTelemetry.RecordIgnored(currentCueKey);
                         break;
                     case GameplayAnimationPlaybackResultKind.AnimatorMissing:
                         animatorMissingCount++;
                         lastFailureReason = PlayerActionAnimationTelemetryFailureReason.AnimatorMissing;
+                        semanticTelemetry.RecordIgnored(currentCueKey);
                         break;
                     case GameplayAnimationPlaybackResultKind.LegacyOwnerActive:
                         legacyOwnerNoOpCount++;
@@ -928,6 +958,12 @@ namespace Game.Feature.Gameplay.Host
                         semanticTelemetry.RecordIgnored(currentCueKey);
                         break;
                     case GameplayAnimationPlaybackResultKind.IgnoredByPolicy:
+                        commandIgnoredByPolicyCount++;
+                        lastFailureReason = PlayerActionAnimationTelemetryFailureReason.IgnoredByPolicy;
+                        semanticTelemetry.RecordIgnored(currentCueKey);
+                        break;
+                    case GameplayAnimationPlaybackResultKind.None:
+                    default:
                         commandIgnoredByPolicyCount++;
                         lastFailureReason = PlayerActionAnimationTelemetryFailureReason.IgnoredByPolicy;
                         semanticTelemetry.RecordIgnored(currentCueKey);
