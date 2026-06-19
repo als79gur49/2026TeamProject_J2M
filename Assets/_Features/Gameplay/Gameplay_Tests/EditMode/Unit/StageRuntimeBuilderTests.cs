@@ -1621,15 +1621,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var utilitySummonerRuntimeDefinition =
                 utilitySummonerProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             Assert.That(utilitySummonerRuntimeDefinition.TryGetSummonBehavior(out _), Is.True);
-            Assert.That(utilitySummonerRuntimeDefinition.Capabilities.TryGetUtility(out var utility), Is.True);
-            Assert.That(utility.Effects, Is.Empty);
-            Assert.That(
-                utility.Effects.Any(effect => effect.Kind == EnemyUtilityEffectKind.SummonMinion),
-                Is.False);
-            var utilityCapability = utilitySummonerProfile.CapabilityAssets
-                .OfType<EnemyUtilityCapabilityAsset>()
-                .Single(capability => capability.name == "EnemyCapability_ArchetypeSummoner");
-            Assert.That(utilityCapability.Effects, Is.Empty);
+            Assert.That(utilitySummonerRuntimeDefinition.Capabilities.TryGetUtility(out _), Is.False);
+            Assert.That(utilitySummonerRuntimeDefinition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
+            Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
+            Assert.That(utilitySummonerProfile.CapabilityAssets, Has.Count.EqualTo(1));
+            Assert.That(utilitySummonerProfile.CapabilityAssets[0], Is.AssignableTo<EnemyPassiveContactCapabilityAsset>());
+            Assert.That(utilitySummonerProfile.CapabilityAssets[0].name, Is.EqualTo("EnemyCapability_PassiveContact_Common"));
             Assert.That(
                 File.ReadAllText(AssetDatabase.GetAssetPath(utilitySummonerProfile)),
                 Does.Not.Contain("logicModuleAssets"));

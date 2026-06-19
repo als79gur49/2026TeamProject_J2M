@@ -74,6 +74,8 @@
   - current closeout report for the Summon Behavior runtime/emitter and test-local presentation/audio/VFX parity slices, recording implementation status, preserved Spawn/EntityCreation seam, production asset non-migration, replay/export name preservation, presentation/audio/VFX name preservation, scans, and validation evidence
 - [Enemy-AI-Summon-Asset-Scoped-Migration-Closeout.md](./Enemy-AI-Summon-Asset-Scoped-Migration-Closeout.md)
   - current closeout report for the production ArchetypeSummoner asset-scoped Utility SummonMinion to Behavior Summon migration, including migrated asset allowlist, field mapping, capability handling decision, guard/residue results, replay/presentation validation, full-lane status, rollback path, and non-goals
+- [Enemy-AI-Summon-Legacy-Capability-Cleanup-Closeout.md](./Enemy-AI-Summon-Legacy-Capability-Cleanup-Closeout.md)
+  - current closeout report for removing the empty ArchetypeSummoner legacy Utility capability asset/reference while retaining Summon Behavior ownership, common PassiveContact, SourceEffectIndex / Effect compatibility, generic Utility compatibility code, and Charge no-op boundaries
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
   - current supporting truth for persistent BGM ownership, scene request-source boundaries, request-based BGM playback, FadeOutIn support, and reserved Crossfade governance
 - [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)

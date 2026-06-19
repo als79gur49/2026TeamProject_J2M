@@ -310,20 +310,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void MigratedSummon_ProfileHasBehaviorModuleOnly()
+        public void MigratedSummon_ProfileHasBehaviorOwnerAndNoLegacyUtilityCapability()
         {
             var profile = LoadRequiredProfile(ArchetypeSummonerProfilePath);
             var module = AssetDatabase.LoadAssetAtPath<EnemySummonBehaviorModuleAsset>(
                 ArchetypeSummonerSummonBehaviorModulePath);
+            var passiveContactCapability = AssetDatabase.LoadAssetAtPath<EnemyPassiveContactCapabilityAsset>(
+                CommonPassiveContactCapabilityPath);
             var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
             Assert.That(module, Is.Not.Null, ArchetypeSummonerSummonBehaviorModulePath);
+            Assert.That(passiveContactCapability, Is.Not.Null, CommonPassiveContactCapabilityPath);
+            Assert.That(profile.CapabilityAssets, Has.Count.EqualTo(1), ArchetypeSummonerProfilePath);
+            Assert.That(profile.CapabilityAssets[0], Is.SameAs(passiveContactCapability), ArchetypeSummonerProfilePath);
             Assert.That(profile.BehaviorModuleAssets, Has.Count.EqualTo(1), ArchetypeSummonerProfilePath);
             Assert.That(profile.BehaviorModuleAssets[0], Is.SameAs(module), ArchetypeSummonerProfilePath);
             Assert.That(definition.TryGetSummonBehavior(out var summon), Is.True, ArchetypeSummonerProfilePath);
             Assert.That(summon.SummonedArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
-            Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True, ArchetypeSummonerProfilePath);
-            Assert.That(utility.Effects, Is.Empty, ArchetypeSummonerProfilePath);
+            Assert.That(definition.Capabilities.TryGetUtility(out _), Is.False, ArchetypeSummonerProfilePath);
             Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
             Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
             Assert.That(
@@ -334,22 +338,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void MigratedSummon_ProfileHasNoUtilitySummonResidue()
+        public void MigratedSummon_LegacyUtilityCapabilityAssetHasNoProductionReferences()
         {
             var profile = LoadRequiredProfile(ArchetypeSummonerProfilePath);
             var capability = AssetDatabase.LoadAssetAtPath<EnemyUtilityCapabilityAsset>(
                 ArchetypeSummonerUtilityCapabilityPath);
             var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            var profileYaml = File.ReadAllText(GetAbsoluteAssetPath(ArchetypeSummonerProfilePath));
 
-            Assert.That(capability, Is.Not.Null, ArchetypeSummonerUtilityCapabilityPath);
-            Assert.That(capability.Effects.Count, Is.EqualTo(0), ArchetypeSummonerUtilityCapabilityPath);
-            Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True, ArchetypeSummonerProfilePath);
-            Assert.That(utility.Effects, Is.Empty, ArchetypeSummonerProfilePath);
+            Assert.That(capability, Is.Null, ArchetypeSummonerUtilityCapabilityPath);
+            Assert.That(File.Exists(GetAbsoluteAssetPath(ArchetypeSummonerUtilityCapabilityPath)), Is.False, ArchetypeSummonerUtilityCapabilityPath);
+            Assert.That(profileYaml, Does.Not.Contain("44788e5c202648d0bae1e8b5be647816"), ArchetypeSummonerProfilePath);
+            Assert.That(profileYaml, Does.Not.Contain("EnemyCapability_ArchetypeSummoner"), ArchetypeSummonerProfilePath);
+            Assert.That(profile.CapabilityAssets.OfType<EnemyUtilityCapabilityAsset>(), Is.Empty, ArchetypeSummonerProfilePath);
+            Assert.That(definition.Capabilities.TryGetUtility(out _), Is.False, ArchetypeSummonerProfilePath);
             Assert.That(definition.TryGetSummonBehavior(out _), Is.True, ArchetypeSummonerProfilePath);
-            Assert.That(
-                File.ReadAllText(GetAbsoluteAssetPath(ArchetypeSummonerUtilityCapabilityPath)),
-                Does.Not.Contain("kind: 0"),
-                ArchetypeSummonerUtilityCapabilityPath);
         }
 
         [Test]
@@ -772,6 +775,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string ArchetypeSummonerUtilityCapabilityPath =
             StageContentPaths.SharedEnemyAiRoot + "/Capabilities/Enemy_UtilitySummoner/EnemyCapability_ArchetypeSummoner.asset";
 
+        private const string CommonPassiveContactCapabilityPath =
+            StageContentPaths.SharedEnemyAiRoot + "/Capabilities/Enemy_Common/EnemyCapability_PassiveContact_Common.asset";
+
         private const string ArchetypeSummonerSummonBehaviorModulePath =
             StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_Summon/EnemySummonBehaviorModule_ArchetypeSummoner.asset";
 
@@ -978,8 +984,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.CreateDefault().SimulationTicksPerSecond);
 
             Assert.That(definition.Capabilities.TryGetCombat(out var combat), Is.False, $"Jpeter must not be inferred as Combat={combat?.Kind.ToString() ?? "<null>"}.");
-            Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True);
-            Assert.That(utility.Effects, Is.Empty);
+            Assert.That(definition.Capabilities.TryGetUtility(out _), Is.False);
             Assert.That(definition.TryGetSummonBehavior(out var summon), Is.True);
             Assert.That(summon.SummonedArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
             Assert.That(summon.MaxAliveChildren, Is.EqualTo(2));
