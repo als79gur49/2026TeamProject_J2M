@@ -78,6 +78,8 @@
   - current closeout report for removing the empty ArchetypeSummoner legacy Utility capability asset/reference while retaining Summon Behavior ownership, common PassiveContact, SourceEffectIndex / Effect compatibility, generic Utility compatibility code, and Charge no-op boundaries
 - [Enemy-AI-Utility-Summon-Code-Retirement-Closeout.md](./Enemy-AI-Utility-Summon-Code-Retirement-Closeout.md)
   - current closeout report for retiring executable Utility Summon authoring, compile, runtime progression, trigger emission, and spawn-request conversion while retaining enum tombstones, Behavior Summon ownership, GravityFieldAura Utility execution, and presentation/replay compatibility names
+- [Enemy-AI-Summon-Internal-Type-Decoupling-Closeout.md](./Enemy-AI-Summon-Internal-Type-Decoupling-Closeout.md)
+  - current closeout report for Slice B internal Summon DTO and presentation carrier decoupling, including production serialization parity, dual-carrier responsibilities, legacy raw `utilityKind: 3` compatibility, remaining manual/full gates, and Slice C deferrals
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
   - current supporting truth for persistent BGM ownership, scene request-source boundaries, request-based BGM playback, FadeOutIn support, and reserved Crossfade governance
 - [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)
