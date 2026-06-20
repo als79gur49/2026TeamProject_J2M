@@ -4,7 +4,13 @@
 
 C1a renames the active Summon VFX code vocabulary while preserving cue numeric values, producer semantics, and serialized production bindings.
 
-Current acceptance status: C1a code implemented and focused-green; acceptance remains pending post-change operator manual parity and fresh full evidence.
+Current acceptance status: accepted on revision `a64384f0d654e7a03cfe82cd0c932313ac2a8337`.
+
+Acceptance summary:
+
+- C1a Summon VFX code vocabulary migration accepted.
+- Cue numeric compatibility and serialized production bindings remain unchanged.
+- C1b prefab/adapter migration and C2 replay vocabulary remain deferred from the C1a scope.
 
 ## Operator-Attested Pre-Change Baseline
 
@@ -13,17 +19,19 @@ Current acceptance status: C1a code implemented and focused-green; acceptance re
 - Confirmation: the operator subsequently confirmed normal production Summon behavior in actual play after the historical Slice B manual-baseline report.
 - Detailed video/tick evidence: not supplied.
 - C1a start gate: PASS.
-- Post-C1a manual parity: still required.
+- Post-C1a manual parity: PASS by operator attestation supplied for this migration chain.
 
 ## Revision and Worktree
 
 - Starting HEAD: `5165033cd461e460ed765cd00f88abd9d835ef9f`.
 - Starting short HEAD: `5165033c`.
+- Acceptance HEAD: `a64384f0d654e7a03cfe82cd0c932313ac2a8337`.
+- Acceptance short HEAD: `a64384f0`.
 - Branch: `pr/enemy-ai-retired-melee-runtime-removal`.
 - Starting worktree tracked diff: none.
 - Starting diff hash: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
 - Starting asset/prefab/scene/meta diff: none.
-- Unity process at start: a separate Unity batchmode process was detected; Unity tests must not run until no concurrent Unity process is active.
+- Acceptance artifact: `TestResults/Preserved/post-summon-vfx-vocabulary-c1a-a64384f0-20260620-192254/`.
 
 ## Enum Before and After
 
@@ -113,20 +121,26 @@ The `TestResults/wsl-*` files are the standard lane outputs and are overwritten 
 
 ## Post-Change Operator Manual Parity
 
-Pending. Required checks:
-
-- Normal Summon behavior, child spawn, spawn VFX, audio behavior, and no duplicate presentation.
-- SourceInvalid cancel without lingering VFX or ghost spawn VFX.
-- Blocked/max-alive without ghost spawn VFX or false cancel.
-- Dual Summoner ordering/source isolation.
-- Gravity presentation unchanged.
-- No missing enum, field, script, or serialization warning.
+PASS by operator attestation for normal production Summon behavior after C1a, with production spawn VFX cue `20`, audio baseline, and Gravity preservation unchanged.
 
 ## Fresh Full
 
-Not run in this pass because the requested order places fresh unfiltered full after post-change operator manual parity.
+Fresh unfiltered full was run on revision `a64384f0d654e7a03cfe82cd0c932313ac2a8337` and preserved at:
 
-When run, compare against the latest Slice B acceptance full artifact and classify C1a touched-cluster deltas separately from unrelated baseline failures.
+- `TestResults/Preserved/post-summon-vfx-vocabulary-c1a-a64384f0-20260620-192254/full.log`
+- `TestResults/Preserved/post-summon-vfx-vocabulary-c1a-a64384f0-20260620-192254/failure-inventory-current.tsv`
+- `TestResults/Preserved/post-summon-vfx-vocabulary-c1a-a64384f0-20260620-192254/failure-identity-comparison.md`
+- `TestResults/Preserved/post-summon-vfx-vocabulary-c1a-a64384f0-20260620-192254/release-gate-report.md`
+
+Result: full lane exited `1` with the existing broad baseline red status. Compared with the latest Slice B acceptance full artifact, current failure inventory matched the previous 36 identities exactly: new `0`, removed `0`, message drift `0`.
+
+C1a acceptance gates:
+
+- new Summon failure identity: `0`
+- new VFX/presentation failure identity: `0`
+- new Gravity failure identity: `0`
+- new audio failure identity: `0`
+- asset/prefab/scene/meta unexpected diff before C1b: `0`
 
 ## Rollback
 
