@@ -143,7 +143,7 @@ Fields explicitly excluded:
 | `suppressMovementDuringRecover` | `suppressionPolicy.suppressMovementDuringRecover` | Copy boolean exactly | Boolean | `BehaviorSummon_MovementSuppressionParity` | Preserve recovery suppression behavior. |
 | Utility effect index | Future source/module index compatibility field | During migration, map Utility effect index to the future behavior source index used by request metadata | Replay/export compatibility plan must approve vocabulary | `BehaviorSummon_ReplayNamesPreservedOrMigrated` | Do not rename `Effect=` in this plan. |
 | `SourceEffectIndex` in child metadata | Future source index compatibility field | Preserve semantics until replay/export migration chooses a neutral vocabulary | Must continue to support max-alive query parity | `BehaviorSummon_MaxAliveParity` | `SummonedEntityState` remains materializer output. |
-| Request `OriginCell`, `SourceFacing`, `SourceTeamId` | `EntitySpawnRequestSource` | Keep captured request snapshot metadata in request emission | Request payload must not drift before materialization | `BehaviorSummon_PreservesRequestPayloadSnapshot` | Not Behavior asset fields. |
+| Request `OriginCell`, `SourceFacing`, `SourceTeamId` | `EntitySpawnRequestSource` | Capture resolve-time valid source pose/team when creating the immutable request | Request payload must not drift before materialization | `BehaviorSummon_PreservesRequestPayloadSnapshot` | Trigger intents may retain emission-time pose for trace/debug, but placement authority is resolve-time source state. |
 | Placement/materialization/id allocation | `EntitySpawnMaterializer` | Do not migrate | Failed placement must not allocate ids; successful placement allocates after cell selection | `BehaviorSummon_EmitsSpawnRequestInUtilityParityOrder` | `FinalizationBatch.SpawnEntity` remains authoritative write path. |
 | Presentation/audio/VFX refs | Presentation profile or existing binding assets | Do not invent fields; copy only if a future presentation plan introduces equivalent refs | Separate presentation/audio/VFX parity plan required | `MigratedSummon_AudioVfxParity` | Current Summon authoring has no direct refs. |
 | `GravityFieldAura` fields | none | Do not migrate | Gravity assets remain unchanged | `GravityFieldAura_Unchanged` | Out of scope. |
@@ -311,7 +311,7 @@ Required follow-up:
 | `UtilitySummonAndBehaviorSummon_ProfileCompileFails` | Future | Duplicate guard fails fast | Yes |
 | `DuplicateGuard_MessageIncludesProfileAndBothSources` | Future | Error identifies profile, Utility effect index, Behavior module asset | Yes |
 | `BehaviorSummon_EmitsSpawnRequestInUtilityParityOrder` | Future | Preserves materialization order and id allocation order | Yes |
-| `BehaviorSummon_PreservesRequestPayloadSnapshot` | Future | Preserves origin/facing/team/tick snapshot metadata | Yes |
+| `BehaviorSummon_PreservesRequestPayloadSnapshot` | Future | Preserves request origin/facing/team/tick after resolve-time request construction | Yes |
 | `BehaviorSummon_MaxAliveParity` | Future | Preserves max-alive count and planned child gate behavior | Yes |
 | `BehaviorSummon_SourceDeathCancelsOrSkipsAsUtility` | Future | Preserves hard-invalid source behavior | Yes |
 | `BehaviorSummon_SourceLeavesTopologyCancelsOrSuspendsAsUtility` | Future | Preserves topology participation loss behavior | Yes |

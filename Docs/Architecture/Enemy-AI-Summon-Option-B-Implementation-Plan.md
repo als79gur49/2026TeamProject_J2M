@@ -87,7 +87,7 @@
 - Move only behavior timing, state progression, suppression, max-alive precheck, and request emission ownership to Behavior runtime.
 - Keep entity creation, placement, id allocation, spawned metadata, and finalization writes in the Spawn/EntityCreation seam.
 - Behavior emitter must emit `EntitySpawnRequest` in Utility parity order.
-- Request source metadata must capture `OriginCell`, `SourceFacing`, and `SourceTeamId` before later same-tick source changes can drift payload.
+- Trigger intents may capture emission-time source pose for trace/debug compatibility, but request source metadata must capture `OriginCell`, `SourceFacing`, and `SourceTeamId` from the resolve-time valid source before materialization can consume the immutable request.
 - Initial Option B maps Behavior source identity into compatibility `SourceEffectIndex` / `Effect=` vocabulary rather than renaming external output.
 - Source death, invalid source, and topology participation must cancel, skip, or suspend with Utility parity.
 

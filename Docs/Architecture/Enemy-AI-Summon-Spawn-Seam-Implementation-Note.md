@@ -98,7 +98,7 @@ Full lane was not run. Therefore this note does not report broad project validat
 | Area | Evidence |
 | --- | --- |
 | Same-tick multi-summoner ordering | Characterized: Utility trigger intents sort by `SourceEntityId`, `EffectIndex`, `TriggerTick`; materializer preserves received order. |
-| Mutable request payload drift guard | Guarded: `EntitySpawnRequest` uses captured `OriginCell`, `SourceFacing`, and `SourceTeamId`, not a broad live source entity payload. |
+| Mutable request payload drift guard | Guarded: `EntitySpawnRequest` uses resolve-time captured `OriginCell`, `SourceFacing`, and `SourceTeamId`, not a broad live source entity payload. |
 | Duplicate Utility/Behavior Summon guard design | Documented as Option B prerequisite. |
 | BehaviorModule Summon runtime state shape design | Documented as Option B prerequisite. |
 | Summon asset migration plan | Documented as Option B prerequisite. |

@@ -6,7 +6,7 @@
 - First compile-skeleton slice is implemented: `EnemyBehaviorModuleKey.Summon`, `EnemySummonBehaviorModuleAsset`, and a fixed typed Summon runtime config slot exist.
 - Mutable Summon behavior runtime state, trigger emission, request production, and materialization participation are implemented for the test-local Behavior Summon path.
 - Utility `SummonMinion` remains in the Utility capability lane until an explicit asset-scoped migration exists.
-- Test-local Summon behavior runtime owns timing, phase, cooldown, movement suppression, source capture, trigger eligibility, and request emission only.
+- Test-local Summon behavior runtime owns timing, phase, cooldown, movement suppression, emission-time source trace, trigger eligibility, and request emission only.
 - The Spawn/EntityCreation seam remains the owner of placement, materialization, entity id allocation, entity construction, metadata creation, and `FinalizationBatch.SpawnEntity`.
 - Duplicate Utility Summon plus Behavior Summon remains an Option B compiler guard.
 - Mutable Behavior Summon runtime state/emitter is implemented for the test-local Behavior Summon path; production Summoner assets remain Utility-owned.
@@ -23,7 +23,7 @@ Current Utility Summon is implemented through `EnemyUtilityCapabilityAsset`, `Su
 | `EnemyUtilityEffectState.phase` | `EnemyUtilityEffectState` | `None`, `Windup`, `Recover`, shared `Active` handling | Hashed in `EnemyUtilities` | `SummonBehaviorRuntime` | Summon currently uses `Windup`, `Recover`, and `None`; `Active` is shared Utility vocabulary, not Summon-specific behavior. |
 | `windupStartTick` / `windupEndTick` | `EnemyUtilityEffectState` | Windup duration, warning presentation, trigger commit timing | Hashed in `EnemyUtilities` | `SummonBehaviorRuntime` | Future state must preserve tick parity. |
 | `activeStartTick` / `activeEndTickExclusive` | `EnemyUtilityEffectState` | Shared Utility active window, mainly GravityFieldAura | Hashed in `EnemyUtilities` | Not part of SummonBehavior | Summon clears these fields and does not own an active duration. |
-| `activeOriginCell` | `EnemyUtilityEffectState` | Shared Utility active origin, mainly GravityFieldAura | Hashed in `EnemyUtilities` | Not part of SummonBehavior | Summon request origin is captured from source at request emission/materialization, not via this active origin field. |
+| `activeOriginCell` | `EnemyUtilityEffectState` | Shared Utility active origin, mainly GravityFieldAura | Hashed in `EnemyUtilities` | Not part of SummonBehavior | Summon request origin is captured from the resolve-time valid source, not via this active origin field. |
 | `recoverStartTick` / `recoverEndTickExclusive` | `EnemyUtilityEffectState` | Recovery phase duration and recover presentation signal | Hashed in `EnemyUtilities` | `SummonBehaviorRuntime` | Future state needs equivalent recovery parity. |
 | `activationSequence` | `EnemyUtilityEffectState` | Presentation seed, update logs, cancellation logs | Hashed in `EnemyUtilities` | `SummonBehaviorRuntime` | Future state must preserve monotonic activation sequence semantics. |
 | `movementSuppressionUntilTickInclusive` | `EnemyUtilityEffectState` | Movement suppression during windup/recover and one-tick windup remainder | Hashed in `EnemyUtilities` | `SummonBehaviorRuntime` | Future state should keep explicit suppression window instead of recomputing from phase only. |
@@ -167,9 +167,9 @@ Max-alive design decision:
 | Trigger tick | `CommitPending` request emission tick | Must match | High | `BehaviorSummon_EmitsSpawnRequestInUtilityParityOrder` |
 | Effect index / source index | Future module/source slot index mapped to request source index | Equivalent after migration | High | `BehaviorSummon_ReplayNamesPreservedOrMigrated` |
 | Activation sequence | `ActivationSequence` | Must match | Medium | `BehaviorSummon_PresentationWindupParity` |
-| Origin capture | Request source `OriginCell` from source snapshot at emission/materialization | Equivalent | High | `BehaviorSummon_PreservesRequestPayloadSnapshot` |
-| Facing capture | Request source `SourceFacing` | Equivalent | High | `BehaviorSummon_PreservesRequestPayloadSnapshot` |
-| Team capture | Request source `SourceTeamId` | Equivalent | High | `BehaviorSummon_PreservesRequestPayloadSnapshot` |
+| Origin capture | Request source `OriginCell` from resolve-time valid source snapshot | Equivalent | High | `BehaviorSummon_PreservesRequestPayloadSnapshot` |
+| Facing capture | Request source `SourceFacing` from resolve-time valid source snapshot | Equivalent | High | `BehaviorSummon_PreservesRequestPayloadSnapshot` |
+| Team capture | Request source `SourceTeamId` from resolve-time valid source snapshot | Equivalent | High | `BehaviorSummon_PreservesRequestPayloadSnapshot` |
 | Max alive | Snapshot query over `SummonedEntityState` and child entity state | Must match | High | `BehaviorSummon_MaxAliveParity` |
 | Source death/cancel | Participation hard-invalid cancellation plus post-attack source skip | Must match | High | `BehaviorSummon_SourceDeathCancelsOrSkipsAsUtility` |
 | Source leaves topology participation | Shift/suspend active windows | Must match or explicitly migrate | High | `BehaviorSummon_SourceLeavesTopologyCancelsOrSuspendsAsUtility` |
@@ -190,7 +190,7 @@ Max-alive design decision:
 | Windup/recovery transitions | `SummonBehaviorRuntime` state | Current Utility state owns these windows; Option B should move only this owner surface. |
 | Trigger eligibility | `SummonBehaviorRuntime` with snapshot queries | Eligibility depends on cooldown, phase, source participation, and max alive. |
 | Movement suppression window | `SummonBehaviorRuntime` state | Suppression must remain deterministic and inspectable. |
-| Source capture timing | Behavior emitter | Capture is part of request emission, not materialization output. |
+| Source trace timing | Behavior emitter | Trigger intents may retain emission-time pose for trace/debug compatibility. Request source pose is captured later from the resolved post-attack source snapshot. |
 | Request emission decision | Behavior emitter | Emitter decides whether to create spawn requests. |
 | Max alive gate query dependency | Behavior emitter using snapshot query policy | Config plus snapshot query avoids persistent child lists. |
 | Request ordering after emission | Trigger/request collection seam | Preserves deterministic source/module/tick ordering before materializer receives requests. |

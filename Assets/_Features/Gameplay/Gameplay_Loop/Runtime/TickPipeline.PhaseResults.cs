@@ -782,7 +782,7 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationBatch batch,
             List<string> eventLogEntries)
         {
-            if (!TryGetValidSource(snapshot, triggerIntent.SourceEntityId, out _))
+            if (!TryGetValidSource(snapshot, triggerIntent.SourceEntityId, out var resolvedSource))
             {
                 AppendBehaviorSummonSkipEvent(eventLogEntries, triggerIntent, tickIndex, spawnIndex: 0, SummonSkipReason.SourceInvalid);
                 return;
@@ -815,9 +815,9 @@ namespace Game.Feature.Gameplay.Loop
                         triggerIntent.SourceEntityId,
                         triggerIntent.SourceEffectIndex,
                         triggerIntent.TriggerTick,
-                        triggerIntent.OriginCell,
-                        triggerIntent.SourceFacing,
-                        triggerIntent.SourceTeamId),
+                        resolvedSource.position,
+                        resolvedSource.facing,
+                        resolvedSource.teamId),
                     spawnIndex,
                     tickIndex,
                     triggerIntent.Summon,

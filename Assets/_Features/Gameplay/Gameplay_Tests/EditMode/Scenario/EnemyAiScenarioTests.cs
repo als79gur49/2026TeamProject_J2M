@@ -2481,6 +2481,116 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void BehaviorSummon_ExecuteTickMovement_UsesResolvedSourcePoseForPlacement()
+        {
+            var staleSourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var resolvedSourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var staleSourceFacing = Direction.Up;
+            var resolvedSourceFacing = Direction.Right;
+            var staleCandidateCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var resolvedCandidateCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var profile = CreateBehaviorSummonProfile(
+                initialDelayTicks: 0,
+                cooldownTicks: 3,
+                windupTicks: 1,
+                detectionStrategyKind: DetectionStrategyKind.NearestOpponent,
+                patrolStrategyKind: PatrolStrategyKind.Forward);
+            EnemyAiProfile defaultProfile = null;
+            EnemyUnitArchetypeCatalog archetypeCatalog = null;
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 3, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: staleSourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: staleSourceFacing),
+                },
+                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(3, 1)));
+            worldState.CreateWriteContext().SetEnemySummonBehaviorState(
+                40,
+                new EnemySummonBehaviorRuntimeState
+                {
+                    phase = EnemySummonBehaviorPhase.Windup,
+                    windupStartTick = 0,
+                    windupEndTick = 1,
+                    activationSequence = 1,
+                });
+
+            try
+            {
+                var bootstrapper = CreateSharedSummonBootstrapper(profile, out defaultProfile, out archetypeCatalog);
+                var timingProfile = GameplayTimingProfile.CreateDefault();
+                var pipeline = bootstrapper.CreateTickPipeline(
+                    worldState,
+                    Array.Empty<IEntityLogic>(),
+                    timingProfile,
+                    PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                        timingProfile.SimulationTicksPerSecond,
+                        timingProfile.RepeatedMoveIntervalSeconds),
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                    playerKinematicLocomotionTiming: CreateOneTickKinematicTiming(timingProfile));
+                var tick = pipeline.RunTick(new TickInput(1));
+                var eventLogDump = string.Join("\n", tick.EventLog);
+                var movementDebug = string.Join(
+                    "\n",
+                    new[]
+                    {
+                        $"EventLog={eventLogDump}",
+                        $"CommitEvents={string.Join(";", tick.MovementPhaseResult.CommitEvents)}",
+                        $"Rejected={string.Join(";", tick.MovementPhaseResult.RejectedReasons)}",
+                        $"Raw={string.Join(";", tick.MovementPhaseResult.RawIntents.Select(intent => $"{intent.SourceId}:{intent.CommandKind}:{intent.Destination}:{intent.MoveCooldownTicks}:{intent.OrdinaryKinematicMoveTicks}"))}",
+                        $"Sorted={string.Join(";", tick.MovementPhaseResult.SortedIntents.Select(intent => $"{intent.SourceId}:{intent.CommandKind}:{intent.Destination}:{intent.MoveCooldownTicks}:{intent.OrdinaryKinematicMoveTicks}"))}",
+                        $"Records={string.Join(";", tick.MovementPhaseResult.ResolutionRecords.Select(record => $"{record.Kind}:{record.SourceId}:{record.ActionPlanId}:{record.LocalActionIndex}:{record.Accepted}"))}",
+                        $"Operations={string.Join(";", tick.MovementPhaseResult.ResolvedOperations.Select(operation => $"{operation.Kind}:{operation.EntityId}"))}",
+                    });
+                var finalSnapshot = worldState.CreateSnapshot();
+
+                Assert.That(
+                    tick.MovementPhaseResult.RawIntents.Single(intent => intent.SourceId == 40).Destination,
+                    Is.EqualTo(resolvedSourceCell.PlanarPosition),
+                    movementDebug);
+                Assert.That(
+                    eventLogDump,
+                    Does.Contain("KinematicAnchorCommitted|").And.Contain("E=40|From=(0,0)|To=(1,0)"),
+                    movementDebug);
+                Assert.That(
+                    eventLogDump,
+                    Does.Contain("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41|Pos=(2,0)|Archetype=BasicMinion|Tick=1"),
+                    movementDebug);
+                Assert.That(
+                    eventLogDump.IndexOf("KinematicAnchorCommitted|", StringComparison.Ordinal),
+                    Is.LessThan(eventLogDump.IndexOf("SummonCommitted|Source=40", StringComparison.Ordinal)),
+                    movementDebug);
+
+                Assert.That(finalSnapshot.TryGetEntity(40, out var source), Is.True);
+                Assert.That(source.position, Is.EqualTo(resolvedSourceCell));
+                Assert.That(source.facing, Is.EqualTo(resolvedSourceFacing));
+                Assert.That(source.position, Is.Not.EqualTo(staleSourceCell));
+                Assert.That(source.facing, Is.Not.EqualTo(staleSourceFacing));
+
+                Assert.That(finalSnapshot.TryGetEntity(41, out var child), Is.True);
+                Assert.That(child.position, Is.EqualTo(resolvedCandidateCell));
+                Assert.That(child.position, Is.Not.EqualTo(staleCandidateCell));
+                Assert.That(child.facing, Is.EqualTo(resolvedSourceFacing));
+                Assert.That(child.facing, Is.Not.EqualTo(staleSourceFacing));
+                Assert.That(child.teamId, Is.EqualTo(2));
+                var finalEntities = new List<EntityState>();
+                finalSnapshot.EnumerateEntitiesOrdered(finalEntities);
+                Assert.That(
+                    finalEntities.Count(entity => entity.position == resolvedCandidateCell),
+                    Is.EqualTo(1));
+                Assert.That(finalSnapshot.HasAnyUnitAt(staleCandidateCell), Is.False);
+                AssertSummonedChildMetadata(finalSnapshot, 41);
+                Assert.That(tick.PresentationData.SummonedEnemyPresentationBindings.Count(binding => binding.EntityId == 41), Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAi_FatalDamage_IsRemovedByCleanupAtTickEnd()
         {
             var worldState = CreateWorldState(new[]
@@ -6819,12 +6929,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int recoveryTicks = 0,
             bool suppressMovementDuringRecover = false,
             PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Stationary,
+            DetectionStrategyKind detectionStrategyKind = DetectionStrategyKind.None,
             PatrolSettings patrolSettings = default)
         {
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
             {
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                DetectionStrategyKind = DetectionStrategyKind.None,
+                DetectionStrategyKind = detectionStrategyKind,
                 PatrolStrategyKind = patrolStrategyKind,
                 PatrolSettings = patrolSettings.Equals(default(PatrolSettings))
                     ? PatrolSettings.CreateDefault()
