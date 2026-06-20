@@ -649,7 +649,7 @@ FrontFaceShield active loop, block burst, and windup warning playback were retir
 Compatibility notes:
 
 - The historical cue ids were reserved as retired enum slots so serialized numeric values do not shift.
-- `EnemyVfxCue.UtilityWindup` remains current and consumes `TickPresentationData.SummonWindupWarnings`.
+- `EnemyVfxCue.SummonWindupWarning` remains current and consumes `TickPresentationData.SummonWindupWarnings`.
 - Generic `ShieldBlock` remains separate from the retired FrontFaceShield cue family.
 - The old FrontFaceShield authoring, presenter, prefab, telegraph prefab, and telegraph materials were removed after GUID/name scans.
 
@@ -1025,13 +1025,13 @@ Ownership:
 - source fact: `TickPresentationData.SummonWindupWarnings`.
 - active desired state: each `TickSummonWindupWarningSignal` present in the current tick.
 - end, cancel, and source death/exit: the signal is absent or suppressed by same-tick `EntityExitSignals`, so the persistent desired key is absent and the registry stops the handle.
-- cue: `EnemyVfxCue.UtilityWindup`.
+- cue: `EnemyVfxCue.SummonWindupWarning`.
 - anchor: source entity center with source-cell fallback, matching the legacy source-view-attached warning default.
 - lifecycle: persistent request with `VfxPersistentKey` built from cue, entity anchor kind, source entity id, effect index, and activation sequence.
 
 Canonical playback and bypass:
 
-- `EnemyVfxCue.UtilityWindup` is canonical Gameplay VFX playback and is not scene/public flag gated.
+- `EnemyVfxCue.SummonWindupWarning` is canonical Gameplay VFX playback and is not scene/public flag gated.
 - after legacy old path cleanup, old `GameplayUtilityWindupVfxPresenter` summon warning spawning is always skipped.
 - suppress compatibility gates were removed in Legacy Surface Simplification.
 - the coordinator still calls a cleanup-only empty refresh so legacy summon warning instances cannot linger.
@@ -1413,7 +1413,7 @@ Cleaned legacy direct playback:
 | Player damage direct hit prefab fallback | `PlayerVfxCue.Damage` | old hit playback disabled | canonical, no migration toggle | direct hit prefab fallback removed |
 | BoxDestroy old entity exit transient track | `BoxVfxCue.DestroyShrink` + `BoxVfxCue.DestroySmoke` | old shrink/fade track removed; `ApplyEntityExitOwnership()` retained | canonical, no migration toggle | smoke does not own shrink suppression |
 | ItemConsume old entity exit transient track | `BoxVfxCue.ItemConsume` | old consume fade track removed; `ApplyEntityExitOwnership()` retained | canonical, no migration toggle | cleanup remains exit ownership |
-| `GameplayUtilityWindupVfxPresenter.RefreshSummonWarnings` | `EnemyVfxCue.UtilityWindup` | old spawn disabled; cleanup-only empty refresh retained | canonical, no migration toggle | presenter kept for legacy instance disposal |
+| `GameplayUtilityWindupVfxPresenter.RefreshSummonWarnings` | `EnemyVfxCue.SummonWindupWarning` | old spawn disabled; cleanup-only empty refresh retained | canonical, no migration toggle | presenter kept for legacy instance disposal |
 | enemy killed old entity exit transient track | `EnemyVfxCue.DeathMotion` + `EnemyVfxCue.Death` | old fly-away track removed; `ApplyEntityExitOwnership()` retained; `EnemyDeathExitEffectPlanBuilder` retained for DeathMotion target math | canonical, no migration toggle | burst and motion can play together |
 | old flip destroy-self clone/fade transient track | `BoxVfxCue.FlipDestroySelfMotion` | old clone/fade track removed; DestroySelf entity membership bookkeeping retained | canonical, no migration toggle | `PresentationMotionTrack` Stay branch remains unchanged |
 | old impact break transient track | `BoxVfxCue.ImpactTransientBreak` | old impact break playback removed; duplicate ownership retained | canonical, no migration toggle | no normal producer added |
@@ -1493,7 +1493,7 @@ TileFeatureAudio and GravityFieldAudio are not VFX. If those lanes are needed, t
 | canonical | `BoxVfxCue.ImpactTransientBreak` | reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
 | canonical | `BoxVfxCue.OutOfBoundsExit / EnemyVfxCue.OutOfBoundsExit` | reserved parameterized clone motion | True | Tier 2 | Yes | manual visual approval + targeted reserved-hook regression |
 | `EnableEnemyJumpTargetVfx` | `EnemyVfxCue.JumperLandingTarget` | Augmentation | True | Tier 2 | Yes | manual visual approval + targeted regression |
-| canonical | `EnemyVfxCue.UtilityWindup` | migrated cue | True | Tier 2 | Yes | manual visual approval + targeted regression |
+| canonical | `EnemyVfxCue.SummonWindupWarning` | migrated cue | True | Tier 2 | Yes | manual visual approval + targeted regression |
 | canonical | `BoxVfxCue.FlipImpactBurst` | migrated cue | True | Tier 2 | Yes | manual visual approval + targeted regression |
 | canonical | `EnemyVfxCue.Death` | migrated burst | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring |
 | canonical | `EnemyVfxCue.DeathMotion` | parameterized motion | True | Tier 3 | Yes | approved in Tier 3 rollout batch; requires post-rollout visual monitoring |

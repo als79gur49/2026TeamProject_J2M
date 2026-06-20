@@ -35,6 +35,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyVfxCue_SummonVocabulary_PreservesNumericCompatibility()
+        {
+            Assert.That((int)EnemyVfxCue.SummonWindupWarning, Is.EqualTo(10));
+            Assert.That((int)EnemyVfxCue.SummonedEnemySpawn, Is.EqualTo(20));
+            Assert.That((int)EnemyVfxCue.JumperLandingTarget, Is.EqualTo(11));
+            Assert.That((int)EnemyVfxCue.JumperLandingDust, Is.EqualTo(12));
+            Assert.That((int)EnemyVfxCue.UtilityCooldownAura, Is.EqualTo(26));
+            Assert.That((int)EnemyVfxCue.GravityFieldAuraWindupArea, Is.EqualTo(27));
+            Assert.That((int)EnemyVfxCue.GravityFieldAuraActiveArea, Is.EqualTo(28));
+            Assert.That((int)EnemyVfxCue.GravityFieldAuraActiveStarted, Is.EqualTo(29));
+
+            var names = Enum.GetNames(typeof(EnemyVfxCue));
+            Assert.That(names, Does.Contain(nameof(EnemyVfxCue.SummonWindupWarning)));
+            Assert.That(names, Does.Contain(nameof(EnemyVfxCue.SummonedEnemySpawn)));
+            Assert.That(names, Does.Not.Contain("UtilityWindup"));
+            Assert.That(names, Does.Not.Contain("UtilitySummonSpawn"));
+            Assert.That(Enum.GetName(typeof(EnemyVfxCue), 10), Is.EqualTo(nameof(EnemyVfxCue.SummonWindupWarning)));
+            Assert.That(Enum.GetName(typeof(EnemyVfxCue), 20), Is.EqualTo(nameof(EnemyVfxCue.SummonedEnemySpawn)));
+
+            var duplicateNumericValues = Enum.GetValues(typeof(EnemyVfxCue))
+                .Cast<EnemyVfxCue>()
+                .GroupBy(cue => (int)cue)
+                .Where(group => group.Count() > 1)
+                .Select(group => group.Key)
+                .ToArray();
+            Assert.That(duplicateNumericValues, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyPlanner_WindupActive_EmitsPersistentRequest()
         {
             var sourceCell = new SurfaceCell(FaceId.Back, 2, 1);
@@ -59,7 +89,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var request = PlanSingleUtilityWindupRequest(signal);
 
-            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup)));
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning)));
             Assert.That(request.IsPersistent, Is.True);
         }
 
@@ -96,7 +126,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyPlanner_SummonedEnemySpawn_EmitsUtilitySummonSpawnOneshot()
+        public void EnemyPlanner_SummonedEnemySpawn_EmitsSummonedEnemySpawnOneshot()
         {
             var spawnCell = new SurfaceCell(FaceId.Back, 1, 2);
             var topology = new CubeTopologyState(FaceId.Back);
@@ -112,7 +142,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var request = plan.Requests.Single();
 
-            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn)));
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.SummonedEnemySpawn)));
             Assert.That(request.SourceEntityId, Is.EqualTo(60));
             Assert.That(request.IsPersistent, Is.False);
             Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
@@ -347,9 +377,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
             Assert.That(
-                cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup), out _),
+                cueMap.BuildRuntimeMap().TryResolve(GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning), out _),
                 Is.False);
-            Assert.That(cueMap.TryResolvePrefab(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup), out _), Is.False);
+            Assert.That(cueMap.TryResolvePrefab(GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning), out _), Is.False);
         }
 
         [Test]
@@ -360,9 +390,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(binding, Is.Not.Null, UtilitySummonSpawnBindingPath);
             Assert.That(binding.ValidateAuthoring().HasErrors, Is.False);
-            Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn)));
+            Assert.That(binding.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.SummonedEnemySpawn)));
+            Assert.That(binding.CueId.Code, Is.EqualTo(20));
             Assert.That(binding.PlaybackMode, Is.EqualTo(VfxPlaybackMode.OneShot));
             Assert.That(binding.StopPolicy, Is.EqualTo(VfxStopPolicy.AuthoredDuration));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void HostDefaultCueMap_ResolvesSummonedEnemySpawnBinding()
+        {
+            var cueMap = AssetDatabase.LoadAssetAtPath<VfxCueMapAsset>(HostDefaultCueMapPath);
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.SummonedEnemySpawn);
+
+            Assert.That(cueMap, Is.Not.Null, HostDefaultCueMapPath);
+            Assert.That(cueId.Code, Is.EqualTo(20));
+            Assert.That(cueMap.BuildRuntimeMap().TryResolve(cueId, out var policy), Is.True);
+            Assert.That(policy.CueId, Is.EqualTo(cueId));
+            Assert.That(cueMap.TryResolvePrefab(cueId, out var prefab), Is.True);
+            Assert.That(prefab, Is.Not.Null);
         }
 
         [Test]
@@ -406,7 +452,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertNoUtilityWindupRequests(TickPresentationData presentationData)
         {
-            var cueId = GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup);
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning);
             var plan = PlanUtilityWindupRequests(presentationData);
 
             Assert.That(
@@ -435,7 +481,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int effectIndex,
             int activationSequence)
         {
-            var cueId = GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup);
+            var cueId = GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning);
             Assert.That(request.TickIndex, Is.EqualTo(12));
             Assert.That(request.SequenceId, Is.EqualTo(sourceEntityId));
             Assert.That(request.SourceEntityId, Is.EqualTo(sourceEntityId));
@@ -657,7 +703,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var binding = ScriptableObject.CreateInstance<VfxBindingDefinitionAsset>();
             SetField(binding, "family", GameplayVfxFamily.Enemy);
-            SetField(binding, "cueCode", (int)EnemyVfxCue.UtilityWindup);
+            SetField(binding, "cueCode", (int)EnemyVfxCue.SummonWindupWarning);
             SetField(binding, "prefab", prefab);
             SetField(binding, "requirement", VfxBindingRequirement.DiagnosticIfMissing);
             SetField(binding, "missingAnchorPolicy", VfxMissingAnchorPolicy.ReportDiagnostic);

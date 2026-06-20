@@ -80,6 +80,8 @@
   - current closeout report for retiring executable Utility Summon authoring, compile, runtime progression, trigger emission, and spawn-request conversion while retaining enum tombstones, Behavior Summon ownership, GravityFieldAura Utility execution, and presentation/replay compatibility names
 - [Enemy-AI-Summon-Internal-Type-Decoupling-Closeout.md](./Enemy-AI-Summon-Internal-Type-Decoupling-Closeout.md)
   - current closeout report for Slice B internal Summon DTO and presentation carrier decoupling, including production serialization parity, dual-carrier responsibilities, legacy raw `utilityKind: 3` compatibility, remaining manual/full gates, and Slice C deferrals
+- [Enemy-AI-Summon-Vfx-Vocabulary-Migration-C1a-Closeout.md](./Enemy-AI-Summon-Vfx-Vocabulary-Migration-C1a-Closeout.md)
+  - current closeout report for Slice C1a Summon VFX code vocabulary rename, preserving cue numeric values, serialized binding compatibility, raw `utilityKind: 3`, audio, and replay/export deferrals
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
   - current supporting truth for persistent BGM ownership, scene request-source boundaries, request-based BGM playback, FadeOutIn support, and reserved Crossfade governance
 - [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)

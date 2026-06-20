@@ -10,6 +10,8 @@ Slice B code is implemented and focused automated validation is green on the cur
 
 Fresh unfiltered `./run_tests.sh full` evidence is preserved from this revision. The full lane is red with the same failure identities as the previous preserved full, and no new Slice B touched-cluster identity was found. Because production manual play was not executed in this CLI session, the correct closeout state is: **Slice B code implemented and focused-green; acceptance remains pending required manual validation**.
 
+Subsequent operator follow-up on 2026-06-20 KST confirmed production Summon behavior in actual play. Evidence is operator-attested and is preserved at `TestResults/Preserved/manual-summon-slice-b-baseline-5165033c-20260620T163636KST/operator-attested-followup.md`; no video or detailed tick capture was supplied. This follow-up satisfies the C1a pre-change baseline gate. Post-C1a manual parity remains required.
+
 ## 2026-06-20 Acceptance Run
 
 Revision/worktree:

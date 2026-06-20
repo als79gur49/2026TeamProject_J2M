@@ -562,7 +562,7 @@ namespace Game.Feature.Gameplay.Vfx
                     continue;
                 }
 
-                var cueId = GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup);
+                var cueId = GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning);
                 builder.Add(
                     new GameplayVfxRequest(
                         tickIndex: context.TickIndex,
@@ -599,14 +599,14 @@ namespace Game.Feature.Gameplay.Vfx
                     continue;
                 }
 
-                var seed = ResolveUtilitySummonSpawnSeed(context.TickIndex, signal);
+                var seed = ResolveSummonedEnemySpawnSeed(context.TickIndex, signal);
                 builder.Add(
                     new GameplayVfxRequest(
                         tickIndex: context.TickIndex,
                         sequenceId: seed,
                         presentationSeed: seed,
                         sourceEntityId: signal.EntityId,
-                        cueId: GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn),
+                        cueId: GameplayVfxCueId.From(EnemyVfxCue.SummonedEnemySpawn),
                         anchor: VfxAnchor.ForCell(
                             signal.Cell,
                             signal.Topology,
@@ -959,7 +959,7 @@ namespace Game.Feature.Gameplay.Vfx
             return false;
         }
 
-        private static int ResolveUtilitySummonSpawnSeed(
+        private static int ResolveSummonedEnemySpawnSeed(
             int tickIndex,
             in TickVisibilityChange signal)
         {
@@ -967,7 +967,7 @@ namespace Game.Feature.Gameplay.Vfx
             {
                 var hash = tickIndex;
                 hash = (hash * 397) ^ signal.EntityId;
-                hash = (hash * 397) ^ (int)EnemyVfxCue.UtilitySummonSpawn;
+                hash = (hash * 397) ^ (int)EnemyVfxCue.SummonedEnemySpawn;
                 hash = (hash * 397) ^ signal.Cell.GetHashCode();
                 hash = (hash * 397) ^ signal.Topology.GetHashCode();
                 return hash != 0 ? hash : signal.EntityId;

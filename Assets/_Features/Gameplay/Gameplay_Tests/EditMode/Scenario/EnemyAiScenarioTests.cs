@@ -641,12 +641,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static bool IsUtilityWindupRequest(GameplayVfxRequest request)
         {
-            return request.CueId == GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup);
+            return request.CueId == GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning);
         }
 
-        private static bool IsUtilitySummonSpawnRequest(GameplayVfxRequest request)
+        private static bool IsSummonedEnemySpawnRequest(GameplayVfxRequest request)
         {
-            return request.CueId == GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn);
+            return request.CueId == GameplayVfxCueId.From(EnemyVfxCue.SummonedEnemySpawn);
         }
 
         private static void AssertSummonedSpawnPresentation(
@@ -671,7 +671,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Does.Contain((sourceEntityId, EnemyAudioCue.Active)));
             Assert.That(
                 PlanEnemyVfxRequests(result).Any(request =>
-                    IsUtilitySummonSpawnRequest(request) &&
+                    IsSummonedEnemySpawnRequest(request) &&
                     request.SourceEntityId == spawnedEntityId),
                 Is.True);
         }
@@ -691,7 +691,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 GetEnemyAudioRequests(result).Any(request => request.Cue == EnemyAudioCue.Active),
                 Is.False);
             Assert.That(
-                PlanEnemyVfxRequests(result).Any(IsUtilitySummonSpawnRequest),
+                PlanEnemyVfxRequests(result).Any(IsSummonedEnemySpawnRequest),
                 Is.False);
         }
 
@@ -1492,7 +1492,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(GetEnemyAudioRequests(windupTick), Is.EqualTo(new[] { (40, EnemyAudioCue.Windup) }));
                 Assert.That(PlanEnemyVfxRequests(windupTick).Where(IsUtilityWindupRequest).ToArray(), Has.Length.EqualTo(1));
                 Assert.That(GetEnemyAudioRequests(windupTick).Any(request => request.Cue == EnemyAudioCue.Active), Is.False);
-                Assert.That(PlanEnemyVfxRequests(windupTick).Any(IsUtilitySummonSpawnRequest), Is.False);
+                Assert.That(PlanEnemyVfxRequests(windupTick).Any(IsSummonedEnemySpawnRequest), Is.False);
             }
             finally
             {
@@ -1597,7 +1597,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var windupTick = pipeline.RunTick(new TickInput(1));
 
                 var request = PlanEnemyVfxRequests(windupTick).Single(IsUtilityWindupRequest);
-                var cueId = GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup);
+                var cueId = GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning);
                 Assert.That(request.SourceEntityId, Is.EqualTo(40));
                 Assert.That(request.CueId, Is.EqualTo(cueId));
                 Assert.That(request.IsPersistent, Is.True);
@@ -1627,9 +1627,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var committedTick = RunSingleBehaviorSummonCommit(out var profile, out var defaultProfile, out var archetypeCatalog);
             try
             {
-                var request = PlanEnemyVfxRequests(committedTick).Single(IsUtilitySummonSpawnRequest);
+                var request = PlanEnemyVfxRequests(committedTick).Single(IsSummonedEnemySpawnRequest);
 
-                Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.UtilitySummonSpawn)));
+                Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.SummonedEnemySpawn)));
                 Assert.That(request.SourceEntityId, Is.EqualTo(41));
                 Assert.That(request.IsPersistent, Is.False);
                 Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
@@ -1671,7 +1671,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 Assert.That(
                     PlanEnemyVfxRequests(committedTick)
-                        .Where(IsUtilitySummonSpawnRequest)
+                        .Where(IsSummonedEnemySpawnRequest)
                         .Select(request => request.SourceEntityId).ToArray(),
                     Is.EqualTo(new[] { 42, 43 }));
             }
