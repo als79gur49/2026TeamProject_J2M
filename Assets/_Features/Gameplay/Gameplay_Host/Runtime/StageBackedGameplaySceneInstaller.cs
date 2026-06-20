@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Host
             in InitialGameplayState initialState)
         {
             base.ConfigureRuntimeConfiguration(configuration, initialState);
-            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
         }
 
         protected override bool TryGetPlayerFree2DLocomotionOverride(

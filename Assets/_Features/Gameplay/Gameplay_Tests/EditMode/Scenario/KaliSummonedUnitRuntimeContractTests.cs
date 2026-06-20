@@ -215,7 +215,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                         timingProfile.SimulationTicksPerSecond,
                         timingProfile.RepeatedMoveIntervalSeconds),
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                     unitKinematicLocomotionTiming: CreateOneTickKinematicTiming(),
                     tileFeatureDefinitions: tileFeatureDefinitions);
         }

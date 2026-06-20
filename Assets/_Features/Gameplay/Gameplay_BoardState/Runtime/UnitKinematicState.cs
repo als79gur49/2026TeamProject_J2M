@@ -35,7 +35,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
         public const int UnitsPerCell = 4096;
         public const int HalfCellUnits = UnitsPerCell / 2;
-        public const int DefaultPlayerUnitsPerTick = UnitsPerCell / 4;
+        public const int ReferenceUnitsPerTick = UnitsPerCell / 4;
         public const int MaxPositiveLocalOffset = HalfCellUnits - 1;
         public const int MinLocalOffset = -HalfCellUnits;
 

@@ -937,7 +937,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerControlTiming = playerControlTiming ?? PlayerControlTimingSettings.CreateDefault(),
                 CampaignChancesReadSource = campaignChancesReadSource,
             };
-            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             return configuration;
         }
 

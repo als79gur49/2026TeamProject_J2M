@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using NUnit.Framework;
@@ -233,6 +235,140 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Contain("TryGetPlayerFree2DLocomotionOverride"));
             Assert.That(source, Does.Contain("PlayerFree2DLocomotionOverride.CreateCollisionAndActionAssist"));
             Assert.That(source, Does.Not.Contain("configuration.PlayerFree2DLocomotion ="));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ActiveGameplaySources_DoNotReintroduceRetiredPlayerLocomotionNames()
+        {
+            AssertNoForbiddenActiveTokens(
+                ForbiddenExact("PlayerContinuous" + "LocomotionScenarioTests"),
+                ForbiddenExact("PlayerContinuous" + "LocomotionReplayTests"),
+                ForbiddenExact("Default" + "GameplayLocomotion"),
+                ForbiddenExact("DefaultPlayer" + "UnitsPerTick"),
+                ForbiddenPattern("Player" + "LocomotionMode", @"\b" + "Player" + @"LocomotionMode\b"),
+                ForbiddenPattern("Player" + "MovementMode", @"\b" + "Player" + @"MovementMode\b"),
+                ForbiddenPattern("EnablePlayer" + "Free2D", @"\b" + "EnablePlayer" + @"Free2D[A-Za-z0-9_]*\b"),
+                ForbiddenPattern("EnablePlayer" + "Kinematic", @"\b" + "EnablePlayer" + @"Kinematic[A-Za-z0-9_]*\b"),
+                ForbiddenPattern("Player" + "KinematicLocomotion", @"\b" + "Player" + @"KinematicLocomotion[A-Za-z0-9_]*\b"),
+                ForbiddenPattern("Player" + "DiscreteMovement", @"\b" + "Player" + @"DiscreteMovement[A-Za-z0-9_]*\b"),
+                ForbiddenExact("Legacy" + "Discrete"),
+                ForbiddenPattern("Kinematic" + "Fallback", @"\b" + "Kinematic" + @"Fallback\b"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ActiveGameplayAssets_DoNotContainRetiredPlayerLocomotionSerializedKeys()
+        {
+            AssertNoForbiddenActiveTokens(
+                ForbiddenExact("player" + "KinematicLocomotionTiming"),
+                ForbiddenExact("player" + "ContinuousLocomotion"),
+                ForbiddenExact("EnablePlayer" + "SameFaceContinuousLocomotion"),
+                ForbiddenPattern("Kinematic" + "MoveDurationSeconds", @"\b" + "Kinematic" + @"MoveDurationSeconds\b"));
+        }
+
+        private static ForbiddenToken ForbiddenExact(string token)
+        {
+            return new ForbiddenToken(
+                token,
+                $@"(?<![A-Za-z0-9_]){Regex.Escape(token)}(?![A-Za-z0-9_])");
+        }
+
+        private static ForbiddenToken ForbiddenPattern(string label, string pattern)
+        {
+            return new ForbiddenToken(label, pattern);
+        }
+
+        private static void AssertNoForbiddenActiveTokens(params ForbiddenToken[] tokens)
+        {
+            foreach (var filePath in EnumerateActiveGameplayGuardFiles())
+            {
+                var source = File.ReadAllText(filePath);
+                for (var i = 0; i < tokens.Length; i++)
+                {
+                    var token = tokens[i];
+                    Assert.That(
+                        Regex.IsMatch(source, token.Pattern),
+                        Is.False,
+                        $"Retired Player locomotion token '{token.Label}' was found in active file '{filePath}'.");
+                }
+            }
+        }
+
+        private static IEnumerable<string> EnumerateActiveGameplayGuardFiles()
+        {
+            foreach (var filePath in EnumerateFilesIfPresent("Assets/_Features/Gameplay"))
+            {
+                yield return filePath;
+            }
+
+            foreach (var filePath in EnumerateFilesIfPresent("Assets/_Features/Stages"))
+            {
+                yield return filePath;
+            }
+
+            if (File.Exists("run_tests.sh"))
+            {
+                yield return "run_tests.sh";
+            }
+
+            foreach (var filePath in EnumerateFilesIfPresent(".github"))
+            {
+                yield return filePath;
+            }
+        }
+
+        private static IEnumerable<string> EnumerateFilesIfPresent(string root)
+        {
+            if (!Directory.Exists(root))
+            {
+                yield break;
+            }
+
+            foreach (var filePath in Directory.GetFiles(root, "*", SearchOption.AllDirectories))
+            {
+                if (IsGuardedFileExtension(Path.GetExtension(filePath)))
+                {
+                    yield return filePath;
+                }
+            }
+        }
+
+        private static bool IsGuardedFileExtension(string extension)
+        {
+            switch (extension)
+            {
+                case ".cs":
+                case ".asmdef":
+                case ".asmref":
+                case ".asset":
+                case ".prefab":
+                case ".unity":
+                case ".json":
+                case ".md":
+                case ".txt":
+                case ".csv":
+                case ".meta":
+                case ".sh":
+                case ".yml":
+                case ".yaml":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private readonly struct ForbiddenToken
+        {
+            public ForbiddenToken(string label, string pattern)
+            {
+                Label = label;
+                Pattern = pattern;
+            }
+
+            public string Label { get; }
+
+            public string Pattern { get; }
         }
     }
 }

@@ -31,11 +31,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Full")]
-        public void HostConfiguration_DefaultGameplayLocomotion_AppliesExpectedFlags()
+        public void HostConfiguration_DefaultEnemyKinematicLocomotion_AppliesExpectedFlags()
         {
             var configuration = new GameplaySceneHostConfiguration();
 
-            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             var flags = configuration.CreateRuntimeFeatureFlags();
 
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
@@ -605,7 +605,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         PlayerViewPrefab = playerViewPrefab,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     };
-                configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
                 host.Initialize(configuration);
 
                 host.InputHost.SetRawMoveInput(Vector2.right);
@@ -813,7 +813,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         PlayerViewPrefab = playerViewPrefab,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     };
-                configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
                 host.Initialize(configuration);
 
                 Assert.That(host.ViewRegistry.TryGetView(10, out _), Is.False);

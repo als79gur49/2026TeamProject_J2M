@@ -479,7 +479,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 },
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             var firstTick = host.InputHost.RunSingleTick();
@@ -775,7 +775,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 },
                 actions: actions,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             using var service = new KeyboardBindingSettingsService(actions, new PlayModeKeyboardBindingStore());
 
             var result = service.SetMovementScheme(KeyboardMovementScheme.ArrowKeys);
@@ -1253,7 +1253,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_PlayMode_FlipLeft_RootEndsFacingRight()
+        public IEnumerator GameplaySceneHost_PlayerS1Prefab_DefaultEnemyKinematicLocomotion_PlayMode_FlipLeft_RootEndsFacingRight()
         {
             var playerViewPrefab = LoadPlayerS1ViewPrefab();
             var host = CreateHost(
@@ -1263,7 +1263,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Flip),
                 },
                 playerViewPrefabOverride: playerViewPrefab,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             host.InputHost.SetRawMoveInput(Vector2.left);
             host.InputHost.BufferFlip();
@@ -1400,7 +1400,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 playerControlTiming: CreateFlipTimingSettings(
                     flipExecuteDelayTicks: 1,
                     flipInputLockDurationTicks: 1),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             host.InputHost.SetRawMoveInput(Vector2.left);
             host.InputHost.BufferFlip();
@@ -2124,7 +2124,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 },
                 actions: actions,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             Press(heldKey);
             yield return null;

@@ -559,7 +559,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                         GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                         GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds),
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                     unitKinematicLocomotionTiming: CreateOneTickKinematicTiming(),
                     tileFeatureDefinitions: tileFeatureDefinitions);
         }

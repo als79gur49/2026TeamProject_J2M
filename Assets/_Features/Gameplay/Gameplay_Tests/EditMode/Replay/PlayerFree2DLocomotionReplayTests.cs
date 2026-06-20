@@ -13,7 +13,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Replay
 {
-    public sealed class PlayerContinuousLocomotionReplayTests
+    public sealed class PlayerFree2DLocomotionReplayTests
     {
         [Test]
         [Category("Extended")]
@@ -37,14 +37,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0))),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             var secondReplay = harness.Run(
                 CreateWorldState(
                     CreatePlayer(10),
                     CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0))),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay[0].DeterminismHash, Is.Not.EqualTo(firstReplay[1].DeterminismHash));
@@ -70,7 +70,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0))),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 playerFree2DLocomotion: playerFree2DLocomotion);
             var secondReplay = harness.Run(
                 CreateWorldState(
@@ -78,7 +78,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0))),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 playerFree2DLocomotion: playerFree2DLocomotion);
 
             AssertReplayEqual(firstReplay, secondReplay);
@@ -100,14 +100,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateUnit(40, new SurfaceCell(FaceId.Floor, 1, 0), teamId: 2)),
                 CreatePlayerLogics(new TickGatedPassiveContactProbeLogic(40, 10, firstTick: 9)),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             var secondReplay = harness.Run(
                 CreateWorldState(
                     CreatePlayer(10),
                     CreateUnit(40, new SurfaceCell(FaceId.Floor, 1, 0), teamId: 2)),
                 CreatePlayerLogics(new TickGatedPassiveContactProbeLogic(40, 10, firstTick: 9)),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay[8].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3"));
@@ -133,7 +133,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     new CubeTopologyState(FaceId.Floor)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             var secondReplay = harness.Run(
                 CreateWorldState(
                     new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
@@ -141,7 +141,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     new CubeTopologyState(FaceId.Floor)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Not.Contain("Pos=(0,1)"));
@@ -178,12 +178,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstWorld,
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             var secondReplay = harness.Run(
                 secondWorld,
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay[0].Trace, Does.Contain("Free2DTopologyNativeTransition"));
@@ -207,7 +207,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     new CubeTopologyState(FaceId.Floor)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             var secondReplay = harness.Run(
                 CreateWorldState(
                     new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) },
@@ -215,7 +215,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     new CubeTopologyState(FaceId.Floor)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay.Any(frame => !frame.FinalEntitiesDump.Contains("Pos=(0,0)")), Is.True);
@@ -224,7 +224,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase2_PlayerDefaultGameplayLocomotion_NoLegacyFallback()
+        public void Replay_Phase2_PlayerDefaultEnemyKinematicLocomotion_NoLegacyFallback()
         {
             var inputs = new[]
             {
@@ -238,12 +238,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreateWorldState(CreatePlayer(10)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             var secondReplay = harness.Run(
                 CreateWorldState(CreatePlayer(10)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             Assert.That(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -262,7 +262,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Extended")]
         public void Replay_MoveOwnership_NoCoveredFallbackMove()
         {
-            Replay_Phase2_PlayerDefaultGameplayLocomotion_NoLegacyFallback();
+            Replay_Phase2_PlayerDefaultEnemyKinematicLocomotion_NoLegacyFallback();
         }
 
         [Test]
@@ -337,14 +337,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateUnit(40, new SurfaceCell(FaceId.Floor, 0, 1), teamId: 2)),
                 CreatePlayerLogics(new TickScriptedAttackLogic(40, 10, attackTick: 2)),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             var secondReplay = harness.Run(
                 CreateWorldState(
                     CreatePlayer(10, hp: 1),
                     CreateUnit(40, new SurfaceCell(FaceId.Floor, 0, 1), teamId: 2)),
                 CreatePlayerLogics(new TickScriptedAttackLogic(40, 10, attackTick: 2)),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay[1].EventLogDump, Does.Contain("ContinuousLocomotionInterrupted|E=10"));
@@ -377,7 +377,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             var secondReplay = harness.Run(
                 CreateWorldStateWithPlayerOffset(
                     512,
@@ -386,7 +386,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay.Any(frame => frame.PlayerControlDump.Contains("QueuedFree2DAction=Push")), Is.True);
@@ -413,7 +413,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             var secondReplay = harness.Run(
                 CreateWorldStateWithPlayerOffset(
                     513,
@@ -422,7 +422,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateBox(20, new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay.Any(frame => frame.PlayerControlDump.Contains("QueuedFree2DAction=Push")), Is.False);
@@ -447,7 +447,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreatePlayer(10)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             var secondReplay = harness.Run(
                 CreateWorldStateWithPlayerOffset(
                     512,
@@ -455,7 +455,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreatePlayer(10)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay.Any(frame => frame.PlayerControlDump.Contains("QueuedFree2DAction=Push")), Is.False);

@@ -13,7 +13,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
-    public sealed class PlayerContinuousLocomotionScenarioTests
+    public sealed class PlayerFree2DLocomotionScenarioTests
     {
         [Test]
         [Category("Extended")]
@@ -349,7 +349,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Player_Free2D_TopologyEdge_SeamClampedNonZero_CrossesNativelyUnderDefaultGameplay()
+        public void Player_Free2D_TopologyEdge_SeamClampedNonZero_CrossesNativelyUnderDefaultEnemyKinematicPreset()
         {
             var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
             var speed = DefaultFree2DSpeedUnitsPerTick();
@@ -386,7 +386,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Player_Free2D_TopologyEdge_LocalNonZero_CrossesNativelyUnderDefaultGameplay()
+        public void Player_Free2D_TopologyEdge_LocalNonZero_CrossesNativelyUnderDefaultEnemyKinematicPreset()
         {
             var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
             var speed = DefaultFree2DSpeedUnitsPerTick();
@@ -2210,7 +2210,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_NormalMoveDirectionChange_CommitsFacingImmediately()
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultEnemyKinematicLocomotion_NormalMoveDirectionChange_CommitsFacingImmediately()
         {
             var worldState = CreateWorldState(CreatePlayer(10, facing: Direction.Left));
             var pipeline = CreateDefaultGameplayPipeline(worldState);
@@ -2231,7 +2231,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_FlipLeft_StartsFacingLeftAndEndsFacingRight()
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultEnemyKinematicLocomotion_FlipLeft_StartsFacingLeftAndEndsFacingRight()
         {
             AssertImmediateFlipResultFacing(
                 Direction.Left,
@@ -2241,7 +2241,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_FlipRight_StartsFacingRightAndEndsFacingLeft()
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultEnemyKinematicLocomotion_FlipRight_StartsFacingRightAndEndsFacingLeft()
         {
             AssertImmediateFlipResultFacing(
                 Direction.Right,
@@ -2251,7 +2251,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_FlipUp_StartsFacingUpAndEndsFacingDown()
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultEnemyKinematicLocomotion_FlipUp_StartsFacingUpAndEndsFacingDown()
         {
             AssertImmediateFlipResultFacing(
                 Direction.Up,
@@ -2261,7 +2261,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_FlipDown_StartsFacingDownAndEndsFacingUp()
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultEnemyKinematicLocomotion_FlipDown_StartsFacingDownAndEndsFacingUp()
         {
             AssertImmediateFlipResultFacing(
                 Direction.Down,
@@ -2271,7 +2271,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_QueuedFlip_StartsFacingActionDirectionAndEndsFacingOpposite()
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultEnemyKinematicLocomotion_QueuedFlip_StartsFacingActionDirectionAndEndsFacingOpposite()
         {
             var worldState = CreateWorldState(
                 CreatePlayer(10, facing: Direction.Left),
@@ -2309,7 +2309,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_FlipResultTurn_WithKpo_UsesKpoPositionAndResultTurnRotation()
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultEnemyKinematicLocomotion_FlipResultTurn_WithKpo_UsesKpoPositionAndResultTurnRotation()
         {
             var worldState = CreateWorldState(
                 CreatePlayer(10, facing: Direction.Left),
@@ -2333,7 +2333,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_StationaryFlipWithoutDirection_DropsOrUsesConfiguredFallback()
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultEnemyKinematicLocomotion_StationaryFlipWithoutDirection_DropsOrUsesConfiguredFallback()
         {
             var worldState = CreateWorldState(
                 CreatePlayer(10, facing: Direction.Left),
@@ -2351,7 +2351,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void GameplaySceneHost_PlayerS1Prefab_DefaultGameplayLocomotion_PushLeft_DoesNotUseFlipOppositeFacingPolicy()
+        public void GameplaySceneHost_PlayerS1Prefab_DefaultEnemyKinematicLocomotion_PushLeft_DoesNotUseFlipOppositeFacingPolicy()
         {
             var worldState = CreateWorldState(
                 CreatePlayer(10, facing: Direction.Up),
@@ -2962,7 +2962,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.CreateDefault().RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var snapshot = worldState.CreateSnapshot();
@@ -3003,7 +3003,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.CreateDefault().RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
         }
 
         private static TickPipeline CreatePipeline(
@@ -3019,7 +3019,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
@@ -3032,7 +3032,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.CreateDefault().RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
         }
 
         private static TickPipeline CreateDefaultGameplayPipeline(
@@ -3048,7 +3048,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
@@ -3061,7 +3061,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.CreateDefault().RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
         }
 
         private static TickPipeline CreatePipelineWithCollisionRadius(
@@ -3077,7 +3077,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 playerFree2DLocomotion: CreatePlayerFree2DLocomotion(collisionRadiusCells, timingProfile.SimulationTicksPerSecond));
         }
 
@@ -3095,7 +3095,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 playerFree2DLocomotion: CreatePlayerFree2DLocomotion(collisionRadiusCells, timingProfile.SimulationTicksPerSecond),
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }
@@ -3113,7 +3113,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 playerFree2DLocomotion: CreatePlayerFree2DLocomotion(collisionRadiusCells, timingProfile.SimulationTicksPerSecond));
         }
 
@@ -3131,7 +3131,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 playerFree2DLocomotion: CreatePlayerFree2DLocomotion(collisionRadiusCells, timingProfile.SimulationTicksPerSecond),
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }
@@ -3145,7 +3145,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.CreateDefault().RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
         }
 
         private static TickPipeline CreateActionAssistPipelineWithCollisionRadius(
@@ -3161,7 +3161,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     timingProfile.RepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 playerFree2DLocomotion: CreatePlayerFree2DLocomotion(collisionRadiusCells, timingProfile.SimulationTicksPerSecond));
         }
 

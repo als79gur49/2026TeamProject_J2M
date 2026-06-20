@@ -964,10 +964,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var topologyIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(0, 2));
             topologyIntent.AssignIntentId(1);
 
-            AssertLegacyExpansionIntentAllowed(pushWorldState, pushIntent, GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
-            AssertLegacyExpansionIntentAllowed(flipWorldState, flipIntent, GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
-            AssertLegacyExpansionIntentAllowed(itemWorldState, itemIntent, GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
-            AssertLegacyExpansionIntentAllowed(topologyWorldState, topologyIntent, GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            AssertLegacyExpansionIntentAllowed(pushWorldState, pushIntent, GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
+            AssertLegacyExpansionIntentAllowed(flipWorldState, flipIntent, GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
+            AssertLegacyExpansionIntentAllowed(itemWorldState, itemIntent, GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
+            AssertLegacyExpansionIntentAllowed(topologyWorldState, topologyIntent, GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
         }
 
         [Test]
@@ -985,7 +985,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertLegacyExpansionIntentBlocked(
                 playerWorldState,
                 playerIntent,
-                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 "PlayerOrdinaryMoveRejectedBeforeLegacyExpansion");
 
             var enemyWorldState = CreateWorldState(new[]
@@ -1025,7 +1025,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase2_PlayerLegacyFallback_ValidateLegacyExpansionIntents_PlayerFlagReachability()
+        public void Phase2_RetiredPlayerOrdinaryFallback_ValidateLegacyExpansionIntents_PlayerFlagReachability()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -1038,7 +1038,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertLegacyExpansionIntentBlocked(
                 worldState,
                 free2DIntent,
-                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 "PlayerOrdinaryMoveRejectedBeforeLegacyExpansion");
 
             var kinematicIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
@@ -1046,7 +1046,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertLegacyExpansionIntentBlocked(
                 worldState,
                 kinematicIntent,
-                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 "PlayerOrdinaryMoveRejectedBeforeLegacyExpansion");
 
             var flagOffIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
@@ -3577,7 +3577,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new[] { definition },
                 resolver,
-                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             var firstActivation = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
@@ -3941,7 +3941,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
-            LegacyMovementBoundaryAssert.NoPlayerLegacyOrdinaryFallback(result, 10);
+            LegacyMovementBoundaryAssert.NoRetiredPlayerOrdinaryFallback(result, 10);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
         }
 
@@ -4921,7 +4921,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     velocity = KinematicVelocity2.Zero,
                     facing = direction,
                     lastMoveDirection = direction,
-                    speedUnitsPerTick = KinematicFixed.DefaultPlayerUnitsPerTick,
+                    speedUnitsPerTick = KinematicFixed.ReferenceUnitsPerTick,
                     mode = ContinuousLocomotionMode.Moving,
                     sequenceId = 1,
                 }.NormalizedForStorage());

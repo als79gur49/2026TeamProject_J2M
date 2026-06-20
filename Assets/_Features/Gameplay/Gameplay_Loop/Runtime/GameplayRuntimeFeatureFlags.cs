@@ -16,7 +16,7 @@ namespace Game.Feature.Gameplay.Loop
 
         public static GameplayRuntimeFeatureFlags None => default;
 
-        public static GameplayRuntimeFeatureFlags DefaultGameplayLocomotion =>
+        public static GameplayRuntimeFeatureFlags DefaultEnemyKinematicLocomotion =>
             new(
                 enableEnemySameFaceContinuousLocomotion: true,
                 enableEnemyChargeKinematicLocomotion: true,

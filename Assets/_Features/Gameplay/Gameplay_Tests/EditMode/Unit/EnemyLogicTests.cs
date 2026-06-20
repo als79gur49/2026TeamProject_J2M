@@ -6988,7 +6988,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<IEntityLogic>(),
                 timingProfile,
                 playerTiming,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 unitKinematicLocomotionTiming: kinematicTiming);
         }
 

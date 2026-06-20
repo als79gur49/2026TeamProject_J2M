@@ -374,7 +374,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerEntityId = 10,
                 PlayerControlTiming = playerControlTiming ?? PlayerControlTimingSettings.CreateDefault(),
             };
-            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             return configuration;
         }
 

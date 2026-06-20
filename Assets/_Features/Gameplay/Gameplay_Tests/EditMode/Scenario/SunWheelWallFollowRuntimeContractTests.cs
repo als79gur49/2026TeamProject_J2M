@@ -613,7 +613,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Array.Empty<IEntityLogic>(),
                 timingProfile,
                 playerTiming,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 unitKinematicLocomotionTiming: CreateOneTickKinematicTiming(timingProfile),
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }

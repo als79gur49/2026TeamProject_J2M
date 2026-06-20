@@ -3707,7 +3707,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var pipeline = CreateEnemyPipeline(
                     worldState,
                     profile,
-                    GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                    GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
                 var result = pipeline.RunTick(new TickInput(1));
                 var snapshot = worldState.CreateSnapshot();
 
@@ -3803,7 +3803,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("GlideKinematicV11")]
         public void GlideActive_DefaultGameplay_HitDeathCleanupStable()
         {
-            AssertGlideActiveKinematicHitDeathCleanupStable(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            AssertGlideActiveKinematicHitDeathCleanupStable(GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
         }
 
         private static void AssertGlideActiveKinematicHitDeathCleanupStable(
@@ -6567,7 +6567,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Array.Empty<IEntityLogic>(),
                 timingProfile,
                 playerTiming,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 unitKinematicLocomotionTiming: CreateOneTickKinematicTiming(timingProfile));
         }
 
@@ -7230,7 +7230,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 unitKinematicLocomotionTiming: CreateOneTickKinematicTiming());
         }
 
@@ -7245,7 +7245,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                     GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 unitKinematicLocomotionTiming: CreateOneTickKinematicTiming());
         }
 
@@ -7266,7 +7266,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile,
                 playerTiming,
                 playerRespawnDelayTicks,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 unitKinematicLocomotionTiming: CreateOneTickKinematicTiming(timingProfile));
         }
 
@@ -7284,7 +7284,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                         GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                         GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds),
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                     unitKinematicLocomotionTiming: CreateOneTickKinematicTiming());
         }
 

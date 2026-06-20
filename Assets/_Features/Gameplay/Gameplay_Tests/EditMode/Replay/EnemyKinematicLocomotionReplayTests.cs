@@ -376,7 +376,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_DefaultGameplayLocomotion_NoUnexpectedLegacyOrdinaryMovement()
+        public void Replay_DefaultEnemyKinematicLocomotion_NoUnexpectedLegacyOrdinaryMovement()
         {
             var harness = new TickReplayHarness();
             var playerInputs = Enumerable.Range(1, 6)
@@ -389,7 +389,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }),
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 playerInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             var secondPlayerReplay = harness.Run(
                 GameplayWorldStateTestFactory.CreateBounded(new[]
                 {
@@ -397,7 +397,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }),
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 playerInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             AssertReplayBoundaryCanaryEqual(firstPlayerReplay, secondPlayerReplay);
             Assert.That(
@@ -415,13 +415,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateContactWorldState(),
                     entityLogics: new IEntityLogic[0],
                     enemyInputs,
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
                 var secondEnemyReplay = harness.Run(
                     GameplayTestRuntimeFactory.CreateDefaultBootstrapper(enemyProfile),
                     CreateContactWorldState(),
                     entityLogics: new IEntityLogic[0],
                     enemyInputs,
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
                 AssertReplayBoundaryCanaryEqual(firstEnemyReplay, secondEnemyReplay);
                 Assert.That(firstEnemyReplay.Any(frame => frame.Trace.Contains("KinematicAnchorCommitted", StringComparison.Ordinal)), Is.True);
@@ -442,13 +442,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateChargeSettleWaitWorldState(),
                     entityLogics: new IEntityLogic[0],
                     chargeInputs,
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
                 var secondChargeReplay = harness.Run(
                     GameplayTestRuntimeFactory.CreateDefaultBootstrapper(chargeProfile),
                     CreateChargeSettleWaitWorldState(),
                     entityLogics: new IEntityLogic[0],
                     chargeInputs,
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
                 AssertReplayBoundaryCanaryEqual(firstChargeReplay, secondChargeReplay);
                 Assert.That(firstChargeReplay.Any(frame => frame.Trace.Contains("Reason=ChargeStart", StringComparison.Ordinal)), Is.True);
@@ -461,23 +461,23 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_DeprecationPhase1_DefaultGameplayLocomotion_NoCoveredLegacyFallback()
+        public void Replay_DeprecationPhase1_DefaultEnemyKinematicLocomotion_NoCoveredLegacyFallback()
         {
-            Replay_DefaultGameplayLocomotion_NoUnexpectedLegacyOrdinaryMovement();
+            Replay_DefaultEnemyKinematicLocomotion_NoUnexpectedLegacyOrdinaryMovement();
         }
 
         [Test]
         [Category("Extended")]
         public void Replay_MoveOwnership_NoCoveredFallbackMove()
         {
-            Replay_DefaultGameplayLocomotion_NoUnexpectedLegacyOrdinaryMovement();
+            Replay_DefaultEnemyKinematicLocomotion_NoUnexpectedLegacyOrdinaryMovement();
         }
 
         [Test]
         [Category("Core")]
-        public void Replay_ScopedDeletionPrep_NoCoveredFallbackInDefaultGameplayLocomotion()
+        public void Replay_ScopedDeletionPrep_NoCoveredFallbackInDefaultEnemyKinematicLocomotion()
         {
-            Replay_DefaultGameplayLocomotion_NoUnexpectedLegacyOrdinaryMovement();
+            Replay_DefaultEnemyKinematicLocomotion_NoUnexpectedLegacyOrdinaryMovement();
         }
 
         [Test]
@@ -706,14 +706,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void Replay_Phase7_DefaultGameplay_NoCoveredFallback()
         {
-            Replay_DefaultGameplayLocomotion_NoUnexpectedLegacyOrdinaryMovement();
+            Replay_DefaultEnemyKinematicLocomotion_NoUnexpectedLegacyOrdinaryMovement();
         }
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase2B_EnemyDefaultGameplayLocomotion_NoLegacyFallback()
+        public void Replay_Phase2B_EnemyDefaultEnemyKinematicLocomotion_NoLegacyFallback()
         {
-            var replay = RunScriptedEnemyOrdinaryReplay(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion, out var secondReplay);
+            var replay = RunScriptedEnemyOrdinaryReplay(GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion, out var secondReplay);
 
             AssertReplayBoundaryCanaryEqual(replay, secondReplay);
             AssertEnemyReplayHasNoLegacyFallback(replay);
@@ -727,7 +727,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Extended")]
         public void Replay_Phase5_DefaultGameplay_NoEnemyLegacyFallback()
         {
-            Replay_Phase2B_EnemyDefaultGameplayLocomotion_NoLegacyFallback();
+            Replay_Phase2B_EnemyDefaultEnemyKinematicLocomotion_NoLegacyFallback();
         }
 
         [Test]
@@ -766,9 +766,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase2C_ChargeDefaultGameplayLocomotion_NoChargeMoveFallback()
+        public void Replay_Phase2C_ChargeDefaultEnemyKinematicLocomotion_NoChargeMoveFallback()
         {
-            var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion, out var secondReplay);
+            var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion, out var secondReplay);
 
             AssertReplayBoundaryCanaryEqual(replay, secondReplay);
             AssertChargeReplayHasNoChargeFallback(replay);
@@ -831,14 +831,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Extended")]
         public void Replay_Phase6_DefaultGameplay_NoChargeMove()
         {
-            Replay_Phase2C_ChargeDefaultGameplayLocomotion_NoChargeMoveFallback();
+            Replay_Phase2C_ChargeDefaultEnemyKinematicLocomotion_NoChargeMoveFallback();
         }
 
         [Test]
         [Category("Core")]
         public void Replay_ChargeMoveCleanup_NoChargeMoveOutput()
         {
-            var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion, out var secondReplay);
+            var replay = RunScriptedChargeActiveReplay(GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion, out var secondReplay);
 
             AssertReplayBoundaryCanaryEqual(replay, secondReplay);
             AssertChargeReplayHasNoChargeFallback(replay);
@@ -877,7 +877,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public void Replay_ChargeMoveProducer_RuntimeMatrix_NoChargeMove()
         {
             var defaultReplay = RunScriptedChargeActiveReplay(
-                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                 out var secondDefaultReplay);
             AssertReplayBoundaryCanaryEqual(defaultReplay, secondDefaultReplay);
             AssertChargeReplayHasNoChargeFallback(defaultReplay);
@@ -953,9 +953,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_DefaultGameplayLocomotion_GlideKinematic_IsDeterministic()
+        public void Replay_DefaultEnemyKinematicLocomotion_GlideKinematic_IsDeterministic()
         {
-            var flags = GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion;
+            var flags = GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion;
             Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);
 
             var harness = new TickReplayHarness();
@@ -1066,13 +1066,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateJumpLandingWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
                 var secondReplay = harness.Run(
                     GameplayTestRuntimeFactory.CreateDefaultBootstrapper(jumpProfile),
                     CreateJumpLandingWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
                 AssertReplayBoundaryCanaryEqual(firstReplay, secondReplay);
                 Assert.That(
@@ -1096,13 +1096,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateGlideWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
                 var secondReplay = harness.Run(
                     GameplayTestRuntimeFactory.CreateDefaultBootstrapper(glideProfile),
                     CreateGlideWorldState(),
                     entityLogics: new IEntityLogic[0],
                     inputs,
-                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                    runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
                 AssertReplayBoundaryCanaryEqual(firstReplay, secondReplay);
             }
@@ -1134,7 +1134,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }),
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 playerInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
             var secondPlayerReplay = harness.Run(
                 GameplayWorldStateTestFactory.CreateBounded(new[]
                 {
@@ -1142,7 +1142,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }),
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 playerInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
             AssertReplayBoundaryCanaryEqual(firstPlayerReplay, secondPlayerReplay);
 

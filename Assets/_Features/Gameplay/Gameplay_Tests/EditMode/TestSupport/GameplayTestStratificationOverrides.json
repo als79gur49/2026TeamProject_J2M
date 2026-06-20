@@ -1891,7 +1891,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.Player_Free2D_TopologyEdge_ApproachFromInterior_HandsOffToTopologyGridTransaction",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerFree2DLocomotionScenarioTests.Player_Free2D_TopologyEdge_ApproachFromInterior_HandsOffToTopologyGridTransaction",
       "category": "Core",
       "contracts": [
         "player_free2d_continuous_locomotion",
@@ -1901,7 +1901,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.Player_Free2D_TopologyEdge_CenterCrossing_SameTickHandoff",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerFree2DLocomotionScenarioTests.Player_Free2D_TopologyEdge_CenterCrossing_SameTickHandoff",
       "category": "Core",
       "contracts": [
         "player_free2d_continuous_locomotion",
@@ -1911,7 +1911,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.PlayerContinuousLocomotionReplayTests.Replay_PlayerFree2D_TopologyApproachHandoff_IsDeterministic",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.PlayerFree2DLocomotionReplayTests.Replay_PlayerFree2D_TopologyApproachHandoff_IsDeterministic",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -2619,7 +2619,7 @@
         "movement_boundary_v1",
         "enemy_charge_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage that DefaultGameplayLocomotion does not produce legacy ChargeMove.",
+      "reason": "Locked Core coverage that DefaultEnemyKinematicLocomotion does not produce legacy ChargeMove.",
       "locked": true
     },
     {
@@ -2949,7 +2949,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_DefaultGameplayLocomotion_GlideKinematic_IsDeterministic",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_DefaultEnemyKinematicLocomotion_GlideKinematic_IsDeterministic",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -2971,7 +2971,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_DefaultGameplayLocomotion_GlideActiveKinematic",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_DefaultEnemyKinematicLocomotion_GlideActiveKinematic",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -3001,7 +3001,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.DefaultGameplayLocomotion_IncludesGlideKinematic",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.DefaultEnemyKinematicLocomotion_IncludesGlideKinematic",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -3016,7 +3016,7 @@
       "contracts": [
         "enemy_kinematic_locomotion"
       ],
-      "reason": "Locked Full showcase coverage that DefaultGameplayLocomotion includes glide kinematic locomotion.",
+      "reason": "Locked Full showcase coverage that DefaultEnemyKinematicLocomotion includes glide kinematic locomotion.",
       "locked": true
     },
     {
@@ -3523,7 +3523,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_GroundPlayer_ActivatedBarricadeBlocksMovement",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerFree2DLocomotionScenarioTests.PlayerFree2D_GroundPlayer_ActivatedBarricadeBlocksMovement",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",
@@ -3533,7 +3533,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_InactiveBarricadeDoesNotBlockMovement",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerFree2DLocomotionScenarioTests.PlayerFree2D_InactiveBarricadeDoesNotBlockMovement",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",
@@ -3543,7 +3543,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_SamePlanarOtherFaceTileFeaturesIgnored",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerFree2DLocomotionScenarioTests.PlayerFree2D_SamePlanarOtherFaceTileFeaturesIgnored",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",
@@ -3553,7 +3553,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_TargetActiveBarricadePresence_BlocksTransition",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerFree2DLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_TargetActiveBarricadePresence_BlocksTransition",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",
@@ -3564,7 +3564,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_GroundPlayer_ActivatedDestroyTile_CurrentPolicyGuard",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerFree2DLocomotionScenarioTests.PlayerFree2D_GroundPlayer_ActivatedDestroyTile_CurrentPolicyGuard",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",
@@ -3574,7 +3574,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_AirPlayer_ActivatedDestroyTile_IsAllowedAndNoEffect",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerFree2DLocomotionScenarioTests.PlayerFree2D_AirPlayer_ActivatedDestroyTile_IsAllowedAndNoEffect",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",
@@ -3584,7 +3584,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_AirDestroyTileTargetPresence_BlocksTransition",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerFree2DLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_AirDestroyTileTargetPresence_BlocksTransition",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",
@@ -3606,7 +3606,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_UnrelatedDestroyOrBarricadePresence_DoesNotBlock",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerFree2DLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_UnrelatedDestroyOrBarricadePresence_DoesNotBlock",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",
@@ -3617,7 +3617,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_FootprintInactiveBarricadePresence_DoesNotBlockByTopologyPresenceRule",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerFree2DLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_FootprintInactiveBarricadePresence_DoesNotBlockByTopologyPresenceRule",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",
@@ -3628,7 +3628,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_FootprintInactiveDestroyTilePresence_DoesNotBlockByTopologyPresenceRule",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerFree2DLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_FootprintInactiveDestroyTilePresence_DoesNotBlockByTopologyPresenceRule",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",
@@ -3639,7 +3639,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_FootprintActiveBarricadeMayBlockByExistingLegality_NotPresenceRule",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerFree2DLocomotionScenarioTests.PlayerFree2D_NativeTopologyTransition_FootprintActiveBarricadeMayBlockByExistingLegality_NotPresenceRule",
       "category": "Core",
       "contracts": [
         "tile_feature_policy",

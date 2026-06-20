@@ -61,14 +61,14 @@ namespace Game.Feature.Gameplay.Tests
             NoLegacyOrdinaryUnitMove(result, entityIds);
         }
 
-        public static void NoCoveredFallbackInDefaultGameplayLocomotion(TickResult result, params int[] entityIds)
+        public static void NoCoveredFallbackInDefaultEnemyKinematicLocomotion(TickResult result, params int[] entityIds)
         {
             NoCoveredLocomotionLegacyFallback(result, entityIds);
         }
 
-        public static void NoCoveredFallbackUnderDefaultGameplayLocomotion(TickResult result, params int[] entityIds)
+        public static void NoCoveredFallbackUnderDefaultEnemyKinematicLocomotion(TickResult result, params int[] entityIds)
         {
-            NoCoveredFallbackInDefaultGameplayLocomotion(result, entityIds);
+            NoCoveredFallbackInDefaultEnemyKinematicLocomotion(result, entityIds);
         }
 
         public static void NoCoveredFallbackUnderNone(TickResult result, params int[] entityIds)
@@ -163,7 +163,7 @@ namespace Game.Feature.Gameplay.Tests
             ChargeLegacyFallbackRemovedFromRuntime(result, chargeEntityId);
         }
 
-        public static void NoPlayerLegacyOrdinaryFallback(TickResult result, int playerEntityId)
+        public static void NoRetiredPlayerOrdinaryFallback(TickResult result, int playerEntityId)
         {
             NoLegacyOrdinaryUnitMove(result, playerEntityId);
         }

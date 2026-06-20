@@ -188,8 +188,8 @@ namespace Game.Feature.Gameplay.BoardState
         private static KinematicVelocity2 CreateDebugVelocity(int stepDirectionX, int stepDirectionY)
         {
             return new KinematicVelocity2(
-                KinematicFixed.FromRaw(stepDirectionX * KinematicFixed.DefaultPlayerUnitsPerTick),
-                KinematicFixed.FromRaw(stepDirectionY * KinematicFixed.DefaultPlayerUnitsPerTick));
+                KinematicFixed.FromRaw(stepDirectionX * KinematicFixed.ReferenceUnitsPerTick),
+                KinematicFixed.FromRaw(stepDirectionY * KinematicFixed.ReferenceUnitsPerTick));
         }
 
         private static int ResolvePoseDeltaRawUnits(

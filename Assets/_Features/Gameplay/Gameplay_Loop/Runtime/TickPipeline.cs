@@ -4592,28 +4592,28 @@ namespace Game.Feature.Gameplay.Loop
         {
             if (delta == Vector2Int.right)
             {
-                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(KinematicFixed.DefaultPlayerUnitsPerTick), KinematicFixed.Zero);
+                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(KinematicFixed.ReferenceUnitsPerTick), KinematicFixed.Zero);
                 facing = Direction.Right;
                 return true;
             }
 
             if (delta == Vector2Int.left)
             {
-                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(-KinematicFixed.DefaultPlayerUnitsPerTick), KinematicFixed.Zero);
+                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(-KinematicFixed.ReferenceUnitsPerTick), KinematicFixed.Zero);
                 facing = Direction.Left;
                 return true;
             }
 
             if (delta == Vector2Int.up)
             {
-                velocity = new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(KinematicFixed.DefaultPlayerUnitsPerTick));
+                velocity = new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(KinematicFixed.ReferenceUnitsPerTick));
                 facing = Direction.Up;
                 return true;
             }
 
             if (delta == Vector2Int.down)
             {
-                velocity = new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(-KinematicFixed.DefaultPlayerUnitsPerTick));
+                velocity = new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(-KinematicFixed.ReferenceUnitsPerTick));
                 facing = Direction.Down;
                 return true;
             }
@@ -4917,8 +4917,8 @@ namespace Game.Feature.Gameplay.Loop
                 mode = MotionMode.Voluntary,
                 forcedOp = ForcedMotionOp.None,
                 remainingDistanceUnits = remainingDistanceUnits,
-                remainingTicks = (remainingDistanceUnits + KinematicFixed.DefaultPlayerUnitsPerTick - 1) /
-                                 KinematicFixed.DefaultPlayerUnitsPerTick,
+                remainingTicks = (remainingDistanceUnits + KinematicFixed.ReferenceUnitsPerTick - 1) /
+                                 KinematicFixed.ReferenceUnitsPerTick,
                 speedScalePermille = 1000,
                 sequenceId = sourceState.sequenceId + 1,
             }.NormalizedForStorage();

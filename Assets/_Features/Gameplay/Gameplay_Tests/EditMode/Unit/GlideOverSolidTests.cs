@@ -1473,7 +1473,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("GlideKinematicV11")]
         public void GlideActive_DefaultGameplay_PreservesSolidBypass()
         {
-            AssertGlideActiveKinematicPreservesSolidBypass(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+            AssertGlideActiveKinematicPreservesSolidBypass(GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
         }
 
         [Test]
@@ -2270,7 +2270,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<IEntityLogic>(),
                         GameplayTimingProfile.CreateDefault(),
                         CreatePlayerTiming(),
-                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
+                        runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion,
                         unitKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell: 6));
 
                 var tick = pipeline.RunTick(new TickInput(3));

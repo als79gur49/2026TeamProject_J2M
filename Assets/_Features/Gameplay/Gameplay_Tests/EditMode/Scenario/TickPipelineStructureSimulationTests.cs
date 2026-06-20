@@ -672,7 +672,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     PlayerEntityId = 10,
                     StaticEntityLogics = Array.Empty<IEntityLogic>(),
                 };
-                configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
+                configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultEnemyKinematicLocomotion);
 
                 Assert.DoesNotThrow(() => host.Initialize(configuration));
 
