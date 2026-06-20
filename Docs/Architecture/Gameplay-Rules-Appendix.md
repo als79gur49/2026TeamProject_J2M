@@ -37,6 +37,22 @@
   - all targets die + landing denied면 `Stay`다.
   - landing cell이 wall/solid box, board edge, reservation conflict, tile feature, or topology rule로 막히면 `blocked`다.
   - `blocked`에서는 impact가 생기지 않는다.
+- Player actor-facing:
+  - `PlayerControlStateLogic` owns authoritative contact-facing and result-facing writes for explicit Player Push/Flip actions.
+  - `CommitFlipResultFacingOnExecute` commits Flip result-facing on the execute tick.
+  - `ImpactTravelGeometry` and BoxImpact rematerialization must not write Player actor-facing.
+- Result Turn:
+  - Result Turn is presentation-only and reads the committed contact/result-facing pair.
+  - delay is `FlipWindup`; active duration is `FlipRecovery`.
+  - one-shot signal absence does not cancel an active track.
+  - same/older `ActionSequence` does not restart or replace a track; newer `ActionSequence` replaces it.
+  - natural completion applies the result endpoint before cleanup, and the next frame/tick continues to use committed result-facing.
+
+## BoxImpact Roles
+- `ActorEntityId` is the action actor that initiated Push/Flip. It is not a generic rematerialization target.
+- `ImpactSourceEntityId` is the moving box/impact source and is the only entity that disposition move/facing/state rematerialization may update.
+- `TargetEntityIds` are hostile impact targets handed to Attack.
+- `ImpactTravelGeometry` stores source/impact/follow-through cells and travel direction only. It must not carry Player-facing, actor-facing, or state-write target authority.
 
 ## Push / Flip Impact Disposition Table
 - `ImpactDisposition`은 narrow internal Push/Flip-only contract, not a generalized impact framework다.
@@ -56,6 +72,19 @@
 
 - `Flip lethal but landing denied = Stay` is a current contract decision for the current Push/Flip impact-disposition plan. It is not a generalized impact principle.
 - Transient collision/break is a presentation-only track.
+
+## Flip Outcome Final State
+| Outcome | Player final cell | Player final facing | Box final cell | Box final facing | Box presence | Box death | Enemy result |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Empty successful Flip | unchanged actor cell | result-facing | landing cell | travel/result direction | present | no | none |
+| Lethal FollowThrough | unchanged actor cell | result-facing | follow-through/landing accepted cell | travel/result direction | present | no | impacted enemies removed by cleanup |
+| Lethal Stay | unchanged actor cell | result-facing | source cell | source/result direction retained by source pose commit | present | no | impacted enemies killed, landing denied |
+| Nonlethal DestroySelf | unchanged actor cell | result-facing | source/impact presentation only, no committed follow-through | source/result direction retained until removal | removed by destruction | yes | surviving targets remain |
+| FlipLandingBlocked | unchanged actor cell | recovery/result-facing contract from Player action | source cell | unchanged by BoxImpact | present | no | no hostile impact handoff |
+
+- The Player final-facing source for every Flip outcome is `PlayerControlStateLogic`, not BoxImpact geometry.
+- Box final cell/facing/presence is owned by the BoxImpact disposition payload and impact-source pose commit.
+- A value not represented by the current source operation should be treated as unspecified rather than inferred from presentation.
 
 ## Barricade Active Solid Invariant
 - This is a tile-effect invariant, not a MovementExpander, SurfaceSlideQueries, or settlement legality rule.
@@ -176,6 +205,12 @@
 - deterministic contract는 자료구조 iteration order가 아니라 explicit ordering policy로 보장한다.
 - regression validation은 hash, trace equality, final entities, event log를 우선 본다.
 - trace section name이나 synthetic normalized input token은 canonical contract가 아니다.
+- Result Turn intermediate visual rotation, presentation track lifetime, and view `Transform` values are not canonical determinism hash inputs.
+
+## Player Ordinary Locomotion Boundary
+- Player ordinary locomotion is Free2D-only.
+- `MovementExpander` remains available for explicit Push/Flip/Item semantics and other non-player ordinary movement branches, but Player ordinary Move must not regain Kinematic/Discrete legacy fallback.
+- A blocked Player ordinary Move can leave final state unchanged without requiring a legacy-fallback diagnostic string.
 
 ## Stage Objective
 - `StageDefinition.Zones`는 stage-local spatial registry다. zone data 자체는 objective special field가 아니다.
