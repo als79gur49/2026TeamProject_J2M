@@ -170,8 +170,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profile.RepeatedMoveIntervalTicks, Is.EqualTo(24));
             Assert.That(profile.BoxSlideStepIntervalSeconds, Is.EqualTo(0.12f));
             Assert.That(profile.BoxSlideStepIntervalTicks, Is.EqualTo(7));
-            Assert.That(profile.ProjectileStepIntervalSeconds, Is.EqualTo(0.2f));
-            Assert.That(profile.ProjectileStepIntervalTicks, Is.EqualTo(12));
+            Assert.That(profile.ForwardCellTravelStepIntervalSeconds, Is.EqualTo(0.2f));
+            Assert.That(profile.ForwardCellTravelStepIntervalTicks, Is.EqualTo(12));
             Assert.That(profile.MoveMotionDurationSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.PushMotionDurationSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.TopologyMotionDurationSeconds, Is.EqualTo(0.2f));
@@ -196,13 +196,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(sixtyTpsProfile.RepeatedMoveIntervalSeconds, Is.EqualTo(oneTwentyTpsProfile.RepeatedMoveIntervalSeconds));
             Assert.That(sixtyTpsProfile.BoxSlideStepIntervalSeconds, Is.EqualTo(oneTwentyTpsProfile.BoxSlideStepIntervalSeconds));
-            Assert.That(sixtyTpsProfile.ProjectileStepIntervalSeconds, Is.EqualTo(oneTwentyTpsProfile.ProjectileStepIntervalSeconds));
+            Assert.That(sixtyTpsProfile.ForwardCellTravelStepIntervalSeconds, Is.EqualTo(oneTwentyTpsProfile.ForwardCellTravelStepIntervalSeconds));
             Assert.That(sixtyTpsProfile.RepeatedMoveIntervalTicks, Is.EqualTo(24));
             Assert.That(oneTwentyTpsProfile.RepeatedMoveIntervalTicks, Is.EqualTo(48));
             Assert.That(sixtyTpsProfile.BoxSlideStepIntervalTicks, Is.EqualTo(7));
             Assert.That(oneTwentyTpsProfile.BoxSlideStepIntervalTicks, Is.EqualTo(14));
-            Assert.That(sixtyTpsProfile.ProjectileStepIntervalTicks, Is.EqualTo(12));
-            Assert.That(oneTwentyTpsProfile.ProjectileStepIntervalTicks, Is.EqualTo(24));
+            Assert.That(sixtyTpsProfile.ForwardCellTravelStepIntervalTicks, Is.EqualTo(12));
+            Assert.That(oneTwentyTpsProfile.ForwardCellTravelStepIntervalTicks, Is.EqualTo(24));
         }
 
         [Test]
@@ -2958,7 +2958,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
                     flipArcHeightInCells: 0.65f,
@@ -3459,7 +3459,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.2f,
                     boxSlideStepIntervalSeconds: 0.1f,
-                    projectileStepIntervalSeconds: 0.1f,
+                    forwardCellTravelStepIntervalSeconds: 0.1f,
                     moveMotionDurationSeconds: 0.05f,
                     pushMotionDurationSeconds: 0.05f,
                     flipMotionDurationSeconds: 0.05f,
@@ -3530,7 +3530,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.3f,
                     flipMotionDurationSeconds: 0.2f,
@@ -3614,7 +3614,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.3f,
                     flipMotionDurationSeconds: 0.2f,
@@ -3709,7 +3709,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 1f,
                     pushMotionDurationSeconds: 0.3f,
                     flipMotionDurationSeconds: 0.2f,
@@ -3974,7 +3974,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 1f,
                     pushMotionDurationSeconds: 0.3f,
                     flipMotionDurationSeconds: 0.2f,
@@ -4266,7 +4266,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
@@ -4371,7 +4371,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.2f,
                     topologyMotionDurationSeconds: 0.2f,
@@ -4467,7 +4467,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.2f,
                     topologyMotionDurationSeconds: 0.2f,
@@ -4563,7 +4563,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     topologyMotionDurationSeconds: 0.4f,
@@ -4648,7 +4648,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.2f,
                     topologyMotionDurationSeconds: 0.2f,
@@ -4754,7 +4754,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.2f,
                     topologyMotionDurationSeconds: 0.2f,
@@ -4862,7 +4862,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.2f,
                     topologyMotionDurationSeconds: 0.2f,
@@ -5066,7 +5066,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     topologyMotionDurationSeconds: 0.4f,
@@ -5980,7 +5980,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
@@ -6055,7 +6055,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
                     flipArcHeightInCells: 0.65f,
@@ -6131,7 +6131,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
                     flipArcHeightInCells: 0.65f,
@@ -6208,7 +6208,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
                     flipArcHeightInCells: 0.65f,
@@ -6274,7 +6274,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.05f,
                     topologyMotionDurationSeconds: 0.05f,
@@ -6365,7 +6365,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.05f,
                     topologyMotionDurationSeconds: 0.05f,
@@ -6457,7 +6457,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.05f,
                     topologyMotionDurationSeconds: 0.05f,
@@ -6546,7 +6546,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.05f,
                     topologyMotionDurationSeconds: 0.05f,
@@ -6683,7 +6683,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
                     flipArcHeightInCells: 0.65f,
@@ -6759,7 +6759,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
                     flipArcHeightInCells: 0.65f,
@@ -6839,7 +6839,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
                     flipArcHeightInCells: 0.65f,
@@ -6942,7 +6942,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
                     flipArcHeightInCells: 0.65f,
@@ -7019,7 +7019,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
                     flipArcHeightInCells: 0.65f,
@@ -7107,7 +7107,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
                     flipArcHeightInCells: 0.65f,
@@ -7186,7 +7186,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     initialMoveDelaySeconds: 0f,
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
-                    projectileStepIntervalSeconds: 0.2f,
+                    forwardCellTravelStepIntervalSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
                     flipArcHeightInCells: 0.65f,

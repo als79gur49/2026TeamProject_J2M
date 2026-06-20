@@ -7,8 +7,6 @@ namespace Game.Feature.Gameplay.Host
     {
         private const float DefaultVisibleRevealMultiplier = 0.12f;
         private const float BoxVisibleRevealMultiplier = 0.18f;
-        private const float ProjectileVisibleRevealMultiplier = 0.04f;
-        private const float ProjectileSurfaceOffsetMultiplier = 0.18f;
 
         public GameplayEntityVisualProfile(
             Vector3 modelLocalScale,

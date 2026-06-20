@@ -9,7 +9,7 @@ namespace Game.Feature.Gameplay.Loop
         public const float DefaultInitialMoveDelaySeconds = 0f;
         public const float DefaultRepeatedMoveIntervalSeconds = 0.4f;
         public const float DefaultBoxSlideStepIntervalSeconds = 0.12f;
-        public const float DefaultProjectileStepIntervalSeconds = 0.2f;
+        public const float DefaultForwardCellTravelStepIntervalSeconds = 0.2f;
         public const float DefaultMoveMotionDurationSeconds = 0.2f;
         public const float DefaultMoveOccupancyDurationSeconds = DefaultMoveMotionDurationSeconds;
         private const float UseMoveMotionDurationForOccupancySentinel = -1f;
@@ -32,7 +32,7 @@ namespace Game.Feature.Gameplay.Loop
             float initialMoveDelaySeconds,
             float repeatedMoveIntervalSeconds,
             float boxSlideStepIntervalSeconds,
-            float projectileStepIntervalSeconds,
+            float forwardCellTravelStepIntervalSeconds,
             float pushMotionDurationSeconds,
             float flipMotionDurationSeconds,
             float flipArcHeightInCells,
@@ -42,7 +42,7 @@ namespace Game.Feature.Gameplay.Loop
                 initialMoveDelaySeconds,
                 repeatedMoveIntervalSeconds,
                 boxSlideStepIntervalSeconds,
-                projectileStepIntervalSeconds,
+                forwardCellTravelStepIntervalSeconds,
                 pushMotionDurationSeconds,
                 pushMotionDurationSeconds,
                 pushMotionDurationSeconds,
@@ -57,7 +57,7 @@ namespace Game.Feature.Gameplay.Loop
             float initialMoveDelaySeconds,
             float repeatedMoveIntervalSeconds,
             float boxSlideStepIntervalSeconds,
-            float projectileStepIntervalSeconds,
+            float forwardCellTravelStepIntervalSeconds,
             float moveMotionDurationSeconds,
             float pushMotionDurationSeconds,
             float flipMotionDurationSeconds,
@@ -68,7 +68,7 @@ namespace Game.Feature.Gameplay.Loop
                 initialMoveDelaySeconds,
                 repeatedMoveIntervalSeconds,
                 boxSlideStepIntervalSeconds,
-                projectileStepIntervalSeconds,
+                forwardCellTravelStepIntervalSeconds,
                 moveMotionDurationSeconds,
                 pushMotionDurationSeconds,
                 pushMotionDurationSeconds,
@@ -83,7 +83,7 @@ namespace Game.Feature.Gameplay.Loop
             float initialMoveDelaySeconds,
             float repeatedMoveIntervalSeconds,
             float boxSlideStepIntervalSeconds,
-            float projectileStepIntervalSeconds,
+            float forwardCellTravelStepIntervalSeconds,
             float moveMotionDurationSeconds,
             float pushMotionDurationSeconds,
             float topologyMotionDurationSeconds,
@@ -127,11 +127,11 @@ namespace Game.Feature.Gameplay.Loop
                     "Box slide step interval must be greater than zero.");
             }
 
-            if (projectileStepIntervalSeconds <= 0f)
+            if (forwardCellTravelStepIntervalSeconds <= 0f)
             {
                 throw new ArgumentOutOfRangeException(
-                    nameof(projectileStepIntervalSeconds),
-                    "Projectile step interval must be greater than zero.");
+                    nameof(forwardCellTravelStepIntervalSeconds),
+                    "ForwardCell travel step interval must be greater than zero.");
             }
 
             if (moveMotionDurationSeconds <= 0f)
@@ -242,7 +242,7 @@ namespace Game.Feature.Gameplay.Loop
             InitialMoveDelaySeconds = initialMoveDelaySeconds;
             RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds;
             BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds;
-            ProjectileStepIntervalSeconds = projectileStepIntervalSeconds;
+            ForwardCellTravelStepIntervalSeconds = forwardCellTravelStepIntervalSeconds;
             MoveMotionDurationSeconds = moveMotionDurationSeconds;
             MoveOccupancyDurationSeconds = resolvedMoveOccupancyDurationSeconds;
             PushMotionDurationSeconds = pushMotionDurationSeconds;
@@ -260,7 +260,7 @@ namespace Game.Feature.Gameplay.Loop
             InitialMoveDelayTicks = SecondsToTicks(initialMoveDelaySeconds, simulationTicksPerSecond, allowZero: true);
             RepeatedMoveIntervalTicks = SecondsToTicks(repeatedMoveIntervalSeconds, simulationTicksPerSecond);
             BoxSlideStepIntervalTicks = SecondsToTicks(boxSlideStepIntervalSeconds, simulationTicksPerSecond);
-            ProjectileStepIntervalTicks = SecondsToTicks(projectileStepIntervalSeconds, simulationTicksPerSecond);
+            ForwardCellTravelStepIntervalTicks = SecondsToTicks(forwardCellTravelStepIntervalSeconds, simulationTicksPerSecond);
             MoveOccupancyTicks = SecondsToCeilTicks(resolvedMoveOccupancyDurationSeconds, simulationTicksPerSecond);
         }
 
@@ -274,7 +274,7 @@ namespace Game.Feature.Gameplay.Loop
 
         public float BoxSlideStepIntervalSeconds { get; }
 
-        public float ProjectileStepIntervalSeconds { get; }
+        public float ForwardCellTravelStepIntervalSeconds { get; }
 
         public float MoveMotionDurationSeconds { get; }
 
@@ -310,7 +310,7 @@ namespace Game.Feature.Gameplay.Loop
 
         public int BoxSlideStepIntervalTicks { get; }
 
-        public int ProjectileStepIntervalTicks { get; }
+        public int ForwardCellTravelStepIntervalTicks { get; }
 
         public int MoveOccupancyTicks { get; }
 
@@ -321,7 +321,7 @@ namespace Game.Feature.Gameplay.Loop
                 DefaultInitialMoveDelaySeconds,
                 DefaultRepeatedMoveIntervalSeconds,
                 DefaultBoxSlideStepIntervalSeconds,
-                DefaultProjectileStepIntervalSeconds,
+                DefaultForwardCellTravelStepIntervalSeconds,
                 DefaultMoveMotionDurationSeconds,
                 DefaultPushMotionDurationSeconds,
                 DefaultTopologyMotionDurationSeconds,

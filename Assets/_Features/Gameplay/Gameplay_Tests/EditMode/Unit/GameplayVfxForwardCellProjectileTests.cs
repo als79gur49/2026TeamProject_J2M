@@ -587,7 +587,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void ForwardCellProjectile_AuthoredProjectileMuzzleOverridesLegacySocket()
+        public void ForwardCellVfx_AuthoredMuzzleSocketOverridesDefault()
         {
             var owner = new GameObject("ForwardCellProjectileAttachPoint");
             var flightPrefab = new GameObject("ForwardCellProjectileAttachPointFlightPrefab");
@@ -595,17 +595,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             VfxCueMapAsset cueMap = null;
             try
             {
-                var sourceViewObject = new GameObject("SourceViewWithProjectileMuzzle");
+                var sourceViewObject = new GameObject("SourceViewWithForwardCellMuzzle");
                 sourceViewObject.transform.SetParent(owner.transform, worldPositionStays: false);
                 var sourceView = sourceViewObject.AddComponent<GameplayEntityView>();
                 sourceView.Initialize(40);
                 var modelRoot = sourceView.EnsureModelRoot();
                 sourceViewObject.AddComponent<EnemyForwardCellProjectileVfxAuthoring>();
-                var muzzle = CreateAttachPoint(modelRoot, "ProjectileMuzzle");
+                var muzzle = CreateAttachPoint(modelRoot, "ForwardCellMuzzle");
                 muzzle.localPosition = new Vector3(0.25f, 0.5f, 0.75f);
-                var legacyEye = new GameObject("Eye");
-                legacyEye.transform.SetParent(modelRoot, worldPositionStays: false);
-                legacyEye.transform.localPosition = new Vector3(2f, 3f, 4f);
+                var defaultSocket = new GameObject("Eye");
+                defaultSocket.transform.SetParent(modelRoot, worldPositionStays: false);
+                defaultSocket.transform.localPosition = new Vector3(2f, 3f, 4f);
 
                 flightBinding = CreateBinding(ProjectileVfxCue.ForwardCellProjectileFlight, flightPrefab, VfxPlaybackMode.OneShot, VfxStopPolicy.AuthoredDuration);
                 cueMap = CreateCueMap(flightBinding);

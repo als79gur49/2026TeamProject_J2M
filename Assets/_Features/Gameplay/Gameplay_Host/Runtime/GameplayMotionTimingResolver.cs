@@ -181,7 +181,7 @@ namespace Game.Feature.Gameplay.Host
                 TickEntityMotionKind.Flip => timingProfile.FlipMotionDurationSeconds,
                 TickEntityMotionKind.Push => timingProfile.PushMotionDurationSeconds,
                 TickEntityMotionKind.BoxSlide => timingProfile.BoxSlideStepIntervalSeconds,
-                TickEntityMotionKind.ForwardCellMove => timingProfile.ProjectileStepIntervalSeconds,
+                TickEntityMotionKind.ForwardCellMove => timingProfile.ForwardCellTravelStepIntervalSeconds,
                 _ => timingProfile.PushMotionDurationSeconds,
             };
         }

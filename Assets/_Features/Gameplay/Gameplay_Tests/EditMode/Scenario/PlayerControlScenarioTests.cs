@@ -787,7 +787,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 initialMoveDelaySeconds: 0f,
                 repeatedMoveIntervalSeconds: repeatedMoveIntervalTicks / (float)simulationTicksPerSecond,
                 boxSlideStepIntervalSeconds: 0.2f,
-                projectileStepIntervalSeconds: 0.2f,
+                forwardCellTravelStepIntervalSeconds: 0.2f,
                 moveMotionDurationSeconds: 0.2f,
                 pushMotionDurationSeconds: 0.2f,
                 topologyMotionDurationSeconds: 0.2f,

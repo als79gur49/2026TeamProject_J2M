@@ -1062,7 +1062,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 initialMoveDelaySeconds: GameplayTimingProfile.DefaultInitialMoveDelaySeconds,
                 repeatedMoveIntervalSeconds: GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds,
                 boxSlideStepIntervalSeconds: GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds,
-                projectileStepIntervalSeconds: GameplayTimingProfile.DefaultProjectileStepIntervalSeconds,
+                forwardCellTravelStepIntervalSeconds: GameplayTimingProfile.DefaultForwardCellTravelStepIntervalSeconds,
                 moveMotionDurationSeconds: GameplayTimingProfile.DefaultMoveMotionDurationSeconds,
                 pushMotionDurationSeconds: GameplayTimingProfile.DefaultPushMotionDurationSeconds,
                 topologyMotionDurationSeconds: GameplayTimingProfile.DefaultTopologyMotionDurationSeconds,

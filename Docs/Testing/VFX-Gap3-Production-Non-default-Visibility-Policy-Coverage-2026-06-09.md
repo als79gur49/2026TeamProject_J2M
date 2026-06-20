@@ -29,7 +29,7 @@
 | `ProjectileVfx_VisibleSurfaceAllowed_DoesNotBypassSourceSemanticGate` | `VisibleSurfaceAllowed` | ForwardCellProjectile runtime release | FrontFaceInactive source blocks | inactive target not reached as bypass | added |
 | `ProjectileVfx_InactiveFaceExplicitlyAllowed_AllowsInactiveTargetAfterSourceGate` | `InactiveFaceExplicitlyAllowed` | ForwardCellProjectile runtime release | active source allowed | inactive target allowed | added |
 | `ProjectileVfx_InactiveFaceExplicitlyAllowed_DoesNotBypassSourceSemanticGate` | `InactiveFaceExplicitlyAllowed` | ForwardCellProjectile runtime release | FrontFaceInactive source blocks | inactive target does not bypass source | baseline pass |
-| `ForwardCellProjectileFlight_ProductionBinding_UsesVisibleSurfaceAllowed` | `VisibleSurfaceAllowed` | production binding asset | binding policy preserved | runtime policy preserved | added |
+| `ForwardCellProjectileFlight_ProductionBinding_UsesVisibleSurfaceAllowed` | `VisibleSurfaceAllowed` | production binding asset | binding policy kept | runtime policy kept | added |
 
 ## 4. Production Changes
 

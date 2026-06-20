@@ -772,7 +772,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             float moveCooldownSeconds = -1f,
             float repeatedMoveIntervalSeconds = 0.6f,
             float boxSlideStepIntervalSeconds = 0.2f,
-            float projectileStepIntervalSeconds = 0.2f)
+            float forwardCellTravelStepIntervalSeconds = 0.2f)
         {
             var preset = ScriptableObject.CreateInstance<GameplaySimulationTimingPreset>();
             var playerControlTiming = new PlayerControlTimingSettings
@@ -784,7 +784,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(typeof(GameplaySimulationTimingPreset), preset, "playerControlTiming", playerControlTiming);
             SetPrivateField(typeof(GameplaySimulationTimingPreset), preset, "repeatedMoveIntervalSeconds", repeatedMoveIntervalSeconds);
             SetPrivateField(typeof(GameplaySimulationTimingPreset), preset, "boxSlideStepIntervalSeconds", boxSlideStepIntervalSeconds);
-            SetPrivateField(typeof(GameplaySimulationTimingPreset), preset, "projectileStepIntervalSeconds", projectileStepIntervalSeconds);
+            SetPrivateField(typeof(GameplaySimulationTimingPreset), preset, "forwardCellTravelStepIntervalSeconds", forwardCellTravelStepIntervalSeconds);
             return preset;
         }
 
@@ -1126,7 +1126,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.DoesNotContain("playerControlTiming:", installerBlock);
             StringAssert.DoesNotContain("repeatedMoveIntervalSeconds:", installerBlock);
             StringAssert.DoesNotContain("boxSlideStepIntervalSeconds:", installerBlock);
-            StringAssert.DoesNotContain("projectileStepIntervalSeconds:", installerBlock);
+            StringAssert.DoesNotContain("forwardCellTravelStepIntervalSeconds:", installerBlock);
             StringAssert.DoesNotContain("moveMotionDurationSeconds:", installerBlock);
             StringAssert.DoesNotContain("pushMotionDurationSeconds:", installerBlock);
             StringAssert.DoesNotContain("flipMotionDurationSeconds:", installerBlock);

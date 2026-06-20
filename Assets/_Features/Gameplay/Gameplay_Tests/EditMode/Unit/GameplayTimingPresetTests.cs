@@ -40,7 +40,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 playerRespawnTiming: sourceRespawnTiming,
                 repeatedMoveIntervalSeconds: 0.6f,
                 boxSlideStepIntervalSeconds: 0.2f,
-                projectileStepIntervalSeconds: 0.2f);
+                forwardCellTravelStepIntervalSeconds: 0.2f);
 
             try
             {
@@ -52,7 +52,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     PlayerRespawnTiming = sourceRespawnTiming.Clone(),
                     RepeatedMoveIntervalSeconds = 0.6f,
                     BoxSlideStepIntervalSeconds = 0.2f,
-                    ProjectileStepIntervalSeconds = 0.2f,
+                    ForwardCellTravelStepIntervalSeconds = 0.2f,
                 };
                 var presetConfiguration = new GameplaySceneHostConfiguration();
 
@@ -69,7 +69,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presetTimingProfile.InitialMoveDelaySeconds, Is.EqualTo(directTimingProfile.InitialMoveDelaySeconds));
                 Assert.That(presetTimingProfile.RepeatedMoveIntervalSeconds, Is.EqualTo(directTimingProfile.RepeatedMoveIntervalSeconds));
                 Assert.That(presetTimingProfile.BoxSlideStepIntervalSeconds, Is.EqualTo(directTimingProfile.BoxSlideStepIntervalSeconds));
-                Assert.That(presetTimingProfile.ProjectileStepIntervalSeconds, Is.EqualTo(directTimingProfile.ProjectileStepIntervalSeconds));
+                Assert.That(presetTimingProfile.ForwardCellTravelStepIntervalSeconds, Is.EqualTo(directTimingProfile.ForwardCellTravelStepIntervalSeconds));
 
                 var directSnapshot = directConfiguration.CreatePlayerControlTimingSnapshot();
                 var presetSnapshot = presetConfiguration.CreatePlayerControlTimingSnapshot();
@@ -382,7 +382,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             PlayerRespawnTimingSettings playerRespawnTiming = null,
             float repeatedMoveIntervalSeconds = 0.6f,
             float boxSlideStepIntervalSeconds = 0.2f,
-            float projectileStepIntervalSeconds = 0.2f)
+            float forwardCellTravelStepIntervalSeconds = 0.2f)
         {
             var preset = ScriptableObject.CreateInstance<GameplaySimulationTimingPreset>();
             SetPrivateField(preset, "initialMoveDelaySeconds", initialMoveDelaySeconds);
@@ -392,7 +392,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(preset, "playerRespawnTiming", playerRespawnTiming ?? PlayerRespawnTimingSettings.CreateDefault());
             SetPrivateField(preset, "repeatedMoveIntervalSeconds", repeatedMoveIntervalSeconds);
             SetPrivateField(preset, "boxSlideStepIntervalSeconds", boxSlideStepIntervalSeconds);
-            SetPrivateField(preset, "projectileStepIntervalSeconds", projectileStepIntervalSeconds);
+            SetPrivateField(preset, "forwardCellTravelStepIntervalSeconds", forwardCellTravelStepIntervalSeconds);
             return preset;
         }
 

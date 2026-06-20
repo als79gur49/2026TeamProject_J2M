@@ -1410,28 +1410,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void BlackEyePrefab_HasProjectileMuzzleAndStatusAuraAttachPoints()
+        public void BlackEyePrefab_HasForwardCellMuzzleAndStatusAuraAttachPoints()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(BlackEyePrefabPath);
 
             Assert.That(prefab, Is.Not.Null, BlackEyePrefabPath);
             Assert.That(prefab.TryGetComponent<EnemyForwardCellProjectileVfxAuthoring>(out var authoring), Is.True);
-            Assert.That(authoring.ProjectileMuzzleAttachPointId, Is.EqualTo("ProjectileMuzzle"));
+            Assert.That(authoring.ForwardCellMuzzleAttachPointId, Is.EqualTo("ForwardCellMuzzle"));
             Assert.That(authoring.AttackCooldownAttachPointId, Is.EqualTo("StatusAura"));
 
             var attachPoints = prefab.GetComponentsInChildren<GameplayVfxAttachPoint>(true);
-            var projectileMuzzle = attachPoints
-                .Where(point => point != null && point.Id == "ProjectileMuzzle")
+            var forwardCellMuzzle = attachPoints
+                .Where(point => point != null && point.Id == "ForwardCellMuzzle")
                 .ToArray();
             var statusAura = attachPoints
                 .Where(point => point != null && point.Id == "StatusAura")
                 .ToArray();
-            Assert.That(projectileMuzzle, Has.Length.EqualTo(1));
+            Assert.That(forwardCellMuzzle, Has.Length.EqualTo(1));
             Assert.That(statusAura, Has.Length.EqualTo(1));
 
             var view = prefab.GetComponent<GameplayEntityView>();
-            Assert.That(view.TryGetVfxAttachPoint("ProjectileMuzzle", out var muzzlePoint), Is.True);
-            Assert.That(muzzlePoint, Is.EqualTo(projectileMuzzle[0].transform));
+            Assert.That(view.TryGetVfxAttachPoint("ForwardCellMuzzle", out var muzzlePoint), Is.True);
+            Assert.That(muzzlePoint, Is.EqualTo(forwardCellMuzzle[0].transform));
             Assert.That(muzzlePoint.parent.name, Is.EqualTo("Eye"));
             Assert.That(view.TryGetVfxAttachPoint("StatusAura", out var statusPoint), Is.True);
             Assert.That(statusPoint, Is.EqualTo(statusAura[0].transform));

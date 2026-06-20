@@ -247,7 +247,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 83dd8d3d4b6c4e9da655db27cb7b3c91, type: 3}
   m_Name:
   m_EditorClassIdentifier:
-  projectileMuzzleAttachPointId: ProjectileMuzzle
+  forwardCellMuzzleAttachPointId: ForwardCellMuzzle
   attackCooldownAttachPointId: StatusAura
 --- !u!114 &5500000000000000301
 MonoBehaviour:
@@ -619,7 +619,7 @@ GameObject:
   - component: {fileID: 5500000000000000203}
   - component: {fileID: 5500000000000000204}
   m_Layer: 0
-  m_Name: VfxAttach_ProjectileMuzzle
+  m_Name: VfxAttach_ForwardCellMuzzle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -652,7 +652,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5974d998f64403f9b8f09b33c394925, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  id: ProjectileMuzzle
+  id: ForwardCellMuzzle
 --- !u!1 &5500000000000000205
 GameObject:
   m_ObjectHideFlags: 0

@@ -20,7 +20,7 @@ namespace Game.Feature.Gameplay.Timing
         [SerializeField] private PlayerRespawnTimingSettings playerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();
         [SerializeField] private float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds;
         [SerializeField] private float boxSlideStepIntervalSeconds = GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
-        [SerializeField] private float projectileStepIntervalSeconds = GameplayTimingProfile.DefaultProjectileStepIntervalSeconds;
+        [SerializeField] private float forwardCellTravelStepIntervalSeconds = GameplayTimingProfile.DefaultForwardCellTravelStepIntervalSeconds;
 
         public PlayerFree2DLocomotionAuthoring PlayerFree2DLocomotion => playerFree2DLocomotion;
 
@@ -41,7 +41,7 @@ namespace Game.Feature.Gameplay.Timing
             configuration.PlayerRespawnTiming = playerRespawnTiming.Clone();
             configuration.RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds;
             configuration.BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds;
-            configuration.ProjectileStepIntervalSeconds = projectileStepIntervalSeconds;
+            configuration.ForwardCellTravelStepIntervalSeconds = forwardCellTravelStepIntervalSeconds;
         }
 
         public void Validate()
@@ -55,7 +55,7 @@ namespace Game.Feature.Gameplay.Timing
 
             ValidatePositiveInterval(repeatedMoveIntervalSeconds, nameof(repeatedMoveIntervalSeconds));
             ValidatePositiveInterval(boxSlideStepIntervalSeconds, nameof(boxSlideStepIntervalSeconds));
-            ValidatePositiveInterval(projectileStepIntervalSeconds, nameof(projectileStepIntervalSeconds));
+            ValidatePositiveInterval(forwardCellTravelStepIntervalSeconds, nameof(forwardCellTravelStepIntervalSeconds));
 
             if (playerControlTiming == null)
             {

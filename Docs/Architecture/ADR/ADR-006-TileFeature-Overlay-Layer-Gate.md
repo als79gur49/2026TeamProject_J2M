@@ -89,7 +89,7 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - Player-authored ordinary Move into an active DestroyTile is rejected during movement expansion using the topology-resolved destination cell.
 - DestroyTile is not a global traversal blocker; do not model it as runtime traversal, placement, or settlement blockage.
 - Active DestroyTile is a non-hard-blocking risk/avoidance candidate for Jpeter summon placement and Astreton jump landing settlement: avoid it when a legal neutral alternative exists, but do not fail legality only because the candidate has active DestroyTile.
-- The player DestroyTile access guard applies only to voluntary player movement and does not apply to enemy, box, projectile, push/flip, impact follow-through, jump/respawn, or scripted relocation paths.
+- The player DestroyTile access guard applies only to voluntary player movement and does not apply to enemy movement, box movement, ForwardCell/PendingCellImpact execution, push/flip, impact follow-through, jump/respawn, or scripted relocation paths.
 - Free2D same-face voluntary player movement injects a scoped active DestroyTile predicate into the existing CollisionRadius-based continuous locomotion blocker/clamp structure.
 - Free2D same-face DestroyTile access must not use DestroyTile-specific approach helpers or manual local-offset clamps.
 - Free2D native topology transition checks `transition.TargetAnchor` under `transition.UpdatedTopology` before topology or anchor materialization.
@@ -103,8 +103,8 @@ Dynamic TileEffect mutation must not be implemented before TileFeature state/que
 - DestroyTile itself is not consumed, updated, or removed.
 - Contact facts are transient and are not authoritative state or direct determinism hash input.
 - DestroyTile contact facts come from accepted `MoveEntity` operations only.
-- DestroyTile v1 consumes movement-derived contacts and `FeatureActivatedUnderOccupant` facts; spawn, respawn, scripted relocation, projectile movement, and persistent overlap remain excluded.
-- Phase relocation, spawn/respawn, topology relocation, and projectile movement are not movement-derived DestroyTile contact sources in v1.
+- DestroyTile v1 consumes movement-derived contacts and `FeatureActivatedUnderOccupant` facts; spawn, respawn, scripted relocation, ForwardCell/PendingCellImpact execution, and persistent overlap remain excluded.
+- Phase relocation, spawn/respawn, topology relocation, and ForwardCell/PendingCellImpact execution are not movement-derived DestroyTile contact sources in v1.
 - Follow-up: Ground JumpChaser landing candidate should prefer Neutral over LethalOnEnter.
 - Follow-up: Ground JumpChaser should cancel or fallback when all landing candidates are LethalOnEnter.
 - Follow-up: Air JumpChaser may ignore DestroyTile hazard.

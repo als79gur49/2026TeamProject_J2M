@@ -455,7 +455,7 @@ namespace Game.Feature.Gameplay.Loop
                 case MovementSemanticKind.Slide:
                     return profile.BoxSlideStepIntervalSeconds;
                 case MovementSemanticKind.ForwardCellMove:
-                    return profile.ProjectileStepIntervalSeconds;
+                    return profile.ForwardCellTravelStepIntervalSeconds;
                 default:
                     return 0f;
             }

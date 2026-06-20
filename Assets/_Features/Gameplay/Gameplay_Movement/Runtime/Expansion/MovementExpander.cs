@@ -24,7 +24,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
         public MovementExpander(GameplayTimingProfile timingProfile)
         {
             var resolvedTimingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
-            _projectileStateTimerTicks = resolvedTimingProfile.ProjectileStepIntervalTicks;
+            _projectileStateTimerTicks = resolvedTimingProfile.ForwardCellTravelStepIntervalTicks;
             _slidingStateTimerTicks = resolvedTimingProfile.BoxSlideStepIntervalTicks;
         }
 

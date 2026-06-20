@@ -676,7 +676,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 stateStore.ViewsByEntityId.TryGetValue(signal.SourceEnemyId, out var view) &&
                 view != null)
             {
-                if (TryResolveProjectileMuzzleAttachPoint(view, out var attachPoint))
+                if (TryResolveForwardCellMuzzleAttachPoint(view, out var attachPoint))
                 {
                     return ToPresentationLocal(view.transform, attachPoint.position);
                 }
@@ -709,7 +709,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
             return targetFallback;
         }
 
-        private bool TryResolveProjectileMuzzleAttachPoint(
+        private bool TryResolveForwardCellMuzzleAttachPoint(
             GameplayEntityView view,
             out Transform attachPoint)
         {
@@ -721,7 +721,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return false;
             }
 
-            var attachPointId = authoring.ProjectileMuzzleAttachPointId;
+            var attachPointId = authoring.ForwardCellMuzzleAttachPointId;
             if (string.IsNullOrWhiteSpace(attachPointId))
             {
                 return false;

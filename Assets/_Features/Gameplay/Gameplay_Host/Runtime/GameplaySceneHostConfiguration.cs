@@ -175,7 +175,7 @@ namespace Game.Feature.Gameplay.Host
         public float EnemyDeathEffectDurationSeconds = -1f;
         public float FlipArcHeightInCells = GameplayTimingProfile.DefaultFlipArcHeightInCells;
         public float BoxSlideStepIntervalSeconds = -1f;
-        public float ProjectileStepIntervalSeconds = -1f;
+        public float ForwardCellTravelStepIntervalSeconds = -1f;
         public float RepeatedMoveIntervalSeconds = -1f;
         public int SimulationTicksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond;
         public GameplayCameraSettings CameraSettings = GameplayCameraSettings.CreateRuntimeDefault();
@@ -198,7 +198,7 @@ namespace Game.Feature.Gameplay.Host
             var initialMoveDelaySeconds = ResolveInitialMoveDelaySeconds();
             var repeatedMoveIntervalSeconds = ResolveRepeatedMoveIntervalSeconds();
             var boxSlideStepIntervalSeconds = ResolveBoxSlideStepIntervalSeconds();
-            var projectileStepIntervalSeconds = ResolveProjectileStepIntervalSeconds();
+            var forwardCellTravelStepIntervalSeconds = ResolveForwardCellTravelStepIntervalSeconds();
             var pushMotionDurationSeconds = ResolvePushMotionDurationSeconds();
             var moveMotionDurationSeconds = ResolveMoveMotionDurationSeconds(pushMotionDurationSeconds);
             var topologyMotionDurationSeconds = ResolveTopologyMotionDurationSeconds(pushMotionDurationSeconds);
@@ -212,7 +212,7 @@ namespace Game.Feature.Gameplay.Host
                 initialMoveDelaySeconds,
                 repeatedMoveIntervalSeconds,
                 boxSlideStepIntervalSeconds,
-                projectileStepIntervalSeconds,
+                forwardCellTravelStepIntervalSeconds,
                 moveMotionDurationSeconds,
                 pushMotionDurationSeconds,
                 topologyMotionDurationSeconds,
@@ -332,11 +332,11 @@ namespace Game.Feature.Gameplay.Host
                 : GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
         }
 
-        private float ResolveProjectileStepIntervalSeconds()
+        private float ResolveForwardCellTravelStepIntervalSeconds()
         {
-            return ProjectileStepIntervalSeconds > 0f
-                ? ProjectileStepIntervalSeconds
-                : GameplayTimingProfile.DefaultProjectileStepIntervalSeconds;
+            return ForwardCellTravelStepIntervalSeconds > 0f
+                ? ForwardCellTravelStepIntervalSeconds
+                : GameplayTimingProfile.DefaultForwardCellTravelStepIntervalSeconds;
         }
 
         private float ResolvePushMotionDurationSeconds()

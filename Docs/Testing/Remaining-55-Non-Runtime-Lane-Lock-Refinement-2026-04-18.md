@@ -95,7 +95,7 @@ Representative rows:
 - Primary signal: final snapshot, cleanup, hash/event, and spawn semantics are already green while the failure sits only on token, dump, or serialized literal wording.
 - Secondary signal: direct semantic guard rows around the same feature remain green.
 - Failure mechanisms: `Kind=*` token drift, replay dump wording drift, spawn dump drift, serialized stage/prefab/showcase literal drift.
-- Key checks: final entity set, cleanup outcome, replay hash/event semantics, and projectile spawn semantics remain correct.
+- Key checks: final entity set, cleanup outcome, replay hash/event semantics, and ForwardCell presentation semantics remain correct.
 - Do not touch: trace formatter, replay writer, runtime literal vocabulary.
 - Exit condition: the row is assigned to `stale-literal/trace-dump-serialized-literal`.
 - Reclassify when: final entity, cleanup, hash/event, or spawn semantics are no longer green.
@@ -297,7 +297,7 @@ Recheck timing:
 ## Escalation Signals
 
 Keep the current lane-lock order unless one of the following happens:
-- Step 3-A can no longer explain replay dump rows, projectile spawn literal rows, and serialized asset literal rows with the same semantic guard set
+- Step 3-A can no longer explain replay dump rows, ForwardCell presentation literal rows, and serialized asset literal rows with the same semantic guard set
 - Step 5/6 still leaves mixed rows after the first-wrong-oracle procedure
 - a stale-lane row moves from wording/contract drift to current-caller authoritative mismatch
 

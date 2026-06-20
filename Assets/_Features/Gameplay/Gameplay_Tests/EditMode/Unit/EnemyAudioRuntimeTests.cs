@@ -2528,7 +2528,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 initialMoveDelaySeconds: 0.1f,
                 repeatedMoveIntervalSeconds: 0.1f,
                 boxSlideStepIntervalSeconds: 0.1f,
-                projectileStepIntervalSeconds: 0.1f,
+                forwardCellTravelStepIntervalSeconds: 0.1f,
                 moveMotionDurationSeconds: 0.1f,
                 pushMotionDurationSeconds: 0.1f,
                 topologyMotionDurationSeconds: 0.1f,
