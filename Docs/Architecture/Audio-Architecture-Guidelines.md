@@ -480,6 +480,7 @@ future extension note:
 - authoring contract:
   - canonical asset는 `UiAudioCueMap_V1.asset` 하나다.
   - every `UiAudioCueId` value는 map에 explicit entry로 모두 존재해야 한다.
+  - `ObjectiveComplete`와 `TopologyShift`는 frozen-v1 reserved cue ID로 유지한다. Current production producers do not emit them; playback requires a separate product/governance decision.
   - `AudioCategory.Ui`만 허용한다.
   - looping definition은 금지다.
   - `AudioBinding.Policy`는 null이어야 한다.

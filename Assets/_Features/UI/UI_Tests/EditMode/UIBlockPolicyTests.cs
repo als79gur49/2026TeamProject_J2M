@@ -90,7 +90,7 @@ namespace Game.Feature.UI.Tests
                         PopupId.Pause,
                         PausePopupPayload.Default,
                         new PopupPolicy(
-                            PopupPolicyClass.NonModalInformational,
+                            PopupPolicyClass.ModalBlocking,
                             PopupLifetimeScope.CurrentScreen,
                             PopupBackAction.Close,
                             PopupBackdropMode.CloseTop,

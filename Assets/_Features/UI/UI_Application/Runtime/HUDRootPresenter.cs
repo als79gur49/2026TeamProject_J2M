@@ -63,7 +63,6 @@ namespace Game.Feature.UI.Application
         private void ApplySnapshot(UIPresentationSnapshot snapshot)
         {
             ViewModel.SetShellState(
-                isVisible: true,
                 isDimmed: snapshot.Interaction.IsPaused ||
                           snapshot.Interaction.IsUiGameplayInputBlocked ||
                           snapshot.Interaction.HasBlockingGameplayPresentation,

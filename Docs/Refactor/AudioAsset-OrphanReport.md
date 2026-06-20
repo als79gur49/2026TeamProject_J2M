@@ -28,13 +28,34 @@ Count convention:
 
 - Counts exclude `.meta` files unless explicitly stated.
 - Definition/clip pairs are counted by asset file, not by logical pair.
-- `World_EndCredit.ogg` is technically unreferenced but product/content-confirmation gated.
+- `World_EndCredit.ogg` was technically unreferenced and is now removed after product/content owner confirmation.
+
+## Completed Asset-Only Cleanup
+
+The verified orphan audio asset cleanup PRs already removed these assets and their matching `.meta` files:
+
+| Asset Type | Path | GUID | Cleanup Status | Retained Chain |
+|---|---|---|---|---|
+| AudioClip | `Assets/_Shared/Audio/Clips/Sfx/Game_Clear.m4a` | `a7ef0c60a20c8cd499af0e184d1cc944` | COMPLETED_REMOVED | `Game_Clear.wav` remains present |
+| AudioClip | `Assets/_Shared/Audio/Clips/Sfx/Game_Over.m4a` | `80921e00888a84842ad438544913d583` | COMPLETED_REMOVED | `Game_Over.wav` remains present |
+| SingleAudioDefinition | `Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/DrSaturn_Act_Def.asset` | `5646112bb2e343d18745567c3ba5ec6a` | COMPLETED_REMOVED | `cre_Dr.saturn_act.wav` and `DrSaturn_Move_Def` remain present |
+| SingleAudioDefinition | `Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/RocketFace_Act_Def.asset` | `322ed63326e445de84998446805cbcbc` | COMPLETED_REMOVED | `cre_RocketFace_act_fix.wav` and `RocketFace_ChargeActiveLoop_Def` remain present |
+| AudioClip | `Assets/_Shared/Audio/Clips/Bgm/World_EndCredit.ogg` | `4d9cf3682b260774f9716cde2687fe8a` | COMPLETED_REMOVED after owner confirmation | BGM runtime/code/profile/stage metadata unchanged |
+
+These rows are historical cleanup evidence, not active deletion candidates. The completed definition removals must not be confused with the retained source clips or active monster definitions. The completed end-credit clip removal followed product/content owner confirmation that the content is unused.
+
+## Kept Stage Audio Companions
+
+The StageAudioDefinition companion schema audit closes AUD-012 as keep:
+
+| Asset Type | Path | GUID | Decision | Reason | Runtime | BGM Behavior | Action |
+|---|---|---|---|---|---|---|---|
+| StageAudioDefinition | `Assets/_Features/Stages/Content/Campaigns/campaign-main/Levels/level-01/Stages/legacy-stage-5-1/legacy-stage-5-1_Audio.asset` | `c0bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb` | KEEP_STAGE_COMPANION | `StageContentEntry.audioDefinition` on `legacy-stage-5-1_Entry.asset` directly references it, and `CampaignMain_StageCatalog.asset` includes that owner entry. | Consumed by the stage audio request path and by stage governance/CI/pre-build validation. | `mode: None` with a null profile is an intentional no-gameplay-BGM marker. | Keep the asset. Future removal is blocked unless a separate stage governance migration removes the owner entry/reference first and passes catalog validation. |
 
 ## Orphan / Candidate Assets
 
 | Asset Type | Path | GUID | Referenced By | Clip/Definition/Binding Chain | Production/Test | Decision |
 |---|---|---|---|---|---|---|
-| AudioClip | `Assets/_Shared/Audio/Clips/Bgm/World_EndCredit.ogg` | `4d9cf3682b260774f9716cde2687fe8a` | no serialized refs beyond `.meta` | no `AudioDefinition` | Production name, unreferenced | DELETE_SAFE, content confirmation recommended |
 | AudioClip | `Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_Nebulus_dead.wav` | `cc2f38d04e258b047ab5bb4f0bf836c0` | no serialized refs beyond `.meta` | no active definition uses this wav | Production name, unreferenced duplicate candidate | DELETE_SAFE |
 | AudioClip | `Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_bot_dead.wav` | `f7e6d9b2584b48d47b8b6a37306a17cd` | no serialized refs beyond `.meta` | no active definition | Production name, unreferenced duplicate candidate | DELETE_SAFE |
 | AudioClip | `Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_bot_move.wav` | `e392d668fea0e6346a1fb644e91e7e01` | no serialized refs beyond `.meta` | no active definition | Production name, unreferenced duplicate candidate | DELETE_SAFE |
@@ -53,10 +74,8 @@ Count convention:
 | AudioClip | `Assets/_Shared/Audio/Clips/Sfx/Sci-Fi-Special-Fx_GEN-HD4-43862_Test.wav` | `98c33df6d75199d4c80ea1438c27e0c5` | only matching definition | no consumers after definition removal | `_Test` | DELETE_SAFE with definition |
 | RandomAudioDefinition | `Assets/_Shared/Audio/Definitions/Sfx/SpacePod 8003_90_1_Test_Def.asset` | `d710d9942b90d9d44a24ea88ade7b0b6` | no external serialized refs | owns `SpacePod 8003_90_1_Test.wav` only | `_Test` | DELETE_SAFE with clip |
 | AudioClip | `Assets/_Shared/Audio/Clips/Sfx/SpacePod 8003_90_1_Test.wav` | `ce3102629b8de764bb7688ecf2eb8275` | only matching definition | no consumers after definition removal | `_Test` | DELETE_SAFE with definition |
-| SingleAudioDefinition | `Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/DrSaturn_Act_Def.asset` | `5646112bb2e343d18745567c3ba5ec6a` | no external serialized refs | references `cre_Dr.saturn_act.wav`; the clip is also used by `DrSaturn_Move_Def` random variant | Production definition orphan | DELETE_AFTER_TEST_UPDATE; keep clip |
-| AudioClip | `Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_Dr.saturn_act.wav` | `bf85540a9fe408e45b9222f535e43966` | `DrSaturn_Move_Def`, orphan `DrSaturn_Act_Def`, `EnemyAudioRuntimeTests` path load | active random variant clip | Production/test-covered clip | KEEP_CANONICAL |
-| SingleAudioDefinition | `Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/RocketFace_Act_Def.asset` | `322ed63326e445de84998446805cbcbc` | no external serialized refs | references `cre_RocketFace_act_fix.wav`; the clip is also used by `RocketFace_ChargeActiveLoop_Def` | Production definition orphan | DELETE_AFTER_TEST_UPDATE; keep clip |
-| AudioClip | `Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_RocketFace_act_fix.wav` | `083feadc5c349eb4b99436c2c69b5e16` | `RocketFace_ChargeActiveLoop_Def`, orphan `RocketFace_Act_Def` | active charge loop clip | Production | KEEP_CANONICAL |
+| AudioClip | `Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_Dr.saturn_act.wav` | `bf85540a9fe408e45b9222f535e43966` | `DrSaturn_Move_Def`, `EnemyAudioRuntimeTests` path load | active random variant clip | Production/test-covered clip | KEEP_CANONICAL |
+| AudioClip | `Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_RocketFace_act_fix.wav` | `083feadc5c349eb4b99436c2c69b5e16` | `RocketFace_ChargeActiveLoop_Def` | active charge loop clip | Production | KEEP_CANONICAL |
 
 ## `_Test` Named But Production Referenced
 

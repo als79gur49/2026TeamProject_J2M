@@ -282,7 +282,7 @@ namespace Game.Feature.UI.Tests
             runtimeFactory.SetPolicy(
                 PopupId.Pause,
                 new PopupPolicy(
-                    PopupPolicyClass.NonModalInformational,
+                    PopupPolicyClass.ModalBlocking,
                     PopupLifetimeScope.CurrentScreen,
                     PopupBackAction.Close,
                     PopupBackdropMode.None,

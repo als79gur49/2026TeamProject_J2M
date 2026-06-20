@@ -4,6 +4,26 @@ Investigation date: 2026-06-06 KST
 
 This document defines a safe PR sequence from the investigation snapshot.
 
+Update note, 2026-06-16 KST:
+
+- The verified orphan audio asset cleanup PR already removed:
+  - `Assets/_Shared/Audio/Clips/Sfx/Game_Clear.m4a`
+  - `Assets/_Shared/Audio/Clips/Sfx/Game_Over.m4a`
+  - `Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/DrSaturn_Act_Def.asset`
+  - `Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/RocketFace_Act_Def.asset`
+- The matching `.meta` files were removed in the same asset-only cleanup.
+- These assets are no longer active deletion candidates in this plan.
+- The active `.wav`/source clips remain present: `Game_Clear.wav`, `Game_Over.wav`, `cre_Dr.saturn_act.wav`, and `cre_RocketFace_act_fix.wav`.
+- The active monster definition chains remain present: `DrSaturn_Move_Def` and `RocketFace_ChargeActiveLoop_Def`.
+
+Update note, 2026-06-17 KST:
+
+- Product/content owner confirmed end-credit content is unused.
+- The owner-approved `World_EndCredit.ogg` cleanup removed:
+  - `Assets/_Shared/Audio/Clips/Bgm/World_EndCredit.ogg`
+  - `Assets/_Shared/Audio/Clips/Bgm/World_EndCredit.ogg.meta`
+- BGM runtime code, `BgmProfile`, `AudioDefinition`, stage metadata, `SceneBgmRequestSource`, and `BgmFlowCoordinator` were unchanged.
+
 ## Preconditions
 
 Before any deletion PR:
@@ -36,9 +56,9 @@ Delete targets:
 - `Assets/_Shared/Audio/Clips/Sfx/Sucked-into-the-Black-Hole-1_TTX041201_Test.wav`
 - matching `.meta` files
 
-Gated exclusion:
+Completed content-risk removal:
 
-- `Assets/_Shared/Audio/Clips/Bgm/World_EndCredit.ogg` is technically unreferenced, but deletion is product/content-confirmation gated. Exclude it unless end-credit BGM content is confirmed unnecessary in the PR.
+- `Assets/_Shared/Audio/Clips/Bgm/World_EndCredit.ogg` was technically unreferenced and is now removed after product/content owner confirmation that end-credit content is unused.
 
 Reason:
 
@@ -72,7 +92,7 @@ Risk:
 
 - Low compile risk.
 - Low runtime risk if GUID search remains empty.
-- Content risk for `World_EndCredit.ogg`; get content-owner confirmation if an end-credit scene is pending.
+- `World_EndCredit.ogg` content risk is closed by owner-confirmed removal; future content-risk candidates still require owner confirmation before deletion.
 
 ## Step 2: Orphan Test Definition/Clip Pairs
 
@@ -113,43 +133,49 @@ Risk:
 - Low compile risk.
 - Medium asset import risk only if a hidden serialized reference was missed; this is why the paired GUID check is required.
 
-## Step 3: Orphan Definitions Whose Clips Stay
+## Step 3: Completed Orphan Definitions Whose Clips Stay
 
-Delete candidates:
+Completed cleanup targets:
 
 - `Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/DrSaturn_Act_Def.asset`
 - `Assets/_Shared/Audio/Definitions/Sfx/MonsterSounds/RocketFace_Act_Def.asset`
-- matching `.meta` files only
+- matching `.meta` files
 
-Do not delete:
+Status:
+
+- Removed in the verified orphan audio asset cleanup PR.
+- These were definition-only removals; the source clips were intentionally retained.
+- They are no longer active deletion candidates.
+
+Retained source clips:
 
 - `Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_Dr.saturn_act.wav`
 - `Assets/_Shared/Audio/Clips/Sfx/MonsterSounds/cre_RocketFace_act_fix.wav`
 
-Reason:
+Reason for retaining clips:
 
-- Both definition assets have zero external serialized refs.
 - `cre_Dr.saturn_act.wav` is still used by `DrSaturn_Move_Def` random variant and loaded by `EnemyAudioRuntimeTests`.
 - `cre_RocketFace_act_fix.wav` is still used by `RocketFace_ChargeActiveLoop_Def`.
 
-Required action:
+Historical cleanup evidence:
 
-- Update or confirm tests do not load the orphan definitions by path.
-- Keep the clips and verify their active definitions still validate.
+- Pre-delete GUIDs matched the cleanup plan.
+- Deleted GUIDs had no matches in `Assets`, `ProjectSettings`, or `Packages`.
+- Deleted GUIDs did not remain in serialized `.asset`, `.prefab`, or `.unity` files.
+- Active `.wav` source clips and active monster definitions remained present and referenced.
 
-Tests:
+Tests from the asset-only cleanup PR:
 
 - `./run_tests.sh core`
-- targeted: `EnemyAudioRuntimeTests`
-- targeted: `AudioRepositoryAssetSmokeCoreTests`
+- `./run_tests.sh ui`
 
 Rollback:
 
-- restore deleted definition and `.meta` files.
+- Restore deleted definition and `.meta` files from the asset-only cleanup revision.
 
 Risk:
 
-- Medium, because nearby enemy audio tests pin clip composition and full-lane behavior.
+- Low for current docs cleanup; the asset deletion has already been verified. Do not confuse removed definition assets with retained source clips.
 
 ## Step 4: Rename Production `_Test` Assets
 
@@ -255,6 +281,14 @@ Expected updates:
 - If deleting pure orphan clips/definitions: no architecture docs update should be needed, but update this report or a deletion changelog if keeping an audit trail.
 - If renaming `_Test` production assets: update path-pinned tests.
 - If deleting/renaming UI cues, gameplay semantics, BGM transition enum members, channels, or `StageAudioDefinition`: update governance docs and tests in the same change.
+
+AUD-012 stage companion decision:
+
+- AUD-012 is closed as keep, not removal work.
+- `legacy-stage-5-1_Audio.asset` is a catalog-owned `StageAudioDefinition` companion.
+- Do not treat it as unowned audio content.
+- `mode: None` with a null profile is an intentional no-gameplay-BGM marker.
+- Future removal requires a separate stage governance migration that first removes the owner entry/reference and passes catalog validation.
 
 Never claim:
 

@@ -195,8 +195,21 @@ namespace Game.Feature.UI.Tests
                 new ScreenInstanceId(1),
                 screenId,
                 CreatePayload(screenId),
-                new ScreenPolicy(ScreenPolicyClass.GameplayAdjacentOverlay, ScreenRetentionMode.RetainMountedHistory, ScreenBackAction.Pop, HudShellMode.Visible, true),
+                new ScreenPolicy(ResolvePolicyClass(screenId), ScreenRetentionMode.RetainMountedHistory, ScreenBackAction.Pop, HudShellMode.Visible, true),
                 screenId.ToString());
+        }
+
+        private static ScreenPolicyClass ResolvePolicyClass(ScreenId screenId)
+        {
+            return screenId switch
+            {
+                ScreenId.Gameplay => ScreenPolicyClass.GameplayRoot,
+                ScreenId.Settings => ScreenPolicyClass.Configuration,
+                ScreenId.StageResult => ScreenPolicyClass.TerminalResult,
+                ScreenId.LevelFailed => ScreenPolicyClass.TerminalResult,
+                ScreenId.GameClear => ScreenPolicyClass.TerminalResult,
+                _ => ScreenPolicyClass.Configuration,
+            };
         }
 
         private static IScreenPayload CreatePayload(ScreenId screenId)
