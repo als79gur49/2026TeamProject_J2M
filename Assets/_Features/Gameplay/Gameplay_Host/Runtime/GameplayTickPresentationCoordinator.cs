@@ -244,20 +244,16 @@ namespace Game.Feature.Gameplay.Host
         private readonly BoxMotionExecutionGuard _boxMotionExecutionGuard = new();
         private readonly BoxMotionExecutionPipelineFactory _boxMotionExecutionPipelineFactory;
         private readonly PlayerActionAnimationLaneRuntime _playerActionAnimationLane;
-        private readonly EnemyPresentationExecutionGuard _enemyPresentationExecutionGuard = new();
-        private readonly EnemyPresentationExecutionPipelineFactory _enemyPresentationExecutionPipelineFactory;
+        private readonly EnemyPresentationLaneRuntime _enemyPresentationLane;
 
         private GameplayPresentationPipeline _presentationPipeline;
         private GameplayPresentationPipeline _topologyExecutionPipeline;
         private GameplayPresentationPipeline _damageDeathVfxExecutionPipeline;
         private GameplayPresentationPipeline _boxMotionExecutionPipeline;
-        private GameplayPresentationPipeline _enemyPresentationExecutionPipeline;
         private IDamageDeathVfxPlaybackPort _damageDeathVfxPlaybackPort;
         private IGameplayMotionPlaybackPort _boxMotionPlaybackPort;
         private GameplayMotionTrackPlannerPlaybackPort _boxMotionTrackPlannerPlaybackPort;
         private bool _boxMotionUseDefaultPlaybackPort = true;
-        private IGameplayEnemyPresentationPlaybackPort _enemyPresentationPlaybackPort;
-        private GameplayEnemyPresentationSyncPlaybackPort _enemyPresentationSyncPlaybackPort;
         private bool _isInitialized;
         private bool _presentationPipelineDiagnosticsEnabled;
         private GameplayCubeProjector _projector;
@@ -341,9 +337,6 @@ namespace Game.Feature.Gameplay.Host
             _boxMotionExecutionPipelineFactory = boxMotionExecutionPipelineFactory ??
                                                  GameplayHostPresentationPipelineFactory
                                                      .CreateBoxMotionExecutionPipeline;
-            _enemyPresentationExecutionPipelineFactory = enemyPresentationExecutionPipelineFactory ??
-                                                         GameplayHostPresentationPipelineFactory
-                                                             .CreateEnemyPresentationExecutionPipeline;
             _coreGameplaySfxLane = new CoreGameplaySfxLaneRuntime(
                 _stateStore,
                 coreGameplaySfxExecutionPipelineFactory);
@@ -407,8 +400,10 @@ namespace Game.Feature.Gameplay.Host
                         actionKind,
                         _timingProfile),
                     playerActionAnimationExecutionPipelineFactory);
-            _enemyPresentationSyncPlaybackPort =
-                new GameplayEnemyPresentationSyncPlaybackPort(_animationSync, _stateStore);
+            _enemyPresentationLane = new EnemyPresentationLaneRuntime(
+                _stateStore,
+                _animationSync,
+                enemyPresentationExecutionPipelineFactory);
             _topologyTransitionController.TopologyPresentationCompleted += HandleTopologyPresentationCompleted;
             _topologyTransitionController.TopologyTransitionPresentationCompleted +=
                 HandleTopologyTransitionPresentationCompleted;
@@ -522,10 +517,10 @@ namespace Game.Feature.Gameplay.Host
             _playerActionAnimationLane.OwnershipDiagnostics;
 
         internal EnemyPresentationExecutionMode EnemyPresentationExecutionMode =>
-            _enemyPresentationExecutionGuard.Diagnostics.Mode;
+            _enemyPresentationLane.ExecutionMode;
 
         internal EnemyPresentationOwnershipDiagnostics EnemyPresentationOwnershipDiagnostics =>
-            _enemyPresentationExecutionGuard.Diagnostics;
+            _enemyPresentationLane.OwnershipDiagnostics;
 
         internal CoreGameplaySfxExecutionMode CoreGameplaySfxExecutionMode =>
             _coreGameplaySfxLane.ExecutionMode;
@@ -555,7 +550,7 @@ namespace Game.Feature.Gameplay.Host
             _playerActionAnimationLane.BlockingSnapshot;
 
         internal PresentationBlockingSnapshot EnemyPresentationExecutionPipelineBlockingSnapshot =>
-            _enemyPresentationExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
+            _enemyPresentationLane.BlockingSnapshot;
 
         internal PresentationBlockingSnapshot CoreGameplaySfxExecutionPipelineBlockingSnapshot =>
             _coreGameplaySfxLane.BlockingSnapshot;
@@ -595,13 +590,10 @@ namespace Game.Feature.Gameplay.Host
             _playerActionAnimationLane.ProductionTelemetrySnapshot;
 
         internal GameplayEnemyPresentationExecutorDiagnostics EnemyPresentationExecutorDiagnostics =>
-            EnemyPresentationProductionTelemetryBuilder.ResolveExecutorDiagnostics(_enemyPresentationExecutionPipeline);
+            _enemyPresentationLane.ExecutorDiagnostics;
 
         internal EnemyPresentationProductionTelemetrySnapshot EnemyPresentationProductionTelemetrySnapshot =>
-            EnemyPresentationProductionTelemetryBuilder.Build(
-                EnemyPresentationExecutionMode,
-                _enemyPresentationExecutionGuard.Diagnostics,
-                _enemyPresentationExecutionPipeline);
+            _enemyPresentationLane.ProductionTelemetrySnapshot;
 
         internal GameplaySfxExecutorDiagnostics CoreGameplaySfxExecutorDiagnostics =>
             _coreGameplaySfxLane.ExecutorDiagnostics;
@@ -659,14 +651,7 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationExecutionMode mode,
             IGameplayEnemyPresentationPlaybackPort playbackPort = null)
         {
-            _enemyPresentationPlaybackPort = playbackPort;
-            _enemyPresentationExecutionGuard.Configure(mode);
-            _enemyPresentationExecutionGuard.ResetSession();
-            _enemyPresentationExecutionPipeline = _enemyPresentationExecutionPipelineFactory(
-                EnemyPresentationExecutionMode,
-                ResolveEnemyPresentationPlaybackPort(),
-                _enemyPresentationExecutionGuard);
-            _enemyPresentationExecutionPipeline?.ResetSession();
+            _enemyPresentationLane.ConfigureExecution(mode, playbackPort);
         }
 
         internal void ConfigureCoreGameplaySfxExecution(
@@ -833,11 +818,7 @@ namespace Game.Feature.Gameplay.Host
                 ResolveBoxMotionPlaybackPort(),
                 _boxMotionExecutionGuard);
             _playerActionAnimationLane.ResetSession();
-            _enemyPresentationExecutionGuard.ResetSession();
-            _enemyPresentationExecutionPipeline = _enemyPresentationExecutionPipelineFactory(
-                EnemyPresentationExecutionMode,
-                ResolveEnemyPresentationPlaybackPort(),
-                _enemyPresentationExecutionGuard);
+            _enemyPresentationLane.ResetSession();
             _coreGameplaySfxLane.ResetSession();
             _actionAudioLane.ResetSession();
             _viewBinder = viewBinder;
@@ -899,7 +880,7 @@ namespace Game.Feature.Gameplay.Host
             _damageDeathVfxExecutionPipeline?.ResetSession();
             _boxMotionExecutionPipeline?.ResetSession();
             _playerActionAnimationLane.ResetSession();
-            _enemyPresentationExecutionPipeline?.ResetSession();
+            _enemyPresentationLane.ResetSession();
             _coreGameplaySfxLane.ResetSession();
             _actionAudioLane.ResetSession();
             _enemyOneShotAudioLane.ResetSession();
@@ -1059,8 +1040,7 @@ namespace Game.Feature.Gameplay.Host
             _lastPresentedTickIndex = result.TickIndex;
             RefreshPresentationMotionVfx(result.TickIndex);
             var playerActionAnimationPreparation = _playerActionAnimationLane.Prepare(result);
-            var suppressLegacyEnemyPresentationAnimations =
-                GameplayPresentationExecutionRouter.UseEnemyPresentationExecutor(EnemyPresentationExecutionMode);
+            var enemyPresentationPreparation = _enemyPresentationLane.Prepare(result);
             _animationSync.ApplyTickPresentation(
                 result,
                 _stateStore.ViewsByEntityId,
@@ -1070,8 +1050,8 @@ namespace Game.Feature.Gameplay.Host
                     actionKind,
                     _timingProfile),
                 playerActionAnimationPreparation.SuppressLegacyActionFields,
-                suppressLegacyEnemyPresentationAnimations);
-            RefreshEnemyPresentationExecution(result);
+                enemyPresentationPreparation.LegacyOneShotSuppression);
+            _enemyPresentationLane.PresentPrepared(result, enemyPresentationPreparation);
             _playerActionAnimationLane.PresentPrepared(result, playerActionAnimationPreparation);
             RefreshDamageDeathVfxExecution(result);
             PresentExtensions(result);
@@ -1221,11 +1201,6 @@ namespace Game.Feature.Gameplay.Host
                    (_boxMotionUseDefaultPlaybackPort ? _boxMotionTrackPlannerPlaybackPort : null);
         }
 
-        private IGameplayEnemyPresentationPlaybackPort ResolveEnemyPresentationPlaybackPort()
-        {
-            return _enemyPresentationPlaybackPort ?? _enemyPresentationSyncPlaybackPort;
-        }
-
         private void RecordBoxMotionLegacyOwnership(TickResult result)
         {
             foreach (var key in BuildBoxMotionPlaybackKeys(result))
@@ -1288,77 +1263,6 @@ namespace Game.Feature.Gameplay.Host
                 default:
                     cueKey = PresentationMotionCueKey.None;
                     return false;
-            }
-        }
-
-        private void RefreshEnemyPresentationExecution(TickResult result)
-        {
-            if (result == null)
-            {
-                return;
-            }
-
-            if (GameplayPresentationExecutionRouter.UseEnemyPresentationExecutor(EnemyPresentationExecutionMode))
-            {
-                RecordEnemyPresentationLegacySkippedByPolicy(result);
-                _enemyPresentationExecutionPipeline ??= _enemyPresentationExecutionPipelineFactory(
-                    EnemyPresentationExecutionMode,
-                    ResolveEnemyPresentationPlaybackPort(),
-                    _enemyPresentationExecutionGuard);
-                _enemyPresentationExecutionPipeline?.Present(result);
-                return;
-            }
-
-            RecordEnemyPresentationLegacyOwnership(result);
-        }
-
-        private void RecordEnemyPresentationLegacyOwnership(TickResult result)
-        {
-            foreach (var key in BuildEnemyPresentationPlaybackKeys(result))
-            {
-                _enemyPresentationExecutionGuard.TryBeginExecution(
-                    EnemyPresentationExecutionOwner.LegacyEnemyPresentationMapper,
-                    key);
-            }
-        }
-
-        private void RecordEnemyPresentationLegacySkippedByPolicy(TickResult result)
-        {
-            foreach (var _ in BuildEnemyPresentationPlaybackKeys(result))
-            {
-                _enemyPresentationExecutionGuard.RecordSkippedByPolicy(
-                    EnemyPresentationExecutionOwner.LegacyEnemyPresentationMapper);
-            }
-        }
-
-        private static IEnumerable<EnemyPresentationPlaybackKey> BuildEnemyPresentationPlaybackKeys(
-            TickResult result)
-        {
-            var factFrame = new TickPresentationFactExtractor().Extract(result);
-            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
-            {
-                new EnemyPresentationCuePlanner(),
-            }).Plan(factFrame);
-            for (var i = 0; i < cueFrame.Cues.Count; i++)
-            {
-                var cue = cueFrame.Cues[i];
-                if (cue.Domain != PresentationDomain.Animation ||
-                    !cue.Key.TryGetAnimationCueKey(out var cueKey) ||
-                    !cue.EnemyPayload.IsValid ||
-                    cue.Target.Kind != PresentationTargetKind.Entity ||
-                    cue.Target.EntityId <= 0)
-                {
-                    continue;
-                }
-
-                yield return new EnemyPresentationPlaybackKey(
-                    cue.Source.TickIndex,
-                    cue.Source.SemanticSource,
-                    cue.Target.EntityId,
-                    cueKey,
-                    cue.EnemyPayload.Kind,
-                    cue.EnemyPayload.Phase,
-                    cue.EnemyPayload.SourceSequenceId);
             }
         }
 
@@ -1507,8 +1411,7 @@ namespace Game.Feature.Gameplay.Host
             _boxMotionExecutionGuard.ResetSession();
             _boxMotionExecutionPipeline?.ResetSession();
             _playerActionAnimationLane.ResetSession();
-            _enemyPresentationExecutionGuard.ResetSession();
-            _enemyPresentationExecutionPipeline?.ResetSession();
+            _enemyPresentationLane.ResetSession();
             _coreGameplaySfxLane.ResetSession();
             _actionAudioLane.ResetSession();
             _enemyOneShotAudioLane.ResetSession();
@@ -1595,7 +1498,7 @@ namespace Game.Feature.Gameplay.Host
             _damageDeathVfxExecutionPipeline?.Update(deltaTime);
             _boxMotionExecutionPipeline?.Update(deltaTime);
             _playerActionAnimationLane.Update(deltaTime);
-            _enemyPresentationExecutionPipeline?.Update(deltaTime);
+            _enemyPresentationLane.Update(deltaTime);
             _coreGameplaySfxLane.UpdateProductionPipeline(deltaTime);
             UpdatePresentationPipelineDiagnosticsIfEnabled(deltaTime);
         }
@@ -1866,8 +1769,7 @@ namespace Game.Feature.Gameplay.Host
             _boxMotionExecutionPipeline?.HardCleanup();
             _boxMotionExecutionGuard.ResetSession();
             _playerActionAnimationLane.HardCleanup();
-            _enemyPresentationExecutionPipeline?.HardCleanup();
-            _enemyPresentationExecutionGuard.ResetSession();
+            _enemyPresentationLane.HardCleanup();
             _coreGameplaySfxLane.HardCleanup();
             _actionAudioLane.HardCleanup();
             _enemyOneShotAudioLane.HardCleanup();
@@ -2141,7 +2043,7 @@ namespace Game.Feature.Gameplay.Host
             _damageDeathVfxExecutionGuard.Configure(DamageDeathVfxExecutionPolicy.ProductionDefault);
             _boxMotionExecutionGuard.Configure(BoxMotionExecutionPolicy.ProductionDefault);
             _playerActionAnimationLane.ConfigureExecution(PlayerActionAnimationExecutionPolicy.ProductionDefault);
-            _enemyPresentationExecutionGuard.Configure(EnemyPresentationExecutionPolicy.ProductionDefault);
+            _enemyPresentationLane.ConfigureExecution(EnemyPresentationExecutionPolicy.ProductionDefault);
             _coreGameplaySfxLane.ConfigureExecution(CoreGameplaySfxExecutionPolicy.ProductionDefault);
             _actionAudioLane.ConfigureExecution(ActionAudioExecutionPolicy.ProductionDefault);
             _enemyOneShotAudioLane.ConfigureExecution(EnemyAudioExecutionPolicy.ProductionDefault);
@@ -2494,11 +2396,6 @@ namespace Game.Feature.Gameplay.Host
         public static bool UseBoxMotionExecutor(BoxMotionPresentationExecutionMode mode)
         {
             return mode == BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor;
-        }
-
-        public static bool UseEnemyPresentationExecutor(EnemyPresentationExecutionMode mode)
-        {
-            return mode == EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor;
         }
 
     }

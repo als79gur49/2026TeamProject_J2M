@@ -46,6 +46,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationLaneRuntime.cs";
         private const string EnemyPresentationExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyPresentationExecutor.cs";
+        private const string EnemyPresentationLaneRuntimePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyPresentationLaneRuntime.cs";
+        private const string EnemyAnimatorDriverPath =
+            "Assets/_Features/Gameplay/Gameplay_EnemyPresentation/Runtime/EnemyAnimatorDriver.cs";
         private const string ActionAudioExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayActionAudioPresentationExecutor.cs";
         private const string ActionAudioLaneRuntimePath =
@@ -629,6 +633,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var runtimeSource = ReadDirectorySource(RuntimeDirectory);
             var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
             var enemyExecutorSource = ReadRepoFile(EnemyPresentationExecutorPath);
+            var enemyLaneSource = ReadRepoFile(EnemyPresentationLaneRuntimePath);
+            var enemyDriverSource = ReadRepoFile(EnemyAnimatorDriverPath);
             var coordinatorSource = ReadRepoFile(CoordinatorPath);
 
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("EnemyViewPresentationMapper"));
@@ -641,14 +647,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeSource, Does.Not.Contain("EnemyViewPresentationMapper"));
             Assert.That(runtimeSource, Does.Not.Contain("EnemyAnimatorDriver"));
             Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper"));
-            Assert.That(coordinatorSource, Does.Contain("EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor"));
-            Assert.That(coordinatorSource, Does.Contain("GameplayPresentationExecutionRouter.UseEnemyPresentationExecutor"));
-            Assert.That(coordinatorSource, Does.Contain("suppressLegacyEnemyPresentationAnimations"));
+            Assert.That(coordinatorSource, Does.Contain("EnemyPresentationLaneRuntime _enemyPresentationLane"));
+            Assert.That(coordinatorSource, Does.Contain("_enemyPresentationLane.Prepare"));
+            Assert.That(coordinatorSource, Does.Contain("_enemyPresentationLane.PresentPrepared"));
+            Assert.That(coordinatorSource, Does.Contain("_enemyPresentationLane.Update"));
+            Assert.That(coordinatorSource, Does.Contain("_enemyPresentationLane.ResetSession"));
+            Assert.That(coordinatorSource, Does.Contain("_enemyPresentationLane.HardCleanup"));
+            Assert.That(coordinatorSource, Does.Contain("enemyPresentationPreparation.LegacyOneShotSuppression"));
+            Assert.That(coordinatorSource, Does.Not.Contain("GameplayPresentationExecutionRouter.UseEnemyPresentationExecutor"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_enemyPresentationExecutionGuard"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_enemyPresentationExecutionPipelineFactory"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_enemyPresentationExecutionPipeline"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_enemyPresentationPlaybackPort"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_enemyPresentationSyncPlaybackPort"));
+            Assert.That(coordinatorSource, Does.Not.Contain("suppressLegacyEnemyPresentationAnimations"));
+            Assert.That(coordinatorSource, Does.Not.Contain("BuildEnemyPresentationPlaybackKeys"));
             Assert.That(hostRuntimeSource, Does.Contain("GameplayEnemyPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("IGameplayEnemyPresentationPlaybackPort"));
             Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationExecutionGuard"));
             Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationExecutionMode"));
             Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationProductionTelemetrySnapshot"));
+            Assert.That(enemyLaneSource, Does.Contain("EnemyPresentationExecutionPolicy.Normalize"));
+            Assert.That(enemyLaneSource, Does.Contain("EnemyPresentationExecutionGuard"));
+            Assert.That(enemyLaneSource, Does.Contain("EnemyPresentationExecutionPipelineFactory"));
+            Assert.That(enemyLaneSource, Does.Contain("BuildEnemyPresentationPlaybackKeys"));
+            Assert.That(enemyLaneSource, Does.Contain("BuildLegacyOneShotSuppression"));
+            Assert.That(enemyLaneSource, Does.Not.Contain("EnemyAnimatorDriver"));
+            Assert.That(enemyLaneSource, Does.Not.Contain("Animator"));
+            Assert.That(enemyLaneSource, Does.Not.Contain("GameObject"));
+            Assert.That(enemyLaneSource, Does.Not.Contain("Transform"));
+            Assert.That(enemyLaneSource, Does.Not.Contain("EnemyAi"));
+            Assert.That(enemyLaneSource, Does.Not.Contain("WorldState"));
+            Assert.That(enemyDriverSource, Does.Contain("enum EnemyPresentationLegacyOneShotSuppression"));
+            Assert.That(enemyDriverSource, Does.Contain("JumpWindup"));
+            Assert.That(enemyDriverSource, Does.Contain("JumpAirborneStartOrRetry"));
+            Assert.That(enemyDriverSource, Does.Contain("ChargeActiveStart"));
+            Assert.That(enemyDriverSource, Does.Contain("DeathTrigger"));
+            Assert.That(enemyDriverSource, Does.Not.Contain("SuppressJumpPhase"));
+            Assert.That(enemyDriverSource, Does.Not.Contain("SuppressAirborneState"));
+            Assert.That(enemyDriverSource, Does.Not.Contain("SuppressChargePhase"));
+            Assert.That(enemyDriverSource, Does.Not.Contain("SuppressChargeActiveState"));
+            Assert.That(enemyDriverSource, Does.Not.Contain("SuppressDeathHold"));
             Assert.That(enemyExecutorSource, Does.Contain("GameplayEnemyPresentationSyncPlaybackPort"));
             Assert.That(enemyExecutorSource, Does.Contain("GameplayAnimationSyncCoordinator animationSync"));
             Assert.That(enemyExecutorSource, Does.Not.Contain("FindObjectOfType"));

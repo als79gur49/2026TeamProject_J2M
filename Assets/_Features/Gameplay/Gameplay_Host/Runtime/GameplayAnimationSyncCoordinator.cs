@@ -118,15 +118,12 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyCollection<int> jumpLandingCompletionHoldEntityIds,
             Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds,
             bool suppressPlayerActionAnimations = false,
-            bool suppressEnemyPresentationAnimations = false)
+            EnemyPresentationLegacyOneShotSuppression enemyPresentationOneShotSuppression =
+                EnemyPresentationLegacyOneShotSuppression.None)
         {
             LastStageClearPlayerPresentationDelaySeconds = 0f;
             BuildContactDelayedEnemyDeathEntityIds(result?.PresentationData);
             _enemyViewPresentationMapper.Build(result, viewsByEntityId, _enemyViewPresentationStates);
-            if (suppressEnemyPresentationAnimations)
-            {
-                SuppressEnemyPresentationFields(_enemyViewPresentationStates);
-            }
 
             foreach (var pair in _enemyViewPresentationStates)
             {
@@ -143,7 +140,7 @@ namespace Game.Feature.Gameplay.Host
 
                 if (TryGetEnemyAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
                 {
-                    driver.Apply(state);
+                    driver.Apply(state, enemyPresentationOneShotSuppression);
                     RefreshEnemyUtilityAnimationTrack(pair.Key, state, driver);
                 }
 
@@ -391,64 +388,6 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _playerActionSuppressionBuffer.Clear();
-        }
-
-        private static void SuppressEnemyPresentationFields(
-            Dictionary<int, EnemyViewPresentationState> states)
-        {
-            if (states == null || states.Count == 0)
-            {
-                return;
-            }
-
-            var entityIds = new List<int>(states.Keys);
-            for (var i = 0; i < entityIds.Count; i++)
-            {
-                var entityId = entityIds[i];
-                var state = states[entityId];
-                var hasChargePresentation =
-                    state.ChargePhase != EnemyChargePhase.None ||
-                    state.StartedChargeWindupThisTick ||
-                    state.StartedChargeActiveThisTick ||
-                    state.StartedChargeRecoverThisTick;
-                var hasJumpPresentation =
-                    state.StartedJumpWindupThisTick ||
-                    state.StartedJumpAirborneThisTick ||
-                    state.LandedFromJumpThisTick ||
-                    state.RetryingJumpAirborneThisTick;
-                states[entityId] = new EnemyViewPresentationState(
-                    state.EntityId,
-                    state.TickIndex,
-                    state.AiMode,
-                    state.ActiveActionKind,
-                    hasJumpPresentation ? EnemyJumpPhase.None : state.JumpPhase,
-                    hasChargePresentation ? EnemyChargePhase.None : state.ChargePhase,
-                    state.IsMoving,
-                    hasChargePresentation ? false : state.StartedWindupThisTick,
-                    state.ExecutedThisTick,
-                    hasChargePresentation ? false : state.StartedRecoveryThisTick,
-                    startedJumpWindupThisTick: false,
-                    startedJumpAirborneThisTick: false,
-                    landedFromJumpThisTick: false,
-                    retryingJumpAirborneThisTick: false,
-                    startedChargeWindupThisTick: false,
-                    startedChargeActiveThisTick: false,
-                    startedChargeRecoverThisTick: false,
-                    state.TookDamage,
-                    didDie: false,
-                    TickEnemyJumpPresentationOutcome.None,
-                    state.GlidePhase,
-                    state.StartedGlideWindupThisTick,
-                    state.StartedGlideActiveThisTick,
-                    state.StartedGlideRecoverThisTick,
-                    state.UtilityPresentationKind,
-                    state.StartedUtilityWindupThisTick,
-                    state.UtilityPhase,
-                    state.StartedUtilityRecoverThisTick,
-                    state.UtilityEffectIndex,
-                    state.UtilityActivationSequence,
-                    state.UtilityCanceledThisTick);
-            }
         }
 
         private static bool TryCreateEnemyPresentationPlaybackState(

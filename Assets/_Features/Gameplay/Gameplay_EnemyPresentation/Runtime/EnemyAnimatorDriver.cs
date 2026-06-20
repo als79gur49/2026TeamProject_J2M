@@ -5,6 +5,19 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    [Flags]
+    public enum EnemyPresentationLegacyOneShotSuppression
+    {
+        None = 0,
+        JumpWindup = 1 << 0,
+        JumpAirborneStartOrRetry = 1 << 1,
+        JumpLand = 1 << 2,
+        ChargeWindup = 1 << 3,
+        ChargeActiveStart = 1 << 4,
+        ChargeRecover = 1 << 5,
+        DeathTrigger = 1 << 6,
+    }
+
     public sealed class EnemyAnimatorDriver : MonoBehaviour
     {
         private const string DefaultLocomotionStateName = "Move";
@@ -134,6 +147,13 @@ namespace Game.Feature.Gameplay.Host
 
         public void Apply(in EnemyViewPresentationState state)
         {
+            Apply(state, EnemyPresentationLegacyOneShotSuppression.None);
+        }
+
+        public void Apply(
+            in EnemyViewPresentationState state,
+            EnemyPresentationLegacyOneShotSuppression oneShotSuppression)
+        {
             var previousState = LastPresentationState;
             LastPresentationState = state;
             CurrentAiMode = state.AiMode;
@@ -156,7 +176,8 @@ namespace Game.Feature.Gameplay.Host
                 _lastJumpAirborneNormalizedTime = 0f;
             }
 
-            if (state.StartedJumpWindupThisTick)
+            if (state.StartedJumpWindupThisTick &&
+                !IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.JumpWindup))
             {
                 JumpWindupSignalCount++;
                 if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.JumpWindup))
@@ -165,7 +186,8 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
-            if (state.StartedJumpAirborneThisTick)
+            if (state.StartedJumpAirborneThisTick &&
+                !IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.JumpAirborneStartOrRetry))
             {
                 _jumpAirborneTopologySuspendSnapshot = default;
                 JumpAirborneSignalCount++;
@@ -175,13 +197,18 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
-            if (state.LandedFromJumpThisTick)
+            if (state.LandedFromJumpThisTick &&
+                !IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.JumpLand))
             {
                 TryApplyNamedStateCrossFade(targetAnimator, DefaultLocomotionStateName);
             }
 
-            if (state.StartedChargeActiveThisTick ||
-                (state.ChargePhase == EnemyChargePhase.Active && previousState.ChargePhase != EnemyChargePhase.Active))
+            var suppressChargeActiveStart =
+                state.StartedChargeActiveThisTick &&
+                IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.ChargeActiveStart);
+            if (!suppressChargeActiveStart &&
+                (state.StartedChargeActiveThisTick ||
+                 (state.ChargePhase == EnemyChargePhase.Active && previousState.ChargePhase != EnemyChargePhase.Active)))
             {
                 ChargeActiveSignalCount++;
                 TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.ChargeActive);
@@ -207,7 +234,9 @@ namespace Game.Feature.Gameplay.Host
                     requireOverride: true);
             }
 
-            if (state.StartedWindupThisTick)
+            if (state.StartedWindupThisTick &&
+                !(state.StartedChargeWindupThisTick &&
+                  IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.ChargeWindup)))
             {
                 WindupSignalCount++;
                 if (!handledGlideWindup &&
@@ -238,7 +267,9 @@ namespace Game.Feature.Gameplay.Host
                     requireOverride: true);
             }
 
-            if (state.StartedRecoveryThisTick)
+            if (state.StartedRecoveryThisTick &&
+                !(state.StartedChargeRecoverThisTick &&
+                  IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.ChargeRecover)))
             {
                 RecoverySignalCount++;
                 if (!handledGlideRecovery &&
@@ -254,7 +285,8 @@ namespace Game.Feature.Gameplay.Host
                 SetTrigger(targetAnimator, hitTriggerName);
             }
 
-            if (state.DidDie)
+            if (state.DidDie &&
+                !IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.DeathTrigger))
             {
                 DeathSignalCount++;
                 SetTrigger(targetAnimator, deathTriggerName);
@@ -266,6 +298,13 @@ namespace Game.Feature.Gameplay.Host
             {
                 EnsureJumpAirborneAnimatorState(targetAnimator);
             }
+        }
+
+        private static bool IsSuppressed(
+            EnemyPresentationLegacyOneShotSuppression suppression,
+            EnemyPresentationLegacyOneShotSuppression value)
+        {
+            return (suppression & value) == value;
         }
 
         public void CompleteJumpLandingPresentation()
