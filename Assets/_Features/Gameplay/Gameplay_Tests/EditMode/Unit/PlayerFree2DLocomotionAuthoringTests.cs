@@ -1,9 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Stages;
 using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -267,6 +272,144 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ForbiddenPattern("Kinematic" + "MoveDurationSeconds", @"\b" + "Kinematic" + @"MoveDurationSeconds\b"));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void PlayerControlState_HasNoRetiredMoveCooldownMembers()
+        {
+            var retiredNames = new[]
+            {
+                "moveCooldownTicks",
+                "MoveCooldownTicks",
+                "nextMoveAllowedTick",
+                "NextMoveAllowedTick",
+                "ConsumeMoveCooldown",
+                "IsMoveOnCooldown",
+            };
+            var members = typeof(PlayerControlState)
+                .GetMembers(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                .Select(member => member.Name)
+                .ToArray();
+
+            foreach (var retiredName in retiredNames)
+            {
+                Assert.That(members, Does.Not.Contain(retiredName));
+            }
+
+            Assert.That(members, Does.Contain("nextExplicitActionAllowedTick"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Free2DResolver_DoesNotReferenceRetiredMoveCooldownOrActionGate()
+        {
+            const string path = "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs";
+            var source = File.ReadAllText(path);
+
+            Assert.That(source, Does.Contain("ResolvePlayerFree2DLocalLocomotion"));
+            Assert.That(source, Does.Not.Contain("ConsumeMoveCooldown"));
+            Assert.That(source, Does.Not.Contain("IsMoveOnCooldown"));
+            Assert.That(source, Does.Not.Contain("moveCooldownTicks"));
+            Assert.That(source, Does.Not.Contain("nextMoveAllowedTick"));
+            Assert.That(source, Does.Not.Contain("nextExplicitActionAllowedTick"));
+            Assert.That(source, Does.Not.Contain("BlockExplicitActionStartUntil"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerTiming_DoesNotExposeRetiredMoveCooldownPolicy()
+        {
+            AssertTypeDoesNotExposeMember(typeof(PlayerControlTimingSettings), "MoveCooldownSeconds");
+            AssertTypeDoesNotExposeMember(typeof(PlayerControlTimingAuthoritativeSnapshot), "MoveCooldownSeconds");
+            AssertTypeDoesNotExposeMember(typeof(PlayerControlTimingAuthoritativeSnapshot), "MoveCooldownTicks");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void CompiledGameplayAssemblies_DoNotExposeRetiredPlayerLocomotionApi()
+        {
+            var forbiddenNames = new[]
+            {
+                "Player" + "KinematicLocomotion",
+                "Player" + "DiscreteMovement",
+                "Legacy" + "Discrete",
+                "Player" + "ContinuousLocomotionSettings",
+                "BuildPlayerSameFace" + "KinematicLocomotionPlans",
+                "Queue" + "KinematicTurn",
+                "CreateDefault" + "PlayerFree2DLocomotionSettings",
+                "Default" + "GameplayLocomotion",
+            };
+            var assemblies = new[]
+                {
+                    typeof(PlayerControlState).Assembly,
+                    typeof(PlayerLogic).Assembly,
+                    typeof(TickPipeline).Assembly,
+                    typeof(EntityState).Assembly,
+                }
+                .Distinct()
+                .ToArray();
+
+            foreach (var type in assemblies.SelectMany(assembly => assembly.GetTypes()))
+            {
+                foreach (var forbiddenName in forbiddenNames)
+                {
+                    Assert.That(
+                        type.FullName,
+                        Does.Not.Contain(forbiddenName),
+                        $"Retired Player locomotion API type remains compiled: {type.FullName}");
+                }
+
+                var memberNames = type
+                    .GetMembers(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                    .Select(member => member.Name);
+                foreach (var memberName in memberNames)
+                {
+                    foreach (var forbiddenName in forbiddenNames)
+                    {
+                        Assert.That(
+                            memberName,
+                            Does.Not.Contain(forbiddenName),
+                            $"Retired Player locomotion API member remains compiled: {type.FullName}.{memberName}");
+                    }
+                }
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MotionMode_RetiredNumericValue5_IsUndefined()
+        {
+            Assert.That(Enum.IsDefined(typeof(MotionMode), 5), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void UserSaveSlotSchema_DoesNotPersistLocomotionRuntimeState()
+        {
+            var memberNames = typeof(SaveSlotData)
+                .GetMembers(BindingFlags.Instance | BindingFlags.Public)
+                .Where(member => member.MemberType == MemberTypes.Field || member.MemberType == MemberTypes.Property)
+                .Select(member => member.Name)
+                .ToArray();
+
+            Assert.That(memberNames, Does.Not.Contain("MotionMode"));
+            Assert.That(memberNames, Does.Not.Contain("UnitKinematicState"));
+            Assert.That(memberNames, Does.Not.Contain("PlayerControlState"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GeneratedTestSceneResidueGuard_NoRootInitTestScenes()
+        {
+            var residue = Directory.Exists("Assets")
+                ? Directory.GetFiles("Assets", "InitTestScene*.unity", SearchOption.TopDirectoryOnly)
+                    .Concat(Directory.GetFiles("Assets", "InitTestScene*.unity.meta", SearchOption.TopDirectoryOnly))
+                    .OrderBy(path => path, StringComparer.Ordinal)
+                    .ToArray()
+                : Array.Empty<string>();
+
+            Assert.That(residue, Is.Empty, "Generated InitTestScene residue must be cleaned by the test runner lifecycle.");
+        }
+
         private static ForbiddenToken ForbiddenExact(string token)
         {
             return new ForbiddenToken(
@@ -356,6 +499,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 default:
                     return false;
             }
+        }
+
+        private static void AssertTypeDoesNotExposeMember(Type type, string forbiddenMemberName)
+        {
+            var members = type
+                .GetMembers(BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                .Select(member => member.Name)
+                .ToArray();
+
+            Assert.That(members, Does.Not.Contain(forbiddenMemberName));
         }
 
         private readonly struct ForbiddenToken
