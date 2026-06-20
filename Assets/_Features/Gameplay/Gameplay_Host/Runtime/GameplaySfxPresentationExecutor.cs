@@ -652,7 +652,7 @@ namespace Game.Feature.Gameplay.Host
             _gateState = gateState;
         }
 
-        public void ConfigureEnemyDeathCueSuppression(ISet<int> entityIds)
+        public void ConfigureEnemyDeathCueSuppression(IReadOnlyCollection<int> entityIds)
         {
             _enemyDeathCueSuppressedEntityIds.Clear();
             if (entityIds == null)
