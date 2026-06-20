@@ -81,6 +81,35 @@ ensure_result_dirs() {
     mkdir -p "$RESULT_DIR" "$METRICS_DIR"
 }
 
+count_generated_test_scenes() {
+    find "$PROJECT_PATH_WSL/Assets" -maxdepth 1 -type f \( -name 'InitTestScene*.unity' -o -name 'InitTestScene*.unity.meta' \) | wc -l
+}
+
+cleanup_generated_test_scenes() {
+    local residue_count
+
+    residue_count="$(count_generated_test_scenes | tr -d '[:space:]')"
+    if [ "$residue_count" -eq 0 ]; then
+        return 0
+    fi
+
+    echo "Removing stale generated Unity test scenes: $residue_count"
+    find "$PROJECT_PATH_WSL/Assets" -maxdepth 1 -type f \( -name 'InitTestScene*.unity' -o -name 'InitTestScene*.unity.meta' \) -delete
+}
+
+assert_no_generated_test_scenes() {
+    local residue_count
+
+    residue_count="$(count_generated_test_scenes | tr -d '[:space:]')"
+    if [ "$residue_count" -eq 0 ]; then
+        return 0
+    fi
+
+    echo "ERROR: Unity test run left generated InitTestScene artifacts in Assets/: $residue_count"
+    find "$PROJECT_PATH_WSL/Assets" -maxdepth 1 -type f \( -name 'InitTestScene*.unity' -o -name 'InitTestScene*.unity.meta' \) -printf '  %P\n' | sort | head -n 40
+    return 1
+}
+
 find_solution_file() {
     local solution_candidates
     local solution_count=0
@@ -488,6 +517,7 @@ run_unity_stage() {
     fi
 
     rm -f "$xml_path"
+    cleanup_generated_test_scenes
     echo "Running Unity $stage_label..."
 
     if "${unity_command[@]}"
@@ -499,7 +529,21 @@ run_unity_stage() {
 
     if [ "$exit_code" -eq 124 ] || [ "$exit_code" -eq 137 ]; then
         echo "Unity execution timed out (possible hang)"
+        if ! assert_no_generated_test_scenes; then
+            cleanup_generated_test_scenes
+            assert_no_generated_test_scenes || true
+        fi
         return "$exit_code"
+    fi
+
+    if ! assert_no_generated_test_scenes; then
+        cleanup_generated_test_scenes
+        if ! assert_no_generated_test_scenes; then
+            if [ "$exit_code" -ne 0 ]; then
+                return "$exit_code"
+            fi
+            return 1
+        fi
     fi
 
     if ! validate_xml "$xml_path" "$allow_empty"; then
