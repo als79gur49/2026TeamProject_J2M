@@ -1597,22 +1597,45 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.SetRawMoveInput(Vector2.left);
             host.InputHost.BufferFlip();
-            host.InputHost.RunSingleTick();
-            AdvancePresentation(host, host.TimingProfile.FlipMotionDurationSeconds + host.TimingProfile.SimulationTickIntervalSeconds);
+            var delayedTick = host.InputHost.RunSingleTick();
+            Assert.That(delayedTick.PresentationData.PlayerFlipResultTurnSignals, Is.Empty);
 
-            AssertViewMatchesProjectedState(host, entityId: 10);
+            var startTick = RunTicksUntil(
+                host,
+                result => result.PresentationData.PlayerFlipResultTurnSignals.Count == 1,
+                maxTicks: host.TimingProfile.InitialMoveDelayTicks + 2);
+            Assert.That(startTick, Is.Not.Null, "Buffered Flip never started after direction-change delay.");
+            Assert.That(startTick.PresentationData.PlayerFlipResultTurnSignals, Has.Count.EqualTo(1));
+            Assert.That(startTick.PresentationData.PlayerFlipResultTurnSignals[0].ContactFacing, Is.EqualTo(Direction.Left));
+            Assert.That(startTick.PresentationData.PlayerFlipResultTurnSignals[0].ResultFacing, Is.EqualTo(Direction.Right));
+
+            AdvancePresentation(
+                host,
+                ResolvePlayerPresentationPhaseDurationSecondsForTest(host, 10, PlayerPresentationPhase.FlipWindup) +
+                ResolvePlayerPresentationPhaseDurationSecondsForTest(host, 10, PlayerPresentationPhase.FlipRecovery) * 0.5f);
+            AssertFlipResultTurnTransientPose(
+                host,
+                entityId: 10,
+                contactFacing: Direction.Left,
+                resultFacing: Direction.Right);
             AssertViewMatchesProjectedState(host, entityId: 30);
 
-            for (var i = 0; i < host.TimingProfile.InitialMoveDelayTicks - 1; i++)
-            {
-                host.InputHost.RunSingleTick();
-                host.Presenter.UpdatePresentation(0f);
-                AssertViewMatchesProjectedState(host, entityId: 10);
-            }
-
-            host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
-            AssertViewMatchesProjectedState(host, entityId: 10);
+            var executeTick = RunTicksUntil(
+                host,
+                result => result.Trace.Text.Contains("FlipResultFacingCommitted", StringComparison.Ordinal),
+                maxTicks: 64);
+            var executeSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(executeTick, Is.Not.Null, "Buffered Flip never reached the result-facing commit tick.");
+            Assert.That(executeSnapshot.TryGetEntity(10, out var executePlayer), Is.True);
+            Assert.That(executePlayer.facing, Is.EqualTo(Direction.Right));
+            Assert.That(executeSnapshot.TryGetEntity(30, out var executeBox), Is.True);
+            Assert.That(executeBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            AdvancePresentation(
+                host,
+                ResolvePlayerPresentationPhaseDurationSecondsForTest(host, 10, PlayerPresentationPhase.FlipRecovery) +
+                host.TimingProfile.SimulationTickIntervalSeconds);
+            AssertSettledViewMatchesAuthoritativePose(host, entityId: 10);
+            AssertViewMatchesProjectedState(host, entityId: 30);
 
             yield return DestroyHost(host);
         }
@@ -2318,6 +2341,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         private static void AssertViewMatchesProjectedState(GameplaySceneHost host, int entityId)
         {
+            AssertSettledViewMatchesAuthoritativePose(host, entityId);
+        }
+
+        private static void AssertSettledViewMatchesAuthoritativePose(GameplaySceneHost host, int entityId)
+        {
             var snapshot = CaptureAuthoritativeSnapshot(host);
             Assert.That(snapshot.TryGetEntity(entityId, out var entity), Is.True);
             var projector = new GameplayCubeProjector(snapshot.BoardBounds, 1f);
@@ -2356,6 +2384,36 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 $"continuousMode={(hasContinuousPose ? continuousPose.Mode : ContinuousLocomotionMode.Idle)} " +
                 $"continuousOffset={(hasContinuousPose ? continuousPose.LocalOffset.ToString() : string.Empty)} " +
                 $"viewEuler={view.transform.rotation.eulerAngles} expectedEuler={(host.BoardRoot.transform.rotation * projectedRotation).eulerAngles}");
+        }
+
+        private static void AssertFlipResultTurnTransientPose(
+            GameplaySceneHost host,
+            int entityId,
+            Direction contactFacing,
+            Direction resultFacing)
+        {
+            var snapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(snapshot.TryGetEntity(entityId, out var entity), Is.True);
+            var projector = new GameplayCubeProjector(snapshot.BoardBounds, 1f);
+            Assert.That(host.ViewRegistry.TryGetView(entityId, out var view), Is.True);
+            Assert.That(
+                projector.TryResolveEntityRotation(entity.position, snapshot.Topology, contactFacing, out var contactRotation),
+                Is.True);
+            Assert.That(
+                projector.TryResolveEntityRotation(entity.position, snapshot.Topology, resultFacing, out var resultRotation),
+                Is.True);
+
+            var contactWorldRotation = host.BoardRoot.transform.rotation * contactRotation;
+            var resultWorldRotation = host.BoardRoot.transform.rotation * resultRotation;
+            Assert.That(Quaternion.Angle(contactWorldRotation, resultWorldRotation), Is.GreaterThan(1f));
+            Assert.That(
+                Quaternion.Angle(view.transform.rotation, contactWorldRotation),
+                Is.GreaterThan(0.5f),
+                "Result Turn recovery midpoint should have advanced away from contact-facing.");
+            Assert.That(
+                Quaternion.Angle(view.transform.rotation, resultWorldRotation),
+                Is.GreaterThan(0.5f),
+                "Result Turn recovery midpoint should not snap directly to result-facing.");
         }
 
         private static void AssertViewFacing(GameplaySceneHost host, int entityId, Direction expectedFacing)

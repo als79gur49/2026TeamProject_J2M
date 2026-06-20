@@ -1055,7 +1055,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 flagOffIntent,
                 GameplayRuntimeFeatureFlags.None,
-                LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason);
+                LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedReason);
 
             var legacyBaselineIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
             legacyBaselineIntent.AssignIntentId(4);
@@ -1082,7 +1082,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 intent,
                 GameplayRuntimeFeatureFlags.None,
-                LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason);
+                LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedReason);
         }
 
         [Test]
@@ -1464,7 +1464,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Movement_SlidingPushBox_StoppedBySolid_DoesNotEmitBoxSlideStopSignal()
+        public void Movement_SlidingPushBox_StoppedBySolid_EmitsBoxSlideStopSignal()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -1491,7 +1491,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var stopTick = pipeline.RunTick(new TickInput(thirdTickIndex));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(stopTick.PresentationData.BoxSlideStopSignals, Is.Empty);
+            Assert.That(stopTick.PresentationData.BoxSlideStopSignals, Has.Count.EqualTo(1));
+            var stopSignal = stopTick.PresentationData.BoxSlideStopSignals[0];
+            Assert.That(stopSignal.BoxEntityId, Is.EqualTo(30));
+            Assert.That(stopSignal.StopperEntityId, Is.EqualTo(40));
+            Assert.That(stopSignal.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
+            Assert.That(stopSignal.StopperCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 0)));
+            Assert.That(stopSignal.SlideDirection, Is.EqualTo(Direction.Right));
+            Assert.That(stopSignal.StopperKind, Is.EqualTo(BoxSlideStopperKind.SolidEntity));
+            Assert.That(stopSignal.SolidKind, Is.EqualTo(SolidKind.Box));
+            Assert.That(stopSignal.Cause, Is.EqualTo(BoxSlideStopCause.SlidingContinuationBlocked));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     stopTick.MovementPhaseResult.CommitEvents,
@@ -3932,7 +3941,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
-            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(result, 10);
+            LegacyMovementBoundaryAssert.NoPlayerLegacyOrdinaryFallback(result, 10);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
         }
 

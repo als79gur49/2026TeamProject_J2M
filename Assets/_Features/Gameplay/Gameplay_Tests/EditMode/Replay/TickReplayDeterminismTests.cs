@@ -788,15 +788,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
-                    "MoveCommitted",
-                    "E=10",
-                    "To=(1,0)",
-                    "Facing=Right"),
-                Is.True);
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(1,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("MoveCommitted|E=10"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)|Hp=2|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
         }
 
