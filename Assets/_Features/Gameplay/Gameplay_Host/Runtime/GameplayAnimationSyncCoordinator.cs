@@ -39,7 +39,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly HashSet<int> _playerDeathVisualOverrideEntityIds = new();
         private readonly List<int> _playerVisualHoldEntityIds = new();
         private readonly Dictionary<int, EnemyAnimatorDriver> _enemyAnimatorDriversByEntityId = new();
-        private readonly Dictionary<int, EnemyUtilityScalePulsePresentationDriver> _enemyScalePulseDriversByEntityId = new();
+        private readonly Dictionary<int, EnemySummonScalePulsePresentationDriver> _enemyScalePulseDriversByEntityId = new();
         private readonly List<int> _enemyUtilityAnimationEntityIds = new();
         private readonly Dictionary<int, EnemyUtilityAnimationPlaybackTrack> _enemyUtilityAnimationTracks = new();
         private readonly EnemyViewPresentationMapper _enemyViewPresentationMapper = new();
@@ -761,7 +761,7 @@ namespace Game.Feature.Gameplay.Host
         private void CacheEnemyScalePulseDriver(int entityId, GameplayEntityView view)
         {
             if (view != null &&
-                view.TryGetComponent<EnemyUtilityScalePulsePresentationDriver>(out var driver) &&
+                view.TryGetComponent<EnemySummonScalePulsePresentationDriver>(out var driver) &&
                 driver != null)
             {
                 _enemyScalePulseDriversByEntityId[entityId] = driver;
@@ -1006,7 +1006,7 @@ namespace Game.Feature.Gameplay.Host
         private bool TryGetEnemyScalePulseDriver(
             int entityId,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
-            out EnemyUtilityScalePulsePresentationDriver driver)
+            out EnemySummonScalePulsePresentationDriver driver)
         {
             if (_enemyScalePulseDriversByEntityId.TryGetValue(entityId, out driver) &&
                 driver != null)
@@ -1016,7 +1016,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (viewsByEntityId.TryGetValue(entityId, out var view) &&
                 view != null &&
-                view.TryGetComponent<EnemyUtilityScalePulsePresentationDriver>(out driver) &&
+                view.TryGetComponent<EnemySummonScalePulsePresentationDriver>(out driver) &&
                 driver != null)
             {
                 _enemyScalePulseDriversByEntityId[entityId] = driver;

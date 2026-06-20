@@ -1,18 +1,17 @@
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 
 namespace Game.Feature.Gameplay.Host
 {
+    [MovedFrom(false, "Game.Feature.Gameplay.Host", "Game.Feature.Gameplay.EnemyPresentation", "EnemyUtilityScalePulsePresentationDriver")]
     [DisallowMultipleComponent]
-    public sealed class EnemyUtilityScalePulsePresentationDriver :
+    public sealed class EnemySummonScalePulsePresentationDriver :
         MonoBehaviour,
         IEnemyVisualSemanticPresentationDriver
     {
-        private const int LegacySummonPresentationKindValue = 3;
         private const float MinimumDurationSeconds = 0.0001f;
 
-        [SerializeField] private EnemyUtilityPresentationKind utilityKind =
-            (EnemyUtilityPresentationKind)LegacySummonPresentationKindValue;
         [SerializeField] private float windupDurationSeconds = 1.7f;
         [SerializeField] private float windupPeakTimeSeconds = 1.05f;
         [SerializeField] private float recoverDurationSeconds = 0.7f;
@@ -32,8 +31,6 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsPlaying => _phase == ScalePulsePhase.Windup || _phase == ScalePulsePhase.Recover;
 
-        public EnemyUtilityPresentationKind UtilityKind => utilityKind;
-
         public float CurrentScaleMultiplier => _currentScaleMultiplier;
 
         public float WindupDurationSeconds => windupDurationSeconds;
@@ -52,29 +49,25 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            if (!MatchesPresentationKind(state))
+            if (!state.StartedSummonWindupThisTick &&
+                !state.StartedSummonRecoverThisTick &&
+                !state.SummonCanceledThisTick)
             {
                 return;
             }
 
-            if (IsSummonPresentationKind
-                    ? state.SummonCanceledThisTick
-                    : state.UtilityCanceledThisTick)
+            if (state.SummonCanceledThisTick)
             {
                 NormalizeToBaseScale();
                 return;
             }
 
-            if (IsSummonPresentationKind
-                    ? state.StartedSummonWindupThisTick
-                    : state.StartedUtilityWindupThisTick)
+            if (state.StartedSummonWindupThisTick)
             {
                 BeginWindup();
             }
 
-            if (IsSummonPresentationKind
-                    ? state.StartedSummonRecoverThisTick
-                    : state.StartedRecoveryThisTick)
+            if (state.StartedSummonRecoverThisTick)
             {
                 BeginRecover();
             }
@@ -122,18 +115,6 @@ namespace Game.Feature.Gameplay.Host
 
             _modelRoot.localScale = _baseLocalScale;
             ResetState();
-        }
-
-        private bool IsSummonPresentationKind =>
-            (int)utilityKind == LegacySummonPresentationKindValue;
-
-        private bool MatchesPresentationKind(in EnemyViewPresentationState state)
-        {
-            return IsSummonPresentationKind
-                ? state.StartedSummonWindupThisTick ||
-                  state.StartedSummonRecoverThisTick ||
-                  state.SummonCanceledThisTick
-                : state.UtilityPresentationKind == utilityKind;
         }
 
         private void BeginWindup()

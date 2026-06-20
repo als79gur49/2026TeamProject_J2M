@@ -196,8 +196,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d5bc7f8cc6194d2882c9cdb56e96d289, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyUtilityScalePulsePresentationDriver
-  utilityKind: 3
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemySummonScalePulsePresentationDriver
   windupDurationSeconds: 1.7
   windupPeakTimeSeconds: 1.05
   recoverDurationSeconds: 0.7

@@ -8313,18 +8313,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplayTickPresentationCoordinator_UtilityScalePulseFreezesDuringFrontFaceInactive()
+        public void GameplayTickPresentationCoordinator_SummonScalePulseFreezesDuringFrontFaceInactive()
         {
-            var rootObject = new GameObject(nameof(GameplayTickPresentationCoordinator_UtilityScalePulseFreezesDuringFrontFaceInactive));
+            var rootObject = new GameObject(nameof(GameplayTickPresentationCoordinator_SummonScalePulseFreezesDuringFrontFaceInactive));
             var enemyPrefab = CreateEnemyViewPrefab(
-                "GameplayTickPresentationCoordinator_UtilityScalePulseFreezePrefab",
+                "GameplayTickPresentationCoordinator_SummonScalePulseFreezePrefab",
                 0.8f,
                 0.8f);
 
             try
             {
                 enemyPrefab.ModelRoot.localScale = new Vector3(0.4f, 0.4f, 0.4f);
-                enemyPrefab.gameObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+                enemyPrefab.gameObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
@@ -8389,18 +8389,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void GameplayTickPresentationCoordinator_HardUtilityCancel_NormalizesScalePulse()
+        public void GameplayTickPresentationCoordinator_SummonCanceled_NormalizesScalePulse()
         {
-            var rootObject = new GameObject(nameof(GameplayTickPresentationCoordinator_HardUtilityCancel_NormalizesScalePulse));
+            var rootObject = new GameObject(nameof(GameplayTickPresentationCoordinator_SummonCanceled_NormalizesScalePulse));
             var enemyPrefab = CreateEnemyViewPrefab(
-                "GameplayTickPresentationCoordinator_UtilityScalePulseCancelPrefab",
+                "GameplayTickPresentationCoordinator_SummonScalePulseCancelPrefab",
                 0.8f,
                 0.8f);
 
             try
             {
                 enemyPrefab.ModelRoot.localScale = new Vector3(0.4f, 0.4f, 0.4f);
-                enemyPrefab.gameObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+                enemyPrefab.gameObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();

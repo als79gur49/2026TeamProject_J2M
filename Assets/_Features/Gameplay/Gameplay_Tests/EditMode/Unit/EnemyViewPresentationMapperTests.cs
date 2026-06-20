@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
@@ -13,6 +14,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class EnemyViewPresentationMapperTests
     {
+        private const string JPeterPrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_JPeter.prefab";
+        private const string DrSaturnPrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_DrSaturn.prefab";
+        private const string SummonScalePulseScriptGuid = "d5bc7f8cc6194d2882c9cdb56e96d289";
+        private const string GravityAuraVfxScriptGuid = "f18cc0d83f3741f087d10f75a8d2d59c";
+
         [Test]
         [Category("Extended")]
         public void EnemyViewPresentationMapper_MapsJumpWindupAndAirborneWithoutUsingAttackPhase()
@@ -488,15 +496,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyUtilityScalePulsePresentationDriver_SummonWindupAndRecover_ScalesModelRoot()
+        public void EnemySummonScalePulsePresentationDriver_SummonWindupAndRecover_ScalesModelRoot()
         {
-            var rootObject = new UnityEngine.GameObject("EnemyUtilityScalePulsePresentationDriver_SummonWindupAndRecover_ScalesModelRoot");
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulsePresentationDriver_SummonWindupAndRecover_ScalesModelRoot));
             try
             {
                 var view = rootObject.AddComponent<GameplayEntityView>();
                 var modelRoot = view.ModelRoot;
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
-                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
                 driver.Apply(new EnemyViewPresentationState(
                     entityId: 40,
@@ -563,23 +571,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyUtilityScalePulsePresentationDriver_LegacyKind3_MapsToSummonPulse()
+        public void EnemySummonScalePulsePresentationDriver_SummonCanceled_NormalizesScalePulse()
         {
-            var rootObject = new UnityEngine.GameObject(nameof(EnemyUtilityScalePulsePresentationDriver_LegacyKind3_MapsToSummonPulse));
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulsePresentationDriver_SummonCanceled_NormalizesScalePulse));
             try
             {
                 var view = rootObject.AddComponent<GameplayEntityView>();
                 var modelRoot = view.ModelRoot;
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
-                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
-                SetUtilityKind(driver, (EnemyUtilityPresentationKind)3);
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
                 driver.Apply(CreateSummonState(startedSummonWindupThisTick: true));
-                driver.Advance(0.2f);
+                driver.Advance(0.5f);
+                Assert.That(modelRoot.localScale.x, Is.Not.EqualTo(0.4f).Within(0.0001f));
 
-                Assert.That(driver.UtilityKind, Is.EqualTo((EnemyUtilityPresentationKind)3));
-                Assert.That(driver.IsPlaying, Is.True);
-                Assert.That(modelRoot.localScale.x, Is.GreaterThan(0.4f));
+                driver.Apply(CreateSummonState(summonCanceledThisTick: true, tickIndex: 2));
+
+                Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(modelRoot.localScale.x, Is.EqualTo(0.4f).Within(0.0001f));
+                Assert.That(driver.IsPlaying, Is.False);
             }
             finally
             {
@@ -589,18 +599,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyUtilityScalePulsePresentationDriver_GravityKind_DoesNotMapToSummon()
+        public void EnemySummonScalePulsePresentationDriver_IgnoresGravityUtilitySignals()
         {
-            var rootObject = new UnityEngine.GameObject(nameof(EnemyUtilityScalePulsePresentationDriver_GravityKind_DoesNotMapToSummon));
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulsePresentationDriver_IgnoresGravityUtilitySignals));
             try
             {
                 var view = rootObject.AddComponent<GameplayEntityView>();
                 var modelRoot = view.ModelRoot;
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
-                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
-                SetUtilityKind(driver, EnemyUtilityPresentationKind.GravityFieldAura);
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
-                driver.Apply(CreateSummonState(startedSummonWindupThisTick: true));
+                driver.Apply(CreateGravityUtilityState(startedUtilityWindupThisTick: true));
                 driver.Advance(0.2f);
 
                 Assert.That(driver.IsPlaying, Is.False);
@@ -614,18 +623,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyUtilityScalePulsePresentationDriver_UnknownKind_DoesNotMapToSummon()
+        public void EnemySummonScalePulsePresentationDriver_IgnoresUnknownUtilitySignals()
         {
-            var rootObject = new UnityEngine.GameObject(nameof(EnemyUtilityScalePulsePresentationDriver_UnknownKind_DoesNotMapToSummon));
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulsePresentationDriver_IgnoresUnknownUtilitySignals));
             try
             {
                 var view = rootObject.AddComponent<GameplayEntityView>();
                 var modelRoot = view.ModelRoot;
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
-                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
-                SetUtilityKind(driver, (EnemyUtilityPresentationKind)99);
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
-                driver.Apply(CreateSummonState(startedSummonWindupThisTick: true));
+                driver.Apply(CreateUtilityState(
+                    (EnemyUtilityPresentationKind)99,
+                    startedUtilityWindupThisTick: true));
                 driver.Advance(0.2f);
 
                 Assert.That(driver.IsPlaying, Is.False);
@@ -639,15 +649,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyUtilityScalePulsePresentationDriver_SemanticSuppression_FreezesCurrentScale()
+        public void EnemySummonScalePulsePresentationDriver_SemanticSuppression_FreezesCurrentScale()
         {
-            var rootObject = new UnityEngine.GameObject(nameof(EnemyUtilityScalePulsePresentationDriver_SemanticSuppression_FreezesCurrentScale));
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulsePresentationDriver_SemanticSuppression_FreezesCurrentScale));
             try
             {
                 var view = rootObject.AddComponent<GameplayEntityView>();
                 var modelRoot = view.ModelRoot;
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
-                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
                 driver.Apply(CreateSummonState(startedSummonWindupThisTick: true));
                 driver.Advance(0.5f);
@@ -679,15 +689,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyUtilityScalePulsePresentationDriver_DisableStillNormalizesToBaseScale()
+        public void EnemySummonScalePulsePresentationDriver_DisableStillNormalizesToBaseScale()
         {
-            var rootObject = new UnityEngine.GameObject(nameof(EnemyUtilityScalePulsePresentationDriver_DisableStillNormalizesToBaseScale));
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulsePresentationDriver_DisableStillNormalizesToBaseScale));
             try
             {
                 var view = rootObject.AddComponent<GameplayEntityView>();
                 var modelRoot = view.ModelRoot;
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
-                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
                 driver.Apply(CreateSummonState(startedSummonWindupThisTick: true));
                 driver.Advance(0.5f);
@@ -700,7 +710,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 driver.Advance(10f);
                 Assert.That(modelRoot.localScale.x, Is.Not.EqualTo(0.4f).Within(0.0001f));
 
-                typeof(EnemyUtilityScalePulsePresentationDriver)
+                typeof(EnemySummonScalePulsePresentationDriver)
                     .GetMethod("OnDisable", BindingFlags.Instance | BindingFlags.NonPublic)
                     ?.Invoke(driver, Array.Empty<object>());
 
@@ -716,15 +726,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyUtilityScalePulse_HardUtilityCancel_DoesNotRemainInWindupHold()
+        public void EnemySummonScalePulse_SummonCanceled_DoesNotRemainInWindupHold()
         {
-            var rootObject = new UnityEngine.GameObject(nameof(EnemyUtilityScalePulse_HardUtilityCancel_DoesNotRemainInWindupHold));
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulse_SummonCanceled_DoesNotRemainInWindupHold));
             try
             {
                 var view = rootObject.AddComponent<GameplayEntityView>();
                 var modelRoot = view.ModelRoot;
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
-                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
                 driver.Apply(CreateSummonState(startedSummonWindupThisTick: true));
                 driver.Advance(1.7f);
@@ -741,6 +751,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyView_JPeter_UsesTypedSummonScalePulseBinding()
+        {
+            var yaml = ReadProjectText(JPeterPrefabPath);
+
+            Assert.That(yaml, Does.Contain($"guid: {SummonScalePulseScriptGuid}"));
+            Assert.That(
+                yaml,
+                Does.Contain("Game.Feature.Gameplay.Host.EnemySummonScalePulsePresentationDriver"));
+            Assert.That(
+                yaml,
+                Does.Not.Contain("Game.Feature.Gameplay.Host.EnemyUtilityScalePulsePresentationDriver"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyView_JPeter_HasNoLegacyUtilityKind3()
+        {
+            var yaml = ReadProjectText(JPeterPrefabPath);
+
+            Assert.That(yaml, Does.Not.Contain("utilityKind: 3"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyView_JPeter_PreservesSummonScalePulseTuning()
+        {
+            var yaml = ReadProjectText(JPeterPrefabPath);
+
+            Assert.That(yaml, Does.Contain("windupDurationSeconds: 1.7"));
+            Assert.That(yaml, Does.Contain("windupPeakTimeSeconds: 1.05"));
+            Assert.That(yaml, Does.Contain("recoverDurationSeconds: 0.7"));
+            Assert.That(yaml, Does.Contain("peakScaleMultiplier: 1.1"));
+            Assert.That(yaml, Does.Contain("windupEndScaleMultiplier: 0.75"));
+            Assert.That(yaml, Does.Contain("recoverEndScaleMultiplier: 1"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyView_DrSaturn_PreservesGravityUtilityKind2()
+        {
+            var yaml = ReadProjectText(DrSaturnPrefabPath);
+
+            Assert.That(yaml, Does.Contain($"guid: {GravityAuraVfxScriptGuid}"));
+            Assert.That(yaml, Does.Contain("utilityKind: 2"));
+            Assert.That(yaml, Does.Not.Contain("utilityKind: 3"));
         }
 
         [Test]
@@ -1040,14 +1099,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 summonCanceledThisTick: summonCanceledThisTick);
         }
 
-        private static void SetUtilityKind(
-            EnemyUtilityScalePulsePresentationDriver driver,
-            EnemyUtilityPresentationKind utilityKind)
+        private static EnemyViewPresentationState CreateGravityUtilityState(
+            bool startedUtilityWindupThisTick = false,
+            bool startedUtilityRecoverThisTick = false,
+            bool utilityCanceledThisTick = false,
+            int tickIndex = 1)
         {
-            var field = typeof(EnemyUtilityScalePulsePresentationDriver)
-                .GetField("utilityKind", BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(field, Is.Not.Null);
-            field.SetValue(driver, utilityKind);
+            return CreateUtilityState(
+                EnemyUtilityPresentationKind.GravityFieldAura,
+                startedUtilityWindupThisTick,
+                startedUtilityRecoverThisTick,
+                utilityCanceledThisTick,
+                tickIndex);
+        }
+
+        private static EnemyViewPresentationState CreateUtilityState(
+            EnemyUtilityPresentationKind utilityPresentationKind,
+            bool startedUtilityWindupThisTick = false,
+            bool startedUtilityRecoverThisTick = false,
+            bool utilityCanceledThisTick = false,
+            int tickIndex = 1)
+        {
+            return new EnemyViewPresentationState(
+                entityId: 40,
+                tickIndex: tickIndex,
+                aiMode: EnemyAiMode.Patrol,
+                activeActionKind: EnemyActionKind.None,
+                jumpPhase: EnemyJumpPhase.None,
+                chargePhase: EnemyChargePhase.None,
+                isMoving: false,
+                startedWindupThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: false,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: false,
+                landedFromJumpThisTick: false,
+                retryingJumpAirborneThisTick: false,
+                startedChargeWindupThisTick: false,
+                startedChargeActiveThisTick: false,
+                startedChargeRecoverThisTick: false,
+                tookDamage: false,
+                didDie: false,
+                utilityPresentationKind: utilityPresentationKind,
+                startedUtilityWindupThisTick: startedUtilityWindupThisTick,
+                utilityPhase: startedUtilityRecoverThisTick
+                    ? EnemyUtilityEffectPhase.Recover
+                    : EnemyUtilityEffectPhase.Windup,
+                startedUtilityRecoverThisTick: startedUtilityRecoverThisTick,
+                utilityCanceledThisTick: utilityCanceledThisTick);
+        }
+
+        private static string ReadProjectText(string path)
+        {
+            return File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), path));
         }
     }
 }
