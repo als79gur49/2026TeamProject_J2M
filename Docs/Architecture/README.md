@@ -79,13 +79,19 @@
 - [Enemy-AI-Utility-Summon-Code-Retirement-Closeout.md](./Enemy-AI-Utility-Summon-Code-Retirement-Closeout.md)
   - current closeout report for retiring executable Utility Summon authoring, compile, runtime progression, trigger emission, and spawn-request conversion while retaining enum tombstones, Behavior Summon ownership, GravityFieldAura Utility execution, and presentation/replay compatibility names
 - [Enemy-AI-Summon-Internal-Type-Decoupling-Closeout.md](./Enemy-AI-Summon-Internal-Type-Decoupling-Closeout.md)
-  - current closeout report for Slice B internal Summon DTO and presentation carrier decoupling, including production serialization parity, dual-carrier responsibilities, legacy raw `utilityKind: 3` compatibility, remaining manual/full gates, and Slice C deferrals
+  - Slice B closeout report for internal Summon DTO and presentation carrier decoupling; its legacy raw `utilityKind: 3` adapter notes are superseded by C1b and the final ownership closeout
 - [Enemy-AI-Summon-Vfx-Vocabulary-Migration-C1a-Closeout.md](./Enemy-AI-Summon-Vfx-Vocabulary-Migration-C1a-Closeout.md)
   - current closeout report for Slice C1a Summon VFX code vocabulary rename, preserving cue numeric values, serialized binding compatibility, audio, and replay/export deferrals
 - [Enemy-AI-Summon-Presentation-Prefab-Migration-C1b-Readiness.md](./Enemy-AI-Summon-Presentation-Prefab-Migration-C1b-Readiness.md)
   - readiness report for Slice C1b production Summon presentation prefab migration, including driver ownership, raw `utilityKind: 3` history, GUID-preserving serialization strategy, operation order, and C2 boundaries
 - [Enemy-AI-Summon-Presentation-Prefab-Migration-C1b-Closeout.md](./Enemy-AI-Summon-Presentation-Prefab-Migration-C1b-Closeout.md)
   - closeout report for Slice C1b production Summon scale pulse component rename, JPeter prefab typed binding migration, legacy raw-3 adapter removal, Gravity raw `2` preservation, validation plan, and rollback
+- [Enemy-AI-Summon-Replay-Export-Vocabulary-C2-Readiness.md](./Enemy-AI-Summon-Replay-Export-Vocabulary-C2-Readiness.md)
+  - read-only C2 decision record for retaining Effect / SourceEffectIndex replay/export vocabulary as shared compatibility contracts, with external migration closed as a no-op
+- [Enemy-AI-Summon-Behavior-Ownership-Final-Closeout.md](./Enemy-AI-Summon-Behavior-Ownership-Final-Closeout.md)
+  - final umbrella closeout for Summon Behavior ownership, Utility Summon executable retirement, presentation/prefab/VFX migration status, retained replay/source-correlation compatibility vocabulary, local acceptance evidence, and project-wide red separation
+
+For current Summon production ownership, read the final umbrella closeout first. Earlier Summon readiness, plan, and slice closeout documents preserve sequence and historical decisions; the final umbrella supersedes intermediate "current" wording where later slices changed the state.
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
   - current supporting truth for persistent BGM ownership, scene request-source boundaries, request-based BGM playback, FadeOutIn support, and reserved Crossfade governance
 - [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)

@@ -4,7 +4,24 @@
 
 C1b migrates the production Summon scale pulse prefab off the legacy raw `utilityKind: 3` adapter.
 
-Implementation status: implemented and focused-validated.
+Implementation status: accepted locally.
+
+Final verdict:
+
+```text
+C1b Enemy Summon presentation prefab migration accepted locally.
+
+The production Summon prefab no longer depends on raw utilityKind: 3,
+the legacy numeric adapter has been removed,
+the driver script GUID and presentation tuning remain stable,
+and Gravity presentation remains unchanged.
+
+Focused automated validation, fresh full identity comparison,
+and operator-attested production manual validation are complete.
+
+Project-wide full remains red with the unchanged pre-existing
+36 failure identities.
+```
 
 Selected migration:
 
@@ -133,9 +150,9 @@ Full scan capture:
 | `./run_tests.sh full --filter StageRuntimeBuilderTests` | Passed | EditMode 69/69, PlayMode 0/0 |
 | `./run_tests.sh full --filter EntitySpawnMaterializer` | Passed | EditMode 1/1, PlayMode 0/0 |
 
-## Manual Play Plan
+## Manual Play Follow-up
 
-Production smoke after focused tests:
+Historical production smoke plan after focused tests:
 
 - normal JPeter Summon windup scale pulse, spawn VFX cue `20`, audio baseline, recover cleanup
 - SourceInvalid cancel without lingering pulse or ghost spawn
@@ -143,6 +160,25 @@ Production smoke after focused tests:
 - dual Summoner source isolation
 - DrSaturn Gravity presentation unchanged
 - no missing script, missing serialized field, prefab override warning, or console exception
+
+Operator-attested follow-up:
+
+- timestamp: 2026-06-20 21:35:07 KST (+0900)
+- HEAD: `2696e4c03296e364390974abeba7f8cc44d2f870`
+- branch: `pr/enemy-ai-retired-melee-runtime-removal`
+- target: production Summoner / JPeter view
+- user statement: production manual play confirmed normal operation
+- evidence type: operator-attested
+- video capture: not supplied
+- tick log capture: not supplied
+- observed verdict: PASS
+- C1b acceptance manual gate: satisfied
+
+Evidence artifact:
+
+- `TestResults/Preserved/post-summon-presentation-prefab-c1b-a64384f0-20260620-195950/operator-attested-manual-followup.md`
+
+This follow-up does not retroactively rewrite earlier no-manual records and does not claim video or tick-log evidence.
 
 ## Fresh Full Artifact Plan
 
@@ -164,6 +200,39 @@ Result:
 
 The broad lane remains baseline red. Do not claim full green.
 
+## Post-play Dirty Audit
+
+Audit revision:
+
+- HEAD: `2696e4c03296e364390974abeba7f8cc44d2f870`
+- short HEAD: `2696e4c0`
+- branch: `pr/enemy-ai-retired-melee-runtime-removal`
+- tracked diff hash at audit start: `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+
+Commands run:
+
+- `git status --short --branch`
+- `git diff --stat`
+- `git diff --name-status`
+- `git diff --name-only`
+- `git diff --check`
+- `git diff -- '*.asset' '*.prefab' '*.unity' '*.meta'`
+
+Result:
+
+- tracked source/content diff at audit start: none
+- asset/prefab/scene/meta diff at audit start: none
+- unexpected Play Mode/reimport drift: none observed
+- current-worktree Unity lock: none observed
+- Unity process note: a batchmode Unity process was running for a different worktree, `2026teamproject_j2m-vfx-sfx`; no current-worktree lock was found
+
+Interpretation:
+
+- C1b implementation is committed at `2696e4c0`.
+- No additional tracked content drift was present after the operator manual play confirmation.
+- `EnemyView_DrSaturn.prefab` Gravity content was not dirty in this audit.
+- The audit does not require `prefab diff 0`; it verifies no additional dirty content beyond the already committed C1b migration.
+
 ## Rollback
 
 Rollback C1b only:
@@ -179,3 +248,5 @@ Do not roll back C1a VFX vocabulary, Slice A/B Summon retirement/decoupling, Eff
 ## C2 Deferred Boundary
 
 C1b does not modify `Effect`, `EffectIndex`, `SourceEffectIndex`, replay/export/hash/schema names, `EntitySpawnRequestSource`, `SummonedEntityState`, parser versioning, or numeric compatibility value `0`.
+
+C2 readiness is tracked separately in [Enemy-AI-Summon-Replay-Export-Vocabulary-C2-Readiness.md](./Enemy-AI-Summon-Replay-Export-Vocabulary-C2-Readiness.md).
