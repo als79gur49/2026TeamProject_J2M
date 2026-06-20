@@ -42,6 +42,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs";
         private const string PlayerActionAnimationExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationPresentationExecutor.cs";
+        private const string PlayerActionAnimationLaneRuntimePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationLaneRuntime.cs";
         private const string EnemyPresentationExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyPresentationExecutor.cs";
         private const string ActionAudioExecutorPath =
@@ -375,6 +377,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var runtimeSource = ReadDirectorySource(RuntimeDirectory);
             var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
             var animationExecutorSource = ReadRepoFile(PlayerActionAnimationExecutorPath);
+            var playerActionAnimationLaneSource = ReadRepoFile(PlayerActionAnimationLaneRuntimePath);
             var coordinatorSource = ReadRepoFile(CoordinatorPath);
 
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayAnimationSyncCoordinator"));
@@ -387,9 +390,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeSource, Does.Not.Contain("GameplayAnimationSyncCoordinator"));
             Assert.That(runtimeSource, Does.Not.Contain("PlayerAnimatorDriver"));
             Assert.That(hostRuntimeSource, Does.Contain("PlayerActionAnimationExecutionDefaults.LegacyFallback"));
-            Assert.That(coordinatorSource, Does.Contain("PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor"));
-            Assert.That(coordinatorSource, Does.Contain("GameplayPresentationExecutionRouter.UsePlayerActionAnimationExecutor"));
-            Assert.That(coordinatorSource, Does.Contain("suppressLegacyPlayerActionAnimations"));
+            Assert.That(coordinatorSource, Does.Contain("PlayerActionAnimationLaneRuntime"));
+            Assert.That(coordinatorSource, Does.Contain("_playerActionAnimationLane.Prepare"));
+            Assert.That(coordinatorSource, Does.Contain("_playerActionAnimationLane.PresentPrepared"));
+            Assert.That(coordinatorSource, Does.Contain("_playerActionAnimationLane.Update"));
+            Assert.That(coordinatorSource, Does.Contain("_playerActionAnimationLane.ResetSession"));
+            Assert.That(coordinatorSource, Does.Contain("_playerActionAnimationLane.HardCleanup"));
+            Assert.That(coordinatorSource, Does.Contain("SuppressLegacyActionFields"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_playerActionAnimationExecutionGuard"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_playerActionAnimationExecutionPipeline"));
+            Assert.That(coordinatorSource, Does.Not.Contain("GameplayPresentationExecutionRouter.UsePlayerActionAnimationExecutor"));
+            Assert.That(coordinatorSource, Does.Not.Contain("BuildPlayerActionAnimationPlaybackKeys"));
+            Assert.That(coordinatorSource, Does.Not.Contain("RecordPlayerActionAnimationLegacyOwnership"));
+            Assert.That(coordinatorSource, Does.Not.Contain("RecordPlayerActionAnimationLegacySkippedByPolicy"));
+            Assert.That(coordinatorSource, Does.Not.Contain("PlayerActionAnimationExecutionPolicy.Normalize"));
+            Assert.That(playerActionAnimationLaneSource, Does.Contain("internal sealed class PlayerActionAnimationLaneRuntime"));
+            Assert.That(playerActionAnimationLaneSource, Does.Not.Contain("MonoBehaviour"));
+            Assert.That(playerActionAnimationLaneSource, Does.Contain("PlayerActionAnimationExecutionGuard"));
+            Assert.That(playerActionAnimationLaneSource, Does.Contain("PlayerActionAnimationExecutionPolicy.Normalize"));
+            Assert.That(playerActionAnimationLaneSource, Does.Contain("BuildPlayerActionAnimationPlaybackKeys"));
+            Assert.That(playerActionAnimationLaneSource, Does.Contain("RecordSkippedByPolicy"));
+            Assert.That(playerActionAnimationLaneSource, Does.Contain("PlayerActionAnimationExecutionOwner.LegacyAnimationSync"));
+            Assert.That(playerActionAnimationLaneSource, Does.Contain("PlayerActionAnimationExecutionDefaults.ProductionDefault"));
+            Assert.That(playerActionAnimationLaneSource, Does.Contain("CreatePlayerActionAnimationExecutionPipeline"));
+            Assert.That(playerActionAnimationLaneSource, Does.Contain("IGameplayAnimationPlaybackPort"));
+            Assert.That(playerActionAnimationLaneSource, Does.Not.Contain("PlayerAnimatorDriver"));
+            Assert.That(playerActionAnimationLaneSource, Does.Not.Contain("AnimatorController"));
+            Assert.That(playerActionAnimationLaneSource, Does.Not.Contain("FindObjectOfType"));
+            Assert.That(playerActionAnimationLaneSource, Does.Not.Contain("FindObjectsByType"));
+            Assert.That(playerActionAnimationLaneSource, Does.Not.Contain("new GameObject"));
             Assert.That(hostRuntimeSource, Does.Contain("GameplayAnimationPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("IGameplayAnimationPlaybackPort"));
             Assert.That(hostRuntimeSource, Does.Contain("PlayerActionAnimationExecutionGuard"));
