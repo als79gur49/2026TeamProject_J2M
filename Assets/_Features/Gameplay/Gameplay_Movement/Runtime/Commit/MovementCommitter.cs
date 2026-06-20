@@ -136,26 +136,17 @@ namespace Game.Feature.Gameplay.Movement.Commit
     {
         private const int BoxImpactDamageAmount = 1;
         private readonly int _moveOccupancyTicks;
-        private readonly int _playerMoveCooldownTicks;
         private readonly int _slidingStateTimerTicks;
 
         public MovementCommitter(
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
             GameplayTimingProfile timingProfile)
         {
-            if (playerControlTiming.MoveCooldownTicks < 0)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(playerControlTiming),
-                    "Player move cooldown ticks must be zero or greater.");
-            }
-
             if (timingProfile == null)
             {
                 throw new ArgumentNullException(nameof(timingProfile));
             }
 
-            _playerMoveCooldownTicks = playerControlTiming.MoveCooldownTicks;
             _moveOccupancyTicks = timingProfile.MoveOccupancyTicks;
             _slidingStateTimerTicks = timingProfile.BoxSlideStepIntervalTicks;
         }
@@ -734,53 +725,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
                 throw new ArgumentNullException(nameof(selectedGroups));
             }
 
-            var playerControlResolutions = new List<MovementPlayerControlResolutionRecord>();
-
-            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
-            {
-                var group = selectedGroups[groupIndex];
-                if (!snapshot.TryGetPlayerControlState(group.SourceId, out var controlState))
-                {
-                    continue;
-                }
-
-                var intent = FindIntent(sortedIntents, group.IntentId);
-                if (intent == null)
-                {
-                    continue;
-                }
-
-                if (!ShouldConsumePlayerMoveCooldown(intent, group))
-                {
-                    continue;
-                }
-
-                var updatedState = PlayerControlQueries.ConsumeMoveCooldown(
-                    controlState,
-                    _playerMoveCooldownTicks,
-                    tickIndex);
-
-                playerControlResolutions.Add(
-                    new MovementPlayerControlResolutionRecord(
-                        group.GroupId,
-                        group.SourceId,
-                        updatedState));
-            }
-            return playerControlResolutions;
-        }
-
-        private static bool ShouldConsumePlayerMoveCooldown(MoveIntent intent, ActionGroup group)
-        {
-            return intent != null &&
-                   intent.CommandKind == MovementCommandKind.Move &&
-                   !HasTopologyChangingMove(group);
-        }
-
-        private static bool HasTopologyChangingMove(ActionGroup group)
-        {
-            return group != null &&
-                   group.GroupKind == ActionGroupKind.Move &&
-                   group.TopologyChanges.Count > 0;
+            return new List<MovementPlayerControlResolutionRecord>();
         }
 
         internal bool TryResolveImpactSpaceSuccess(

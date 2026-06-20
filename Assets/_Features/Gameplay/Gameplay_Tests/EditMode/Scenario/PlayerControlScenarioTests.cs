@@ -16,12 +16,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     {
         [Test]
         [Category("Core")]
-        public void PlayerControl_MoveCooldown_LegacyFallbackRemoved_DoesNotStartMoveCooldown()
+        public void PlayerControl_RetiredMoveCooldown_LegacyFallbackRemoved_HasNoPlayerState()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
-            var playerControlTiming = CreatePlayerControlTimingSnapshot(
-                timingProfile,
-                playerMoveCooldownTicks: 3);
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(timingProfile);
             var worldState = CreateWorldState(
                 new[]
                 {
@@ -44,25 +42,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var fifthTick = pipeline.RunTick(new TickInput(5, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(firstTick, 10);
-            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(secondTick, 10);
-            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(thirdTick, 10);
-            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(fourthTick, 10);
-            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(fifthTick, 10);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(firstTick, 10);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(secondTick, 10);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(thirdTick, 10);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(fourthTick, 10);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(fifthTick, 10);
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.moveCooldownTicks, Is.Zero);
+            Assert.That(controlState.nextExplicitActionAllowedTick, Is.Zero);
         }
 
         [Test]
         [Category("Core")]
-        public void PlayerControl_MoveCooldown_OneTick_LegacyFallbackRemoved_DoesNotConsumeCooldown()
+        public void PlayerControl_RetiredMoveCooldown_OneTick_LegacyFallbackRemoved_DoesNotWriteActionGate()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
-            var playerControlTiming = CreatePlayerControlTimingSnapshot(
-                timingProfile,
-                playerMoveCooldownTicks: 1);
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(timingProfile);
             var worldState = CreateWorldState(
                 new[]
                 {
@@ -83,23 +79,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var thirdTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(firstTick, 10);
-            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(secondTick, 10);
-            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(thirdTick, 10);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(firstTick, 10);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(secondTick, 10);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(thirdTick, 10);
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.moveCooldownTicks, Is.Zero);
+            Assert.That(controlState.nextExplicitActionAllowedTick, Is.Zero);
         }
 
         [Test]
         [Category("Core")]
-        public void PlayerControl_MoveCooldown_TopologyChangingBoundaryMove_RequiresCoveredLocomotion()
+        public void PlayerControl_TopologyChangingBoundaryMove_RequiresCoveredLocomotionWithoutMoveCooldown()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
-            var playerControlTiming = CreatePlayerControlTimingSnapshot(
-                timingProfile,
-                playerMoveCooldownTicks: 3);
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(timingProfile);
             var boardBounds = new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1));
             var worldState = CreateWorldState(
                 new[]
@@ -124,21 +118,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(boundaryTick.PresentationData.TopologyMotion.HasValue, Is.True);
             Assert.That(boundarySnapshot.TryGetPlayerControlState(10, out var boundaryControlState), Is.True);
-            Assert.That(boundaryControlState.moveCooldownTicks, Is.Zero);
-            Assert.That(boundaryControlState.nextMoveAllowedTick, Is.Zero);
-            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(followupTick, 10);
+            Assert.That(boundaryControlState.nextExplicitActionAllowedTick, Is.Zero);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(followupTick, 10);
             Assert.That(followupSnapshot.TryGetPlayerControlState(10, out var followupControlState), Is.True);
-            Assert.That(followupControlState.moveCooldownTicks, Is.Zero);
+            Assert.That(followupControlState.nextExplicitActionAllowedTick, Is.Zero);
         }
 
         [Test]
         [Category("Core")]
-        public void PlayerControl_LocomotionPresentationSignal_StaysTrueDuringCooldownGapAndDropsWhenBlocked()
+        public void PlayerControl_LocomotionPresentationSignal_StaysTrueWithoutMoveCooldownAndDropsWhenBlocked()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
-            var playerControlTiming = CreatePlayerControlTimingSnapshot(
-                timingProfile,
-                playerMoveCooldownTicks: 1);
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(timingProfile);
             var worldState = CreateWorldState(
                 new[]
                 {
@@ -179,12 +170,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void PlayerControl_LocomotionPresentationSignal_InputReleaseDuringCooldown_DropsWalkLoop()
+        public void PlayerControl_LocomotionPresentationSignal_InputReleaseWithoutMoveCooldown_DropsWalkLoop()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
-            var playerControlTiming = CreatePlayerControlTimingSnapshot(
-                timingProfile,
-                playerMoveCooldownTicks: 1);
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(timingProfile);
             var worldState = CreateWorldState(
                 new[]
                 {
@@ -239,7 +228,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.moveCooldownTicks, Is.Zero);
+            Assert.That(controlState.nextExplicitActionAllowedTick, Is.Zero);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(controlState.activeAction.targetEntityId, Is.EqualTo(20));
             Assert.That(controlState.activeAction.executionAttempted, Is.False);
@@ -359,7 +348,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfter = CreateSnapshot(worldState);
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
-            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(result, 10);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(result, 10);
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(player.facing, Is.EqualTo(Direction.Right));
@@ -381,8 +370,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            var result = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Flip(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
             Assert.That(result.MovementPhaseResult.SortedIntents, Is.Empty);
@@ -590,12 +578,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfter = CreateSnapshot(worldState);
 
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
-            Assert.That(cancelTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(cancelTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Move));
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(cancelTick, 10);
             Assert.That(signal.ActiveActionKind, Is.EqualTo(PlayerActionKind.None));
             Assert.That(signal.ExecutedThisTick, Is.False);
             Assert.That(signal.CanceledThisTick, Is.True);
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(controlState.nextExplicitActionAllowedTick, Is.EqualTo(3));
         }
 
         [Test]
@@ -621,7 +611,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfter = CreateSnapshot(worldState);
 
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
-            Assert.That(cancelTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(cancelTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Move));
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(cancelTick, 10);
             Assert.That(cancelTick.PresentationData.EntityMotions, Is.Empty);
             Assert.That(cancelTick.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
             Assert.That(signal.ActiveActionKind, Is.EqualTo(PlayerActionKind.None));
@@ -629,6 +620,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(signal.CanceledThisTick, Is.True);
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(controlState.nextExplicitActionAllowedTick, Is.EqualTo(3));
         }
 
         [Test]
@@ -636,9 +628,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void PlayerControl_MoveOccupancy_BlocksFlipStartUntilFirstUnlockedTick()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1, moveOccupancyTicks: 1);
-            var playerControlTiming = CreatePlayerControlTimingSnapshot(
-                timingProfile,
-                playerMoveCooldownTicks: 0);
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(timingProfile);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Right),
@@ -658,7 +648,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var unlockTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Flip(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            LegacyMovementBoundaryAssert.PlayerOrdinaryMoveRejectedBeforeLegacyExpansion(moveTick, 10);
+            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(moveTick, 10);
             Assert.That(CreateSnapshot(worldState).TryGetEntityExecutionLockState(10, out _), Is.False);
             Assert.That(lockedTick.PresentationData.PlayerActionSignals, Is.Empty);
             Assert.That(unlockTick.PresentationData.PlayerActionSignals, Is.Empty);
@@ -821,7 +811,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static PlayerControlTimingAuthoritativeSnapshot CreatePlayerControlTimingSnapshot(
             GameplayTimingProfile timingProfile,
-            int? playerMoveCooldownTicks = null,
             int playerPushExecuteDelayTicks = 1,
             int playerPushInputLockDurationTicks = 1,
             int playerFlipExecuteDelayTicks = 1,
@@ -829,9 +818,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             return new PlayerControlTimingSettings
             {
-                MoveCooldownSeconds = ResolveSeconds(
-                    playerMoveCooldownTicks,
-                    timingProfile.SimulationTicksPerSecond),
                 PushExecuteDelaySeconds = playerPushExecuteDelayTicks / (float)timingProfile.SimulationTicksPerSecond,
                 PushInputLockDurationSeconds = playerPushInputLockDurationTicks / (float)timingProfile.SimulationTicksPerSecond,
                 FlipExecuteDelaySeconds = playerFlipExecuteDelayTicks / (float)timingProfile.SimulationTicksPerSecond,
@@ -839,15 +825,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }.CreateAuthoritativeSnapshot(
                 timingProfile.SimulationTicksPerSecond,
                 timingProfile.RepeatedMoveIntervalSeconds);
-        }
-
-        private static float ResolveSeconds(
-            int? tickOverride,
-            int simulationTicksPerSecond)
-        {
-            return tickOverride.HasValue
-                ? tickOverride.Value / (float)simulationTicksPerSecond
-                : -1f;
         }
 
         private static int DefaultBoxSlidePostCommitTimer =>

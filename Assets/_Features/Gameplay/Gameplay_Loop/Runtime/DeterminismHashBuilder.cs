@@ -652,8 +652,7 @@ namespace Game.Feature.Gameplay.Loop
                 var entry = playerControlEntries[i];
                 builder
                     .Append(entry.EntityId).Append('|')
-                    .Append(entry.State.moveCooldownTicks).Append('|')
-                    .Append(entry.State.nextMoveAllowedTick).Append('|')
+                    .Append(entry.State.nextExplicitActionAllowedTick).Append('|')
                     .Append(entry.State.actionSequenceCounter).Append('|')
                     .Append((int)entry.State.activeAction.kind).Append('|')
                     .Append(entry.State.activeAction.sequence).Append('|')

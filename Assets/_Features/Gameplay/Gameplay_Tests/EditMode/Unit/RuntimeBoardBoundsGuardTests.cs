@@ -207,7 +207,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHostConfiguration_CreatePlayerControlTimingSnapshot_ChangingSimulationTicksPerSecondPreservesPlayerTimeMeaning()
+        public void GameplaySceneHostConfiguration_CreatePlayerControlTimingSnapshot_ChangingSimulationTicksPerSecondPreservesDamageTimeMeaning()
         {
             var sixtyTpsSnapshot = new GameplaySceneHostConfiguration
             {
@@ -224,14 +224,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 },
             }.CreatePlayerControlTimingSnapshot();
 
-            Assert.That(sixtyTpsSnapshot.MoveCooldownSeconds, Is.EqualTo(oneTwentyTpsSnapshot.MoveCooldownSeconds));
-            Assert.That(sixtyTpsSnapshot.MoveCooldownTicks, Is.EqualTo(24));
-            Assert.That(oneTwentyTpsSnapshot.MoveCooldownTicks, Is.EqualTo(48));
+            Assert.That(sixtyTpsSnapshot.DamageCooldownSeconds, Is.EqualTo(oneTwentyTpsSnapshot.DamageCooldownSeconds));
+            Assert.That(sixtyTpsSnapshot.DamageCooldownTicks, Is.EqualTo(1));
+            Assert.That(oneTwentyTpsSnapshot.DamageCooldownTicks, Is.EqualTo(2));
         }
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHostConfiguration_CreatePlayerControlTimingSnapshot_DefaultsMoveCooldownToRepeatedMoveIntervalAndConvertsTicks()
+        public void GameplaySceneHostConfiguration_CreatePlayerControlTimingSnapshot_ConvertsActionTimingTicks()
         {
             var configuration = new GameplaySceneHostConfiguration
             {
@@ -248,8 +248,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var snapshot = configuration.CreatePlayerControlTimingSnapshot();
 
-            Assert.That(snapshot.MoveCooldownSeconds, Is.EqualTo(0.35f));
-            Assert.That(snapshot.MoveCooldownTicks, Is.EqualTo(42));
             Assert.That(snapshot.PushExecuteDelayTicks, Is.EqualTo(4));
             Assert.That(snapshot.PushInputLockDurationTicks, Is.EqualTo(10));
             Assert.That(snapshot.PushWindupTicks, Is.EqualTo(4));
@@ -463,17 +461,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void PlayerControlTimingSettings_CreateAuthoritativeSnapshot_PreservesExplicitPlayerTimingValues()
+        public void PlayerControlTimingSettings_CreateAuthoritativeSnapshot_PreservesExplicitPlayerDamageTimingValues()
         {
             var snapshot = new PlayerControlTimingSettings
             {
-                MoveCooldownSeconds = 0.3f,
+                DamageCooldownSeconds = 0.3f,
             }.CreateAuthoritativeSnapshot(
                 simulationTicksPerSecond: 120,
                 repeatedMoveIntervalSeconds: 0.4f);
 
-            Assert.That(snapshot.MoveCooldownSeconds, Is.EqualTo(0.3f));
-            Assert.That(snapshot.MoveCooldownTicks, Is.EqualTo(36));
+            Assert.That(snapshot.DamageCooldownSeconds, Is.EqualTo(0.3f));
+            Assert.That(snapshot.DamageCooldownTicks, Is.EqualTo(36));
         }
 
         [Test]

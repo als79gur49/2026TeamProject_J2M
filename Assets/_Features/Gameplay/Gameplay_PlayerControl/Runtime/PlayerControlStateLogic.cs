@@ -103,22 +103,12 @@ namespace Game.Feature.Gameplay.PlayerControl
             var nextState = hasPreviousControlState
                 ? previousControlState
                 : default;
-
-            if (nextState.moveCooldownTicks > 0)
-            {
-                nextState.moveCooldownTicks = nextState.nextMoveAllowedTick > 0
-                    ? Math.Max(0, nextState.nextMoveAllowedTick - input.TickIndex - 1)
-                    : nextState.moveCooldownTicks - 1;
-            }
-
-            if (nextState.nextMoveAllowedTick > 0 &&
-                input.TickIndex >= nextState.nextMoveAllowedTick)
-            {
-                nextState.nextMoveAllowedTick = 0;
-            }
+            nextState = PlayerControlQueries.ClearExpiredExplicitActionGate(nextState, input.TickIndex);
 
             var previousAction = nextState.activeAction;
-            var canStartAction = snapshot.CanStartAction(_entityId, input.TickIndex);
+            var canStartAction =
+                snapshot.CanStartAction(_entityId, input.TickIndex) &&
+                PlayerControlQueries.IsExplicitActionStartAllowed(nextState, input.TickIndex);
             var isSettledAtAnchor = UnitSpatialQuery.IsSettledAtAnchor(snapshot, _entityId);
             var canStartSettledAction = canStartAction && isSettledAtAnchor;
             var canUseMoveDirectionForActionState =
@@ -141,7 +131,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                     !PlayerControlQueries.CanPendingActionStillExecute(snapshot, entity, previousAction, input.TickIndex))
                 {
                     nextState.activeAction = default;
-                    nextState.nextMoveAllowedTick = Math.Max(nextState.nextMoveAllowedTick, input.TickIndex + 1);
+                    nextState = PlayerControlQueries.BlockExplicitActionStartUntil(nextState, input.TickIndex + 1);
                 }
                 else
                 {
@@ -267,7 +257,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                     nextState.activeAction,
                     flipResultTurnTransition));
             updates.Add(
-                $"PlayerControlUpdated|E={_entityId}|Cooldown={nextState.moveCooldownTicks}|NextMoveAllowed={nextState.nextMoveAllowedTick}|Action={nextState.activeAction.kind}|ActionSeq={nextState.activeAction.sequence}|ActionDirection={nextState.activeAction.direction}|ActionTarget={nextState.activeAction.targetEntityId}|Start={nextState.activeAction.startTick}|Execute={nextState.activeAction.executeTick}|Recovery={nextState.activeAction.recoveryEndTick}|Attempted={(nextState.activeAction.executionAttempted ? 1 : 0)}|QueuedFree2DAction={nextState.queuedFree2DAction.kind}|QueuedFree2DActionDirection={nextState.queuedFree2DAction.direction}|QueuedFree2DActionTick={nextState.queuedFree2DAction.requestedTick}");
+                $"PlayerControlUpdated|E={_entityId}|NextExplicitActionAllowed={nextState.nextExplicitActionAllowedTick}|Action={nextState.activeAction.kind}|ActionSeq={nextState.activeAction.sequence}|ActionDirection={nextState.activeAction.direction}|ActionTarget={nextState.activeAction.targetEntityId}|Start={nextState.activeAction.startTick}|Execute={nextState.activeAction.executeTick}|Recovery={nextState.activeAction.recoveryEndTick}|Attempted={(nextState.activeAction.executionAttempted ? 1 : 0)}|QueuedFree2DAction={nextState.queuedFree2DAction.kind}|QueuedFree2DActionDirection={nextState.queuedFree2DAction.direction}|QueuedFree2DActionTick={nextState.queuedFree2DAction.requestedTick}");
         }
 
         private bool TryStartQueuedFree2DAction(
@@ -455,8 +445,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             in PlayerControlState left,
             in PlayerControlState right)
         {
-            return left.moveCooldownTicks == right.moveCooldownTicks &&
-                   left.nextMoveAllowedTick == right.nextMoveAllowedTick &&
+            return left.nextExplicitActionAllowedTick == right.nextExplicitActionAllowedTick &&
                    left.actionSequenceCounter == right.actionSequenceCounter &&
                    AreEqual(left.activeAction, right.activeAction) &&
                    AreEqual(left.queuedFree2DAction, right.queuedFree2DAction);

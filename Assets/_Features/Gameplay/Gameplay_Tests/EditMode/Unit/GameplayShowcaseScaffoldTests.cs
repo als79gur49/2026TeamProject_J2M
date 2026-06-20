@@ -361,7 +361,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var scene = CreateIsolatedTestScene();
             var actions = ScriptableObject.CreateInstance<InputActionAsset>();
-            var simulationTimingPreset = CreateSimulationTimingPreset(moveCooldownSeconds: 0.35f);
+            var simulationTimingPreset = CreateSimulationTimingPreset(damageCooldownSeconds: 0.35f);
             var presentationTimingPreset = CreatePresentationTimingPreset(topologyMotionDurationSeconds: 0.45f);
 
             try
@@ -395,7 +395,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(configuration.TopologyTransitionCameraShakeProfile, Is.Not.Null);
                 AssertCameraSettings(configuration.CameraSettings, expectedCameraSettings);
                 Assert.That(configuration.PlayerControlTiming, Is.Not.Null);
-                Assert.That(configuration.PlayerControlTiming.MoveCooldownSeconds, Is.EqualTo(0.35f));
+                Assert.That(configuration.PlayerControlTiming.DamageCooldownSeconds, Is.EqualTo(0.35f));
                 Assert.That(configuration.TopologyMotionDurationSeconds, Is.EqualTo(0.45f));
                 Assert.That(
                     configuration.TopologyRotationVisualMapping,
@@ -769,7 +769,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplaySimulationTimingPreset CreateSimulationTimingPreset(
             float initialMoveDelaySeconds = 0f,
-            float moveCooldownSeconds = -1f,
+            float damageCooldownSeconds = PlayerControlTimingSettings.DefaultDamageCooldownSeconds,
             float repeatedMoveIntervalSeconds = 0.6f,
             float boxSlideStepIntervalSeconds = 0.2f,
             float forwardCellTravelStepIntervalSeconds = 0.2f)
@@ -777,7 +777,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var preset = ScriptableObject.CreateInstance<GameplaySimulationTimingPreset>();
             var playerControlTiming = new PlayerControlTimingSettings
             {
-                MoveCooldownSeconds = moveCooldownSeconds,
+                DamageCooldownSeconds = damageCooldownSeconds,
             };
 
             SetPrivateField(typeof(GameplaySimulationTimingPreset), preset, "initialMoveDelaySeconds", initialMoveDelaySeconds);

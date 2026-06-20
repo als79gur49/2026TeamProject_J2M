@@ -50,7 +50,6 @@ namespace Game.Feature.Gameplay.Loop
         private readonly List<EntityState> _playerRespawnTemplates;
         private readonly StageObjectiveTracker _objectiveTracker;
         private readonly int _moveOccupancyTicks;
-        private readonly int _playerMoveCooldownTicks;
         private readonly int _playerDamageCooldownTicks;
         private readonly int _playerRespawnDelayTicks;
         private readonly int _gravityFieldChargeTicks;
@@ -142,7 +141,6 @@ namespace Game.Feature.Gameplay.Loop
 
             _movementExpander = new MovementExpander(resolvedGeneralTimingProfile);
             _attackExpander = new AttackExpander(resolvedGeneralTimingProfile);
-            _playerMoveCooldownTicks = Math.Max(0, playerControlTiming.MoveCooldownTicks);
             _playerDamageCooldownTicks = Math.Max(0, playerControlTiming.DamageCooldownTicks);
             _playerRespawnDelayTicks = playerRespawnDelayTicks;
             _gravityFieldChargeTicks = GameplayTimingProfile.SecondsToCeilTicks(
@@ -2706,7 +2704,6 @@ namespace Game.Feature.Gameplay.Loop
             var canMove =
                 !actionInputBlocksFree2DMovement &&
                 !effectivePlayerControlState.activeAction.IsActive &&
-                !PlayerControlQueries.IsMoveOnCooldown(effectivePlayerControlState, tickIndex) &&
                 hasDirection;
             if (!canMove)
             {
@@ -5550,17 +5547,6 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 var playerControlWrites = new List<PlayerControlWritePayload>();
-                if (snapshot.TryGetPlayerControlState(group.SourceId, out var playerControlState))
-                {
-                    var intent = FindMovementIntent(sortedIntents, group.IntentId);
-                    if (ShouldConsumePlayerMoveCooldown(intent, group))
-                    {
-                        playerControlWrites.Add(
-                            new PlayerControlWritePayload(
-                                group.SourceId,
-                                PlayerControlQueries.ConsumeMoveCooldown(playerControlState, _playerMoveCooldownTicks, tickIndex)));
-                    }
-                }
 
                 var sourceCell = TryResolveMovementSourceCell(snapshot, group, moveWrites, out var resolvedSourceCell)
                     ? resolvedSourceCell
@@ -6180,20 +6166,6 @@ namespace Game.Feature.Gameplay.Loop
 
             entity = default;
             return false;
-        }
-
-        private static bool ShouldConsumePlayerMoveCooldown(MoveIntent intent, ActionGroup group)
-        {
-            return intent != null &&
-                   intent.CommandKind == Movement.MovementCommandKind.Move &&
-                   !HasTopologyChangingMove(group);
-        }
-
-        private static bool HasTopologyChangingMove(ActionGroup group)
-        {
-            return group != null &&
-                   group.GroupKind == ActionGroupKind.Move &&
-                   group.TopologyChanges.Count > 0;
         }
 
         private static bool TryResolveMovementSourceCell(

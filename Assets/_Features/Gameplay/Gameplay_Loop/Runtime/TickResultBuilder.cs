@@ -3757,7 +3757,6 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var entry = playerControlEntries[i];
                 var moveMotionGeneratedThisTick = DidGeneratePlayerMoveMotionThisTick(context, entry.EntityId);
-                var waitingForNextMoveCadence = ShouldWaitForNextMoveCadence(context, entry.State);
                 var shouldPlayWalkLoop =
                     !entry.State.activeAction.IsActive &&
                     !context.PlayerCommand.PushPressed &&
@@ -3769,7 +3768,7 @@ namespace Game.Feature.Gameplay.Loop
                         entry.EntityId,
                         shouldPlayWalkLoop,
                         moveMotionGeneratedThisTick,
-                        waitingForNextMoveCadence,
+                        waitingForNextMoveCadence: false,
                         context.PlayerCommand.MoveDirection,
                         context.PlayerCommand.IsMoveBuffered));
             }
@@ -5283,18 +5282,6 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return false;
-        }
-
-        private static bool ShouldWaitForNextMoveCadence(
-            in TickPresentationBuildContext context,
-            in PlayerControlState controlState)
-        {
-            return context.PlayerCommand.MoveDirection != Direction.None &&
-                   !context.PlayerCommand.PushPressed &&
-                   !context.PlayerCommand.FlipPressed &&
-                   !context.PlayerCommand.IsMoveBuffered &&
-                   !controlState.activeAction.IsActive &&
-                   PlayerControlQueries.IsMoveOnCooldown(controlState, context.CurrentTickIndex);
         }
 
         private static HashSet<int> CollectTransitionVisibilityExcludedEntityIds(

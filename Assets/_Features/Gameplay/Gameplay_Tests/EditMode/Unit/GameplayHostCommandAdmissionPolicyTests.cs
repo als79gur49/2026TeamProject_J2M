@@ -246,8 +246,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var action = state.activeAction;
                 builder
                     .Append(entries[i].EntityId).Append('|')
-                    .Append(state.moveCooldownTicks).Append('|')
-                    .Append(state.nextMoveAllowedTick).Append('|')
+                    .Append(state.nextExplicitActionAllowedTick).Append('|')
                     .Append(state.actionSequenceCounter).Append('|')
                     .Append(action.kind).Append('|')
                     .Append(action.sequence).Append('|')

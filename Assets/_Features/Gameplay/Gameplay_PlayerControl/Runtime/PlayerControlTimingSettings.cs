@@ -7,8 +7,6 @@ namespace Game.Feature.Gameplay.PlayerControl
     public readonly struct PlayerControlTimingAuthoritativeSnapshot
     {
         public PlayerControlTimingAuthoritativeSnapshot(
-            float moveCooldownSeconds,
-            int moveCooldownTicks,
             float damageCooldownSeconds,
             int damageCooldownTicks,
             float pushExecuteDelaySeconds,
@@ -24,8 +22,6 @@ namespace Game.Feature.Gameplay.PlayerControl
             int flipWindupTicks,
             int flipRecoveryTicks)
         {
-            MoveCooldownSeconds = moveCooldownSeconds;
-            MoveCooldownTicks = moveCooldownTicks;
             DamageCooldownSeconds = damageCooldownSeconds;
             DamageCooldownTicks = damageCooldownTicks;
             PushExecuteDelaySeconds = pushExecuteDelaySeconds;
@@ -41,10 +37,6 @@ namespace Game.Feature.Gameplay.PlayerControl
             FlipWindupTicks = flipWindupTicks;
             FlipRecoveryTicks = flipRecoveryTicks;
         }
-
-        public float MoveCooldownSeconds { get; }
-
-        public int MoveCooldownTicks { get; }
 
         public float DamageCooldownSeconds { get; }
 
@@ -95,7 +87,6 @@ namespace Game.Feature.Gameplay.PlayerControl
         public const float DefaultDamageCooldownSeconds =
             1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond;
 
-        public float MoveCooldownSeconds = -1f;
         public float DamageCooldownSeconds = DefaultDamageCooldownSeconds;
         public float PushExecuteDelaySeconds = DefaultPushExecuteDelaySeconds;
         public float PushInputLockDurationSeconds = DefaultPushInputLockDurationSeconds;
@@ -111,7 +102,6 @@ namespace Game.Feature.Gameplay.PlayerControl
         {
             return new PlayerControlTimingSettings
             {
-                MoveCooldownSeconds = MoveCooldownSeconds,
                 DamageCooldownSeconds = DamageCooldownSeconds,
                 PushExecuteDelaySeconds = PushExecuteDelaySeconds,
                 PushInputLockDurationSeconds = PushInputLockDurationSeconds,
@@ -129,15 +119,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                     "Repeated move interval must be greater than zero.");
             }
 
-            var moveCooldownSeconds = ResolveMoveCooldownSeconds(repeatedMoveIntervalSeconds);
             var damageCooldownSeconds = ResolveDamageCooldownSeconds();
-
-            if (moveCooldownSeconds < 0f)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(MoveCooldownSeconds),
-                    "Move cooldown must be zero or greater.");
-            }
 
             if (damageCooldownSeconds < 0f)
             {
@@ -171,12 +153,7 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             Validate(repeatedMoveIntervalSeconds);
 
-            var moveCooldownSeconds = ResolveMoveCooldownSeconds(repeatedMoveIntervalSeconds);
             var damageCooldownSeconds = ResolveDamageCooldownSeconds();
-            var moveCooldownTicks = GameplayTimingProfile.SecondsToTicks(
-                moveCooldownSeconds,
-                simulationTicksPerSecond,
-                allowZero: true);
             var damageCooldownTicks = GameplayTimingProfile.SecondsToTicks(
                 damageCooldownSeconds,
                 simulationTicksPerSecond,
@@ -197,8 +174,6 @@ namespace Game.Feature.Gameplay.PlayerControl
                 simulationTicksPerSecond);
 
             return new PlayerControlTimingAuthoritativeSnapshot(
-                moveCooldownSeconds,
-                moveCooldownTicks,
                 damageCooldownSeconds,
                 damageCooldownTicks,
                 PushExecuteDelaySeconds,
@@ -213,13 +188,6 @@ namespace Game.Feature.Gameplay.PlayerControl
                 flipInputLockDurationTicks,
                 flipWindupTicks: flipExecuteDelayTicks,
                 flipRecoveryTicks: Mathf.Max(0, flipInputLockDurationTicks - flipExecuteDelayTicks));
-        }
-
-        private float ResolveMoveCooldownSeconds(float repeatedMoveIntervalSeconds)
-        {
-            return MoveCooldownSeconds >= 0f
-                ? MoveCooldownSeconds
-                : repeatedMoveIntervalSeconds;
         }
 
         private float ResolveDamageCooldownSeconds()

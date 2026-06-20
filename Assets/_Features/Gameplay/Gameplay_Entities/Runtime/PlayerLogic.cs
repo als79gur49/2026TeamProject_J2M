@@ -138,12 +138,6 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            if (hasControlState &&
-                PlayerControlQueries.IsMoveOnCooldown(controlState, input.TickIndex))
-            {
-                return;
-            }
-
             if (PlayerControlQueries.ShouldSuppressOrdinaryMoveForPushTarget(
                     snapshot,
                     entity,
