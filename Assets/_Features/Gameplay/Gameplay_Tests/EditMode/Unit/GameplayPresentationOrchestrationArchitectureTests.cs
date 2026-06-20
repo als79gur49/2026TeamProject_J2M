@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
@@ -51,6 +52,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayEnemyAudioPresentationExecutor.cs";
         private const string EnemyOneShotAudioLaneRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyOneShotAudioLaneRuntime.cs";
+        private const string CoreGameplaySfxLaneRuntimePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs";
 
         [Test]
         [Category("Core")]
@@ -511,6 +514,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actionAudioExecutorSource, Does.Not.Contain("IAudioService"));
             Assert.That(actionAudioExecutorSource, Does.Not.Contain("PresentationSfxCueKey"));
             Assert.That(actionAudioExecutorSource, Does.Not.Contain("PresentationAnimationCueKey"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void CoreGameplaySfxLaneRuntime_OwnsCoreSfxRoutePlanningAndPlaybackState()
+        {
+            var coordinatorSource = ReadRepoFile(CoordinatorPath);
+            var coreLaneSource = ReadRepoFile(CoreGameplaySfxLaneRuntimePath);
+            var contractsPlanningPlaybackSource = ReadDirectorySource(ContractsDirectory) + "\n" +
+                                                  ReadDirectorySource(PlanningDirectory) + "\n" +
+                                                  ReadDirectorySource(PlaybackDirectory);
+            var coordinatorFieldTypes = typeof(GameplayTickPresentationCoordinator)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+                .Select(field => field.FieldType)
+                .ToArray();
+            var coreGameplaySfxFieldTypes = typeof(GameplayTickPresentationCoordinator)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic)
+                .Where(field => field.Name.IndexOf("coreGameplaySfx", StringComparison.OrdinalIgnoreCase) >= 0)
+                .Select(field => field.FieldType)
+                .ToArray();
+
+            Assert.That(typeof(CoreGameplaySfxLaneRuntime).IsSealed, Is.True);
+            Assert.That(typeof(MonoBehaviour).IsAssignableFrom(typeof(CoreGameplaySfxLaneRuntime)), Is.False);
+            Assert.That(coordinatorFieldTypes, Has.Member(typeof(CoreGameplaySfxLaneRuntime)));
+            Assert.That(coreGameplaySfxFieldTypes, Is.EqualTo(new[] { typeof(CoreGameplaySfxLaneRuntime) }));
+            Assert.That(coordinatorFieldTypes, Has.No.Member(typeof(GameplayAudioRequestPlanner)));
+            Assert.That(coordinatorFieldTypes, Has.No.Member(typeof(GameplayAudioPresentationController)));
+            Assert.That(coordinatorFieldTypes, Has.No.Member(typeof(CoreGameplaySfxExecutionGuard)));
+            Assert.That(coordinatorFieldTypes, Has.No.Member(typeof(GameplaySfxPlaybackPortAdapter)));
+
+            Assert.That(coordinatorSource, Does.Contain("CoreGameplaySfxLaneRuntime"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.BuildCandidatePlan"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.FinalizePlan"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.PresentProduction"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.PlayLegacyPending"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.UpdatePlaybackAndDrain"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.UpdateProductionPipeline"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.AttachRuntime"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.DetachRuntime"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.ResetSession"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.HardCleanup"));
+
+            Assert.That(coordinatorSource, Does.Not.Contain("_audioRequestPlanner"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_audioPresentationController"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_coreGameplaySfxExecutionGuard"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_coreGameplaySfxExecutionPipeline"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_coreGameplaySfxPlaybackPortAdapter"));
+            Assert.That(coordinatorSource, Does.Not.Contain("GameplayPresentationExecutionRouter.UseCoreGameplaySfxExecutor"));
+            Assert.That(coordinatorSource, Does.Not.Contain("BuildCoreGameplaySfxPlaybackKeys"));
+            Assert.That(coordinatorSource, Does.Not.Contain("SuppressLethalEnemyDamageRequests"));
+            Assert.That(coordinatorSource, Does.Not.Contain("ConfigureEnemyDeathCueSuppression"));
+            Assert.That(coordinatorSource, Does.Not.Contain("CoreGameplaySfxExecutionOwner.LegacyGameplayAudioController"));
+            Assert.That(coordinatorSource, Does.Not.Contain("CreateCoreGameplaySfxExecutionPipeline"));
+            Assert.That(coordinatorSource, Does.Not.Contain("GameplayAudioPresentationController"));
+            Assert.That(coordinatorSource, Does.Not.Contain("GameplaySfxPlaybackPortAdapter"));
+
+            Assert.That(coreLaneSource, Does.Contain("GameplayAudioRequestPlanner"));
+            Assert.That(coreLaneSource, Does.Contain("GameplayAudioPresentationController"));
+            Assert.That(coreLaneSource, Does.Contain("CoreGameplaySfxExecutionGuard"));
+            Assert.That(coreLaneSource, Does.Contain("CoreGameplaySfxExecutionPipelineFactory"));
+            Assert.That(coreLaneSource, Does.Contain("GameplaySfxPlaybackPortAdapter"));
+            Assert.That(coreLaneSource, Does.Contain("BuildCoreGameplaySfxPlaybackKeys"));
+            Assert.That(coreLaneSource, Does.Contain("SuppressLethalEnemyDamageRequests"));
+            Assert.That(coreLaneSource, Does.Contain("ConfigureEnemyDeathCueSuppression"));
+            Assert.That(coreLaneSource, Does.Contain("CoreGameplaySfxExecutionOwner.LegacyGameplayAudioController"));
+            Assert.That(coreLaneSource, Does.Contain("UpdatePlaybackAndDrain"));
+            Assert.That(coreLaneSource, Does.Contain("UpdateProductionPipeline"));
+            Assert.That(coreLaneSource, Does.Contain("HashSet<int> _playableEnemyDeathCueEntityIds"));
+            Assert.That(coreLaneSource, Does.Contain("CopyPlayableEnemyDeathCueEntityIds"));
+            Assert.That(coreLaneSource, Does.Not.Contain("AudioManager"));
+            Assert.That(coreLaneSource, Does.Not.Contain("FindObjectOfType"));
+            Assert.That(coreLaneSource, Does.Not.Contain("FindObjectsByType"));
+            Assert.That(coreLaneSource, Does.Not.Contain("new GameObject"));
+            Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AudioManager"));
         }
 
         [Test]
