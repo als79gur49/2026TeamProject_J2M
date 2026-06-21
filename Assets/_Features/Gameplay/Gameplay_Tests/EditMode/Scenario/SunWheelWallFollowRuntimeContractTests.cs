@@ -37,9 +37,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(runtime.Capabilities.TryGetPassiveContact(out _), Is.True);
             Assert.That(runtime.Capabilities.TryGetCombat(out _), Is.False);
             Assert.That(runtime.Capabilities.TryGetMovementSkill(out _), Is.False);
-            Assert.That(runtime.Core.ChargeTimingSettings.WindupTicks, Is.Zero);
-            Assert.That(runtime.Core.ChargeTimingSettings.ActiveStepCooldownTicks, Is.Zero);
-            Assert.That(runtime.Core.ChargeTimingSettings.RecoverTicks, Is.Zero);
+            Assert.That(runtime.TryGetChargeBehavior(out _), Is.False);
         }
 
         [Test]

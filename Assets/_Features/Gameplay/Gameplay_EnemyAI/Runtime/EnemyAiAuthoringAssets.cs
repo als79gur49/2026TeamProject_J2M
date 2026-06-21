@@ -59,6 +59,8 @@ namespace Game.Feature.Gameplay.Entities
     {
         public abstract EnemyAiStateResolverKind Kind { get; }
 
+        public virtual bool RequiresChargeBehavior => false;
+
         internal EnemyStateResolverRuntime Compile()
         {
             return new EnemyStateResolverRuntime(Kind, ResolveResolver());
@@ -116,6 +118,13 @@ namespace Game.Feature.Gameplay.Entities
         internal abstract EnemyCapabilityRuntime Compile(int simulationTicksPerSecond);
     }
 
+    public abstract class EnemyBehaviorModuleAsset : ScriptableObject
+    {
+        public abstract EnemyBehaviorModuleKey Key { get; }
+
+        internal abstract EnemyBehaviorModuleRuntime Compile(in EnemyBehaviorModuleCompileContext context);
+    }
+
     public abstract class EnemyCombatCapabilityAsset : EnemyCapabilityAsset
     {
         public sealed override EnemyCapabilityFamily Family => EnemyCapabilityFamily.Combat;
@@ -168,112 +177,6 @@ namespace Game.Feature.Gameplay.Entities
                 JumpTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
                 GlideTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
                 GlidePresentationSettings.ToRuntimeSettings());
-        }
-    }
-
-    [Serializable]
-    public sealed class SummonMinionAuthoring
-    {
-        [SerializeField] private int spawnCountPerTrigger = 1;
-        [SerializeField] private int maxAliveChildren = 3;
-        [SerializeField] private SummonCandidatePattern candidatePattern = SummonCandidatePattern.OrthogonalAdjacent4;
-        [SerializeField] private bool requireNoUnitAtSpawnCell = true;
-        [SerializeField] private bool requireNoSolidAtSpawnCell = true;
-        [SerializeField] private EnemyUnitArchetypeAsset summonedArchetype;
-        [SerializeField] private bool overrideHp;
-        [SerializeField] private int hpOverride = 1;
-        [SerializeField] private float windupSeconds = 1.0f;
-        [SerializeField] private bool suppressMovementDuringWindup = false;
-        [SerializeField, Min(0f)] private float recoverySeconds = 0f;
-        [SerializeField] private bool suppressMovementDuringRecover = false;
-
-        public int SpawnCountPerTrigger => spawnCountPerTrigger;
-
-        public int MaxAliveChildren => maxAliveChildren;
-
-        public SummonCandidatePattern CandidatePattern => candidatePattern;
-
-        public bool RequireNoUnitAtSpawnCell => requireNoUnitAtSpawnCell;
-
-        public bool RequireNoSolidAtSpawnCell => requireNoSolidAtSpawnCell;
-
-        public EnemyUnitArchetypeAsset SummonedArchetype => summonedArchetype;
-
-        public bool OverrideHp => overrideHp;
-
-        public int HpOverride => hpOverride;
-
-        public float WindupSeconds => windupSeconds;
-
-        public bool SuppressMovementDuringWindup => suppressMovementDuringWindup;
-
-        public float RecoverySeconds => recoverySeconds;
-
-        public bool SuppressMovementDuringRecover => suppressMovementDuringRecover;
-
-        internal SummonMinionRuntime Compile()
-        {
-            return Compile(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-        }
-
-        internal SummonMinionRuntime Compile(int simulationTicksPerSecond)
-        {
-            if (spawnCountPerTrigger <= 0)
-            {
-                throw new ArgumentException("Summon minion authoring requires a positive spawn count.", nameof(spawnCountPerTrigger));
-            }
-
-            if (maxAliveChildren <= 0)
-            {
-                throw new ArgumentException("Summon minion authoring requires a positive max alive child count.", nameof(maxAliveChildren));
-            }
-
-            if (summonedArchetype == null)
-            {
-                throw new ArgumentException("Summon minion authoring requires a summoned archetype asset.", nameof(summonedArchetype));
-            }
-
-            summonedArchetype.ValidateConfiguration(nameof(summonedArchetype));
-
-            if (overrideHp && hpOverride <= 0)
-            {
-                throw new ArgumentException("Summon minion authoring HP override must be positive when enabled.", nameof(hpOverride));
-            }
-
-            if (windupSeconds <= 0f)
-            {
-                throw new ArgumentException("Summon minion authoring requires a positive windup duration.", nameof(windupSeconds));
-            }
-
-            if (recoverySeconds < 0f)
-            {
-                throw new ArgumentException("Summon minion authoring requires a non-negative recovery duration.", nameof(recoverySeconds));
-            }
-
-            var windupTicks = GameplayTimingProfile.SecondsToTicks(windupSeconds, simulationTicksPerSecond);
-            if (windupTicks <= 0)
-            {
-                throw new ArgumentException("Summon minion authoring windup must compile to a positive duration.", nameof(windupSeconds));
-            }
-
-            var recoveryTicks = GameplayTimingProfile.SecondsToTicks(
-                recoverySeconds,
-                simulationTicksPerSecond,
-                allowZero: true);
-
-            return new SummonMinionRuntime(
-                spawnCountPerTrigger,
-                candidatePattern,
-                requireNoUnitAtSpawnCell,
-                requireNoSolidAtSpawnCell,
-                maxAliveChildren,
-                summonedArchetype.ArchetypeId,
-                overrideHp,
-                hpOverride,
-                windupTicks,
-                suppressMovementDuringWindup,
-                recoveryTicks,
-                suppressMovementDuringRecover);
         }
     }
 
@@ -372,10 +275,9 @@ namespace Game.Feature.Gameplay.Entities
     [Serializable]
     public sealed class EnemyUtilityEffectAuthoring
     {
-        [SerializeField] private EnemyUtilityEffectKind kind = EnemyUtilityEffectKind.SummonMinion;
+        [SerializeField] private EnemyUtilityEffectKind kind = EnemyUtilityEffectKind.GravityFieldAura;
         [SerializeField] private float initialDelaySeconds = 0f;
         [SerializeField] private float cooldownSeconds = 1f;
-        [SerializeField] private SummonMinionAuthoring summon = new();
         [SerializeField] private EnemyGravityFieldAuraAuthoring gravityFieldAura = new();
 
         public EnemyUtilityEffectKind Kind => kind;
@@ -383,8 +285,6 @@ namespace Game.Feature.Gameplay.Entities
         public float InitialDelaySeconds => initialDelaySeconds;
 
         public float CooldownSeconds => cooldownSeconds;
-
-        public SummonMinionAuthoring Summon => summon;
 
         public EnemyGravityFieldAuraAuthoring GravityFieldAura => gravityFieldAura;
 
@@ -402,11 +302,9 @@ namespace Game.Feature.Gameplay.Entities
 
             return kind switch
             {
-                EnemyUtilityEffectKind.SummonMinion => new EnemyUtilityEffectRuntime(
-                    kind,
-                    GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),
-                    GameplayTimingProfile.SecondsToTicks(cooldownSeconds, simulationTicksPerSecond),
-                    summon: (summon ?? throw new ArgumentException("Summon utility effect requires summon authoring data.", nameof(summon))).Compile(simulationTicksPerSecond)),
+                EnemyUtilityEffectKind.RetiredSummonMinion => throw new ArgumentException(
+                    "Utility Summon is retired; use EnemySummonBehaviorModuleAsset.",
+                    nameof(kind)),
                 EnemyUtilityEffectKind.GravityFieldAura => new EnemyUtilityEffectRuntime(
                     kind,
                     GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),

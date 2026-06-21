@@ -89,7 +89,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var runtime = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             Assert.That(runtime.Brain.StateResolver.Kind, Is.EqualTo(EnemyAiStateResolverKind.Charge), context);
-            Assert.That(runtime.Core.ChargeTimingSettings.WindupTicks, Is.GreaterThanOrEqualTo(0), context);
+            Assert.That(runtime.TryGetChargeBehavior(out var charge), Is.True, context);
+            Assert.That(charge.Timing.WindupTicks, Is.GreaterThanOrEqualTo(0), context);
             Assert.That(runtime.Capabilities.TryGetPassiveContact(out _), Is.True, context);
             Assert.That(runtime.Capabilities.TryGetCombat(out _), Is.False, context);
             Assert.That(runtime.Capabilities.TryGetMovementSkill(out _), Is.False, context);

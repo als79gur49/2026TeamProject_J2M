@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
@@ -13,6 +14,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class EnemyViewPresentationMapperTests
     {
+        private const string JPeterPrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_JPeter.prefab";
+        private const string DrSaturnPrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_DrSaturn.prefab";
+        private const string SummonScalePulseScriptGuid = "d5bc7f8cc6194d2882c9cdb56e96d289";
+        private const string GravityAuraVfxScriptGuid = "f18cc0d83f3741f087d10f75a8d2d59c";
+
         [Test]
         [Category("Extended")]
         public void EnemyViewPresentationMapper_MapsJumpWindupAndAirborneWithoutUsingAttackPhase()
@@ -261,7 +269,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyViewPresentationMapper_MapsSummonUtilityWindupAndRecoverWithoutAttackSemantic()
+        public void EnemyViewPresentationMapper_MapsSummonWindupAndRecoverWithoutAttackSemantic()
         {
             const int enemyId = 40;
             var mapper = new EnemyViewPresentationMapper();
@@ -273,10 +281,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateResult(
                     tickIndex: 1,
                     enemy,
-                    new TickEnemyUtilityPresentationSignal(
+                    new TickEnemySummonPresentationSignal(
                         enemyId,
-                        EnemyUtilityPresentationKind.SummonMinion,
-                        EnemyUtilityPresentationPhase.WindupStarted,
+                        EnemySummonPresentationPhase.WindupStarted,
                         startTick: 1,
                         executeTick: 103,
                         durationTicks: 102)),
@@ -284,8 +291,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 states);
 
             Assert.That(states.TryGetValue(enemyId, out var windupState), Is.True);
-            Assert.That(windupState.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.SummonMinion));
-            Assert.That(windupState.StartedUtilityWindupThisTick, Is.True);
+            Assert.That(windupState.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.None));
+            Assert.That(windupState.StartedSummonWindupThisTick, Is.True);
             Assert.That(windupState.StartedRecoveryThisTick, Is.False);
             Assert.That(windupState.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
             Assert.That(windupState.StartedWindupThisTick, Is.False);
@@ -294,10 +301,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateResult(
                     tickIndex: 103,
                     enemy,
-                    new TickEnemyUtilityPresentationSignal(
+                    new TickEnemySummonPresentationSignal(
                         enemyId,
-                        EnemyUtilityPresentationKind.SummonMinion,
-                        EnemyUtilityPresentationPhase.RecoverStarted,
+                        EnemySummonPresentationPhase.RecoverStarted,
                         startTick: 103,
                         executeTick: 145,
                         durationTicks: 42)),
@@ -305,12 +311,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 states);
 
             Assert.That(states.TryGetValue(enemyId, out var recoverState), Is.True);
-            Assert.That(recoverState.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.SummonMinion));
-            Assert.That(recoverState.StartedUtilityWindupThisTick, Is.False);
-            Assert.That(recoverState.StartedUtilityRecoverThisTick, Is.True);
+            Assert.That(recoverState.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.None));
+            Assert.That(recoverState.StartedSummonWindupThisTick, Is.False);
+            Assert.That(recoverState.StartedSummonRecoverThisTick, Is.True);
             Assert.That(recoverState.StartedRecoveryThisTick, Is.True);
             Assert.That(recoverState.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
             Assert.That(recoverState.ExecutedThisTick, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyViewPresentationMapper_SummonCanceled_ClearsSummonState()
+        {
+            const int enemyId = 40;
+            var mapper = new EnemyViewPresentationMapper();
+            var states = new Dictionary<int, EnemyViewPresentationState>();
+            var viewsByEntityId = new Dictionary<int, GameplayEntityView>();
+            var enemy = CreateEnemy(enemyId, EnemyAiMode.Patrol);
+
+            mapper.Build(
+                CreateResult(
+                    tickIndex: 2,
+                    enemy,
+                    new TickEnemySummonPresentationSignal(
+                        enemyId,
+                        EnemySummonPresentationPhase.Canceled,
+                        startTick: 1,
+                        executeTick: 3,
+                        durationTicks: 2)),
+                viewsByEntityId,
+                states);
+
+            Assert.That(states.TryGetValue(enemyId, out var state), Is.True);
+            Assert.That(state.UtilityPresentationKind, Is.EqualTo(EnemyUtilityPresentationKind.None));
+            Assert.That(state.StartedSummonWindupThisTick, Is.False);
+            Assert.That(state.StartedSummonRecoverThisTick, Is.False);
+            Assert.That(state.StartedRecoveryThisTick, Is.False);
+            Assert.That(state.SummonCanceledThisTick, Is.True);
+            Assert.That(state.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyViewPresentationMapper_SummonSignalFlags_ResetOnNextTickWithoutSignal()
+        {
+            const int enemyId = 40;
+            var mapper = new EnemyViewPresentationMapper();
+            var states = new Dictionary<int, EnemyViewPresentationState>();
+            var viewsByEntityId = new Dictionary<int, GameplayEntityView>();
+            var enemy = CreateEnemy(enemyId, EnemyAiMode.Patrol);
+
+            mapper.Build(
+                CreateResult(
+                    tickIndex: 1,
+                    enemy,
+                    new TickEnemySummonPresentationSignal(
+                        enemyId,
+                        EnemySummonPresentationPhase.WindupStarted,
+                        startTick: 1,
+                        executeTick: 103,
+                        durationTicks: 102)),
+                viewsByEntityId,
+                states);
+            Assert.That(states[enemyId].StartedSummonWindupThisTick, Is.True);
+
+            mapper.Build(
+                CreateResult(tickIndex: 2, enemy),
+                viewsByEntityId,
+                states);
+
+            Assert.That(states.TryGetValue(enemyId, out var state), Is.True);
+            Assert.That(state.StartedSummonWindupThisTick, Is.False);
+            Assert.That(state.StartedSummonRecoverThisTick, Is.False);
+            Assert.That(state.SummonCanceledThisTick, Is.False);
+            Assert.That(state.StartedRecoveryThisTick, Is.False);
         }
 
         [Test]
@@ -397,7 +471,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         new TickEnemyUtilityPhasePresentationState(
                             enemyId,
-                            EnemyUtilityPresentationKind.SummonMinion,
+                            EnemyUtilityPresentationKind.GravityFieldAura,
                             EnemyUtilityEffectPhase.Windup,
                             phaseElapsedTicks: 2,
                             phaseDurationTicks: 5,
@@ -422,15 +496,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyUtilityScalePulsePresentationDriver_SummonWindupAndRecover_ScalesModelRoot()
+        public void EnemySummonScalePulsePresentationDriver_SummonWindupAndRecover_ScalesModelRoot()
         {
-            var rootObject = new UnityEngine.GameObject("EnemyUtilityScalePulsePresentationDriver_SummonWindupAndRecover_ScalesModelRoot");
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulsePresentationDriver_SummonWindupAndRecover_ScalesModelRoot));
             try
             {
                 var view = rootObject.AddComponent<GameplayEntityView>();
                 var modelRoot = view.ModelRoot;
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
-                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
                 driver.Apply(new EnemyViewPresentationState(
                     entityId: 40,
@@ -452,8 +526,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     startedChargeRecoverThisTick: false,
                     tookDamage: false,
                     didDie: false,
-                    utilityPresentationKind: EnemyUtilityPresentationKind.SummonMinion,
-                    startedUtilityWindupThisTick: true));
+                    startedSummonWindupThisTick: true));
 
                 driver.Advance(1.05f);
                 Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(1.1f).Within(0.0001f));
@@ -483,8 +556,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     startedChargeRecoverThisTick: false,
                     tookDamage: false,
                     didDie: false,
-                    utilityPresentationKind: EnemyUtilityPresentationKind.SummonMinion,
-                    startedUtilityWindupThisTick: false));
+                    startedSummonRecoverThisTick: true));
 
                 driver.Advance(0.7f);
                 Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(1f).Within(0.0001f));
@@ -499,17 +571,95 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyUtilityScalePulsePresentationDriver_SemanticSuppression_FreezesCurrentScale()
+        public void EnemySummonScalePulsePresentationDriver_SummonCanceled_NormalizesScalePulse()
         {
-            var rootObject = new UnityEngine.GameObject(nameof(EnemyUtilityScalePulsePresentationDriver_SemanticSuppression_FreezesCurrentScale));
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulsePresentationDriver_SummonCanceled_NormalizesScalePulse));
             try
             {
                 var view = rootObject.AddComponent<GameplayEntityView>();
                 var modelRoot = view.ModelRoot;
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
-                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
-                driver.Apply(CreateSummonUtilityState(startedUtilityWindupThisTick: true));
+                driver.Apply(CreateSummonState(startedSummonWindupThisTick: true));
+                driver.Advance(0.5f);
+                Assert.That(modelRoot.localScale.x, Is.Not.EqualTo(0.4f).Within(0.0001f));
+
+                driver.Apply(CreateSummonState(summonCanceledThisTick: true, tickIndex: 2));
+
+                Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(modelRoot.localScale.x, Is.EqualTo(0.4f).Within(0.0001f));
+                Assert.That(driver.IsPlaying, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemySummonScalePulsePresentationDriver_IgnoresGravityUtilitySignals()
+        {
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulsePresentationDriver_IgnoresGravityUtilitySignals));
+            try
+            {
+                var view = rootObject.AddComponent<GameplayEntityView>();
+                var modelRoot = view.ModelRoot;
+                modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
+
+                driver.Apply(CreateGravityUtilityState(startedUtilityWindupThisTick: true));
+                driver.Advance(0.2f);
+
+                Assert.That(driver.IsPlaying, Is.False);
+                Assert.That(modelRoot.localScale.x, Is.EqualTo(0.4f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemySummonScalePulsePresentationDriver_IgnoresUnknownUtilitySignals()
+        {
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulsePresentationDriver_IgnoresUnknownUtilitySignals));
+            try
+            {
+                var view = rootObject.AddComponent<GameplayEntityView>();
+                var modelRoot = view.ModelRoot;
+                modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
+
+                driver.Apply(CreateUtilityState(
+                    (EnemyUtilityPresentationKind)99,
+                    startedUtilityWindupThisTick: true));
+                driver.Advance(0.2f);
+
+                Assert.That(driver.IsPlaying, Is.False);
+                Assert.That(modelRoot.localScale.x, Is.EqualTo(0.4f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemySummonScalePulsePresentationDriver_SemanticSuppression_FreezesCurrentScale()
+        {
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulsePresentationDriver_SemanticSuppression_FreezesCurrentScale));
+            try
+            {
+                var view = rootObject.AddComponent<GameplayEntityView>();
+                var modelRoot = view.ModelRoot;
+                modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
+
+                driver.Apply(CreateSummonState(startedSummonWindupThisTick: true));
                 driver.Advance(0.5f);
 
                 var frozenMultiplier = driver.CurrentScaleMultiplier;
@@ -539,17 +689,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyUtilityScalePulsePresentationDriver_DisableStillNormalizesToBaseScale()
+        public void EnemySummonScalePulsePresentationDriver_DisableStillNormalizesToBaseScale()
         {
-            var rootObject = new UnityEngine.GameObject(nameof(EnemyUtilityScalePulsePresentationDriver_DisableStillNormalizesToBaseScale));
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulsePresentationDriver_DisableStillNormalizesToBaseScale));
             try
             {
                 var view = rootObject.AddComponent<GameplayEntityView>();
                 var modelRoot = view.ModelRoot;
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
-                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
-                driver.Apply(CreateSummonUtilityState(startedUtilityWindupThisTick: true));
+                driver.Apply(CreateSummonState(startedSummonWindupThisTick: true));
                 driver.Advance(0.5f);
                 Assert.That(modelRoot.localScale.x, Is.Not.EqualTo(0.4f).Within(0.0001f));
 
@@ -560,7 +710,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 driver.Advance(10f);
                 Assert.That(modelRoot.localScale.x, Is.Not.EqualTo(0.4f).Within(0.0001f));
 
-                typeof(EnemyUtilityScalePulsePresentationDriver)
+                typeof(EnemySummonScalePulsePresentationDriver)
                     .GetMethod("OnDisable", BindingFlags.Instance | BindingFlags.NonPublic)
                     ?.Invoke(driver, Array.Empty<object>());
 
@@ -576,22 +726,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyUtilityScalePulse_HardUtilityCancel_DoesNotRemainInWindupHold()
+        public void EnemySummonScalePulse_SummonCanceled_DoesNotRemainInWindupHold()
         {
-            var rootObject = new UnityEngine.GameObject(nameof(EnemyUtilityScalePulse_HardUtilityCancel_DoesNotRemainInWindupHold));
+            var rootObject = new UnityEngine.GameObject(nameof(EnemySummonScalePulse_SummonCanceled_DoesNotRemainInWindupHold));
             try
             {
                 var view = rootObject.AddComponent<GameplayEntityView>();
                 var modelRoot = view.ModelRoot;
                 modelRoot.localScale = new UnityEngine.Vector3(0.4f, 0.4f, 0.4f);
-                var driver = rootObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
+                var driver = rootObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
-                driver.Apply(CreateSummonUtilityState(startedUtilityWindupThisTick: true));
+                driver.Apply(CreateSummonState(startedSummonWindupThisTick: true));
                 driver.Advance(1.7f);
                 Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(0.75f).Within(0.0001f));
                 Assert.That(driver.IsPlaying, Is.False);
 
-                driver.Apply(CreateSummonUtilityState(utilityCanceledThisTick: true, tickIndex: 2));
+                driver.Apply(CreateSummonState(summonCanceledThisTick: true, tickIndex: 2));
 
                 Assert.That(driver.CurrentScaleMultiplier, Is.EqualTo(1f).Within(0.0001f));
                 Assert.That(modelRoot.localScale.x, Is.EqualTo(0.4f).Within(0.0001f));
@@ -601,6 +751,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyView_JPeter_UsesTypedSummonScalePulseBinding()
+        {
+            var yaml = ReadProjectText(JPeterPrefabPath);
+
+            Assert.That(yaml, Does.Contain($"guid: {SummonScalePulseScriptGuid}"));
+            Assert.That(
+                yaml,
+                Does.Contain("Game.Feature.Gameplay.Host.EnemySummonScalePulsePresentationDriver"));
+            Assert.That(
+                yaml,
+                Does.Not.Contain("Game.Feature.Gameplay.Host.EnemyUtilityScalePulsePresentationDriver"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyView_JPeter_HasNoLegacyUtilityKind3()
+        {
+            var yaml = ReadProjectText(JPeterPrefabPath);
+
+            Assert.That(yaml, Does.Not.Contain("utilityKind: 3"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyView_JPeter_PreservesSummonScalePulseTuning()
+        {
+            var yaml = ReadProjectText(JPeterPrefabPath);
+
+            Assert.That(yaml, Does.Contain("windupDurationSeconds: 1.7"));
+            Assert.That(yaml, Does.Contain("windupPeakTimeSeconds: 1.05"));
+            Assert.That(yaml, Does.Contain("recoverDurationSeconds: 0.7"));
+            Assert.That(yaml, Does.Contain("peakScaleMultiplier: 1.1"));
+            Assert.That(yaml, Does.Contain("windupEndScaleMultiplier: 0.75"));
+            Assert.That(yaml, Does.Contain("recoverEndScaleMultiplier: 1"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyView_DrSaturn_PreservesGravityUtilityKind2()
+        {
+            var yaml = ReadProjectText(DrSaturnPrefabPath);
+
+            Assert.That(yaml, Does.Contain($"guid: {GravityAuraVfxScriptGuid}"));
+            Assert.That(yaml, Does.Contain("utilityKind: 2"));
+            Assert.That(yaml, Does.Not.Contain("utilityKind: 3"));
         }
 
         [Test]
@@ -744,6 +943,71 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickResult CreateResult(
             int tickIndex,
             EntityState enemy,
+            TickEnemySummonPresentationSignal summonSignal)
+        {
+            return new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                new[] { enemy },
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(),
+                    Array.Empty<TickPlayerDeathPresentationSignal>(),
+                    Array.Empty<TickEnemyDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(),
+                    Array.Empty<TickEnemyChargePresentationSignal>(),
+                    Array.Empty<TickEntityExitPresentationSignal>(),
+                    Array.Empty<TickImpactTransientPresentationSignal>(),
+                    Array.Empty<FlipImpactPresentationSignal>(),
+                    enemySummonSignals: new[] { summonSignal }),
+                string.Empty,
+                TickTrace.Empty);
+        }
+
+        private static TickResult CreateResult(int tickIndex, EntityState enemy)
+        {
+            return new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                new[] { enemy },
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(),
+                    Array.Empty<TickPlayerDeathPresentationSignal>(),
+                    Array.Empty<TickEnemyDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(),
+                    Array.Empty<TickEnemyChargePresentationSignal>(),
+                    Array.Empty<TickEntityExitPresentationSignal>(),
+                    Array.Empty<TickImpactTransientPresentationSignal>()),
+                string.Empty,
+                TickTrace.Empty);
+        }
+
+        private static TickResult CreateResult(
+            int tickIndex,
+            EntityState enemy,
             TickEnemyUtilityPhasePresentationState utilityPhaseState)
         {
             return CreateResult(tickIndex, enemy, new[] { utilityPhaseState });
@@ -802,11 +1066,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
-        private static EnemyViewPresentationState CreateSummonUtilityState(
-            bool startedUtilityWindupThisTick = false,
+        private static EnemyViewPresentationState CreateSummonState(
+            bool startedSummonWindupThisTick = false,
             bool startedRecoveryThisTick = false,
+            bool startedSummonRecoverThisTick = false,
             bool didDie = false,
-            bool utilityCanceledThisTick = false,
+            bool summonCanceledThisTick = false,
             int tickIndex = 1)
         {
             return new EnemyViewPresentationState(
@@ -829,9 +1094,64 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 startedChargeRecoverThisTick: false,
                 tookDamage: false,
                 didDie: didDie,
-                utilityPresentationKind: EnemyUtilityPresentationKind.SummonMinion,
+                startedSummonWindupThisTick: startedSummonWindupThisTick,
+                startedSummonRecoverThisTick: startedSummonRecoverThisTick,
+                summonCanceledThisTick: summonCanceledThisTick);
+        }
+
+        private static EnemyViewPresentationState CreateGravityUtilityState(
+            bool startedUtilityWindupThisTick = false,
+            bool startedUtilityRecoverThisTick = false,
+            bool utilityCanceledThisTick = false,
+            int tickIndex = 1)
+        {
+            return CreateUtilityState(
+                EnemyUtilityPresentationKind.GravityFieldAura,
+                startedUtilityWindupThisTick,
+                startedUtilityRecoverThisTick,
+                utilityCanceledThisTick,
+                tickIndex);
+        }
+
+        private static EnemyViewPresentationState CreateUtilityState(
+            EnemyUtilityPresentationKind utilityPresentationKind,
+            bool startedUtilityWindupThisTick = false,
+            bool startedUtilityRecoverThisTick = false,
+            bool utilityCanceledThisTick = false,
+            int tickIndex = 1)
+        {
+            return new EnemyViewPresentationState(
+                entityId: 40,
+                tickIndex: tickIndex,
+                aiMode: EnemyAiMode.Patrol,
+                activeActionKind: EnemyActionKind.None,
+                jumpPhase: EnemyJumpPhase.None,
+                chargePhase: EnemyChargePhase.None,
+                isMoving: false,
+                startedWindupThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: false,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: false,
+                landedFromJumpThisTick: false,
+                retryingJumpAirborneThisTick: false,
+                startedChargeWindupThisTick: false,
+                startedChargeActiveThisTick: false,
+                startedChargeRecoverThisTick: false,
+                tookDamage: false,
+                didDie: false,
+                utilityPresentationKind: utilityPresentationKind,
                 startedUtilityWindupThisTick: startedUtilityWindupThisTick,
+                utilityPhase: startedUtilityRecoverThisTick
+                    ? EnemyUtilityEffectPhase.Recover
+                    : EnemyUtilityEffectPhase.Windup,
+                startedUtilityRecoverThisTick: startedUtilityRecoverThisTick,
                 utilityCanceledThisTick: utilityCanceledThisTick);
+        }
+
+        private static string ReadProjectText(string path)
+        {
+            return File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), path));
         }
     }
 }

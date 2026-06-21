@@ -1,16 +1,17 @@
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 
 namespace Game.Feature.Gameplay.Host
 {
+    [MovedFrom(false, "Game.Feature.Gameplay.Host", "Game.Feature.Gameplay.EnemyPresentation", "EnemyUtilityScalePulsePresentationDriver")]
     [DisallowMultipleComponent]
-    public sealed class EnemyUtilityScalePulsePresentationDriver :
+    public sealed class EnemySummonScalePulsePresentationDriver :
         MonoBehaviour,
         IEnemyVisualSemanticPresentationDriver
     {
         private const float MinimumDurationSeconds = 0.0001f;
 
-        [SerializeField] private EnemyUtilityPresentationKind utilityKind = EnemyUtilityPresentationKind.SummonMinion;
         [SerializeField] private float windupDurationSeconds = 1.7f;
         [SerializeField] private float windupPeakTimeSeconds = 1.05f;
         [SerializeField] private float recoverDurationSeconds = 0.7f;
@@ -30,8 +31,6 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsPlaying => _phase == ScalePulsePhase.Windup || _phase == ScalePulsePhase.Recover;
 
-        public EnemyUtilityPresentationKind UtilityKind => utilityKind;
-
         public float CurrentScaleMultiplier => _currentScaleMultiplier;
 
         public float WindupDurationSeconds => windupDurationSeconds;
@@ -50,23 +49,25 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            if (state.UtilityPresentationKind != utilityKind)
+            if (!state.StartedSummonWindupThisTick &&
+                !state.StartedSummonRecoverThisTick &&
+                !state.SummonCanceledThisTick)
             {
                 return;
             }
 
-            if (state.UtilityCanceledThisTick)
+            if (state.SummonCanceledThisTick)
             {
                 NormalizeToBaseScale();
                 return;
             }
 
-            if (state.StartedUtilityWindupThisTick)
+            if (state.StartedSummonWindupThisTick)
             {
                 BeginWindup();
             }
 
-            if (state.StartedRecoveryThisTick)
+            if (state.StartedSummonRecoverThisTick)
             {
                 BeginRecover();
             }

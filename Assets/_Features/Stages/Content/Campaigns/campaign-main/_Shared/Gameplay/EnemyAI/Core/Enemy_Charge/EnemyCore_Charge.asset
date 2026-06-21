@@ -19,7 +19,3 @@ MonoBehaviour:
   locomotionTimingSettings:
     moveCooldownSeconds: 0.85
     ordinaryKinematicMoveDurationSeconds: 0
-  chargeTimingSettings:
-    windupSeconds: 0.4
-    activeStepCooldownSeconds: 0.2
-    recoverSeconds: 0.4

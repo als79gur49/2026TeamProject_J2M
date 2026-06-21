@@ -82,6 +82,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("EnemyUtilities").Append('\n');
             AppendEnemyUtilityLines(builder, GetOrderedEnemyUtilityStates(finalSnapshot));
 
+            builder.Append("EnemySummonBehaviors").Append('\n');
+            AppendEnemySummonBehaviorLines(builder, GetOrderedEnemySummonBehaviorStates(finalSnapshot));
+
             builder.Append("BoxInteractionLocks").Append('\n');
             AppendBoxInteractionLockLines(builder, GetOrderedBoxInteractionLockStates(finalSnapshot));
 
@@ -215,6 +218,13 @@ namespace Game.Feature.Gameplay.Loop
             var enemyUtilityEntries = new List<EnemyUtilitySnapshotEntry>();
             finalSnapshot.EnumerateEnemyUtilityStatesOrdered(enemyUtilityEntries);
             return enemyUtilityEntries;
+        }
+
+        private static List<EnemySummonBehaviorSnapshotEntry> GetOrderedEnemySummonBehaviorStates(WorldSnapshot finalSnapshot)
+        {
+            var entries = new List<EnemySummonBehaviorSnapshotEntry>();
+            finalSnapshot.EnumerateEnemySummonBehaviorStatesOrdered(entries);
+            return entries;
         }
 
         private static List<BoxInteractionLockSnapshotEntry> GetOrderedBoxInteractionLockStates(WorldSnapshot finalSnapshot)
@@ -524,6 +534,32 @@ namespace Game.Feature.Gameplay.Loop
                         .Append(entry.State.EffectStates[effectIndex].activationSequence).Append('|')
                         .Append(entry.State.EffectStates[effectIndex].movementSuppressionUntilTickInclusive).Append('\n');
                 }
+            }
+        }
+
+        private static void AppendEnemySummonBehaviorLines(
+            StringBuilder builder,
+            IReadOnlyList<EnemySummonBehaviorSnapshotEntry> entries)
+        {
+            if (entries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append(entry.State.cooldownTicksRemaining).Append('|')
+                    .Append((int)entry.State.phase).Append('|')
+                    .Append(entry.State.windupStartTick).Append('|')
+                    .Append(entry.State.windupEndTick).Append('|')
+                    .Append(entry.State.recoverStartTick).Append('|')
+                    .Append(entry.State.recoverEndTickExclusive).Append('|')
+                    .Append(entry.State.activationSequence).Append('|')
+                    .Append(entry.State.movementSuppressionUntilTickInclusive).Append('\n');
             }
         }
 

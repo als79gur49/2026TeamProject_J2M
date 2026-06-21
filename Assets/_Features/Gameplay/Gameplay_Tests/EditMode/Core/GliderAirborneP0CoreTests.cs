@@ -541,8 +541,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             return new EnemyAiRuntimeDefinition(
                 new EnemyCoreRuntime(
                     new EnemyAiCommonSettings(movementPriority: 50, attackPriority: 50, recoverTicks: 1),
-                    new EnemyLocomotionTimingSettings(moveCooldownTicks: 0),
-                    EnemyChargeTimingSettings.CreateDefault()),
+                    new EnemyLocomotionTimingSettings(moveCooldownTicks: 0)),
                 new EnemyBrainRuntime(
                     new EnemyStateResolverRuntime(EnemyAiStateResolverKind.Default, DefaultEnemyAiStateResolver.Instance),
                     new EnemyPatrolRuntime(PatrolStrategyKind.Forward, PatrolSettings.CreateDefault(), ForwardPatrolStrategy.Instance),

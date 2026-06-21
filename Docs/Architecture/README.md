@@ -46,6 +46,52 @@
   - current supporting truth for campaign enemy inactive-compatible material duplicates, shader contract, bridge shaders, and authoring validation
 - [Enemy-AI-Naming-Guidelines.md](./Enemy-AI-Naming-Guidelines.md)
   - current supporting truth for ownership-based Enemy AI profile/core/brain/capability/view/animator/presentation naming
+- [Enemy-AI-Current-Structure-Source.md](./Enemy-AI-Current-Structure-Source.md)
+  - current supporting truth for Phase 1 Enemy AI profile root, runtime definition lanes, Standard-only Charge BehaviorModule production content, and Phase 2 trigger boundaries
+- [Enemy-AI-Phase1-Merge-Gate.md](./Enemy-AI-Phase1-Merge-Gate.md)
+  - current supporting truth for Phase 1 merge checklist, validation evidence wording, reviewer focus, and forbidden follow-up pattern scans
+- [Enemy-AI-Shield-Summon-Utility-Audit.md](./Enemy-AI-Shield-Summon-Utility-Audit.md)
+  - current supporting truth for Shield pre-design, Summon/Utility audit boundaries, and Phase 2 trigger classification
+- [Enemy-AI-Summon-Spawn-Seam-Implementation-Note.md](./Enemy-AI-Summon-Spawn-Seam-Implementation-Note.md)
+  - current supporting truth for Option C spawn/entity creation seam extraction for Utility Summon and the later test-local Behavior Summon runtime/emitter path, where production Summon remains in the Utility capability lane and production migration remains future-only
+- [Enemy-AI-Summon-Duplicate-Guard-Design.md](./Enemy-AI-Summon-Duplicate-Guard-Design.md)
+  - current supporting truth for the implemented compile-skeleton guard that Behavior Summon must fail-fast when authored alongside existing Utility SummonMinion on the same Enemy AI profile
+- [Enemy-AI-Summon-Behavior-Runtime-State-Design.md](./Enemy-AI-Summon-Behavior-Runtime-State-Design.md)
+  - current supporting truth for the implemented test-local Option B mutable Summon behavior runtime state/emitter shape, ownership boundaries, parity matrix, migration outline, and remaining production migration boundary
+- [Enemy-AI-Summon-Asset-Migration-Plan.md](./Enemy-AI-Summon-Asset-Migration-Plan.md)
+  - current supporting truth for the future Option B Utility SummonMinion to Behavior Summon asset field mapping, migration order, residue policy, rollback strategy, and test matrix without migrating production assets
+- [Enemy-AI-Summon-Asset-Scoped-Migration-Readiness.md](./Enemy-AI-Summon-Asset-Scoped-Migration-Readiness.md)
+  - current readiness / dry-run gate for exact production Summoner allowlist, current Utility field inventory, duplicate guard sequencing, replay/hash no-double-count policy, baseline capture, residue scans, rollback, and validation commands before any production asset migration
+- [Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md](./Enemy-AI-Summon-Replay-Export-Compatibility-Plan.md)
+  - current supporting truth for Option B replay trace, event log, determinism hash, export naming, and source metadata compatibility while preserving replay/export-visible names
+- [Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md](./Enemy-AI-Summon-Presentation-Audio-VFX-Parity-Plan.md)
+  - current supporting truth for Option B Summon presentation signals, audio cues, VFX cues, view binding, visibility changes, implemented test-local full presentation/audio/VFX parity, preserved current cue semantics, and compatibility policy without changing assets
+- [Enemy-AI-Summon-Option-B-Implementation-Plan.md](./Enemy-AI-Summon-Option-B-Implementation-Plan.md)
+  - current supporting truth for Option B implementation slices, implemented compile-skeleton, test-local runtime/emitter status, test-local presentation/audio/VFX parity status, guard/test/migration order, validation gates, rollback strategy, and non-goal boundaries
+- [Enemy-AI-Summon-Option-B-First-Code-Slice-Closeout.md](./Enemy-AI-Summon-Option-B-First-Code-Slice-Closeout.md)
+  - current closeout report for the Summon Option B first code slice, recording compile-skeleton-only status, preserved contracts, scans, validation evidence, and handoff to the implemented test-local runtime/emitter parity slice
+- [Enemy-AI-Summon-Behavior-Runtime-Emitter-Parity-Closeout.md](./Enemy-AI-Summon-Behavior-Runtime-Emitter-Parity-Closeout.md)
+  - current closeout report for the Summon Behavior runtime/emitter and test-local presentation/audio/VFX parity slices, recording implementation status, preserved Spawn/EntityCreation seam, production asset non-migration, replay/export name preservation, presentation/audio/VFX name preservation, scans, and validation evidence
+- [Enemy-AI-Summon-Asset-Scoped-Migration-Closeout.md](./Enemy-AI-Summon-Asset-Scoped-Migration-Closeout.md)
+  - current closeout report for the production ArchetypeSummoner asset-scoped Utility SummonMinion to Behavior Summon migration, including migrated asset allowlist, field mapping, capability handling decision, guard/residue results, replay/presentation validation, full-lane status, rollback path, and non-goals
+- [Enemy-AI-Summon-Legacy-Capability-Cleanup-Closeout.md](./Enemy-AI-Summon-Legacy-Capability-Cleanup-Closeout.md)
+  - current closeout report for removing the empty ArchetypeSummoner legacy Utility capability asset/reference while retaining Summon Behavior ownership, common PassiveContact, SourceEffectIndex / Effect compatibility, generic Utility compatibility code, and Charge no-op boundaries
+- [Enemy-AI-Utility-Summon-Code-Retirement-Closeout.md](./Enemy-AI-Utility-Summon-Code-Retirement-Closeout.md)
+  - current closeout report for retiring executable Utility Summon authoring, compile, runtime progression, trigger emission, and spawn-request conversion while retaining enum tombstones, Behavior Summon ownership, GravityFieldAura Utility execution, and presentation/replay compatibility names
+- [Enemy-AI-Summon-Internal-Type-Decoupling-Closeout.md](./Enemy-AI-Summon-Internal-Type-Decoupling-Closeout.md)
+  - Slice B closeout report for internal Summon DTO and presentation carrier decoupling; its legacy raw `utilityKind: 3` adapter notes are superseded by C1b and the final ownership closeout
+- [Enemy-AI-Summon-Vfx-Vocabulary-Migration-C1a-Closeout.md](./Enemy-AI-Summon-Vfx-Vocabulary-Migration-C1a-Closeout.md)
+  - current closeout report for Slice C1a Summon VFX code vocabulary rename, preserving cue numeric values, serialized binding compatibility, audio, and replay/export deferrals
+- [Enemy-AI-Summon-Presentation-Prefab-Migration-C1b-Readiness.md](./Enemy-AI-Summon-Presentation-Prefab-Migration-C1b-Readiness.md)
+  - readiness report for Slice C1b production Summon presentation prefab migration, including driver ownership, raw `utilityKind: 3` history, GUID-preserving serialization strategy, operation order, and C2 boundaries
+- [Enemy-AI-Summon-Presentation-Prefab-Migration-C1b-Closeout.md](./Enemy-AI-Summon-Presentation-Prefab-Migration-C1b-Closeout.md)
+  - closeout report for Slice C1b production Summon scale pulse component rename, JPeter prefab typed binding migration, legacy raw-3 adapter removal, Gravity raw `2` preservation, validation plan, and rollback
+- [Enemy-AI-Summon-Replay-Export-Vocabulary-C2-Readiness.md](./Enemy-AI-Summon-Replay-Export-Vocabulary-C2-Readiness.md)
+  - read-only C2 decision record for retaining Effect / SourceEffectIndex replay/export vocabulary as shared compatibility contracts, with external migration closed as a no-op
+- [Enemy-AI-Summon-Behavior-Ownership-Final-Closeout.md](./Enemy-AI-Summon-Behavior-Ownership-Final-Closeout.md)
+  - final umbrella closeout for Summon Behavior ownership, Utility Summon executable retirement, presentation/prefab/VFX migration status, retained replay/source-correlation compatibility vocabulary, local acceptance evidence, and project-wide red separation
+
+For current Summon production ownership, read the final umbrella closeout first. Earlier Summon readiness, plan, and slice closeout documents preserve sequence and historical decisions; the final umbrella supersedes intermediate "current" wording where later slices changed the state.
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
   - current supporting truth for persistent BGM ownership, scene request-source boundaries, request-based BGM playback, FadeOutIn support, and reserved Crossfade governance
 - [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)

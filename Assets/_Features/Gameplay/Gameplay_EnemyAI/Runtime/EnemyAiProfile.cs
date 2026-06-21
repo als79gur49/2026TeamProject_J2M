@@ -14,12 +14,15 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private EnemyCoreAuthoring coreAuthoring;
         [SerializeField] private EnemyBrainAuthoring brainAuthoring;
         [SerializeField] private List<EnemyCapabilityAsset> capabilityAssets = new();
+        [SerializeField] private List<EnemyBehaviorModuleAsset> behaviorModuleAssets = new();
 
         internal EnemyCoreAuthoring CoreAuthoring => coreAuthoring;
 
         internal EnemyBrainAuthoring BrainAuthoring => brainAuthoring;
 
         internal IReadOnlyList<EnemyCapabilityAsset> CapabilityAssets => capabilityAssets;
+
+        internal IReadOnlyList<EnemyBehaviorModuleAsset> BehaviorModuleAssets => behaviorModuleAssets;
 
         public EnemyAiStateResolverKind StateResolverKind => RequireStateResolverAsset().Kind;
 
@@ -50,8 +53,6 @@ namespace Game.Feature.Gameplay.Entities
             GetCombatCapabilityAsset()?.AttackTimingSettings ?? global::Game.Feature.Gameplay.Entities.EnemyAttackTimingAuthoringSettings.CreateImmediate();
 
         public EnemyLocomotionTimingAuthoringSettings LocomotionTimingSettings => RequireCoreAuthoring().LocomotionTimingSettings;
-
-        public EnemyChargeTimingAuthoringSettings ChargeTimingSettings => RequireCoreAuthoring().ChargeTimingSettings;
 
         public EnemyJumpTimingAuthoringSettings JumpTimingSettings =>
             GetMovementSkillCapabilityAsset()?.JumpTimingSettings ?? global::Game.Feature.Gameplay.Entities.EnemyJumpTimingAuthoringSettings.CreateDefault();

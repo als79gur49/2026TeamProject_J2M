@@ -5542,6 +5542,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new Dictionary<int, EnemyJumpRuntimeState>(),
                 new Dictionary<int, EnemyGlideRuntimeState>(),
                 new Dictionary<int, EnemyUtilityRuntimeState>(),
+                new Dictionary<int, EnemySummonBehaviorRuntimeState>(),
                 new Dictionary<int, BoxInteractionLockState>(),
                 new Dictionary<int, EnemyGravityFieldAuraFieldState>(),
                 new Dictionary<int, PhasedRuntimeState>(),

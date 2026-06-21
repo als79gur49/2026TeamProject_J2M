@@ -67,6 +67,7 @@ namespace Game.Feature.Gameplay.Loop
                 new List<PlayerActionTransition>(),
                 new List<string>(),
                 new List<EnemyUtilityTriggerIntent>(),
+                new List<EnemySummonBehaviorTriggerIntent>(),
                 new List<string>())
         {
         }
@@ -76,12 +77,14 @@ namespace Game.Feature.Gameplay.Loop
             List<PlayerActionTransition> playerActionTransitions,
             List<string> rejectedReasons = null,
             List<EnemyUtilityTriggerIntent> utilityTriggerIntents = null,
+            List<EnemySummonBehaviorTriggerIntent> summonBehaviorTriggerIntents = null,
             List<string> eventLogEntries = null)
         {
             Updates = updates ?? throw new ArgumentNullException(nameof(updates));
             PlayerActionTransitions = playerActionTransitions ?? throw new ArgumentNullException(nameof(playerActionTransitions));
             RejectedReasons = rejectedReasons ?? new List<string>();
             UtilityTriggerIntents = utilityTriggerIntents ?? new List<EnemyUtilityTriggerIntent>();
+            SummonBehaviorTriggerIntents = summonBehaviorTriggerIntents ?? new List<EnemySummonBehaviorTriggerIntent>();
             EventLogEntries = eventLogEntries ?? new List<string>();
         }
 
@@ -92,6 +95,8 @@ namespace Game.Feature.Gameplay.Loop
         public List<string> RejectedReasons { get; }
 
         public List<EnemyUtilityTriggerIntent> UtilityTriggerIntents { get; }
+
+        public List<EnemySummonBehaviorTriggerIntent> SummonBehaviorTriggerIntents { get; }
 
         public List<string> EventLogEntries { get; }
     }
@@ -528,6 +533,25 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
+            return ResolvePostAttackEffects(
+                postAttackSnapshot,
+                triggerIntents,
+                Array.Empty<EnemySummonBehaviorTriggerIntent>(),
+                tickIndex,
+                entityIdAllocator,
+                spawnDefaultsByArchetypeId,
+                tileFeatureDefinitions);
+        }
+
+        public static EnemyUtilityResolveResult ResolvePostAttackEffects(
+            WorldSnapshot postAttackSnapshot,
+            IReadOnlyList<EnemyUtilityTriggerIntent> triggerIntents,
+            IReadOnlyList<EnemySummonBehaviorTriggerIntent> summonBehaviorTriggerIntents,
+            int tickIndex,
+            EntityIdAllocator entityIdAllocator,
+            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
+        {
             if (postAttackSnapshot == null)
             {
                 throw new ArgumentNullException(nameof(postAttackSnapshot));
@@ -538,6 +562,11 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(triggerIntents));
             }
 
+            if (summonBehaviorTriggerIntents == null)
+            {
+                throw new ArgumentNullException(nameof(summonBehaviorTriggerIntents));
+            }
+
             if (entityIdAllocator == null)
             {
                 throw new ArgumentNullException(nameof(entityIdAllocator));
@@ -545,7 +574,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var batch = new FinalizationBatch();
             var eventLogEntries = new List<string>();
-            if (triggerIntents.Count == 0)
+            if (summonBehaviorTriggerIntents.Count == 0)
             {
                 return new EnemyUtilityResolveResult(batch, eventLogEntries);
             }
@@ -555,17 +584,11 @@ namespace Game.Feature.Gameplay.Loop
             postAttackSnapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
             var plannedChildrenBySource = new Dictionary<SourceEffectKey, int>();
 
-            for (var intentIndex = 0; intentIndex < triggerIntents.Count; intentIndex++)
+            for (var intentIndex = 0; intentIndex < summonBehaviorTriggerIntents.Count; intentIndex++)
             {
-                var triggerIntent = triggerIntents[intentIndex];
-                if (triggerIntent.EffectKind != EnemyUtilityEffectKind.SummonMinion)
-                {
-                    continue;
-                }
-
-                ResolveSummonMinion(
+                ResolveBehaviorSummon(
                     postAttackSnapshot,
-                    triggerIntent,
+                    summonBehaviorTriggerIntents[intentIndex],
                     tickIndex,
                     entityIdAllocator,
                     spawnDefaultsByArchetypeId,
@@ -746,9 +769,9 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static void ResolveSummonMinion(
+        private static void ResolveBehaviorSummon(
             WorldSnapshot snapshot,
-            in EnemyUtilityTriggerIntent triggerIntent,
+            in EnemySummonBehaviorTriggerIntent triggerIntent,
             int tickIndex,
             EntityIdAllocator entityIdAllocator,
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId,
@@ -759,82 +782,60 @@ namespace Game.Feature.Gameplay.Loop
             FinalizationBatch batch,
             List<string> eventLogEntries)
         {
-            if (!TryGetValidSource(snapshot, triggerIntent.SourceEntityId, out var source))
+            if (!TryGetValidSource(snapshot, triggerIntent.SourceEntityId, out var resolvedSource))
             {
-                AppendSkipEvent(eventLogEntries, triggerIntent, tickIndex, spawnIndex: 0, SummonSkipReason.SourceInvalid);
+                AppendBehaviorSummonSkipEvent(eventLogEntries, triggerIntent, tickIndex, spawnIndex: 0, SummonSkipReason.SourceInvalid);
                 return;
             }
 
-            var summonRuntime = triggerIntent.EffectRuntime.Summon;
-            var spawnDefaults = ResolveArchetypeSpawnDefaults(summonRuntime.SummonedArchetypeId, spawnDefaultsByArchetypeId);
-            var minionHp = summonRuntime.OverrideHp
-                ? summonRuntime.HpOverride
-                : spawnDefaults.Hp;
-            var initialAiMode = spawnDefaults.InitialAiMode;
-            var unitMobilityKind = spawnDefaults.UnitMobilityKind;
-            var enemyDefinitionBindingState = new EnemyDefinitionBindingState(summonRuntime.SummonedArchetypeId);
-            var sourceKey = new SourceEffectKey(triggerIntent.SourceEntityId, triggerIntent.EffectIndex);
-            for (var spawnIndex = 0; spawnIndex < summonRuntime.SpawnCountPerTrigger; spawnIndex++)
+            var spawnDefaults = EntitySpawnMaterializer.ResolveSummonSpawnDefaults(
+                triggerIntent.Summon.SummonedArchetypeId,
+                spawnDefaultsByArchetypeId);
+            var sourceKey = new SourceEffectKey(triggerIntent.SourceEntityId, triggerIntent.SourceEffectIndex);
+            for (var spawnIndex = 0; spawnIndex < triggerIntent.Summon.SpawnCountPerTrigger; spawnIndex++)
             {
                 var plannedChildren = plannedChildrenBySource.TryGetValue(sourceKey, out var currentPlannedChildren)
                     ? currentPlannedChildren
                     : 0;
-                if (EnemyUtilitySummonPolicy.IsMaxAliveReached(
+                if (EnemySummonChildLimitPolicy.IsMaxAliveReached(
                         snapshot,
                         summonedEntries,
                         triggerIntent.SourceEntityId,
-                        triggerIntent.EffectIndex,
-                        summonRuntime,
+                        triggerIntent.SourceEffectIndex,
+                        triggerIntent.Summon,
                         plannedChildren))
                 {
-                    AppendSkipEvent(eventLogEntries, triggerIntent, tickIndex, spawnIndex, SummonSkipReason.MaxAliveReached);
+                    AppendBehaviorSummonSkipEvent(eventLogEntries, triggerIntent, tickIndex, spawnIndex, SummonSkipReason.MaxAliveReached);
                     continue;
                 }
 
-                if (!TrySelectCandidateCell(
-                        snapshot,
-                        source,
-                        unitMobilityKind,
-                        summonRuntime,
-                        reservedSpawnCells,
-                        tileFeatureDefinitions,
-                        out var spawnCell))
-                {
-                    AppendSkipEvent(eventLogEntries, triggerIntent, tickIndex, spawnIndex, SummonSkipReason.NoCandidateCell);
-                    continue;
-                }
-
-                var summonedEntityState = new SummonedEntityState(triggerIntent.SourceEntityId, triggerIntent.EffectIndex);
-                var spawnedEntity = CreateSummonedMinionEntity(
-                    entityIdAllocator.AllocateEntityId(),
-                    source,
-                    spawnCell,
-                    minionHp,
-                    initialAiMode,
-                    unitMobilityKind,
-                    tickIndex);
-                batch.SpawnEntity(
-                    spawnedEntity,
-                    new FinalizationOperationMetadata(
-                        TickPhase.Resolve,
-                        ResolvedActionSemanticKind.None,
+                var spawnRequest = new EntitySpawnRequest(
+                    EntitySpawnRequestKind.Summon,
+                    new EntitySpawnRequestSource(
                         triggerIntent.SourceEntityId,
-                        actionPlanId: 0,
-                        movementExecutionBoundaryKind: MovementExecutionBoundaryKind.SpawnRespawnPlacement,
-                        boundaryReason: "EnemyUtilitySummonPlacement"),
-                    hasSummonedEntityState: true,
-                    summonedEntityState: summonedEntityState,
-                    hasEnemyDefinitionBindingState: true,
-                    enemyDefinitionBindingState: enemyDefinitionBindingState);
-                reservedSpawnCells.Add(spawnCell);
-                plannedChildrenBySource[sourceKey] = plannedChildren + 1;
-                AppendCommittedEvent(
-                    eventLogEntries,
-                    triggerIntent,
-                    tickIndex,
+                        triggerIntent.SourceEffectIndex,
+                        triggerIntent.TriggerTick,
+                        resolvedSource.position,
+                        resolvedSource.facing,
+                        resolvedSource.teamId),
                     spawnIndex,
-                    spawnedEntity,
-                    summonRuntime);
+                    tickIndex,
+                    triggerIntent.Summon,
+                    spawnDefaults);
+                var spawnResult = EntitySpawnMaterializer.Materialize(
+                    snapshot,
+                    spawnRequest,
+                    entityIdAllocator,
+                    tileFeatureDefinitions,
+                    reservedSpawnCells,
+                    batch,
+                    eventLogEntries);
+                if (!spawnResult.Succeeded)
+                {
+                    continue;
+                }
+
+                plannedChildrenBySource[sourceKey] = plannedChildren + 1;
             }
         }
 
@@ -850,128 +851,6 @@ namespace Game.Feature.Gameplay.Loop
 
             return EnemyParticipationPolicy.IsControllableParticipant(snapshot, source) &&
                    source.position.face == snapshot.Topology.BottomFace;
-        }
-
-        private static bool TrySelectCandidateCell(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            UnitMobilityKind summonedUnitMobilityKind,
-            in SummonMinionRuntime summonRuntime,
-            ISet<SurfaceCell> reservedSpawnCells,
-            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
-            out SurfaceCell spawnCell)
-        {
-            var candidateOffsets = BuildCandidateOffsets(source.facing);
-            var riskActor = CreateSummonedPlacementRiskActor(source, summonedUnitMobilityKind);
-            var hasRiskCandidate = false;
-            var riskCandidate = default(SurfaceCell);
-            for (var i = 0; i < candidateOffsets.Count; i++)
-            {
-                var candidateCell = source.position + candidateOffsets[i];
-                if (!snapshot.IsInsideBoard(candidateCell))
-                {
-                    continue;
-                }
-
-                if (summonRuntime.RequireNoSolidAtSpawnCell &&
-                    snapshot.TryGetSolidSemanticAt(candidateCell, out _))
-                {
-                    continue;
-                }
-
-                if (TileFeatureMovementBlockerQuery.TryGetActiveBarricadeBlocker(
-                        snapshot,
-                        tileFeatureDefinitions,
-                        candidateCell,
-                        TileFeatureBlockerSubject.Unit,
-                        TileFeatureMovementKind.UnitPlacement,
-                        out _))
-                {
-                    continue;
-                }
-
-                if (snapshot.TryGetPlacementBlocker(EntityType.Unit, candidateCell, ignoredEntityId: 0, out _))
-                {
-                    continue;
-                }
-
-                if (summonRuntime.RequireNoUnitAtSpawnCell &&
-                    snapshot.HasAnyUnitAt(candidateCell))
-                {
-                    continue;
-                }
-
-                if (reservedSpawnCells.Contains(candidateCell))
-                {
-                    continue;
-                }
-
-                if (TileFeatureHazardQueries.EvaluateTileApproachRisk(
-                        snapshot,
-                        tileFeatureDefinitions,
-                        riskActor,
-                        candidateCell) != TileApproachRisk.Neutral)
-                {
-                    if (!hasRiskCandidate)
-                    {
-                        riskCandidate = candidateCell;
-                        hasRiskCandidate = true;
-                    }
-
-                    continue;
-                }
-
-                spawnCell = candidateCell;
-                return true;
-            }
-
-            if (hasRiskCandidate)
-            {
-                spawnCell = riskCandidate;
-                return true;
-            }
-
-            spawnCell = default;
-            return false;
-        }
-
-        private static EntityState CreateSummonedPlacementRiskActor(
-            in EntityState source,
-            UnitMobilityKind summonedUnitMobilityKind)
-        {
-            var riskActor = source;
-            riskActor.entityId = 0;
-            riskActor.type = EntityType.Unit;
-            riskActor.unitMobilityKind = summonedUnitMobilityKind;
-            riskActor.boardPresence = EntityBoardPresence.Occupying;
-            riskActor.hp = Math.Max(1, riskActor.hp);
-            riskActor.markedForDeath = false;
-            return riskActor;
-        }
-
-        private static List<Vector2Int> BuildCandidateOffsets(Direction facing)
-        {
-            if (!EnemyMovementStrategyShared.TryResolveDelta(facing, out var forward) ||
-                !EnemyMovementStrategyShared.TryResolveDelta(TurnRight(facing), out var right) ||
-                !EnemyMovementStrategyShared.TryResolveDelta(TurnLeft(facing), out var left) ||
-                !EnemyMovementStrategyShared.TryResolveDelta(TurnBack(facing), out var back))
-            {
-                return new List<Vector2Int>
-                {
-                    new Vector2Int(0, 1),
-                    new Vector2Int(1, 0),
-                    new Vector2Int(-1, 0),
-                    new Vector2Int(0, -1),
-                };
-            }
-
-            return new List<Vector2Int>
-            {
-                forward,
-                right,
-                left,
-                back,
-            };
         }
 
         private static List<Vector2Int> BuildSquareOffsets(int radius)
@@ -1057,111 +936,15 @@ namespace Game.Feature.Gameplay.Loop
             return BoxInteractionLockMerge.AreEqual(left, right);
         }
 
-        private static Direction TurnRight(Direction direction)
-        {
-            return direction switch
-            {
-                Direction.Up => Direction.Right,
-                Direction.Right => Direction.Down,
-                Direction.Down => Direction.Left,
-                Direction.Left => Direction.Up,
-                _ => Direction.None,
-            };
-        }
-
-        private static Direction TurnLeft(Direction direction)
-        {
-            return direction switch
-            {
-                Direction.Up => Direction.Left,
-                Direction.Left => Direction.Down,
-                Direction.Down => Direction.Right,
-                Direction.Right => Direction.Up,
-                _ => Direction.None,
-            };
-        }
-
-        private static Direction TurnBack(Direction direction)
-        {
-            return direction switch
-            {
-                Direction.Up => Direction.Down,
-                Direction.Right => Direction.Left,
-                Direction.Down => Direction.Up,
-                Direction.Left => Direction.Right,
-                _ => Direction.None,
-            };
-        }
-
-        private static EnemyUnitSpawnDefaultsRuntime ResolveArchetypeSpawnDefaults(
-            EnemyUnitArchetypeId archetypeId,
-            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId)
-        {
-            archetypeId.Validate(nameof(archetypeId));
-            if (spawnDefaultsByArchetypeId != null &&
-                spawnDefaultsByArchetypeId.TryGetValue(archetypeId, out var spawnDefaults))
-            {
-                return spawnDefaults;
-            }
-
-            throw new InvalidOperationException(
-                $"Missing enemy unit spawn defaults for archetype '{archetypeId}'.");
-        }
-
-        private static EntityState CreateSummonedMinionEntity(
-            int entityId,
-            in EntityState source,
-            SurfaceCell spawnCell,
-            int minionHp,
-            EnemyAiMode initialAiMode,
-            UnitMobilityKind unitMobilityKind,
-            int tickIndex)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = spawnCell,
-                hp = minionHp,
-                maxHp = minionHp,
-                teamId = source.teamId,
-                type = EntityType.Unit,
-                unitRole = UnitRole.Enemy,
-                unitMobilityKind = unitMobilityKind,
-                state = EntityPhaseState.Idle,
-                stateTimer = 0,
-                facing = source.facing,
-                boardPresence = EntityBoardPresence.Occupying,
-                markedForDeath = false,
-                spawnTick = tickIndex,
-                aiMode = initialAiMode,
-                aiStateTimer = 0,
-                enemyLocomotionCooldownTicks = 0,
-                enemyAttackCooldownTicks = 0,
-                enemyAttackCooldownTotalTicks = 0,
-            };
-        }
-
-        private static void AppendCommittedEvent(
+        private static void AppendBehaviorSummonSkipEvent(
             List<string> eventLogEntries,
-            in EnemyUtilityTriggerIntent triggerIntent,
-            int tickIndex,
-            int spawnIndex,
-            in EntityState spawnedEntity,
-            in SummonMinionRuntime summonRuntime)
-        {
-            eventLogEntries.Add(
-                $"SummonCommitted|Source={triggerIntent.SourceEntityId}|Effect={triggerIntent.EffectIndex}|SpawnIndex={spawnIndex}|Spawned={spawnedEntity.entityId}|Pos=({spawnedEntity.position.x},{spawnedEntity.position.y})|Archetype={summonRuntime.SummonedArchetypeId}|Tick={tickIndex}");
-        }
-
-        private static void AppendSkipEvent(
-            List<string> eventLogEntries,
-            in EnemyUtilityTriggerIntent triggerIntent,
+            in EnemySummonBehaviorTriggerIntent triggerIntent,
             int tickIndex,
             int spawnIndex,
             SummonSkipReason reason)
         {
             eventLogEntries.Add(
-                $"SummonSkipped|Source={triggerIntent.SourceEntityId}|Effect={triggerIntent.EffectIndex}|SpawnIndex={spawnIndex}|Reason={reason}|Tick={tickIndex}");
+                $"SummonSkipped|Source={triggerIntent.SourceEntityId}|Effect={triggerIntent.SourceEffectIndex}|SpawnIndex={spawnIndex}|Reason={reason}|Tick={tickIndex}");
         }
 
         private static void AppendLockSkipEvent(

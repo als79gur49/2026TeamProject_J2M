@@ -15,7 +15,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
-    public sealed class JPeterUtilitySummonRuntimeContractTests
+    public sealed class MigratedSummonRuntimeContractTests
     {
         private const int EnemyId = 40;
         private const string ArchetypeSummonerProfilePath =
@@ -23,11 +23,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private const string CombinedArchetypeCatalogPath =
             StageContentPaths.SharedEnemyAiRoot + "/Catalogs/EnemyUnitArchetypeCatalog_CampaignMainEnemy.asset";
 
-        // Jpeter is the ArchetypeSummoner utility profile: windup arms SummonMinion state, then resolve revalidates summon placement.
+        // Jpeter is the migrated ArchetypeSummoner behavior profile: windup arms Summon state, then resolve revalidates summon placement.
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_WindupArmsSummonEffectButDoesNotCreateSummoned()
+        public void MigratedSummon_JPeterProfile_WindupArmsSummonEffectButDoesNotCreateSummoned()
         {
             var worldState = CreateWorldState(CreateJpeter());
             SeedReadyUtilityState(worldState);
@@ -35,8 +35,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var tick = CreatePipeline(worldState).RunTick(new TickInput(1));
             var state = GetUtilityEffectState(worldState);
 
-            Assert.That(state.effectKind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion));
-            Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.Windup));
+            Assert.That(state.phase, Is.EqualTo(EnemySummonBehaviorPhase.Windup));
             Assert.That(state.windupStartTick, Is.EqualTo(1));
             Assert.That(state.windupEndTick, Is.GreaterThan(1));
             Assert.That(GetSummonedChildren(worldState), Is.Empty);
@@ -46,7 +45,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_RecoverSuppressesImmediateReenter()
+        public void MigratedSummon_JPeterProfile_RecoverSuppressesImmediateReenter()
         {
             var worldState = CreateWorldState(CreateJpeter());
             SeedWindupUtilityState(worldState, windupEndTick: 1);
@@ -58,7 +57,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var nextTick = pipeline.RunTick(new TickInput(2));
 
             Assert.That(spawnedAfterExecute, Has.Count.EqualTo(1));
-            Assert.That(recoverState.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
+            Assert.That(recoverState.phase, Is.EqualTo(EnemySummonBehaviorPhase.Recover));
             Assert.That(recoverState.recoverEndTickExclusive, Is.GreaterThan(2));
             Assert.That(GetSummonedChildren(worldState), Has.Count.EqualTo(1));
             Assert.That(nextTick.EventLog, Has.None.Contains("SummonCommitted|Source=40|Effect=0|SpawnIndex=0"));
@@ -66,7 +65,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_WindupDetachedCancelsWithoutSummon()
+        public void MigratedSummon_JPeterProfile_WindupDetachedCancelsWithoutSummon()
         {
             var worldState = CreateWorldState(CreateJpeter());
             SeedReadyUtilityState(worldState);
@@ -77,16 +76,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var canceledTick = pipeline.RunTick(new TickInput(2));
             var state = GetUtilityEffectState(worldState);
 
-            Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+            Assert.That(state.phase, Is.EqualTo(EnemySummonBehaviorPhase.None));
             Assert.That(state.cooldownTicksRemaining, Is.GreaterThan(0));
             Assert.That(GetSummonedChildren(worldState), Is.Empty);
             Assert.That(canceledTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
-            Assert.That(canceledTick.PresentationData.EnemyUtilitySignals.Single().Phase, Is.EqualTo(EnemyUtilityPresentationPhase.Canceled));
+            var summonSignal = canceledTick.PresentationData.EnemySummonSignals.Single();
+            Assert.That(summonSignal.Phase, Is.EqualTo(EnemySummonPresentationPhase.Canceled));
+            Assert.That(summonSignal.EffectIndex, Is.EqualTo(0));
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_SummonPlacementUsesSurfaceCellFaceAfterTopologyRotation()
+        public void MigratedSummon_JPeterProfile_SummonPlacementUsesSurfaceCellFaceAfterTopologyRotation()
         {
             var sourceCell = new SurfaceCell(FaceId.Front, 0, 0);
             var worldState = CreateWorldState(
@@ -110,28 +111,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_MarkedForDeathDuringWindupDoesNotCreateSummoned()
+        public void MigratedSummon_JPeterProfile_MarkedForDeathDuringWindupDoesNotCreateSummoned()
         {
             AssertInvalidatedWindupDoesNotSummon("MarkedForDeath");
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_HpZeroDuringWindupDoesNotCreateSummoned()
+        public void MigratedSummon_JPeterProfile_HpZeroDuringWindupDoesNotCreateSummoned()
         {
             AssertInvalidatedWindupDoesNotSummon("HpZero");
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_DeadDuringWindupDoesNotCreateSummoned()
+        public void MigratedSummon_JPeterProfile_DeadDuringWindupDoesNotCreateSummoned()
         {
             AssertInvalidatedWindupDoesNotSummon("Dead");
         }
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_SourceDeathAfterSummonLeavesExistingChildLifecycleDocumented()
+        public void MigratedSummon_JPeterProfile_SourceDeathAfterSummonLeavesExistingChildLifecycleDocumented()
         {
             var worldState = CreateWorldState(CreateJpeter());
             SeedWindupUtilityState(worldState, windupEndTick: 1);
@@ -151,7 +152,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileDoesNotHardBlockSummonPlacement()
+        public void MigratedSummon_JPeterProfile_ActivatedDestroyTileDoesNotHardBlockSummonPlacement()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var destroyTile = CreateTileFeature(100, forwardCell, TileFeatureKind.Destroy);
@@ -178,7 +179,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedBarricadeOnSummonCellBlocksPlacementWithoutGhost()
+        public void MigratedSummon_JPeterProfile_ActivatedBarricadeOnSummonCellBlocksPlacementWithoutGhost()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var barricade = CreateTileFeature(101, forwardCell, TileFeatureKind.Barricade);
@@ -203,7 +204,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_InactiveBarricadeOnSummonCellDoesNotBlockPlacement()
+        public void MigratedSummon_JPeterProfile_InactiveBarricadeOnSummonCellDoesNotBlockPlacement()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var barricade = CreateTileFeature(121, forwardCell, TileFeatureKind.Barricade);
@@ -230,7 +231,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_GeneratedMoonBlockSolidBlocksSummonPlacementAndUsesFallback()
+        public void MigratedSummon_JPeterProfile_GeneratedMoonBlockSolidBlocksSummonPlacementAndUsesFallback()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
@@ -253,7 +254,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_SolidOnSamePlanarOtherFaceDoesNotAffectSummonPlacementSurfaceCell()
+        public void MigratedSummon_JPeterProfile_SolidOnSamePlanarOtherFaceDoesNotAffectSummonPlacementSurfaceCell()
         {
             var floorForward = new SurfaceCell(FaceId.Floor, 1, 0);
             var frontSamePlanar = new SurfaceCell(FaceId.Front, 1, 0);
@@ -274,7 +275,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileAppearsDuringWindup_RevalidatesPlacementWithSummonedAirMobility()
+        public void MigratedSummon_JPeterProfile_ActivatedDestroyTileAppearsDuringWindup_RevalidatesPlacementWithSummonedAirMobility()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var destroyTile = CreateTileFeature(110, forwardCell, TileFeatureKind.Destroy);
@@ -295,7 +296,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedBarricadeAppearsDuringWindup_RevalidatesPlacementAndBlocksAtResolve()
+        public void MigratedSummon_JPeterProfile_ActivatedBarricadeAppearsDuringWindup_RevalidatesPlacementAndBlocksAtResolve()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
@@ -316,7 +317,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_InactiveBarricadeAppearsDuringWindup_RevalidatesAsNonBlocking()
+        public void MigratedSummon_JPeterProfile_InactiveBarricadeAppearsDuringWindup_RevalidatesAsNonBlocking()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var barricade = CreateTileFeature(122, forwardCell, TileFeatureKind.Barricade);
@@ -338,7 +339,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_GeneratedMoonBlockSolidAppearsDuringWindup_RevalidatesPlacementAndBlocksAtResolve()
+        public void MigratedSummon_JPeterProfile_GeneratedMoonBlockSolidAppearsDuringWindup_RevalidatesPlacementAndBlocksAtResolve()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var rightCell = new SurfaceCell(FaceId.Floor, 0, -1);
@@ -360,7 +361,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileOnSamePlanarOtherFaceDoesNotAffectSummonPlacementSurfaceCell()
+        public void MigratedSummon_JPeterProfile_ActivatedDestroyTileOnSamePlanarOtherFaceDoesNotAffectSummonPlacementSurfaceCell()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
@@ -379,7 +380,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedBarricadeOnSamePlanarOtherFaceDoesNotBlockSummonPlacementSurfaceCell()
+        public void MigratedSummon_JPeterProfile_ActivatedBarricadeOnSamePlanarOtherFaceDoesNotBlockSummonPlacementSurfaceCell()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
@@ -398,7 +399,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_ActivatedDestroyTileSummonCandidateIsNeutralForSummonedAirMobility()
+        public void MigratedSummon_JPeterProfile_ActivatedDestroyTileSummonCandidateIsNeutralForSummonedAirMobility()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var destroyTile = CreateTileFeature(116, forwardCell, TileFeatureKind.Destroy);
@@ -418,7 +419,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_BlockedByActivatedBarricadeConsumesRecoverWithoutSummoned()
+        public void MigratedSummon_JPeterProfile_BlockedByActivatedBarricadeConsumesRecoverWithoutSummoned()
         {
             var candidates = GetSummonCandidateCells();
             var barricades = candidates
@@ -432,7 +433,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CreatePipeline(worldState, CreateActiveDefinitions(barricades)).RunTick(new TickInput(1));
             var state = GetUtilityEffectState(worldState);
 
-            Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover));
+            Assert.That(state.phase, Is.EqualTo(EnemySummonBehaviorPhase.Recover));
             Assert.That(state.recoverEndTickExclusive, Is.GreaterThan(1));
             Assert.That(GetSummonedChildren(worldState), Is.Empty);
             AssertNoSummonCandidateGhostOccupancy(worldState);
@@ -440,7 +441,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_GeneratedMoonBlockSolidOnSamePlanarOtherFaceDoesNotAffectSummonPlacement()
+        public void MigratedSummon_JPeterProfile_GeneratedMoonBlockSolidOnSamePlanarOtherFaceDoesNotAffectSummonPlacement()
         {
             var forwardCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var otherFaceCell = new SurfaceCell(FaceId.Front, 1, 0);
@@ -462,7 +463,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_BlockedSummonDoesNotCreateGhostEntityOrOccupancy()
+        public void MigratedSummon_JPeterProfile_BlockedSummonDoesNotCreateGhostEntityOrOccupancy()
         {
             var worldState = CreateFullyBlockedSummonWorld();
 
@@ -477,14 +478,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyUtility_JPeterProfile_BlockedSummonStillCompletesOrRecoversAccordingToCurrentPolicy()
+        public void MigratedSummon_JPeterProfile_BlockedSummonStillCompletesOrRecoversAccordingToCurrentPolicy()
         {
             var worldState = CreateFullyBlockedSummonWorld();
 
             CreatePipeline(worldState).RunTick(new TickInput(1));
             var state = GetUtilityEffectState(worldState);
 
-            Assert.That(state.phase, Is.EqualTo(EnemyUtilityEffectPhase.Recover), "CurrentPolicy: blocked summon execution enters Recover instead of staying in Windup.");
+            Assert.That(state.phase, Is.EqualTo(EnemySummonBehaviorPhase.Recover), "CurrentPolicy: blocked summon execution enters Recover instead of staying in Windup.");
             Assert.That(state.recoverEndTickExclusive, Is.GreaterThan(1));
             Assert.That(GetSummonedChildren(worldState), Is.Empty);
             AssertNoSummonCandidateGhostOccupancy(worldState);
@@ -517,9 +518,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(GetSummonedChildren(worldState), Is.Empty);
             Assert.That(tick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
-            if (worldState.CreateSnapshot().TryGetEnemyUtilityState(EnemyId, out var utilityState))
+            if (worldState.CreateSnapshot().TryGetEnemySummonBehaviorState(EnemyId, out var summonState))
             {
-                Assert.That(utilityState.EffectStates[0].phase, Is.EqualTo(EnemyUtilityEffectPhase.None));
+                Assert.That(summonState.phase, Is.EqualTo(EnemySummonBehaviorPhase.None));
             }
         }
 
@@ -582,42 +583,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static void SeedReadyUtilityState(WorldState worldState)
         {
-            worldState.CreateWriteContext().SetEnemyUtilityState(
+            worldState.CreateWriteContext().SetEnemySummonBehaviorState(
                 EnemyId,
-                new EnemyUtilityRuntimeState(
-                    new[]
-                    {
-                        new EnemyUtilityEffectState
-                        {
-                            effectKind = EnemyUtilityEffectKind.SummonMinion,
-                            cooldownTicksRemaining = 0,
-                        },
-                    }));
+                new EnemySummonBehaviorRuntimeState
+                {
+                    cooldownTicksRemaining = 0,
+                });
         }
 
         private static void SeedWindupUtilityState(WorldState worldState, int windupEndTick)
         {
-            worldState.CreateWriteContext().SetEnemyUtilityState(
+            worldState.CreateWriteContext().SetEnemySummonBehaviorState(
                 EnemyId,
-                new EnemyUtilityRuntimeState(
-                    new[]
-                    {
-                        new EnemyUtilityEffectState
-                        {
-                            effectKind = EnemyUtilityEffectKind.SummonMinion,
-                            phase = EnemyUtilityEffectPhase.Windup,
-                            windupStartTick = 0,
-                            windupEndTick = windupEndTick,
-                            activationSequence = 1,
-                        },
-                    }));
+                new EnemySummonBehaviorRuntimeState
+                {
+                    phase = EnemySummonBehaviorPhase.Windup,
+                    windupStartTick = 0,
+                    windupEndTick = windupEndTick,
+                    activationSequence = 1,
+                });
         }
 
-        private static EnemyUtilityEffectState GetUtilityEffectState(WorldState worldState)
+        private static EnemySummonBehaviorRuntimeState GetUtilityEffectState(WorldState worldState)
         {
-            Assert.That(worldState.CreateSnapshot().TryGetEnemyUtilityState(EnemyId, out var state), Is.True);
-            Assert.That(state.EffectStates, Has.Count.EqualTo(1));
-            return state.EffectStates[0];
+            Assert.That(worldState.CreateSnapshot().TryGetEnemySummonBehaviorState(EnemyId, out var state), Is.True);
+            return state;
         }
 
         private static IReadOnlyList<EntityState> GetSummonedChildren(WorldState worldState)

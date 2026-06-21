@@ -625,11 +625,13 @@ namespace Game.Feature.Gameplay.Loop
 
             var preMovementBatch = new FinalizationBatch();
             var utilityTriggerIntents = new List<EnemyUtilityTriggerIntent>();
+            var summonBehaviorTriggerIntents = new List<EnemySummonBehaviorTriggerIntent>();
             var preMovementContext = new RecordingFinalizationContext(
                 preMovementBatch,
                 snapshotAfterEnemyAi,
                 TickPhase.Plan,
-                utilityTriggerIntents);
+                utilityTriggerIntents,
+                summonBehaviorTriggerIntents);
             var preMovementStateResult = RunPreMovementStatePhase(
                 entityLogicsForTick.PreMovementStateLogics,
                 snapshotAfterEnemyAi,
@@ -645,6 +647,8 @@ namespace Game.Feature.Gameplay.Loop
             }
             utilityTriggerIntents.Sort(EnemyUtilityTriggerIntentComparer.Instance);
             preMovementStateResult.UtilityTriggerIntents.AddRange(utilityTriggerIntents);
+            summonBehaviorTriggerIntents.Sort(EnemySummonBehaviorTriggerIntentComparer.Instance);
+            preMovementStateResult.SummonBehaviorTriggerIntents.AddRange(summonBehaviorTriggerIntents);
             planFinalizationBatch.MergeFrom(preMovementBatch);
             CaptureTopologyActivationPreviousSnapshot(
                 ref topologyActivationPreviousSnapshot,
@@ -1372,6 +1376,7 @@ namespace Game.Feature.Gameplay.Loop
             var utilityResolveResult = EnemyUtilityResolver.ResolvePostAttackEffects(
                 projectedWorld.CreateSnapshot(ProjectedWorldSnapshotReason.ResolvePostAttack),
                 planPhaseResult.PreMovementStatePhaseResult.UtilityTriggerIntents,
+                planPhaseResult.PreMovementStatePhaseResult.SummonBehaviorTriggerIntents,
                 tickIndex,
                 _entityIdAllocator,
                 _enemySpawnDefaultsByArchetypeId,

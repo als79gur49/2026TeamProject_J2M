@@ -254,7 +254,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
                 new CubeTopologyState(FaceId.Floor));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var pipeline = CreateEnemyAwareTickPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(1));
 
@@ -290,12 +290,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     direction: Direction.Up,
                     startTick: 0,
                     executeTick: 1));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+            var pipeline = CreateEnemyAwareTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
                     new PlayerLogic(10),
-                });
+                },
+                includeCombatCapability: true);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
@@ -329,6 +330,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CubeTopologyState topology)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, topology);
+        }
+
+        private static TickPipeline CreateEnemyAwareTickPipeline(
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics = null,
+            bool includeCombatCapability = false)
+        {
+            var profile = includeCombatCapability
+                ? EnemyAiProfileTestFactory.CreateWindupForwardCellProjectile()
+                : EnemyAiProfileTestFactory.CreateNonAttacking();
+            try
+            {
+                return GameplayCompositionRoot.CreateDefaultBootstrapper(profile)
+                    .CreateTickPipeline(worldState, entityLogics ?? Array.Empty<IEntityLogic>());
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
         }
 
         private static EnemyActionRuntimeState CreateEnemyActionState(

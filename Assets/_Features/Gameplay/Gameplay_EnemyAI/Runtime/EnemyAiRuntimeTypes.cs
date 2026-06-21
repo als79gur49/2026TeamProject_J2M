@@ -83,9 +83,15 @@ namespace Game.Feature.Gameplay.Entities
         RetiredFrontFaceSupport = 4,
     }
 
+    public enum EnemyBehaviorModuleKey
+    {
+        Charge = 1,
+        Summon = 2,
+    }
+
     public enum EnemyUtilityEffectKind
     {
-        SummonMinion = 0,
+        RetiredSummonMinion = 0,
         RetiredLockNearbyBoxes = 1,
         GravityFieldAura = 2,
     }
@@ -107,21 +113,9 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyCoreRuntime(
             EnemyAiCommonSettings commonSettings,
             EnemyLocomotionTimingSettings locomotionTimingSettings)
-            : this(
-                commonSettings,
-                locomotionTimingSettings,
-                EnemyChargeTimingSettings.CreateDefault())
-        {
-        }
-
-        public EnemyCoreRuntime(
-            EnemyAiCommonSettings commonSettings,
-            EnemyLocomotionTimingSettings locomotionTimingSettings,
-            EnemyChargeTimingSettings chargeTimingSettings)
         {
             CommonSettings = commonSettings;
             LocomotionTimingSettings = locomotionTimingSettings;
-            ChargeTimingSettings = chargeTimingSettings;
             Validate(nameof(EnemyCoreRuntime));
         }
 
@@ -129,13 +123,10 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyLocomotionTimingSettings LocomotionTimingSettings { get; }
 
-        public EnemyChargeTimingSettings ChargeTimingSettings { get; }
-
         public void Validate(string paramName)
         {
             CommonSettings.Validate(paramName);
             LocomotionTimingSettings.Validate(paramName);
-            ChargeTimingSettings.Validate(paramName);
         }
     }
 
@@ -683,132 +674,6 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    public readonly struct SummonMinionRuntime
-    {
-        public SummonMinionRuntime(
-            int spawnCountPerTrigger,
-            SummonCandidatePattern candidatePattern,
-            bool requireNoUnitAtSpawnCell,
-            bool requireNoSolidAtSpawnCell,
-            int maxAliveChildren,
-            EnemyUnitArchetypeId summonedArchetypeId,
-            bool overrideHp = false,
-            int hpOverride = 1,
-            int windupTicks = 1,
-            bool suppressMovementDuringWindup = false,
-            int recoveryTicks = 0,
-            bool suppressMovementDuringRecover = false)
-        {
-            SpawnCountPerTrigger = spawnCountPerTrigger;
-            CandidatePattern = candidatePattern;
-            RequireNoUnitAtSpawnCell = requireNoUnitAtSpawnCell;
-            RequireNoSolidAtSpawnCell = requireNoSolidAtSpawnCell;
-            MaxAliveChildren = maxAliveChildren;
-            SummonedArchetypeId = summonedArchetypeId;
-            OverrideHp = overrideHp;
-            HpOverride = hpOverride;
-            WindupTicks = windupTicks;
-            SuppressMovementDuringWindup = suppressMovementDuringWindup;
-            RecoveryTicks = recoveryTicks;
-            SuppressMovementDuringRecover = suppressMovementDuringRecover;
-            Validate(nameof(SummonMinionRuntime));
-        }
-
-        public int SpawnCountPerTrigger { get; }
-
-        public SummonCandidatePattern CandidatePattern { get; }
-
-        public bool RequireNoUnitAtSpawnCell { get; }
-
-        public bool RequireNoSolidAtSpawnCell { get; }
-
-        public int MaxAliveChildren { get; }
-
-        public EnemyUnitArchetypeId SummonedArchetypeId { get; }
-
-        public bool OverrideHp { get; }
-
-        public int HpOverride { get; }
-
-        public int WindupTicks { get; }
-
-        public bool SuppressMovementDuringWindup { get; }
-
-        public int RecoveryTicks { get; }
-
-        public bool SuppressMovementDuringRecover { get; }
-
-        public void Validate(string paramName)
-        {
-            if (SpawnCountPerTrigger <= 0)
-            {
-                throw new ArgumentException("Summon minion runtime requires a positive spawn count.", paramName);
-            }
-
-            if (MaxAliveChildren <= 0)
-            {
-                throw new ArgumentException("Summon minion runtime requires a positive max alive child count.", paramName);
-            }
-
-            SummonedArchetypeId.Validate(paramName);
-            if (OverrideHp && HpOverride <= 0)
-            {
-                throw new ArgumentException("Summon minion runtime HP override must be positive when enabled.", paramName);
-            }
-
-            if (WindupTicks <= 0)
-            {
-                throw new ArgumentException("Summon minion runtime requires a positive windup duration.", paramName);
-            }
-
-            if (RecoveryTicks < 0)
-            {
-                throw new ArgumentException("Summon minion runtime requires a non-negative recovery duration.", paramName);
-            }
-        }
-    }
-
-    internal static class EnemyUtilitySummonPolicy
-    {
-        public static bool IsMaxAliveReached(
-            WorldSnapshot snapshot,
-            IReadOnlyList<SummonedEntitySnapshotEntry> summonedEntries,
-            int sourceEntityId,
-            int effectIndex,
-            in SummonMinionRuntime summonRuntime,
-            int plannedChildren = 0)
-        {
-            return CountAliveChildren(snapshot, summonedEntries, sourceEntityId, effectIndex) + plannedChildren >=
-                   summonRuntime.MaxAliveChildren;
-        }
-
-        public static int CountAliveChildren(
-            WorldSnapshot snapshot,
-            IReadOnlyList<SummonedEntitySnapshotEntry> summonedEntries,
-            int sourceEntityId,
-            int effectIndex)
-        {
-            var aliveCount = 0;
-            for (var i = 0; i < summonedEntries.Count; i++)
-            {
-                var entry = summonedEntries[i];
-                if (entry.State.SourceEntityId != sourceEntityId ||
-                    entry.State.SourceEffectIndex != effectIndex ||
-                    !snapshot.TryGetEntity(entry.EntityId, out var child) ||
-                    child.hp <= 0 ||
-                    child.markedForDeath ||
-                    child.boardPresence != EntityBoardPresence.Occupying)
-                {
-                    continue;
-                }
-
-                aliveCount++;
-            }
-
-            return aliveCount;
-        }
-    }
-
     public readonly struct EnemyGravityFieldAuraRuntime
     {
         public EnemyGravityFieldAuraRuntime(
@@ -891,13 +756,11 @@ namespace Game.Feature.Gameplay.Entities
             EnemyUtilityEffectKind kind,
             int initialDelayTicks,
             int cooldownTicks,
-            SummonMinionRuntime summon = default,
             EnemyGravityFieldAuraRuntime gravityFieldAura = default)
         {
             Kind = kind;
             InitialDelayTicks = initialDelayTicks;
             CooldownTicks = cooldownTicks;
-            Summon = summon;
             GravityFieldAura = gravityFieldAura;
             Validate(nameof(EnemyUtilityEffectRuntime));
         }
@@ -907,8 +770,6 @@ namespace Game.Feature.Gameplay.Entities
         public int InitialDelayTicks { get; }
 
         public int CooldownTicks { get; }
-
-        public SummonMinionRuntime Summon { get; }
 
         public EnemyGravityFieldAuraRuntime GravityFieldAura { get; }
 
@@ -926,9 +787,10 @@ namespace Game.Feature.Gameplay.Entities
 
             switch (Kind)
             {
-                case EnemyUtilityEffectKind.SummonMinion:
-                    Summon.Validate(paramName);
-                    break;
+                case EnemyUtilityEffectKind.RetiredSummonMinion:
+                    throw new ArgumentException(
+                        "Utility Summon is retired; use EnemySummonBehaviorModuleAsset.",
+                        paramName);
 
                 case EnemyUtilityEffectKind.GravityFieldAura:
                     GravityFieldAura.Validate(paramName);
@@ -1041,6 +903,167 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    public readonly struct EnemyBehaviorModuleCompileContext
+    {
+        public EnemyBehaviorModuleCompileContext(
+            string profileName,
+            int simulationTicksPerSecond)
+        {
+            ProfileName = profileName ?? string.Empty;
+            SimulationTicksPerSecond = simulationTicksPerSecond;
+            Validate(nameof(EnemyBehaviorModuleCompileContext));
+        }
+
+        public string ProfileName { get; }
+
+        public int SimulationTicksPerSecond { get; }
+
+        public void Validate(string paramName)
+        {
+            if (SimulationTicksPerSecond <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(SimulationTicksPerSecond),
+                    "Simulation tick rate must be greater than zero.");
+            }
+        }
+    }
+
+    public abstract class EnemyBehaviorModuleRuntime
+    {
+        protected EnemyBehaviorModuleRuntime(EnemyBehaviorModuleKey key)
+        {
+            Key = key;
+        }
+
+        public EnemyBehaviorModuleKey Key { get; }
+
+        public virtual void Validate(string paramName)
+        {
+            if (!Enum.IsDefined(typeof(EnemyBehaviorModuleKey), Key))
+            {
+                throw new ArgumentException("Enemy behavior module runtime requires a valid key.", paramName);
+            }
+        }
+    }
+
+    public sealed class EnemyChargeBehaviorRuntime : EnemyBehaviorModuleRuntime
+    {
+        public EnemyChargeBehaviorRuntime(EnemyChargeTimingSettings timing)
+            : base(EnemyBehaviorModuleKey.Charge)
+        {
+            Timing = timing;
+            Validate(nameof(EnemyChargeBehaviorRuntime));
+        }
+
+        public EnemyChargeTimingSettings Timing { get; }
+
+        public override void Validate(string paramName)
+        {
+            base.Validate(paramName);
+            Timing.Validate(paramName);
+        }
+    }
+
+    public sealed class EnemySummonBehaviorRuntime : EnemyBehaviorModuleRuntime
+    {
+        public EnemySummonBehaviorRuntime(
+            int initialDelayTicks,
+            int cooldownTicks,
+            EnemySummonCompiledConfig summon)
+            : base(EnemyBehaviorModuleKey.Summon)
+        {
+            InitialDelayTicks = initialDelayTicks;
+            CooldownTicks = cooldownTicks;
+            Summon = summon;
+            Validate(nameof(EnemySummonBehaviorRuntime));
+        }
+
+        public int InitialDelayTicks { get; }
+
+        public int CooldownTicks { get; }
+
+        public EnemySummonCompiledConfig Summon { get; }
+
+        public int SpawnCountPerTrigger => Summon.SpawnCountPerTrigger;
+
+        public SummonCandidatePattern CandidatePattern => Summon.CandidatePattern;
+
+        public bool RequireNoUnitAtSpawnCell => Summon.RequireNoUnitAtSpawnCell;
+
+        public bool RequireNoSolidAtSpawnCell => Summon.RequireNoSolidAtSpawnCell;
+
+        public int MaxAliveChildren => Summon.MaxAliveChildren;
+
+        public EnemyUnitArchetypeId SummonedArchetypeId => Summon.SummonedArchetypeId;
+
+        public bool OverrideHp => Summon.OverrideHp;
+
+        public int HpOverride => Summon.HpOverride;
+
+        public int WindupTicks => Summon.WindupTicks;
+
+        public bool SuppressMovementDuringWindup => Summon.SuppressMovementDuringWindup;
+
+        public int RecoveryTicks => Summon.RecoveryTicks;
+
+        public bool SuppressMovementDuringRecover => Summon.SuppressMovementDuringRecover;
+
+        public override void Validate(string paramName)
+        {
+            base.Validate(paramName);
+            if (InitialDelayTicks < 0)
+            {
+                throw new ArgumentException("Enemy summon behavior runtime requires a non-negative initial delay.", paramName);
+            }
+
+            if (CooldownTicks <= 0)
+            {
+                throw new ArgumentException("Enemy summon behavior runtime requires a positive cooldown.", paramName);
+            }
+
+            Summon.Validate(paramName);
+        }
+    }
+
+    public readonly struct EnemyBehaviorRuntimeSet
+    {
+        public EnemyBehaviorRuntimeSet(
+            EnemyChargeBehaviorRuntime charge,
+            EnemySummonBehaviorRuntime summon = null)
+        {
+            Charge = charge;
+            Summon = summon;
+            Validate(nameof(EnemyBehaviorRuntimeSet));
+        }
+
+        public EnemyChargeBehaviorRuntime Charge { get; }
+
+        public EnemySummonBehaviorRuntime Summon { get; }
+
+        public bool HasCharge => Charge != null;
+
+        public bool HasSummon => Summon != null;
+
+        public bool TryGetCharge(out EnemyChargeBehaviorRuntime charge)
+        {
+            charge = Charge;
+            return charge != null;
+        }
+
+        public bool TryGetSummon(out EnemySummonBehaviorRuntime summon)
+        {
+            summon = Summon;
+            return summon != null;
+        }
+
+        public void Validate(string paramName)
+        {
+            Charge?.Validate(paramName);
+            Summon?.Validate(paramName);
+        }
+    }
+
     public struct EnemyUtilityEffectState
     {
         public EnemyUtilityEffectKind effectKind;
@@ -1063,6 +1086,38 @@ namespace Game.Feature.Gameplay.Entities
         Windup = 1,
         Recover = 2,
         Active = 3,
+    }
+
+    public enum EnemySummonBehaviorPhase
+    {
+        None = 0,
+        Windup = 1,
+        Recover = 2,
+    }
+
+    public struct EnemySummonBehaviorRuntimeState
+    {
+        public int cooldownTicksRemaining;
+        public EnemySummonBehaviorPhase phase;
+        public int windupStartTick;
+        public int windupEndTick;
+        public int recoverStartTick;
+        public int recoverEndTickExclusive;
+        public int activationSequence;
+        public int movementSuppressionUntilTickInclusive;
+    }
+
+    public readonly struct EnemySummonBehaviorSnapshotEntry
+    {
+        public EnemySummonBehaviorSnapshotEntry(int entityId, EnemySummonBehaviorRuntimeState state)
+        {
+            EntityId = entityId;
+            State = state;
+        }
+
+        public int EntityId { get; }
+
+        public EnemySummonBehaviorRuntimeState State { get; }
     }
 
     public sealed class EnemyUtilityRuntimeState
@@ -1261,6 +1316,63 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyUtilityEffectRuntime EffectRuntime { get; }
 
         public SurfaceCell OriginCell { get; }
+    }
+
+    internal readonly struct EnemySummonBehaviorTriggerIntent
+    {
+        public EnemySummonBehaviorTriggerIntent(
+            int sourceEntityId,
+            int sourceEffectIndex,
+            int triggerTick,
+            SurfaceCell originCell,
+            Direction sourceFacing,
+            int sourceTeamId,
+            EnemySummonCompiledConfig summon)
+        {
+            SourceEntityId = sourceEntityId;
+            SourceEffectIndex = sourceEffectIndex;
+            TriggerTick = triggerTick;
+            OriginCell = originCell;
+            SourceFacing = sourceFacing;
+            SourceTeamId = sourceTeamId;
+            Summon = summon;
+        }
+
+        public int SourceEntityId { get; }
+
+        public int SourceEffectIndex { get; }
+
+        public int TriggerTick { get; }
+
+        public SurfaceCell OriginCell { get; }
+
+        public Direction SourceFacing { get; }
+
+        public int SourceTeamId { get; }
+
+        public EnemySummonCompiledConfig Summon { get; }
+    }
+
+    internal sealed class EnemySummonBehaviorTriggerIntentComparer : IComparer<EnemySummonBehaviorTriggerIntent>
+    {
+        public static readonly EnemySummonBehaviorTriggerIntentComparer Instance = new();
+
+        public int Compare(EnemySummonBehaviorTriggerIntent left, EnemySummonBehaviorTriggerIntent right)
+        {
+            var sourceComparison = left.SourceEntityId.CompareTo(right.SourceEntityId);
+            if (sourceComparison != 0)
+            {
+                return sourceComparison;
+            }
+
+            var effectComparison = left.SourceEffectIndex.CompareTo(right.SourceEffectIndex);
+            if (effectComparison != 0)
+            {
+                return effectComparison;
+            }
+
+            return left.TriggerTick.CompareTo(right.TriggerTick);
+        }
     }
 
     internal sealed class EnemyUtilityTriggerIntentComparer : IComparer<EnemyUtilityTriggerIntent>

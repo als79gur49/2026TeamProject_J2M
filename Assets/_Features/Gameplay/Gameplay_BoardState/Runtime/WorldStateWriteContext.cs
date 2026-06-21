@@ -93,6 +93,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetEnemyUtilityState(entityId, state);
         }
 
+        public void SetEnemySummonBehaviorState(int entityId, EnemySummonBehaviorRuntimeState state)
+        {
+            _port.SetEnemySummonBehaviorState(entityId, state);
+        }
+
         public void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)
         {
             _port.SetBoxInteractionLockState(entityId, state);
@@ -219,6 +224,10 @@ namespace Game.Feature.Gameplay.BoardState
         }
 
         public void EmitEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent)
+        {
+        }
+
+        public void EmitEnemySummonBehaviorTriggerIntent(EnemySummonBehaviorTriggerIntent intent)
         {
         }
     }

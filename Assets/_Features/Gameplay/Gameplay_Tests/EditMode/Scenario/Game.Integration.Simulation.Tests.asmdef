@@ -3,8 +3,11 @@
   "rootNamespace": "Game.Feature.Gameplay.Tests.Scenario",
   "references": [
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.EnemyAudio",
     "Game.Feature.Gameplay.EnemyPresentation",
+    "Game.Feature.Gameplay.PresentationVfx.Contracts",
     "Game.Feature.Gameplay.Tests",
+    "Game.Feature.Gameplay.Vfx",
     "Game.Feature.Gameplay.Host",
     "Game.Feature.Stages"
   ],

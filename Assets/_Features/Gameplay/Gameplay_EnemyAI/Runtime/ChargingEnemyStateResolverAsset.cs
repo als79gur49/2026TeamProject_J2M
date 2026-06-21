@@ -7,6 +7,8 @@ namespace Game.Feature.Gameplay.Entities
     {
         public override EnemyAiStateResolverKind Kind => EnemyAiStateResolverKind.Charge;
 
+        public override bool RequiresChargeBehavior => true;
+
         protected override IEnemyAiStateResolver ResolveResolver()
         {
             return ChargingEnemyAiStateResolver.Instance;

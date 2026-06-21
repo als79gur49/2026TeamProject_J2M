@@ -1104,7 +1104,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void TopologyTransitionCompletion_FilterPersistentOnly_RejectsActionImpactProjectile()
         {
-            var action = CreatePersistentRequest(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup), VfxAnchorKind.Entity);
+            var action = CreatePersistentRequest(GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning), VfxAnchorKind.Entity);
             var impact = CreatePersistentRequest(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak), VfxAnchorKind.Cell);
             var projectile = CreatePersistentRequest(GameplayVfxCueId.From(ProjectileVfxCue.ForwardCellProjectileFlight), VfxAnchorKind.Cell);
 
@@ -1118,7 +1118,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void TopologyTransitionCompletion_AllowsSteadyStatePersistentLoopsOnly()
         {
             var steadyLoop = CreateTileFeatureLoopRequest();
-            var action = CreatePersistentRequest(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup), VfxAnchorKind.Entity);
+            var action = CreatePersistentRequest(GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning), VfxAnchorKind.Entity);
 
             var filtered = FilterPersistentOnly(new GameplayVfxRequestPlan(new[] { steadyLoop, action }));
 
@@ -1134,7 +1134,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var pool = new FakeVfxPool();
             var registry = new VfxPersistentHandleRegistry();
             var controller = CreateController(pool, registry);
-            var action = CreatePersistentRequest(GameplayVfxCueId.From(EnemyVfxCue.UtilityWindup), VfxAnchorKind.Entity);
+            var action = CreatePersistentRequest(GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning), VfxAnchorKind.Entity);
             var filtered = FilterPersistentOnly(new GameplayVfxRequestPlan(new[] { action }));
 
             controller.Refresh(filtered, GameplayVfxRefreshOptions.TopologyTransitionCompletion());

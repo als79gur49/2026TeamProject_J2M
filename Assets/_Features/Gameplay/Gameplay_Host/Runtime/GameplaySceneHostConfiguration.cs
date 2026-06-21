@@ -575,33 +575,24 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId,
             string definitionLabel)
         {
-            if (!definition.Capabilities.TryGetUtility(out var utility))
+            if (!definition.TryGetSummonBehavior(out var summon))
             {
                 return;
             }
 
-            for (var effectIndex = 0; effectIndex < utility.Effects.Count; effectIndex++)
+            var archetypeId = summon.SummonedArchetypeId;
+            if (definitionsByArchetypeId == null ||
+                !definitionsByArchetypeId.ContainsKey(archetypeId))
             {
-                var effect = utility.Effects[effectIndex];
-                if (effect.Kind != EnemyUtilityEffectKind.SummonMinion)
-                {
-                    continue;
-                }
+                throw new InvalidOperationException(
+                    $"{definitionLabel} references missing enemy unit archetype definition '{archetypeId}' at behavior module '{EnemyBehaviorModuleKey.Summon}'.");
+            }
 
-                var archetypeId = effect.Summon.SummonedArchetypeId;
-                if (definitionsByArchetypeId == null ||
-                    !definitionsByArchetypeId.ContainsKey(archetypeId))
-                {
-                    throw new InvalidOperationException(
-                        $"{definitionLabel} references missing enemy unit archetype definition '{archetypeId}' at utility effect index {effectIndex}.");
-                }
-
-                if (spawnDefaultsByArchetypeId == null ||
-                    !spawnDefaultsByArchetypeId.ContainsKey(archetypeId))
-                {
-                    throw new InvalidOperationException(
-                        $"{definitionLabel} references missing enemy unit spawn defaults '{archetypeId}' at utility effect index {effectIndex}.");
-                }
+            if (spawnDefaultsByArchetypeId == null ||
+                !spawnDefaultsByArchetypeId.ContainsKey(archetypeId))
+            {
+                throw new InvalidOperationException(
+                    $"{definitionLabel} references missing enemy unit spawn defaults '{archetypeId}' at behavior module '{EnemyBehaviorModuleKey.Summon}'.");
             }
         }
 
@@ -650,24 +641,15 @@ namespace Game.Feature.Gameplay.Host
             ISet<EnemyUnitArchetypeId> seenReferences,
             List<EnemyUnitArchetypeId> orderedReferences)
         {
-            if (!definition.Capabilities.TryGetUtility(out var utility))
+            if (!definition.TryGetSummonBehavior(out var summon))
             {
                 return;
             }
 
-            for (var effectIndex = 0; effectIndex < utility.Effects.Count; effectIndex++)
+            var archetypeId = summon.SummonedArchetypeId;
+            if (seenReferences.Add(archetypeId))
             {
-                var effect = utility.Effects[effectIndex];
-                if (effect.Kind != EnemyUtilityEffectKind.SummonMinion)
-                {
-                    continue;
-                }
-
-                var archetypeId = effect.Summon.SummonedArchetypeId;
-                if (seenReferences.Add(archetypeId))
-                {
-                    orderedReferences.Add(archetypeId);
-                }
+                orderedReferences.Add(archetypeId);
             }
         }
     }

@@ -1456,17 +1456,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_EnemyUtilitySummonScenario_ProducesStablePerTickHashTraceAndSummonMetadata",
-      "category": "Core",
-      "contracts": [
-        "semantic_metadata",
-        "tick_replay_determinism_contract"
-      ],
-      "reason": "Locked Core coverage for semantic_metadata in TickReplayDeterminismTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_CompilesSummonEffectAndTicks",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_RetiredSummonMinionFailsFast",
       "category": "Core",
       "contracts": [
         "enemy_logic_contract"
@@ -3352,14 +3342,14 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyProfileContractReplayTests.Replay_JPeterUtilitySummonProfile_SummonedMetadataAndPlacementRemainDeterministic",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyProfileContractReplayTests.Replay_MigratedSummonProfile_SummonedMetadataAndPlacementRemainDeterministic",
       "category": "Core",
       "contracts": [
         "determinism",
         "summon_minion",
         "enemy_profile_asset_contract"
       ],
-      "reason": "Locked Core replay coverage that the JPeter-bound ArchetypeSummoner profile keeps summoned metadata, source binding, and placement deterministic.",
+      "reason": "Locked Core replay coverage that the migrated ArchetypeSummoner profile keeps summoned metadata, source binding, and placement deterministic.",
       "locked": true
     },
     {

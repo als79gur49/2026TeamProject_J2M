@@ -1,8 +1,8 @@
 # Enemy AI Naming Guidelines
 
 This document is the architecture policy for future Enemy AI profile, core,
-brain, capability, view, animator, presentation, test, and documentation rename
-work. It is not refactor history.
+brain, capability, behavior-module, view, animator, presentation, test, and
+documentation rename work. It is not refactor history.
 
 Enemy AI authoritative behavior follows:
 
@@ -16,6 +16,7 @@ authoritative logic owners.
 Enemy naming is ownership-based, not string-unified.
 Profile/Core/Brain names describe gameplay behavior or archetype.
 Capability names describe reusable gameplay capability semantics.
+Behavior module names describe AI-mode-coupled stateful behavior execution.
 View prefab names describe visual archetypes.
 Animator names describe visual archetype plus optional motion set.
 Presentation IDs describe presentation identity.
@@ -29,9 +30,11 @@ animator motion set, and presentation binding identity into one shared string.
 | Surface | Rule | Example | Notes |
 | --- | --- | --- | --- |
 | Enemy profile | EnemyAi_<BehaviorOrArchetype> | EnemyAi_GravityFieldChaser | Gameplay behavior/archetype. Not visual identity. |
-| Core authoring | EnemyCore_<BehaviorOrTimingBundle> | EnemyCore_GravityFieldChaser | Core/common/timing bundle. Shared core may use shared semantic name. |
+| Core authoring | EnemyCore_<BehaviorOrLocomotionBundle> | EnemyCore_GravityFieldChaser | Core common/locomotion bundle. Shared core may use shared semantic name. |
 | Brain authoring | EnemyBrain_<BehaviorOrDecisionPattern> | EnemyBrain_GravityFieldChaser | Resolver/patrol/detection/chase decision bundle. |
 | Capability asset | EnemyCapability_<CapabilitySemantic> | EnemyCapability_GravityFieldAura | Reusable capability semantic. Not profile behavior. |
+| Behavior module asset | Enemy<Behavior>BehaviorModule_<Variant> | EnemyChargeBehaviorModule_Standard | AI-mode-coupled stateful execution module. Phase 1 uses Charge only. |
+| Behavior execution profile | Enemy<Behavior>ExecutionProfile_<Variant> | EnemyChargeExecutionProfile_Standard | Reusable behavior timing/execution data. Not a resolver asset. |
 | View prefab | EnemyView_<VisualArchetype> | EnemyView_DrSaturn | Visual identity. Not authoritative gameplay behavior. |
 | Animator controller | EnemyAnimator_<VisualArchetype>[_<MotionSet>] | EnemyAnimator_DrSaturn_GravityField | Visual-first; add motion set only when necessary. |
 | Presentation ID | visual identity key | dr_saturn | Catalog binding key. Not profile behavior. |
@@ -88,6 +91,21 @@ Capability folders:
 - Avoid stale folders such as `Capabilities/Enemy_LockNearbyBoxes` when active
   capability semantic is `GravityFieldAura`.
 
+Behavior module folders:
+
+- Prefer behavior semantic plus variant when the module is reusable:
+  - `BehaviorModules/Enemy_Charge/`
+- Keep execution-profile variants beside the behavior modules they configure.
+- Current production Charge content uses only `EnemyChargeExecutionProfile_Standard`
+  and `EnemyChargeBehaviorModule_Standard`.
+- Create new Charge variation assets only when a production profile needs them.
+  Use `EnemyChargeExecutionProfile_<VariantName>` and
+  `EnemyChargeBehaviorModule_<VariantName>` for those real variants.
+- Naming examples are examples only; do not pre-create unused variation assets as
+  placeholder production content.
+- Do not use behavior modules for Utility, Summon, or Shield before their owner
+  classification is complete.
+
 Presentation folders:
 
 - Prefer visual identity or presentation family.
@@ -104,6 +122,7 @@ High-risk examples:
 - `coreAuthoring`
 - `brainAuthoring`
 - `capabilityAssets`
+- `behaviorModuleAssets`
 - `kind`
 - `gravityFieldAura`
 - `presentationBindings`

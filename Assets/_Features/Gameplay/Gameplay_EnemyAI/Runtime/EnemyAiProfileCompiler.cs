@@ -38,7 +38,12 @@ namespace Game.Feature.Gameplay.Entities
             var core = profile.CoreAuthoring.Compile(simulationTicksPerSecond);
             var brain = profile.BrainAuthoring.Compile();
             var capabilities = CompileCapabilities(profile.name, profile.CapabilityAssets, simulationTicksPerSecond);
-            return new EnemyAiRuntimeDefinition(core, brain, capabilities);
+            var behaviors = CompileBehaviors(
+                profile.name,
+                profile.BehaviorModuleAssets,
+                simulationTicksPerSecond);
+            ValidateBehaviorRequirements(profile, behaviors);
+            return new EnemyAiRuntimeDefinition(core, brain, capabilities, behaviors);
         }
 
         private static EnemyCapabilityRuntimeSet CompileCapabilities(
@@ -132,6 +137,91 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return new EnemyCapabilityRuntimeSet(combat, movementSkill, passiveContact, utility);
+        }
+
+        private static EnemyBehaviorRuntimeSet CompileBehaviors(
+            string profileName,
+            IReadOnlyList<EnemyBehaviorModuleAsset> behaviorModuleAssets,
+            int simulationTicksPerSecond)
+        {
+            EnemyChargeBehaviorRuntime charge = null;
+            EnemySummonBehaviorRuntime summon = null;
+            string summonBehaviorModuleName = null;
+            var behaviorCount = behaviorModuleAssets?.Count ?? 0;
+            var context = new EnemyBehaviorModuleCompileContext(profileName, simulationTicksPerSecond);
+
+            for (var i = 0; i < behaviorCount; i++)
+            {
+                var behaviorAsset = behaviorModuleAssets[i];
+                if (behaviorAsset == null)
+                {
+                    throw new ArgumentException(
+                        $"Enemy AI profile '{profileName}' contains a null behavior module entry.",
+                        nameof(behaviorModuleAssets));
+                }
+
+                var runtime = behaviorAsset.Compile(context);
+                if (runtime == null)
+                {
+                    throw new ArgumentException(
+                        $"Enemy AI profile '{profileName}' behavior module '{behaviorAsset.name}' compiled a null runtime.",
+                        nameof(behaviorModuleAssets));
+                }
+
+                switch (runtime.Key)
+                {
+                    case EnemyBehaviorModuleKey.Charge:
+                        if (charge != null)
+                        {
+                            throw new ArgumentException(
+                                $"Enemy AI profile '{profileName}' declares multiple behavior modules with key '{EnemyBehaviorModuleKey.Charge}' ('{charge.GetType().Name}' and '{behaviorAsset.name}').",
+                                nameof(behaviorModuleAssets));
+                        }
+
+                        charge = runtime as EnemyChargeBehaviorRuntime
+                            ?? throw new ArgumentException(
+                                $"Enemy AI profile '{profileName}' compiled an invalid charge behavior module runtime from '{behaviorAsset.name}'.",
+                                nameof(behaviorModuleAssets));
+                        break;
+
+                    case EnemyBehaviorModuleKey.Summon:
+                        if (summon != null)
+                        {
+                            throw new ArgumentException(
+                                $"Enemy AI profile '{profileName}' declares multiple behavior modules with key '{EnemyBehaviorModuleKey.Summon}' ('{summonBehaviorModuleName}' and '{behaviorAsset.name}').",
+                                nameof(behaviorModuleAssets));
+                        }
+
+                        summon = runtime as EnemySummonBehaviorRuntime
+                            ?? throw new ArgumentException(
+                                $"Enemy AI profile '{profileName}' compiled an invalid summon behavior module runtime from '{behaviorAsset.name}'.",
+                                nameof(behaviorModuleAssets));
+                        summonBehaviorModuleName = behaviorAsset.name;
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException(
+                            nameof(runtime),
+                            runtime.Key,
+                            "Unknown enemy behavior module key.");
+                }
+            }
+
+            return new EnemyBehaviorRuntimeSet(charge, summon);
+        }
+
+        private static void ValidateBehaviorRequirements(
+            EnemyAiProfile profile,
+            in EnemyBehaviorRuntimeSet behaviors)
+        {
+            if (profile.BrainAuthoring.StateResolver != null &&
+                profile.BrainAuthoring.StateResolver.RequiresChargeBehavior &&
+                !behaviors.HasCharge)
+            {
+                throw new ArgumentException(
+                    $"Enemy AI profile '{profile.name}' uses charge resolver '{profile.BrainAuthoring.StateResolver.name}' but does not declare a '{EnemyBehaviorModuleKey.Charge}' behavior module.",
+                    nameof(profile));
+            }
         }
     }
 }

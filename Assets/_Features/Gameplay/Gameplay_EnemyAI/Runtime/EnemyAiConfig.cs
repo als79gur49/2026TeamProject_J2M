@@ -1011,10 +1011,20 @@ namespace Game.Feature.Gameplay.Entities
             EnemyCoreRuntime core,
             EnemyBrainRuntime brain,
             EnemyCapabilityRuntimeSet capabilities)
+            : this(core, brain, capabilities, default)
+        {
+        }
+
+        public EnemyAiRuntimeDefinition(
+            EnemyCoreRuntime core,
+            EnemyBrainRuntime brain,
+            EnemyCapabilityRuntimeSet capabilities,
+            EnemyBehaviorRuntimeSet behaviors)
         {
             Core = core;
             Brain = brain;
             Capabilities = capabilities;
+            Behaviors = behaviors;
             Validate(nameof(EnemyAiRuntimeDefinition));
         }
 
@@ -1095,7 +1105,7 @@ namespace Game.Feature.Gameplay.Entities
             IAttackDecisionStrategy attackDecisionStrategy,
             IEnemyAiStateResolver stateResolver)
             : this(
-                new EnemyCoreRuntime(commonSettings, locomotionTimingSettings, EnemyChargeTimingSettings.CreateDefault()),
+                new EnemyCoreRuntime(commonSettings, locomotionTimingSettings),
                 new EnemyBrainRuntime(
                     new EnemyStateResolverRuntime(ResolveStateResolverKind(stateResolver), stateResolver),
                     new EnemyPatrolRuntime(ResolvePatrolStrategyKind(patrolStrategy), patrolSettings, patrolStrategy),
@@ -1116,6 +1126,8 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyCapabilityRuntimeSet Capabilities { get; }
 
+        public EnemyBehaviorRuntimeSet Behaviors { get; }
+
         public EnemyAiCommonSettings CommonSettings => Core.CommonSettings;
 
         public PatrolSettings PatrolSettings => Brain.Patrol.Settings;
@@ -1133,8 +1145,6 @@ namespace Game.Feature.Gameplay.Entities
             : global::Game.Feature.Gameplay.Entities.EnemyAttackTimingSettings.CreateImmediate();
 
         public EnemyLocomotionTimingSettings LocomotionTimingSettings => Core.LocomotionTimingSettings;
-
-        public EnemyChargeTimingSettings ChargeTimingSettings => Core.ChargeTimingSettings;
 
         public MovementSkillStrategyKind MovementSkillStrategyKind => Capabilities.TryGetMovementSkill(out var movementSkill)
             ? movementSkill.Kind
@@ -1168,11 +1178,30 @@ namespace Game.Feature.Gameplay.Entities
 
         public IEnemyAiStateResolver StateResolver => Brain.StateResolver.Resolver;
 
+        public bool TryGetChargeBehavior(out EnemyChargeBehaviorRuntime charge)
+        {
+            return Behaviors.TryGetCharge(out charge);
+        }
+
+        public bool TryGetSummonBehavior(out EnemySummonBehaviorRuntime summon)
+        {
+            return Behaviors.TryGetSummon(out summon);
+        }
+
         public void Validate(string paramName)
         {
             Core.Validate(paramName);
             Brain.Validate(paramName);
             Capabilities.Validate(paramName);
+            Behaviors.Validate(paramName);
+
+            if (Brain.StateResolver.Kind == EnemyAiStateResolverKind.Charge &&
+                !Behaviors.HasCharge)
+            {
+                throw new ArgumentException(
+                    "Charge enemy AI runtime definitions require a charge behavior module runtime.",
+                    paramName);
+            }
         }
 
         internal static EnemyAiRuntimeDefinition CreateFromProfile(

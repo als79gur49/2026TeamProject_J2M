@@ -23,13 +23,14 @@ namespace Game.Feature.Gameplay.Entities
             EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
-            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions);
     }
 
     public sealed class EnemyLogic : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IMovementEntityDebugLogic, IAttackEntityLogic, IEntityLogicSourceBinding, ITileFeatureDefinitionContextReceiver
     {
+        private const int SummonBehaviorCompatibilitySourceEffectIndex = 0;
+
         private readonly struct GroundLocomotionResolution
         {
             public GroundLocomotionResolution(
@@ -59,7 +60,8 @@ namespace Game.Feature.Gameplay.Entities
         private readonly DetectionSettings _detectionSettings;
         private readonly ChaseSettings _chaseSettings;
         private readonly EnemyLocomotionTimingSettings _locomotionTimingSettings;
-        private readonly EnemyChargeTimingSettings _chargeTimingSettings;
+        private readonly EnemyChargeBehaviorRuntime _chargeBehavior;
+        private readonly EnemySummonBehaviorRuntime _summonBehavior;
         private readonly PatrolStrategyKind _patrolStrategyKind;
         private readonly IPatrolStrategy _patrolStrategy;
         private readonly IDetectionStrategy _detectionStrategy;
@@ -104,13 +106,21 @@ namespace Game.Feature.Gameplay.Entities
             _detectionSettings = aiDefinition.DetectionSettings;
             _chaseSettings = aiDefinition.ChaseSettings;
             _locomotionTimingSettings = aiDefinition.LocomotionTimingSettings;
-            _chargeTimingSettings = aiDefinition.ChargeTimingSettings;
             _patrolStrategyKind = aiDefinition.Brain.Patrol.Kind;
             _patrolStrategy = aiDefinition.PatrolStrategy;
             _detectionStrategy = aiDefinition.DetectionStrategy;
             _chaseStrategy = aiDefinition.ChaseStrategy;
             _stateResolver = aiDefinition.StateResolver;
             _usesChargeStateResolver = aiDefinition.Brain.StateResolver.Kind == EnemyAiStateResolverKind.Charge;
+            EnemyChargeBehaviorRuntime chargeBehavior = null;
+            if (_usesChargeStateResolver &&
+                !aiDefinition.TryGetChargeBehavior(out chargeBehavior))
+            {
+                throw new InvalidOperationException("Charge enemy logic requires a charge behavior runtime.");
+            }
+
+            _chargeBehavior = chargeBehavior;
+            aiDefinition.TryGetSummonBehavior(out _summonBehavior);
             aiDefinition.Capabilities.TryGetCombat(out _combatCapability);
             aiDefinition.Capabilities.TryGetMovementSkill(out _movementSkillCapability);
             aiDefinition.Capabilities.TryGetPassiveContact(out _passiveContactCapability);
@@ -118,6 +128,19 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         public int ControlledEntityId => _entityId;
+
+        private EnemyChargeTimingSettings ChargeTimingSettings
+        {
+            get
+            {
+                if (_chargeBehavior == null)
+                {
+                    throw new InvalidOperationException("Charge timing requires a charge behavior runtime.");
+                }
+
+                return _chargeBehavior.Timing;
+            }
+        }
 
         public void BindTileFeatureDefinitions(IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
@@ -173,9 +196,13 @@ namespace Game.Feature.Gameplay.Entities
                 _passiveContactCapability,
                 _movementSkillCapability,
                 _commonSettings,
-                _chargeTimingSettings,
                 _detectionSettings,
                 _tileFeatureDefinitions);
+
+            if (TryResolveImmediateChargeRecoverDecision(snapshot, source, decision, out var immediateChargeRecoverDecision))
+            {
+                decision = immediateChargeRecoverDecision;
+            }
 
             if (ShouldDeferChargeStartForOrdinaryKinematic(snapshot, source, decision, out var deferredPose))
             {
@@ -254,6 +281,12 @@ namespace Game.Feature.Gameplay.Entities
                     CancelEnemyUtilityWindups(currentUtilityState, writeContext, updates);
                 }
 
+                if (_summonBehavior != null &&
+                    snapshot.TryGetEnemySummonBehaviorState(_entityId, out var currentSummonBehaviorState))
+                {
+                    CancelEnemySummonBehaviorWindup(currentSummonBehaviorState, writeContext, updates);
+                }
+
                 return;
             }
 
@@ -267,6 +300,11 @@ namespace Game.Feature.Gameplay.Entities
                 if (_utilityCapability != null)
                 {
                     CommitEnemyUtilityState(snapshot, in input, source, writeContext, updates);
+                }
+
+                if (_summonBehavior != null)
+                {
+                    CommitEnemySummonBehaviorState(snapshot, in input, source, writeContext, updates);
                 }
 
                 return;
@@ -298,6 +336,11 @@ namespace Game.Feature.Gameplay.Entities
             if (_utilityCapability != null)
             {
                 CommitEnemyUtilityState(snapshot, in input, source, writeContext, updates);
+            }
+
+            if (_summonBehavior != null)
+            {
+                CommitEnemySummonBehaviorState(snapshot, in input, source, writeContext, updates);
             }
 
             if (!TryGetControllableEnemy(snapshot, out source))
@@ -595,6 +638,8 @@ namespace Game.Feature.Gameplay.Entities
                    ShouldSuppressMovementForGlide(snapshot) ||
                    ShouldSuppressMovementForUtility(snapshot, source, tickIndex) ||
                    ShouldSuppressMovementForImminentUtilityWindup(snapshot, source, tickIndex) ||
+                   ShouldSuppressMovementForSummonBehavior(snapshot, source, tickIndex) ||
+                   ShouldSuppressMovementForImminentSummonBehaviorWindup(snapshot, source, tickIndex) ||
                    ShouldSuppressMovementForCharge(snapshot);
         }
 
@@ -650,8 +695,6 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var utilityState = GetUtilityStateForStartPrediction(snapshot);
-            List<SummonedEntitySnapshotEntry> summonedEntries = null;
-            var hasEnumeratedSummonedEntries = false;
             for (var effectIndex = 0; effectIndex < _utilityCapability.Effects.Count; effectIndex++)
             {
                 var effectRuntime = _utilityCapability.Effects[effectIndex];
@@ -660,26 +703,6 @@ namespace Game.Feature.Gameplay.Entities
                 if (!CanStartDelayedUtilityWindupThisTick(effectRuntime, effectState))
                 {
                     continue;
-                }
-
-                if (effectRuntime.Kind == EnemyUtilityEffectKind.SummonMinion)
-                {
-                    summonedEntries ??= new List<SummonedEntitySnapshotEntry>();
-                    if (!hasEnumeratedSummonedEntries)
-                    {
-                        snapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
-                        hasEnumeratedSummonedEntries = true;
-                    }
-
-                    if (EnemyUtilitySummonPolicy.IsMaxAliveReached(
-                            snapshot,
-                            summonedEntries,
-                            source.entityId,
-                            effectIndex,
-                            effectRuntime.Summon))
-                    {
-                        continue;
-                    }
                 }
 
                 return true;
@@ -731,6 +754,71 @@ namespace Game.Feature.Gameplay.Entities
 
             var nextCooldownTicks = effectState.cooldownTicksRemaining > 0
                 ? Mathf.Max(0, effectState.cooldownTicksRemaining - 1)
+                : 0;
+            return nextCooldownTicks == 0;
+        }
+
+        private bool ShouldSuppressMovementForSummonBehavior(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int tickIndex)
+        {
+            if (_summonBehavior == null ||
+                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, source) ||
+                !snapshot.TryGetEnemySummonBehaviorState(_entityId, out var state))
+            {
+                return false;
+            }
+
+            return IsSummonBehaviorMovementSuppressionWindowActive(_summonBehavior, state, tickIndex);
+        }
+
+        private bool ShouldSuppressMovementForImminentSummonBehaviorWindup(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int tickIndex)
+        {
+            if (_summonBehavior == null ||
+                !_summonBehavior.SuppressMovementDuringWindup ||
+                !EnemyParticipationPolicy.IsControllableParticipant(snapshot, source))
+            {
+                return false;
+            }
+
+            var state = GetSummonBehaviorStateForStartPrediction(snapshot);
+            if (!CanStartDelayedSummonBehaviorWindupThisTick(state))
+            {
+                return false;
+            }
+
+            var summonedEntries = new List<SummonedEntitySnapshotEntry>();
+            snapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
+            return !EnemySummonChildLimitPolicy.IsMaxAliveReached(
+                snapshot,
+                summonedEntries,
+                source.entityId,
+                SummonBehaviorCompatibilitySourceEffectIndex,
+                _summonBehavior.Summon);
+        }
+
+        private EnemySummonBehaviorRuntimeState GetSummonBehaviorStateForStartPrediction(WorldSnapshot snapshot)
+        {
+            return snapshot.TryGetEnemySummonBehaviorState(_entityId, out var state)
+                ? state
+                : CreateInitialSummonBehaviorState(_summonBehavior);
+        }
+
+        private static bool CanStartDelayedSummonBehaviorWindupThisTick(
+            in EnemySummonBehaviorRuntimeState state)
+        {
+            if (state.phase != EnemySummonBehaviorPhase.None ||
+                state.movementSuppressionUntilTickInclusive > 0)
+            {
+                return false;
+            }
+
+            var nextCooldownTicks = state.cooldownTicksRemaining > 0
+                ? Mathf.Max(0, state.cooldownTicksRemaining - 1)
                 : 0;
             return nextCooldownTicks == 0;
         }
@@ -1229,6 +1317,329 @@ namespace Game.Feature.Gameplay.Entities
             return EnemyParticipationPolicy.IsControllableParticipant(snapshot, source);
         }
 
+        private void CommitEnemySummonBehaviorState(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            in EntityState source,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates)
+        {
+            var canParticipateOnCurrentTopology = EnemyParticipationPolicy.CanParticipateOnCurrentTopology(snapshot, source);
+            var isHardInvalidParticipant = EnemyParticipationPolicy.IsHardInvalidParticipant(source);
+            var isControllableParticipant = canParticipateOnCurrentTopology && !isHardInvalidParticipant;
+            var hasCurrentState = snapshot.TryGetEnemySummonBehaviorState(_entityId, out var currentState);
+            var initializedState = false;
+            if (!hasCurrentState && isControllableParticipant)
+            {
+                currentState = CreateInitialSummonBehaviorState(_summonBehavior);
+                hasCurrentState = true;
+                initializedState = true;
+                updates.Add($"EnemySummonBehaviorInitialized|E={_entityId}");
+            }
+
+            if (!hasCurrentState)
+            {
+                return;
+            }
+
+            if (!canParticipateOnCurrentTopology &&
+                !isHardInvalidParticipant)
+            {
+                SuspendEnemySummonBehaviorForTopologyParticipationLoss(currentState, writeContext, updates);
+                return;
+            }
+
+            if (isHardInvalidParticipant)
+            {
+                CancelEnemySummonBehaviorWindup(currentState, writeContext, updates);
+                return;
+            }
+
+            var previousState = currentState;
+            var nextState = previousState;
+            var triggered = false;
+            if (nextState.movementSuppressionUntilTickInclusive > 0 &&
+                input.TickIndex > nextState.movementSuppressionUntilTickInclusive)
+            {
+                nextState.movementSuppressionUntilTickInclusive = 0;
+            }
+
+            if (nextState.phase == EnemySummonBehaviorPhase.Recover)
+            {
+                AdvanceSummonBehaviorRecover(_summonBehavior, input.TickIndex, ref nextState);
+                if (!AreEqual(previousState, nextState))
+                {
+                    updates.Add(
+                        $"EnemySummonBehaviorRecoverUpdated|E={_entityId}|Phase={nextState.phase}|RecoverStart={nextState.recoverStartTick}|RecoverEnd={nextState.recoverEndTickExclusive}|Cooldown={nextState.cooldownTicksRemaining}");
+                }
+
+                WriteSummonBehaviorStateIfChanged(initializedState, previousState, nextState, writeContext);
+                return;
+            }
+
+            if (nextState.phase == EnemySummonBehaviorPhase.Windup)
+            {
+                if (input.TickIndex >= nextState.windupEndTick)
+                {
+                    triggered = true;
+                    EmitEnemySummonBehaviorTriggerIntent(writeContext, source, input.TickIndex);
+                    EnterSummonBehaviorRecoverOrClear(_summonBehavior, input.TickIndex, ref nextState);
+                    updates.Add(
+                        $"EnemySummonBehaviorWindupCommitted|E={_entityId}|Effect={SummonBehaviorCompatibilitySourceEffectIndex}|Sequence={nextState.activationSequence}|Tick={input.TickIndex}");
+                }
+            }
+            else
+            {
+                if (nextState.cooldownTicksRemaining > 0)
+                {
+                    nextState.cooldownTicksRemaining = Mathf.Max(0, nextState.cooldownTicksRemaining - 1);
+                }
+
+                if (nextState.cooldownTicksRemaining == 0)
+                {
+                    var summonedEntries = new List<SummonedEntitySnapshotEntry>();
+                    snapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
+                    if (!EnemySummonChildLimitPolicy.IsMaxAliveReached(
+                            snapshot,
+                            summonedEntries,
+                            source.entityId,
+                            SummonBehaviorCompatibilitySourceEffectIndex,
+                            _summonBehavior.Summon))
+                    {
+                        nextState.phase = EnemySummonBehaviorPhase.Windup;
+                        nextState.windupStartTick = input.TickIndex;
+                        nextState.windupEndTick = input.TickIndex + _summonBehavior.WindupTicks;
+                        nextState.recoverStartTick = 0;
+                        nextState.recoverEndTickExclusive = 0;
+                        nextState.activationSequence = Math.Max(0, nextState.activationSequence) + 1;
+                        if (_summonBehavior.SuppressMovementDuringWindup)
+                        {
+                            nextState.movementSuppressionUntilTickInclusive = nextState.windupEndTick;
+                        }
+
+                        updates.Add(
+                            $"EnemySummonBehaviorWindupStarted|E={_entityId}|Effect={SummonBehaviorCompatibilitySourceEffectIndex}|Sequence={nextState.activationSequence}|Start={nextState.windupStartTick}|End={nextState.windupEndTick}");
+                    }
+                }
+            }
+
+            if (!AreEqual(previousState, nextState))
+            {
+                updates.Add(
+                    $"EnemySummonBehaviorCooldownUpdated|E={_entityId}|Effect={SummonBehaviorCompatibilitySourceEffectIndex}|From={previousState.cooldownTicksRemaining}|To={nextState.cooldownTicksRemaining}|Triggered={(triggered ? 1 : 0)}");
+            }
+
+            WriteSummonBehaviorStateIfChanged(initializedState, previousState, nextState, writeContext);
+        }
+
+        private static EnemySummonBehaviorRuntimeState CreateInitialSummonBehaviorState(
+            EnemySummonBehaviorRuntime summonBehavior)
+        {
+            return new EnemySummonBehaviorRuntimeState
+            {
+                cooldownTicksRemaining = summonBehavior.InitialDelayTicks,
+            };
+        }
+
+        private void WriteSummonBehaviorStateIfChanged(
+            bool initializedState,
+            in EnemySummonBehaviorRuntimeState previousState,
+            in EnemySummonBehaviorRuntimeState nextState,
+            IPreMovementStateCommitContext writeContext)
+        {
+            if (initializedState || !AreEqual(previousState, nextState))
+            {
+                writeContext.SetEnemySummonBehaviorState(_entityId, nextState);
+            }
+        }
+
+        private void SuspendEnemySummonBehaviorForTopologyParticipationLoss(
+            EnemySummonBehaviorRuntimeState currentState,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates)
+        {
+            var nextState = currentState;
+            if (!ShiftEnemySummonBehaviorSuspendedWindow(ref nextState))
+            {
+                return;
+            }
+
+            updates.Add(
+                $"EnemySummonBehaviorTopologySuspended|E={_entityId}|Effect={SummonBehaviorCompatibilitySourceEffectIndex}|Phase={nextState.phase}|Sequence={nextState.activationSequence}|WindupEnd={nextState.windupEndTick}|RecoverEnd={nextState.recoverEndTickExclusive}|Cooldown={nextState.cooldownTicksRemaining}");
+            writeContext.SetEnemySummonBehaviorState(_entityId, nextState);
+        }
+
+        private static bool ShiftEnemySummonBehaviorSuspendedWindow(ref EnemySummonBehaviorRuntimeState state)
+        {
+            var shifted = false;
+            switch (state.phase)
+            {
+                case EnemySummonBehaviorPhase.Windup:
+                    if (state.windupEndTick > 0)
+                    {
+                        state.windupEndTick++;
+                        shifted = true;
+                    }
+
+                    break;
+
+                case EnemySummonBehaviorPhase.Recover:
+                    if (state.recoverEndTickExclusive > 0)
+                    {
+                        state.recoverEndTickExclusive++;
+                        shifted = true;
+                    }
+
+                    break;
+            }
+
+            if (state.movementSuppressionUntilTickInclusive > 0)
+            {
+                state.movementSuppressionUntilTickInclusive++;
+                shifted = true;
+            }
+
+            return shifted;
+        }
+
+        private void CancelEnemySummonBehaviorWindup(
+            EnemySummonBehaviorRuntimeState currentState,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates)
+        {
+            if (currentState.phase != EnemySummonBehaviorPhase.Windup &&
+                currentState.phase != EnemySummonBehaviorPhase.Recover &&
+                currentState.movementSuppressionUntilTickInclusive == 0)
+            {
+                return;
+            }
+
+            var nextState = currentState;
+            nextState.phase = EnemySummonBehaviorPhase.None;
+            nextState.cooldownTicksRemaining = _summonBehavior.CooldownTicks;
+            nextState.windupStartTick = 0;
+            nextState.windupEndTick = 0;
+            nextState.recoverStartTick = 0;
+            nextState.recoverEndTickExclusive = 0;
+            nextState.movementSuppressionUntilTickInclusive = 0;
+            updates.Add(
+                $"EnemySummonBehaviorWindupCanceled|E={_entityId}|Effect={SummonBehaviorCompatibilitySourceEffectIndex}|Sequence={nextState.activationSequence}|Cooldown={nextState.cooldownTicksRemaining}");
+            writeContext.SetEnemySummonBehaviorState(_entityId, nextState);
+        }
+
+        private void EmitEnemySummonBehaviorTriggerIntent(
+            IPreMovementStateCommitContext writeContext,
+            in EntityState source,
+            int tickIndex)
+        {
+            if (writeContext is not IEnemyUtilityTriggerSink triggerSink)
+            {
+                return;
+            }
+
+            triggerSink.EmitEnemySummonBehaviorTriggerIntent(
+                new EnemySummonBehaviorTriggerIntent(
+                    _entityId,
+                    SummonBehaviorCompatibilitySourceEffectIndex,
+                    tickIndex,
+                    source.position,
+                    source.facing,
+                    source.teamId,
+                    _summonBehavior.Summon));
+        }
+
+        private static void EnterSummonBehaviorRecoverOrClear(
+            EnemySummonBehaviorRuntime summonBehavior,
+            int tickIndex,
+            ref EnemySummonBehaviorRuntimeState state)
+        {
+            state.windupStartTick = 0;
+            state.windupEndTick = 0;
+
+            if (summonBehavior.RecoveryTicks <= 0)
+            {
+                state.phase = EnemySummonBehaviorPhase.None;
+                state.recoverStartTick = 0;
+                state.recoverEndTickExclusive = 0;
+                state.cooldownTicksRemaining = summonBehavior.CooldownTicks;
+                return;
+            }
+
+            state.phase = EnemySummonBehaviorPhase.Recover;
+            state.recoverStartTick = tickIndex;
+            state.recoverEndTickExclusive = tickIndex + summonBehavior.RecoveryTicks;
+            state.cooldownTicksRemaining = summonBehavior.CooldownTicks;
+            if (summonBehavior.SuppressMovementDuringRecover)
+            {
+                state.movementSuppressionUntilTickInclusive = Mathf.Max(
+                    state.movementSuppressionUntilTickInclusive,
+                    state.recoverEndTickExclusive - 1);
+            }
+        }
+
+        private static void AdvanceSummonBehaviorRecover(
+            EnemySummonBehaviorRuntime summonBehavior,
+            int tickIndex,
+            ref EnemySummonBehaviorRuntimeState state)
+        {
+            if (tickIndex >= state.recoverEndTickExclusive)
+            {
+                state.phase = EnemySummonBehaviorPhase.None;
+                state.recoverStartTick = 0;
+                state.recoverEndTickExclusive = 0;
+                return;
+            }
+
+            if (state.cooldownTicksRemaining > 0)
+            {
+                state.cooldownTicksRemaining = Mathf.Max(0, state.cooldownTicksRemaining - 1);
+            }
+        }
+
+        private static bool IsSummonBehaviorMovementSuppressionWindowActive(
+            EnemySummonBehaviorRuntime summonBehavior,
+            in EnemySummonBehaviorRuntimeState state,
+            int tickIndex)
+        {
+            if (state.movementSuppressionUntilTickInclusive <= 0 ||
+                tickIndex > state.movementSuppressionUntilTickInclusive)
+            {
+                return false;
+            }
+
+            return state.phase switch
+            {
+                EnemySummonBehaviorPhase.Windup => summonBehavior.SuppressMovementDuringWindup,
+                EnemySummonBehaviorPhase.Recover => summonBehavior.SuppressMovementDuringRecover ||
+                                                    IsSummonBehaviorWindupSuppressionWindowRemainder(summonBehavior, state, tickIndex),
+                EnemySummonBehaviorPhase.None => IsSummonBehaviorWindupSuppressionWindowRemainder(summonBehavior, state, tickIndex),
+                _ => false,
+            };
+        }
+
+        private static bool IsSummonBehaviorWindupSuppressionWindowRemainder(
+            EnemySummonBehaviorRuntime summonBehavior,
+            in EnemySummonBehaviorRuntimeState state,
+            int tickIndex)
+        {
+            return summonBehavior.SuppressMovementDuringWindup &&
+                   tickIndex == state.movementSuppressionUntilTickInclusive;
+        }
+
+        private static bool AreEqual(
+            EnemySummonBehaviorRuntimeState left,
+            EnemySummonBehaviorRuntimeState right)
+        {
+            return left.cooldownTicksRemaining == right.cooldownTicksRemaining &&
+                   left.phase == right.phase &&
+                   left.windupStartTick == right.windupStartTick &&
+                   left.windupEndTick == right.windupEndTick &&
+                   left.recoverStartTick == right.recoverStartTick &&
+                   left.recoverEndTickExclusive == right.recoverEndTickExclusive &&
+                   left.activationSequence == right.activationSequence &&
+                   left.movementSuppressionUntilTickInclusive == right.movementSuppressionUntilTickInclusive;
+        }
+
         private void CommitEnemyUtilityState(
             WorldSnapshot snapshot,
             in TickInput input,
@@ -1271,8 +1682,6 @@ namespace Game.Feature.Gameplay.Entities
 
             var nextEffectStates = new EnemyUtilityEffectState[currentState.EffectStates.Count];
             var hasAnyChange = false;
-            List<SummonedEntitySnapshotEntry> summonedEntries = null;
-            var hasEnumeratedSummonedEntries = false;
 
             for (var effectIndex = 0; effectIndex < currentState.EffectStates.Count; effectIndex++)
             {
@@ -1386,84 +1795,6 @@ namespace Game.Feature.Gameplay.Entities
                     }
 
                     continue;
-                }
-
-                if (effectRuntime.Kind == EnemyUtilityEffectKind.SummonMinion)
-                {
-                    if (nextEffectState.phase == EnemyUtilityEffectPhase.Windup)
-                    {
-                        if (input.TickIndex >= nextEffectState.windupEndTick)
-                        {
-                            triggered = true;
-                            EmitEnemyUtilityTriggerIntent(writeContext, effectIndex, effectRuntime, input.TickIndex);
-
-                            EnterUtilityRecoverOrClear(effectRuntime, input.TickIndex, ref nextEffectState);
-                            updates.Add(
-                                $"EnemyUtilityWindupCommitted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Tick={input.TickIndex}");
-                        }
-                    }
-                    else
-                    {
-                        if (nextEffectState.cooldownTicksRemaining > 0)
-                        {
-                            nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
-                        }
-
-                        if (nextEffectState.cooldownTicksRemaining == 0)
-                        {
-                            summonedEntries ??= new List<SummonedEntitySnapshotEntry>();
-                            if (!hasEnumeratedSummonedEntries)
-                            {
-                                snapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
-                                hasEnumeratedSummonedEntries = true;
-                            }
-
-                            if (!EnemyUtilitySummonPolicy.IsMaxAliveReached(
-                                    snapshot,
-                                    summonedEntries,
-                                    source.entityId,
-                                    effectIndex,
-                                    effectRuntime.Summon))
-                            {
-                                nextEffectState.phase = EnemyUtilityEffectPhase.Windup;
-                                nextEffectState.windupStartTick = input.TickIndex;
-                                nextEffectState.windupEndTick = input.TickIndex + effectRuntime.Summon.WindupTicks;
-                                nextEffectState.recoverStartTick = 0;
-                                nextEffectState.recoverEndTickExclusive = 0;
-                                nextEffectState.activationSequence = Math.Max(0, nextEffectState.activationSequence) + 1;
-                                if (effectRuntime.Summon.SuppressMovementDuringWindup)
-                                {
-                                    nextEffectState.movementSuppressionUntilTickInclusive = nextEffectState.windupEndTick;
-                                }
-
-                                updates.Add(
-                                    $"EnemyUtilityWindupStarted|E={_entityId}|Effect={effectIndex}|Sequence={nextEffectState.activationSequence}|Start={nextEffectState.windupStartTick}|End={nextEffectState.windupEndTick}");
-                            }
-                        }
-                    }
-
-                    nextEffectStates[effectIndex] = nextEffectState;
-                    if (!AreEqual(previousEffectState, nextEffectState))
-                    {
-                        hasAnyChange = true;
-                        updates.Add(
-                            $"EnemyUtilityCooldownUpdated|E={_entityId}|Effect={effectIndex}|From={previousEffectState.cooldownTicksRemaining}|To={nextEffectState.cooldownTicksRemaining}|Triggered={(triggered ? 1 : 0)}");
-                    }
-
-                    continue;
-                }
-
-                if (nextEffectState.cooldownTicksRemaining > 0)
-                {
-                    nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
-                }
-
-                triggered = nextEffectState.cooldownTicksRemaining == 0;
-                if (triggered)
-                {
-                    EmitEnemyUtilityTriggerIntent(writeContext, effectIndex, effectRuntime, input.TickIndex);
-
-                    EnterUtilityRecoverOrClear(effectRuntime, input.TickIndex, ref nextEffectState);
                 }
 
                 nextEffectStates[effectIndex] = nextEffectState;
@@ -1714,7 +2045,6 @@ namespace Game.Feature.Gameplay.Entities
         {
             return effectRuntime.Kind switch
             {
-                EnemyUtilityEffectKind.SummonMinion => effectRuntime.Summon.RecoveryTicks,
                 EnemyUtilityEffectKind.GravityFieldAura => effectRuntime.GravityFieldAura.RecoveryTicks,
                 _ => 0,
             };
@@ -1755,7 +2085,6 @@ namespace Game.Feature.Gameplay.Entities
         {
             return effectRuntime.Kind switch
             {
-                EnemyUtilityEffectKind.SummonMinion => effectRuntime.Summon.SuppressMovementDuringWindup,
                 EnemyUtilityEffectKind.GravityFieldAura => effectRuntime.GravityFieldAura.SuppressMovementDuringWindup,
                 _ => false,
             };
@@ -1765,7 +2094,6 @@ namespace Game.Feature.Gameplay.Entities
         {
             return effectRuntime.Kind switch
             {
-                EnemyUtilityEffectKind.SummonMinion => effectRuntime.Summon.SuppressMovementDuringRecover,
                 EnemyUtilityEffectKind.GravityFieldAura => effectRuntime.GravityFieldAura.SuppressMovementDuringRecover,
                 _ => false,
             };
@@ -1775,7 +2103,6 @@ namespace Game.Feature.Gameplay.Entities
         {
             return effectRuntime.Kind switch
             {
-                EnemyUtilityEffectKind.SummonMinion => true,
                 EnemyUtilityEffectKind.GravityFieldAura => true,
                 _ => throw new ArgumentOutOfRangeException(
                     nameof(effectRuntime.Kind),
@@ -2047,7 +2374,7 @@ namespace Game.Feature.Gameplay.Entities
                     else if (hasPreviousState &&
                              previousState.phase != EnemyChargePhase.None)
                     {
-                        nextState = EnemyChargeQueries.EnterRecover(previousState, _chargeTimingSettings.RecoverTicks);
+                        nextState = EnemyChargeQueries.EnterRecover(previousState, ChargeTimingSettings.RecoverTicks);
                         AppendChargeUpdate(updates, _entityId, "EnterRecover", nextState);
                     }
                     break;
@@ -2092,7 +2419,7 @@ namespace Game.Feature.Gameplay.Entities
                 previousState,
                 lockedDirection,
                 input.TickIndex,
-                _chargeTimingSettings,
+                ChargeTimingSettings,
                 reachableSteps);
             return true;
         }
@@ -2127,6 +2454,60 @@ namespace Game.Feature.Gameplay.Entities
                    pose.HasAuthoritativeState &&
                    !pose.IsSettledAtAnchor &&
                    pose.Mode == MotionMode.Voluntary;
+        }
+
+        private bool TryResolveImmediateChargeRecoverDecision(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyAiTransitionDecision decision,
+            out EnemyAiTransitionDecision resolvedDecision)
+        {
+            resolvedDecision = default;
+            if (!_usesChargeStateResolver ||
+                source.aiMode != EnemyAiMode.Charge ||
+                decision.Mode != EnemyAiMode.Recover ||
+                !IsChargeRecoveryDecisionReason(decision.Reason) ||
+                ChargeTimingSettings.RecoverTicks != 0)
+            {
+                return false;
+            }
+
+            resolvedDecision = ResolvePostChargeDecision(snapshot, source, decision.Reason);
+            return true;
+        }
+
+        private static bool IsChargeRecoveryDecisionReason(string reason)
+        {
+            return string.Equals(reason, "ChargeBlocked", StringComparison.Ordinal) ||
+                   string.Equals(reason, "ChargeComplete", StringComparison.Ordinal);
+        }
+
+        private EnemyAiTransitionDecision ResolvePostChargeDecision(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            string reason)
+        {
+            if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var target))
+            {
+                if (EnemyTargetSelector.TryFindLocalEngagementTarget(
+                        snapshot,
+                        source,
+                        _combatCapability,
+                        _passiveContactCapability,
+                        new List<EntityState>(),
+                        out _,
+                        out _))
+                {
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "PatrolFallbackDeniedByLocalEngagement");
+                }
+
+                return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, reason);
+            }
+
+            return _combatCapability != null &&
+                   _combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, _combatCapability.AttackDecisionSettings)
+                ? new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, reason)
+                : new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, reason);
         }
 
         private static bool ShouldWriteChargeState(
@@ -2330,7 +2711,7 @@ namespace Game.Feature.Gameplay.Entities
                         return new GroundLocomotionResolution(
                             hasIntent: true,
                             chargeIntent,
-                            _chargeTimingSettings.ActiveStepCooldownTicks,
+                            ChargeTimingSettings.ActiveStepCooldownTicks,
                             ordinaryKinematicMoveTicks: 0);
                     }
 
@@ -2887,7 +3268,6 @@ namespace Game.Feature.Gameplay.Entities
             EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
-            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
@@ -3243,7 +3623,6 @@ namespace Game.Feature.Gameplay.Entities
             EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
             in EnemyAiCommonSettings commonSettings,
-            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
@@ -3272,7 +3651,6 @@ namespace Game.Feature.Gameplay.Entities
                     combatCapability,
                     passiveContactCapability,
                     movementSkillCapability,
-                    chargeTimingSettings,
                     detectionSettings,
                     tileFeatureDefinitions),
                 EnemyAiTransitionStage.BeforeAttack => ResolveBeforeAttack(
@@ -3336,7 +3714,6 @@ namespace Game.Feature.Gameplay.Entities
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyPassiveContactCapabilityRuntime passiveContactCapability,
             EnemyMovementSkillCapabilityRuntime movementSkillCapability,
-            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
@@ -3386,7 +3763,6 @@ namespace Game.Feature.Gameplay.Entities
                         detectionStrategy,
                         combatCapability,
                         passiveContactCapability,
-                        chargeTimingSettings,
                         detectionSettings,
                         tileFeatureDefinitions);
 
@@ -3776,7 +4152,6 @@ namespace Game.Feature.Gameplay.Entities
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyPassiveContactCapabilityRuntime passiveContactCapability,
-            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
@@ -3800,13 +4175,12 @@ namespace Game.Feature.Gameplay.Entities
                             chargeState.lockedDirection,
                             tileFeatureDefinitions))
                     {
-                        return ResolveChargeRecoveryOrImmediate(
+                        return ResolveChargeRecoveryTransition(
                             snapshot,
                             source,
                             detectionStrategy,
                             combatCapability,
                             passiveContactCapability,
-                            chargeTimingSettings,
                             detectionSettings,
                             "ChargeBlocked");
                     }
@@ -3834,13 +4208,12 @@ namespace Game.Feature.Gameplay.Entities
                             return new EnemyAiTransitionDecision(EnemyAiMode.Charge, 0, "ChargeWaitingForLocomotionCooldown");
                         }
 
-                        return ResolveChargeRecoveryOrImmediate(
+                        return ResolveChargeRecoveryTransition(
                             snapshot,
                             source,
                             detectionStrategy,
                             combatCapability,
                             passiveContactCapability,
-                            chargeTimingSettings,
                             detectionSettings,
                             "ChargeComplete");
                     }
@@ -3856,13 +4229,12 @@ namespace Game.Feature.Gameplay.Entities
                             chargeState.lockedDirection,
                             tileFeatureDefinitions))
                     {
-                        return ResolveChargeRecoveryOrImmediate(
+                        return ResolveChargeRecoveryTransition(
                             snapshot,
                             source,
                             detectionStrategy,
                             combatCapability,
                             passiveContactCapability,
-                            chargeTimingSettings,
                             detectionSettings,
                             "ChargeBlocked");
                     }
@@ -3882,21 +4254,15 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
-        private static EnemyAiTransitionDecision ResolveChargeRecoveryOrImmediate(
+        private static EnemyAiTransitionDecision ResolveChargeRecoveryTransition(
             WorldSnapshot snapshot,
             in EntityState source,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             EnemyPassiveContactCapabilityRuntime passiveContactCapability,
-            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings,
             string reason)
         {
-            if (chargeTimingSettings.RecoverTicks == 0)
-            {
-                return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, passiveContactCapability, detectionSettings, reason);
-            }
-
             return new EnemyAiTransitionDecision(
                 EnemyAiMode.Recover,
                 0,

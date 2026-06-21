@@ -722,6 +722,7 @@ namespace Game.Feature.Gameplay.Loop
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
             var enemyChargeSignals = new List<TickEnemyChargePresentationSignal>();
             var enemyGlideSignals = new List<TickEnemyGlidePresentationSignal>();
+            var enemySummonSignals = new List<TickEnemySummonPresentationSignal>();
             var enemyUtilitySignals = new List<TickEnemyUtilityPresentationSignal>();
             var enemyUtilityPhaseStates = new List<TickEnemyUtilityPhasePresentationState>();
             var enemyUtilityCooldownSignals = new List<TickEnemyUtilityCooldownPresentationSignal>();
@@ -807,6 +808,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildEnemyUtilityWindupPresentation(
                 context,
                 summonWindupWarnings,
+                enemySummonSignals,
                 enemyUtilitySignals,
                 enemyUtilityPhaseStates,
                 enemyUtilityCooldownSignals,
@@ -822,6 +824,7 @@ namespace Game.Feature.Gameplay.Loop
                           enemyJumpSignals.Count == 0 &&
                           enemyChargeSignals.Count == 0 &&
                           enemyGlideSignals.Count == 0 &&
+                          enemySummonSignals.Count == 0 &&
                           enemyUtilitySignals.Count == 0 &&
                           enemyUtilityPhaseStates.Count == 0 &&
                           enemyUtilityCooldownSignals.Count == 0 &&
@@ -863,50 +866,51 @@ namespace Game.Feature.Gameplay.Loop
             var presentationData = isEmpty
                 ? TickPresentationData.Empty
                 : new TickPresentationData(
-                    entityMotions,
-                    topologyMotion,
-                    visibilityChanges,
-                    transitionVisibilityChanges,
-                    playerActionSignals,
-                    playerLocomotionSignals,
-                    playerDamageSignals,
-                    playerDeathSignals,
-                    enemyDamageSignals,
-                    enemyActionSignals,
-                    enemyJumpSignals,
-                    enemyChargeSignals,
-                    entityExitSignals,
-                    impactTransientSignals,
-                    flipImpactSignals,
-                    summonedEnemyPresentationBindings,
-                    summonWindupWarnings,
-                    kinematicMotionTracks,
-                    playerDeathHoldSignals,
-                    continuousLocomotionTracks,
-                    enemyGlideSignals,
-                    tileEvents,
-                    gravityFieldEvents,
-                    gravityFieldVisualStates,
-                    playerActionAttemptSignals,
-                    boxSlideStopSignals,
-                    enemyUtilitySignals,
-                    enemyUtilityCooldownSignals,
-                    enemyGravityFieldAuraVisualStates,
-                    boxSlideStartSignals,
-                    tileFeatureVisualStates,
-                    tileFeatureVisibleVisualStates,
-                    tileFeatureActiveVisualStates,
-                    playerFlipResultTurnSignals,
-                    flipFloorImpactSignals,
-                    forwardCellImpactSignals,
-                    forwardCellProjectileArrivalSignals,
-                    forwardCellProjectileWindupSignals,
-                    forwardCellProjectileReleaseSignals,
-                    forwardCellProjectileClearSignals,
-                    entitySpawnSignals,
-                    playerOutcomeSignals,
-                    enemyUtilityPhaseStates,
-                    playerTopologyTransitionBlockedSignals);
+                    entityMotions: entityMotions,
+                    topologyMotion: topologyMotion,
+                    visibilityChanges: visibilityChanges,
+                    transitionVisibilityChanges: transitionVisibilityChanges,
+                    playerActionSignals: playerActionSignals,
+                    playerLocomotionSignals: playerLocomotionSignals,
+                    playerDamageSignals: playerDamageSignals,
+                    playerDeathSignals: playerDeathSignals,
+                    enemyDamageSignals: enemyDamageSignals,
+                    enemyActionSignals: enemyActionSignals,
+                    enemyJumpSignals: enemyJumpSignals,
+                    enemyChargeSignals: enemyChargeSignals,
+                    entityExitSignals: entityExitSignals,
+                    impactTransientSignals: impactTransientSignals,
+                    flipImpactSignals: flipImpactSignals,
+                    summonedEnemyPresentationBindings: summonedEnemyPresentationBindings,
+                    summonWindupWarnings: summonWindupWarnings,
+                    kinematicMotionTracks: kinematicMotionTracks,
+                    playerDeathHoldSignals: playerDeathHoldSignals,
+                    continuousLocomotionTracks: continuousLocomotionTracks,
+                    enemyGlideSignals: enemyGlideSignals,
+                    tileEvents: tileEvents,
+                    gravityFieldEvents: gravityFieldEvents,
+                    gravityFieldVisualStates: gravityFieldVisualStates,
+                    playerActionAttemptSignals: playerActionAttemptSignals,
+                    boxSlideStopSignals: boxSlideStopSignals,
+                    enemyUtilitySignals: enemyUtilitySignals,
+                    enemyUtilityCooldownSignals: enemyUtilityCooldownSignals,
+                    enemyGravityFieldAuraVisualStates: enemyGravityFieldAuraVisualStates,
+                    boxSlideStartSignals: boxSlideStartSignals,
+                    tileFeatureVisualStates: tileFeatureVisualStates,
+                    tileFeatureVisibleVisualStates: tileFeatureVisibleVisualStates,
+                    tileFeatureActiveVisualStates: tileFeatureActiveVisualStates,
+                    playerFlipResultTurnSignals: playerFlipResultTurnSignals,
+                    flipFloorImpactSignals: flipFloorImpactSignals,
+                    forwardCellImpactSignals: forwardCellImpactSignals,
+                    forwardCellProjectileArrivalSignals: forwardCellProjectileArrivalSignals,
+                    forwardCellProjectileWindupSignals: forwardCellProjectileWindupSignals,
+                    forwardCellProjectileReleaseSignals: forwardCellProjectileReleaseSignals,
+                    forwardCellProjectileClearSignals: forwardCellProjectileClearSignals,
+                    entitySpawnSignals: entitySpawnSignals,
+                    playerOutcomeSignals: playerOutcomeSignals,
+                    enemyUtilityPhaseStates: enemyUtilityPhaseStates,
+                    playerTopologyTransitionBlockedSignals: playerTopologyTransitionBlockedSignals,
+                    enemySummonSignals: enemySummonSignals);
             return presentationData;
         }
 
@@ -2253,6 +2257,7 @@ namespace Game.Feature.Gameplay.Loop
         private static void BuildEnemyUtilityWindupPresentation(
             in TickPresentationBuildContext context,
             List<TickSummonWindupWarningSignal> summonWindupWarnings,
+            List<TickEnemySummonPresentationSignal> enemySummonSignals,
             List<TickEnemyUtilityPresentationSignal> enemyUtilitySignals,
             List<TickEnemyUtilityPhasePresentationState> enemyUtilityPhaseStates,
             List<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals,
@@ -2292,22 +2297,8 @@ namespace Game.Feature.Gameplay.Loop
 
                     if (effectState.phase == EnemyUtilityEffectPhase.Recover)
                     {
-                        if (effectState.effectKind == EnemyUtilityEffectKind.SummonMinion &&
+                        if (effectState.effectKind == EnemyUtilityEffectKind.GravityFieldAura &&
                             context.CurrentTickIndex == effectState.recoverStartTick)
-                        {
-                            enemyUtilitySignals.Add(
-                                new TickEnemyUtilityPresentationSignal(
-                                    entry.EntityId,
-                                    EnemyUtilityPresentationKind.SummonMinion,
-                                    EnemyUtilityPresentationPhase.RecoverStarted,
-                                    effectState.recoverStartTick,
-                                    effectState.recoverEndTickExclusive,
-                                    Math.Max(0, effectState.recoverEndTickExclusive - effectState.recoverStartTick),
-                                    effectIndex,
-                                    effectState.activationSequence));
-                        }
-                        else if (effectState.effectKind == EnemyUtilityEffectKind.GravityFieldAura &&
-                                 context.CurrentTickIndex == effectState.recoverStartTick)
                         {
                             var recoverDurationTicks = Math.Max(0, effectState.recoverEndTickExclusive - effectState.recoverStartTick);
                             enemyUtilitySignals.Add(
@@ -2352,43 +2343,213 @@ namespace Game.Feature.Gameplay.Loop
                         continue;
                     }
 
-                    if (effectState.effectKind == EnemyUtilityEffectKind.SummonMinion)
-                    {
-                        summonWindupWarnings.Add(
-                            new TickSummonWindupWarningSignal(
-                                entry.EntityId,
-                                effectIndex,
-                                source.position,
-                                context.FinalAuthoritativeSnapshot.Topology,
-                                source.facing,
-                                effectState.windupStartTick,
-                                effectState.windupEndTick,
-                                effectState.activationSequence,
-                                context.CurrentTickIndex,
-                                BuildUtilityWarningPresentationSeed(
-                                    context.CurrentTickIndex,
-                                    entry.EntityId,
-                                    effectIndex,
-                                    source.position,
-                                    effectState.activationSequence)));
-                        if (context.CurrentTickIndex == effectState.windupStartTick)
-                        {
-                            enemyUtilitySignals.Add(
-                                new TickEnemyUtilityPresentationSignal(
-                                    entry.EntityId,
-                                    EnemyUtilityPresentationKind.SummonMinion,
-                                    EnemyUtilityPresentationPhase.WindupStarted,
-                                    effectState.windupStartTick,
-                                    effectState.windupEndTick,
-                                    Math.Max(0, effectState.windupEndTick - effectState.windupStartTick),
-                                    effectIndex,
-                                    effectState.activationSequence));
-                        }
-                    }
                 }
             }
 
+            AddEnemySummonBehaviorPresentation(
+                context,
+                summonWindupWarnings,
+                enemySummonSignals);
             AddEnemyGravityFieldAuraFieldPresentation(context, enemyGravityFieldAuraVisualStates);
+        }
+
+        private static void AddEnemySummonBehaviorPresentation(
+            in TickPresentationBuildContext context,
+            List<TickSummonWindupWarningSignal> summonWindupWarnings,
+            List<TickEnemySummonPresentationSignal> enemySummonSignals)
+        {
+            const int compatibilityEffectIndex = 0;
+            var entries = new List<EnemySummonBehaviorSnapshotEntry>();
+            var emittedCanceledSignals = new HashSet<(int EntityId, int EffectIndex)>();
+            context.FinalAuthoritativeSnapshot.EnumerateEnemySummonBehaviorStatesOrdered(entries);
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry.State.phase == EnemySummonBehaviorPhase.None &&
+                    WasEnemySummonBehaviorCanceledThisTick(context, entry.EntityId, compatibilityEffectIndex))
+                {
+                    emittedCanceledSignals.Add((entry.EntityId, compatibilityEffectIndex));
+                    enemySummonSignals.Add(
+                        new TickEnemySummonPresentationSignal(
+                            entry.EntityId,
+                            EnemySummonPresentationPhase.Canceled,
+                            context.CurrentTickIndex,
+                            context.CurrentTickIndex,
+                            durationTicks: 0,
+                            compatibilityEffectIndex,
+                            entry.State.activationSequence));
+                    continue;
+                }
+
+                if (!context.FinalAuthoritativeSnapshot.TryGetEntity(entry.EntityId, out var source) ||
+                    !EntityRolePolicy.IsEnemyUnit(source))
+                {
+                    continue;
+                }
+
+                if (entry.State.phase == EnemySummonBehaviorPhase.Windup)
+                {
+                    summonWindupWarnings.Add(
+                        new TickSummonWindupWarningSignal(
+                            entry.EntityId,
+                            compatibilityEffectIndex,
+                            source.position,
+                            context.FinalAuthoritativeSnapshot.Topology,
+                            source.facing,
+                            entry.State.windupStartTick,
+                            entry.State.windupEndTick,
+                            entry.State.activationSequence,
+                            context.CurrentTickIndex,
+                            BuildUtilityWarningPresentationSeed(
+                                context.CurrentTickIndex,
+                                entry.EntityId,
+                                compatibilityEffectIndex,
+                                source.position,
+                                entry.State.activationSequence)));
+                    if (context.CurrentTickIndex == entry.State.windupStartTick)
+                    {
+                        enemySummonSignals.Add(
+                            new TickEnemySummonPresentationSignal(
+                                entry.EntityId,
+                                EnemySummonPresentationPhase.WindupStarted,
+                                entry.State.windupStartTick,
+                                entry.State.windupEndTick,
+                                Math.Max(0, entry.State.windupEndTick - entry.State.windupStartTick),
+                                compatibilityEffectIndex,
+                                entry.State.activationSequence));
+                    }
+
+                    continue;
+                }
+
+                if (entry.State.phase == EnemySummonBehaviorPhase.Recover &&
+                    context.CurrentTickIndex == entry.State.recoverStartTick)
+                {
+                    enemySummonSignals.Add(
+                        new TickEnemySummonPresentationSignal(
+                            entry.EntityId,
+                            EnemySummonPresentationPhase.RecoverStarted,
+                            entry.State.recoverStartTick,
+                            entry.State.recoverEndTickExclusive,
+                            Math.Max(0, entry.State.recoverEndTickExclusive - entry.State.recoverStartTick),
+                            compatibilityEffectIndex,
+                            entry.State.activationSequence));
+                    continue;
+                }
+            }
+
+            AddEnemySummonBehaviorCanceledPresentationSignalsFromUpdates(
+                context,
+                enemySummonSignals,
+                emittedCanceledSignals);
+            AddEnemySummonBehaviorSourceInvalidSkipCanceledSignals(
+                context,
+                enemySummonSignals,
+                emittedCanceledSignals);
+        }
+
+        private static bool WasEnemySummonBehaviorCanceledThisTick(
+            in TickPresentationBuildContext context,
+            int entityId,
+            int effectIndex)
+        {
+            var prefix = $"EnemySummonBehaviorWindupCanceled|E={entityId}|Effect={effectIndex}|";
+            var updates = context.PreMovementStatePhaseResult.Updates;
+            for (var i = 0; i < updates.Count; i++)
+            {
+                if (updates[i].StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static void AddEnemySummonBehaviorCanceledPresentationSignalsFromUpdates(
+            in TickPresentationBuildContext context,
+            List<TickEnemySummonPresentationSignal> enemySummonSignals,
+            HashSet<(int EntityId, int EffectIndex)> emittedCanceledSignals)
+        {
+            const string prefix = "EnemySummonBehaviorWindupCanceled|";
+            var updates = context.PreMovementStatePhaseResult.Updates;
+            for (var i = 0; i < updates.Count; i++)
+            {
+                var update = updates[i];
+                if (!update.StartsWith(prefix, StringComparison.Ordinal) ||
+                    !TryReadIntUpdateField(update, "E=", out var entityId) ||
+                    !TryReadIntUpdateField(update, "Effect=", out var effectIndex) ||
+                    !emittedCanceledSignals.Add((entityId, effectIndex)))
+                {
+                    continue;
+                }
+
+                _ = TryReadIntUpdateField(update, "Sequence=", out var activationSequence);
+                enemySummonSignals.Add(
+                    new TickEnemySummonPresentationSignal(
+                        entityId,
+                        EnemySummonPresentationPhase.Canceled,
+                        context.CurrentTickIndex,
+                        context.CurrentTickIndex,
+                        durationTicks: 0,
+                        effectIndex,
+                        activationSequence));
+            }
+        }
+
+        private static bool TryReadIntUpdateField(string update, string fieldPrefix, out int value)
+        {
+            value = 0;
+            var marker = "|" + fieldPrefix;
+            var startIndex = update.IndexOf(marker, StringComparison.Ordinal);
+            if (startIndex < 0)
+            {
+                return false;
+            }
+
+            startIndex += marker.Length;
+            var endIndex = update.IndexOf('|', startIndex);
+            var length = (endIndex < 0 ? update.Length : endIndex) - startIndex;
+            return length > 0 &&
+                   int.TryParse(update.Substring(startIndex, length), out value);
+        }
+
+        private static void AddEnemySummonBehaviorSourceInvalidSkipCanceledSignals(
+            in TickPresentationBuildContext context,
+            List<TickEnemySummonPresentationSignal> enemySummonSignals,
+            HashSet<(int EntityId, int EffectIndex)> emittedCanceledSignals)
+        {
+            const string prefix = "SummonSkipped|";
+            const string sourceInvalidReason = "|Reason=SourceInvalid|";
+            var eventLogEntries = context.AttackPhaseResult.EventLogEntries;
+            for (var i = 0; i < eventLogEntries.Count; i++)
+            {
+                var eventLogEntry = eventLogEntries[i];
+                if (!eventLogEntry.StartsWith(prefix, StringComparison.Ordinal) ||
+                    eventLogEntry.IndexOf(sourceInvalidReason, StringComparison.Ordinal) < 0 ||
+                    !TryReadIntUpdateField(eventLogEntry, "Source=", out var entityId) ||
+                    !TryReadIntUpdateField(eventLogEntry, "Effect=", out var effectIndex) ||
+                    !emittedCanceledSignals.Add((entityId, effectIndex)))
+                {
+                    continue;
+                }
+
+                var activationSequence = 0;
+                if (context.PreMovementSnapshot.TryGetEnemySummonBehaviorState(entityId, out var previousState))
+                {
+                    activationSequence = previousState.activationSequence;
+                }
+
+                enemySummonSignals.Add(
+                    new TickEnemySummonPresentationSignal(
+                        entityId,
+                        EnemySummonPresentationPhase.Canceled,
+                        context.CurrentTickIndex,
+                        context.CurrentTickIndex,
+                        durationTicks: 0,
+                        effectIndex,
+                        activationSequence));
+            }
         }
 
         private static void AddEnemyUtilityCanceledPresentationSignal(
@@ -2441,11 +2602,6 @@ namespace Game.Feature.Gameplay.Loop
             in EnemyUtilityEffectState effectState,
             List<TickEnemyUtilityCooldownPresentationSignal> enemyUtilityCooldownSignals)
         {
-            if (effectState.effectKind == EnemyUtilityEffectKind.SummonMinion)
-            {
-                return;
-            }
-
             if (!TryResolveEnemyUtilityPresentationKind(effectState.effectKind, out var presentationKind) ||
                 effectState.phase == EnemyUtilityEffectPhase.Windup ||
                 effectState.phase == EnemyUtilityEffectPhase.Active ||
@@ -2627,9 +2783,6 @@ namespace Game.Feature.Gameplay.Loop
             {
                 case EnemyUtilityEffectKind.GravityFieldAura:
                     presentationKind = EnemyUtilityPresentationKind.GravityFieldAura;
-                    return true;
-                case EnemyUtilityEffectKind.SummonMinion:
-                    presentationKind = EnemyUtilityPresentationKind.SummonMinion;
                     return true;
                 default:
                     presentationKind = EnemyUtilityPresentationKind.None;

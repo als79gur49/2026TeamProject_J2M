@@ -112,7 +112,12 @@ namespace Game.Feature.Gameplay.Host
             bool startedUtilityRecoverThisTick = false,
             int utilityEffectIndex = 0,
             int utilityActivationSequence = 0,
-            bool utilityCanceledThisTick = false)
+            bool utilityCanceledThisTick = false,
+            bool startedSummonWindupThisTick = false,
+            bool startedSummonRecoverThisTick = false,
+            int summonEffectIndex = 0,
+            int summonActivationSequence = 0,
+            bool summonCanceledThisTick = false)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
@@ -143,6 +148,11 @@ namespace Game.Feature.Gameplay.Host
             UtilityEffectIndex = utilityEffectIndex;
             UtilityActivationSequence = utilityActivationSequence;
             UtilityCanceledThisTick = utilityCanceledThisTick;
+            StartedSummonWindupThisTick = startedSummonWindupThisTick;
+            StartedSummonRecoverThisTick = startedSummonRecoverThisTick;
+            SummonEffectIndex = summonEffectIndex;
+            SummonActivationSequence = summonActivationSequence;
+            SummonCanceledThisTick = summonCanceledThisTick;
             TookDamage = tookDamage;
             DidDie = didDie;
         }
@@ -205,6 +215,16 @@ namespace Game.Feature.Gameplay.Host
 
         public bool UtilityCanceledThisTick { get; }
 
+        public bool StartedSummonWindupThisTick { get; }
+
+        public bool StartedSummonRecoverThisTick { get; }
+
+        public int SummonEffectIndex { get; }
+
+        public int SummonActivationSequence { get; }
+
+        public bool SummonCanceledThisTick { get; }
+
         public bool DidAttack => ExecutedThisTick;
 
         public bool TookDamage { get; }
@@ -244,7 +264,12 @@ namespace Game.Feature.Gameplay.Host
                 StartedUtilityRecoverThisTick,
                 UtilityEffectIndex,
                 UtilityActivationSequence,
-                UtilityCanceledThisTick);
+                UtilityCanceledThisTick,
+                StartedSummonWindupThisTick,
+                StartedSummonRecoverThisTick,
+                SummonEffectIndex,
+                SummonActivationSequence,
+                SummonCanceledThisTick);
         }
 
         public EnemyViewPresentationState WithJumpLandingCompletionHold()
@@ -280,7 +305,12 @@ namespace Game.Feature.Gameplay.Host
                 StartedUtilityRecoverThisTick,
                 UtilityEffectIndex,
                 UtilityActivationSequence,
-                UtilityCanceledThisTick);
+                UtilityCanceledThisTick,
+                StartedSummonWindupThisTick,
+                StartedSummonRecoverThisTick,
+                SummonEffectIndex,
+                SummonActivationSequence,
+                SummonCanceledThisTick);
         }
 
         public EnemyViewPresentationState WithJumpLandingCompletionSettled()
@@ -316,7 +346,12 @@ namespace Game.Feature.Gameplay.Host
                 StartedUtilityRecoverThisTick,
                 UtilityEffectIndex,
                 UtilityActivationSequence,
-                UtilityCanceledThisTick);
+                UtilityCanceledThisTick,
+                StartedSummonWindupThisTick,
+                StartedSummonRecoverThisTick,
+                SummonEffectIndex,
+                SummonActivationSequence,
+                SummonCanceledThisTick);
         }
     }
 
@@ -328,6 +363,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, TickEnemyJumpPresentationSignal> _enemyJumpSignalsByEntityId = new();
         private readonly Dictionary<int, TickEnemyChargePresentationSignal> _enemyChargeSignalsByEntityId = new();
         private readonly Dictionary<int, TickEnemyGlidePresentationSignal> _enemyGlideSignalsByEntityId = new();
+        private readonly Dictionary<int, TickEnemySummonPresentationSignal> _enemySummonSignalsByEntityId = new();
         private readonly Dictionary<int, TickEnemyUtilityPresentationSignal> _enemyUtilitySignalsByEntityId = new();
         private readonly Dictionary<int, TickEnemyUtilityPhasePresentationState> _enemyUtilityPhaseStatesByEntityId = new();
         private readonly Dictionary<int, EntityState> _finalEntitiesById = new();
@@ -362,6 +398,7 @@ namespace Game.Feature.Gameplay.Host
             _enemyJumpSignalsByEntityId.Clear();
             _enemyChargeSignalsByEntityId.Clear();
             _enemyGlideSignalsByEntityId.Clear();
+            _enemySummonSignalsByEntityId.Clear();
             _enemyUtilitySignalsByEntityId.Clear();
             _enemyUtilityPhaseStatesByEntityId.Clear();
             _removedEntityIds.Clear();
@@ -374,6 +411,7 @@ namespace Game.Feature.Gameplay.Host
             CollectEnemyJumpSignals(result.PresentationData);
             CollectEnemyChargeSignals(result.PresentationData);
             CollectEnemyGlideSignals(result.PresentationData);
+            CollectEnemySummonSignals(result.PresentationData);
             CollectEnemyUtilitySignals(result.PresentationData);
             CollectEnemyUtilityPhaseStates(result.PresentationData);
             CollectRemovalSignals(result.PresentationData);
@@ -417,6 +455,11 @@ namespace Game.Feature.Gameplay.Host
                 var utilityCanceledThisTick = false;
                 var utilityEffectIndex = 0;
                 var utilityActivationSequence = 0;
+                var startedSummonWindupThisTick = false;
+                var startedSummonRecoverThisTick = false;
+                var summonCanceledThisTick = false;
+                var summonEffectIndex = 0;
+                var summonActivationSequence = 0;
                 var tookDamageThisTick = false;
 
                 if (_enemyActionSignalsByEntityId.TryGetValue(entityId, out var actionSignal))
@@ -484,6 +527,16 @@ namespace Game.Feature.Gameplay.Host
                     utilityActivationSequence = utilityPhaseState.ActivationSequence;
                 }
 
+                if (_enemySummonSignalsByEntityId.TryGetValue(entityId, out var summonSignal))
+                {
+                    startedSummonWindupThisTick = summonSignal.Phase == EnemySummonPresentationPhase.WindupStarted;
+                    startedSummonRecoverThisTick = summonSignal.Phase == EnemySummonPresentationPhase.RecoverStarted;
+                    summonCanceledThisTick = summonSignal.Phase == EnemySummonPresentationPhase.Canceled;
+                    startedRecoveryThisTick |= startedSummonRecoverThisTick;
+                    summonEffectIndex = summonSignal.EffectIndex;
+                    summonActivationSequence = summonSignal.ActivationSequence;
+                }
+
                 buffer[entityId] = new EnemyViewPresentationState(
                     entityId,
                     result.TickIndex,
@@ -515,7 +568,12 @@ namespace Game.Feature.Gameplay.Host
                     startedUtilityRecoverThisTick,
                     utilityEffectIndex,
                     utilityActivationSequence,
-                    utilityCanceledThisTick);
+                    utilityCanceledThisTick,
+                    startedSummonWindupThisTick,
+                    startedSummonRecoverThisTick,
+                    summonEffectIndex,
+                    summonActivationSequence,
+                    summonCanceledThisTick);
             }
         }
 
@@ -637,6 +695,17 @@ namespace Game.Feature.Gameplay.Host
                 var signal = enemyUtilitySignals[i];
                 _candidateEntityIds.Add(signal.EntityId);
                 _enemyUtilitySignalsByEntityId[signal.EntityId] = signal;
+            }
+        }
+
+        private void CollectEnemySummonSignals(TickPresentationData presentationData)
+        {
+            var enemySummonSignals = presentationData.EnemySummonSignals;
+            for (var i = 0; i < enemySummonSignals.Count; i++)
+            {
+                var signal = enemySummonSignals[i];
+                _candidateEntityIds.Add(signal.EntityId);
+                _enemySummonSignalsByEntityId[signal.EntityId] = signal;
             }
         }
 
