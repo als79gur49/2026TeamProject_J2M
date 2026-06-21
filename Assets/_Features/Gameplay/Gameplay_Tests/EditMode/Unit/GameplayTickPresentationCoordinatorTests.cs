@@ -365,6 +365,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void DamageDeathVfx_ExplicitProductionConfiguration_RoutesExecutorAndSkipsLegacy()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_ExplicitProductionConfiguration_RoutesExecutorAndSkipsLegacy));
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedDamageDeathVfxCoordinator(
+                    rootObject,
+                    DamageDeathVfxExecutionPolicy.ProductionDefault,
+                    port,
+                    topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 12,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
+                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void DamageDeathVfx_ExplicitLegacyRollback_TelemetryConfirmsNoExecutorPlayback()
         {
             var rootObject = new GameObject(nameof(DamageDeathVfx_ExplicitLegacyRollback_TelemetryConfirmsNoExecutorPlayback));
@@ -409,6 +446,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_ConfigureRawDefaultAndInvalidModes_RouteLegacyWithoutExecutorPlayback()
+        {
+            AssertDamageDeathLegacyConfigureRoute(
+                default(DamageDeathVfxExecutionMode),
+                nameof(DamageDeathVfx_ConfigureRawDefaultAndInvalidModes_RouteLegacyWithoutExecutorPlayback) +
+                "_RawDefault");
+            AssertDamageDeathLegacyConfigureRoute(
+                (DamageDeathVfxExecutionMode)999,
+                nameof(DamageDeathVfx_ConfigureRawDefaultAndInvalidModes_RouteLegacyWithoutExecutorPlayback) +
+                "_Invalid");
         }
 
         [Test]
@@ -12858,6 +12909,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 topologyPresentationExecutionMode: mode);
             coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
             return coordinator;
+        }
+
+        private static void AssertDamageDeathLegacyConfigureRoute(
+            DamageDeathVfxExecutionMode mode,
+            string ownerName)
+        {
+            var rootObject = new GameObject(ownerName);
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedDamageDeathVfxCoordinator(
+                    rootObject,
+                    mode,
+                    port,
+                    topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 12,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
+                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(ownership.Mode, Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutorAttemptCount, Is.Zero);
+                Assert.That(ownership.ExecutedByLegacyCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
         }
 
         private static GameplayTickPresentationCoordinator CreateInitializedDamageDeathVfxCoordinator(

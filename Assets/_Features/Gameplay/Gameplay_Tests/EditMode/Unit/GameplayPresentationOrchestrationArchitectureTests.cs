@@ -40,6 +40,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs";
         private const string TopologyLaneRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs";
+        private const string DamageDeathVfxLaneRuntimePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationLaneRuntime.cs";
+        private const string DamageDeathVfxLaneRuntimeMetaPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationLaneRuntime.cs.meta";
         private const string BoxMotionExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs";
         private const string BoxMotionLaneRuntimePath =
@@ -313,6 +317,101 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(topologyExecutorSource, Does.Not.Contain("TopologyVisualBridgeVisibilityController"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("AudioManager"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("Play2D"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfxLaneBoundary_OwnsRouteAndKeepsConcreteVfxOutOfLane()
+        {
+            var lanePath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", DamageDeathVfxLaneRuntimePath));
+            var laneMetaPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", DamageDeathVfxLaneRuntimeMetaPath));
+            var coordinatorSource = ReadRepoFile(CoordinatorPath);
+            var laneSource = ReadRepoFile(DamageDeathVfxLaneRuntimePath);
+            var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
+            var vfxRuntimeSource = ReadRepoFile(
+                "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs");
+
+            Assert.That(File.Exists(lanePath), Is.True);
+            Assert.That(File.Exists(laneMetaPath), Is.True);
+
+            Assert.That(coordinatorSource, Does.Contain("DamageDeathVfxPresentationLaneRuntime _damageDeathVfxLane"));
+            Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.Present(result)"));
+            Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.Update(deltaTime)"));
+            Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.ResetSession()"));
+            Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.HardCleanup()"));
+            Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.ConfigureExecution(mode, playbackPort)"));
+            Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.ExecutorDiagnostics"));
+            Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.BlockingSnapshot"));
+            Assert.That(coordinatorSource, Does.Contain("PresentExtensions(result)"));
+            Assert.That(coordinatorSource, Does.Contain("damageDeathVfxExecutionMode: DamageDeathVfxExecutionMode"));
+
+            foreach (var forbiddenCoordinatorToken in new[]
+                     {
+                         "_damageDeathVfxExecutionGuard",
+                         "_damageDeathVfxExecutionPipelineFactory",
+                         "_damageDeathVfxExecutionPipeline",
+                         "_damageDeathVfxPlaybackPort",
+                         "BuildDamageDeathVfxPlaybackKeys",
+                         "RefreshDamageDeathVfxExecution",
+                         "ApplyDamageDeathVfxPlannerSuppressionDiagnostics",
+                         "GameplayPresentationExecutionRouter.UseDamageDeathVfxExecutor",
+                         "new VfxCuePlanner()",
+                         "DamageDeathVfxExecutionPolicy.Normalize",
+                         "RecordSkippedByPolicy",
+                         "DamageHitSuppressedByEnemyDeathCount",
+                         "RecordSameTickDamageHitSuppressedByDeath",
+                     })
+            {
+                Assert.That(coordinatorSource, Does.Not.Contain(forbiddenCoordinatorToken), forbiddenCoordinatorToken);
+            }
+
+            Assert.That(laneSource, Does.Contain("internal sealed class DamageDeathVfxPresentationLaneRuntime"));
+            Assert.That(laneSource, Does.Contain("DamageDeathVfxExecutionGuard"));
+            Assert.That(laneSource, Does.Contain("DamageDeathVfxExecutionPolicy.Normalize"));
+            Assert.That(laneSource, Does.Contain("BuildDamageDeathVfxPlaybackKeys"));
+            Assert.That(laneSource, Does.Contain("DamageDeathVfxExecutionOwner.LegacyExtension"));
+            Assert.That(laneSource, Does.Contain("RecordSkippedByPolicy"));
+            Assert.That(laneSource, Does.Contain("new VfxCuePlanner()"));
+            Assert.That(laneSource, Does.Contain("DamageHitSuppressedByEnemyDeathCount"));
+            Assert.That(laneSource, Does.Contain("RecordSameTickDamageHitSuppressedByDeath"));
+            Assert.That(laneSource, Does.Contain("IDamageDeathVfxPlaybackPort"));
+            Assert.That(hostRuntimeSource, Does.Contain("GameplayVfxPresentationExecutor"));
+            Assert.That(hostRuntimeSource, Does.Contain("DamageDeathVfxPresentationLaneRuntime"));
+
+            foreach (var forbiddenLaneToken in new[]
+                     {
+                         "UnityEngine",
+                         "GameObject",
+                         "Transform",
+                         "ParticleSystem",
+                         "FindObjectOfType",
+                         "FindObjectsByType",
+                         "Object.Find",
+                         "GetComponent",
+                         "GameplayVfxGameObjectPool",
+                         "GameplayVfxPooledInstance",
+                         "IGameplayTickPresentationExtension",
+                     })
+            {
+                Assert.That(laneSource, Does.Not.Contain(forbiddenLaneToken), forbiddenLaneToken);
+            }
+
+            foreach (var forbiddenSuppressionToken in new[]
+                     {
+                         "suppressVfx",
+                         "suppressAllExtensions",
+                         "skipAllVfx",
+                         "global effect registry",
+                     })
+            {
+                Assert.That(coordinatorSource, Does.Not.Contain(forbiddenSuppressionToken), forbiddenSuppressionToken);
+                Assert.That(laneSource, Does.Not.Contain(forbiddenSuppressionToken), forbiddenSuppressionToken);
+            }
+
+            Assert.That(vfxRuntimeSource, Does.Contain("ShouldFilterDamageDeathExecutorOwnedRequests"));
+            Assert.That(vfxRuntimeSource, Does.Contain("EnemyVfxCue.Damage"));
+            Assert.That(vfxRuntimeSource, Does.Contain("EnemyVfxCue.Death"));
+            Assert.That(vfxRuntimeSource, Does.Contain("LegacyDamageDeathUnrelatedCueRetainedCount"));
         }
 
         [Test]
