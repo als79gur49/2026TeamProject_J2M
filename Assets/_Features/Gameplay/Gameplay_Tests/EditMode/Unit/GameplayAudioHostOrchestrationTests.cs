@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Gameplay.ActionAudio;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BlockAudio;
 using Game.Feature.Gameplay.BoardState;
@@ -13,6 +14,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
 using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
@@ -356,6 +358,66 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                mapBundle.Dispose();
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayAudioBatch_MixedProductionAndLegacyModes_PreservesTwoPassOrdering()
+        {
+            var rootObject = new GameObject(nameof(GameplayAudioBatch_MixedProductionAndLegacyModes_PreservesTwoPassOrdering));
+            var trace = new List<string>();
+            var mapBundle = CreateGameplayAudioMap();
+            var actionProfileBundle = CreateActionAudioPushWindupProfile();
+            var enemyProfileBundle = CreateEnemyDeathAudioProfile();
+            try
+            {
+                var presenter = CreatePresenter(
+                    rootObject,
+                    new MixedAudioViewFactory(
+                        rootObject.transform,
+                        actionProfileBundle.Profile,
+                        enemyProfileBundle.Profile));
+                var legacyPort = new RecordingGameplayAudioPlaybackPort(trace.Add, traceDebugTag: true);
+                var coreBridgePort = new RecordingGameplaySfxPlaybackPort(trace.Add);
+                var actionBridgePort = new RecordingGameplayActionAudioPlaybackPort(trace.Add);
+                var enemyBridgePort = new RecordingEnemyAudioPlaybackPort(trace.Add);
+                var player = CreateUnit(10, UnitRole.Player, new SurfaceCell(FaceId.Floor, 0, 0));
+                var enemy = CreateUnit(20, UnitRole.Enemy, new SurfaceCell(FaceId.Floor, 0, 0));
+
+                presenter.ConfigureCoreGameplaySfxExecution(
+                    CoreGameplaySfxExecutionMode.LegacyGameplayAudioController,
+                    coreBridgePort);
+                presenter.ConfigureActionAudioExecution(
+                    ActionAudioExecutionMode.OrchestrationActionAudioBridge,
+                    actionBridgePort);
+                presenter.ConfigureEnemyAudioExecution(
+                    EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge,
+                    enemyBridgePort);
+                presenter.AttachGameplayAudioRuntime(legacyPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { player, enemy }, new CubeTopologyState(FaceId.Floor));
+
+                presenter.Present(CreateTickResult(
+                    CreateMixedAudioPresentationData(player.entityId, enemy.entityId),
+                    new[] { player, enemy },
+                    tickIndex: 17));
+
+                Assert.That(trace, Is.EqualTo(new[]
+                {
+                    "ActionProduction:PlayerPushWindup",
+                    "EnemyProduction:Death",
+                    "Legacy:PlayerDamage",
+                }));
+                Assert.That(coreBridgePort.Requests, Is.Empty);
+                Assert.That(actionBridgePort.Requests, Has.Count.EqualTo(1));
+                Assert.That(enemyBridgePort.Requests, Has.Count.EqualTo(1));
+            }
+            finally
+            {
+                actionProfileBundle.Dispose();
+                enemyProfileBundle.Dispose();
                 mapBundle.Dispose();
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
@@ -2101,6 +2163,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
         }
 
+        private static TickPresentationData CreateMixedAudioPresentationData(int playerEntityId, int enemyEntityId)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                new[]
+                {
+                    new TickPlayerActionPresentationSignal(
+                        playerEntityId,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 17,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        targetEntityId: enemyEntityId,
+                        direction: Direction.Right,
+                        actionPlanId: 170),
+                },
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                new[]
+                {
+                    new TickPlayerDamagePresentationSignal(playerEntityId, tookDamageThisTick: true, damageAmount: 1),
+                },
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                new[]
+                {
+                    new TickEntityExitPresentationSignal(
+                        enemyEntityId,
+                        TickEntityExitCause.EnemyDeath,
+                        new SurfaceCell(FaceId.Floor, 0, 0),
+                        new CubeTopologyState(FaceId.Floor),
+                        Direction.Up,
+                        EntityType.Unit,
+                        sourceActorEntityId: playerEntityId),
+                });
+        }
+
         private static TickResult CreateTickResult(
             TickPresentationData presentationData,
             IReadOnlyList<EntityState> finalEntities = null,
@@ -2238,6 +2341,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new EnemyAudioProfileBundle(profile, definition);
         }
 
+        private static ActionAudioProfileBundle CreateActionAudioPushWindupProfile()
+        {
+            var profile = ScriptableObject.CreateInstance<GameplayActionAudioProfile>();
+            profile.name = "ActionAudioProfile_MixedOrdering_Test";
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            definition.name = "ActionPushWindup_Def_Test";
+            SetSerializedField(typeof(AudioDefinition), definition, "category", AudioCategory.Sfx);
+
+            var binding = new AudioBinding();
+            SetSerializedField(typeof(AudioBinding), binding, "definition", definition);
+            var entries = new[]
+            {
+                new GameplayActionAudioEntry
+                {
+                    Action = GameplayActionKind.Push,
+                    Moment = GameplayActionAudioMoment.Windup,
+                    Binding = binding,
+                    IsOptional = false,
+                },
+            };
+            SetSerializedField(typeof(GameplayActionAudioProfile), profile, "entries", entries);
+            return new ActionAudioProfileBundle(profile, definition);
+        }
+
         private sealed class GameplayAudioMapBundle : IDisposable
         {
             private readonly UnityEngine.Object[] _definitions;
@@ -2258,6 +2385,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
 
                 UnityEngine.Object.DestroyImmediate(Map);
+            }
+        }
+
+        private sealed class ActionAudioProfileBundle : IDisposable
+        {
+            private readonly UnityEngine.Object _definition;
+
+            public ActionAudioProfileBundle(GameplayActionAudioProfile profile, UnityEngine.Object definition)
+            {
+                Profile = profile;
+                _definition = definition;
+            }
+
+            public GameplayActionAudioProfile Profile { get; }
+
+            public void Dispose()
+            {
+                UnityEngine.Object.DestroyImmediate(_definition);
+                UnityEngine.Object.DestroyImmediate(Profile);
             }
         }
 
@@ -2326,10 +2472,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private sealed class RecordingGameplayAudioPlaybackPort : IGameplayAudioPlaybackPort
         {
             private readonly Action<string> _traceSink;
+            private readonly bool _traceDebugTag;
 
-            public RecordingGameplayAudioPlaybackPort(Action<string> traceSink = null)
+            public RecordingGameplayAudioPlaybackPort(Action<string> traceSink = null, bool traceDebugTag = false)
             {
                 _traceSink = traceSink;
+                _traceDebugTag = traceDebugTag;
             }
 
             public readonly List<(AudioDefinition Definition, AudioPlaybackContext Context)> TwoDCalls = new();
@@ -2343,7 +2491,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void Play2D(AudioDefinition definition, in AudioPlaybackContext context)
             {
-                _traceSink?.Invoke("Playback:Play2D");
+                _traceSink?.Invoke(_traceDebugTag ? $"Legacy:{context.DebugTag}" : "Playback:Play2D");
                 TwoDCalls.Add((definition, context));
             }
 
@@ -2353,7 +2501,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AudioAttachmentSlot slot,
                 in AudioPlaybackContext context)
             {
-                _traceSink?.Invoke("Playback:PlayAttached");
+                _traceSink?.Invoke(_traceDebugTag ? $"Legacy:{context.DebugTag}" : "Playback:PlayAttached");
                 AttachedCalls.Add((definition, (GameplayEntityView)owner, slot, context));
             }
         }
@@ -2361,11 +2509,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private sealed class RecordingGameplaySfxPlaybackPort : IGameplaySfxPlaybackPort
         {
             private readonly GameplaySfxPlaybackResultKind _resultKind;
+            private readonly Action<string> _traceSink;
 
             public RecordingGameplaySfxPlaybackPort(
                 GameplaySfxPlaybackResultKind resultKind = GameplaySfxPlaybackResultKind.Succeeded)
             {
                 _resultKind = resultKind;
+            }
+
+            public RecordingGameplaySfxPlaybackPort(Action<string> traceSink)
+                : this()
+            {
+                _traceSink = traceSink;
             }
 
             public readonly List<GameplaySfxPlaybackRequest> Requests = new();
@@ -2378,6 +2533,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 in GameplaySfxPlaybackRequest request,
                 out GameplaySfxPlaybackResult result)
             {
+                _traceSink?.Invoke($"CoreProduction:{request.CueKey}");
                 Requests.Add(request);
                 result = new GameplaySfxPlaybackResult(_resultKind);
                 return _resultKind == GameplaySfxPlaybackResultKind.Succeeded ||
@@ -2394,6 +2550,70 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void HardCleanup()
             {
                 HardCleanupCallCount++;
+                Requests.Clear();
+            }
+        }
+
+        private sealed class RecordingGameplayActionAudioPlaybackPort : IGameplayActionAudioPlaybackPort
+        {
+            private readonly Action<string> _traceSink;
+
+            public RecordingGameplayActionAudioPlaybackPort(Action<string> traceSink)
+            {
+                _traceSink = traceSink;
+            }
+
+            public readonly List<GameplayActionAudioPlaybackRequest> Requests = new();
+
+            public bool TryPlayActionAudio(
+                in GameplayActionAudioPlaybackRequest request,
+                out GameplayActionAudioPlaybackResult result)
+            {
+                _traceSink?.Invoke($"ActionProduction:{request.CueKey}");
+                Requests.Add(request);
+                result = new GameplayActionAudioPlaybackResult(GameplayActionAudioPlaybackResultKind.Succeeded);
+                return true;
+            }
+
+            public void ResetSession()
+            {
+                Requests.Clear();
+            }
+
+            public void HardCleanup()
+            {
+                Requests.Clear();
+            }
+        }
+
+        private sealed class RecordingEnemyAudioPlaybackPort : IGameplayEnemyAudioPlaybackPort
+        {
+            private readonly Action<string> _traceSink;
+
+            public RecordingEnemyAudioPlaybackPort(Action<string> traceSink)
+            {
+                _traceSink = traceSink;
+            }
+
+            public readonly List<GameplayEnemyAudioPlaybackRequest> Requests = new();
+
+            public bool TryPlayEnemyAudio(
+                in GameplayEnemyAudioPlaybackRequest request,
+                out GameplayEnemyAudioPlaybackResult result)
+            {
+                _traceSink?.Invoke($"EnemyProduction:{request.CueKey}");
+                Requests.Add(request);
+                result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.Succeeded);
+                return true;
+            }
+
+            public void ResetSession()
+            {
+                Requests.Clear();
+            }
+
+            public void HardCleanup()
+            {
                 Requests.Clear();
             }
         }
@@ -2438,6 +2658,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     var authoring = viewObject.AddComponent<EnemyAudioAuthoring>();
                     SetSerializedField(typeof(EnemyAudioAuthoring), authoring, "profile", _profile);
+                }
+
+                return view;
+            }
+        }
+
+        private sealed class MixedAudioViewFactory : IGameplayEntityViewFactory
+        {
+            private readonly Transform _parent;
+            private readonly GameplayActionAudioProfile _actionProfile;
+            private readonly EnemyAudioProfile _enemyProfile;
+
+            public MixedAudioViewFactory(
+                Transform parent,
+                GameplayActionAudioProfile actionProfile,
+                EnemyAudioProfile enemyProfile)
+            {
+                _parent = parent;
+                _actionProfile = actionProfile;
+                _enemyProfile = enemyProfile;
+            }
+
+            public GameplayEntityView CreateView(in EntityState entity)
+            {
+                var viewObject = new GameObject($"EntityView_{entity.entityId}");
+                viewObject.transform.SetParent(_parent, worldPositionStays: false);
+                var view = viewObject.AddComponent<GameplayEntityView>();
+                view.Initialize(entity.entityId);
+                if (entity.unitRole == UnitRole.Player && _actionProfile != null)
+                {
+                    var authoring = viewObject.AddComponent<GameplayActionAudioAuthoring>();
+                    SetSerializedField(typeof(GameplayActionAudioAuthoring), authoring, "profile", _actionProfile);
+                }
+
+                if (entity.unitRole == UnitRole.Enemy && _enemyProfile != null)
+                {
+                    var authoring = viewObject.AddComponent<EnemyAudioAuthoring>();
+                    SetSerializedField(typeof(EnemyAudioAuthoring), authoring, "profile", _enemyProfile);
                 }
 
                 return view;

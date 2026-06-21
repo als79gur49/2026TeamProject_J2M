@@ -48,6 +48,7 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplayPresentationPipeline _executionPipeline;
         private IGameplayActionAudioPlaybackPort _playbackPort;
+        private int _preparedTickIndex;
 
         public GameplayActionAudioLaneRuntime(
             GameplayPresentationStateStore stateStore,
@@ -111,6 +112,7 @@ namespace Game.Feature.Gameplay.Host
 
             var actionAudioRequests = _requestPlanner.BuildRequests(result);
             var actionAudioKeys = BuildActionAudioPlaybackKeys(result);
+            _preparedTickIndex = result.TickIndex;
             if (UseProductionExecutor())
             {
                 for (var i = 0; i < actionAudioKeys.Count; i++)
@@ -135,7 +137,7 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        public void PresentProduction(TickResult result)
+        public void PresentPrepared(TickResult result)
         {
             if (result == null ||
                 !UseProductionExecutor())
@@ -147,21 +149,15 @@ namespace Game.Feature.Gameplay.Host
             _executionPipeline?.Present(result);
         }
 
-        public void PlayLegacyPending(int tickIndex)
+        public void CompletePrepared()
         {
-            _legacyController.PlayPlannedAudio(tickIndex);
+            _legacyController.PlayPlannedAudio(_preparedTickIndex);
         }
 
-        public void Update(
-            int tickIndex,
-            float gameplayAudioDeltaTime,
-            float pipelineDeltaTime)
+        public void Update(float deltaTime)
         {
-            _ = tickIndex;
-            _ = gameplayAudioDeltaTime;
-
             _legacyController.Update();
-            _executionPipeline?.Update(pipelineDeltaTime);
+            _executionPipeline?.Update(deltaTime);
         }
 
         public void SetPlaybackGateState(GameplayAudioPlaybackGateState gateState)

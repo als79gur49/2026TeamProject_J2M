@@ -1544,7 +1544,7 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private static bool ShouldFilterDamageDeathExecutorOwnedRequests(
             in GameplayTickPresentationExtensionContext context)
         {
-            return context.DamageDeathVfxExecutionMode == DamageDeathVfxExecutionMode.OrchestrationExecutor;
+            return context.DamageDeathVfxExtensionPolicy.SuppressLegacyDamageDeathRequests;
         }
 
         private static bool IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId cueId)

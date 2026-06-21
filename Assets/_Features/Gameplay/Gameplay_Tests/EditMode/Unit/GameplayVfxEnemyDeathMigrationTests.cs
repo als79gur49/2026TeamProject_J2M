@@ -516,7 +516,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static GameplayTickPresentationExtensionContext CreateExtensionContext(
             TickEntityExitPresentationSignal[] exitSignals,
             TickEnemyDamagePresentationSignal[] enemyDamageSignals,
-            DamageDeathVfxExecutionMode damageDeathVfxExecutionMode = DamageDeathVfxExecutionMode.LegacyExtension)
+            DamageDeathVfxExtensionPolicy damageDeathVfxExtensionPolicy = default)
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var stateStore = new GameplayPresentationStateStore();
@@ -541,7 +541,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 topology,
                 stateStore,
                 projector,
-                damageDeathVfxExecutionMode: damageDeathVfxExecutionMode);
+                damageDeathVfxExtensionPolicy: damageDeathVfxExtensionPolicy);
         }
 
         private static GameplayVfxRequest CreatePolicyFilterRequest(GameplayVfxCueId cueId, int sequenceId)

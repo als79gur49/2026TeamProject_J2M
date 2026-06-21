@@ -466,7 +466,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.ExecutorDiagnostics"));
             Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.BlockingSnapshot"));
             Assert.That(coordinatorSource, Does.Contain("PresentExtensions(result)"));
-            Assert.That(coordinatorSource, Does.Contain("damageDeathVfxExecutionMode: DamageDeathVfxExecutionMode"));
+            Assert.That(coordinatorSource, Does.Contain("damageDeathVfxExtensionPolicy: _damageDeathVfxLane.ExtensionPolicy"));
+            Assert.That(coordinatorSource, Does.Not.Contain("damageDeathVfxExecutionMode:"));
 
             foreach (var forbiddenCoordinatorToken in new[]
                      {
@@ -483,6 +484,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                          "RecordSkippedByPolicy",
                          "DamageHitSuppressedByEnemyDeathCount",
                          "RecordSameTickDamageHitSuppressedByDeath",
+                         "DamageDeathVfxExecutionMode.OrchestrationExecutor",
                      })
             {
                 Assert.That(coordinatorSource, Does.Not.Contain(forbiddenCoordinatorToken), forbiddenCoordinatorToken);
@@ -829,8 +831,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(hostRuntimeSource, Does.Contain("ActionAudioExecutionMode.LegacyActionAudioController"));
             Assert.That(coordinatorSource, Does.Contain("GameplayActionAudioLaneRuntime"));
             Assert.That(coordinatorSource, Does.Contain("_actionAudioLane.RefreshPlan"));
-            Assert.That(coordinatorSource, Does.Contain("_actionAudioLane.PresentProduction"));
-            Assert.That(coordinatorSource, Does.Contain("_actionAudioLane.PlayLegacyPending"));
+            Assert.That(coordinatorSource, Does.Contain("_actionAudioLane.PresentPrepared"));
+            Assert.That(coordinatorSource, Does.Contain("_actionAudioLane.CompletePrepared"));
             Assert.That(coordinatorSource, Does.Contain("_actionAudioLane.Update"));
             Assert.That(coordinatorSource, Does.Contain("_actionAudioLane.AttachRuntime"));
             Assert.That(coordinatorSource, Does.Contain("_actionAudioLane.DetachRuntime"));
@@ -845,6 +847,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Not.Contain("_actionAudioExecutionPipeline"));
             Assert.That(coordinatorSource, Does.Not.Contain("_actionAudioPlaybackPortAdapter"));
             Assert.That(coordinatorSource, Does.Not.Contain("ActionAudioExecutionOwner.LegacyActionAudioController"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_actionAudioLane.PresentProduction"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_actionAudioLane.PlayLegacyPending"));
+            Assert.That(coordinatorSource, Does.Not.Contain("RefreshActionAudioExecution"));
             Assert.That(typeof(GameplayActionAudioLaneRuntime).IsSealed, Is.True);
             Assert.That(typeof(GameplayActionAudioLaneRuntime).IsSubclassOf(typeof(MonoBehaviour)), Is.False);
             Assert.That(actionAudioLaneSource, Does.Contain("GameplayActionAudioRequestPlanner"));
@@ -901,10 +906,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Contain("CoreGameplaySfxLaneRuntime"));
             Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.BuildCandidatePlan"));
             Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.FinalizePlan"));
-            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.PresentProduction"));
-            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.PlayLegacyPending"));
-            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.UpdatePlaybackAndDrain"));
-            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.UpdateProductionPipeline"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.PresentPrepared"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.CompletePrepared"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.Update"));
             Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.AttachRuntime"));
             Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.DetachRuntime"));
             Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.ResetSession"));
@@ -923,6 +927,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Not.Contain("CreateCoreGameplaySfxExecutionPipeline"));
             Assert.That(coordinatorSource, Does.Not.Contain("GameplayAudioPresentationController"));
             Assert.That(coordinatorSource, Does.Not.Contain("GameplaySfxPlaybackPortAdapter"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_coreGameplaySfxLane.PresentProduction"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_coreGameplaySfxLane.PlayLegacyPending"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_coreGameplaySfxLane.UpdateProductionPipeline"));
 
             Assert.That(coreLaneSource, Does.Contain("GameplayAudioRequestPlanner"));
             Assert.That(coreLaneSource, Does.Contain("GameplayAudioPresentationController"));
@@ -933,8 +940,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coreLaneSource, Does.Contain("SuppressLethalEnemyDamageRequests"));
             Assert.That(coreLaneSource, Does.Contain("ConfigureEnemyDeathCueSuppression"));
             Assert.That(coreLaneSource, Does.Contain("CoreGameplaySfxExecutionOwner.LegacyGameplayAudioController"));
-            Assert.That(coreLaneSource, Does.Contain("UpdatePlaybackAndDrain"));
-            Assert.That(coreLaneSource, Does.Contain("UpdateProductionPipeline"));
+            Assert.That(coreLaneSource, Does.Contain("PresentPrepared"));
+            Assert.That(coreLaneSource, Does.Contain("CompletePrepared"));
+            Assert.That(coreLaneSource, Does.Contain("public void Update(float deltaTime)"));
             Assert.That(coreLaneSource, Does.Contain("HashSet<int> _playableEnemyDeathCueEntityIds"));
             Assert.That(coreLaneSource, Does.Contain("CopyPlayableEnemyDeathCueEntityIds"));
             Assert.That(coreLaneSource, Does.Not.Contain("AudioManager"));
@@ -1908,6 +1916,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Not.Contain("RecordSkippedByPolicy(\n                        EnemyAudioExecutionOwner"));
             Assert.That(coordinatorSource, Does.Not.Contain("TryBeginExecution(\n                        EnemyAudioExecutionOwner"));
             Assert.That(coordinatorSource, Does.Not.Contain("CreateEnemyAudioExecutionPipeline"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_enemyOneShotAudioLane.PresentProduction"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_enemyOneShotAudioLane.PlayLegacyPending"));
+            Assert.That(coordinatorSource, Does.Not.Contain("RefreshEnemyAudioExecution"));
+            Assert.That(coordinatorSource, Does.Contain("_enemyOneShotAudioLane.PresentPrepared"));
+            Assert.That(coordinatorSource, Does.Contain("_enemyOneShotAudioLane.CompletePrepared"));
             Assert.That(enemyOneShotLaneSource, Does.Contain("BuildEnemyAudioPlaybackKeys"));
             Assert.That(enemyOneShotLaneSource, Does.Contain("EnemyAudioExecutionGuard"));
             Assert.That(enemyOneShotLaneSource, Does.Contain("GameplayEnemyAudioPlaybackPortAdapter"));

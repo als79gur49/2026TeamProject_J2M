@@ -80,6 +80,8 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplayPresentationPipeline _executionPipeline;
         private IGameplaySfxPlaybackPort _playbackPort;
+        private bool _previousPlaybackGateBlocked;
+        private bool _currentPlaybackGateBlocked;
 
         public CoreGameplaySfxLaneRuntime(
             GameplayPresentationStateStore stateStore,
@@ -183,7 +185,7 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        public void PresentProduction(TickResult result)
+        public void PresentPrepared(TickResult result)
         {
             if (result == null ||
                 !UseProductionExecutor())
@@ -195,13 +197,15 @@ namespace Game.Feature.Gameplay.Host
             _executionPipeline?.Present(result);
         }
 
-        public void PlayLegacyPending()
+        public void CompletePrepared()
         {
             _legacyController.PlayPlannedAudio();
         }
 
         public void SetTopologyTransitionActive(bool isActive)
         {
+            _previousPlaybackGateBlocked = _currentPlaybackGateBlocked;
+            _currentPlaybackGateBlocked = isActive;
             var gateState = isActive
                 ? GameplayAudioPlaybackGateState.TopologyLocked
                 : GameplayAudioPlaybackGateState.Open;
@@ -209,14 +213,13 @@ namespace Game.Feature.Gameplay.Host
             _playbackPortAdapter.SetPlaybackGateState(gateState);
         }
 
-        public void UpdatePlaybackAndDrain(float gameplayAudioDeltaTime)
+        public void Update(float deltaTime)
         {
+            var gameplayAudioDeltaTime = _previousPlaybackGateBlocked || _currentPlaybackGateBlocked
+                ? 0f
+                : deltaTime;
             _legacyController.Update(gameplayAudioDeltaTime);
             _playbackPortAdapter.Update();
-        }
-
-        public void UpdateProductionPipeline(float deltaTime)
-        {
             _executionPipeline?.Update(deltaTime);
         }
 

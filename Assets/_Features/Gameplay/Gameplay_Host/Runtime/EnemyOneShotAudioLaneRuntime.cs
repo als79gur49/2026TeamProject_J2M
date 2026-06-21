@@ -73,6 +73,9 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplayPresentationPipeline _executionPipeline;
         private IGameplayEnemyAudioPlaybackPort _playbackPort;
+        private int _preparedTickIndex;
+        private bool _previousPlaybackGateBlocked;
+        private bool _currentPlaybackGateBlocked;
 
         public EnemyOneShotAudioLaneRuntime(
             GameplayPresentationStateStore stateStore,
@@ -146,6 +149,7 @@ namespace Game.Feature.Gameplay.Host
                 result.PresentationData,
                 enemyAudioRequests);
             var enemyAudioKeys = BuildEnemyAudioPlaybackKeys(result);
+            _preparedTickIndex = result.TickIndex;
             if (UseProductionExecutor())
             {
                 for (var i = 0; i < enemyAudioKeys.Count; i++)
@@ -173,7 +177,7 @@ namespace Game.Feature.Gameplay.Host
                 enemyAudioKeys.Count);
         }
 
-        public void PresentProduction(TickResult result)
+        public void PresentPrepared(TickResult result)
         {
             if (result == null ||
                 !UseProductionExecutor())
@@ -185,22 +189,26 @@ namespace Game.Feature.Gameplay.Host
             _executionPipeline?.Present(result);
         }
 
-        public void PlayLegacyPending(int tickIndex)
+        public void CompletePrepared()
         {
-            _legacyController.PlayPlannedAudio(tickIndex);
+            _legacyController.PlayPlannedAudio(_preparedTickIndex);
         }
 
         public void Update(
             int tickIndex,
-            float gameplayAudioDeltaTime,
-            float pipelineDeltaTime)
+            float deltaTime)
         {
+            var gameplayAudioDeltaTime = _previousPlaybackGateBlocked || _currentPlaybackGateBlocked
+                ? 0f
+                : deltaTime;
             _legacyController.Update(tickIndex, gameplayAudioDeltaTime);
-            _executionPipeline?.Update(pipelineDeltaTime);
+            _executionPipeline?.Update(deltaTime);
         }
 
         public void SetPlaybackGateState(GameplayAudioPlaybackGateState gateState)
         {
+            _previousPlaybackGateBlocked = _currentPlaybackGateBlocked;
+            _currentPlaybackGateBlocked = gateState.IsBlocked;
             _legacyController.SetPlaybackGateState(gateState);
         }
 

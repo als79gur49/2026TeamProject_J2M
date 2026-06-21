@@ -63,6 +63,9 @@ namespace Game.Feature.Gameplay.Host
         public PresentationBlockingSnapshot BlockingSnapshot =>
             _executionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
+        public DamageDeathVfxExtensionPolicy ExtensionPolicy =>
+            new(UseProductionExecutor());
+
         public DamageDeathVfxPresentationLaneDiagnostics Diagnostics =>
             new(
                 ExecutionMode,
