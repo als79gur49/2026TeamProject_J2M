@@ -241,19 +241,14 @@ namespace Game.Feature.Gameplay.Host
         private readonly TopologyExecutionPipelineFactory _topologyExecutionPipelineFactory;
         private readonly DamageDeathVfxExecutionGuard _damageDeathVfxExecutionGuard = new();
         private readonly DamageDeathVfxExecutionPipelineFactory _damageDeathVfxExecutionPipelineFactory;
-        private readonly BoxMotionExecutionGuard _boxMotionExecutionGuard = new();
-        private readonly BoxMotionExecutionPipelineFactory _boxMotionExecutionPipelineFactory;
         private readonly PlayerActionAnimationLaneRuntime _playerActionAnimationLane;
         private readonly EnemyPresentationLaneRuntime _enemyPresentationLane;
+        private readonly BoxMotionPresentationLaneRuntime _boxMotionLane;
 
         private GameplayPresentationPipeline _presentationPipeline;
         private GameplayPresentationPipeline _topologyExecutionPipeline;
         private GameplayPresentationPipeline _damageDeathVfxExecutionPipeline;
-        private GameplayPresentationPipeline _boxMotionExecutionPipeline;
         private IDamageDeathVfxPlaybackPort _damageDeathVfxPlaybackPort;
-        private IGameplayMotionPlaybackPort _boxMotionPlaybackPort;
-        private GameplayMotionTrackPlannerPlaybackPort _boxMotionTrackPlannerPlaybackPort;
-        private bool _boxMotionUseDefaultPlaybackPort = true;
         private bool _isInitialized;
         private bool _presentationPipelineDiagnosticsEnabled;
         private GameplayCubeProjector _projector;
@@ -334,9 +329,6 @@ namespace Game.Feature.Gameplay.Host
             _damageDeathVfxExecutionPipelineFactory = damageDeathVfxExecutionPipelineFactory ??
                                                       GameplayHostPresentationPipelineFactory
                                                           .CreateDamageDeathVfxExecutionPipeline;
-            _boxMotionExecutionPipelineFactory = boxMotionExecutionPipelineFactory ??
-                                                 GameplayHostPresentationPipelineFactory
-                                                     .CreateBoxMotionExecutionPipeline;
             _coreGameplaySfxLane = new CoreGameplaySfxLaneRuntime(
                 _stateStore,
                 coreGameplaySfxExecutionPipelineFactory);
@@ -387,10 +379,19 @@ namespace Game.Feature.Gameplay.Host
                 _exitPresentationController,
                 _moonBlockDestructionPresentationController,
                 _entityPresentationApplier);
-            _boxMotionTrackPlannerPlaybackPort = new GameplayMotionTrackPlannerPlaybackPort(
+            var boxMotionTrackPlannerPlaybackPort = new GameplayMotionTrackPlannerPlaybackPort(
                 _planner,
                 _stateStore,
                 _trackState);
+            _boxMotionLane = new BoxMotionPresentationLaneRuntime(
+                _trackState,
+                boxMotionExecutionPipelineFactory ??
+                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
+                boxMotionTrackPlannerPlaybackPort,
+                new GameplayBoxMotionRuntimeCleanupAdapter(
+                    _stateStore,
+                    _trackState,
+                    _entityPresentationApplier));
             _playerActionAnimationLane =
                 new PlayerActionAnimationLaneRuntime(
                     _stateStore,
@@ -505,10 +506,10 @@ namespace Game.Feature.Gameplay.Host
             _damageDeathVfxExecutionGuard.Diagnostics;
 
         internal BoxMotionPresentationExecutionMode BoxMotionPresentationExecutionMode =>
-            _boxMotionExecutionGuard.Diagnostics.Mode;
+            _boxMotionLane.ExecutionMode;
 
         internal BoxMotionOwnershipDiagnostics BoxMotionOwnershipDiagnostics =>
-            _boxMotionExecutionGuard.Diagnostics;
+            _boxMotionLane.OwnershipDiagnostics;
 
         internal PlayerActionAnimationExecutionMode PlayerActionAnimationExecutionMode =>
             _playerActionAnimationLane.ExecutionMode;
@@ -544,7 +545,7 @@ namespace Game.Feature.Gameplay.Host
             _damageDeathVfxExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
         internal PresentationBlockingSnapshot BoxMotionExecutionPipelineBlockingSnapshot =>
-            _boxMotionExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
+            _boxMotionLane.BlockingSnapshot;
 
         internal PresentationBlockingSnapshot PlayerActionAnimationExecutionPipelineBlockingSnapshot =>
             _playerActionAnimationLane.BlockingSnapshot;
@@ -565,23 +566,13 @@ namespace Game.Feature.Gameplay.Host
             DamageDeathVfxProductionTelemetryBuilder.ResolveExecutorDiagnostics(_damageDeathVfxExecutionPipeline);
 
         internal GameplayMotionExecutorDiagnostics BoxMotionExecutorDiagnostics =>
-            ResolveBoxMotionExecutorDiagnostics();
+            _boxMotionLane.ExecutorDiagnostics;
 
         internal BoxMotionPresentationRuntimeDebugSnapshot BoxMotionRuntimeDebugSnapshot =>
-            new(
-                _trackState.LocalMotionTracks.Count,
-                _trackState.OriginalViewMotionTracks.Count,
-                _trackState.CompletedPresentationMotionKeys.Count,
-                _trackState.CompletedMotionTrackIds.Count,
-                _trackState.CompletedOriginalViewMotionTrackIds.Count,
-                _trackState.MotionVisualScaleEntityIds.Count,
-                _trackState.FlipInteractionTracks.Count,
-                _trackState.FlipInteractionResetRequests.Count,
-                _trackState.CompletedFlipInteractionTrackIds.Count,
-                _boxMotionTrackPlannerPlaybackPort?.Diagnostics ?? default);
+            _boxMotionLane.RuntimeDebugSnapshot;
 
         internal BoxMotionProductionTelemetrySnapshot BoxMotionProductionTelemetrySnapshot =>
-            BuildBoxMotionProductionTelemetrySnapshot();
+            _boxMotionLane.ProductionTelemetrySnapshot;
 
         internal GameplayAnimationExecutorDiagnostics PlayerActionAnimationExecutorDiagnostics =>
             _playerActionAnimationLane.ExecutorDiagnostics;
@@ -629,15 +620,7 @@ namespace Game.Feature.Gameplay.Host
             IGameplayMotionPlaybackPort playbackPort = null,
             bool useDefaultPlaybackPort = true)
         {
-            _boxMotionPlaybackPort = playbackPort;
-            _boxMotionUseDefaultPlaybackPort = useDefaultPlaybackPort;
-            _boxMotionExecutionGuard.Configure(mode);
-            _boxMotionExecutionGuard.ResetSession();
-            _boxMotionExecutionPipeline = _boxMotionExecutionPipelineFactory(
-                BoxMotionPresentationExecutionMode,
-                ResolveBoxMotionPlaybackPort(),
-                _boxMotionExecutionGuard);
-            _boxMotionExecutionPipeline?.ResetSession();
+            _boxMotionLane.ConfigureExecution(mode, playbackPort, useDefaultPlaybackPort);
         }
 
         internal void ConfigurePlayerActionAnimationExecution(
@@ -812,11 +795,7 @@ namespace Game.Feature.Gameplay.Host
                 DamageDeathVfxExecutionMode,
                 _damageDeathVfxPlaybackPort,
                 _damageDeathVfxExecutionGuard);
-            _boxMotionExecutionGuard.ResetSession();
-            _boxMotionExecutionPipeline = _boxMotionExecutionPipelineFactory(
-                BoxMotionPresentationExecutionMode,
-                ResolveBoxMotionPlaybackPort(),
-                _boxMotionExecutionGuard);
+            _boxMotionLane.ResetSession();
             _playerActionAnimationLane.ResetSession();
             _enemyPresentationLane.ResetSession();
             _coreGameplaySfxLane.ResetSession();
@@ -855,7 +834,7 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
-            ClearBoxMotionPresentationRuntimeState(BoxMotionTelemetryCleanupReason.ResetSession);
+            _boxMotionLane.ResetSession(BoxMotionTelemetryCleanupReason.ResetSession);
             _trackState.ResetSession();
             _utilityWindupVfxPresenter.Initialize(viewBinder.SearchRoot);
             _animationSync.Reset();
@@ -878,7 +857,7 @@ namespace Game.Feature.Gameplay.Host
             _isInitialized = true;
             _topologyExecutionPipeline?.ResetSession();
             _damageDeathVfxExecutionPipeline?.ResetSession();
-            _boxMotionExecutionPipeline?.ResetSession();
+            _boxMotionLane.ResetSession();
             _playerActionAnimationLane.ResetSession();
             _enemyPresentationLane.ResetSession();
             _coreGameplaySfxLane.ResetSession();
@@ -1024,18 +1003,20 @@ namespace Game.Feature.Gameplay.Host
             RefreshGameplayAudioPlaybackGate();
             _topologyAudioPresentationController.ReplacePendingPlan(
                 _topologyAudioRequestPlanner.BuildRequests(result));
-            RefreshBoxMotionExecution(
+            var boxMotionPreparation = _boxMotionLane.Prepare(
                 result,
                 previousCommittedLocalTargetPoses,
-                previousCommittedTopology);
+                previousCommittedTopology,
+                _projector,
+                _timingProfile);
             _planner.RefreshTracks(
                 result,
                 previousCommittedLocalTargetPoses,
                 previousCommittedTopology,
                 _projector,
                 _timingProfile,
-                suppressBoxMotionTracks:
-                    GameplayPresentationExecutionRouter.UseBoxMotionExecutor(BoxMotionPresentationExecutionMode));
+                boxMotionPreparation.LegacySuppression);
+            _boxMotionLane.PresentPrepared(result, boxMotionPreparation, 0f);
             RetainTopologyMoonBlockGeneratedPoses(result.PresentationData);
             _lastPresentedTickIndex = result.TickIndex;
             RefreshPresentationMotionVfx(result.TickIndex);
@@ -1165,107 +1146,6 @@ namespace Game.Feature.Gameplay.Host
                 _stateStore.CommittedTopology);
         }
 
-        private void RefreshBoxMotionExecution(
-            TickResult result,
-            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
-            CubeTopologyState previousCommittedTopology)
-        {
-            if (GameplayPresentationExecutionRouter.UseBoxMotionExecutor(BoxMotionPresentationExecutionMode))
-            {
-                RecordBoxMotionLegacySkippedByPolicy(result);
-                var playbackPort = ResolveBoxMotionPlaybackPort();
-                if (playbackPort is GameplayMotionTrackPlannerPlaybackPort adapter)
-                {
-                    adapter.BeginTickContext(
-                        result,
-                        previousCommittedLocalTargetPoses,
-                        previousCommittedTopology,
-                        _projector,
-                        _timingProfile);
-                }
-
-                _boxMotionExecutionPipeline ??= _boxMotionExecutionPipelineFactory(
-                    BoxMotionPresentationExecutionMode,
-                    playbackPort,
-                    _boxMotionExecutionGuard);
-                _boxMotionExecutionPipeline?.Present(result);
-                return;
-            }
-
-            RecordBoxMotionLegacyOwnership(result);
-        }
-
-        private IGameplayMotionPlaybackPort ResolveBoxMotionPlaybackPort()
-        {
-            return _boxMotionPlaybackPort ??
-                   (_boxMotionUseDefaultPlaybackPort ? _boxMotionTrackPlannerPlaybackPort : null);
-        }
-
-        private void RecordBoxMotionLegacyOwnership(TickResult result)
-        {
-            foreach (var key in BuildBoxMotionPlaybackKeys(result))
-            {
-                _boxMotionExecutionGuard.TryBeginExecution(
-                    BoxMotionPresentationExecutionOwner.LegacyTrackPlanner,
-                    key);
-            }
-        }
-
-        private void RecordBoxMotionLegacySkippedByPolicy(TickResult result)
-        {
-            foreach (var _ in BuildBoxMotionPlaybackKeys(result))
-            {
-                _boxMotionExecutionGuard.RecordSkippedByPolicy(
-                    BoxMotionPresentationExecutionOwner.LegacyTrackPlanner);
-            }
-        }
-
-        private static IEnumerable<BoxMotionPlaybackKey> BuildBoxMotionPlaybackKeys(TickResult result)
-        {
-            var factFrame = new TickPresentationFactExtractor().Extract(result);
-            for (var i = 0; i < factFrame.Facts.Count; i++)
-            {
-                var fact = factFrame.Facts[i];
-                if (!fact.MotionPayload.IsValid ||
-                    !TryMapMotionFactKind(fact.MotionPayload.Kind, out var cueKey))
-                {
-                    continue;
-                }
-
-                var payload = fact.MotionPayload;
-                yield return new BoxMotionPlaybackKey(
-                    fact.Source.TickIndex,
-                    fact.Source.SemanticSource,
-                    payload.EntityId,
-                    cueKey,
-                    payload.SourceCell,
-                    payload.DestinationCell,
-                    payload.SourceActionPlanId,
-                    payload.SourceSequenceId);
-            }
-        }
-
-        private static bool TryMapMotionFactKind(
-            PresentationMotionFactKind factKind,
-            out PresentationMotionCueKey cueKey)
-        {
-            switch (factKind)
-            {
-                case PresentationMotionFactKind.BoxSlide:
-                    cueKey = PresentationMotionCueKey.BoxSlide;
-                    return true;
-                case PresentationMotionFactKind.BoxFlip:
-                    cueKey = PresentationMotionCueKey.BoxFlip;
-                    return true;
-                case PresentationMotionFactKind.BoxFlipImpact:
-                    cueKey = PresentationMotionCueKey.BoxFlipImpact;
-                    return true;
-                default:
-                    cueKey = PresentationMotionCueKey.None;
-                    return false;
-            }
-        }
-
         private void ExecuteExecutorBridgeTopologyPath(TickResult result)
         {
             if (IsTopologyTransitionPresentation(result.PresentationData.TopologyMotion))
@@ -1388,7 +1268,7 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
-            ClearBoxMotionPresentationRuntimeState(BoxMotionTelemetryCleanupReason.PresentInitial);
+            _boxMotionLane.ResetSession(BoxMotionTelemetryCleanupReason.PresentInitial);
             _trackState.ResetSession();
             _exitPresentationController.Reset();
             _moonBlockDestructionPresentationController.ResetSession();
@@ -1408,8 +1288,7 @@ namespace Game.Feature.Gameplay.Host
             _topologyExecutionPipeline?.ResetSession();
             _damageDeathVfxExecutionGuard.ResetSession();
             _damageDeathVfxExecutionPipeline?.ResetSession();
-            _boxMotionExecutionGuard.ResetSession();
-            _boxMotionExecutionPipeline?.ResetSession();
+            _boxMotionLane.ResetSession();
             _playerActionAnimationLane.ResetSession();
             _enemyPresentationLane.ResetSession();
             _coreGameplaySfxLane.ResetSession();
@@ -1496,7 +1375,7 @@ namespace Game.Feature.Gameplay.Host
                 _lastPresentedTickIndex);
             _moonBlockEmergencePresentationController.StartReadyRequests(_lastPresentedTickIndex);
             _damageDeathVfxExecutionPipeline?.Update(deltaTime);
-            _boxMotionExecutionPipeline?.Update(deltaTime);
+            _boxMotionLane.Update(deltaTime);
             _playerActionAnimationLane.Update(deltaTime);
             _enemyPresentationLane.Update(deltaTime);
             _coreGameplaySfxLane.UpdateProductionPipeline(deltaTime);
@@ -1766,82 +1645,18 @@ namespace Game.Feature.Gameplay.Host
             _moonBlockEmergencePresentationController.Dispose();
             _topologyExecutionPipeline?.HardCleanup();
             _damageDeathVfxExecutionPipeline?.HardCleanup();
-            _boxMotionExecutionPipeline?.HardCleanup();
-            _boxMotionExecutionGuard.ResetSession();
+            _boxMotionLane.HardCleanup(BoxMotionTelemetryCleanupReason.HardCleanupPresentationExtensions);
             _playerActionAnimationLane.HardCleanup();
             _enemyPresentationLane.HardCleanup();
             _coreGameplaySfxLane.HardCleanup();
             _actionAudioLane.HardCleanup();
             _enemyOneShotAudioLane.HardCleanup();
             _enemyChargeLoopAudioPresentationController.ResetSession();
-            ClearBoxMotionPresentationRuntimeState(BoxMotionTelemetryCleanupReason.HardCleanupPresentationExtensions);
             _presentationPipeline?.HardCleanup();
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.HardCleanup();
             }
-        }
-
-        private void ClearBoxMotionPresentationRuntimeState(BoxMotionTelemetryCleanupReason reason)
-        {
-            var resetResult = _entityPresentationApplier.ResetBoxFlipInteractionsForKnownViews();
-            _trackState.FlipInteractionResetRequests.Clear();
-
-            var boxEntityIds = new List<int>();
-            foreach (var pair in _stateStore.EntityTypesByEntityId)
-            {
-                if (pair.Value == EntityType.Box)
-                {
-                    boxEntityIds.Add(pair.Key);
-                }
-            }
-
-            var staleTrackClearedCount = 0;
-            var staleCompletedKeyClearedCount = 0;
-            for (var i = 0; i < boxEntityIds.Count; i++)
-            {
-                var entityId = boxEntityIds[i];
-                if (_trackState.LocalMotionTracks.Remove(entityId))
-                {
-                    staleTrackClearedCount++;
-                }
-
-                _trackState.MotionVisualScaleEntityIds.Remove(entityId);
-                if (_trackState.OriginalViewMotionTracks.Remove(entityId))
-                {
-                    staleTrackClearedCount++;
-                }
-
-                _trackState.CompletedMotionTrackIds.Remove(entityId);
-                _trackState.CompletedMotionVisualScaleEntityIds.Remove(entityId);
-                _trackState.CompletedOriginalViewMotionTrackIds.Remove(entityId);
-                staleCompletedKeyClearedCount +=
-                    _trackState.CompletedPresentationMotionKeys.RemoveWhere(key => key.EntityId == entityId);
-            }
-
-            _trackState.CompletedFlipInteractionTrackIds.Clear();
-            foreach (var pair in _trackState.FlipInteractionTracks)
-            {
-                if (boxEntityIds.Contains(pair.Value.BoxEntityId))
-                {
-                    _trackState.CompletedFlipInteractionTrackIds.Add(pair.Key);
-                }
-            }
-
-            for (var i = 0; i < _trackState.CompletedFlipInteractionTrackIds.Count; i++)
-            {
-                if (_trackState.FlipInteractionTracks.Remove(_trackState.CompletedFlipInteractionTrackIds[i]))
-                {
-                    staleTrackClearedCount++;
-                }
-            }
-
-            _trackState.CompletedFlipInteractionTrackIds.Clear();
-            _trackState.BoxMotionTelemetry.RecordCleanup(
-                reason,
-                resetResult,
-                staleTrackClearedCount,
-                staleCompletedKeyClearedCount);
         }
 
         private void PresentDiagnosticsPipelineIfEnabled(TickResult result)
@@ -2041,7 +1856,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _topologyExecutionGuard.Configure(TopologyPresentationExecutionPolicy.ProductionDefault);
             _damageDeathVfxExecutionGuard.Configure(DamageDeathVfxExecutionPolicy.ProductionDefault);
-            _boxMotionExecutionGuard.Configure(BoxMotionExecutionPolicy.ProductionDefault);
+            _boxMotionLane.ConfigureExecution(BoxMotionExecutionPolicy.ProductionDefault);
             _playerActionAnimationLane.ConfigureExecution(PlayerActionAnimationExecutionPolicy.ProductionDefault);
             _enemyPresentationLane.ConfigureExecution(EnemyPresentationExecutionPolicy.ProductionDefault);
             _coreGameplaySfxLane.ConfigureExecution(CoreGameplaySfxExecutionPolicy.ProductionDefault);
@@ -2136,151 +1951,6 @@ namespace Game.Feature.Gameplay.Host
             DamageDeathVfxProductionTelemetryBuilder.RecordSameTickDamageHitSuppressedByDeath(
                 _damageDeathVfxExecutionPipeline,
                 suppressedByDeath);
-        }
-
-        private GameplayMotionExecutorDiagnostics ResolveBoxMotionExecutorDiagnostics()
-        {
-            if (_boxMotionExecutionPipeline == null)
-            {
-                return default;
-            }
-
-            var executors = _boxMotionExecutionPipeline.Executors;
-            for (var i = 0; i < executors.Count; i++)
-            {
-                if (executors[i] is GameplayMotionPresentationExecutor executor)
-                {
-                    return executor.Diagnostics;
-                }
-            }
-
-            return default;
-        }
-
-        private BoxMotionProductionTelemetrySnapshot BuildBoxMotionProductionTelemetrySnapshot()
-        {
-            var ownership = _boxMotionExecutionGuard.Diagnostics;
-            var executor = ResolveBoxMotionExecutorDiagnostics();
-            var runtime = BoxMotionRuntimeDebugSnapshot;
-            var telemetry = _trackState.BoxMotionTelemetry;
-            var cleanup = telemetry.CleanupDiagnostics;
-            var plannedCount = executor.ObservedTrackCount;
-            var requestedCount = executor.PlaybackRequestedCount;
-            var startedCount = executor.TrackStartedCount;
-            var activeTrackCount =
-                runtime.ActiveLocalMotionTrackCount +
-                runtime.ActiveOriginalViewMotionTrackCount +
-                runtime.FlipInteractionTrackCount;
-            var pendingTrackCount = Math.Max(0, requestedCount - startedCount);
-
-            return new BoxMotionProductionTelemetrySnapshot(
-                BoxMotionPresentationExecutionMode,
-                BoxMotionPresentationExecutionMode == BoxMotionPresentationExecutionDefaults.ProductionDefault,
-                BoxMotionPresentationExecutionDefaults.ProductionDefault,
-                BoxMotionPresentationExecutionDefaults.LegacyFallback,
-                executor.LastTickIndex,
-                executor.LastCueKey,
-                executor.LastDedupeKey,
-                executor.LastTargetEntityId,
-                executor.LastMotionFactKind,
-                executor.LastFailureReason,
-                cleanup.LastCleanupReason,
-                ownership.LegacyAttemptCount,
-                ownership.SkippedLegacyBecauseExecutorOwnerCount,
-                ownership.ExecutorAttemptCount,
-                ownership.ExecutedByExecutorCount,
-                ownership.DuplicateAttemptCount,
-                Math.Max(executor.DuplicateSuppressedCount, ownership.DuplicateAttemptCount),
-                plannedCount,
-                requestedCount,
-                startedCount,
-                telemetry.PlaybackTrackCompletedCount,
-                telemetry.PlaybackTrackCanceledCount,
-                telemetry.PlaybackTrackIgnoredCount,
-                activeTrackCount,
-                pendingTrackCount,
-                runtime.CompletedPresentationMotionKeyCount,
-                runtime.DefaultAdapterDiagnostics,
-                cleanup,
-                executor.TargetMissingCount,
-                executor.AnchorMissingCount,
-                executor.BindingMissingCount,
-                executor.DriverMissingCount,
-                executor.MissingPortCount,
-                executor.UnsupportedSemanticCount,
-                telemetry.LegacyBoxSourcePlanningSkippedCount,
-                telemetry.LegacyUnrelatedMotionTrackRetainedCount,
-                MergeBoxMotionSemanticDiagnostics(executor.SemanticDiagnostics, telemetry.SemanticDiagnostics));
-        }
-
-        private static IReadOnlyList<BoxMotionSemanticDiagnostics> MergeBoxMotionSemanticDiagnostics(
-            IReadOnlyList<BoxMotionSemanticDiagnostics> executorDiagnostics,
-            IReadOnlyList<BoxMotionSemanticDiagnostics> runtimeDiagnostics)
-        {
-            var result = new BoxMotionSemanticDiagnostics[3];
-            result[0] = MergeBoxMotionSemanticDiagnostics(
-                PresentationMotionFactKind.BoxSlide,
-                PresentationMotionCueKey.BoxSlide,
-                executorDiagnostics,
-                runtimeDiagnostics);
-            result[1] = MergeBoxMotionSemanticDiagnostics(
-                PresentationMotionFactKind.BoxFlip,
-                PresentationMotionCueKey.BoxFlip,
-                executorDiagnostics,
-                runtimeDiagnostics);
-            result[2] = MergeBoxMotionSemanticDiagnostics(
-                PresentationMotionFactKind.BoxFlipImpact,
-                PresentationMotionCueKey.BoxFlipImpact,
-                executorDiagnostics,
-                runtimeDiagnostics);
-            return result;
-        }
-
-        private static BoxMotionSemanticDiagnostics MergeBoxMotionSemanticDiagnostics(
-            PresentationMotionFactKind semantic,
-            PresentationMotionCueKey cueKey,
-            IReadOnlyList<BoxMotionSemanticDiagnostics> executorDiagnostics,
-            IReadOnlyList<BoxMotionSemanticDiagnostics> runtimeDiagnostics)
-        {
-            var executor = FindBoxMotionSemanticDiagnostics(executorDiagnostics, semantic);
-            var runtime = FindBoxMotionSemanticDiagnostics(runtimeDiagnostics, semantic);
-            var lastTickIndex = runtime.LastTickIndex > 0 ? runtime.LastTickIndex : executor.LastTickIndex;
-            var lastEntityId = runtime.LastEntityId > 0 ? runtime.LastEntityId : executor.LastEntityId;
-            var lastDedupeKey = runtime.LastDedupeKey != 0 ? runtime.LastDedupeKey : executor.LastDedupeKey;
-
-            return new BoxMotionSemanticDiagnostics(
-                semantic,
-                cueKey,
-                executor.PlannedCount,
-                executor.RequestedCount,
-                executor.StartedCount,
-                runtime.CompletedCount,
-                executor.DuplicateSuppressedCount,
-                executor.MissingDependencyCount + runtime.MissingDependencyCount,
-                runtime.CleanupCount,
-                lastTickIndex,
-                lastEntityId,
-                lastDedupeKey);
-        }
-
-        private static BoxMotionSemanticDiagnostics FindBoxMotionSemanticDiagnostics(
-            IReadOnlyList<BoxMotionSemanticDiagnostics> diagnostics,
-            PresentationMotionFactKind semantic)
-        {
-            if (diagnostics == null)
-            {
-                return default;
-            }
-
-            for (var i = 0; i < diagnostics.Count; i++)
-            {
-                if (diagnostics[i].Semantic == semantic)
-                {
-                    return diagnostics[i];
-                }
-            }
-
-            return default;
         }
 
         private void TraceStep(string stepName)
@@ -2392,11 +2062,5 @@ namespace Game.Feature.Gameplay.Host
         {
             return mode == DamageDeathVfxExecutionMode.OrchestrationExecutor;
         }
-
-        public static bool UseBoxMotionExecutor(BoxMotionPresentationExecutionMode mode)
-        {
-            return mode == BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor;
-        }
-
     }
 }

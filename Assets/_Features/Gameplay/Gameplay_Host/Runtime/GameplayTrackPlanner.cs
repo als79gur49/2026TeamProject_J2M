@@ -93,7 +93,7 @@ namespace Game.Feature.Gameplay.Host
             CubeTopologyState previousCommittedTopology,
             GameplayCubeProjector projector,
             GameplayTimingProfile timingProfile,
-            bool suppressBoxMotionTracks = false)
+            BoxMotionLegacySuppression boxMotionSuppression = BoxMotionLegacySuppression.None)
         {
             if (result == null)
             {
@@ -123,12 +123,12 @@ namespace Game.Feature.Gameplay.Host
                 projector,
                 timingProfile,
                 kinematicEntityIds,
-                suppressBoxMotionTracks);
+                boxMotionSuppression);
             RefreshOriginalViewMotionTracks(
                 result,
                 projector,
                 timingProfile,
-                suppressBoxMotionTracks);
+                boxMotionSuppression);
             RefreshJumpWindupRotationTracks(
                 result,
                 previousCommittedLocalTargetPoses,
@@ -768,7 +768,7 @@ namespace Game.Feature.Gameplay.Host
             GameplayCubeProjector projector,
             GameplayTimingProfile timingProfile,
             ISet<int> kinematicEntityIds,
-            bool suppressBoxMotionTracks)
+            BoxMotionLegacySuppression boxMotionSuppression)
         {
             if (presentationData == null)
             {
@@ -818,7 +818,7 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < presentationData.EntityMotions.Count; i++)
             {
                 var motion = presentationData.EntityMotions[i];
-                if (suppressBoxMotionTracks && IsBoxMotionFamily(motion.MotionKind))
+                if (ShouldSuppressMotionClip(boxMotionSuppression, motion.MotionKind))
                 {
                     _trackState.BoxMotionTelemetry.RecordLegacyBoxSourcePlanningSkipped(
                         ToBoxMotionFactKind(motion.MotionKind),
@@ -827,7 +827,7 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                if (suppressBoxMotionTracks)
+                if (boxMotionSuppression != BoxMotionLegacySuppression.None)
                 {
                     _trackState.BoxMotionTelemetry.RecordLegacyUnrelatedMotionTrackRetained();
                 }
@@ -1733,6 +1733,21 @@ namespace Game.Feature.Gameplay.Host
                    topologyMotion.Value.RotationKind != CubeRotationKind.None;
         }
 
+        private static bool ShouldSuppressMotionClip(
+            BoxMotionLegacySuppression suppression,
+            TickEntityMotionKind motionKind)
+        {
+            switch (motionKind)
+            {
+                case TickEntityMotionKind.BoxSlide:
+                    return (suppression & BoxMotionLegacySuppression.BoxSlide) != 0;
+                case TickEntityMotionKind.Flip:
+                    return (suppression & BoxMotionLegacySuppression.BoxFlip) != 0;
+                default:
+                    return false;
+            }
+        }
+
         private static bool IsBoxMotionFamily(TickEntityMotionKind motionKind)
         {
             return motionKind == TickEntityMotionKind.BoxSlide ||
@@ -1756,7 +1771,7 @@ namespace Game.Feature.Gameplay.Host
             TickResult result,
             GameplayCubeProjector projector,
             GameplayTimingProfile timingProfile,
-            bool suppressBoxMotionTracks)
+            BoxMotionLegacySuppression boxMotionSuppression)
         {
             if (result == null)
             {
@@ -1799,7 +1814,7 @@ namespace Game.Feature.Gameplay.Host
             var flipImpactSignals = result.PresentationData.FlipImpactSignals;
             for (var i = 0; i < flipImpactSignals.Count; i++)
             {
-                if (suppressBoxMotionTracks)
+                if ((boxMotionSuppression & BoxMotionLegacySuppression.BoxFlipImpact) != 0)
                 {
                     var skippedSignal = flipImpactSignals[i];
                     _trackState.BoxMotionTelemetry.RecordLegacyBoxSourcePlanningSkipped(

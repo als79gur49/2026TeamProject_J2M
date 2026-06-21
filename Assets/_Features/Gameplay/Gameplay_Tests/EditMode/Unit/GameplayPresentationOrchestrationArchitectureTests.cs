@@ -40,6 +40,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs";
         private const string BoxMotionExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs";
+        private const string BoxMotionLaneRuntimePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs";
+        private const string BoxMotionRuntimeCleanupAdapterPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionRuntimeCleanupAdapter.cs";
         private const string PlayerActionAnimationExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationPresentationExecutor.cs";
         private const string PlayerActionAnimationLaneRuntimePath =
@@ -294,7 +298,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var runtimeSource = ReadDirectorySource(RuntimeDirectory);
             var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
             var boxMotionExecutorSource = ReadRepoFile(BoxMotionExecutorPath);
+            var boxMotionLaneSource = ReadRepoFile(BoxMotionLaneRuntimePath);
+            var boxMotionCleanupAdapterSource = ReadRepoFile(BoxMotionRuntimeCleanupAdapterPath);
             var coordinatorSource = ReadRepoFile(CoordinatorPath);
+            var suppressionNames = Enum.GetNames(typeof(BoxMotionLegacySuppression));
 
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayTrackPlanner"));
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("PresentationMotionTrack"));
@@ -307,10 +314,75 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeSource, Does.Not.Contain("BoxFlipInteractionDriver"));
             Assert.That(coordinatorSource, Does.Not.Contain("BoxFlipInteractionDriver"));
             Assert.That(coordinatorSource, Does.Not.Contain("PresentationMotionTrack"));
+            Assert.That(coordinatorSource, Does.Contain("BoxMotionPresentationLaneRuntime _boxMotionLane"));
+            Assert.That(coordinatorSource, Does.Contain("_boxMotionLane.Prepare"));
+            Assert.That(coordinatorSource, Does.Contain("_boxMotionLane.PresentPrepared"));
+            Assert.That(coordinatorSource, Does.Contain("_boxMotionLane.Update"));
+            Assert.That(coordinatorSource, Does.Contain("_boxMotionLane.ResetSession"));
+            Assert.That(coordinatorSource, Does.Contain("_boxMotionLane.HardCleanup"));
+            Assert.That(coordinatorSource, Does.Contain("boxMotionPreparation.LegacySuppression"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_boxMotionExecutionGuard"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_boxMotionExecutionPipelineFactory"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_boxMotionExecutionPipeline"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_boxMotionPlaybackPort"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_boxMotionTrackPlannerPlaybackPort"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_boxMotionUseDefaultPlaybackPort"));
+            Assert.That(coordinatorSource, Does.Not.Contain("GameplayPresentationExecutionRouter.UseBoxMotionExecutor"));
+            Assert.That(coordinatorSource, Does.Not.Contain("BoxMotionExecutionPolicy.Normalize"));
+            Assert.That(coordinatorSource, Does.Not.Contain("BuildBoxMotionPlaybackKeys"));
+            Assert.That(coordinatorSource, Does.Not.Contain("RecordBoxMotionLegacyOwnership"));
+            Assert.That(coordinatorSource, Does.Not.Contain("RecordBoxMotionLegacySkippedByPolicy"));
+            Assert.That(coordinatorSource, Does.Not.Contain("ClearBoxMotionPresentationRuntimeState"));
+            Assert.That(coordinatorSource, Does.Not.Contain("suppressBoxMotionTracks"));
             Assert.That(hostRuntimeSource, Does.Contain("GameplayMotionPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("IGameplayMotionPlaybackPort"));
             Assert.That(hostRuntimeSource, Does.Contain("BoxMotionExecutionGuard"));
             Assert.That(hostRuntimeSource, Does.Contain("BoxMotionPresentationExecutionMode"));
+            Assert.That(boxMotionLaneSource, Does.Contain("internal sealed class BoxMotionPresentationLaneRuntime"));
+            Assert.That(boxMotionLaneSource, Does.Contain("BoxMotionLegacySuppression"));
+            Assert.That(boxMotionLaneSource, Does.Contain("BoxMotionExecutionGuard"));
+            Assert.That(boxMotionLaneSource, Does.Contain("BoxMotionExecutionPolicy.Normalize"));
+            Assert.That(boxMotionLaneSource, Does.Contain("BuildBoxMotionPlaybackKeys"));
+            Assert.That(boxMotionLaneSource, Does.Contain("RecordSkippedByPolicy"));
+            Assert.That(boxMotionLaneSource, Does.Contain("BoxMotionPresentationExecutionOwner.LegacyTrackPlanner"));
+            Assert.That(boxMotionLaneSource, Does.Contain("CreateBoxMotionExecutionPipeline"));
+            Assert.That(boxMotionLaneSource, Does.Contain("IGameplayMotionPlaybackPort"));
+            Assert.That(boxMotionLaneSource, Does.Contain("IBoxMotionRuntimeCleanupPort"));
+            Assert.That(boxMotionLaneSource, Does.Not.Contain("UnityEngine.Transform"));
+            Assert.That(boxMotionLaneSource, Does.Not.Contain("UnityEngine.GameObject"));
+            Assert.That(boxMotionLaneSource, Does.Not.Contain("BoxFlipInteractionDriver"));
+            Assert.That(boxMotionLaneSource, Does.Not.Contain("GameObject.Find"));
+            Assert.That(boxMotionLaneSource, Does.Not.Contain("GetComponent"));
+            Assert.That(boxMotionLaneSource, Does.Not.Contain("FindObjectOfType"));
+            Assert.That(boxMotionLaneSource, Does.Not.Contain("FindObjectsByType"));
+            Assert.That(boxMotionLaneSource, Does.Not.Contain("WorldState"));
+            Assert.That(boxMotionLaneSource, Does.Not.Contain("TickPipeline"));
+            Assert.That(boxMotionCleanupAdapterSource, Does.Contain("GameplayEntityPresentationApplier"));
+            Assert.That(boxMotionCleanupAdapterSource, Does.Contain("ResetBoxFlipInteractionsForKnownViews"));
+            Assert.That(boxMotionCleanupAdapterSource, Does.Not.Contain("GameObject.Find"));
+            Assert.That(boxMotionCleanupAdapterSource, Does.Not.Contain("FindObjectOfType"));
+            Assert.That(boxMotionCleanupAdapterSource, Does.Not.Contain("FindObjectsByType"));
+            Assert.That(typeof(BoxMotionLegacySuppression).GetCustomAttribute<FlagsAttribute>(), Is.Not.Null);
+            CollectionAssert.AreEquivalent(
+                new[] { "None", "BoxSlide", "BoxFlip", "BoxFlipImpact" },
+                suppressionNames);
+            foreach (var forbiddenSuppression in new[]
+                     {
+                         "SuppressAllMotion",
+                         "SuppressPlayerMotion",
+                         "SuppressEnemyMotion",
+                         "SuppressGenericKinematicTrack",
+                         "SuppressTrackUpdate",
+                         "SuppressTrackCompletion",
+                         "SuppressViewBinding",
+                         "SuppressEntityCleanup",
+                         "SuppressTopologyMotion",
+                         "SuppressVfx",
+                     })
+            {
+                Assert.That(suppressionNames, Does.Not.Contain(forbiddenSuppression), forbiddenSuppression);
+            }
+
             Assert.That(boxMotionExecutorSource, Does.Contain("GameplayTrackPlanner trackPlanner"));
             Assert.That(boxMotionExecutorSource, Does.Contain("BoxFlipInteractionDriver"));
             Assert.That(boxMotionExecutorSource, Does.Not.Contain("FindObjectOfType"));
