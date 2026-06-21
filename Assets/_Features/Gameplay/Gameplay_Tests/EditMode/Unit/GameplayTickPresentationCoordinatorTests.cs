@@ -2395,7 +2395,94 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 coordinator.HardCleanupPresentationExtensions();
 
+                Assert.That(coordinator.HasBlockingPresentation, Is.False);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.False);
+                Assert.That(coordinator.CurrentTopologyTransitionVisualState.IsActive, Is.False);
                 AssertBlockingSnapshotCleared(coordinator.PresentationPipelineBlockingSnapshot);
+                AssertBlockingSnapshotCleared(coordinator.TopologyExecutionPipelineBlockingSnapshot);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Topology_LegacyRollback_ActiveTransition_HardCleanup_ReleasesInputLock()
+        {
+            var rootObject = new GameObject(nameof(Topology_LegacyRollback_ActiveTransition_HardCleanup_ReleasesInputLock));
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
+                var coordinator = CreateInitializedDefaultTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.LegacyCoordinator,
+                    initialTopology,
+                    timingProfile);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 14,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+                Assert.That(coordinator.HasBlockingPresentation, Is.True);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.True);
+                Assert.That(coordinator.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+
+                coordinator.HardCleanupPresentationExtensions();
+
+                Assert.That(coordinator.HasBlockingPresentation, Is.False);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.False);
+                Assert.That(coordinator.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+                AssertBlockingSnapshotCleared(coordinator.TopologyExecutionPipelineBlockingSnapshot);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Topology_Production_ActiveTransition_HardCleanup_ReleasesInputLockAndClearsBarrier()
+        {
+            var rootObject = new GameObject(nameof(Topology_Production_ActiveTransition_HardCleanup_ReleasesInputLockAndClearsBarrier));
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
+                var coordinator = CreateInitializedDefaultTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    initialTopology,
+                    timingProfile);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 15,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+                Assert.That(coordinator.HasBlockingPresentation, Is.True);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.True);
+                AssertTopologyBlockingSnapshotParity(
+                    coordinator.TopologyExecutionPipelineBlockingSnapshot,
+                    expectedPlanned: true,
+                    expectedActive: true,
+                    expectedTickIndex: 15);
+
+                coordinator.HardCleanupPresentationExtensions();
+
+                Assert.That(coordinator.HasBlockingPresentation, Is.False);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.False);
+                Assert.That(coordinator.CurrentTopologyTransitionVisualState.IsActive, Is.False);
                 AssertBlockingSnapshotCleared(coordinator.TopologyExecutionPipelineBlockingSnapshot);
             }
             finally

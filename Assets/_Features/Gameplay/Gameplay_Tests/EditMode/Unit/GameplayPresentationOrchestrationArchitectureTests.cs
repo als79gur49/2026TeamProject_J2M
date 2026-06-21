@@ -38,6 +38,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
         private const string TopologyExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs";
+        private const string TopologyLaneRuntimePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs";
         private const string BoxMotionExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs";
         private const string BoxMotionLaneRuntimePath =
@@ -226,24 +228,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void TopologyAndInputLockExistingPath_RemainsOwnedByCoordinator()
+        public void TopologyLaneExtraction_KeepsInputLockAuthorityOnController()
         {
             var coordinatorSource = ReadRepoFile(CoordinatorPath);
             var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
+            var topologyLaneSource = ReadRepoFile(TopologyLaneRuntimePath);
             var inputHostSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayInputHost.cs");
 
             Assert.That(coordinatorSource, Does.Contain("GameplayTopologyTransitionController _topologyTransitionController"));
-            Assert.That(coordinatorSource, Does.Contain("_topologyTransitionController.RefreshTopologyTrack"));
-            Assert.That(coordinatorSource, Does.Contain("_topologyTransitionController.RefreshBoardSurfaceTransition"));
+            Assert.That(coordinatorSource, Does.Contain("TopologyPresentationLaneRuntime _topologyLane"));
+            Assert.That(coordinatorSource, Does.Contain("_topologyLane.Present(result)"));
+            Assert.That(coordinatorSource, Does.Contain("_topologyLane.ObserveControllerActivity"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_topologyTransitionController.RefreshTopologyTrack"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_topologyTransitionController.RefreshBoardSurfaceTransition"));
             Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutionMode.LegacyCoordinator"));
-            Assert.That(coordinatorSource, Does.Contain("TopologyPresentationExecutionMode.ExecutorBridge"));
-            Assert.That(coordinatorSource, Does.Contain("GameplayPresentationExecutionRouter.UseTopologyExecutor"));
-            Assert.That(coordinatorSource, Does.Contain("ExecuteLegacyTopologyPath"));
-            Assert.That(coordinatorSource, Does.Contain("ExecuteExecutorBridgeTopologyPath"));
+            Assert.That(topologyLaneSource, Does.Contain("TopologyPresentationExecutionDefaults.ProductionDefault"));
+            Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutionMode.ExecutorBridge"));
+            Assert.That(coordinatorSource, Does.Not.Contain("GameplayPresentationExecutionRouter.UseTopologyExecutor"));
+            Assert.That(coordinatorSource, Does.Not.Contain("UseTopologyExecutor"));
+            Assert.That(coordinatorSource, Does.Not.Contain("ExecuteLegacyTopologyPath"));
+            Assert.That(coordinatorSource, Does.Not.Contain("ExecuteExecutorBridgeTopologyPath"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_topologyExecutionGuard"));
+            Assert.That(coordinatorSource, Does.Not.Contain("_topologyExecutionPipeline"));
             Assert.That(coordinatorSource, Does.Contain("public bool IsTopologyTransitionActive => CurrentPresentationPhase == GameplayPresentationPhase.TopologyTransition;"));
             Assert.That(coordinatorSource, Does.Contain("_topologyTransitionController.HasActiveBoardRotationTween"));
             Assert.That(coordinatorSource, Does.Not.Contain("TopologyPresentationExecutor"));
             Assert.That(coordinatorSource, Does.Not.Contain("ITopologyTransitionPlaybackPort"));
+            Assert.That(topologyLaneSource, Does.Contain("TopologyPresentationExecutionGuard"));
+            Assert.That(topologyLaneSource, Does.Contain("TopologyExecutionPipelineFactory"));
+            Assert.That(topologyLaneSource, Does.Contain("ITopologyLegacyTransitionPort"));
+            Assert.That(topologyLaneSource, Does.Contain("ITopologyTransitionCleanupPort"));
+            Assert.That(topologyLaneSource, Does.Not.Contain("WorldState"));
+            Assert.That(topologyLaneSource, Does.Not.Contain("TickPipeline"));
+            Assert.That(topologyLaneSource, Does.Not.Contain("GameplayBoardRoot"));
+            Assert.That(topologyLaneSource, Does.Not.Contain("GameplayCameraRig"));
+            Assert.That(topologyLaneSource, Does.Not.Contain("GameplayBoardSurfaceRenderer"));
+            Assert.That(topologyLaneSource, Does.Not.Contain("TopologyVisualBridgeVisibilityController"));
+            Assert.That(topologyLaneSource, Does.Not.Contain("TopologyTransitionPostFxController"));
             Assert.That(inputHostSource, Does.Contain("HasBlockingPresentation"));
             Assert.That(inputHostSource, Does.Not.Contain("PresentationPlaybackPlan"));
             Assert.That(inputHostSource, Does.Not.Contain("GameplayPresentationPipeline"));
@@ -263,6 +284,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var runtimeSource = ReadDirectorySource(RuntimeDirectory);
             var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
             var topologyExecutorSource = ReadRepoFile(TopologyExecutorPath);
+            var topologyLaneSource = ReadRepoFile(TopologyLaneRuntimePath);
             var coordinatorSource = ReadRepoFile(CoordinatorPath);
 
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayTopologyTransitionController"));
@@ -271,13 +293,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Not.Contain("TopologyPresentationExecutor"));
             Assert.That(coordinatorSource, Does.Not.Contain("ITopologyTransitionPlaybackPort"));
             Assert.That(coordinatorSource, Does.Contain("GameplayHostPresentationPipelineFactory"));
+            Assert.That(coordinatorSource, Does.Contain("TopologyPresentationLaneRuntime"));
             Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutor"));
+            Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationLaneRuntime"));
             Assert.That(hostRuntimeSource, Does.Contain("ITopologyTransitionPlaybackPort"));
             Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutionGuard"));
             Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutionMode"));
             Assert.That(hostRuntimeSource, Does.Contain("TopologyProductionTelemetrySnapshot"));
             Assert.That(topologyExecutorSource, Does.Contain("GameplayTopologyTransitionPlaybackPort"));
-            Assert.That(topologyExecutorSource, Does.Contain("GameplayTopologyTransitionController controller"));
+            Assert.That(topologyExecutorSource, Does.Contain("GameplayTopologyLegacyTransitionPort"));
+            Assert.That(topologyExecutorSource, Does.Contain("GameplayTopologyTransitionCleanupPort"));
+            Assert.That(topologyLaneSource, Does.Contain("Present(TickResult result)"));
+            Assert.That(topologyLaneSource, Does.Not.Contain("UpdatePresentation(float"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("FindObjectOfType"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("FindObjectsByType"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("new GameObject"));

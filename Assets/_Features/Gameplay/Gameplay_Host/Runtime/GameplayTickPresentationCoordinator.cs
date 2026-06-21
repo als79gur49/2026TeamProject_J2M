@@ -237,8 +237,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayPoseResolver _poseResolver;
         private readonly GameplaySfxArbiter _gameplaySfxArbiter = new();
         private readonly List<IGameplayTickPresentationExtension> _presentationExtensions = new();
-        private readonly TopologyPresentationExecutionGuard _topologyExecutionGuard = new();
-        private readonly TopologyExecutionPipelineFactory _topologyExecutionPipelineFactory;
+        private readonly TopologyPresentationLaneRuntime _topologyLane;
         private readonly DamageDeathVfxExecutionGuard _damageDeathVfxExecutionGuard = new();
         private readonly DamageDeathVfxExecutionPipelineFactory _damageDeathVfxExecutionPipelineFactory;
         private readonly PlayerActionAnimationLaneRuntime _playerActionAnimationLane;
@@ -246,7 +245,6 @@ namespace Game.Feature.Gameplay.Host
         private readonly BoxMotionPresentationLaneRuntime _boxMotionLane;
 
         private GameplayPresentationPipeline _presentationPipeline;
-        private GameplayPresentationPipeline _topologyExecutionPipeline;
         private GameplayPresentationPipeline _damageDeathVfxExecutionPipeline;
         private IDamageDeathVfxPlaybackPort _damageDeathVfxPlaybackPort;
         private bool _isInitialized;
@@ -324,8 +322,6 @@ namespace Game.Feature.Gameplay.Host
             CoreGameplaySfxExecutionPipelineFactory coreGameplaySfxExecutionPipelineFactory = null,
             ActionAudioExecutionPipelineFactory actionAudioExecutionPipelineFactory = null)
         {
-            _topologyExecutionPipelineFactory = topologyExecutionPipelineFactory ??
-                                                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline;
             _damageDeathVfxExecutionPipelineFactory = damageDeathVfxExecutionPipelineFactory ??
                                                       GameplayHostPresentationPipelineFactory
                                                           .CreateDamageDeathVfxExecutionPipeline;
@@ -343,6 +339,12 @@ namespace Game.Feature.Gameplay.Host
             _presentationActivityInspector = new GameplayPresentationActivityInspector(_trackState);
             _motionTimingResolver = new GameplayMotionTimingResolver(_stateStore, _trackState);
             _topologyTransitionController = new GameplayTopologyTransitionController(_motionTimingResolver);
+            _topologyLane = new TopologyPresentationLaneRuntime(
+                topologyExecutionPipelineFactory ??
+                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
+                new GameplayTopologyTransitionPlaybackPort(_topologyTransitionController),
+                new GameplayTopologyLegacyTransitionPort(_topologyTransitionController),
+                new GameplayTopologyTransitionCleanupPort(_topologyTransitionController));
             _poseResolver = new GameplayPoseResolver(
                 _stateStore,
                 _trackState);
@@ -478,26 +480,22 @@ namespace Game.Feature.Gameplay.Host
             _presentationPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
         internal PresentationBlockingSnapshot TopologyExecutionPipelineBlockingSnapshot =>
-            _topologyExecutionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
+            _topologyLane.BlockingSnapshot;
 
         internal TopologyPresentationExecutionMode TopologyPresentationExecutionMode =>
-            _topologyExecutionGuard.Diagnostics.Mode;
+            _topologyLane.ExecutionMode;
 
         internal TopologyPresentationOwnershipDiagnostics TopologyPresentationOwnershipDiagnostics =>
-            _topologyExecutionGuard.Diagnostics;
+            _topologyLane.OwnershipDiagnostics;
 
         internal TopologyExecutorDiagnostics TopologyExecutorDiagnostics =>
-            TopologyProductionTelemetryBuilder.ResolveExecutorDiagnostics(_topologyExecutionPipeline);
+            _topologyLane.ExecutorDiagnostics;
 
         internal TopologyProductionTelemetrySnapshot TopologyProductionTelemetrySnapshot =>
-            TopologyProductionTelemetryBuilder.Build(
-                TopologyPresentationExecutionMode,
-                _topologyExecutionGuard.Diagnostics,
-                _topologyExecutionPipeline,
+            _topologyLane.BuildProductionTelemetrySnapshot(
                 HasBlockingPresentation,
                 IsTopologyTransitionActive,
-                PresentationPipelineBlockingSnapshot,
-                TopologyExecutionPipelineBlockingSnapshot);
+                PresentationPipelineBlockingSnapshot);
 
         internal DamageDeathVfxExecutionMode DamageDeathVfxExecutionMode =>
             _damageDeathVfxExecutionGuard.Diagnostics.Mode;
@@ -784,12 +782,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(viewBinder));
             }
 
-            _topologyExecutionGuard.Configure(topologyPresentationExecutionMode);
-            _topologyExecutionGuard.ResetSession();
-            _topologyExecutionPipeline = _topologyExecutionPipelineFactory(
-                TopologyPresentationExecutionMode,
-                _topologyTransitionController,
-                _topologyExecutionGuard);
+            _topologyLane.ConfigureExecution(topologyPresentationExecutionMode);
             _damageDeathVfxExecutionGuard.ResetSession();
             _damageDeathVfxExecutionPipeline = _damageDeathVfxExecutionPipelineFactory(
                 DamageDeathVfxExecutionMode,
@@ -817,7 +810,6 @@ namespace Game.Feature.Gameplay.Host
                 topologyRotationVisualMapping,
                 topologyRotationTweenSettings,
                 () => CubeCenter);
-            _topologyTransitionController.Reset();
             _exitPresentationController.Configure(_projector, _timingProfile);
             _exitPresentationController.Reset();
             _moonBlockDestructionPresentationController.ConfigureViewRegistry(viewBinder.ViewRegistry);
@@ -855,7 +847,7 @@ namespace Game.Feature.Gameplay.Host
             _moonBlockEmergencePresentationController.ResetSession();
 
             _isInitialized = true;
-            _topologyExecutionPipeline?.ResetSession();
+            _topologyLane.ResetSession();
             _damageDeathVfxExecutionPipeline?.ResetSession();
             _boxMotionLane.ResetSession();
             _playerActionAnimationLane.ResetSession();
@@ -998,7 +990,7 @@ namespace Game.Feature.Gameplay.Host
             _playerLocomotionAudioPresentationController.RefreshSignals(
                 result,
                 _timingProfile.MoveMotionDurationSeconds);
-            RefreshTopologyExecution(result);
+            _topologyLane.Present(result);
             ObserveTopologyActiveStateForPresentationPipelines(result.TickIndex);
             RefreshGameplayAudioPlaybackGate();
             _topologyAudioPresentationController.ReplacePendingPlan(
@@ -1113,52 +1105,6 @@ namespace Game.Feature.Gameplay.Host
                         projectedSlot,
                         request.Cell.face);
             }
-        }
-
-        private void RefreshTopologyExecution(TickResult result)
-        {
-            if (GameplayPresentationExecutionRouter.UseTopologyExecutor(TopologyPresentationExecutionMode))
-            {
-                ExecuteExecutorBridgeTopologyPath(result);
-                return;
-            }
-
-            ExecuteLegacyTopologyPath(result);
-        }
-
-        private void ExecuteLegacyTopologyPath(TickResult result)
-        {
-            if (IsTopologyTransitionPresentation(result.PresentationData.TopologyMotion) &&
-                !_topologyExecutionGuard.TryBeginExecution(
-                    TopologyPresentationExecutionOwner.LegacyCoordinator,
-                    result.TickIndex,
-                    hasSourceMetadata: false,
-                    sourceMetadataKey: 0))
-            {
-                return;
-            }
-
-            _topologyTransitionController.RefreshTopologyTrack(
-                result.PresentationData,
-                _stateStore.CommittedTopology);
-            _topologyTransitionController.RefreshBoardSurfaceTransition(
-                result.PresentationData,
-                _stateStore.CommittedTopology);
-        }
-
-        private void ExecuteExecutorBridgeTopologyPath(TickResult result)
-        {
-            if (IsTopologyTransitionPresentation(result.PresentationData.TopologyMotion))
-            {
-                _topologyExecutionGuard.RecordSkippedByPolicy(
-                    TopologyPresentationExecutionOwner.LegacyCoordinator);
-            }
-
-            _topologyExecutionPipeline ??= _topologyExecutionPipelineFactory(
-                TopologyPresentationExecutionMode,
-                _topologyTransitionController,
-                _topologyExecutionGuard);
-            _topologyExecutionPipeline?.Present(result);
         }
 
         private void RefreshDamageDeathVfxExecution(TickResult result)
@@ -1283,9 +1229,7 @@ namespace Game.Feature.Gameplay.Host
             _currentGravityFieldVisualStates = EmptyGravityFieldVisualStates;
             _currentEnemyGravityFieldAuraVisualStates = EmptyEnemyGravityFieldAuraVisualStates;
             _currentTileFeatureVisualStates = EmptyTileFeatureVisualStates;
-            _topologyTransitionController.Reset();
-            _topologyExecutionGuard.ResetSession();
-            _topologyExecutionPipeline?.ResetSession();
+            _topologyLane.ResetSession();
             _damageDeathVfxExecutionGuard.ResetSession();
             _damageDeathVfxExecutionPipeline?.ResetSession();
             _boxMotionLane.ResetSession();
@@ -1643,7 +1587,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _moonBlockDestructionPresentationController.Dispose();
             _moonBlockEmergencePresentationController.Dispose();
-            _topologyExecutionPipeline?.HardCleanup();
+            _topologyLane.HardCleanup();
             _damageDeathVfxExecutionPipeline?.HardCleanup();
             _boxMotionLane.HardCleanup(BoxMotionTelemetryCleanupReason.HardCleanupPresentationExtensions);
             _playerActionAnimationLane.HardCleanup();
@@ -1701,7 +1645,7 @@ namespace Game.Feature.Gameplay.Host
                 _presentationPipeline?.ObserveTopologyActiveState(isTopologyActive, tickIndex);
             }
 
-            _topologyExecutionPipeline?.ObserveTopologyActiveState(isTopologyActive, tickIndex);
+            _topologyLane.ObserveControllerActivity(isTopologyActive, tickIndex);
             _actionAudioLane.ObserveTopologyActiveState(isTopologyActive, tickIndex);
         }
 
@@ -1854,7 +1798,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void ConfigureProductionDefaultExecutionGuards()
         {
-            _topologyExecutionGuard.Configure(TopologyPresentationExecutionPolicy.ProductionDefault);
+            _topologyLane.ConfigureExecution(TopologyPresentationExecutionPolicy.ProductionDefault);
             _damageDeathVfxExecutionGuard.Configure(DamageDeathVfxExecutionPolicy.ProductionDefault);
             _boxMotionLane.ConfigureExecution(BoxMotionExecutionPolicy.ProductionDefault);
             _playerActionAnimationLane.ConfigureExecution(PlayerActionAnimationExecutionPolicy.ProductionDefault);
@@ -2053,11 +1997,6 @@ namespace Game.Feature.Gameplay.Host
 
     internal static class GameplayPresentationExecutionRouter
     {
-        public static bool UseTopologyExecutor(TopologyPresentationExecutionMode mode)
-        {
-            return mode == TopologyPresentationExecutionMode.ExecutorBridge;
-        }
-
         public static bool UseDamageDeathVfxExecutor(DamageDeathVfxExecutionMode mode)
         {
             return mode == DamageDeathVfxExecutionMode.OrchestrationExecutor;

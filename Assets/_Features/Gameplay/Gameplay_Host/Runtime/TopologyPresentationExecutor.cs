@@ -537,9 +537,19 @@ namespace Game.Feature.Gameplay.Host
         void HardCleanup();
     }
 
+    internal interface ITopologyLegacyTransitionPort
+    {
+        void PresentLegacyTopology(TickPresentationData presentationData, CubeTopologyState committedTopology);
+    }
+
+    internal interface ITopologyTransitionCleanupPort
+    {
+        void ResetTransition();
+    }
+
     internal delegate GameplayPresentationPipeline TopologyExecutionPipelineFactory(
         TopologyPresentationExecutionMode mode,
-        GameplayTopologyTransitionController controller,
+        ITopologyTransitionPlaybackPort playbackPort,
         TopologyPresentationExecutionGuard executionGuard);
 
     internal sealed class TopologyPresentationExecutor : IPresentationTopologyExecutor
@@ -752,7 +762,6 @@ namespace Game.Feature.Gameplay.Host
         public void ResetSession()
         {
             _committedTopology = default;
-            _controller.Reset();
         }
 
         public void HardCleanup()
@@ -761,11 +770,42 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
+    internal sealed class GameplayTopologyLegacyTransitionPort : ITopologyLegacyTransitionPort
+    {
+        private readonly GameplayTopologyTransitionController _controller;
+
+        public GameplayTopologyLegacyTransitionPort(GameplayTopologyTransitionController controller)
+        {
+            _controller = controller ?? throw new ArgumentNullException(nameof(controller));
+        }
+
+        public void PresentLegacyTopology(TickPresentationData presentationData, CubeTopologyState committedTopology)
+        {
+            _controller.RefreshTopologyTrack(presentationData, committedTopology);
+            _controller.RefreshBoardSurfaceTransition(presentationData, committedTopology);
+        }
+    }
+
+    internal sealed class GameplayTopologyTransitionCleanupPort : ITopologyTransitionCleanupPort
+    {
+        private readonly GameplayTopologyTransitionController _controller;
+
+        public GameplayTopologyTransitionCleanupPort(GameplayTopologyTransitionController controller)
+        {
+            _controller = controller ?? throw new ArgumentNullException(nameof(controller));
+        }
+
+        public void ResetTransition()
+        {
+            _controller.Reset();
+        }
+    }
+
     internal static class GameplayHostPresentationPipelineFactory
     {
         public static GameplayPresentationPipeline CreateTopologyExecutionPipeline(
             TopologyPresentationExecutionMode mode,
-            GameplayTopologyTransitionController controller,
+            ITopologyTransitionPlaybackPort playbackPort,
             TopologyPresentationExecutionGuard executionGuard)
         {
             if (mode != TopologyPresentationExecutionMode.ExecutorBridge)
@@ -773,9 +813,9 @@ namespace Game.Feature.Gameplay.Host
                 return null;
             }
 
-            if (controller == null)
+            if (playbackPort == null)
             {
-                throw new ArgumentNullException(nameof(controller));
+                throw new ArgumentNullException(nameof(playbackPort));
             }
 
             return new GameplayPresentationPipeline(
@@ -789,7 +829,7 @@ namespace Game.Feature.Gameplay.Host
                 new IPresentationExecutor[]
                 {
                     new TopologyPresentationExecutor(
-                        new GameplayTopologyTransitionPlaybackPort(controller),
+                        playbackPort,
                         mode,
                         executionGuard),
                 });
