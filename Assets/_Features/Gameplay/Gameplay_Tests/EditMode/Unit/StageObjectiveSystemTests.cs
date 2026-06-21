@@ -2903,6 +2903,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IReadOnlyList<EntityState> initialEntities)
         {
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, new SimpleViewFactory(registry.transform));
 

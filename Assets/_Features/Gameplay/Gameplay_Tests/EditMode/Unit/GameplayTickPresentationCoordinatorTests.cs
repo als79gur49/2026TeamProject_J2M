@@ -73,7 +73,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CurrentTilePresentationRequests_DefaultsEmpty()
         {
-            var coordinator = new GameplayTickPresentationCoordinator();
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
 
             Assert.That(coordinator.CurrentTilePresentationRequests, Is.Not.Null);
             Assert.That(coordinator.CurrentTilePresentationRequests, Is.Empty);
@@ -83,7 +83,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CurrentGravityFieldPresentationRequests_DefaultsEmpty()
         {
-            var coordinator = new GameplayTickPresentationCoordinator();
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
 
             Assert.That(coordinator.CurrentGravityFieldPresentationRequests, Is.Not.Null);
             Assert.That(coordinator.CurrentGravityFieldPresentationRequests, Is.Empty);
@@ -2745,6 +2745,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -2805,6 +2806,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -2854,6 +2856,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -2913,6 +2916,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -5119,6 +5123,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -5170,6 +5175,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -5223,6 +5229,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -5278,6 +5285,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -5335,6 +5343,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -5396,6 +5405,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -5439,6 +5449,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -5484,6 +5495,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
@@ -5542,6 +5554,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -5601,6 +5614,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -5666,6 +5680,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -5727,6 +5742,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -5780,6 +5796,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -5850,6 +5867,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -5911,6 +5929,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -6008,6 +6027,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 const float playerMoveOverrideSeconds = 0.4f;
@@ -6074,6 +6094,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 const float unitMoveOverrideSeconds = 0.4f;
                 var binder = new GameplayEntityViewBinder(
@@ -6137,6 +6158,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 const float entityMoveOverrideSeconds = 0.4f;
                 var binder = new GameplayEntityViewBinder(
@@ -6196,6 +6218,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 const float pushOverrideSeconds = 0.4f;
                 var binder = new GameplayEntityViewBinder(
@@ -6255,6 +6278,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -6309,6 +6333,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -6361,6 +6386,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -6426,6 +6452,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -6487,6 +6514,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -6562,6 +6590,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var jumpMotionSnapshot = new EnemyJumpMotionPresentationSnapshot(
                     horizontalHoldBias: 0.12f,
@@ -6622,6 +6651,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -6673,6 +6703,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -6726,6 +6757,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -6793,6 +6825,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -6869,6 +6902,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -7005,6 +7039,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -7103,6 +7138,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -7207,6 +7243,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -7310,6 +7347,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -7374,6 +7412,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -7445,6 +7484,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -7517,6 +7557,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 1.25f);
@@ -7588,6 +7629,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -7640,6 +7682,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -7731,6 +7774,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 1.25f);
@@ -7799,6 +7843,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -7851,6 +7896,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -7917,6 +7963,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -7998,6 +8045,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -8058,6 +8106,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -8120,6 +8169,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -8173,6 +8223,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -8279,6 +8330,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -8403,6 +8455,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -8525,6 +8578,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -8636,6 +8690,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -8684,6 +8739,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 const float playerMoveOverrideSeconds = 0.4f;
                 const float itemConsumeEffectDurationSeconds = 0.18f;
@@ -8800,6 +8856,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 const float pushOverrideSeconds = 0.45f;
                 const float boxDestroyEffectDurationSeconds = 0.18f;
@@ -8908,6 +8965,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -8998,6 +9056,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -9062,6 +9121,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -9134,6 +9194,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -9223,6 +9284,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -9281,6 +9343,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -9355,6 +9418,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 const float flipMotionDurationSeconds = 0.2f;
                 const float boxDestroyEffectDurationSeconds = 0.18f;
@@ -9469,6 +9533,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = GameplayTimingProfile.CreateDefault();
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -9541,6 +9606,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
                 var topology = new CubeTopologyState(FaceId.Floor);
@@ -9641,6 +9707,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = GameplayTimingProfile.CreateDefault();
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -9722,6 +9789,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var topology = new CubeTopologyState(FaceId.Floor);
@@ -9855,6 +9923,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var outputCamera = cameraObject.AddComponent<Camera>();
                 outputCamera.transform.SetParent(rootObject.transform, worldPositionStays: false);
@@ -9953,6 +10022,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var topology = new CubeTopologyState(FaceId.Floor);
@@ -10076,6 +10146,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var topology = new CubeTopologyState(FaceId.Floor);
@@ -10167,6 +10238,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var topology = new CubeTopologyState(FaceId.Floor);
@@ -10299,6 +10371,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var initialTopology = new CubeTopologyState(FaceId.Floor);
@@ -10436,6 +10509,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var initialTopology = new CubeTopologyState(FaceId.Floor);
@@ -10629,6 +10703,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -10679,6 +10754,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var binder = new GameplayEntityViewBinder(
@@ -10742,6 +10818,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -10802,6 +10879,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerViewPrefabTestUtility.SetSerializedField(floatingDriver, "target", enemyPrefab.ModelRoot);
 
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
@@ -10860,6 +10938,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 enemyPrefab.gameObject.AddComponent<RecordingEnemySemanticPresentationDriver>();
 
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
@@ -10904,6 +10983,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 enemyPrefab.gameObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
 
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
@@ -10981,6 +11061,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 enemyPrefab.gameObject.AddComponent<EnemyUtilityScalePulsePresentationDriver>();
 
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
@@ -11051,6 +11132,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -11112,6 +11194,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerViewPrefabTestUtility.SetSerializedField(floatingDriver, "target", enemyPrefab.ModelRoot);
 
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
@@ -11166,6 +11249,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -11216,6 +11300,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -11268,6 +11353,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -11316,6 +11402,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -12893,7 +12980,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
-            var coordinator = new GameplayTickPresentationCoordinator(
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 (pipelineMode, _, guard) => CreateRecordingTopologyExecutionPipeline(
                     pipelineMode,
                     guard,
@@ -12959,7 +13046,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
-            var coordinator = new GameplayTickPresentationCoordinator(
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 (pipelineMode, port, guard) => CreateRecordingDamageDeathVfxExecutionPipeline(
                     pipelineMode,
@@ -12986,7 +13073,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
-            var coordinator = new GameplayTickPresentationCoordinator(
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 (pipelineMode, _, guard) => CreateRecordingDamageDeathVfxExecutionPipeline(
                     pipelineMode,
@@ -13016,7 +13103,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var binder = new GameplayEntityViewBinder(
                 registry,
                 viewFactory ?? new MotionOverrideViewFactory(registry.transform));
-            var coordinator = new GameplayTickPresentationCoordinator(
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
                 (pipelineMode, port, guard) => CreateRecordingBoxMotionExecutionPipeline(
@@ -13047,7 +13134,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var binder = new GameplayEntityViewBinder(
                 registry,
                 viewFactory ?? new MotionOverrideViewFactory(registry.transform));
-            var coordinator = new GameplayTickPresentationCoordinator(
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
                 (pipelineMode, port, guard) => CreateRecordingBoxMotionExecutionPipeline(
@@ -13077,7 +13164,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, viewFactory);
-            var coordinator = new GameplayTickPresentationCoordinator();
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
 
             coordinator.ConfigureBoxMotionPresentationExecution(mode);
             coordinator.Initialize(
@@ -13096,7 +13183,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
-            var coordinator = new GameplayTickPresentationCoordinator(
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
                 (pipelineMode, _, guard) => CreateRecordingBoxMotionExecutionPipeline(
@@ -13130,7 +13217,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var binder = new GameplayEntityViewBinder(
                 registry,
                 viewFactory ?? new MotionOverrideViewFactory(registry.transform));
-            var coordinator = new GameplayTickPresentationCoordinator(
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
@@ -13263,7 +13350,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
-            var coordinator = new GameplayTickPresentationCoordinator();
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
 
             coordinator.Initialize(
                 binder,
@@ -14039,6 +14126,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             GameplayTimingProfile timingProfile)
         {
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
 
@@ -14062,6 +14150,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             out GameplayEntityViewRegistry registry)
         {
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(
                 registry,
@@ -14573,6 +14662,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             out CubeTopologyState topology)
         {
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
             topology = new CubeTopologyState(FaceId.Floor);
@@ -14594,6 +14684,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             BoardBounds? boardBounds = null)
         {
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(
                 registry,

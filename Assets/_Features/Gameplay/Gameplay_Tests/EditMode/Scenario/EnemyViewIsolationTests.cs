@@ -34,6 +34,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform, attachEnemyAnimatorDriver: true));
                 var initialSnapshot = presentedWorld.CreateSnapshot();
@@ -103,6 +104,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform, attachEnemyAnimatorDriver: true));
                 var initialSnapshot = presentedWorld.CreateSnapshot();
@@ -180,6 +182,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -263,6 +266,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform, attachEnemyAnimatorDriver: true));
                 var prefabView = prefabObject.AddComponent<GameplayEntityView>();

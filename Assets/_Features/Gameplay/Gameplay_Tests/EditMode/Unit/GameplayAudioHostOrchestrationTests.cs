@@ -1555,7 +1555,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IGameplaySfxPlaybackPort playbackPort,
             bool duplicateExecutors = false)
         {
-            var coordinator = new GameplayTickPresentationCoordinator(
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
@@ -1625,6 +1625,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             IGameplayEntityViewFactory viewFactory)
         {
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(
                 registry,

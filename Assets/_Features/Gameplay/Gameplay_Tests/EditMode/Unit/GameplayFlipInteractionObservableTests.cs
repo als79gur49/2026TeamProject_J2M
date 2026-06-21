@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var viewFactory = new FlipInteractionObservableViewFactory(registry.transform);
                 var binder = new GameplayEntityViewBinder(registry, viewFactory);

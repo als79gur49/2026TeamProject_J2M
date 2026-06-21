@@ -444,7 +444,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var registry = rootObject.GetComponent<GameplayEntityViewRegistry>() ??
                            rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, viewFactory);
-            var coordinator = new GameplayTickPresentationCoordinator(
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,

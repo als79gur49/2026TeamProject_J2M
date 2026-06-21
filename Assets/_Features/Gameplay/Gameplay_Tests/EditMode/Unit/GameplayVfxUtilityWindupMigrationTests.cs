@@ -610,6 +610,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetField(utilityAuthoring, "attachSummonWarningToSourceView", true);
 
             var presenter = root.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             var registry = root.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(
                 registry,

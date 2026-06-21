@@ -197,12 +197,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void PresentationExecutionDefaults_AllPhase9DomainsUseProductionOrchestrationOwner()
         {
             var config = new GameplaySceneHostConfiguration();
-            var coordinator = new GameplayTickPresentationCoordinator();
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
             var rootObject = new GameObject(nameof(PresentationExecutionDefaults_AllPhase9DomainsUseProductionOrchestrationOwner));
 
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
 
                 Assert.That(config.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
                 Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
@@ -517,12 +518,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void CoreSfx_ProductionDefault_RemainsStableAfterVfxTelemetry()
         {
-            var coordinator = new GameplayTickPresentationCoordinator();
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
             var rootObject = new GameObject(nameof(CoreSfx_ProductionDefault_RemainsStableAfterVfxTelemetry));
 
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
 
                 Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
@@ -540,12 +542,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void ExistingProductionDefaultsRemainStableAfterPhase9ProductionSwitch()
         {
-            var coordinator = new GameplayTickPresentationCoordinator();
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
             var rootObject = new GameObject(nameof(ExistingProductionDefaultsRemainStableAfterPhase9ProductionSwitch));
 
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
 
                 Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));

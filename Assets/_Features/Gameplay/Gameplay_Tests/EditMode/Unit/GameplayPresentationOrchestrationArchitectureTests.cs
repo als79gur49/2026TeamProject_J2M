@@ -36,6 +36,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime";
         private const string CoordinatorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
+        private const string PresenterPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs";
+        private const string HostFactoryPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs";
+        private const string CompositionPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeComposition.cs";
+        private const string CompositionMetaPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeComposition.cs.meta";
+        private const string CompositionFactoryPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeCompositionFactory.cs";
+        private const string CompositionFactoryMetaPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeCompositionFactory.cs.meta";
         private const string TopologyExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs";
         private const string TopologyLaneRuntimePath =
@@ -70,6 +82,115 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyOneShotAudioLaneRuntime.cs";
         private const string CoreGameplaySfxLaneRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs";
+
+        [Test]
+        [Category("Core")]
+        public void PresentationRuntimeComposition_FinalizesFactoryBoundary()
+        {
+            var compositionFullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", CompositionPath));
+            var compositionMetaFullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", CompositionMetaPath));
+            var compositionFactoryFullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", CompositionFactoryPath));
+            var compositionFactoryMetaFullPath = Path.GetFullPath(
+                Path.Combine(Application.dataPath, "..", CompositionFactoryMetaPath));
+            var compositionSource = ReadRepoFile(CompositionPath);
+            var compositionFactorySource = ReadRepoFile(CompositionFactoryPath);
+            var coordinatorSource = ReadRepoFile(CoordinatorPath);
+            var presenterSource = ReadRepoFile(PresenterPath);
+            var hostFactorySource = ReadRepoFile(HostFactoryPath);
+            var hostConstructionBlock = ExtractSourceBetween(
+                hostFactorySource,
+                "var presentationComposition = GameplayPresentationRuntimeCompositionFactory.Create();",
+                "presenter.Initialize(");
+
+            Assert.That(File.Exists(compositionFullPath), Is.True);
+            Assert.That(File.Exists(compositionMetaFullPath), Is.True);
+            Assert.That(File.Exists(compositionFactoryFullPath), Is.True);
+            Assert.That(File.Exists(compositionFactoryMetaFullPath), Is.True);
+
+            Assert.That(compositionSource, Does.Contain("internal sealed class GameplayPresentationRuntimeComposition"));
+            Assert.That(compositionSource, Does.Contain("EnemyOneShotAudioLaneRuntime EnemyOneShotAudioLane"));
+            Assert.That(compositionSource, Does.Contain("GameplayActionAudioLaneRuntime GameplayActionAudioLane"));
+            Assert.That(compositionSource, Does.Contain("CoreGameplaySfxLaneRuntime CoreGameplaySfxLane"));
+            Assert.That(compositionSource, Does.Contain("PlayerActionAnimationLaneRuntime PlayerActionAnimationLane"));
+            Assert.That(compositionSource, Does.Contain("EnemyPresentationLaneRuntime EnemyPresentationLane"));
+            Assert.That(compositionSource, Does.Contain("BoxMotionPresentationLaneRuntime BoxMotionLane"));
+            Assert.That(compositionSource, Does.Contain("TopologyPresentationLaneRuntime TopologyLane"));
+            Assert.That(compositionSource, Does.Contain("DamageDeathVfxPresentationLaneRuntime DamageDeathVfxLane"));
+            Assert.That(compositionSource, Does.Not.Contain("Dictionary<string"));
+            Assert.That(compositionSource, Does.Not.Contain("Dictionary<Type"));
+            Assert.That(compositionSource, Does.Not.Contain("IServiceProvider"));
+            Assert.That(compositionSource, Does.Not.Contain("GetService"));
+            Assert.That(compositionSource, Does.Not.Contain("Resolve<"));
+            Assert.That(compositionSource, Does.Not.Contain("FindObjectOfType"));
+            Assert.That(compositionSource, Does.Not.Contain("FindObjectsByType"));
+            Assert.That(compositionSource, Does.Not.Contain("Object.Find"));
+            Assert.That(compositionSource, Does.Not.Contain("GameObject.Find"));
+            foreach (var forbiddenPassiveMethod in new[]
+                     {
+                         " Present(",
+                         " Update(",
+                         " UpdatePresentation(",
+                         " ResetSession(",
+                         " HardCleanup(",
+                         " Dispose(",
+                         " Normalize(",
+                         " ShouldUseProduction",
+                         " ShouldSuppress",
+                         " TryBeginExecution",
+                         " RecordSkippedByPolicy",
+                     })
+            {
+                Assert.That(compositionSource, Does.Not.Contain(forbiddenPassiveMethod), forbiddenPassiveMethod);
+            }
+
+            foreach (var forbiddenCoordinatorToken in new[]
+                     {
+                         "new EnemyOneShotAudioLaneRuntime",
+                         "new GameplayActionAudioLaneRuntime",
+                         "new CoreGameplaySfxLaneRuntime",
+                         "new PlayerActionAnimationLaneRuntime",
+                         "new EnemyPresentationLaneRuntime",
+                         "new BoxMotionPresentationLaneRuntime",
+                         "new TopologyPresentationLaneRuntime",
+                         "new DamageDeathVfxPresentationLaneRuntime",
+                         "GameplayHostPresentationPipelineFactory",
+                         "TopologyExecutionPipelineFactory ",
+                         "DamageDeathVfxExecutionPipelineFactory ",
+                         "BoxMotionExecutionPipelineFactory ",
+                         "IDamageDeathVfxPlaybackPort playbackPort)",
+                         "TopologyPresentationExecutionMode topologyPresentationExecutionMode)",
+                         "GameplayPresentationRuntimeCompositionFactory.Create",
+                         "public GameplayTickPresentationCoordinator()",
+                     })
+            {
+                Assert.That(coordinatorSource, Does.Not.Contain(forbiddenCoordinatorToken), forbiddenCoordinatorToken);
+            }
+
+            Assert.That(coordinatorSource, Does.Contain(
+                "internal GameplayTickPresentationCoordinator(GameplayPresentationRuntimeComposition composition)"));
+            Assert.That(presenterSource, Does.Contain("BindCoordinator(GameplayTickPresentationCoordinator coordinator)"));
+            Assert.That(presenterSource, Does.Not.Contain("new GameplayTickPresentationCoordinator"));
+            Assert.That(presenterSource, Does.Not.Contain("GameplayPresentationRuntimeCompositionFactory"));
+            Assert.That(hostConstructionBlock, Does.Contain("GameplayPresentationRuntimeCompositionFactory.Create()"));
+            Assert.That(hostConstructionBlock, Does.Contain("new GameplayTickPresentationCoordinator(presentationComposition)"));
+            Assert.That(hostConstructionBlock, Does.Contain("presenter.BindCoordinator(presentationCoordinator)"));
+
+            foreach (var forbiddenFactoryPolicyToken in new[]
+                     {
+                         "TryBeginExecution",
+                         "RecordSkippedByPolicy",
+                         "ShouldSuppress",
+                         "Present(",
+                         "Update(",
+                         "ResetSession(",
+                         "HardCleanup(",
+                         "DamageHitSuppressedByEnemyDeathCount",
+                     })
+            {
+                Assert.That(compositionFactorySource, Does.Not.Contain(forbiddenFactoryPolicyToken), forbiddenFactoryPolicyToken);
+                Assert.That(hostConstructionBlock, Does.Not.Contain(forbiddenFactoryPolicyToken), forbiddenFactoryPolicyToken);
+            }
+        }
 
         [Test]
         [Category("Core")]
@@ -290,13 +411,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var topologyExecutorSource = ReadRepoFile(TopologyExecutorPath);
             var topologyLaneSource = ReadRepoFile(TopologyLaneRuntimePath);
             var coordinatorSource = ReadRepoFile(CoordinatorPath);
+            var compositionFactorySource = ReadRepoFile(CompositionFactoryPath);
 
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayTopologyTransitionController"));
             Assert.That(runtimeSource, Does.Not.Contain("GameplayTopologyTransitionController"));
             Assert.That(runtimeSource, Does.Not.Contain("TopologyPresentationExecutor"));
             Assert.That(coordinatorSource, Does.Not.Contain("TopologyPresentationExecutor"));
             Assert.That(coordinatorSource, Does.Not.Contain("ITopologyTransitionPlaybackPort"));
-            Assert.That(coordinatorSource, Does.Contain("GameplayHostPresentationPipelineFactory"));
+            Assert.That(coordinatorSource, Does.Not.Contain("GameplayHostPresentationPipelineFactory"));
+            Assert.That(compositionFactorySource, Does.Contain("GameplayHostPresentationPipelineFactory"));
             Assert.That(coordinatorSource, Does.Contain("TopologyPresentationLaneRuntime"));
             Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationLaneRuntime"));
@@ -1163,7 +1286,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void Coordinator_DiagnosticsPipeline_IsDisabledByDefault()
         {
-            var coordinator = new GameplayTickPresentationCoordinator();
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
 
             Assert.That(coordinator.IsPresentationPipelineDiagnosticsEnabled, Is.False);
             Assert.That(coordinator.PresentationPipelineNoOpSchedulerAcceptCount, Is.Zero);
@@ -1193,7 +1316,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(inputHostSource, Does.Not.Contain("TopologyPresentationOwnershipDiagnostics"));
             Assert.That(inputHostSource, Does.Not.Contain("TopologyPresentationExecutionMode"));
             Assert.That(inputHostSource, Does.Not.Contain("PresentationBlockingSnapshot"));
-            Assert.That(presenterSource, Does.Contain("HasBlockingPresentation => _presentationCoordinator.HasBlockingPresentation"));
+            Assert.That(presenterSource, Does.Contain("HasBlockingPresentation => PresentationCoordinator.HasBlockingPresentation"));
             Assert.That(coordinatorSource, Does.Contain("_topologyTransitionController.HasActiveBoardRotationTween"));
             Assert.That(coordinatorSource, Does.Not.Contain("HasBlockingPresentation => _presentationPipeline"));
             Assert.That(coordinatorSource, Does.Not.Contain("HasBlockingPresentation => _topologyExecutionPipeline"));
@@ -2823,6 +2946,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var fullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", relativePath));
             return File.ReadAllText(fullPath);
+        }
+
+        private static string ExtractSourceBetween(string source, string startToken, string endToken)
+        {
+            var start = source.IndexOf(startToken, StringComparison.Ordinal);
+            Assert.That(start, Is.GreaterThanOrEqualTo(0), $"Missing start token: {startToken}");
+            var end = source.IndexOf(endToken, start, StringComparison.Ordinal);
+            Assert.That(end, Is.GreaterThan(start), $"Missing end token after {startToken}: {endToken}");
+            return source.Substring(start, end - start);
         }
     }
 }

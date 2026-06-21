@@ -3129,6 +3129,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static GameplayTickViewPresenter CreatePresenter(GameObject rootObject, IGameplayEntityViewFactory viewFactory)
         {
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, viewFactory);
             presenter.Initialize(

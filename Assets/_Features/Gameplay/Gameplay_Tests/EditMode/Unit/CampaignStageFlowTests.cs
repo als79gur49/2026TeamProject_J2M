@@ -1126,6 +1126,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 activeSlotProvider.SetActiveSlot(1);
 
                 var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var terminalExtension = new RecordingTerminalPresentationExtension();
                 presenter.AttachPresentationExtension(terminalExtension);
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3, presenter: presenter);
@@ -1176,6 +1177,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var presentationFeed = new GameplayHostPresentationFeed(host.InputHost, presenter);
                 var controller = new CampaignGameplayFlowController(
                     host,
@@ -1232,6 +1234,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 activeSlotProvider.SetActiveSlot(1);
 
                 var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var terminalExtension = new RecordingTerminalPresentationExtension();
                 presenter.AttachPresentationExtension(terminalExtension);
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3, presenter: presenter);
@@ -1378,6 +1381,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SeedSaveSlot(saveStore, activeSlotProvider, "stage-2-2", "level-2", remainingChances: 1);
                 var host = CreateHostWithInput(hostObject, playerEntityId: 10, respawnDelayTicks: 3);
                 var presenter = hostObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var presentationFeed = new GameplayHostPresentationFeed(host.InputHost, presenter);
                 var router = new FakeStageLaunchRouter();
                 var controller = new CampaignGameplayFlowController(

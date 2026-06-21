@@ -201,41 +201,43 @@ namespace Game.Feature.Gameplay.Host
         private static readonly IReadOnlyList<TileFeatureVisualState> EmptyTileFeatureVisualStates =
             Array.Empty<TileFeatureVisualState>();
 
-        private readonly GameplayAnimationSyncCoordinator _animationSync = new();
+        private readonly GameplayAnimationSyncCoordinator _animationSync;
         private readonly GameplayActionAudioLaneRuntime _actionAudioLane;
         private readonly EnemyOneShotAudioLaneRuntime _enemyOneShotAudioLane;
         private readonly EnemyChargeLoopAudioPresentationController _enemyChargeLoopAudioPresentationController;
-        private readonly BlockAudioRequestPlanner _blockAudioRequestPlanner = new();
+        private readonly BlockAudioRequestPlanner _blockAudioRequestPlanner;
         private readonly BlockAudioPresentationController _blockAudioPresentationController;
         private readonly PlayerLocomotionAudioPresentationController _playerLocomotionAudioPresentationController;
         private readonly CoreGameplaySfxLaneRuntime _coreGameplaySfxLane;
         private readonly GameplayCommittedFrameBuilder _committedFrameBuilder;
         private readonly GameplayEntityPresentationApplier _entityPresentationApplier;
-        private readonly IEnemyVisualSemanticResolver _enemyVisualSemanticResolver = new DefaultEnemyVisualSemanticResolver();
+        private readonly IEnemyVisualSemanticResolver _enemyVisualSemanticResolver;
         private readonly GameplayExitPresentationController _exitPresentationController;
         private readonly MoonBlockDestructionPresentationController _moonBlockDestructionPresentationController;
         private readonly GameplayTrackPlanner _planner;
         private readonly GameplayPresentationActivityInspector _presentationActivityInspector;
-        private readonly GameplayPresentationStateStore _stateStore = new();
-        private readonly GravityFieldAudioRequestPlanner _gravityFieldAudioRequestPlanner = new();
+        private readonly GameplayPresentationStateStore _stateStore;
+        private readonly GravityFieldAudioRequestPlanner _gravityFieldAudioRequestPlanner;
         private readonly GravityFieldAudioPresentationController _gravityFieldAudioPresentationController;
-        private readonly GravityFieldPresentationRequestPlanner _gravityFieldPresentationRequestPlanner = new();
+        private readonly GravityFieldPresentationRequestPlanner _gravityFieldPresentationRequestPlanner;
         private readonly GravityFieldVisualPresentationController _gravityFieldVisualPresentationController;
-        private readonly SummonedEnemyPresentationResolver _summonedEnemyPresentationResolver = new();
-        private readonly TileFeatureAudioRequestPlanner _tileFeatureAudioRequestPlanner = new();
+        private readonly SummonedEnemyPresentationResolver _summonedEnemyPresentationResolver;
+        private readonly TileFeatureAudioRequestPlanner _tileFeatureAudioRequestPlanner;
         private readonly TileFeatureAudioPresentationController _tileFeatureAudioPresentationController;
-        private readonly TopologyAudioRequestPlanner _topologyAudioRequestPlanner = new();
-        private readonly TopologyAudioPresentationController _topologyAudioPresentationController = new();
-        private readonly GameplayPresentationTrackState _trackState = new();
-        private readonly TilePresentationRequestPlanner _tilePresentationRequestPlanner = new();
+        private readonly TopologyAudioRequestPlanner _topologyAudioRequestPlanner;
+        private readonly TopologyAudioPresentationController _topologyAudioPresentationController;
+        private readonly GameplayPresentationTrackState _trackState;
+        private readonly TilePresentationRequestPlanner _tilePresentationRequestPlanner;
         private readonly GameplayTopologyTransitionController _topologyTransitionController;
-        private readonly GameplayPresentationPauseRegistry _presentationPauseRegistry = new();
-        private readonly GameplayUtilityWindupVfxPresenter _utilityWindupVfxPresenter = new();
-        private readonly TileFeatureVisualPresentationController _tileFeatureVisualPresentationController = new();
-        private readonly MoonBlockEmergencePresentationController _moonBlockEmergencePresentationController = new();
+        private readonly GameplayPresentationPauseRegistry _presentationPauseRegistry;
+        private readonly GameplayUtilityWindupVfxPresenter _utilityWindupVfxPresenter;
+        private readonly TileFeatureVisualPresentationController _tileFeatureVisualPresentationController;
+        private readonly MoonBlockEmergencePresentationController _moonBlockEmergencePresentationController;
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
         private readonly GameplayPoseResolver _poseResolver;
-        private readonly GameplaySfxArbiter _gameplaySfxArbiter = new();
+        private readonly GameplaySfxArbiter _gameplaySfxArbiter;
+        private readonly GameplayDestroyShrinkVfxSequenceStateResolver _destroyShrinkVfxSequenceStateResolver;
+        private readonly GameplayPlayerActionAnimationTimingProfileSource _playerActionAnimationTimingProfileSource;
         private readonly List<IGameplayTickPresentationExtension> _presentationExtensions = new();
         private readonly TopologyPresentationLaneRuntime _topologyLane;
         private readonly DamageDeathVfxPresentationLaneRuntime _damageDeathVfxLane;
@@ -271,143 +273,63 @@ namespace Game.Feature.Gameplay.Host
         private TickResult _lastPresentedResult;
         private int _topologyTransitionEpoch;
         private bool _isPresentationPaused;
+        private bool _hasTornDownPresentationRuntime;
 
-        public GameplayTickPresentationCoordinator()
-            : this(
-                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreateEnemyPresentationExecutionPipeline,
-                null,
-                GameplayHostPresentationPipelineFactory.CreateActionAudioExecutionPipeline)
+        internal GameplayTickPresentationCoordinator(GameplayPresentationRuntimeComposition composition)
         {
-        }
+            if (composition == null)
+            {
+                throw new ArgumentNullException(nameof(composition));
+            }
 
-        internal GameplayTickPresentationCoordinator(TopologyExecutionPipelineFactory topologyExecutionPipelineFactory)
-            : this(
-                topologyExecutionPipelineFactory,
-                GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreateEnemyPresentationExecutionPipeline,
-                null,
-                GameplayHostPresentationPipelineFactory.CreateActionAudioExecutionPipeline)
-        {
-        }
-
-        internal GameplayTickPresentationCoordinator(
-            TopologyExecutionPipelineFactory topologyExecutionPipelineFactory,
-            DamageDeathVfxExecutionPipelineFactory damageDeathVfxExecutionPipelineFactory)
-            : this(
-                topologyExecutionPipelineFactory,
-                damageDeathVfxExecutionPipelineFactory,
-                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline,
-                GameplayHostPresentationPipelineFactory.CreateEnemyPresentationExecutionPipeline,
-                null,
-                GameplayHostPresentationPipelineFactory.CreateActionAudioExecutionPipeline)
-        {
-        }
-
-        internal GameplayTickPresentationCoordinator(
-            TopologyExecutionPipelineFactory topologyExecutionPipelineFactory,
-            DamageDeathVfxExecutionPipelineFactory damageDeathVfxExecutionPipelineFactory,
-            BoxMotionExecutionPipelineFactory boxMotionExecutionPipelineFactory,
-            PlayerActionAnimationExecutionPipelineFactory playerActionAnimationExecutionPipelineFactory = null,
-            EnemyPresentationExecutionPipelineFactory enemyPresentationExecutionPipelineFactory = null,
-            CoreGameplaySfxExecutionPipelineFactory coreGameplaySfxExecutionPipelineFactory = null,
-            ActionAudioExecutionPipelineFactory actionAudioExecutionPipelineFactory = null)
-        {
-            _coreGameplaySfxLane = new CoreGameplaySfxLaneRuntime(
-                _stateStore,
-                coreGameplaySfxExecutionPipelineFactory);
-            _actionAudioLane = new GameplayActionAudioLaneRuntime(_stateStore, actionAudioExecutionPipelineFactory);
-            _enemyOneShotAudioLane = new EnemyOneShotAudioLaneRuntime(_stateStore);
-            _enemyChargeLoopAudioPresentationController = new EnemyChargeLoopAudioPresentationController(_stateStore);
-            _blockAudioPresentationController = new BlockAudioPresentationController(_stateStore);
-            _playerLocomotionAudioPresentationController = new PlayerLocomotionAudioPresentationController(_stateStore);
-            _tileFeatureAudioPresentationController = new TileFeatureAudioPresentationController(_stateStore);
-            _gravityFieldAudioPresentationController = new GravityFieldAudioPresentationController(_stateStore);
-            _gravityFieldVisualPresentationController = new GravityFieldVisualPresentationController(_stateStore);
-            _presentationActivityInspector = new GameplayPresentationActivityInspector(_trackState);
-            _motionTimingResolver = new GameplayMotionTimingResolver(_stateStore, _trackState);
-            _topologyTransitionController = new GameplayTopologyTransitionController(_motionTimingResolver);
-            _topologyLane = new TopologyPresentationLaneRuntime(
-                topologyExecutionPipelineFactory ??
-                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
-                new GameplayTopologyTransitionPlaybackPort(_topologyTransitionController),
-                new GameplayTopologyLegacyTransitionPort(_topologyTransitionController),
-                new GameplayTopologyTransitionCleanupPort(_topologyTransitionController));
-            _damageDeathVfxLane = new DamageDeathVfxPresentationLaneRuntime(
-                damageDeathVfxExecutionPipelineFactory ??
-                GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline);
-            _poseResolver = new GameplayPoseResolver(
-                _stateStore,
-                _trackState);
-            _committedFrameBuilder = new GameplayCommittedFrameBuilder(
-                _stateStore,
-                _poseResolver,
-                _animationSync);
-            _entityPresentationApplier = new GameplayEntityPresentationApplier(
-                _stateStore,
-                _trackState,
-                _poseResolver,
-                _animationSync,
-                _motionTimingResolver,
-                _enemyVisualSemanticResolver,
-                _committedFrameBuilder);
-            _exitPresentationController = new GameplayExitPresentationController(
-                _animationSync,
-                _stateStore,
-                _trackState);
-            _moonBlockDestructionPresentationController = new MoonBlockDestructionPresentationController(
-                _stateStore,
-                _trackState,
-                _exitPresentationController,
-                ResolveDestroyShrinkVfxSequenceState);
-            _exitPresentationController.SetDeferredExitCleanupHoldPredicate(
-                _moonBlockDestructionPresentationController.ShouldHoldDeferredExitCleanup);
-            _exitPresentationController.SetLiveExitOwnershipBypassPredicate(
-                _moonBlockDestructionPresentationController.ShouldBypassLiveExitOwnership);
-            _planner = new GameplayTrackPlanner(
-                _stateStore,
-                _trackState,
-                _motionTimingResolver,
-                _poseResolver,
-                _exitPresentationController,
-                _moonBlockDestructionPresentationController,
-                _entityPresentationApplier);
-            var boxMotionTrackPlannerPlaybackPort = new GameplayMotionTrackPlannerPlaybackPort(
-                _planner,
-                _stateStore,
-                _trackState);
-            _boxMotionLane = new BoxMotionPresentationLaneRuntime(
-                _trackState,
-                boxMotionExecutionPipelineFactory ??
-                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
-                boxMotionTrackPlannerPlaybackPort,
-                new GameplayBoxMotionRuntimeCleanupAdapter(
-                    _stateStore,
-                    _trackState,
-                    _entityPresentationApplier));
-            _playerActionAnimationLane =
-                new PlayerActionAnimationLaneRuntime(
-                    _stateStore,
-                    _animationSync,
-                    (entityId, actionKind) => _motionTimingResolver.ResolvePlayerMotionDurationSeconds(
-                        entityId,
-                        actionKind,
-                        _timingProfile),
-                    playerActionAnimationExecutionPipelineFactory);
-            _enemyPresentationLane = new EnemyPresentationLaneRuntime(
-                _stateStore,
-                _animationSync,
-                enemyPresentationExecutionPipelineFactory);
+            _stateStore = composition.StateStore;
+            _trackState = composition.TrackState;
+            _animationSync = composition.AnimationSync;
+            _motionTimingResolver = composition.MotionTimingResolver;
+            _poseResolver = composition.PoseResolver;
+            _committedFrameBuilder = composition.CommittedFrameBuilder;
+            _entityPresentationApplier = composition.EntityPresentationApplier;
+            _enemyVisualSemanticResolver = composition.EnemyVisualSemanticResolver;
+            _exitPresentationController = composition.ExitPresentationController;
+            _moonBlockDestructionPresentationController = composition.MoonBlockDestructionPresentationController;
+            _moonBlockEmergencePresentationController = composition.MoonBlockEmergencePresentationController;
+            _planner = composition.TrackPlanner;
+            _topologyTransitionController = composition.TopologyTransitionController;
+            _presentationActivityInspector = composition.PresentationActivityInspector;
+            _presentationPauseRegistry = composition.PresentationPauseRegistry;
+            _destroyShrinkVfxSequenceStateResolver = composition.DestroyShrinkVfxSequenceStateResolver;
+            _playerActionAnimationTimingProfileSource = composition.PlayerActionAnimationTimingProfileSource;
+            _blockAudioRequestPlanner = composition.BlockAudioRequestPlanner;
+            _blockAudioPresentationController = composition.BlockAudioPresentationController;
+            _playerLocomotionAudioPresentationController =
+                composition.PlayerLocomotionAudioPresentationController;
+            _gravityFieldAudioRequestPlanner = composition.GravityFieldAudioRequestPlanner;
+            _gravityFieldAudioPresentationController = composition.GravityFieldAudioPresentationController;
+            _gravityFieldPresentationRequestPlanner = composition.GravityFieldPresentationRequestPlanner;
+            _gravityFieldVisualPresentationController = composition.GravityFieldVisualPresentationController;
+            _summonedEnemyPresentationResolver = composition.SummonedEnemyPresentationResolver;
+            _tileFeatureAudioRequestPlanner = composition.TileFeatureAudioRequestPlanner;
+            _tileFeatureAudioPresentationController = composition.TileFeatureAudioPresentationController;
+            _topologyAudioRequestPlanner = composition.TopologyAudioRequestPlanner;
+            _topologyAudioPresentationController = composition.TopologyAudioPresentationController;
+            _tilePresentationRequestPlanner = composition.TilePresentationRequestPlanner;
+            _utilityWindupVfxPresenter = composition.UtilityWindupVfxPresenter;
+            _tileFeatureVisualPresentationController = composition.TileFeatureVisualPresentationController;
+            _gameplaySfxArbiter = composition.GameplaySfxArbiter;
+            _enemyChargeLoopAudioPresentationController =
+                composition.EnemyChargeLoopAudioPresentationController;
+            _enemyOneShotAudioLane = composition.EnemyOneShotAudioLane;
+            _actionAudioLane = composition.GameplayActionAudioLane;
+            _coreGameplaySfxLane = composition.CoreGameplaySfxLane;
+            _playerActionAnimationLane = composition.PlayerActionAnimationLane;
+            _enemyPresentationLane = composition.EnemyPresentationLane;
+            _boxMotionLane = composition.BoxMotionLane;
+            _topologyLane = composition.TopologyLane;
+            _damageDeathVfxLane = composition.DamageDeathVfxLane;
+            _destroyShrinkVfxSequenceStateResolver.BindExtensions(_presentationExtensions);
             _topologyTransitionController.TopologyPresentationCompleted += HandleTopologyPresentationCompleted;
             _topologyTransitionController.TopologyTransitionPresentationCompleted +=
                 HandleTopologyTransitionPresentationCompleted;
-            ConfigureProductionDefaultExecutionGuards();
         }
 
         public event Action<CubeTopologyState> TopologyCommitted;
@@ -788,6 +710,7 @@ namespace Game.Feature.Gameplay.Host
             var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
+            _playerActionAnimationTimingProfileSource.TimingProfile = _timingProfile;
             _enemyOneShotAudioLane.ConfigureTiming(_timingProfile);
             _topologyTransitionController.Configure(
                 boardRoot,
@@ -1516,6 +1439,22 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        internal void TeardownPresentationRuntime()
+        {
+            if (_hasTornDownPresentationRuntime)
+            {
+                return;
+            }
+
+            _hasTornDownPresentationRuntime = true;
+            HardCleanupPresentationExtensions();
+            DetachBlockAudioRuntime();
+            DetachGravityFieldAudioRuntime();
+            DetachTileFeatureAudioRuntime();
+            DetachTopologyAudioRuntime();
+            DetachGameplayAudioRuntime();
+        }
+
         private void PresentDiagnosticsPipelineIfEnabled(TickResult result)
         {
             if (!_presentationPipelineDiagnosticsEnabled)
@@ -1709,18 +1648,6 @@ namespace Game.Feature.Gameplay.Host
                    topologyMotion.Value.RotationKind != CubeRotationKind.None;
         }
 
-        private void ConfigureProductionDefaultExecutionGuards()
-        {
-            _topologyLane.ConfigureExecution(TopologyPresentationExecutionPolicy.ProductionDefault);
-            _damageDeathVfxLane.ConfigureExecution(DamageDeathVfxExecutionPolicy.ProductionDefault);
-            _boxMotionLane.ConfigureExecution(BoxMotionExecutionPolicy.ProductionDefault);
-            _playerActionAnimationLane.ConfigureExecution(PlayerActionAnimationExecutionPolicy.ProductionDefault);
-            _enemyPresentationLane.ConfigureExecution(EnemyPresentationExecutionPolicy.ProductionDefault);
-            _coreGameplaySfxLane.ConfigureExecution(CoreGameplaySfxExecutionPolicy.ProductionDefault);
-            _actionAudioLane.ConfigureExecution(ActionAudioExecutionPolicy.ProductionDefault);
-            _enemyOneShotAudioLane.ConfigureExecution(EnemyAudioExecutionPolicy.ProductionDefault);
-        }
-
         private void RefreshPresentationMotionVfx(int tickIndex)
         {
             if (_presentationExtensions.Count == 0)
@@ -1741,25 +1668,6 @@ namespace Game.Feature.Gameplay.Host
                     motionVfxExtension.RefreshPresentationMotionVfx(context);
                 }
             }
-        }
-
-        private DestroyShrinkVfxSequenceState ResolveDestroyShrinkVfxSequenceState(
-            int sourceEntityId,
-            int sequenceId)
-        {
-            for (var i = 0; i < _presentationExtensions.Count; i++)
-            {
-                if (_presentationExtensions[i] is IGameplayDestroyShrinkVfxSequenceStateProvider provider)
-                {
-                    var state = provider.GetDestroyShrinkState(sourceEntityId, sequenceId);
-                    if (state != DestroyShrinkVfxSequenceState.None)
-                    {
-                        return state;
-                    }
-                }
-            }
-
-            return DestroyShrinkVfxSequenceState.None;
         }
 
         private void EnsureInitialized()

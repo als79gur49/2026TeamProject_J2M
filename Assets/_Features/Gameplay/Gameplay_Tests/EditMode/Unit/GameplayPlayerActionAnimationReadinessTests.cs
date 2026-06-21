@@ -33,8 +33,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var coordinator = new GameplayTickPresentationCoordinator();
+                var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
 
                 Assert.That(default(PlayerActionAnimationExecutionMode), Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
@@ -436,12 +437,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void CoreSfxDamageVfxAndBoxMotion_ProductionDefaultsRemainStable()
         {
-            var coordinator = new GameplayTickPresentationCoordinator();
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
             var rootObject = new GameObject(nameof(CoreSfxDamageVfxAndBoxMotion_ProductionDefaultsRemainStable));
 
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
 
                 Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));

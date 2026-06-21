@@ -58,6 +58,9 @@ namespace Game.Feature.Gameplay.Host
             var hostTransform = host.transform;
             var inputHost = hostObject.GetComponent<GameplayInputHost>() ?? hostObject.AddComponent<GameplayInputHost>();
             var presenter = hostObject.GetComponent<GameplayTickViewPresenter>() ?? hostObject.AddComponent<GameplayTickViewPresenter>();
+            var presentationComposition = GameplayPresentationRuntimeCompositionFactory.Create();
+            var presentationCoordinator = new GameplayTickPresentationCoordinator(presentationComposition);
+            presenter.BindCoordinator(presentationCoordinator);
             var viewRegistry = hostObject.GetComponent<GameplayEntityViewRegistry>() ?? hostObject.AddComponent<GameplayEntityViewRegistry>();
             var tileFeatureVisualRegistry =
                 hostObject.GetComponent<TileFeatureVisualRegistry>() ?? hostObject.AddComponent<TileFeatureVisualRegistry>();
@@ -161,10 +164,6 @@ namespace Game.Feature.Gameplay.Host
                 initialSnapshot,
                 initialObjectiveResult);
 
-            presenter.ConfigureBoxMotionPresentationExecution(
-                BoxMotionPresentationExecutionDefaults.ProductionDefault);
-            presenter.ConfigurePlayerActionAnimationExecution(
-                PlayerActionAnimationExecutionDefaults.ProductionDefault);
             presenter.Initialize(
                 viewBinder,
                 configuration.InitialBoardBounds,

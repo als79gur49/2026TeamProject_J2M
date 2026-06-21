@@ -1303,6 +1303,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stageClearVictoryAnimatorDurationSeconds", 0.5f);
 
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var inputHost = rootObject.AddComponent<GameplayInputHost>();
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var topology = new CubeTopologyState(FaceId.Floor);
@@ -1798,6 +1799,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushRecoveryAnimatorDurationSeconds", 0.2f);
 
                 var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var coordinator = ReadPrivateField<GameplayTickPresentationCoordinator>(
                     presenter,
                     "_presentationCoordinator");

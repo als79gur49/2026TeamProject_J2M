@@ -27,6 +27,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
                 var enemyPrefabView = enemyPrefabObject.AddComponent<GameplayEntityView>();
@@ -100,6 +101,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
                 var enemyPrefabView = enemyPrefabObject.AddComponent<GameplayEntityView>();
@@ -152,6 +154,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
                 var enemyPrefabView = enemyPrefabObject.AddComponent<GameplayEntityView>();
