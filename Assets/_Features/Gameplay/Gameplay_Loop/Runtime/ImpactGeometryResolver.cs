@@ -10,48 +10,12 @@ namespace Game.Feature.Gameplay.Loop
         CrossFaceUnsupported = 1,
     }
 
-    internal readonly struct ImpactGeometry
-    {
-        public ImpactGeometry(
-            SurfaceCell sourceCell,
-            SurfaceCell impactCell,
-            Direction moveFacing,
-            bool isFlipImpact)
-        {
-            SourceCell = sourceCell;
-            ImpactCell = impactCell;
-            MoveFacing = moveFacing;
-            IsFlipImpact = isFlipImpact;
-        }
-
-        public SurfaceCell SourceCell { get; }
-
-        public SurfaceCell ImpactCell { get; }
-
-        public Direction MoveFacing { get; }
-
-        public bool IsFlipImpact { get; }
-
-        public bool HasSourceFacing => IsFlipImpact;
-
-        public Direction SourceFacing => HasSourceFacing
-            ? MoveFacing switch
-            {
-                Direction.Up => Direction.Down,
-                Direction.Right => Direction.Left,
-                Direction.Down => Direction.Up,
-                Direction.Left => Direction.Right,
-                _ => Direction.None,
-            }
-            : Direction.None;
-    }
-
     internal static class ImpactGeometryResolver
     {
         public static bool TryResolve(
             SurfaceCell sourceCell,
             SurfaceCell impactCell,
-            out ImpactGeometry geometry)
+            out ImpactTravelGeometry geometry)
         {
             return TryResolve(sourceCell, impactCell, out geometry, out _);
         }
@@ -59,7 +23,7 @@ namespace Game.Feature.Gameplay.Loop
         public static bool TryResolve(
             SurfaceCell sourceCell,
             SurfaceCell impactCell,
-            out ImpactGeometry geometry,
+            out ImpactTravelGeometry geometry,
             out ImpactGeometryRejectReason rejectReason)
         {
             if (sourceCell.face != impactCell.face)
@@ -77,7 +41,7 @@ namespace Game.Feature.Gameplay.Loop
             BoardBounds boardBounds,
             SurfaceCell sourceCell,
             SurfaceCell impactCell,
-            out ImpactGeometry geometry)
+            out ImpactTravelGeometry geometry)
         {
             return TryResolve(topology, boardBounds, sourceCell, impactCell, out geometry, out _);
         }
@@ -87,7 +51,7 @@ namespace Game.Feature.Gameplay.Loop
             BoardBounds boardBounds,
             SurfaceCell sourceCell,
             SurfaceCell impactCell,
-            out ImpactGeometry geometry,
+            out ImpactTravelGeometry geometry,
             out ImpactGeometryRejectReason rejectReason)
         {
             if (sourceCell.face == impactCell.face)
@@ -97,11 +61,11 @@ namespace Game.Feature.Gameplay.Loop
 
             if (TryResolveBottomFrontSeam(topology, boardBounds, sourceCell, impactCell, out var moveFacing))
             {
-                geometry = new ImpactGeometry(
+                geometry = new ImpactTravelGeometry(
                     sourceCell,
                     impactCell,
-                    moveFacing,
-                    isFlipImpact: false);
+                    impactCell,
+                    moveFacing);
                 rejectReason = ImpactGeometryRejectReason.None;
                 return true;
             }
@@ -114,16 +78,16 @@ namespace Game.Feature.Gameplay.Loop
         private static bool TryResolveSameFace(
             SurfaceCell sourceCell,
             SurfaceCell impactCell,
-            out ImpactGeometry geometry,
+            out ImpactTravelGeometry geometry,
             out ImpactGeometryRejectReason rejectReason)
         {
             var delta = impactCell - sourceCell;
             var moveFacing = ResolveMoveFacing(delta, sourceCell, impactCell);
-            geometry = new ImpactGeometry(
+            geometry = new ImpactTravelGeometry(
                 sourceCell,
                 impactCell,
-                moveFacing,
-                isFlipImpact: Math.Abs(delta.x) + Math.Abs(delta.y) > 1);
+                impactCell,
+                moveFacing);
             rejectReason = ImpactGeometryRejectReason.None;
             return true;
         }

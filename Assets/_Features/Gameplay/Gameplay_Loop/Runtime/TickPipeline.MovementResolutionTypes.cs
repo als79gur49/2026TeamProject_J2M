@@ -242,6 +242,145 @@ namespace Game.Feature.Gameplay.Loop
         public int InstigatorTeamId { get; }
     }
 
+    internal readonly struct BoxImpactParticipants
+    {
+        public BoxImpactParticipants(
+            int actorEntityId,
+            int impactSourceEntityId,
+            IReadOnlyList<int> targetEntityIds)
+        {
+            if (actorEntityId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(actorEntityId), "Box impact actor must be a positive entity ID.");
+            }
+
+            if (impactSourceEntityId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(impactSourceEntityId), "Box impact source must be a positive entity ID.");
+            }
+
+            if (targetEntityIds == null)
+            {
+                throw new ArgumentNullException(nameof(targetEntityIds));
+            }
+
+            if (targetEntityIds.Count == 0)
+            {
+                throw new ArgumentException("Box impact target list must not be empty.", nameof(targetEntityIds));
+            }
+
+            ActorEntityId = actorEntityId;
+            ImpactSourceEntityId = impactSourceEntityId;
+            TargetEntityIds = targetEntityIds;
+            TargetEntityId = targetEntityIds[0];
+        }
+
+        public int ActorEntityId { get; }
+
+        public int ImpactSourceEntityId { get; }
+
+        public int TargetEntityId { get; }
+
+        public IReadOnlyList<int> TargetEntityIds { get; }
+    }
+
+    internal readonly struct ImpactTravelGeometry
+    {
+        public ImpactTravelGeometry(
+            SurfaceCell sourceCell,
+            SurfaceCell impactCell,
+            SurfaceCell followThroughCell,
+            Direction travelDirection)
+        {
+            SourceCell = sourceCell;
+            ImpactCell = impactCell;
+            FollowThroughCell = followThroughCell;
+            TravelDirection = travelDirection;
+        }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell ImpactCell { get; }
+
+        public SurfaceCell FollowThroughCell { get; }
+
+        public Direction TravelDirection { get; }
+    }
+
+    internal readonly struct ImpactSourcePoseCommit
+    {
+        public ImpactSourcePoseCommit(int impactSourceEntityId, Direction facing)
+        {
+            if (impactSourceEntityId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(impactSourceEntityId), "Impact source pose commit requires a positive entity ID.");
+            }
+
+            ImpactSourceEntityId = impactSourceEntityId;
+            Facing = facing;
+        }
+
+        public int ImpactSourceEntityId { get; }
+
+        public Direction Facing { get; }
+    }
+
+    internal readonly struct ImpactAttackHandoff
+    {
+        public ImpactAttackHandoff(int attackSourceEntityId, int damageAmount, int sequence)
+        {
+            if (attackSourceEntityId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(attackSourceEntityId), "Impact attack source must be a positive entity ID.");
+            }
+
+            AttackSourceEntityId = attackSourceEntityId;
+            DamageAmount = damageAmount;
+            Sequence = sequence;
+        }
+
+        public int AttackSourceEntityId { get; }
+
+        public int DamageAmount { get; }
+
+        public int Sequence { get; }
+    }
+
+    internal readonly struct ImpactSourceDispositionPayload
+    {
+        public ImpactSourceDispositionPayload(
+            ImpactDispositionPolicyKind policyKind,
+            bool hasImpactSourcePoseCommit,
+            ImpactSourcePoseCommit impactSourcePose,
+            bool hasStateChange,
+            EntityPhaseState state,
+            int stateTimer,
+            ResolvedActionSemanticKind semanticKind)
+        {
+            PolicyKind = policyKind;
+            HasImpactSourcePoseCommit = hasImpactSourcePoseCommit;
+            ImpactSourcePose = impactSourcePose;
+            HasStateChange = hasStateChange;
+            State = state;
+            StateTimer = stateTimer;
+            SemanticKind = semanticKind;
+        }
+
+        public ImpactDispositionPolicyKind PolicyKind { get; }
+
+        public bool HasImpactSourcePoseCommit { get; }
+
+        public ImpactSourcePoseCommit ImpactSourcePose { get; }
+
+        public bool HasStateChange { get; }
+
+        public EntityPhaseState State { get; }
+
+        public int StateTimer { get; }
+
+        public ResolvedActionSemanticKind SemanticKind { get; }
+    }
+
     internal readonly struct TopologyWritePayload
     {
         public TopologyWritePayload(CubeTopologyState topology, CubeRotationKind rotationKind)
@@ -342,124 +481,24 @@ namespace Game.Feature.Gameplay.Loop
     internal readonly struct MovementImpactReservationPayload
     {
         public MovementImpactReservationPayload(
-            int sourceEntityId,
-            int attackSourceEntityId,
-            SurfaceCell sourceCell,
-            int targetEntityId,
-            SurfaceCell impactCell,
-            int damageAmount,
-            int sequence,
-            SurfaceCell contingentDestinationCell,
-            SurfaceCell contingentSourceCell,
-            Direction contingentFacing,
-            bool hasContingentStateChange,
-            EntityPhaseState contingentState,
-            int contingentStateTimer,
-            bool hasSourceFacing,
-            int sourceFacingEntityId,
-            Direction sourceFacing,
-            ImpactDispositionPolicyKind dispositionPolicyKind,
-            ResolvedActionSemanticKind contingentSemanticKind)
-            : this(
-                sourceEntityId,
-                attackSourceEntityId,
-                sourceCell,
-                new[] { targetEntityId },
-                impactCell,
-                damageAmount,
-                sequence,
-                contingentDestinationCell,
-                contingentSourceCell,
-                contingentFacing,
-                hasContingentStateChange,
-                contingentState,
-                contingentStateTimer,
-                hasSourceFacing,
-                sourceFacingEntityId,
-                sourceFacing,
-                dispositionPolicyKind,
-                contingentSemanticKind)
+            BoxImpactParticipants participants,
+            ImpactTravelGeometry travel,
+            ImpactAttackHandoff attack,
+            ImpactSourceDispositionPayload disposition)
         {
+            Participants = participants;
+            Travel = travel;
+            Attack = attack;
+            Disposition = disposition;
         }
 
-        public MovementImpactReservationPayload(
-            int sourceEntityId,
-            int attackSourceEntityId,
-            SurfaceCell sourceCell,
-            IReadOnlyList<int> targetEntityIds,
-            SurfaceCell impactCell,
-            int damageAmount,
-            int sequence,
-            SurfaceCell contingentDestinationCell,
-            SurfaceCell contingentSourceCell,
-            Direction contingentFacing,
-            bool hasContingentStateChange,
-            EntityPhaseState contingentState,
-            int contingentStateTimer,
-            bool hasSourceFacing,
-            int sourceFacingEntityId,
-            Direction sourceFacing,
-            ImpactDispositionPolicyKind dispositionPolicyKind,
-            ResolvedActionSemanticKind contingentSemanticKind)
-        {
-            SourceEntityId = sourceEntityId;
-            AttackSourceEntityId = attackSourceEntityId;
-            SourceCell = sourceCell;
-            TargetEntityIds = targetEntityIds ?? throw new ArgumentNullException(nameof(targetEntityIds));
-            TargetEntityId = TargetEntityIds.Count > 0 ? TargetEntityIds[0] : 0;
-            ImpactCell = impactCell;
-            DamageAmount = damageAmount;
-            Sequence = sequence;
-            ContingentDestinationCell = contingentDestinationCell;
-            ContingentSourceCell = contingentSourceCell;
-            ContingentFacing = contingentFacing;
-            HasContingentStateChange = hasContingentStateChange;
-            ContingentState = contingentState;
-            ContingentStateTimer = contingentStateTimer;
-            HasSourceFacing = hasSourceFacing;
-            SourceFacingEntityId = sourceFacingEntityId;
-            SourceFacing = sourceFacing;
-            DispositionPolicyKind = dispositionPolicyKind;
-            ContingentSemanticKind = contingentSemanticKind;
-        }
+        public BoxImpactParticipants Participants { get; }
 
-        public int SourceEntityId { get; }
+        public ImpactTravelGeometry Travel { get; }
 
-        public int AttackSourceEntityId { get; }
+        public ImpactAttackHandoff Attack { get; }
 
-        public SurfaceCell SourceCell { get; }
-
-        public int TargetEntityId { get; }
-
-        public IReadOnlyList<int> TargetEntityIds { get; }
-
-        public SurfaceCell ImpactCell { get; }
-
-        public int DamageAmount { get; }
-
-        public int Sequence { get; }
-
-        public SurfaceCell ContingentDestinationCell { get; }
-
-        public SurfaceCell ContingentSourceCell { get; }
-
-        public Direction ContingentFacing { get; }
-
-        public bool HasContingentStateChange { get; }
-
-        public EntityPhaseState ContingentState { get; }
-
-        public int ContingentStateTimer { get; }
-
-        public bool HasSourceFacing { get; }
-
-        public int SourceFacingEntityId { get; }
-
-        public Direction SourceFacing { get; }
-
-        public ImpactDispositionPolicyKind DispositionPolicyKind { get; }
-
-        public ResolvedActionSemanticKind ContingentSemanticKind { get; }
+        public ImpactSourceDispositionPayload Disposition { get; }
     }
 
     internal readonly struct MovementDeferredImpactPayload

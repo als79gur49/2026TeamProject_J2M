@@ -115,7 +115,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var impactInfo = impactReservationBook.GetCellReservationInfo(destinationCell);
             Assert.That(impactInfo.Status, Is.EqualTo(ReservationStatus.Conflicted));
-            Assert.That(impactInfo.ReservedEntityType, Is.EqualTo(EntityType.Unit));
+            Assert.That(impactInfo.ReservedEntityType, Is.EqualTo(EntityType.Box));
             Assert.That(impactInfo.IsUnitSharedSettlementCompatible, Is.False);
 
             var boxSourceCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -205,24 +205,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SurfaceCell destinationCell)
         {
             return new MovementImpactReservationPayload(
-                sourceEntityId,
-                attackSourceEntityId,
-                sourceCell,
-                targetEntityId,
-                destinationCell,
-                damageAmount: 1,
-                sequence: 0,
-                contingentDestinationCell: destinationCell,
-                contingentSourceCell: sourceCell,
-                contingentFacing: Direction.Right,
-                hasContingentStateChange: true,
-                contingentState: EntityPhaseState.Sliding,
-                contingentStateTimer: 1,
-                hasSourceFacing: false,
-                sourceFacingEntityId: 0,
-                sourceFacing: Direction.None,
-                dispositionPolicyKind: ImpactDispositionPolicyKind.PushLike,
-                contingentSemanticKind: ResolvedActionSemanticKind.Push);
+                new BoxImpactParticipants(attackSourceEntityId, sourceEntityId, new[] { targetEntityId }),
+                new ImpactTravelGeometry(sourceCell, destinationCell, destinationCell, Direction.Right),
+                new ImpactAttackHandoff(attackSourceEntityId, damageAmount: 1, sequence: 0),
+                new ImpactSourceDispositionPayload(
+                    ImpactDispositionPolicyKind.PushLike,
+                    hasImpactSourcePoseCommit: true,
+                    new ImpactSourcePoseCommit(sourceEntityId, Direction.Right),
+                    hasStateChange: true,
+                    state: EntityPhaseState.Sliding,
+                    stateTimer: 1,
+                    semanticKind: ResolvedActionSemanticKind.Push));
         }
 
         private static EntityState CreateUnit(int entityId, SurfaceCell position)

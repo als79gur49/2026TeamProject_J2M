@@ -434,7 +434,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PlayerLogic_MoveCooldown_BlocksIntentUntilStateExpires()
+        public void PlayerLogic_ExplicitActionGate_DoesNotBlockOrdinaryMoveIntent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -445,7 +445,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 10,
                 new PlayerControlState
                 {
-                    moveCooldownTicks = 2,
+                    nextExplicitActionAllowedTick = 5,
                 });
             var logic = new PlayerLogic(entityId: 10);
             var buffer = new List<RawMovementIntent>();
@@ -455,7 +455,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
                 buffer);
 
-            Assert.That(buffer, Is.Empty);
+            Assert.That(buffer, Has.Count.EqualTo(1));
+            Assert.That(buffer[0].CommandKind, Is.EqualTo(MovementCommandKind.Move));
         }
 
         [Test]
@@ -494,7 +495,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PlayerControlStateLogic_StateChanged_WritesPlayerControlState()
+        public void PlayerControlStateLogic_ExpiredExplicitActionGate_WritesPlayerControlState()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -504,8 +505,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 10,
                 new PlayerControlState
                 {
-                    moveCooldownTicks = 2,
-                    nextMoveAllowedTick = 5,
+                    nextExplicitActionAllowedTick = 3,
                 });
             var snapshot = worldState.CreateSnapshot();
             var batch = new FinalizationBatch();
@@ -526,8 +526,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             var operation = batch.Operations.Single(operation => operation.Kind == FinalizationOperationKind.SetPlayerControlState);
-            Assert.That(operation.PlayerControlState.moveCooldownTicks, Is.EqualTo(1));
-            Assert.That(operation.PlayerControlState.nextMoveAllowedTick, Is.EqualTo(5));
+            Assert.That(operation.PlayerControlState.nextExplicitActionAllowedTick, Is.Zero);
             Assert.That(counts.PlayerControlStateWrittenCount, Is.EqualTo(1));
             Assert.That(counts.PlayerControlStateSameStateSkippedCount, Is.Zero);
         }
@@ -895,7 +894,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
-            Assert.That(controlState.nextMoveAllowedTick, Is.EqualTo(3));
+            Assert.That(controlState.nextExplicitActionAllowedTick, Is.EqualTo(3));
         }
 
         [Test]
@@ -937,7 +936,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
-            Assert.That(controlState.nextMoveAllowedTick, Is.EqualTo(3));
+            Assert.That(controlState.nextExplicitActionAllowedTick, Is.EqualTo(3));
         }
 
         [Test]
@@ -1342,7 +1341,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
-            Assert.That(controlState.nextMoveAllowedTick, Is.Zero);
+            Assert.That(controlState.nextExplicitActionAllowedTick, Is.Zero);
         }
 
         [Test]
@@ -1370,7 +1369,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PlayerControlStateLogic_CanceledPendingAction_BlocksSameTickMoveFallback()
+        public void PlayerControlStateLogic_CanceledPendingAction_BlocksImmediateExplicitActionRestart()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -1405,7 +1404,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
-            Assert.That(controlState.nextMoveAllowedTick, Is.EqualTo(3));
+            Assert.That(controlState.nextExplicitActionAllowedTick, Is.EqualTo(3));
             Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.CanceledThisTick), Is.True);
         }
 
@@ -1607,10 +1606,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertPlayerControlStateEqual(PlayerControlState expected, PlayerControlState actual)
         {
-            Assert.That(actual.moveCooldownTicks, Is.EqualTo(expected.moveCooldownTicks));
-            Assert.That(actual.nextMoveAllowedTick, Is.EqualTo(expected.nextMoveAllowedTick));
+            Assert.That(actual.nextExplicitActionAllowedTick, Is.EqualTo(expected.nextExplicitActionAllowedTick));
             Assert.That(actual.actionSequenceCounter, Is.EqualTo(expected.actionSequenceCounter));
-            Assert.That(actual.queuedKinematicTurnDirection, Is.EqualTo(expected.queuedKinematicTurnDirection));
             Assert.That(actual.activeAction.kind, Is.EqualTo(expected.activeAction.kind));
             Assert.That(actual.activeAction.sequence, Is.EqualTo(expected.activeAction.sequence));
             Assert.That(actual.activeAction.direction, Is.EqualTo(expected.activeAction.direction));

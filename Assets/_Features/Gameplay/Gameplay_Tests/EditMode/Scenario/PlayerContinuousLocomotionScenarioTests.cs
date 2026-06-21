@@ -2975,7 +2975,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Player_Free2D_FlagOff_ExistingKinematicBaseline()
+        public void Player_Free2D_FlagOff_DoesNotFallbackToPlayerKinematic()
         {
             var worldState = CreateWorldState(CreatePlayer(10));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -2987,11 +2987,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayTimingProfile.CreateDefault().RepeatedMoveIntervalSeconds),
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerStoppableKinematicLocomotionEnabled);
 
-            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.True);
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out _), Is.False);
+            Assert.That(
+                result.PresentationData.EntityMotions.Any(motion =>
+                    motion.EntityId == 10 &&
+                    motion.MotionKind == TickEntityMotionKind.Move),
+                Is.False);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.EntityId == 10),
+                Is.False);
         }
 
         [Test]

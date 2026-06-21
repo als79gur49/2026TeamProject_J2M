@@ -438,9 +438,19 @@ namespace Game.Feature.Gameplay.Host
             GameplayTimingProfile timingProfile)
         {
             var signals = result.PresentationData.PlayerFlipResultTurnSignals;
+            var exitedEntityIds = CollectExitedEntityIds(result.PresentationData.EntityExitSignals);
+            var activeActionSequencesByEntityId = CollectActivePlayerActionSequences(result.PresentationData.PlayerActionSignals);
+            CancelPlayerFlipResultTurnTracksForEntityExit(exitedEntityIds);
+            CancelPlayerFlipResultTurnTracksSupersededByNewerAction(activeActionSequencesByEntityId);
             for (var i = 0; i < signals.Count; i++)
             {
                 var signal = signals[i];
+                if ((exitedEntityIds != null && exitedEntityIds.Contains(signal.EntityId)) ||
+                    IsOlderThanActiveActionSignal(signal, activeActionSequencesByEntityId))
+                {
+                    continue;
+                }
+
                 if (!TryGetFinalEntity(result.FinalEntities, signal.EntityId, out var entity) ||
                     entity.boardPresence != EntityBoardPresence.Occupying ||
                     !_poseResolver.TryResolveLocalPose(
@@ -458,7 +468,7 @@ namespace Game.Feature.Gameplay.Host
                         signal.ResultFacing,
                         out var resultPose))
                 {
-                    _trackState.PlayerFlipResultTurnTracks.Remove(signal.EntityId);
+                    RemovePlayerFlipResultTurnTrackForInvalidSignal(signal);
                     continue;
                 }
 
@@ -471,19 +481,162 @@ namespace Game.Feature.Gameplay.Host
                 if (durationSeconds <= 0f ||
                     Quaternion.Angle(contactPose.Rotation, resultPose.Rotation) <= 0.01f)
                 {
-                    _trackState.PlayerFlipResultTurnTracks.Remove(signal.EntityId);
+                    RemovePlayerFlipResultTurnTrackForInvalidSignal(signal);
                     continue;
                 }
 
-                var track = new RotationTrack();
-                if (delaySeconds > 0.0001f)
+                if (_trackState.PlayerFlipResultTurnTracks.TryGetValue(signal.EntityId, out var currentEntry))
                 {
-                    track.Append(RotationClip.Create(contactPose.Rotation, contactPose.Rotation, delaySeconds));
+                    if (signal.ActionSequence < currentEntry.ActionSequence)
+                    {
+                        continue;
+                    }
+
+                    if (signal.ActionSequence == currentEntry.ActionSequence)
+                    {
+                        continue;
+                    }
                 }
 
-                track.Append(RotationClip.Create(contactPose.Rotation, resultPose.Rotation, durationSeconds));
-                _trackState.PlayerFlipResultTurnTracks[signal.EntityId] = track;
+                _trackState.PlayerFlipResultTurnTracks[signal.EntityId] = CreatePlayerFlipResultTurnTrackEntry(
+                    signal,
+                    contactPose.Rotation,
+                    resultPose.Rotation,
+                    delaySeconds,
+                    durationSeconds);
             }
+        }
+
+        private void CancelPlayerFlipResultTurnTracksForEntityExit(HashSet<int> exitedEntityIds)
+        {
+            if (_trackState.PlayerFlipResultTurnTracks.Count == 0 ||
+                exitedEntityIds == null)
+            {
+                return;
+            }
+
+            foreach (var entityId in exitedEntityIds)
+            {
+                _trackState.PlayerFlipResultTurnTracks.Remove(entityId);
+            }
+        }
+
+        private void CancelPlayerFlipResultTurnTracksSupersededByNewerAction(
+            Dictionary<int, int> activeActionSequencesByEntityId)
+        {
+            if (_trackState.PlayerFlipResultTurnTracks.Count == 0 ||
+                activeActionSequencesByEntityId == null)
+            {
+                return;
+            }
+
+            var supersededEntityIds = new List<int>();
+            foreach (var pair in activeActionSequencesByEntityId)
+            {
+                if (!_trackState.PlayerFlipResultTurnTracks.TryGetValue(pair.Key, out var entry) ||
+                    pair.Value <= entry.ActionSequence)
+                {
+                    continue;
+                }
+
+                supersededEntityIds.Add(pair.Key);
+            }
+
+            for (var i = 0; i < supersededEntityIds.Count; i++)
+            {
+                _trackState.PlayerFlipResultTurnTracks.Remove(supersededEntityIds[i]);
+            }
+        }
+
+        private void RemovePlayerFlipResultTurnTrackForInvalidSignal(
+            in TickPlayerFlipResultTurnSignal signal)
+        {
+            if (!_trackState.PlayerFlipResultTurnTracks.TryGetValue(signal.EntityId, out var currentEntry) ||
+                signal.ActionSequence < currentEntry.ActionSequence)
+            {
+                return;
+            }
+
+            _trackState.PlayerFlipResultTurnTracks.Remove(signal.EntityId);
+        }
+
+        private static HashSet<int> CollectExitedEntityIds(
+            IReadOnlyList<TickEntityExitPresentationSignal> signals)
+        {
+            if (signals == null ||
+                signals.Count == 0)
+            {
+                return null;
+            }
+
+            var entityIds = new HashSet<int>();
+            for (var i = 0; i < signals.Count; i++)
+            {
+                entityIds.Add(signals[i].ExitedEntityId);
+            }
+
+            return entityIds;
+        }
+
+        private static Dictionary<int, int> CollectActivePlayerActionSequences(
+            IReadOnlyList<TickPlayerActionPresentationSignal> signals)
+        {
+            if (signals == null ||
+                signals.Count == 0)
+            {
+                return null;
+            }
+
+            Dictionary<int, int> actionSequencesByEntityId = null;
+            for (var i = 0; i < signals.Count; i++)
+            {
+                var signal = signals[i];
+                if (signal.EntityId <= 0 ||
+                    signal.ActiveActionKind == PlayerActionKind.None)
+                {
+                    continue;
+                }
+
+                actionSequencesByEntityId ??= new Dictionary<int, int>();
+                if (!actionSequencesByEntityId.TryGetValue(signal.EntityId, out var currentSequence) ||
+                    signal.ActiveActionSequence > currentSequence)
+                {
+                    actionSequencesByEntityId[signal.EntityId] = signal.ActiveActionSequence;
+                }
+            }
+
+            return actionSequencesByEntityId;
+        }
+
+        private static bool IsOlderThanActiveActionSignal(
+            TickPlayerFlipResultTurnSignal signal,
+            Dictionary<int, int> activeActionSequencesByEntityId)
+        {
+            return activeActionSequencesByEntityId != null &&
+                   activeActionSequencesByEntityId.TryGetValue(signal.EntityId, out var activeActionSequence) &&
+                   signal.ActionSequence < activeActionSequence;
+        }
+
+        private static PlayerFlipResultTurnTrackEntry CreatePlayerFlipResultTurnTrackEntry(
+            in TickPlayerFlipResultTurnSignal signal,
+            Quaternion contactRotation,
+            Quaternion resultRotation,
+            float delaySeconds,
+            float durationSeconds)
+        {
+            var track = new RotationTrack();
+            if (delaySeconds > 0.0001f)
+            {
+                track.Append(RotationClip.Create(contactRotation, contactRotation, delaySeconds));
+            }
+
+            track.Append(RotationClip.Create(contactRotation, resultRotation, durationSeconds));
+            return new PlayerFlipResultTurnTrackEntry(
+                signal.ActionSequence,
+                signal.StartTick,
+                signal.ContactFacing,
+                signal.ResultFacing,
+                track);
         }
 
         private static float ResolveJumpWindupRotationDurationSeconds(

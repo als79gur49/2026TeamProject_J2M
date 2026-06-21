@@ -165,8 +165,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                 10,
                 new PlayerControlState
                 {
-                    moveCooldownTicks = 2,
-                    nextMoveAllowedTick = 7,
+                    nextExplicitActionAllowedTick = 7,
                     actionSequenceCounter = 3,
                     activeAction = new PlayerActionRuntimeState
                     {

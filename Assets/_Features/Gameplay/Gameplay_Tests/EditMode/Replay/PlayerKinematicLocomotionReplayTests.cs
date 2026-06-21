@@ -9,6 +9,7 @@ using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Replay
 {
+    [Ignore("Player kinematic locomotion is retired; Player ordinary Move uses the Free2D-only path.")]
     public sealed class PlayerKinematicLocomotionReplayTests
     {
         [Test]

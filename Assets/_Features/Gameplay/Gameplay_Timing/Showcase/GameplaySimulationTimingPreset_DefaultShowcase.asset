@@ -14,7 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   initialMoveDelaySeconds: 0
   playerControlTiming:
-    MoveCooldownSeconds: 0.35
     DamageCooldownSeconds: 2
     PushExecuteDelaySeconds: 0.18333334
     PushInputLockDurationSeconds: 0.48333335
