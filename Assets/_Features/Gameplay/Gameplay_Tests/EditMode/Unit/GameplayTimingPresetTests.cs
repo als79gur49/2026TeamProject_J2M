@@ -18,7 +18,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var sourceTiming = new PlayerControlTimingSettings
             {
-                MoveCooldownSeconds = 0.5f,
                 DamageCooldownSeconds = 0.25f,
                 PushExecuteDelaySeconds = 0.1f,
                 PushInputLockDurationSeconds = 0.15f,
@@ -53,7 +52,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 preset.ApplyTo(presetConfiguration);
 
                 Assert.That(presetConfiguration.PlayerControlTiming, Is.Not.SameAs(sourceTiming));
-                Assert.That(presetConfiguration.PlayerControlTiming.MoveCooldownSeconds, Is.EqualTo(sourceTiming.MoveCooldownSeconds));
                 Assert.That(presetConfiguration.PlayerControlTiming.DamageCooldownSeconds, Is.EqualTo(sourceTiming.DamageCooldownSeconds));
                 Assert.That(presetConfiguration.PlayerRespawnTiming, Is.Not.SameAs(sourceRespawnTiming));
                 Assert.That(presetConfiguration.PlayerRespawnTiming.RespawnDelaySeconds, Is.EqualTo(sourceRespawnTiming.RespawnDelaySeconds));
@@ -72,8 +70,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     presetConfiguration.CreatePlayerRespawnTimingSnapshot().RespawnDelayTicks,
                     Is.EqualTo(legacyConfiguration.CreatePlayerRespawnTimingSnapshot().RespawnDelayTicks));
 
-                presetConfiguration.PlayerControlTiming.MoveCooldownSeconds = 9f;
-                Assert.That(sourceTiming.MoveCooldownSeconds, Is.EqualTo(0.5f));
+                presetConfiguration.PlayerControlTiming.DamageCooldownSeconds = 9f;
+                Assert.That(sourceTiming.DamageCooldownSeconds, Is.EqualTo(0.25f));
                 presetConfiguration.PlayerRespawnTiming.RespawnDelaySeconds = 9f;
                 Assert.That(sourceRespawnTiming.RespawnDelaySeconds, Is.EqualTo(0.45f));
             }
@@ -254,8 +252,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             PlayerControlTimingAuthoritativeSnapshot expected,
             PlayerControlTimingAuthoritativeSnapshot actual)
         {
-            Assert.That(actual.MoveCooldownSeconds, Is.EqualTo(expected.MoveCooldownSeconds));
-            Assert.That(actual.MoveCooldownTicks, Is.EqualTo(expected.MoveCooldownTicks));
             Assert.That(actual.DamageCooldownSeconds, Is.EqualTo(expected.DamageCooldownSeconds));
             Assert.That(actual.DamageCooldownTicks, Is.EqualTo(expected.DamageCooldownTicks));
             Assert.That(actual.PushExecuteDelaySeconds, Is.EqualTo(expected.PushExecuteDelaySeconds));

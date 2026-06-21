@@ -43,11 +43,9 @@ namespace Game.Feature.Gameplay.PlayerControl
 
     public struct PlayerControlState
     {
-        public int moveCooldownTicks;
-        public int nextMoveAllowedTick;
+        public int nextExplicitActionAllowedTick;
         public int actionSequenceCounter;
         public PlayerActionRuntimeState activeAction;
-        public Direction queuedKinematicTurnDirection;
         public PlayerQueuedFree2DActionState queuedFree2DAction;
     }
 
@@ -210,6 +208,7 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             var updatedState = state;
             updatedState.actionSequenceCounter = Mathf.Max(1, updatedState.actionSequenceCounter + 1);
+            updatedState.nextExplicitActionAllowedTick = 0;
             updatedState.queuedFree2DAction = default;
             updatedState.activeAction = new PlayerActionRuntimeState
             {
@@ -252,37 +251,6 @@ namespace Game.Feature.Gameplay.PlayerControl
             return updatedState;
         }
 
-        public static PlayerControlState ConsumeMoveCooldown(
-            in PlayerControlState state,
-            int moveCooldownTicks,
-            int tickIndex)
-        {
-            var updatedState = state;
-            updatedState.moveCooldownTicks = Mathf.Max(0, moveCooldownTicks);
-            updatedState.nextMoveAllowedTick = updatedState.moveCooldownTicks > 0
-                ? tickIndex + updatedState.moveCooldownTicks + 1
-                : 0;
-            return updatedState;
-        }
-
-        public static PlayerControlState QueueKinematicTurn(
-            in PlayerControlState state,
-            Direction direction)
-        {
-            var updatedState = state;
-            updatedState.queuedKinematicTurnDirection = IsCardinalDirection(direction)
-                ? direction
-                : Direction.None;
-            return updatedState;
-        }
-
-        public static PlayerControlState ClearQueuedKinematicTurn(in PlayerControlState state)
-        {
-            var updatedState = state;
-            updatedState.queuedKinematicTurnDirection = Direction.None;
-            return updatedState;
-        }
-
         public static PlayerControlState QueueFree2DAction(
             in PlayerControlState state,
             PlayerQueuedFree2DActionKind kind,
@@ -308,17 +276,37 @@ namespace Game.Feature.Gameplay.PlayerControl
             return updatedState;
         }
 
-        public static bool IsMoveOnCooldown(
+        public static PlayerControlState BlockExplicitActionStartUntil(
+            in PlayerControlState state,
+            int nextAllowedTick)
+        {
+            var updatedState = state;
+            updatedState.nextExplicitActionAllowedTick =
+                Math.Max(updatedState.nextExplicitActionAllowedTick, Math.Max(0, nextAllowedTick));
+            return updatedState;
+        }
+
+        public static PlayerControlState ClearExpiredExplicitActionGate(
             in PlayerControlState state,
             int tickIndex)
         {
-            return state.moveCooldownTicks > 0 ||
-                   (state.nextMoveAllowedTick > 0 && tickIndex < state.nextMoveAllowedTick);
+            if (state.nextExplicitActionAllowedTick <= 0 ||
+                tickIndex < state.nextExplicitActionAllowedTick)
+            {
+                return state;
+            }
+
+            var updatedState = state;
+            updatedState.nextExplicitActionAllowedTick = 0;
+            return updatedState;
         }
 
-        public static bool HasQueuedKinematicTurn(in PlayerControlState state)
+        public static bool IsExplicitActionStartAllowed(
+            in PlayerControlState state,
+            int tickIndex)
         {
-            return IsCardinalDirection(state.queuedKinematicTurnDirection);
+            return state.nextExplicitActionAllowedTick <= 0 ||
+                   tickIndex >= state.nextExplicitActionAllowedTick;
         }
 
         public static bool HasQueuedFree2DAction(in PlayerControlState state)

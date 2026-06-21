@@ -408,24 +408,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SurfaceCell destinationCell)
         {
             return new MovementImpactReservationPayload(
-                sourceEntityId,
-                attackSourceEntityId,
-                sourceCell,
-                targetEntityId,
-                destinationCell,
-                damageAmount: 1,
-                sequence: 0,
-                contingentDestinationCell: destinationCell,
-                contingentSourceCell: sourceCell,
-                contingentFacing: Direction.Right,
-                hasContingentStateChange: true,
-                contingentState: EntityPhaseState.Sliding,
-                contingentStateTimer: 12,
-                hasSourceFacing: false,
-                sourceFacingEntityId: 0,
-                sourceFacing: Direction.None,
-                dispositionPolicyKind: ImpactDispositionPolicyKind.PushLike,
-                contingentSemanticKind: ResolvedActionSemanticKind.Push);
+                new BoxImpactParticipants(attackSourceEntityId, sourceEntityId, new[] { targetEntityId }),
+                new ImpactTravelGeometry(sourceCell, destinationCell, destinationCell, Direction.Right),
+                new ImpactAttackHandoff(attackSourceEntityId, damageAmount: 1, sequence: 0),
+                new ImpactSourceDispositionPayload(
+                    ImpactDispositionPolicyKind.PushLike,
+                    hasImpactSourcePoseCommit: true,
+                    new ImpactSourcePoseCommit(sourceEntityId, Direction.Right),
+                    hasStateChange: true,
+                    state: EntityPhaseState.Sliding,
+                    stateTimer: 12,
+                    semanticKind: ResolvedActionSemanticKind.Push));
         }
 
         private static DestroyResolutionRecord CreateDestroyResolution(

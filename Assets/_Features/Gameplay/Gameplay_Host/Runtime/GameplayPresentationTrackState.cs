@@ -104,6 +104,33 @@ namespace Game.Feature.Gameplay.Host
              MotionMode == MotionMode.Charge);
     }
 
+    internal sealed class PlayerFlipResultTurnTrackEntry
+    {
+        public PlayerFlipResultTurnTrackEntry(
+            int actionSequence,
+            int startTick,
+            Direction contactFacing,
+            Direction resultFacing,
+            RotationTrack track)
+        {
+            ActionSequence = actionSequence;
+            StartTick = startTick;
+            ContactFacing = contactFacing;
+            ResultFacing = resultFacing;
+            Track = track ?? throw new System.ArgumentNullException(nameof(track));
+        }
+
+        public int ActionSequence { get; }
+
+        public int StartTick { get; }
+
+        public Direction ContactFacing { get; }
+
+        public Direction ResultFacing { get; }
+
+        public RotationTrack Track { get; }
+    }
+
     internal sealed class GameplayPresentationTrackState
     {
         private readonly List<int> _completedFlipInteractionTrackIds = new();
@@ -128,7 +155,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly Dictionary<int, JumpTrack> _jumpTracks = new();
         private readonly Dictionary<int, RotationTrack> _jumpWindupRotationTracks = new();
-        private readonly Dictionary<int, RotationTrack> _playerFlipResultTurnTracks = new();
+        private readonly Dictionary<int, PlayerFlipResultTurnTrackEntry> _playerFlipResultTurnTracks = new();
         private readonly Dictionary<int, KinematicPresentationPose> _kinematicPoseOverrides = new();
         private readonly Dictionary<int, Vector3> _glidePresentationOffsetsByEntityId = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
@@ -186,7 +213,7 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, RotationTrack> JumpWindupRotationTracks => _jumpWindupRotationTracks;
 
-        public Dictionary<int, RotationTrack> PlayerFlipResultTurnTracks => _playerFlipResultTurnTracks;
+        public Dictionary<int, PlayerFlipResultTurnTrackEntry> PlayerFlipResultTurnTracks => _playerFlipResultTurnTracks;
 
         public Dictionary<int, KinematicPresentationPose> KinematicPoseOverrides => _kinematicPoseOverrides;
 

@@ -10,6 +10,7 @@ using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Scenario
 {
+    [Ignore("Player kinematic locomotion is retired; Player ordinary Move uses the Free2D-only path.")]
     public sealed class PlayerKinematicLocomotionScenarioTests
     {
         [Test]
@@ -223,7 +224,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var queuedSnapshot = worldState.CreateSnapshot();
             Assert.That(queuedSnapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.queuedKinematicTurnDirection, Is.EqualTo(Direction.Up));
             Assert.That(queuedSnapshot.TryGetUnitKinematicState(10, out var state), Is.True);
             Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary));
             Assert.That(state.localOffset.X.RawValue, Is.EqualTo(205));
@@ -239,12 +239,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(settledSnapshot.TryGetUnitKinematicState(10, out _), Is.False);
             Assert.That(settledSnapshot.TryGetPlayerControlState(10, out controlState), Is.True);
-            Assert.That(controlState.queuedKinematicTurnDirection, Is.EqualTo(Direction.Up));
 
             pipeline.RunTick(new TickInput(23));
             var consumedSnapshot = worldState.CreateSnapshot();
             Assert.That(consumedSnapshot.TryGetPlayerControlState(10, out controlState), Is.True);
-            Assert.That(controlState.queuedKinematicTurnDirection, Is.EqualTo(Direction.None));
             Assert.That(consumedSnapshot.TryGetUnitKinematicState(10, out state), Is.True);
             Assert.That(state.mode, Is.EqualTo(MotionMode.Voluntary));
             Assert.That(state.stepDirectionX, Is.EqualTo(0));
@@ -278,7 +276,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
             Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.queuedKinematicTurnDirection, Is.EqualTo(Direction.None));
             Assert.That(
                 blockedResult.MovementPhaseResult.RejectedReasons.Any(reason =>
                     reason.Contains("QueuedKinematicTurnRejected") ||

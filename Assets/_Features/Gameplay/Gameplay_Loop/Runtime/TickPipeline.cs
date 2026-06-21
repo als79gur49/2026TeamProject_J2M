@@ -50,7 +50,6 @@ namespace Game.Feature.Gameplay.Loop
         private readonly List<EntityState> _playerRespawnTemplates;
         private readonly StageObjectiveTracker _objectiveTracker;
         private readonly int _moveOccupancyTicks;
-        private readonly int _playerMoveCooldownTicks;
         private readonly int _playerDamageCooldownTicks;
         private readonly int _playerRespawnDelayTicks;
         private readonly int _gravityFieldChargeTicks;
@@ -142,7 +141,6 @@ namespace Game.Feature.Gameplay.Loop
 
             _movementExpander = new MovementExpander(resolvedGeneralTimingProfile);
             _attackExpander = new AttackExpander(resolvedGeneralTimingProfile);
-            _playerMoveCooldownTicks = Math.Max(0, playerControlTiming.MoveCooldownTicks);
             _playerDamageCooldownTicks = Math.Max(0, playerControlTiming.DamageCooldownTicks);
             _playerRespawnDelayTicks = playerRespawnDelayTicks;
             _gravityFieldChargeTicks = GameplayTimingProfile.SecondsToCeilTicks(
@@ -509,11 +507,9 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                var hasPlayerControl = snapshot.TryGetPlayerControlState(entity.entityId, out var playerControlState);
-                var canClosePlayer = closePlayerKinematics && hasPlayerControl;
                 var canCloseEnemyGlide = closeEnemyGlideKinematics &&
                                          IsEnemyInterruptedGlideKinematicParticipant(snapshot, entity);
-                if (!canClosePlayer && !canCloseEnemyGlide)
+                if (!canCloseEnemyGlide)
                 {
                     continue;
                 }
@@ -528,18 +524,6 @@ namespace Game.Feature.Gameplay.Loop
                         actionPlanId: 0));
                 eventLogEntries.Add(
                     $"KinematicInterruptClosed|E={entity.entityId}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}");
-                if (hasPlayerControl &&
-                    PlayerControlQueries.HasQueuedKinematicTurn(playerControlState))
-                {
-                    batch.SetPlayerControlState(
-                        entity.entityId,
-                        PlayerControlQueries.ClearQueuedKinematicTurn(playerControlState),
-                        new FinalizationOperationMetadata(
-                            TickPhase.Plan,
-                            ResolvedActionSemanticKind.Stop,
-                            entity.entityId,
-                            actionPlanId: 0));
-                }
             }
         }
 
@@ -2037,105 +2021,7 @@ namespace Game.Feature.Gameplay.Loop
             HashSet<int> consumedPlayerActionAttemptEntityIds,
             Dictionary<int, MovementActionPlanPayload> kinematicPayloads)
         {
-            var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
-            var kinematicControlledPlayerIds = new HashSet<int>();
-            var entities = new List<EntityState>();
-            snapshot.EnumerateEntitiesOrdered(entities);
-
-            for (var i = 0; i < entities.Count; i++)
-            {
-                var entity = entities[i];
-                if (!snapshot.TryGetPlayerControlState(entity.entityId, out _) ||
-                    !snapshot.TryGetUnitKinematicPose(entity.entityId, out var pose) ||
-                    pose.IsSettledAtAnchor ||
-                    (pose.Mode != MotionMode.Voluntary &&
-                     (!_runtimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion ||
-                      pose.Mode != MotionMode.Held)))
-                {
-                    continue;
-                }
-
-                if (IsConsumedPlayerActionAttemptEntity(consumedPlayerActionAttemptEntityIds, entity.entityId))
-                {
-                    kinematicControlledPlayerIds.Add(entity.entityId);
-                    continue;
-                }
-
-                kinematicControlledPlayerIds.Add(entity.entityId);
-                if (!TryBuildPlayerKinematicContinuationPayload(
-                        snapshot,
-                        entity.entityId,
-                        playerCommand,
-                        tickIndex,
-                        _runtimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion,
-                        rejectedReasons,
-                        out var continuationPayload))
-                {
-                    continue;
-                }
-
-                kinematicPayloads.Add(continuationPayload.ActionPlanId, continuationPayload);
-            }
-
-            if (_runtimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion)
-            {
-                for (var i = 0; i < entities.Count; i++)
-                {
-                    var entity = entities[i];
-                    if (kinematicControlledPlayerIds.Contains(entity.entityId) ||
-                        IsConsumedPlayerActionAttemptEntity(consumedPlayerActionAttemptEntityIds, entity.entityId) ||
-                        !TryBuildPlayerQueuedKinematicTurnStartPayload(
-                            snapshot,
-                            entity.entityId,
-                            tickIndex,
-                            rejectedReasons,
-                            out var queuedTurnPayload))
-                    {
-                        continue;
-                    }
-
-                    kinematicControlledPlayerIds.Add(entity.entityId);
-                    kinematicPayloads.Add(queuedTurnPayload.ActionPlanId, queuedTurnPayload);
-                }
-            }
-
-            for (var i = 0; i < sortedIntents.Count; i++)
-            {
-                var intent = sortedIntents[i];
-                if (kinematicControlledPlayerIds.Contains(intent.SourceId))
-                {
-                    if (intent.CommandKind == Movement.MovementCommandKind.Move)
-                    {
-                        continue;
-                    }
-
-                    legacyIntents.Add(intent);
-                    continue;
-                }
-
-                if (TryBuildPlayerKinematicStartPayload(
-                        snapshot,
-                        intent,
-                        tickIndex,
-                        rejectedReasons,
-                        out var handledByKinematic,
-                        out var startPayload))
-                {
-                    if (startPayload != null)
-                    {
-                        kinematicPayloads.Add(startPayload.ActionPlanId, startPayload);
-                    }
-
-                    if (handledByKinematic)
-                    {
-                        continue;
-                    }
-                }
-
-                legacyIntents.Add(intent);
-            }
-
-            return legacyIntents;
+            return new List<MoveIntent>(sortedIntents);
         }
 
         private List<MoveIntent> BuildPlayerFree2DLocalLocomotionPlans(
@@ -2832,7 +2718,6 @@ namespace Game.Feature.Gameplay.Loop
             var canMove =
                 !actionInputBlocksFree2DMovement &&
                 !effectivePlayerControlState.activeAction.IsActive &&
-                !PlayerControlQueries.IsMoveOnCooldown(effectivePlayerControlState, tickIndex) &&
                 hasDirection;
             if (!canMove)
             {
@@ -4811,370 +4696,6 @@ namespace Game.Feature.Gameplay.Loop
                 : activeStepCooldownTicks + 1;
         }
 
-        private bool TryBuildPlayerKinematicStartPayload(
-            WorldSnapshot snapshot,
-            MoveIntent intent,
-            int tickIndex,
-            List<string> rejectedReasons,
-            out bool handledByKinematic,
-            out MovementActionPlanPayload payload)
-        {
-            handledByKinematic = false;
-            payload = null;
-
-            if (intent == null ||
-                intent.CommandKind != Movement.MovementCommandKind.Move ||
-                !snapshot.TryGetPlayerControlState(intent.SourceId, out _) ||
-                !snapshot.TryGetEntity(intent.SourceId, out var entity) ||
-                entity.type != EntityType.Unit ||
-                !snapshot.TryGetUnitKinematicPose(intent.SourceId, out var pose) ||
-                !pose.IsSettledAtAnchor)
-            {
-                return false;
-            }
-
-            var delta = intent.Destination - entity.position.PlanarPosition;
-            if (!TryResolveKinematicVelocity(delta, out var velocity, out var facing))
-            {
-                return false;
-            }
-
-            if (!snapshot.TryResolvePlayerStep(
-                    entity.position,
-                    delta,
-                    out var destination,
-                    out var rotationKind,
-                    out var updatedTopology))
-            {
-                return false;
-            }
-
-            if (rotationKind != CubeRotationKind.None ||
-                destination.face != entity.position.face)
-            {
-                return false;
-            }
-
-            handledByKinematic = true;
-            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
-                snapshot,
-                EntityType.Unit,
-                destination,
-                entity.entityId,
-                snapshot.Topology,
-                CubeRotationKind.None,
-                updatedTopology,
-                tileFeatureDefinitions: _tileFeatureDefinitions);
-            if (legality.Verdict != LegalityVerdict.Allowed)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=KinematicTraversalBlocked|Cell={FormatCell(destination)}|{LegalityDiagnosticsFormatter.FormatStableSummary(legality)}");
-                return true;
-            }
-
-            if (!SurfaceKinematicSweepQueries.TryResolveSameFaceDelta(
-                    snapshot,
-                    entity.entityId,
-                    velocity,
-                    out var sweep,
-                    _tileFeatureDefinitions) ||
-                sweep.Blocked)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=KinematicSweepRejected|RejectedBy={sweep.RejectedBy}|Anchor={FormatCell(entity.position)}");
-                return true;
-            }
-
-            var outcome = CreateKinematicMotionOutcome(
-                sweep,
-                entity.position,
-                sourceState: pose.State,
-                stepDirectionX: delta.x,
-                stepDirectionY: delta.y,
-                elapsedTicks: 1,
-                totalTicks: _playerKinematicLocomotionTiming.TicksPerCell,
-                startedTick: tickIndex);
-            payload = CreateKinematicMovementPayload(
-                _idAllocator.AllocateGroupId(),
-                intent.IntentId,
-                entity.entityId,
-                intent.Priority,
-                outcome,
-                facing,
-                writeFacing: true);
-            return true;
-        }
-
-        private bool TryBuildPlayerKinematicContinuationPayload(
-            WorldSnapshot snapshot,
-            int entityId,
-            PlayerTickCommand playerCommand,
-            int tickIndex,
-            bool enableStoppableLocomotion,
-            List<string> rejectedReasons,
-            out MovementActionPlanPayload payload)
-        {
-            payload = null;
-            if (!snapshot.TryGetPlayerControlState(entityId, out var playerControlState) ||
-                !snapshot.TryGetEntity(entityId, out var entity) ||
-                entity.type != EntityType.Unit ||
-                !snapshot.TryGetUnitKinematicPose(entityId, out var pose) ||
-                pose.IsSettledAtAnchor ||
-                (pose.Mode != MotionMode.Voluntary &&
-                 (!enableStoppableLocomotion || pose.Mode != MotionMode.Held)) ||
-                !TryResolveStepDirection(pose.State, out var stepDirectionX, out var stepDirectionY, out var facing))
-            {
-                return false;
-            }
-
-            if (pose.State.totalTicks < 2 ||
-                (pose.State.totalTicks % 2) != 0 ||
-                pose.State.elapsedTicks <= 0)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=KinematicContinuationCorrupt|Anchor={FormatCell(entity.position)}");
-                return false;
-            }
-
-            if (playerCommand.PushPressed || playerCommand.FlipPressed)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=ActionAttemptConsumesKinematicContinuation|Push={playerCommand.PushPressed}|Flip={playerCommand.FlipPressed}|StepDirection={facing}");
-                return false;
-            }
-
-            if (enableStoppableLocomotion)
-            {
-                var inputMatchesStep = playerCommand.HeldMoveDirection == facing;
-                var hasQueuedTurn = PlayerControlQueries.HasQueuedKinematicTurn(playerControlState);
-                if (pose.Mode == MotionMode.Voluntary && !inputMatchesStep && !hasQueuedTurn)
-                {
-                    if (playerCommand.HeldMoveDirection != Direction.None)
-                    {
-                        rejectedReasons.Add(
-                            $"MovementRejected|Stage=Plan|Source={entityId}|Reason=HeldKinematicDirectionMismatch|HeldDirection={playerCommand.HeldMoveDirection}|StepDirection={facing}");
-                    }
-
-                    var heldState = UnitKinematicRuntimeState.CreateHeldFreeze(pose.State);
-                    var heldOutcome = CreateKinematicStateOnlyOutcome(entityId, pose, heldState);
-                    payload = CreateKinematicMovementPayload(
-                        _idAllocator.AllocateGroupId(),
-                        _idAllocator.AllocateIntentId(),
-                        entityId,
-                        priority: 100,
-                        outcome: heldOutcome,
-                        facing: facing,
-                        writeFacing: false);
-                    return true;
-                }
-
-                if (pose.Mode == MotionMode.Held)
-                {
-                    if (inputMatchesStep)
-                    {
-                        var resumedState = UnitKinematicRuntimeState.CreateVoluntaryResumeFromHeld(
-                            pose.State,
-                            CreateDebugKinematicVelocity(stepDirectionX, stepDirectionY, pose.State.totalTicks));
-                        var resumedOutcome = CreateKinematicStateOnlyOutcome(entityId, pose, resumedState);
-                        payload = CreateKinematicMovementPayload(
-                            _idAllocator.AllocateGroupId(),
-                            _idAllocator.AllocateIntentId(),
-                            entityId,
-                            priority: 100,
-                            outcome: resumedOutcome,
-                            facing: facing,
-                            writeFacing: false);
-                        return true;
-                    }
-
-                    if (playerCommand.HeldMoveDirection == Direction.None ||
-                        playerCommand.PushPressed ||
-                        playerCommand.FlipPressed)
-                    {
-                        if (playerCommand.HeldMoveDirection != Direction.None)
-                        {
-                            rejectedReasons.Add(
-                                $"MovementRejected|Stage=Plan|Source={entityId}|Reason=HeldKinematicDirectionMismatch|HeldDirection={playerCommand.HeldMoveDirection}|StepDirection={facing}");
-                        }
-
-                        return false;
-                    }
-
-                    if (!TryResolveDirectionDelta(playerCommand.HeldMoveDirection, out var heldDirectionDelta))
-                    {
-                        rejectedReasons.Add(
-                            $"MovementRejected|Stage=Plan|Source={entityId}|Reason=HeldKinematicDirectionInvalid|HeldDirection={playerCommand.HeldMoveDirection}|StepDirection={facing}");
-                        return false;
-                    }
-
-                    if (heldDirectionDelta.x == -stepDirectionX &&
-                        heldDirectionDelta.y == -stepDirectionY)
-                    {
-                        if (!KinematicProgressResolver.TryResolveReverseFromHeld(
-                                pose.AnchorCell,
-                                pose.State,
-                                heldDirectionDelta.x,
-                                heldDirectionDelta.y,
-                                out var mirroredAnchor,
-                                out var mirroredState,
-                                out var poseDeltaRawUnits) ||
-                            poseDeltaRawUnits > 1)
-                        {
-                            rejectedReasons.Add(
-                                $"MovementRejected|Stage=Plan|Source={entityId}|Reason=HeldKinematicReverseCorrupt|HeldDirection={playerCommand.HeldMoveDirection}|StepDirection={facing}");
-                            return false;
-                        }
-
-                        var reverseOutcome = CreateKinematicReinterpretOutcome(
-                            entityId,
-                            pose,
-                            mirroredAnchor,
-                            mirroredState,
-                            poseDeltaRawUnits <= 1);
-                        payload = CreateKinematicMovementPayload(
-                            _idAllocator.AllocateGroupId(),
-                            _idAllocator.AllocateIntentId(),
-                            entityId,
-                            priority: 100,
-                            outcome: reverseOutcome,
-                            facing: playerCommand.HeldMoveDirection,
-                            writeFacing: false);
-                        return true;
-                    }
-
-                    if ((Math.Abs(heldDirectionDelta.x) + Math.Abs(heldDirectionDelta.y)) == 1 &&
-                        heldDirectionDelta.x != stepDirectionX &&
-                        heldDirectionDelta.y != stepDirectionY)
-                    {
-                        var resumedState = UnitKinematicRuntimeState.CreateVoluntaryResumeFromHeld(
-                            pose.State,
-                            CreateDebugKinematicVelocity(stepDirectionX, stepDirectionY, pose.State.totalTicks));
-                        var resumedOutcome = CreateKinematicStateOnlyOutcome(entityId, pose, resumedState);
-                        payload = CreateKinematicMovementPayload(
-                            _idAllocator.AllocateGroupId(),
-                            _idAllocator.AllocateIntentId(),
-                            entityId,
-                            priority: 100,
-                            outcome: resumedOutcome,
-                            facing: facing,
-                            writeFacing: false,
-                            playerControlWrites: new[]
-                            {
-                                new PlayerControlWritePayload(
-                                    entityId,
-                                    PlayerControlQueries.QueueKinematicTurn(playerControlState, playerCommand.HeldMoveDirection)),
-                            });
-                        return true;
-                    }
-
-                    rejectedReasons.Add(
-                        $"MovementRejected|Stage=Plan|Source={entityId}|Reason=HeldKinematicDirectionMismatch|HeldDirection={playerCommand.HeldMoveDirection}|StepDirection={facing}");
-                    return false;
-                }
-            }
-
-            var nextElapsedTicks = pose.State.elapsedTicks + 1;
-            if (nextElapsedTicks <= 0)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=KinematicContinuationCorrupt|Anchor={FormatCell(entity.position)}");
-                return false;
-            }
-
-            var outcome = CreateKinematicMotionOutcome(
-                entityId,
-                pose.AnchorCell,
-                pose.LocalOffset,
-                pose.State,
-                stepDirectionX,
-                stepDirectionY,
-                nextElapsedTicks,
-                pose.State.totalTicks,
-                pose.State.startedTick);
-            payload = CreateKinematicMovementPayload(
-                _idAllocator.AllocateGroupId(),
-                _idAllocator.AllocateIntentId(),
-                entityId,
-                priority: 100,
-                outcome: outcome,
-                facing: facing,
-                writeFacing: true);
-
-            return true;
-        }
-
-        private bool TryBuildPlayerQueuedKinematicTurnStartPayload(
-            WorldSnapshot snapshot,
-            int entityId,
-            int tickIndex,
-            List<string> rejectedReasons,
-            out MovementActionPlanPayload payload)
-        {
-            payload = null;
-            if (!snapshot.TryGetPlayerControlState(entityId, out var playerControlState) ||
-                !PlayerControlQueries.HasQueuedKinematicTurn(playerControlState) ||
-                !snapshot.TryGetEntity(entityId, out var entity) ||
-                entity.type != EntityType.Unit ||
-                !snapshot.TryGetUnitKinematicPose(entityId, out var pose) ||
-                !pose.IsSettledAtAnchor)
-            {
-                return false;
-            }
-
-            var queuedDirection = playerControlState.queuedKinematicTurnDirection;
-            var clearedState = PlayerControlQueries.ClearQueuedKinematicTurn(playerControlState);
-            if (playerControlState.activeAction.IsActive ||
-                PlayerControlQueries.IsMoveOnCooldown(playerControlState, tickIndex) ||
-                !TryResolveDirectionDelta(queuedDirection, out var delta))
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Plan|Source={entityId}|Reason=QueuedKinematicTurnRejected|QueuedDirection={queuedDirection}");
-                payload = CreatePlayerControlStateOnlyMovementPayload(
-                    _idAllocator.AllocateGroupId(),
-                    _idAllocator.AllocateIntentId(),
-                    entityId,
-                    priority: 100,
-                    entity.position,
-                    clearedState);
-                return true;
-            }
-
-            var queuedIntent = new MoveIntent(
-                entityId,
-                priority: 100,
-                entity.position.PlanarPosition + delta,
-                localSequence: 0,
-                moveCooldownTicks: 0,
-                ordinaryKinematicMoveTicks: 0);
-            queuedIntent.AssignIntentId(_idAllocator.AllocateIntentId());
-            if (TryBuildPlayerKinematicStartPayload(
-                    snapshot,
-                    queuedIntent,
-                    tickIndex,
-                    rejectedReasons,
-                    out var handledByKinematic,
-                    out var startPayload) &&
-                handledByKinematic &&
-                startPayload != null)
-            {
-                payload = AddPlayerControlWrite(
-                    startPayload,
-                    new PlayerControlWritePayload(entityId, clearedState));
-                return true;
-            }
-
-            rejectedReasons.Add(
-                $"MovementRejected|Stage=Plan|Source={entityId}|Reason=QueuedKinematicTurnRejected|QueuedDirection={queuedDirection}");
-            payload = CreatePlayerControlStateOnlyMovementPayload(
-                _idAllocator.AllocateGroupId(),
-                queuedIntent.IntentId,
-                entityId,
-                priority: 100,
-                entity.position,
-                clearedState);
-            return true;
-        }
-
         private static bool TryResolveKinematicVelocity(
             Vector2Int delta,
             out KinematicVelocity2 velocity,
@@ -6047,10 +5568,6 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 var facingWrites = new List<FacingWritePayload>();
-                if (group.GroupKind == ActionGroupKind.Flip)
-                {
-                    facingWrites.Add(new FacingWritePayload(group.SourceId, ResolveFlipSourceFacing(snapshot, sortedIntents, group)));
-                }
 
                 var boxKineticOwnerWrites = new List<BoxKineticOwnerWritePayload>();
                 if (group.BoxKineticTargetId > 0)
@@ -6144,17 +5661,6 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 var playerControlWrites = new List<PlayerControlWritePayload>();
-                if (snapshot.TryGetPlayerControlState(group.SourceId, out var playerControlState))
-                {
-                    var intent = FindMovementIntent(sortedIntents, group.IntentId);
-                    if (ShouldConsumePlayerMoveCooldown(intent, group))
-                    {
-                        playerControlWrites.Add(
-                            new PlayerControlWritePayload(
-                                group.SourceId,
-                                PlayerControlQueries.ConsumeMoveCooldown(playerControlState, _playerMoveCooldownTicks, tickIndex)));
-                    }
-                }
 
                 var sourceCell = TryResolveMovementSourceCell(snapshot, group, moveWrites, out var resolvedSourceCell)
                     ? resolvedSourceCell
@@ -6169,6 +5675,7 @@ namespace Game.Feature.Gameplay.Loop
                 var destroyWrites = BuildDestroyWritePayloads(group.Destroys, snapshot, group, TickEntityExitCause.None);
                 var hasImpactReservationPayload = TryBuildImpactReservationPayload(
                     snapshot,
+                    sortedIntents,
                     group,
                     out var impactReservationPayload,
                     out var impactRejectedReason);
@@ -6775,20 +6282,6 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
-        private static bool ShouldConsumePlayerMoveCooldown(MoveIntent intent, ActionGroup group)
-        {
-            return intent != null &&
-                   intent.CommandKind == Movement.MovementCommandKind.Move &&
-                   !HasTopologyChangingMove(group);
-        }
-
-        private static bool HasTopologyChangingMove(ActionGroup group)
-        {
-            return group != null &&
-                   group.GroupKind == ActionGroupKind.Move &&
-                   group.TopologyChanges.Count > 0;
-        }
-
         private static bool TryResolveMovementSourceCell(
             WorldSnapshot snapshot,
             ActionGroup group,
@@ -6916,6 +6409,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private bool TryBuildImpactReservationPayload(
             WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
             ActionGroup group,
             out MovementImpactReservationPayload impactReservationPayload,
             out string rejectedReason)
@@ -6946,31 +6440,42 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
-            impactReservationPayload = new MovementImpactReservationPayload(
+            var isFlipImpact = IsFlipImpactAction(sortedIntents, group);
+            var participants = new BoxImpactParticipants(
+                group.SourceId,
                 impactSourceEntity.entityId,
-                impactSourceEntity.entityId,
+                group.ImpactTargetIds);
+            var travel = new ImpactTravelGeometry(
                 impactSourceEntity.position,
-                group.ImpactTargetIds,
                 impactCell,
+                geometry.FollowThroughCell,
+                geometry.TravelDirection);
+            var attack = new ImpactAttackHandoff(
+                impactSourceEntity.entityId,
                 ResolveImpactDamageAmount(group),
-                sequence: 0,
-                contingentDestinationCell: geometry.ImpactCell,
-                contingentSourceCell: impactSourceEntity.position,
-                contingentFacing: geometry.MoveFacing,
-                hasContingentStateChange: !geometry.IsFlipImpact,
-                contingentState: EntityPhaseState.Sliding,
-                contingentStateTimer: !geometry.IsFlipImpact ? _slidingStateTimerTicks : 0,
-                hasSourceFacing: geometry.HasSourceFacing,
-                sourceFacingEntityId: geometry.HasSourceFacing ? group.SourceId : 0,
-                sourceFacing: geometry.SourceFacing,
-                dispositionPolicyKind: geometry.IsFlipImpact
-                    ? ImpactDispositionPolicyKind.Flip
-                    : ImpactDispositionPolicyKind.PushLike,
-                contingentSemanticKind: geometry.IsFlipImpact
+                sequence: 0);
+            var disposition = new ImpactSourceDispositionPayload(
+                isFlipImpact ? ImpactDispositionPolicyKind.Flip : ImpactDispositionPolicyKind.PushLike,
+                hasImpactSourcePoseCommit: true,
+                new ImpactSourcePoseCommit(impactSourceEntity.entityId, geometry.TravelDirection),
+                hasStateChange: !isFlipImpact,
+                state: EntityPhaseState.Sliding,
+                stateTimer: !isFlipImpact ? _slidingStateTimerTicks : 0,
+                semanticKind: isFlipImpact
                     ? ResolvedActionSemanticKind.Flip
                     : ResolveImpactContingentSemanticKind(impactSourceEntity, group.SourceId));
+            impactReservationPayload = new MovementImpactReservationPayload(
+                participants,
+                travel,
+                attack,
+                disposition);
             rejectedReason = string.Empty;
             return true;
+        }
+
+        private static bool IsFlipImpactAction(IReadOnlyList<MoveIntent> sortedIntents, ActionGroup group)
+        {
+            return FindMovementIntent(sortedIntents, group.IntentId)?.CommandKind == Movement.MovementCommandKind.Flip;
         }
 
         private static string BuildImpactReservationRejectedReason(
@@ -8292,22 +7797,6 @@ namespace Game.Feature.Gameplay.Loop
                                                            payload.HasImpactReservationPayload &&
                                                            impactDisposition.DispositionKind == ImpactDispositionKind.BarricadeReassertCrush;
 
-                if (hasImpactFollowThrough &&
-                    payload.ImpactReservationPayload.HasSourceFacing)
-                {
-                    var contingentMetadata = CreateMovementMetadata(
-                        payload,
-                        contingentResolution,
-                        localActionIndex: 1,
-                        semanticKindOverride: payload.ImpactReservationPayload.ContingentSemanticKind);
-                    batch.SetFacing(
-                        payload.ImpactReservationPayload.SourceFacingEntityId,
-                        payload.ImpactReservationPayload.SourceFacing,
-                        contingentMetadata);
-                    commitEvents.Add(
-                        $"FacingCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceFacingEntityId}|Facing={payload.ImpactReservationPayload.SourceFacing}");
-                }
-
                 if (!hasImpactFollowThrough &&
                     !hasBarricadeReassertCrushDisposition)
                 {
@@ -8359,12 +7848,12 @@ namespace Game.Feature.Gameplay.Loop
                         payload,
                         contingentResolution,
                         localActionIndex: 1,
-                        semanticKindOverride: payload.ImpactReservationPayload.ContingentSemanticKind);
+                        semanticKindOverride: payload.ImpactReservationPayload.Disposition.SemanticKind);
                     // Keep the local vacate ahead of MoveEntity so the replay sees a
                     // free destination cell without changing global cleanup semantics.
-                    for (var targetIndex = 0; targetIndex < payload.ImpactReservationPayload.TargetEntityIds.Count; targetIndex++)
+                    for (var targetIndex = 0; targetIndex < payload.ImpactReservationPayload.Participants.TargetEntityIds.Count; targetIndex++)
                     {
-                        var targetEntityId = payload.ImpactReservationPayload.TargetEntityIds[targetIndex];
+                        var targetEntityId = payload.ImpactReservationPayload.Participants.TargetEntityIds[targetIndex];
                         batch.SetBoardPresence(
                             targetEntityId,
                             EntityBoardPresence.Detached,
@@ -8374,40 +7863,45 @@ namespace Game.Feature.Gameplay.Loop
                     }
 
                     batch.MoveEntity(
-                        payload.ImpactReservationPayload.SourceEntityId,
-                        payload.ImpactReservationPayload.ContingentDestinationCell,
+                        payload.ImpactReservationPayload.Participants.ImpactSourceEntityId,
+                        payload.ImpactReservationPayload.Travel.FollowThroughCell,
                         contingentMetadata);
-                    batch.SetFacing(
-                        payload.ImpactReservationPayload.SourceEntityId,
-                        payload.ImpactReservationPayload.ContingentFacing,
-                        contingentMetadata);
+                    if (payload.ImpactReservationPayload.Disposition.HasImpactSourcePoseCommit)
+                    {
+                        var impactSourcePose = payload.ImpactReservationPayload.Disposition.ImpactSourcePose;
+                        batch.SetFacing(
+                            impactSourcePose.ImpactSourceEntityId,
+                            impactSourcePose.Facing,
+                            contingentMetadata);
+                    }
+
                     commitEvents.Add(
-                        $"MoveCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceEntityId}|To={FormatCell(payload.ImpactReservationPayload.ContingentDestinationCell)}|Facing={payload.ImpactReservationPayload.ContingentFacing}");
-                    if (payload.ImpactReservationPayload.HasContingentStateChange)
+                        $"MoveCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.Participants.ImpactSourceEntityId}|To={FormatCell(payload.ImpactReservationPayload.Travel.FollowThroughCell)}|Facing={payload.ImpactReservationPayload.Travel.TravelDirection}");
+                    if (payload.ImpactReservationPayload.Disposition.HasStateChange)
                     {
                         batch.ApplyStateChange(
-                            payload.ImpactReservationPayload.SourceEntityId,
-                            payload.ImpactReservationPayload.ContingentState,
-                            payload.ImpactReservationPayload.ContingentStateTimer,
+                            payload.ImpactReservationPayload.Participants.ImpactSourceEntityId,
+                            payload.ImpactReservationPayload.Disposition.State,
+                            payload.ImpactReservationPayload.Disposition.StateTimer,
                             contingentMetadata);
                         commitEvents.Add(
-                            $"StateChanged|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceEntityId}|State={payload.ImpactReservationPayload.ContingentState}|Timer={payload.ImpactReservationPayload.ContingentStateTimer}");
+                            $"StateChanged|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.Participants.ImpactSourceEntityId}|State={payload.ImpactReservationPayload.Disposition.State}|Timer={payload.ImpactReservationPayload.Disposition.StateTimer}");
                     }
                 }
                 else if (hasBarricadeReassertCrushDisposition)
                 {
                     var crushCell = impactDisposition.BarricadeCell.Equals(default(SurfaceCell))
-                        ? payload.ImpactReservationPayload.ContingentDestinationCell
+                        ? payload.ImpactReservationPayload.Travel.FollowThroughCell
                         : impactDisposition.BarricadeCell;
                     BarricadeCrushOperationPolicy.AddBoxRemoval(
                         batch,
                         actionPlanId,
-                        payload.ImpactReservationPayload.SourceEntityId,
+                        payload.ImpactReservationPayload.Participants.ImpactSourceEntityId,
                         crushCell);
                     commitEvents.Add(
-                        $"BoardPresenceCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceEntityId}|Presence={EntityBoardPresence.Detached}");
+                        $"BoardPresenceCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.Participants.ImpactSourceEntityId}|Presence={EntityBoardPresence.Detached}");
                     commitEvents.Add(
-                        $"DestroyMarked|G={actionPlanId}|I={payload.IntentId}|Target={payload.ImpactReservationPayload.SourceEntityId}|Reason=BarricadeReassertCrush|Tile={impactDisposition.BarricadeTileId}");
+                        $"DestroyMarked|G={actionPlanId}|I={payload.IntentId}|Target={payload.ImpactReservationPayload.Participants.ImpactSourceEntityId}|Reason=BarricadeReassertCrush|Tile={impactDisposition.BarricadeTileId}");
                 }
                 else
                 {
@@ -8468,19 +7962,19 @@ namespace Game.Feature.Gameplay.Loop
                         payload,
                         baseResolution,
                         localActionIndex: 1,
-                        semanticKindOverride: payload.ImpactReservationPayload.ContingentSemanticKind,
+                        semanticKindOverride: payload.ImpactReservationPayload.Disposition.SemanticKind,
                         exitCauseHint: TickEntityExitCause.DestroyedByImpact);
                     batch.SetBoardPresence(
-                        payload.ImpactReservationPayload.SourceEntityId,
+                        payload.ImpactReservationPayload.Participants.ImpactSourceEntityId,
                         EntityBoardPresence.Detached,
                         destroySelfMetadata);
                     batch.MarkDestroy(
-                        payload.ImpactReservationPayload.SourceEntityId,
+                        payload.ImpactReservationPayload.Participants.ImpactSourceEntityId,
                         destroySelfMetadata);
                     commitEvents.Add(
-                        $"BoardPresenceCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceEntityId}|Presence={EntityBoardPresence.Detached}");
+                        $"BoardPresenceCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.Participants.ImpactSourceEntityId}|Presence={EntityBoardPresence.Detached}");
                     commitEvents.Add(
-                        $"DestroyMarked|G={actionPlanId}|I={payload.IntentId}|Target={payload.ImpactReservationPayload.SourceEntityId}|Reason=ImpactDestroySelf");
+                        $"DestroyMarked|G={actionPlanId}|I={payload.IntentId}|Target={payload.ImpactReservationPayload.Participants.ImpactSourceEntityId}|Reason=ImpactDestroySelf");
                 }
 
                 for (var kineticIndex = 0; kineticIndex < payload.BoxKineticOwnerWrites.Count; kineticIndex++)
@@ -8870,23 +8364,11 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 if (hasPlayerControl &&
-                    (PlayerControlQueries.HasQueuedKinematicTurn(playerControlState) ||
-                     PlayerControlQueries.HasQueuedFree2DAction(playerControlState)))
+                    PlayerControlQueries.HasQueuedFree2DAction(playerControlState))
                 {
-                    var clearedPlayerControlState = playerControlState;
-                    if (PlayerControlQueries.HasQueuedKinematicTurn(clearedPlayerControlState))
-                    {
-                        clearedPlayerControlState = PlayerControlQueries.ClearQueuedKinematicTurn(clearedPlayerControlState);
-                    }
-
-                    if (PlayerControlQueries.HasQueuedFree2DAction(clearedPlayerControlState))
-                    {
-                        clearedPlayerControlState = PlayerControlQueries.ClearQueuedFree2DAction(clearedPlayerControlState);
-                    }
-
                     attackStageBatch.SetPlayerControlState(
                         targetEntityId,
-                        clearedPlayerControlState,
+                        PlayerControlQueries.ClearQueuedFree2DAction(playerControlState),
                         metadata);
                 }
 
@@ -9146,14 +8628,14 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                for (var targetIndex = 0; targetIndex < payload.ImpactReservationPayload.TargetEntityIds.Count; targetIndex++)
+                for (var targetIndex = 0; targetIndex < payload.ImpactReservationPayload.Participants.TargetEntityIds.Count; targetIndex++)
                 {
                     impactReservations.Add(
                         new ImpactReservation(
-                            payload.ImpactReservationPayload.SourceEntityId,
-                            payload.ImpactReservationPayload.TargetEntityIds[targetIndex],
-                            payload.ImpactReservationPayload.ImpactCell,
-                            payload.ImpactReservationPayload.DamageAmount,
+                            payload.ImpactReservationPayload.Participants.ImpactSourceEntityId,
+                            payload.ImpactReservationPayload.Participants.TargetEntityIds[targetIndex],
+                            payload.ImpactReservationPayload.Travel.ImpactCell,
+                            payload.ImpactReservationPayload.Attack.DamageAmount,
                             tickIndex,
                             payload.ActionPlanId,
                             reservationSequence++));
@@ -9230,9 +8712,9 @@ namespace Game.Feature.Gameplay.Loop
             var sourceEntityId = 0;
             if (payload.HasImpactReservationPayload)
             {
-                sourceEntityId = payload.ImpactReservationPayload.SourceEntityId;
-                impactCell = payload.ImpactReservationPayload.ImpactCell;
-                damageAmount = payload.ImpactReservationPayload.DamageAmount;
+                sourceEntityId = payload.ImpactReservationPayload.Participants.ImpactSourceEntityId;
+                impactCell = payload.ImpactReservationPayload.Travel.ImpactCell;
+                damageAmount = payload.ImpactReservationPayload.Attack.DamageAmount;
             }
             else if (payload.HasDeferredImpactPayload)
             {
@@ -9302,8 +8784,8 @@ namespace Game.Feature.Gameplay.Loop
                         payload.ActionPlanId,
                         payload.SourceActorEntityId,
                         payload.Priority,
-                        payload.ImpactReservationPayload.SourceEntityId,
-                        payload.ImpactReservationPayload.ContingentDestinationCell,
+                        payload.ImpactReservationPayload.Participants.ImpactSourceEntityId,
+                        payload.ImpactReservationPayload.Travel.FollowThroughCell,
                         hasAffectedCell: true,
                         localActionIndex: 1));
             }
@@ -9779,10 +9261,10 @@ namespace Game.Feature.Gameplay.Loop
                 {
                     targetDestroyed = HasAcceptedImpactDestroys(
                         destroyResolutions,
-                        payload.ImpactReservationPayload.AttackSourceEntityId,
-                        payload.ImpactReservationPayload.TargetEntityIds);
+                        payload.ImpactReservationPayload.Attack.AttackSourceEntityId,
+                        payload.ImpactReservationPayload.Participants.TargetEntityIds);
 
-                    switch (payload.ImpactReservationPayload.DispositionPolicyKind)
+                    switch (payload.ImpactReservationPayload.Disposition.PolicyKind)
                     {
                         case ImpactDispositionPolicyKind.PushLike:
                             if (targetDestroyed)
@@ -9792,15 +9274,15 @@ namespace Game.Feature.Gameplay.Loop
                                 var impactEvaluation = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThroughDetailed(
                                     new SettlementContext(
                                         attackSnapshot,
-                                        BuildLegalityActorRef(attackSnapshot, payload.ImpactReservationPayload.SourceEntityId, EntityType.Box),
-                                        payload.ImpactReservationPayload.ContingentDestinationCell,
+                                        BuildLegalityActorRef(attackSnapshot, payload.ImpactReservationPayload.Participants.ImpactSourceEntityId, EntityType.Box),
+                                        payload.ImpactReservationPayload.Travel.FollowThroughCell,
                                         attackSnapshot.Topology,
                                         SpatialState.Anchored,
                                         reservationStatus,
                                         _tileFeatureDefinitions),
                                     new ImpactFollowThroughEvidence(
-                                        payload.ImpactReservationPayload.AttackSourceEntityId,
-                                        payload.ImpactReservationPayload.TargetEntityIds,
+                                        payload.ImpactReservationPayload.Attack.AttackSourceEntityId,
+                                        payload.ImpactReservationPayload.Participants.TargetEntityIds,
                                         destroyResolutions));
                                 var impactLegality = impactEvaluation.LegalityResult;
                                 followThroughAccepted = impactLegality.Verdict == LegalityVerdict.Allowed;
@@ -9840,15 +9322,15 @@ namespace Game.Feature.Gameplay.Loop
                             var flipImpactEvaluation = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThroughDetailed(
                                 new SettlementContext(
                                     attackSnapshot,
-                                    BuildLegalityActorRef(attackSnapshot, payload.ImpactReservationPayload.SourceEntityId, EntityType.Box),
-                                    payload.ImpactReservationPayload.ContingentDestinationCell,
+                                    BuildLegalityActorRef(attackSnapshot, payload.ImpactReservationPayload.Participants.ImpactSourceEntityId, EntityType.Box),
+                                    payload.ImpactReservationPayload.Travel.FollowThroughCell,
                                     attackSnapshot.Topology,
                                     SpatialState.Anchored,
                                     flipReservationStatus,
                                     _tileFeatureDefinitions),
                                 new ImpactFollowThroughEvidence(
-                                    payload.ImpactReservationPayload.AttackSourceEntityId,
-                                    payload.ImpactReservationPayload.TargetEntityIds,
+                                    payload.ImpactReservationPayload.Attack.AttackSourceEntityId,
+                                    payload.ImpactReservationPayload.Participants.TargetEntityIds,
                                     destroyResolutions,
                                     ignoreActiveGlideOccupants: true));
                             var flipImpactLegality = flipImpactEvaluation.LegalityResult;
@@ -9880,10 +9362,10 @@ namespace Game.Feature.Gameplay.Loop
                     impactDispositionRecords.Add(
                         new ImpactDispositionResolutionRecord(
                             contest.ActionPlanId,
-                            payload.ImpactReservationPayload.SourceEntityId,
-                            payload.ImpactReservationPayload.TargetEntityIds,
-                            payload.ImpactReservationPayload.ImpactCell,
-                            payload.ImpactReservationPayload.DispositionPolicyKind,
+                            payload.ImpactReservationPayload.Participants.ImpactSourceEntityId,
+                            payload.ImpactReservationPayload.Participants.TargetEntityIds,
+                            payload.ImpactReservationPayload.Travel.ImpactCell,
+                            payload.ImpactReservationPayload.Disposition.PolicyKind,
                             dispositionKind,
                             targetDestroyed,
                             followThroughLegalityChecked,
@@ -9921,8 +9403,8 @@ namespace Game.Feature.Gameplay.Loop
                     new BarricadeBlockFact(
                         blocker.TileId,
                         legality.Cell,
-                        payload.SourceEntityId,
-                        payload.ContingentFacing));
+                        payload.Participants.ImpactSourceEntityId,
+                        payload.Travel.TravelDirection));
                 return;
             }
         }
@@ -9982,55 +9464,6 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return null;
-        }
-
-        private static Direction ResolveFlipSourceFacing(
-            WorldSnapshot snapshot,
-            IReadOnlyList<MoveIntent> sortedIntents,
-            ActionGroup group)
-        {
-            if (!snapshot.TryGetEntity(group.SourceId, out var source))
-            {
-                throw new InvalidOperationException(
-                    $"Flip group references a missing source entity. Source={group.SourceId}, Intent={group.IntentId}");
-            }
-
-            var intent = FindMovementIntent(sortedIntents, group.IntentId);
-            if (intent == null)
-            {
-                throw new InvalidOperationException(
-                    $"Flip group is missing its movement intent. Source={group.SourceId}, Intent={group.IntentId}");
-            }
-
-            var delta = intent.Destination - source.position;
-            var actionDirection = ResolveFlipActionDirection(delta, group);
-            return DirectionUtility.Opposite(actionDirection);
-        }
-
-        private static Direction ResolveFlipActionDirection(Vector2Int delta, ActionGroup group)
-        {
-            if (delta.x == 0 && delta.y == 1)
-            {
-                return Direction.Up;
-            }
-
-            if (delta.x == 1 && delta.y == 0)
-            {
-                return Direction.Right;
-            }
-
-            if (delta.x == 0 && delta.y == -1)
-            {
-                return Direction.Down;
-            }
-
-            if (delta.x == -1 && delta.y == 0)
-            {
-                return Direction.Left;
-            }
-
-            throw new InvalidOperationException(
-                $"Flip group requires an orthogonal adjacent direction. Source={group.SourceId}, Intent={group.IntentId}");
         }
 
         private static string BuildSourceKindSuffix(AttackSourceKind sourceKind)

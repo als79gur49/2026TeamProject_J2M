@@ -1464,7 +1464,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Movement_SlidingPushBox_StoppedBySolid_DoesNotEmitBoxSlideStopSignal()
+        public void Movement_SlidingPushBox_StoppedBySolid_EmitsBoxSlideStopSignal()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -1491,7 +1491,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var stopTick = pipeline.RunTick(new TickInput(thirdTickIndex));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(stopTick.PresentationData.BoxSlideStopSignals, Is.Empty);
+            Assert.That(stopTick.PresentationData.BoxSlideStopSignals, Has.Count.EqualTo(1));
+            var stopSignal = stopTick.PresentationData.BoxSlideStopSignals[0];
+            Assert.That(stopSignal.BoxEntityId, Is.EqualTo(30));
+            Assert.That(stopSignal.StopperEntityId, Is.EqualTo(40));
+            Assert.That(stopSignal.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
+            Assert.That(stopSignal.StopperCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 0)));
+            Assert.That(stopSignal.SlideDirection, Is.EqualTo(Direction.Right));
+            Assert.That(stopSignal.StopperKind, Is.EqualTo(BoxSlideStopperKind.SolidEntity));
+            Assert.That(stopSignal.Cause, Is.EqualTo(BoxSlideStopCause.SlidingContinuationBlocked));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     stopTick.MovementPhaseResult.CommitEvents,
@@ -2486,13 +2494,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     result.MovementPhaseResult.CommitEvents,
-                    "FacingCommitted",
-                    "E=10",
-                    "Facing=Right"),
-                Is.True);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    result.MovementPhaseResult.CommitEvents,
                     "MoveCommitted",
                     "E=30",
                     "To=(1,0)",
@@ -2501,7 +2502,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(1, 0)));
-            Assert.That(GetEntityFacing(worldState, 10), Is.EqualTo(Direction.Right));
             Assert.That(GetEntityFacing(worldState, 30), Is.EqualTo(Direction.Right));
             CollectionAssert.AreEqual(
                 new[]
@@ -2938,13 +2938,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    result.MovementPhaseResult.CommitEvents,
-                    "FacingCommitted",
-                    "E=10",
-                    "Facing=Right"),
-                Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     result.MovementPhaseResult.CommitEvents,
@@ -4439,13 +4432,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Source=20",
                     "Reason=SharedMovedEntity",
                     "Entity=30"),
-                Is.True);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    result.MovementPhaseResult.CommitEvents,
-                    "FacingCommitted",
-                    "E=10",
-                    "Facing=Left"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(

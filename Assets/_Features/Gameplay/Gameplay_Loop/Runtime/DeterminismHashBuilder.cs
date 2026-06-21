@@ -688,8 +688,7 @@ namespace Game.Feature.Gameplay.Loop
                 var entry = playerControlEntries[i];
                 builder
                     .Append(entry.EntityId).Append('|')
-                    .Append(entry.State.moveCooldownTicks).Append('|')
-                    .Append(entry.State.nextMoveAllowedTick).Append('|')
+                    .Append(entry.State.nextExplicitActionAllowedTick).Append('|')
                     .Append(entry.State.actionSequenceCounter).Append('|')
                     .Append((int)entry.State.activeAction.kind).Append('|')
                     .Append(entry.State.activeAction.sequence).Append('|')
@@ -698,8 +697,7 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.activeAction.startTick).Append('|')
                     .Append(entry.State.activeAction.executeTick).Append('|')
                     .Append(entry.State.activeAction.recoveryEndTick).Append('|')
-                    .Append(entry.State.activeAction.executionAttempted ? 1 : 0).Append('|')
-                    .Append((int)entry.State.queuedKinematicTurnDirection);
+                    .Append(entry.State.activeAction.executionAttempted ? 1 : 0);
                 if (entry.State.queuedFree2DAction.IsQueued)
                 {
                     builder

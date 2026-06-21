@@ -627,8 +627,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 10,
                 new PlayerControlState
                 {
-                    moveCooldownTicks = 9,
-                    nextMoveAllowedTick = 42,
+                    nextExplicitActionAllowedTick = 42,
                     actionSequenceCounter = 7,
                     activeAction = new PlayerActionRuntimeState
                     {
@@ -656,8 +655,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfterRespawn = CreateSnapshot(worldState);
 
             Assert.That(snapshotAfterRespawn.TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.moveCooldownTicks, Is.Zero);
-            Assert.That(controlState.nextMoveAllowedTick, Is.Zero);
+            Assert.That(controlState.nextExplicitActionAllowedTick, Is.Zero);
             Assert.That(controlState.actionSequenceCounter, Is.Zero);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
             Assert.That(controlState.activeAction.sequence, Is.Zero);
