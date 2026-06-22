@@ -9,7 +9,6 @@ namespace Game.Feature.Gameplay.BoardState
         Forced = 2,
         Interrupted = 3,
         InteractionLocked = 4,
-        LegacyDiscrete = 5,
         Charge = 6,
         Held = 7,
     }
@@ -240,7 +239,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public bool IsSettledAtAnchor =>
             localOffset.IsZero &&
-            (mode == MotionMode.Settled || mode == MotionMode.LegacyDiscrete);
+            mode == MotionMode.Settled;
 
         public UnitKinematicRuntimeState NormalizedForStorage()
         {

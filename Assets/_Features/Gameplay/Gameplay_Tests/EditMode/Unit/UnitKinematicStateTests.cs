@@ -11,6 +11,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class UnitKinematicStateTests
     {
         [Test]
+        [Category("Core")]
+        public void MotionMode_RemovedDiscreteCompatibilityValue_IsNotDefined()
+        {
+            var removedName = string.Concat("Legacy", "Discrete");
+
+            Assert.That(Enum.IsDefined(typeof(MotionMode), removedName), Is.False);
+            Assert.That(Enum.IsDefined(typeof(MotionMode), 5), Is.False);
+        }
+
+        [Test]
         [Category("Extended")]
         public void WorldSnapshot_TryGetUnitKinematicPose_AbsentStateSynthesizesSettledZero()
         {
