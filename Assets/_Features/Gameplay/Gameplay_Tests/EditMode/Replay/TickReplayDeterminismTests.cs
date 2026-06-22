@@ -168,19 +168,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var secondReplay = RunTopologyRotationAttackSuppressionReplaySequence();
 
             AssertEquivalentReplayOutputs(firstReplay, secondReplay);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
-                    "TopologyCommitted",
-                    "Rotation=Forward"),
-                Is.True);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
-                    "MoveCommitted",
-                    "E=10"),
-                Is.True);
             Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("DamageCommitted"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,1)"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(0,1)"));
             Assert.That(firstReplay[0].Trace, Does.Not.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40"));
             Assert.That(firstReplay[0].Trace, Does.Not.Contain("EnemyAiTransition|Stage=AfterAttack|E=40"));
         }
@@ -572,14 +562,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
-                    "MoveCommitted",
-                    "E=10",
-                    "To=(1,0)",
-                    "Facing=Right"),
-                Is.True);
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(1,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)|Hp=2|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
         }
@@ -786,16 +768,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
-                    "MoveCommitted",
-                    "E=10",
-                    "To=(1,0)",
-                    "Facing=Right"),
-                Is.True);
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(1,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)|Hp=2|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("MoveCommitted|"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)"));
         }
 
         [Test]
@@ -818,21 +793,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
             Assert.That(firstReplay[0].Trace, Does.Contain("Boundary=BoxActionMovement"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Command=Move"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Command=Push"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     firstReplay[0].EventLogDump,
                     "BoardPresenceCommitted",
                     "E=30",
                     "Presence=Detached"),
-                Is.True);
-            Assert.That(
-                SemanticEventAssertions.ContainsEvent(
-                    firstReplay[0].EventLogDump,
-                    "MoveCommitted",
-                    "E=10",
-                    "To=(1,0)",
-                    "Facing=Right"),
                 Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -2527,18 +2494,18 @@ namespace Game.Feature.Gameplay.Tests.Replay
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
-                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item | BoxCapabilities.Push),
             });
 
             return new TickReplayHarness().Run(
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
                 });
         }
 

@@ -299,6 +299,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(controller.LensDistortionOverride, Is.Not.Null);
             Assert.That(outputCamera.GetUniversalAdditionalCameraData().renderPostProcessing, Is.True);
 
+            SetPlayerForwardTopologyOvershootPose(host, 10);
             host.InputHost.SetRawMoveInput(Vector2.up);
             Assert.That(
                 host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds),
@@ -939,18 +940,36 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item | BoxCapabilities.Push),
                 },
                 moveMotionDurationSeconds: 0.05f,
                 repeatedMoveIntervalSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                 itemConsumeEffectDurationSeconds: 0.3f);
 
             host.InputHost.SetRawMoveInput(Vector2.right);
-            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
-            Assert.That(host.ViewRegistry.TryGetView(30, out var itemView), Is.True);
-            Assert.That(itemView.gameObject.activeSelf, Is.False);
+            host.InputHost.BufferPush();
+            TickResult pickupTick = null;
+            var pickupObserved = false;
+            for (var i = 0; i < GameplayTimingProfile.DefaultSimulationTicksPerSecond; i++)
+            {
+                pickupTick = host.InputHost.RunSingleTick();
+                Assert.That(pickupTick, Is.Not.Null);
+                host.Presenter.UpdatePresentation(host.TimingProfile.MoveMotionDurationSeconds);
 
-            host.Presenter.UpdatePresentation(host.TimingProfile.MoveMotionDurationSeconds);
+                if (!CaptureAuthoritativeSnapshot(host).TryGetEntity(30, out _))
+                {
+                    pickupObserved = true;
+                    break;
+                }
+
+                host.InputHost.SetRawMoveInput(Vector2.right);
+            }
+
+            Assert.That(pickupTick, Is.Not.Null);
+            Assert.That(pickupObserved, Is.True);
+            Assert.That(host.ViewRegistry.TryGetView(30, out var itemView), Is.True);
+            Assert.That(CaptureAuthoritativeSnapshot(host).TryGetEntity(30, out _), Is.False);
+            Assert.That(itemView.gameObject.activeSelf, Is.False);
 
             var consumeEffectTicks = Mathf.CeilToInt(
                 host.TimingProfile.ItemConsumeEffectDurationSeconds /
@@ -2312,12 +2331,28 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(
                 projector.TryProjectEntityCell(entity.position, snapshot.Topology, entity.type, out var projectedPose),
                 Is.True);
+            var expectedLocalPosition = projectedPose.LocalPosition;
+            var expectedFacing = entity.facing;
+            if (snapshot.TryGetUnitContinuousLocomotionPose(entityId, out var continuousPose))
+            {
+                expectedLocalPosition +=
+                    projectedPose.LocalRotation *
+                    new Vector3(
+                        continuousPose.LocalOffset.X.RawValue / (float)KinematicFixed.UnitsPerCell,
+                        continuousPose.LocalOffset.Y.RawValue / (float)KinematicFixed.UnitsPerCell,
+                        0f);
+                if (continuousPose.State.facing != Direction.None)
+                {
+                    expectedFacing = continuousPose.State.facing;
+                }
+            }
+
             Assert.That(
-                projector.TryResolveEntityRotation(entity.position, snapshot.Topology, entity.facing, out var projectedRotation),
+                projector.TryResolveEntityRotation(entity.position, snapshot.Topology, expectedFacing, out var projectedRotation),
                 Is.True);
             Assert.That(
                 view.transform.position,
-                Is.EqualTo(host.BoardRoot.transform.TransformPoint(projectedPose.LocalPosition)));
+                Is.EqualTo(host.BoardRoot.transform.TransformPoint(expectedLocalPosition)));
             Assert.That(
                 Quaternion.Angle(
                     view.transform.rotation,
