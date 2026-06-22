@@ -1299,7 +1299,7 @@ namespace Game.Feature.Gameplay.Loop
                 attackStageBatch.RemovePendingCellImpact(impactResolution.Impact.ImpactId);
                 attackCommitEvents.Add(BuildPendingCellImpactCommitEvent(impactResolution));
             }
-            var motionInterruptRecords = MaterializeUnitKinematicMotionInterrupts(
+            var motionInterruptRecords = MaterializeUnitMotionInterrupts(
                 attackSnapshot,
                 damageResolutions,
                 destroyResolutions,
@@ -7878,7 +7878,7 @@ namespace Game.Feature.Gameplay.Loop
             return batch;
         }
 
-        private static List<MotionInterruptRecord> MaterializeUnitKinematicMotionInterrupts(
+        private static List<MotionInterruptRecord> MaterializeUnitMotionInterrupts(
             WorldSnapshot attackSnapshot,
             IReadOnlyList<DamageResolutionRecord> damageResolutions,
             IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
@@ -7922,7 +7922,7 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                TryMaterializeUnitKinematicMotionInterrupt(
+                var enemyInterruptHandled = TryMaterializeEnemyKinematicMotionInterrupt(
                     attackSnapshot,
                     attackStageBatch,
                     commitEvents,
@@ -7936,6 +7936,20 @@ namespace Game.Feature.Gameplay.Loop
                     tickIndex,
                     interruptEnemyGlideKinematics,
                     damageResolution.Amount);
+                if (!enemyInterruptHandled)
+                {
+                    TryMaterializePlayerContinuousLocomotionInterrupt(
+                        attackSnapshot,
+                        attackStageBatch,
+                        commitEvents,
+                        interruptRecords,
+                        interruptedEntityIds,
+                        damageResolution.TargetId,
+                        damageResolution.SourceId,
+                        damageResolution.ActionPlanId,
+                        damageResolution.LocalActionIndex,
+                        damageResolution.SourceKind);
+                }
             }
 
             for (var i = 0; i < destroyResolutions.Count; i++)
@@ -7946,7 +7960,7 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                TryMaterializeUnitKinematicMotionInterrupt(
+                var enemyInterruptHandled = TryMaterializeEnemyKinematicMotionInterrupt(
                     attackSnapshot,
                     attackStageBatch,
                     commitEvents,
@@ -7960,12 +7974,26 @@ namespace Game.Feature.Gameplay.Loop
                     tickIndex,
                     interruptEnemyGlideKinematics,
                     damageAmount: 0);
+                if (!enemyInterruptHandled)
+                {
+                    TryMaterializePlayerContinuousLocomotionInterrupt(
+                        attackSnapshot,
+                        attackStageBatch,
+                        commitEvents,
+                        interruptRecords,
+                        interruptedEntityIds,
+                        destroyResolution.TargetId,
+                        destroyResolution.SourceId,
+                        destroyResolution.ActionPlanId,
+                        destroyResolution.LocalActionIndex,
+                        AttackSourceKind.Combat);
+                }
             }
 
             return interruptRecords;
         }
 
-        private static bool TryMaterializeUnitKinematicMotionInterrupt(
+        private static bool TryMaterializeEnemyKinematicMotionInterrupt(
             WorldSnapshot attackSnapshot,
             FinalizationBatch attackStageBatch,
             List<string> commitEvents,
@@ -8034,6 +8062,26 @@ namespace Game.Feature.Gameplay.Loop
                 commitEvents.Add(
                     $"KinematicMotionInterrupted|E={targetEntityId}|Source={sourceEntityId}|SourceKind={sourceKind}|Anchor={FormatCell(pose.AnchorCell)}|Offset={pose.LocalOffset}|Mode={interruptedState.mode}");
                 return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryMaterializePlayerContinuousLocomotionInterrupt(
+            WorldSnapshot attackSnapshot,
+            FinalizationBatch attackStageBatch,
+            List<string> commitEvents,
+            List<MotionInterruptRecord> interruptRecords,
+            HashSet<int> interruptedEntityIds,
+            int targetEntityId,
+            int sourceEntityId,
+            int actionPlanId,
+            int localActionIndex,
+            AttackSourceKind sourceKind)
+        {
+            if (interruptedEntityIds.Contains(targetEntityId))
+            {
+                return false;
             }
 
             var hasPlayerControl = attackSnapshot.TryGetPlayerControlState(targetEntityId, out var playerControlState);
