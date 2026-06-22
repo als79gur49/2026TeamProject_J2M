@@ -2,7 +2,7 @@
 
 ## Decision
 
-Phase 7 does not delete additional runtime branches. Its diagnostic preset is now `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` after Phase 8B/8C. The preset authorizes no covered player, enemy, or Charge fallback after Phase 6. Player attempts reject with `PlayerLegacyFallbackRemovedFromRuntime`, enemy attempts reject with `EnemyLegacyFallbackRemovedFromRuntime`, and Charge attempts reject with `ChargeLegacyFallbackRemovedFromRuntime`.
+Phase 7 does not delete additional runtime branches. Its diagnostic preset is now `the removed diagnostic baseline preset (historical, deleted)` after Phase 8B/8C. The preset authorizes no covered player, enemy, or Charge fallback after Phase 6. Player attempts reject with `PlayerLegacyFallbackRemovedFromRuntime`, enemy attempts reject with `EnemyLegacyFallbackRemovedFromRuntime`, and Charge attempts reject with `ChargeLegacyFallbackRemovedFromRuntime`.
 
 `MoveEntity`, `MovementExpander`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, and flag-off glide retained fallback are not deletion targets in this phase. Golden and replay assets are not rewritten.
 
@@ -10,8 +10,8 @@ Phase 7 does not delete additional runtime branches. Its diagnostic preset is no
 
 | symbol | Phase 7 meaning | action |
 |---|---|---|
-| `RemovedLegacyFallbackDiagnosticBaseline` | Phase 8B canonical diagnostic compatibility preset for deterministic removed-fallback diagnostics | use for new removed-diagnostic tests |
-| old diagnostic baseline alias vocabulary | removed compatibility alias for `RemovedLegacyFallbackDiagnosticBaseline` | historical-only after C안 migration |
+| `removed diagnostic baseline preset (historical, deleted)` | Phase 8B canonical diagnostic compatibility preset for deterministic removed-fallback diagnostics | use for new removed-diagnostic tests |
+| old diagnostic baseline alias vocabulary | removed compatibility alias for `removed diagnostic baseline preset (historical, deleted)` | historical-only after C안 migration |
 | `RemovedLegacyFallbackDiagnosticsEnabled` | canonical diagnostic field that lets removed-specific reasons surface instead of the explicit-baseline gate | retained as the canonical runtime field after Phase 8E |
 | `RemovedLegacyFallbackDiagnosticsEnabled` | Phase 8D canonical helper property for removed diagnostic routing | use for current policy |
 | old diagnostic helper alias vocabulary | removed compatibility alias with misleading fallback-enabled wording | historical-only after C안 migration |
@@ -56,11 +56,11 @@ Phase 7 canaries:
 - Phase 6 and Phase 7 replay canaries keep removed diagnostics deterministic.
 - No golden files are rewritten in Phase 7.
 - Historical fallback output migration remains future owner-approved work.
-- `RemovedLegacyFallbackDiagnosticBaseline` is the canonical replay/migration preset after Phase 8B/8C; old diagnostic baseline alias vocabulary is historical-only after C안 migration.
+- `removed diagnostic baseline preset (historical, deleted)` is the canonical replay/migration preset after Phase 8B/8C; old diagnostic baseline alias vocabulary is historical-only after C안 migration.
 
 ## Next Phase Candidates
 
 - Remove misleading helper wrappers after Phase 8A internal usage cleanup and external compatibility approval.
-- Keep `RemovedLegacyFallbackDiagnosticBaseline` canonical and do not restore old diagnostic baseline alias vocabulary.
+- Keep `removed diagnostic baseline preset (historical, deleted)` canonical and do not restore old diagnostic baseline alias vocabulary.
 - Phase 8E completes the diagnostics field migration: `RemovedLegacyFallbackDiagnosticsEnabled` is the canonical runtime field.
 - Inventory retained uses of `TickEntityMotionKind.Move` and `TickEntityMotionKind.ChargeMove` before any presentation cleanup.

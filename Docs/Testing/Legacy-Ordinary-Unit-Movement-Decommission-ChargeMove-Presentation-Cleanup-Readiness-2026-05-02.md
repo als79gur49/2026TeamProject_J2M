@@ -13,7 +13,7 @@ Replay/golden files were not automatically rewritten.
 ## Current State
 
 `TickResultBuilder.TryResolveMotionKind` maps `MovementSemanticKind.Move` to `TickEntityMotionKind.Move` regardless of active Charge state.
-`DefaultGameplayLocomotion`, `GameplayRuntimeFeatureFlags.None`, `RemovedLegacyFallbackDiagnosticBaseline`, `EnableEnemyChargeKinematicLocomotion`, and `AllKinematicLocomotionEnabled` must not produce a legacy Charge entity motion.
+`DefaultGameplayLocomotion`, `GameplayRuntimeFeatureFlags.None`, `removed diagnostic baseline preset (historical, deleted)`, `EnableEnemyChargeKinematicLocomotion`, and `AllKinematicLocomotionEnabled` must not produce a legacy Charge entity motion.
 Covered Charge fallback attempts continue to reject with `ChargeLegacyFallbackRemovedFromRuntime` under removed-diagnostic lanes.
 
 ## Deleted Consumers

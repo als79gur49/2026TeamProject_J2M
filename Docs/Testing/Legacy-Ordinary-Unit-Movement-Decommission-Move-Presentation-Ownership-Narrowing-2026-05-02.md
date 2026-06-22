@@ -7,7 +7,7 @@ Date: 2026-05-02
 `TickEntityMotionKind.Move` remains retained.
 This package is an ownership narrowing pass, not an enum deletion pass.
 Covered player ordinary, enemy ordinary, and Charge active fallback authorization is already removed; those attempts now reject with deterministic removed-fallback diagnostics.
-`RemovedLegacyFallbackDiagnosticBaseline` is the diagnostic compatibility preset for reproducing those removed diagnostics; wrapper cleanup only removes stale allowed-fallback wording.
+`removed diagnostic baseline preset (historical, deleted)` is the diagnostic compatibility preset for reproducing those removed diagnostics; wrapper cleanup only removes stale allowed-fallback wording.
 Retained generic movement and retained grid transaction presentation may still use `TickEntityMotionKind.Move`.
 `MoveEntity`, `MovementExpander`, topology materialization, box/action movement, spawn/respawn placement, cleanup removal, scripted relocation, and glide retained fallback are protected.
 Kinematic and continuous locomotion replacements must present through `TickContinuousLocomotionTrack`, `TickKinematicMotionTrack`, and Charge signals instead of entity `Move`.
@@ -17,7 +17,7 @@ Replay/golden files are not rewritten by this pass.
 
 | producer location | source operation | boundary kind | semantic kind | current runtime reachable? | retained path? | fallback residue? | expected presentation | tests covering it | cleanup action | blocker |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `TickPipeline.ValidateLegacyExpansionIntents` player ordinary | ordinary Unit `Move` legacy expansion attempt | `LegacyFallback` | `Move` | removed diagnostic only | no | yes | reject, no entity `Move`, replacement track when enabled | `MoveOwnership_PlayerContinuous_DoesNotEmitEntityMove`, player replay | wording cleanup only | historical names |
+| `legacy expansion validation hook (historical, deleted)` player ordinary | ordinary Unit `Move` legacy expansion attempt | `LegacyFallback` | `Move` | removed diagnostic only | no | yes | reject, no entity `Move`, replacement track when enabled | `MoveOwnership_PlayerContinuous_DoesNotEmitEntityMove`, player replay | wording cleanup only | historical names |
 | enemy ordinary fallback | ordinary enemy `Move` legacy expansion attempt | `LegacyFallback` | `Move` | removed diagnostic only | no | yes | reject, no entity `Move`, kinematic track | `MoveOwnership_EnemyKinematic_DoesNotEmitEntityMove`, enemy replay | wording cleanup only | glide flag-off retained exception |
 | Charge active fallback | active Charge legacy expansion attempt | `LegacyFallback` | `Move` after ChargeMove deletion | removed diagnostic only | no | yes | reject, no entity `Move`, Charge kinematic track and signal | `MoveOwnership_ChargeKinematic_DoesNotEmitEntityMove` | canary only | historical Charge docs |
 | player Free2D anchor normalization | `MoveEntity` anchor commit | `LocomotionAnchorCommit` | `Move` | yes | replacement path | no | suppress entity `Move`, emit continuous track | `MoveOwnership_PlayerContinuous_DoesNotEmitEntityMove` | protect | topology handoff |

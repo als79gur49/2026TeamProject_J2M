@@ -16,10 +16,10 @@ It only controls removed-fallback diagnostic routing:
 
 ## Current State
 
-`GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` remains the canonical preset for deterministic removed-fallback diagnostics.
+`the removed diagnostic baseline preset (historical, deleted)` remains the canonical preset for deterministic removed-fallback diagnostics.
 `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` is the canonical field on the runtime flag struct.
 `GameplaySceneHostConfiguration` does not expose this diagnostics field as a scene-authored setting.
-Scene hosts still create/apply only the gameplay locomotion flags; tests and replay helpers opt into removed diagnostics through `RemovedLegacyFallbackDiagnosticBaseline`.
+Scene hosts still create/apply only the gameplay locomotion flags; tests and replay helpers opt into removed diagnostics through `removed diagnostic baseline preset (historical, deleted)`.
 
 Trace vocabulary now uses `RemovedLegacyFallbackDiagnosticsEnabled=`.
 No compatibility trace projection is retained.

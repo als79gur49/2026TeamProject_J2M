@@ -14,7 +14,7 @@ This checklist intentionally does not spell retired identifiers. Use the impleme
 
 Keep:
 
-- `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`
+- `the removed diagnostic baseline preset (historical, deleted)`
 - `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`
 - `removedLegacyFallbackDiagnosticsEnabled`
 - `RemovedLegacyFallbackDiagnosticsEnabled=`

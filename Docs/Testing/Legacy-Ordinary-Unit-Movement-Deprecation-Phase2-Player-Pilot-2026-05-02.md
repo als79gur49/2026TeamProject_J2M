@@ -25,20 +25,20 @@ The player fallback branch is currently reachable through this chain:
 |---|---|---|
 | player source | `PlayerLogic.CollectMovementIntents` emits ordinary `RawMovementIntent(MovementCommandKind.Move)` | documented source only |
 | flag gate | `TickPipeline.RunPlanPhase` consumes player ordinary movement through Free2D when `EnablePlayerFree2DLocalLocomotion` is on, otherwise through player kinematic when `EnablePlayerSameFaceContinuousLocomotion` is on | default/flag-on must not fall through |
-| leak guard | `TickPipeline.ValidateLegacyExpansionIntents` and `TryResolveForbiddenLegacyUnitOrdinaryMovement` reject covered player ordinary `Move` with `PlayerCoveredLocomotionReachedLegacyExpansion` | player flag-on leak is a regression |
+| leak guard | `legacy expansion validation hook (historical, deleted)` and `TryResolveForbiddenLegacyUnitOrdinaryMovement` reject covered player ordinary `Move` with `player covered locomotion leak reason (historical, deleted)` | player flag-on leak is a regression |
 | legacy candidate | `MovementExpander.ExpandMoveLike` and `ExpandMove` create ordinary `ActionGroupKind.Move` | retained for flag-off and grid transaction support |
 | boundary | `TickPipeline` movement boundary resolution classifies ordinary Unit `Move` groups as `LegacyFallback` | deletion candidate only for player ordinary fallback |
-| presentation | `TickResultBuilder` maps unsuppressed `MovementSemanticKind.Move` to `TickEntityMotionKind.Move` | Phase 2 allowed this for documented player `None` baseline; Phase 3 moved diagnostics to `RemovedLegacyFallbackDiagnosticBaseline` |
+| presentation | `TickResultBuilder` maps unsuppressed `MovementSemanticKind.Move` to `TickEntityMotionKind.Move` | Phase 2 allowed this for documented player `None` baseline; Phase 3 moved diagnostics to `removed diagnostic baseline preset (historical, deleted)` |
 
 ## Flag Reachability
 
 `DefaultGameplayLocomotion` enables player Free2D, player same-face kinematic, and player stoppable kinematic. Under that bundle, player ordinary movement must be represented by `TickContinuousLocomotionTrack`, player kinematic fallback, or retained topology handoff. It must not emit `LegacyFallback`, legacy `TickEntityMotionKind.Move`, or `LegacyUnitOrdinaryMovementDetected`.
 
-`PlayerFree2DLocalLocomotionEnabled` and `PlayerSameFaceContinuousLocomotionEnabled` both make synthetic player ordinary expansion a forbidden leak. The expected rejection reason is `PlayerCoveredLocomotionReachedLegacyExpansion`.
+`PlayerFree2DLocalLocomotionEnabled` and `PlayerSameFaceContinuousLocomotionEnabled` both make synthetic player ordinary expansion a forbidden leak. The expected rejection reason is `player covered locomotion leak reason (historical, deleted)`.
 
-Historical Phase 2 note: `GameplayRuntimeFeatureFlags.None` was the player fallback baseline in this phase. Phase 3 superseded that policy: `None` blocks covered player fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 4 supersedes the explicit player baseline too: `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` now rejects player fallback with `PlayerLegacyFallbackRemovedFromRuntime`.
+Historical Phase 2 note: `GameplayRuntimeFeatureFlags.None` was the player fallback baseline in this phase. Phase 3 superseded that policy: `None` blocks covered player fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 4 supersedes the explicit player baseline too: `the removed diagnostic baseline preset (historical, deleted)` now rejects player fallback with `PlayerLegacyFallbackRemovedFromRuntime`.
 
-Phase 8B/8C names `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical removed-diagnostic preset. Old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
+Phase 8B/8C names `the removed diagnostic baseline preset (historical, deleted)` as the canonical removed-diagnostic preset. Old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
 
 Historical Phase 2 custom flags with both player Free2D and player same-face kinematic disabled used `RemovedLegacyFallbackDiagnosticsEnabled` for player fallback. Phase 4/7 supersede that behavior: the field is diagnostic compatibility only and player fallback rejects with `PlayerLegacyFallbackRemovedFromRuntime`.
 
@@ -69,7 +69,7 @@ Historical/pre-Phase4 wrapper names are retained only to preserve Phase 2 migrat
 
 Native Player Free2D topology transition is now covered behind `EnablePlayerFree2DNativeTopologyTransition`.
 The retained grid transaction assertion above remains the compatibility/fallback contract when the native flag is off; native flag-on crossings are classified as Free2D locomotion, not `LegacyFallback`.
-- `MovementPhaseScenarioTests.Phase2_PlayerLegacyFallback_ValidateLegacyExpansionIntents_PlayerFlagReachability`
+- `MovementPhaseScenarioTests.Phase2_PlayerLegacyFallback_legacy expansion validation hook (historical, deleted)_PlayerFlagReachability`
 - `PlayerContinuousLocomotionReplayTests.Replay_Phase2_PlayerDefaultGameplayLocomotion_NoLegacyFallback`
 - `PlayerContinuousLocomotionReplayTests.Replay_Phase2_PlayerFlagOffLegacyFallback_BaselineDocumented`
 
@@ -79,7 +79,7 @@ The helper vocabulary remains scoped to `LegacyFallback`, legacy `Move` presenta
 
 Actual player fallback deletion is not approved by Phase 2. Before deleting or test-only-scoping the player fallback branch, the next phase needs:
 
-- explicit approval to remove or narrow only old diagnostic baseline alias vocabulary; `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` remains canonical
+- explicit approval to remove or narrow only old diagnostic baseline alias vocabulary; `the removed diagnostic baseline preset (historical, deleted)` remains canonical
 - replay/golden migration or exemption policy
 - green player default, Free2D-on, and kinematic-on no-fallback canaries
 - green retained topology, box/action, spawn/respawn, cleanup, and scripted relocation canaries

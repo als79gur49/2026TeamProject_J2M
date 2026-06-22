@@ -16,8 +16,8 @@ Runtime validation semantics are unchanged. When the diagnostic helper is false,
 |---|---|---|---|---|
 | `None` | `RemovedLegacyFallbackDiagnosticsEnabled=false` | `RemovedLegacyFallbackDiagnosticsEnabled=false` | removed | explicit-baseline-required diagnostic |
 | `DefaultGameplayLocomotion` | `false` | `false` | `false` | no covered fallback |
-| `RemovedLegacyFallbackDiagnosticBaseline` | `true` | `true` | `true` | removed-specific diagnostics only |
-| `RemovedLegacyFallbackDiagnosticBaseline` | `true` | `true` | removed | removed-specific diagnostics only |
+| `removed diagnostic baseline preset (historical, deleted)` | `true` | `true` | `true` | removed-specific diagnostics only |
+| `removed diagnostic baseline preset (historical, deleted)` | `true` | `true` | removed | removed-specific diagnostics only |
 | `AllKinematicLocomotionEnabled` | `false` | `false` | `false` | no diagnostic compatibility routing |
 
 ## Field Rename Inventory

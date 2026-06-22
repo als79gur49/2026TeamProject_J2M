@@ -2,16 +2,12 @@
 
 Date: 2026-04-30
 
-This rollout is guarded by `GameplayRuntimeFeatureFlags.EnablePlayerStoppableKinematicLocomotion`.
-It is effective only when `EnablePlayerSameFaceContinuousLocomotion` is also enabled.
-If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement bypasses the Held/reverse/queue branch and uses `UnitContinuousLocomotionState`; this rollout remains the fallback when the free2D flag is off.
-`GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` includes this fallback flag for explicit default gameplay host adoption. It does not change replay harness defaults, composition-root defaults, historical tests, migration comparisons, or flag-off goldens; those keep `GameplayRuntimeFeatureFlags.None` unless they opt in directly.
+Status: historical/superseded. This document records the earlier player stoppable kinematic rollout. Current player ordinary movement is Free2D-owned and must not use this player kinematic fallback path.
 
 ## Validation Contract
 
-- Flag off: player same-face kinematic locomotion keeps the existing automatic continuation behavior.
-- Flag on: releasing actual held movement input during player voluntary same-face kinematic movement stores `MotionMode.Held`.
-- Flag on: player ordinary movement remains on the kinematic lane and must not emit legacy `TickEntityMotionKind.Move`.
+- Historical flag-off/flag-on behavior in this section is preserved only as migration context.
+- Current player ordinary movement remains on the Free2D continuous lane and must not emit legacy `TickEntityMotionKind.Move`.
 - `MoveEntity` anchor commits are retained as grid transactions, not ordinary Unit movement.
 - Deprecation Phase 1 treats this as covered locomotion fallback isolation: flag-on/default player ordinary fallback leaks are hard regressions, but flag-off legacy fallback and retained grid transactions remain supported. The Phase 1 targeted Unity XML canaries are runtime green; actual legacy fallback deletion is not complete.
 - `MotionMode.Held` preserves anchor, local offset, elapsed ticks, total ticks, commit tick, started tick, and step direction.
@@ -25,7 +21,5 @@ If `EnablePlayerFree2DLocalLocomotion` is enabled, player ordinary movement bypa
 
 ## Rollback
 
-Set `EnablePlayerStoppableKinematicLocomotion` to false to restore automatic player kinematic continuation while keeping player kinematic locomotion enabled.
-Set `EnablePlayerSameFaceContinuousLocomotion` to false to return to the legacy discrete player movement baseline.
-`GameplayRuntimeFeatureFlags.None` is not a player fallback authorization after Phase 3. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is the current canonical removed-diagnostic preset after Phase 8B/8C. Old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
+This rollback section is historical. `GameplayRuntimeFeatureFlags.None` is not a player fallback authorization, and no diagnostic preset authorizes player ordinary fallback.
 Scoped deletion preparation is now covered by `Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved`; player legacy discrete fallback is no longer a supported runtime fallback after Phase 4. Phase 5/6 also remove enemy and Charge covered fallback authorization. Retained grid transactions, `MoveEntity`, `MovementExpander`, and glide retained fallback remain retained.

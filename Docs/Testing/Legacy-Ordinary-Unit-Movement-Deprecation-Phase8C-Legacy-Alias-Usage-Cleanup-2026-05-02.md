@@ -4,7 +4,7 @@ Date: 2026-05-02
 
 ## Decision
 
-Phase 8C changed tests and documentation only. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is the canonical preset for deterministic removed-fallback diagnostics. The old `GameplayRuntimeFeatureFlags.RemovedDiagnosticBaselineAlias` alias has since been removed.
+Phase 8C changed tests and documentation only. `the removed diagnostic baseline preset (historical, deleted)` is the canonical preset for deterministic removed-fallback diagnostics. The old `GameplayRuntimeFeatureFlags.RemovedDiagnosticBaselineAlias` alias has since been removed.
 
 Runtime validation semantics are unchanged. Covered player, enemy, and Charge fallback attempts reject with removed diagnostics under the canonical preset. `GameplayRuntimeFeatureFlags.None` still rejects covered fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 8D supersedes the helper naming inventory with `RemovedLegacyFallbackDiagnosticsEnabled`; Phase 8E makes that name the canonical runtime field and removes old-name compatibility projection.
 
@@ -14,17 +14,17 @@ Runtime validation semantics are unchanged. Covered player, enemy, and Charge fa
 
 | usage location | usage kind | current text/symbol | canonical replacement | allowed to keep? | action |
 |---|---|---|---|---|---|
-| `GameplayRuntimeFeatureFlags.cs` | alias definition | `RemovedDiagnosticBaselineAlias => RemovedLegacyFallbackDiagnosticBaseline` | `RemovedLegacyFallbackDiagnosticBaseline` | no | removed |
+| `GameplayRuntimeFeatureFlags.cs` | alias definition | `RemovedDiagnosticBaselineAlias => removed diagnostic baseline preset (historical, deleted)` | `removed diagnostic baseline preset (historical, deleted)` | no | removed |
 | `BoundaryInventoryScenarioTests.cs` | alias absence test | `Phase8C_RemovedDiagnosticBaselineAlias_IsRemoved` | canonical absence canary | yes | keep |
-| scenario and replay current diagnostics | canonical usage | old alias direct calls | `RemovedLegacyFallbackDiagnosticBaseline` | no | migrated |
+| scenario and replay current diagnostics | canonical usage | old alias direct calls | `removed diagnostic baseline preset (historical, deleted)` | no | migrated |
 | retained grid transaction tests | unrelated retained behavior | old alias direct calls | canonical or default non-old lane | no | migrated away from old alias |
-| docs current policy | current preset wording | old alias as current baseline | `RemovedLegacyFallbackDiagnosticBaseline` | no | update wording |
-| docs historical notes | historical preset name | `RemovedDiagnosticBaselineAlias` | `RemovedLegacyFallbackDiagnosticBaseline` | yes | mark historical/removed |
+| docs current policy | current preset wording | old alias as current baseline | `removed diagnostic baseline preset (historical, deleted)` | no | update wording |
+| docs historical notes | historical preset name | `RemovedDiagnosticBaselineAlias` | `removed diagnostic baseline preset (historical, deleted)` | yes | mark historical/removed |
 | obsolete helper surface | test-support compatibility surface | old helper wording | canonical removed-diagnostic helpers | no | deleted by C안 final cleanup |
 
 ## Canonical Migration Policy
 
-New tests, replay helpers, reports, and current-policy documentation must use `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` when they intentionally need deterministic removed diagnostics.
+New tests, replay helpers, reports, and current-policy documentation must use `the removed diagnostic baseline preset (historical, deleted)` when they intentionally need deterministic removed diagnostics.
 
 Allowed old alias contexts:
 
@@ -50,12 +50,12 @@ Phase 8C adds or updates these canaries:
 - `Replay_Phase8C_RemovedDiagnosticBaseline_DiagnosticsDeterministic`
 - `Replay_Phase8C_DefaultGameplay_NoCoveredFallback`
 
-The replay canaries compare deterministic trace/state output under `RemovedLegacyFallbackDiagnosticBaseline` and assert removed diagnostics without `Boundary=LegacyFallback`. No replay or golden artifact is rewritten.
+The replay canaries compare deterministic trace/state output under `removed diagnostic baseline preset (historical, deleted)` and assert removed diagnostics without `Boundary=LegacyFallback`. No replay or golden artifact is rewritten.
 
 ## Phase 8D Follow-up
 
 - `RemovedLegacyFallbackDiagnosticsEnabled` is the canonical helper property for removed diagnostic routing.
 - `RemovedDiagnosticHelperAlias` has been removed; use `RemovedLegacyFallbackDiagnosticsEnabled`.
 - `RemovedLegacyFallbackDiagnosticsEnabled` is the canonical runtime field after Phase 8E.
-- `RemovedDiagnosticBaselineAlias` has been removed; use `RemovedLegacyFallbackDiagnosticBaseline`.
+- `RemovedDiagnosticBaselineAlias` has been removed; use `removed diagnostic baseline preset (historical, deleted)`.
 - Continue retained presentation inventory for `TickEntityMotionKind.Move` and `TickEntityMotionKind.ChargeMove` without changing retained grid transaction or glide policy.

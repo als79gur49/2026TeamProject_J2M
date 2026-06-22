@@ -4,21 +4,21 @@ Date: 2026-05-02
 
 ## Decision
 
-Phase 6 removes Charge active legacy fallback authorization from the runtime path. A Charge active `MoveIntent` that reaches legacy expansion is rejected even under `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`.
+Phase 6 removes Charge active legacy fallback authorization from the runtime path. A Charge active `MoveIntent` that reaches legacy expansion is rejected even under `the removed diagnostic baseline preset (historical, deleted)`.
 
 This is a Charge-only removal pilot. Player ordinary fallback remains removed from Phase 4, enemy ordinary fallback remains removed from Phase 5, and after glide default adoption only flag-off glide fallback remains a retained exception.
 
 ## Runtime Policy
 
-`TickPipeline.ValidateLegacyExpansionIntents` remains the enforcement point.
+`legacy expansion validation hook (historical, deleted)` remains the enforcement point.
 
 - `DefaultGameplayLocomotion` and Charge kinematic-on lanes keep `ChargeCoveredKinematicReachedLegacyExpansion` for synthetic leaks.
 - `GameplayRuntimeFeatureFlags.None` keeps the Phase 3 `LegacyOrdinaryFallbackRequiresExplicitBaseline` reason.
-- `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` now rejects Charge active fallback with `ChargeLegacyFallbackRemovedFromRuntime`.
+- `the removed diagnostic baseline preset (historical, deleted)` now rejects Charge active fallback with `ChargeLegacyFallbackRemovedFromRuntime`.
 - Player ordinary fallback continues to reject with `PlayerLegacyFallbackRemovedFromRuntime`.
 - Enemy ordinary fallback continues to reject with `EnemyLegacyFallbackRemovedFromRuntime`.
 
-Phase 8B/8C adds `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical name for this removed-diagnostic preset. Old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
+Phase 8B/8C adds `the removed diagnostic baseline preset (historical, deleted)` as the canonical name for this removed-diagnostic preset. Old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
 
 Retained grid transactions still pass the grid transaction allowlist before fallback removal applies. Topology handoff, box/action materialization, spawn, respawn, cleanup, scripted relocation, anchor normalization, `MoveEntity`, and the `MovementExpander` grid branch are not deletion targets.
 
@@ -42,7 +42,7 @@ The Phase 2C/Phase 3/Phase 5 Charge fallback-allowed canaries are superseded. Hi
 
 ## Replay and Golden Policy
 
-Phase 6 does not rewrite golden files. Phase 8C replay tests assert that player, enemy, and Charge covered fallback are absent under `RemovedLegacyFallbackDiagnosticBaseline` while diagnostics remain deterministic.
+Phase 6 does not rewrite golden files. Phase 8C replay tests assert that player, enemy, and Charge covered fallback are absent under `removed diagnostic baseline preset (historical, deleted)` while diagnostics remain deterministic.
 ChargeMove presentation cleanup readiness adds inventory-to-action canaries after Phase 6: current runtime lanes must not output `ChargeMove`, while the enum and presentation consumers remain retained until presentation and replay/golden ownership approves deletion.
 The ChargeMove producer isolation package removes `TickResultBuilder` inference from active Charge state to `ChargeMove` and locks default, `None`, diagnostic, charge-kinematic, and all-kinematic lanes as no-`ChargeMove`; it does not delete enum, timing, authoring, host consumers, replay vocabulary, or golden files.
 
@@ -50,6 +50,6 @@ Golden migration for historical Charge fallback output remains a future owner-ap
 
 ## Next Phase Candidates
 
-- Cleanup or removal of `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` after replay/migration ownership is settled.
+- Cleanup or removal of `the removed diagnostic baseline preset (historical, deleted)` after replay/migration ownership is settled.
 - Stale fallback helper cleanup after Phase 6 diagnostics are stable.
 - Legacy `TickEntityMotionKind.Move` / `TickEntityMotionKind.ChargeMove` presentation cleanup after retained grid presentation and golden policy are approved.

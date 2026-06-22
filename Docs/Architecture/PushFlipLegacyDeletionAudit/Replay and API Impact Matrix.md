@@ -4,7 +4,7 @@
 
 Current production API surface stays canonical:
 
-- `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`
+- `the removed diagnostic baseline preset (historical, deleted)`
 - `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`
 - `removedLegacyFallbackDiagnosticsEnabled`
 - `PlayerLegacyFallbackRemovedFromRuntime`
@@ -35,7 +35,7 @@ C안 accepts breakage for external source callers or parser consumers that still
 
 Mitigation is documentation and canonical migration guidance only:
 
-- use `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` for deterministic removed diagnostics
+- use `the removed diagnostic baseline preset (historical, deleted)` for deterministic removed diagnostics
 - consume `RemovedLegacyFallbackDiagnosticsEnabled=` for canonical trace routing
 - do not restore old projection aliases
 

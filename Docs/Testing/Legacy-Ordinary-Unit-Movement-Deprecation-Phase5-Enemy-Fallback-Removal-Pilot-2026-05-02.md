@@ -4,21 +4,21 @@ Date: 2026-05-02
 
 ## Decision
 
-Phase 5 removes enemy legacy ordinary fallback authorization from the runtime path. An enemy ordinary `MoveIntent` that reaches legacy expansion is rejected even under `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`.
+Phase 5 removes enemy legacy ordinary fallback authorization from the runtime path. An enemy ordinary `MoveIntent` that reaches legacy expansion is rejected even under `the removed diagnostic baseline preset (historical, deleted)`.
 
-This is an enemy-only removal pilot. Player ordinary fallback remains removed from Phase 4, Charge active fallback was still supported under the explicit legacy baseline at Phase 5, and after glide default adoption only flag-off glide fallback remains a retained exception. Phase 6/7 supersede the Charge baseline allowance: `RemovedLegacyFallbackDiagnosticBaseline` is now diagnostic routing only.
+This is an enemy-only removal pilot. Player ordinary fallback remains removed from Phase 4, Charge active fallback was still supported under the explicit legacy baseline at Phase 5, and after glide default adoption only flag-off glide fallback remains a retained exception. Phase 6/7 supersede the Charge baseline allowance: `removed diagnostic baseline preset (historical, deleted)` is now diagnostic routing only.
 
-Phase 6 supersedes the Charge portion of this status. Charge active fallback is now rejected under `RemovedLegacyFallbackDiagnosticBaseline` with `ChargeLegacyFallbackRemovedFromRuntime`.
+Phase 6 supersedes the Charge portion of this status. Charge active fallback is now rejected under `removed diagnostic baseline preset (historical, deleted)` with `ChargeLegacyFallbackRemovedFromRuntime`.
 
-Phase 8B/8C names the current diagnostic preset `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`; old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
+Phase 8B/8C names the current diagnostic preset `the removed diagnostic baseline preset (historical, deleted)`; old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
 
 ## Runtime Policy
 
-`TickPipeline.ValidateLegacyExpansionIntents` remains the enforcement point.
+`legacy expansion validation hook (historical, deleted)` remains the enforcement point.
 
 - `DefaultGameplayLocomotion` and enemy kinematic-on lanes keep `EnemyCoveredOrdinaryKinematicReachedLegacyExpansion` for synthetic leaks.
 - `GameplayRuntimeFeatureFlags.None` keeps the Phase 3 `LegacyOrdinaryFallbackRequiresExplicitBaseline` reason.
-- `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` now rejects enemy ordinary fallback with `EnemyLegacyFallbackRemovedFromRuntime`.
+- `the removed diagnostic baseline preset (historical, deleted)` now rejects enemy ordinary fallback with `EnemyLegacyFallbackRemovedFromRuntime`.
 - Player ordinary fallback continues to reject with `PlayerLegacyFallbackRemovedFromRuntime`.
 - At Phase 5, Charge active fallback remained allowed when `RemovedLegacyFallbackDiagnosticsEnabled` was true. Phase 6 supersedes this allowance.
 
@@ -39,7 +39,7 @@ The Phase 2B/Phase 4 enemy fallback-allowed canaries are superseded. Phase 6 sup
 
 ## Replay and Golden Policy
 
-Phase 5 does not rewrite golden files. Phase 8C replay tests assert that player, enemy, and Charge fallback are absent under `RemovedLegacyFallbackDiagnosticBaseline` while diagnostics remain deterministic.
+Phase 5 does not rewrite golden files. Phase 8C replay tests assert that player, enemy, and Charge fallback are absent under `removed diagnostic baseline preset (historical, deleted)` while diagnostics remain deterministic.
 
 Golden migration for historical enemy fallback output remains a future owner-approved phase.
 

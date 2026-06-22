@@ -4,12 +4,12 @@ Date: 2026-05-01
 
 This rollout is guarded by `GameplayRuntimeFeatureFlags.EnablePlayerFree2DLocalLocomotion`.
 Player Free2D Action Assist v1.1 is separately guarded by `GameplayRuntimeFeatureFlags.EnablePlayerFree2DActionAssist`, and that flag is effective only when `EnablePlayerFree2DLocalLocomotion` is also enabled.
-When enabled, player ordinary movement uses `UnitContinuousLocomotionState` before the stoppable kinematic, same-face kinematic, and legacy discrete movement paths. Enemy ordinary movement, charge, jump, phase, forced motion, and existing fallback kinematic behavior remain on `UnitKinematicRuntimeState`.
+Current player ordinary movement is Free2D-owned. It uses `UnitContinuousLocomotionState` and must not fall back to player kinematic or legacy discrete locomotion. Enemy ordinary movement, charge, jump, phase, forced motion, and existing enemy kinematic behavior remain on `UnitKinematicRuntimeState`.
 
 ## Validation Contract
 
 - Applies only to player ordinary movement from `PlayerTickCommand.HeldMoveDirection`.
-- Movement is 4-direction axis motion. Free2D-native nonzero local topology seam crossing is not implemented; local-zero settled topology moves may hand off to the retained topology grid transaction path, and topology-edge approach may first zero-settle to local-zero before that handoff.
+- Movement is 4-direction axis motion. Player ordinary topology transition is Free2D-native; successful crossing records topology, entity position, continuous locomotion state, and optional facing in one finalization batch. Exact seam arrival settles without topology change, and blocked crossing emits only typed blocked signal data.
 - `EntityState.position` remains the semantic anchor cell for occupancy, contact, push, flip, action preview, spawn, respawn, and topology decisions.
 - `UnitContinuousLocomotionState` stores deterministic fixed-point local offset, velocity, facing, last move direction, speed, mode, sequence, and residual remainders.
 - Absent continuous state means local-zero idle at the anchor. Local-nonzero idle must remain present.
@@ -34,7 +34,7 @@ When enabled, player ordinary movement uses `UnitContinuousLocomotionState` befo
 - Action Assist align target is always the current anchor center. `EntityState.position` is not changed by align, and align never snaps.
 - Queued Action Assist has priority over held ordinary movement until it executes, fails after revalidation, or is cleared by interruption/death/respawn.
 - Presentation consumes authoritative continuous local pose through `TickContinuousLocomotionTrack`. Transform, Animator, PhysX, and root motion are not simulation authority.
-- Flag-on player ordinary movement must not reach the legacy ordinary `MoveIntent` -> `MovementExpander` -> `TickEntityMotionKind.Move` path. Push, flip, item/action materialization, topology, spawn, respawn, and cleanup remain allowed legacy grid transactions.
+- Player ordinary movement must not reach the generic `MoveIntent` -> `MovementExpander` -> `TickEntityMotionKind.Move` path. Push, flip, item/action materialization, spawn, respawn, cleanup, and non-player movement remain allowed retained grid transaction or generic expansion paths as owned by their feature lanes.
 - `AlignToAnchor` presentation is emitted through `TickContinuousLocomotionTrack` and is treated as active locomotion. There is no pending-action UI in v1.
 - Boundary v1 trace metadata may classify anchor commits as `LocomotionAnchorCommit` and push/flip/item materialization as `BoxActionMovement`; this metadata is diagnostic and must not change canonical replay hashes.
 - `SpawnRespawnPlacement` is the explicit placement boundary for respawn. Respawn remains a direct placement/grid transaction path, not ordinary Unit locomotion.
@@ -46,32 +46,24 @@ When enabled, player ordinary movement uses `UnitContinuousLocomotionState` befo
 
 ## Flag Hierarchy
 
-Player ordinary movement dispatch order:
-
-1. `EnablePlayerFree2DLocalLocomotion`
-2. `EnablePlayerStoppableKinematicLocomotion`
-3. `EnablePlayerSameFaceContinuousLocomotion`
-4. Legacy discrete movement
+Player ordinary movement dispatch is Free2D-owned. Historical player kinematic and legacy discrete fallback lanes are no longer supported for player ordinary movement.
 
 Action Assist flag hierarchy:
 
 1. `EnablePlayerFree2DLocalLocomotion`
 2. `EnablePlayerFree2DActionAssist`
 
-The free2D flag is independent of enemy and charge kinematic flags. Turning it off must restore the existing player stoppable/same-face/legacy behavior without changing enemy or charge movement.
+The Free2D player contract is independent of enemy and charge kinematic flags. Enemy and charge movement ownership must not change when player ordinary movement is hardened.
 Turning Action Assist off while keeping free2D on restores local-nonzero push/flip rejection without disabling Free2D movement.
 
-`GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` is the readiness default-on bundle for gameplay hosts and boundary inventory tests. As of legacy ordinary movement deprecation Phase 3, `GameplayRuntimeFeatureFlags.None` no longer authorizes covered player/enemy/Charge fallback. As of Phase 4/5/6, no diagnostic preset authorizes player, enemy, or Charge covered fallback; after Phase 8B/8C, `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` is the canonical diagnostic preset and old diagnostic baseline alias vocabulary is historical-only.
+`GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` is the readiness default-on bundle for gameplay hosts and boundary inventory tests. No runtime diagnostic preset authorizes player ordinary fallback.
 Default bundle adoption is explicit: showcase/dev gameplay hosts may call `GameplaySceneHostConfiguration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)`, but replay harnesses, composition-root helpers, historical tests, migration comparison tests, and flag-off goldens must keep `None` unless they intentionally opt into the bundle.
-Default bundle adoption is not full legacy deletion. Phase 6 removes player, enemy, and Charge covered fallback authorization, while Phase 8C keeps current replay/test diagnostics on `RemovedLegacyFallbackDiagnosticBaseline`. The v3 deletion-readiness gate lives in `Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Readiness-2026-05-01.md` and keeps `MoveEntity`, `MovementExpander`, retained grid transactions, and glide retained fallback out of the deletion target.
-Phase 8A keeps runtime behavior unchanged and only aligns helper/test naming with removed-diagnostic compatibility wording. Scoped deletion preparation is superseded for the player branch by `Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved` and `Replay_Phase4_LegacyBaseline_PlayerFallbackRemoved`; player legacy discrete fallback is no longer a supported runtime fallback after Phase 4.
+Default bundle adoption is not full deletion of retained grid transactions. `MoveEntity`, `MovementExpander`, retained non-player grid transactions, and glide retained fallback remain outside the player ordinary deletion target.
 
 ## Known Limitations
 
 - No enemy, charge, jump, phase, glide, forced motion, or knockback migration.
 - No diagonal movement.
-- No Free2D-native nonzero local topology seam crossing or local offset face-basis remap. v1.1 only zero-settles eligible topology-edge approach poses to local-zero before using retained topology grid materialization.
-- Local-zero settled topology moves may hand off to the retained `TopologyMaterialization` grid transaction path.
 - No continuous box collider, footprint contact, swept combat, or projectile collision redesign.
 - No mid-pose push/flip/action execution. These remain settled-only.
 - No pose-based action probe and no local-nonzero tolerance-as-settled behavior.
@@ -89,8 +81,8 @@ The stabilization suite locks the following acceptance tests:
 - Action Assist: `Free2DActionAssist_PushQueuedAtLocalNonZero`, `Free2DActionAssist_EmptyFloorWithinSettleWindow_PushDoesNotQueueOrAlign`, `Free2DActionAssist_EmptyFloorWithinSettleWindow_FlipDoesNotQueueOrAlign`, `Free2DActionAssist_NoCandidatePushWithHeldMove_ContinuesFree2DMovement`, `Free2DActionAssist_NoCandidateFlipWithHeldMove_ContinuesFree2DMovement`, `Free2DActionAssist_NoActionCandidate_EmitsDeterministicRejectTrace`, `Free2DActionAssist_BoxWithoutPushCapability_DoesNotQueueOrAlign`, `Free2DActionAssist_AlignsToAnchorWithoutSnap`, `Free2DActionAssist_PushExecutesAfterAlign`, `Free2DActionAssist_FlipExecutesAfterAlign`, `Free2DActionAssist_BoxRadiusClampThenPush`, `Free2DActionAssist_WithinSettleWindow_QueuesAndAligns`, `Free2DActionAssist_OutsideSettleWindow_DoesNotQueueOrAlign`, `Free2DActionAssist_WindowBoundaryInclusive`, `Free2DActionAssist_WindowBoundaryExclusiveAbove`, `Free2DActionAssist_ExistingQueue_IgnoresWindowAndContinuesAlign`, `Free2DActionAssist_ExistingQueue_NoCandidateClearsWithoutAlign`, `Free2DActionAssist_ActionTargetRevalidatedAtExecute`, `Free2DActionAssist_InvalidAfterAlign_ClearsQueue`, `Free2DActionAssist_MovementInputDoesNotCancelQueue`, `Free2DActionAssist_HitClearsQueue`, `Free2DActionAssist_DeathClearsQueue`, `Free2DActionAssist_LocalZero_PushStillImmediate`, `Free2DActionAssist_LocalNonZero_ActionNotExecutedBeforeSettled`, `Free2DActionAssist_FlagOff_Baseline`, and `Free2DActionAssist_DoesNotAffectKinematicFallback`.
 - Presentation: `GameplayTickViewPresenter_ContinuousPose_AppliesAnchorPlusLocalOffset`, `GameplayTickViewPresenter_ContinuousIdleNonZero_DoesNotSnapToAnchor`, `GameplayTickViewPresenter_ContinuousRemovedTerminal_RetainsPose`.
 - Replay: `Replay_PlayerFree2D_StopTurnClamp_IsDeterministic`, `Replay_PlayerFree2D_RadiusApproachBlocker_IsDeterministic`, `Replay_PlayerFree2D_AnchorNormalizeContact_IsDeterministic`, `Replay_PlayerFree2D_TopologyApproachHandoff_IsDeterministic`, `Replay_PlayerFree2D_HitDeath_IsDeterministic`, `Replay_Free2DActionAssist_QueueAlignExecute_IsDeterministic`, `Replay_Free2DActionAssist_OutsideWindowReject_IsDeterministic`, `Replay_Free2DActionAssist_NoCandidateReject_IsDeterministic`.
-- Boundary v1 / deprecation Phase 1: `TickPipeline_ValidateLegacyExpansionIntents_BlocksFlagOnUnitOrdinaryMove`, `DeprecationPhase1_DefaultGameplayLocomotion_PlayerEnemyCharge_NoLegacyFallback`, `Replay_DeprecationPhase1_DefaultGameplayLocomotion_NoCoveredLegacyFallback`, and `Boundary_UnknownInventory_NormalGameplayHasNoUnexpectedUnknownMovement` verify that flag-on Free2D ordinary movement does not leak into legacy ordinary Unit movement. Topology grid handoff remains retained for compatibility when native topology transition is off; with `EnablePlayerFree2DNativeTopologyTransition`, player Free2D topology crossing is continuous locomotion and suppresses duplicate entity Move presentation.
-- Baseline: `Player_Free2D_FlagOff_ExistingKinematicBaseline`, `Player_Free2D_DoesNotAffectEnemyOrCharge`.
+- Boundary/partition: `MovementIntentPartitioner_PlayerOrdinaryMove_IsFree2DOwnedAndEnemyRemainsGeneric`, `MovementIntentPartitioner_PlayerTopologyMove_IsFree2DOwned`, and `MovementExpander_PlayerOrdinaryMove_IsNotDirectExpansionInput` verify that player ordinary Free2D movement does not enter generic expansion while enemy/non-player movement remains preserved.
+- Baseline: `Player_Free2D_DoesNotAffectEnemyOrCharge`.
 
 ## Golden Policy
 
@@ -104,5 +96,5 @@ The stabilization suite locks the following acceptance tests:
 
 First set `EnablePlayerFree2DActionAssist` to false to restore settled-only local-nonzero push/flip rejection while keeping Free2D movement enabled.
 If the full Free2D movement rollout must be disabled, set `EnablePlayerFree2DLocalLocomotion` to false.
-The player ordinary movement path then falls back to `EnablePlayerStoppableKinematicLocomotion`, then `EnablePlayerSameFaceContinuousLocomotion`, then legacy discrete movement. No data migration is required because continuous local-zero idle is represented by absent state.
+This is a test/migration switch only; production player ordinary movement must remain Free2D-owned. No data migration is required because continuous local-zero idle is represented by absent state.
 No data migration is required for Action Assist because the default queued action is `None`.

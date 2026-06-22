@@ -520,8 +520,8 @@ Future inventory:
 |---|---|---:|---|---:|
 | successful flip motion | `MotionTrack` / `FlipInteractionTrack` host presentation paths | Yes | interaction overlay and committed movement timing overlap | No |
 | box slide presentation | `MotionTrack` with `TickEntityMotionKind.BoxSlide` | Yes | slide scale/trail VFX already has separate VFX lane | No |
-| unit kinematic locomotion | `KinematicPoseOverrides` / continuous locomotion carriers | Maybe | live locomotion semantics differ from finite impact motion | No |
-| enemy kinematic locomotion | `KinematicPoseOverrides` / continuous locomotion carriers | Maybe | AI semantic state and glide/jump overlays interact | No |
+| unit locomotion presentation | typed locomotion presentation carriers | Maybe | live locomotion semantics differ from finite impact motion | No |
+| enemy kinematic locomotion | enemy kinematic presentation carriers | Maybe | AI semantic state and glide/jump overlays interact | No |
 | jump/airborne presentation | `JumpTrack` / `JumpDetachedVisibilityState` | Maybe | detached visibility and landing timing are special | No |
 | death displacement / visibility tracks | `PlayerDeathDisplacementTrack`, `VisibilityTrack`, exit ownership | Low priority | visibility/exit ownership is not pure pose sampling | No |
 

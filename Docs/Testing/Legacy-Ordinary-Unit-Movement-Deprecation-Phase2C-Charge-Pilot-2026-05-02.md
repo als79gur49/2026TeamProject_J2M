@@ -25,10 +25,10 @@ The Charge active fallback branch is currently reachable through this chain:
 |---|---|---|
 | charge source | active `EnemyChargeRuntimeState(Active)` plus a charge enemy ordinary `MoveIntent` | documented source only |
 | flag gate | `TickPipeline.RunPlanPhase` consumes active charge movement through `BuildEnemyChargeKinematicLocomotionPlans` when `EnableEnemyChargeKinematicLocomotion` is on | default/flag-on must not fall through |
-| leak guard | `TickPipeline.ValidateLegacyExpansionIntents` and `TryResolveForbiddenLegacyUnitOrdinaryMovement` reject covered charge active `Move` with `ChargeCoveredKinematicReachedLegacyExpansion` | charge flag-on leak is a regression |
+| leak guard | `legacy expansion validation hook (historical, deleted)` and `TryResolveForbiddenLegacyUnitOrdinaryMovement` reject covered charge active `Move` with `ChargeCoveredKinematicReachedLegacyExpansion` | charge flag-on leak is a regression |
 | legacy candidate | `MovementExpander.ExpandMoveLike` and `ExpandMove` create ordinary `ActionGroupKind.Move` for flag-off active charge | retained for flag-off support |
 | legacy charge write | legacy action finalization consumes the active step with `ConsumeLegacyActiveStep` | deletion candidate only for charge active fallback |
-| presentation | `TickResultBuilder.ShouldUseChargeMovePresentation` maps active non-kinematic charge movement to `TickEntityMotionKind.ChargeMove` | Phase 2C allowed this for documented charge `None` baseline; Phase 3 moved diagnostics to `RemovedLegacyFallbackDiagnosticBaseline` |
+| presentation | `TickResultBuilder.ShouldUseChargeMovePresentation` maps active non-kinematic charge movement to `TickEntityMotionKind.ChargeMove` | Phase 2C allowed this for documented charge `None` baseline; Phase 3 moved diagnostics to `removed diagnostic baseline preset (historical, deleted)` |
 
 ## Flag Reachability
 
@@ -36,9 +36,9 @@ The Charge active fallback branch is currently reachable through this chain:
 
 `EnemyChargeKinematicLocomotionEnabled` makes synthetic active charge expansion a forbidden leak. The expected rejection reason is `ChargeCoveredKinematicReachedLegacyExpansion`.
 
-Historical Phase 2C note: `GameplayRuntimeFeatureFlags.None` was the Charge fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered Charge active fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 6 supersedes the explicit baseline policy: `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` now blocks Charge active fallback with `ChargeLegacyFallbackRemovedFromRuntime`.
+Historical Phase 2C note: `GameplayRuntimeFeatureFlags.None` was the Charge fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered Charge active fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 6 supersedes the explicit baseline policy: `the removed diagnostic baseline preset (historical, deleted)` now blocks Charge active fallback with `ChargeLegacyFallbackRemovedFromRuntime`.
 
-Phase 8B/8C names `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical removed-diagnostic preset. Old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
+Phase 8B/8C names `the removed diagnostic baseline preset (historical, deleted)` as the canonical removed-diagnostic preset. Old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
 
 Historical Phase 2C custom flags with `EnableEnemyChargeKinematicLocomotion` disabled used `RemovedLegacyFallbackDiagnosticsEnabled` for Charge active fallback. Phase 6/7 supersede that behavior: the field is diagnostic compatibility only and Charge active fallback rejects with `ChargeLegacyFallbackRemovedFromRuntime`.
 ChargeMove presentation cleanup readiness supersedes any current-policy reading of Phase 2C fallback output: `ChargeMove` remains a synthetic/presentation compatibility inventory item, not an authorized runtime fallback output.
@@ -70,7 +70,7 @@ Historical/pre-Phase6 wrapper names are retained only to preserve Phase 2C migra
 - `BoundaryInventoryScenarioTests.Phase2C_ChargeLegacyFallback_FlagOffBaseline_RemovedByPhase6`
 - `BoundaryInventoryScenarioTests.Phase2C_ChargeLegacyFallback_PlayerEnemyOrdinary_AreOutOfScope`
 - `BoundaryInventoryScenarioTests.Phase2C_ChargeLegacyFallback_GlideDefault_IsRetainedException_NotChargePilot`
-- `MovementPhaseScenarioTests.Phase2C_ChargeLegacyFallback_ValidateLegacyExpansionIntents_ChargeFlagReachability`
+- `MovementPhaseScenarioTests.Phase2C_ChargeLegacyFallback_legacy expansion validation hook (historical, deleted)_ChargeFlagReachability`
 - `EnemyKinematicLocomotionReplayTests.Replay_Phase2C_ChargeDefaultGameplayLocomotion_NoChargeMoveFallback`
 - `EnemyKinematicLocomotionReplayTests.Replay_Phase2C_ChargeKinematicFlagOn_NoChargeMoveFallback`
 - `EnemyKinematicLocomotionReplayTests.Replay_Phase2C_ChargeFlagOffLegacyFallback_BaselineDocumented`
@@ -81,7 +81,7 @@ The helper vocabulary remains scoped to `LegacyFallback`, legacy `ChargeMove` pr
 
 Actual Charge fallback deletion is not approved by Phase 2C. Before deleting or test-only-scoping the Charge fallback branch, the next phase needs:
 
-- explicit approval to remove or narrow only old diagnostic baseline alias vocabulary; `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` remains canonical
+- explicit approval to remove or narrow only old diagnostic baseline alias vocabulary; `the removed diagnostic baseline preset (historical, deleted)` remains canonical
 - `ChargeMove` presentation owner approval
 - replay/golden migration or exemption policy
 - green Charge default and kinematic-on no-fallback canaries

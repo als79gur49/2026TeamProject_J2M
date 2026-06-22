@@ -25,10 +25,10 @@ The enemy ordinary fallback branch is currently reachable through this chain:
 |---|---|---|
 | enemy source | `EnemyLogic.CollectMovementIntents` calls `ResolveBaselineGroundLocomotion`, which can emit ordinary `RawMovementIntent(MovementCommandKind.Move)` | documented source only |
 | flag gate | `TickPipeline.RunPlanPhase` consumes enemy ordinary movement through `BuildEnemySameFaceKinematicLocomotionPlans` when `EnableEnemySameFaceContinuousLocomotion` is on | default/flag-on must not fall through |
-| leak guard | `TickPipeline.ValidateLegacyExpansionIntents` and `TryResolveForbiddenLegacyUnitOrdinaryMovement` reject covered enemy ordinary `Move` with `EnemyCoveredOrdinaryKinematicReachedLegacyExpansion` | enemy flag-on leak is a regression |
+| leak guard | `legacy expansion validation hook (historical, deleted)` and `TryResolveForbiddenLegacyUnitOrdinaryMovement` reject covered enemy ordinary `Move` with `EnemyCoveredOrdinaryKinematicReachedLegacyExpansion` | enemy flag-on leak is a regression |
 | legacy candidate | `MovementExpander.ExpandMoveLike` and `ExpandMove` create ordinary `ActionGroupKind.Move` | retained for flag-off and grid transaction support |
 | boundary | `TickPipeline` movement boundary resolution classifies ordinary Unit `Move` groups as `LegacyFallback` | deletion candidate only for enemy ordinary fallback |
-| presentation | `TickResultBuilder` maps unsuppressed `MovementSemanticKind.Move` to `TickEntityMotionKind.Move` | Phase 2B allowed this for documented enemy `None` baseline; Phase 3 moved diagnostics to `RemovedLegacyFallbackDiagnosticBaseline` |
+| presentation | `TickResultBuilder` maps unsuppressed `MovementSemanticKind.Move` to `TickEntityMotionKind.Move` | Phase 2B allowed this for documented enemy `None` baseline; Phase 3 moved diagnostics to `removed diagnostic baseline preset (historical, deleted)` |
 
 ## Flag Reachability
 
@@ -36,9 +36,9 @@ The enemy ordinary fallback branch is currently reachable through this chain:
 
 `EnemySameFaceContinuousLocomotionEnabled` makes synthetic enemy ordinary expansion a forbidden leak. The expected rejection reason is `EnemyCoveredOrdinaryKinematicReachedLegacyExpansion`.
 
-Historical Phase 2B note: `GameplayRuntimeFeatureFlags.None` was the enemy ordinary fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered enemy ordinary fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 5 supersedes the explicit baseline policy: `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` now blocks enemy ordinary fallback with `EnemyLegacyFallbackRemovedFromRuntime`.
+Historical Phase 2B note: `GameplayRuntimeFeatureFlags.None` was the enemy ordinary fallback baseline in this phase. Phase 3 supersedes that policy: `None` now blocks covered enemy ordinary fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 5 supersedes the explicit baseline policy: `the removed diagnostic baseline preset (historical, deleted)` now blocks enemy ordinary fallback with `EnemyLegacyFallbackRemovedFromRuntime`.
 
-Custom flags with `EnableEnemySameFaceContinuousLocomotion` disabled no longer authorize enemy ordinary fallback at runtime. Phase 6/7 also supersede the Charge explicit baseline path. Phase 8B/8C names `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` as the canonical diagnostic preset; old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
+Custom flags with `EnableEnemySameFaceContinuousLocomotion` disabled no longer authorize enemy ordinary fallback at runtime. Phase 6/7 also supersede the Charge explicit baseline path. Phase 8B/8C names `the removed diagnostic baseline preset (historical, deleted)` as the canonical diagnostic preset; old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
 
 ## Retained And Out-Of-Scope Paths
 
@@ -67,7 +67,7 @@ Historical/pre-Phase5 wrapper names are retained only to preserve Phase 2B migra
 - `BoundaryInventoryScenarioTests.Phase2B_EnemyLegacyFallback_FlagOffBaseline_RemovedByPhase5`
 - `BoundaryInventoryScenarioTests.Phase2B_EnemyLegacyFallback_GlideDefault_IsRetainedException_NotEnemyOrdinaryPilot`
 - `BoundaryInventoryScenarioTests.Phase2B_EnemyLegacyFallback_ChargeActive_IsOutOfScope`
-- `MovementPhaseScenarioTests.Phase2B_EnemyLegacyFallback_ValidateLegacyExpansionIntents_EnemyFlagReachability`
+- `MovementPhaseScenarioTests.Phase2B_EnemyLegacyFallback_legacy expansion validation hook (historical, deleted)_EnemyFlagReachability`
 - `EnemyKinematicLocomotionReplayTests.Replay_Phase2B_EnemyDefaultGameplayLocomotion_NoLegacyFallback`
 - `EnemyKinematicLocomotionReplayTests.Replay_Phase2B_EnemyKinematicFlagOn_NoLegacyFallback`
 - `EnemyKinematicLocomotionReplayTests.Replay_Phase5_EnemyLegacyBaseline_FallbackRemoved`
@@ -78,7 +78,7 @@ The helper vocabulary remains scoped to `LegacyFallback`, legacy `Move` presenta
 
 Actual enemy fallback deletion is not approved by Phase 2B. Before deleting or test-only-scoping the enemy fallback branch, the next phase needs:
 
-- explicit approval to remove or narrow only old diagnostic baseline alias vocabulary; `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline` remains canonical
+- explicit approval to remove or narrow only old diagnostic baseline alias vocabulary; `the removed diagnostic baseline preset (historical, deleted)` remains canonical
 - historical EnemyAi baseline owner approval
 - replay/golden migration or exemption policy
 - green enemy default and kinematic-on no-fallback canaries

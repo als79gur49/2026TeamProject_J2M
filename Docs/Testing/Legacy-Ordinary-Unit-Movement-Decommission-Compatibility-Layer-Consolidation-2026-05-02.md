@@ -36,7 +36,7 @@ Phase 4 removed player covered fallback authorization.
 Phase 5 removed enemy ordinary covered fallback authorization.
 Phase 6 removed Charge active covered fallback authorization.
 Covered attempts now reject with `PlayerLegacyFallbackRemovedFromRuntime`, `EnemyLegacyFallbackRemovedFromRuntime`, or `ChargeLegacyFallbackRemovedFromRuntime`.
-Phase 8B and Phase 8C made `RemovedLegacyFallbackDiagnosticBaseline` the canonical preset.
+Phase 8B and Phase 8C made `removed diagnostic baseline preset (historical, deleted)` the canonical preset.
 Phase 8D made `RemovedLegacyFallbackDiagnosticsEnabled` the canonical helper.
 Phase 8E completes the underlying field and trace vocabulary migration to canonical removed-fallback diagnostics naming.
 
@@ -44,7 +44,7 @@ Phase 8E completes the underlying field and trace vocabulary migration to canoni
 
 | item | kind | current status | action |
 |---|---|---|---|
-| `RemovedLegacyFallbackDiagnosticBaseline` | preset | canonical removed-diagnostic preset | keep |
+| `removed diagnostic baseline preset (historical, deleted)` | preset | canonical removed-diagnostic preset | keep |
 | `RemovedLegacyFallbackDiagnosticsEnabled` | runtime flag | canonical removed-diagnostic routing field | keep |
 | `RemovedLegacyFallbackDiagnosticsEnabled=` | trace token | canonical diagnostic routing trace token | keep |
 | removed diagnostic reasons | diagnostics | current runtime contract | keep canaries |
@@ -76,7 +76,7 @@ Phase 8E completes the underlying field and trace vocabulary migration to canoni
 | `DefaultGameplayLocomotion` | Charge active step uses `TickKinematicMotionTrack(MotionMode.Charge)` plus `TickEnemyChargePresentationSignal` |
 | `EnableEnemyChargeKinematicLocomotion` | Charge active step uses kinematic payload/track |
 | `GameplayRuntimeFeatureFlags.None` | covered Charge fallback attempt rejects before legacy expansion |
-| `RemovedLegacyFallbackDiagnosticBaseline` | covered Charge fallback attempt rejects with `ChargeLegacyFallbackRemovedFromRuntime` |
+| `removed diagnostic baseline preset (historical, deleted)` | covered Charge fallback attempt rejects with `ChargeLegacyFallbackRemovedFromRuntime` |
 | `AllKinematicLocomotionEnabled` | Charge active step uses the same kinematic track/signal path |
 
 Current-policy docs must describe Charge presentation as kinematic track plus Charge signal.

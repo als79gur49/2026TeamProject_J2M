@@ -4,7 +4,7 @@
 
 Phase 8A originally changed naming and test support only. The C안 final cleanup now deletes the obsolete test-support helper wrappers that had existed only as a compatibility surface.
 
-Runtime boundary policy is unchanged: `GameplayRuntimeFeatureFlags.None` and `DefaultGameplayLocomotion` do not authorize covered player/enemy/Charge fallback. `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`, `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`, and `RemovedLegacyFallbackDiagnosticsEnabled=` remain canonical removed-diagnostic vocabulary.
+Runtime boundary policy is unchanged: `GameplayRuntimeFeatureFlags.None` and `DefaultGameplayLocomotion` do not authorize covered player/enemy/Charge fallback. `the removed diagnostic baseline preset (historical, deleted)`, `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`, and `RemovedLegacyFallbackDiagnosticsEnabled=` remain canonical removed-diagnostic vocabulary.
 
 `RemovedLegacyFallbackDiagnosticsEnabled` is diagnostic routing only. It is not fallback authorization.
 

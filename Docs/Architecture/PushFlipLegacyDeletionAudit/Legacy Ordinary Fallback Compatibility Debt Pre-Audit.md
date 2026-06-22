@@ -10,7 +10,7 @@ The final active compatibility debt was the obsolete test-support helper wrapper
 
 Canonical removed-fallback governance remains active:
 
-- `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline`
+- `the removed diagnostic baseline preset (historical, deleted)`
 - `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`
 - `removedLegacyFallbackDiagnosticsEnabled`
 - `RemovedLegacyFallbackDiagnosticsEnabled=`

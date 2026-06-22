@@ -175,7 +175,7 @@ Serialized value counts observed:
 | Priority | Classification | Item | Required action |
 | --- | --- | --- | --- |
 | P0 | DELETE_CANDIDATE_OBSOLETE_FEATURE | Push contact accumulation / threshold mentions outside current contract | Only docs/archive cleanup is possible; no active runtime artifact found. |
-| P1 | REMOVED_ALIAS | `GameplayRuntimeFeatureFlags.RemovedDiagnosticBaselineAlias` and `RemovedDiagnosticHelperAlias` | Tests/docs migrated to canonical `RemovedLegacyFallbackDiagnosticBaseline` / `RemovedLegacyFallbackDiagnosticsEnabled`; aliases deleted. |
+| P1 | REMOVED_ALIAS | `GameplayRuntimeFeatureFlags.RemovedDiagnosticBaselineAlias` and `RemovedDiagnosticHelperAlias` | Tests/docs migrated to canonical `removed diagnostic baseline preset (historical, deleted)` / `RemovedLegacyFallbackDiagnosticsEnabled`; aliases deleted. |
 | P1/P3 | CANONICAL_DIAGNOSTICS_FIELD | `RemovedLegacyFallbackDiagnosticsEnabled` | C안 completed; canonical diagnostics field retained and old compatibility projection removed. |
 | P1 | REMOVED_LEGACY_FIELD | `StageSpawnDefinition.PresentationId` legacy field | Migrated to `StagePresentationDefinition`; generated gameplay assets and validation expectations updated. |
 | P1/P3 | REMOVED_ALIAS | `GroupId` / `SourceActionGroupId` compatibility aliases | Tests migrated to `ActionPlanId` / `SourceActionPlanId`; `IntentId` remains canonical internal carry-forward. |
