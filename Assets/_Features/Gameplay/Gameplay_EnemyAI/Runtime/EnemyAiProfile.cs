@@ -58,10 +58,10 @@ namespace Game.Feature.Gameplay.Entities
             GetMovementSkillCapabilityAsset()?.JumpTimingSettings ?? global::Game.Feature.Gameplay.Entities.EnemyJumpTimingAuthoringSettings.CreateDefault();
 
         public EnemyGlideTimingAuthoringSettings GlideTimingSettings =>
-            GetMovementSkillCapabilityAsset()?.GlideTimingSettings ?? global::Game.Feature.Gameplay.Entities.EnemyGlideTimingAuthoringSettings.CreateDefault();
+            GetGlideBehaviorModuleAsset()?.Timing ?? global::Game.Feature.Gameplay.Entities.EnemyGlideTimingAuthoringSettings.CreateDefault();
 
         public EnemyGlidePresentationAuthoringSettings GlidePresentationSettings =>
-            GetMovementSkillCapabilityAsset()?.GlidePresentationSettings ??
+            GetGlideBehaviorModuleAsset()?.PresentationSettings ??
             global::Game.Feature.Gameplay.Entities.EnemyGlidePresentationAuthoringSettings.CreateDefault();
 
         public EnemyAiRuntimeDefinition CreateRuntimeDefinition(int simulationTicksPerSecond)
@@ -99,6 +99,24 @@ namespace Game.Feature.Gameplay.Entities
                 if (capabilityAssets[i] is EnemyMovementSkillCapabilityAsset movementSkillCapability)
                 {
                     return movementSkillCapability;
+                }
+            }
+
+            return null;
+        }
+
+        private EnemyGlideBehaviorModuleAsset GetGlideBehaviorModuleAsset()
+        {
+            if (behaviorModuleAssets == null)
+            {
+                return null;
+            }
+
+            for (var i = 0; i < behaviorModuleAssets.Count; i++)
+            {
+                if (behaviorModuleAssets[i] is EnemyGlideBehaviorModuleAsset glideBehavior)
+                {
+                    return glideBehavior;
                 }
             }
 

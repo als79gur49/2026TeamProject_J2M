@@ -9,16 +9,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d057df79daa540a68b9a3ee57d02c7da, type: 3}
-  m_Name: EnemyCapability_GlideOverSolid_GlideChaser
+  m_Script: {fileID: 11500000, guid: 14aa0d76cae8486bb2902a387365acaa, type: 3}
+  m_Name: EnemyGlideBehaviorModule_GlideChaser
   m_EditorClassIdentifier: 
-  glideTimingSettings:
+  timing:
     initialDelaySeconds: 4
     windupSeconds: 0.25
     durationSeconds: 3
     recoverySeconds: 0.25
     cooldownSeconds: 4
     glideMoveDurationSeconds: 0.85
-  glidePresentationSettings:
+  presentationSettings:
     liftHeightCells: 1.25
     recoveryDipHeightCells: 0

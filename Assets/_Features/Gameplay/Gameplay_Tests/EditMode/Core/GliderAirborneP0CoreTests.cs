@@ -549,12 +549,15 @@ namespace Game.Feature.Gameplay.Tests.Core
                     new EnemyChaseRuntime(ChaseStrategyKind.AxisPriority, ChaseSettings.CreateDefault(), AxisPriorityChaseStrategy.Instance)),
                 new EnemyCapabilityRuntimeSet(
                     null,
-                    new EnemyMovementSkillCapabilityRuntime(
-                        MovementSkillStrategyKind.GlideOverSolid,
-                        EnemyJumpTimingSettings.CreateDefault(),
-                        timing),
                     null,
-                    null));
+                    null,
+                    null),
+                new EnemyBehaviorRuntimeSet(
+                    null,
+                    null,
+                    new EnemyGlideBehaviorRuntime(
+                        timing,
+                        EnemyGlidePresentationSettings.CreateDefault())));
         }
 
         private static void CommitPreMovement(EnemyLogic logic, WorldState worldState, int tickIndex)

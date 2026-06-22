@@ -87,6 +87,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         Charge = 1,
         Summon = 2,
+        Glide = 3,
     }
 
     public enum EnemyUtilityEffectKind
@@ -469,31 +470,6 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyMovementSkillCapabilityRuntime(
             MovementSkillStrategyKind kind,
             EnemyJumpTimingSettings jumpTimingSettings)
-            : this(
-                kind,
-                jumpTimingSettings,
-                EnemyGlideTimingSettings.CreateDefault(),
-                EnemyGlidePresentationSettings.CreateDefault())
-        {
-        }
-
-        public EnemyMovementSkillCapabilityRuntime(
-            MovementSkillStrategyKind kind,
-            EnemyJumpTimingSettings jumpTimingSettings,
-            EnemyGlideTimingSettings glideTimingSettings)
-            : this(
-                kind,
-                jumpTimingSettings,
-                glideTimingSettings,
-                EnemyGlidePresentationSettings.CreateDefault())
-        {
-        }
-
-        public EnemyMovementSkillCapabilityRuntime(
-            MovementSkillStrategyKind kind,
-            EnemyJumpTimingSettings jumpTimingSettings,
-            EnemyGlideTimingSettings glideTimingSettings,
-            EnemyGlidePresentationSettings glidePresentationSettings)
         {
             if (kind == MovementSkillStrategyKind.None)
             {
@@ -507,16 +483,19 @@ namespace Game.Feature.Gameplay.Entities
                     nameof(kind));
             }
 
+            if (kind == MovementSkillStrategyKind.RetiredGlideOverSolid)
+            {
+                throw new ArgumentException(
+                    "GlideOverSolid capability is retired; use EnemyGlideBehaviorModuleAsset.",
+                    nameof(kind));
+            }
+
             Kind = kind;
             _jumpTimingSettings = jumpTimingSettings;
-            _glideTimingSettings = glideTimingSettings;
-            _glidePresentationSettings = glidePresentationSettings;
             Validate(nameof(EnemyMovementSkillCapabilityRuntime));
         }
 
         private readonly EnemyJumpTimingSettings _jumpTimingSettings;
-        private readonly EnemyGlideTimingSettings _glideTimingSettings;
-        private readonly EnemyGlidePresentationSettings _glidePresentationSettings;
 
         public override EnemyCapabilityFamily Family => EnemyCapabilityFamily.MovementSkill;
 
@@ -536,34 +515,6 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
-        public EnemyGlideTimingSettings GlideTimingSettings
-        {
-            get
-            {
-                if (Kind != MovementSkillStrategyKind.GlideOverSolid)
-                {
-                    throw new InvalidOperationException(
-                        $"Movement skill '{Kind}' does not expose glide timing settings.");
-                }
-
-                return _glideTimingSettings;
-            }
-        }
-
-        public EnemyGlidePresentationSettings GlidePresentationSettings
-        {
-            get
-            {
-                if (Kind != MovementSkillStrategyKind.GlideOverSolid)
-                {
-                    throw new InvalidOperationException(
-                        $"Movement skill '{Kind}' does not expose glide presentation settings.");
-                }
-
-                return _glidePresentationSettings;
-            }
-        }
-
         public override void Validate(string paramName)
         {
             switch (Kind)
@@ -572,14 +523,14 @@ namespace Game.Feature.Gameplay.Entities
                     _jumpTimingSettings.Validate(paramName);
                     break;
 
-                case MovementSkillStrategyKind.GlideOverSolid:
-                    _glideTimingSettings.Validate(paramName);
-                    _glidePresentationSettings.Validate(paramName);
-                    break;
-
                 case MovementSkillStrategyKind.RetiredPhaseThroughLockedTarget:
                     throw new ArgumentException(
                         "Movement skill 'RetiredPhaseThroughLockedTarget' is retired and cannot compile into active runtime behavior.",
+                        paramName);
+
+                case MovementSkillStrategyKind.RetiredGlideOverSolid:
+                    throw new ArgumentException(
+                        "GlideOverSolid capability is retired; use EnemyGlideBehaviorModuleAsset.",
                         paramName);
 
                 case MovementSkillStrategyKind.None:
@@ -1026,14 +977,40 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    public sealed class EnemyGlideBehaviorRuntime : EnemyBehaviorModuleRuntime
+    {
+        public EnemyGlideBehaviorRuntime(
+            EnemyGlideTimingSettings timing,
+            EnemyGlidePresentationSettings presentationSettings)
+            : base(EnemyBehaviorModuleKey.Glide)
+        {
+            Timing = timing;
+            PresentationSettings = presentationSettings;
+            Validate(nameof(EnemyGlideBehaviorRuntime));
+        }
+
+        public EnemyGlideTimingSettings Timing { get; }
+
+        public EnemyGlidePresentationSettings PresentationSettings { get; }
+
+        public override void Validate(string paramName)
+        {
+            base.Validate(paramName);
+            Timing.Validate(paramName);
+            PresentationSettings.Validate(paramName);
+        }
+    }
+
     public readonly struct EnemyBehaviorRuntimeSet
     {
         public EnemyBehaviorRuntimeSet(
             EnemyChargeBehaviorRuntime charge,
-            EnemySummonBehaviorRuntime summon = null)
+            EnemySummonBehaviorRuntime summon = null,
+            EnemyGlideBehaviorRuntime glide = null)
         {
             Charge = charge;
             Summon = summon;
+            Glide = glide;
             Validate(nameof(EnemyBehaviorRuntimeSet));
         }
 
@@ -1041,9 +1018,13 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemySummonBehaviorRuntime Summon { get; }
 
+        public EnemyGlideBehaviorRuntime Glide { get; }
+
         public bool HasCharge => Charge != null;
 
         public bool HasSummon => Summon != null;
+
+        public bool HasGlide => Glide != null;
 
         public bool TryGetCharge(out EnemyChargeBehaviorRuntime charge)
         {
@@ -1057,10 +1038,17 @@ namespace Game.Feature.Gameplay.Entities
             return summon != null;
         }
 
+        public bool TryGetGlide(out EnemyGlideBehaviorRuntime glide)
+        {
+            glide = Glide;
+            return glide != null;
+        }
+
         public void Validate(string paramName)
         {
             Charge?.Validate(paramName);
             Summon?.Validate(paramName);
+            Glide?.Validate(paramName);
         }
     }
 

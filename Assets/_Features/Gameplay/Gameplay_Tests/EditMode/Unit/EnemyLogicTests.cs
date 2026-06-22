@@ -4957,9 +4957,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var exception = Assert.Throws<ArgumentException>(
                 () => new EnemyMovementSkillCapabilityRuntime(
                     MovementSkillStrategyKind.RetiredPhaseThroughLockedTarget,
-                    EnemyJumpTimingSettings.CreateDefault(),
-                    EnemyGlideTimingSettings.CreateDefault(),
-                    EnemyGlidePresentationSettings.CreateDefault()));
+                    EnemyJumpTimingSettings.CreateDefault()));
 
             Assert.That(exception.Message, Does.Contain("retired"));
         }

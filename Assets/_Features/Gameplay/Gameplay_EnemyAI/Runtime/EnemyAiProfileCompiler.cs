@@ -43,6 +43,7 @@ namespace Game.Feature.Gameplay.Entities
                 profile.BehaviorModuleAssets,
                 simulationTicksPerSecond);
             ValidateBehaviorRequirements(profile, behaviors);
+            ValidateComposition(profile, capabilities, behaviors);
             return new EnemyAiRuntimeDefinition(core, brain, capabilities, behaviors);
         }
 
@@ -146,7 +147,9 @@ namespace Game.Feature.Gameplay.Entities
         {
             EnemyChargeBehaviorRuntime charge = null;
             EnemySummonBehaviorRuntime summon = null;
+            EnemyGlideBehaviorRuntime glide = null;
             string summonBehaviorModuleName = null;
+            string glideBehaviorModuleName = null;
             var behaviorCount = behaviorModuleAssets?.Count ?? 0;
             var context = new EnemyBehaviorModuleCompileContext(profileName, simulationTicksPerSecond);
 
@@ -199,6 +202,21 @@ namespace Game.Feature.Gameplay.Entities
                         summonBehaviorModuleName = behaviorAsset.name;
                         break;
 
+                    case EnemyBehaviorModuleKey.Glide:
+                        if (glide != null)
+                        {
+                            throw new ArgumentException(
+                                $"Enemy AI profile '{profileName}' declares multiple behavior modules with key '{EnemyBehaviorModuleKey.Glide}' ('{glideBehaviorModuleName}' and '{behaviorAsset.name}').",
+                                nameof(behaviorModuleAssets));
+                        }
+
+                        glide = runtime as EnemyGlideBehaviorRuntime
+                            ?? throw new ArgumentException(
+                                $"Enemy AI profile '{profileName}' compiled an invalid glide behavior module runtime from '{behaviorAsset.name}'.",
+                                nameof(behaviorModuleAssets));
+                        glideBehaviorModuleName = behaviorAsset.name;
+                        break;
+
                     default:
                         throw new ArgumentOutOfRangeException(
                             nameof(runtime),
@@ -207,7 +225,7 @@ namespace Game.Feature.Gameplay.Entities
                 }
             }
 
-            return new EnemyBehaviorRuntimeSet(charge, summon);
+            return new EnemyBehaviorRuntimeSet(charge, summon, glide);
         }
 
         private static void ValidateBehaviorRequirements(
@@ -220,6 +238,32 @@ namespace Game.Feature.Gameplay.Entities
             {
                 throw new ArgumentException(
                     $"Enemy AI profile '{profile.name}' uses charge resolver '{profile.BrainAuthoring.StateResolver.name}' but does not declare a '{EnemyBehaviorModuleKey.Charge}' behavior module.",
+                    nameof(profile));
+            }
+        }
+
+        private static void ValidateComposition(
+            EnemyAiProfile profile,
+            in EnemyCapabilityRuntimeSet capabilities,
+            in EnemyBehaviorRuntimeSet behaviors)
+        {
+            if (!behaviors.HasGlide)
+            {
+                return;
+            }
+
+            if (capabilities.TryGetMovementSkill(out var movementSkill) &&
+                movementSkill.Kind == MovementSkillStrategyKind.JumpToLockedTarget)
+            {
+                throw new ArgumentException(
+                    $"Enemy AI profile '{profile.name}' declares '{EnemyBehaviorModuleKey.Glide}' behavior with movement skill '{MovementSkillStrategyKind.JumpToLockedTarget}'. Glide behavior cannot be combined with JumpToLockedTarget.",
+                    nameof(profile));
+            }
+
+            if (behaviors.HasCharge)
+            {
+                throw new ArgumentException(
+                    $"Enemy AI profile '{profile.name}' declares '{EnemyBehaviorModuleKey.Glide}' and '{EnemyBehaviorModuleKey.Charge}' behavior modules. Glide behavior cannot be combined with Charge behavior until the active kinematic ordering contract is defined.",
                     nameof(profile));
             }
         }

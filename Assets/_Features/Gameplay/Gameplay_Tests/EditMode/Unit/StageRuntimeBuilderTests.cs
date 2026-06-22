@@ -1770,10 +1770,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(TryGetProfileOverride(buildResult, Stage31GlideEnemyId, out var glideProfile), Is.True);
             Assert.That(glideProfile.name, Is.EqualTo("EnemyAi_GlideChaser"));
-            Assert.That(glideProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
+            Assert.That(glideProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.None));
             var glideDefinition = glideProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-            Assert.That(glideDefinition.Capabilities.TryGetMovementSkill(out var movementSkill), Is.True);
-            Assert.That(movementSkill.Kind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
+            Assert.That(glideDefinition.Capabilities.TryGetMovementSkill(out _), Is.False);
+            Assert.That(glideDefinition.TryGetGlideBehavior(out var glide), Is.True);
+            Assert.That(glide.Key, Is.EqualTo(EnemyBehaviorModuleKey.Glide));
         }
 
         [Test]

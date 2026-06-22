@@ -172,11 +172,16 @@ namespace Game.Feature.Gameplay.Entities
 
         internal sealed override EnemyCapabilityRuntime Compile(int simulationTicksPerSecond)
         {
+            if (Kind == MovementSkillStrategyKind.RetiredGlideOverSolid)
+            {
+                throw new ArgumentException(
+                    "GlideOverSolid capability is retired; use EnemyGlideBehaviorModuleAsset.",
+                    nameof(Kind));
+            }
+
             return new EnemyMovementSkillCapabilityRuntime(
                 Kind,
-                JumpTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
-                GlideTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
-                GlidePresentationSettings.ToRuntimeSettings());
+                JumpTimingSettings.ToRuntimeSettings(simulationTicksPerSecond));
         }
     }
 

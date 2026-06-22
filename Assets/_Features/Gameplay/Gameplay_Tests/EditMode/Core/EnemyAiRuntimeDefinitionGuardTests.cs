@@ -256,6 +256,185 @@ namespace Game.Feature.Gameplay.Tests.Core
 
         [Test]
         [Category("Core")]
+        public void EnemyAiProfileCompiler_GlideBehaviorOnly_CompilesRealTypedRuntime()
+        {
+            var glideModule = CreateGlideBehaviorModule(
+                initialDelayTicks: 2,
+                windupTicks: 3,
+                durationTicks: 5,
+                recoveryTicks: 7,
+                cooldownTicks: 11,
+                glideMoveTicks: 13,
+                liftHeightCells: 1.25f,
+                recoveryDipHeightCells: 0.5f);
+            var profile = CreateProfile(behaviors: new EnemyBehaviorModuleAsset[] { glideModule });
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(60);
+
+                Assert.That(definition.Capabilities.TryGetMovementSkill(out _), Is.False);
+                Assert.That(definition.TryGetGlideBehavior(out var glide), Is.True);
+                Assert.That(glide.Key, Is.EqualTo(EnemyBehaviorModuleKey.Glide));
+                Assert.That(glide.Timing.InitialDelayTicks, Is.EqualTo(2));
+                Assert.That(glide.Timing.WindupTicks, Is.EqualTo(3));
+                Assert.That(glide.Timing.DurationTicks, Is.EqualTo(5));
+                Assert.That(glide.Timing.RecoveryTicks, Is.EqualTo(7));
+                Assert.That(glide.Timing.CooldownTicks, Is.EqualTo(11));
+                Assert.That(glide.Timing.GlideMoveTicks, Is.EqualTo(14));
+                Assert.That(glide.PresentationSettings.LiftHeightUnits, Is.EqualTo(Mathf.RoundToInt(1.25f * KinematicFixed.UnitsPerCell)));
+                Assert.That(glide.PresentationSettings.RecoveryDipHeightUnits, Is.EqualTo(Mathf.RoundToInt(0.5f * KinematicFixed.UnitsPerCell)));
+                Assert.That(definition.GlideTimingSettings.DurationTicks, Is.EqualTo(glide.Timing.DurationTicks));
+                Assert.That(definition.GlidePresentationSettings.LiftHeightUnits, Is.EqualTo(glide.PresentationSettings.LiftHeightUnits));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(glideModule);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_DuplicateGlideBehaviorModules_FailsDuringCompile()
+        {
+            var first = CreateGlideBehaviorModule(moduleName: "Test_FirstGlideBehaviorModule");
+            var second = CreateGlideBehaviorModule(moduleName: "Test_SecondGlideBehaviorModule");
+            var profile = CreateProfile(behaviors: new EnemyBehaviorModuleAsset[] { first, second });
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                AssertGuardMessage(
+                    exception,
+                    "multiple behavior modules",
+                    EnemyBehaviorModuleKey.Glide.ToString(),
+                    "Test_FirstGlideBehaviorModule",
+                    "Test_SecondGlideBehaviorModule");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(second);
+                UnityEngine.Object.DestroyImmediate(first);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_RetiredGlideCapability_FailsWithBehaviorMigrationGuidance()
+        {
+            var legacyGlideCapability = CreateAsset<GlideOverSolidCapabilityAsset>("Test_GlideOverSolidCapability");
+            var profile = CreateProfile(capabilities: new EnemyCapabilityAsset[] { legacyGlideCapability });
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                AssertGuardMessage(
+                    exception,
+                    "GlideOverSolid capability is retired",
+                    nameof(EnemyGlideBehaviorModuleAsset));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(legacyGlideCapability);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_GlideBehaviorWithLegacyGlideCapability_FailsRetiredGuard()
+        {
+            var legacyGlideCapability = CreateAsset<GlideOverSolidCapabilityAsset>("Test_GlideOverSolidCapability");
+            var glideModule = CreateGlideBehaviorModule();
+            var profile = CreateProfile(
+                capabilities: new EnemyCapabilityAsset[] { legacyGlideCapability },
+                behaviors: new EnemyBehaviorModuleAsset[] { glideModule });
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                AssertGuardMessage(
+                    exception,
+                    "GlideOverSolid capability is retired",
+                    nameof(EnemyGlideBehaviorModuleAsset));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(glideModule);
+                UnityEngine.Object.DestroyImmediate(legacyGlideCapability);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_GlideBehaviorWithJumpMovementSkill_FailsCompositionGuard()
+        {
+            var jumpCapability = CreateJumpCapability();
+            var glideModule = CreateGlideBehaviorModule();
+            var profile = CreateProfile(
+                capabilities: new EnemyCapabilityAsset[] { jumpCapability },
+                behaviors: new EnemyBehaviorModuleAsset[] { glideModule });
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                AssertGuardMessage(
+                    exception,
+                    EnemyBehaviorModuleKey.Glide.ToString(),
+                    MovementSkillStrategyKind.JumpToLockedTarget.ToString(),
+                    "cannot be combined");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(glideModule);
+                UnityEngine.Object.DestroyImmediate(jumpCapability);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_GlideBehaviorWithChargeBehavior_FailsCompositionGuard()
+        {
+            var glideModule = CreateGlideBehaviorModule();
+            var chargeExecutionProfile = CreateAsset<EnemyChargeExecutionProfile>("Test_EnemyChargeExecutionProfile");
+            var chargeModule = CreateAsset<EnemyChargeBehaviorModuleAsset>("Test_EnemyChargeBehaviorModule");
+            var profile = CreateProfile(behaviors: new EnemyBehaviorModuleAsset[] { glideModule, chargeModule });
+
+            try
+            {
+                SetSerializedField(
+                    chargeExecutionProfile,
+                    "timing",
+                    new EnemyChargeTimingAuthoringSettings(0.1f, 0.1f, 0.1f));
+                SetSerializedField(chargeModule, "chargeExecutionProfile", chargeExecutionProfile);
+
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                AssertGuardMessage(
+                    exception,
+                    EnemyBehaviorModuleKey.Glide.ToString(),
+                    EnemyBehaviorModuleKey.Charge.ToString(),
+                    "active kinematic ordering contract");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+                UnityEngine.Object.DestroyImmediate(chargeModule);
+                UnityEngine.Object.DestroyImmediate(chargeExecutionProfile);
+                UnityEngine.Object.DestroyImmediate(glideModule);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void EnemyAiProfileCompiler_DuplicateSummonBehaviorModules_FailsDuringCompile()
         {
             var minionProfile = CreateProfile();
@@ -502,6 +681,51 @@ namespace Game.Feature.Gameplay.Tests.Core
                     windupSeconds,
                     recoverySeconds));
             return module;
+        }
+
+        private static EnemyGlideBehaviorModuleAsset CreateGlideBehaviorModule(
+            string moduleName = "Test_EnemyGlideBehaviorModule",
+            int initialDelayTicks = 0,
+            int windupTicks = 0,
+            int durationTicks = 1,
+            int recoveryTicks = 0,
+            int cooldownTicks = 1,
+            int glideMoveTicks = 1,
+            float liftHeightCells = 0f,
+            float recoveryDipHeightCells = 0f)
+        {
+            var module = CreateAsset<EnemyGlideBehaviorModuleAsset>(moduleName);
+            SetSerializedField(
+                module,
+                "timing",
+                EnemyGlideTimingAuthoringSettings.FromRuntimeSettings(
+                    new EnemyGlideTimingSettings(
+                        initialDelayTicks,
+                        windupTicks,
+                        durationTicks,
+                        recoveryTicks,
+                        cooldownTicks,
+                        glideMoveTicks),
+                    60));
+            SetSerializedField(
+                module,
+                "presentationSettings",
+                new EnemyGlidePresentationAuthoringSettings(
+                    liftHeightCells,
+                    recoveryDipHeightCells));
+            return module;
+        }
+
+        private static JumpToLockedTargetCapabilityAsset CreateJumpCapability()
+        {
+            var capability = CreateAsset<JumpToLockedTargetCapabilityAsset>("Test_JumpToLockedTargetCapability");
+            SetSerializedField(
+                capability,
+                "jumpTimingSettings",
+                EnemyJumpTimingAuthoringSettings.FromRuntimeSettings(
+                    new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1),
+                    60));
+            return capability;
         }
 
         private static EnemySummonAuthoring CreateEnemySummonAuthoring(

@@ -447,4 +447,17 @@ namespace Game.Feature.Gameplay.Entities
                    state.InitialDelayTicksRemaining <= 0;
         }
     }
+
+    internal static class EnemyGlideSemanticQueries
+    {
+        public static bool IsActive(WorldSnapshot snapshot, int entityId)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            return snapshot.TryGetActiveEnemyGlideState(entityId, out _);
+        }
+    }
 }

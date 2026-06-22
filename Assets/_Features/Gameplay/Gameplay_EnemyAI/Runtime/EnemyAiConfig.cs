@@ -44,7 +44,7 @@ namespace Game.Feature.Gameplay.Entities
         None = 0,
         JumpToLockedTarget = 1,
         RetiredPhaseThroughLockedTarget = 2,
-        GlideOverSolid = 3,
+        RetiredGlideOverSolid = 3,
     }
 
     [Serializable]
@@ -1155,16 +1155,13 @@ namespace Game.Feature.Gameplay.Entities
             ? movementSkill.JumpTimingSettings
             : global::Game.Feature.Gameplay.Entities.EnemyJumpTimingSettings.CreateDefault();
 
-        public EnemyGlideTimingSettings GlideTimingSettings => Capabilities.TryGetMovementSkill(out var movementSkill) &&
-                                                               movementSkill.Kind == MovementSkillStrategyKind.GlideOverSolid
-            ? movementSkill.GlideTimingSettings
+        public EnemyGlideTimingSettings GlideTimingSettings => TryGetGlideBehavior(out var glide)
+            ? glide.Timing
             : global::Game.Feature.Gameplay.Entities.EnemyGlideTimingSettings.CreateDefault();
 
-        public EnemyGlidePresentationSettings GlidePresentationSettings =>
-            Capabilities.TryGetMovementSkill(out var movementSkill) &&
-            movementSkill.Kind == MovementSkillStrategyKind.GlideOverSolid
-                ? movementSkill.GlidePresentationSettings
-                : global::Game.Feature.Gameplay.Entities.EnemyGlidePresentationSettings.CreateDefault();
+        public EnemyGlidePresentationSettings GlidePresentationSettings => TryGetGlideBehavior(out var glide)
+            ? glide.PresentationSettings
+            : global::Game.Feature.Gameplay.Entities.EnemyGlidePresentationSettings.CreateDefault();
 
         public IPatrolStrategy PatrolStrategy => Brain.Patrol.Strategy;
 
@@ -1186,6 +1183,11 @@ namespace Game.Feature.Gameplay.Entities
         public bool TryGetSummonBehavior(out EnemySummonBehaviorRuntime summon)
         {
             return Behaviors.TryGetSummon(out summon);
+        }
+
+        public bool TryGetGlideBehavior(out EnemyGlideBehaviorRuntime glide)
+        {
+            return Behaviors.TryGetGlide(out glide);
         }
 
         public void Validate(string paramName)

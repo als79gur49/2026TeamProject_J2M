@@ -125,7 +125,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var showcaseProfile), Is.True);
             Assert.That(showcaseProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
-            Assert.That(showcaseProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
+            Assert.That(showcaseProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.None));
+            Assert.That(showcaseProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond).TryGetGlideBehavior(out _), Is.True);
             Assert.That(showcaseProfile.name, Is.EqualTo("EnemyAi_GlideChaser"));
         }
 
@@ -139,7 +140,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var glideChaserProfile), Is.True);
             Assert.That(glideChaserProfile.name, Is.EqualTo("EnemyAi_GlideChaser"));
             Assert.That(glideChaserProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
-            Assert.That(glideChaserProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
+            Assert.That(glideChaserProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.None));
+            Assert.That(glideChaserProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond).TryGetGlideBehavior(out _), Is.True);
             Assert.That(glideChaserProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.GreaterThan(0f));
         }
 

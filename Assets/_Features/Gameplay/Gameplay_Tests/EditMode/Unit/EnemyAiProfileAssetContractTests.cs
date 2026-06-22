@@ -55,6 +55,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_PassiveContactPatroller/EnemyAi_PassiveContactPatroller.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WallFollower/EnemyAi_WallFollower.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset",
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_GlideChaser/EnemyAi_GlideChaser.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_Charger/EnemyAi_Charger.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_WindupProjectile/EnemyAi_WindupProjectile.asset",
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_ArchetypeSummoner/EnemyAi_ArchetypeSummoner.asset",
@@ -424,6 +425,126 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 assetPaths,
                 Is.EquivalentTo(new[] { ArchetypeSummonerSummonBehaviorModulePath }),
                 "Production EnemySummonBehaviorModuleAsset instances must remain asset-scoped to the ArchetypeSummoner migration.");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MigratedGlide_ProfileHasBehaviorOwnerAndNoLegacyMovementSkillCapability()
+        {
+            var profile = LoadRequiredProfile(GlideChaserProfilePath);
+            var module = AssetDatabase.LoadAssetAtPath<EnemyGlideBehaviorModuleAsset>(
+                GlideChaserGlideBehaviorModulePath);
+            var passiveContactCapability = AssetDatabase.LoadAssetAtPath<EnemyPassiveContactCapabilityAsset>(
+                CommonPassiveContactCapabilityPath);
+            var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+            Assert.That(module, Is.Not.Null, GlideChaserGlideBehaviorModulePath);
+            Assert.That(passiveContactCapability, Is.Not.Null, CommonPassiveContactCapabilityPath);
+            Assert.That(profile.CapabilityAssets, Has.Count.EqualTo(1), GlideChaserProfilePath);
+            Assert.That(profile.CapabilityAssets[0], Is.SameAs(passiveContactCapability), GlideChaserProfilePath);
+            Assert.That(profile.BehaviorModuleAssets, Has.Count.EqualTo(1), GlideChaserProfilePath);
+            Assert.That(profile.BehaviorModuleAssets[0], Is.SameAs(module), GlideChaserProfilePath);
+            Assert.That(profile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.None), GlideChaserProfilePath);
+            Assert.That(definition.Capabilities.TryGetMovementSkill(out _), Is.False, GlideChaserProfilePath);
+            Assert.That(definition.TryGetGlideBehavior(out var glide), Is.True, GlideChaserProfilePath);
+            Assert.That(glide.Key, Is.EqualTo(EnemyBehaviorModuleKey.Glide));
+            Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
+            Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MigratedGlide_FieldMappingMatchesLegacyProductionBaseline()
+        {
+            var module = AssetDatabase.LoadAssetAtPath<EnemyGlideBehaviorModuleAsset>(
+                GlideChaserGlideBehaviorModulePath);
+            var definition = LoadRequiredProfile(GlideChaserProfilePath)
+                .CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+            Assert.That(module, Is.Not.Null, GlideChaserGlideBehaviorModulePath);
+            Assert.That(module.Key, Is.EqualTo(EnemyBehaviorModuleKey.Glide));
+            Assert.That(module.Timing.InitialDelaySeconds, Is.EqualTo(4f).Within(0.0001f));
+            Assert.That(module.Timing.WindupSeconds, Is.EqualTo(0.25f).Within(0.0001f));
+            Assert.That(module.Timing.DurationSeconds, Is.EqualTo(3f).Within(0.0001f));
+            Assert.That(module.Timing.RecoverySeconds, Is.EqualTo(0.25f).Within(0.0001f));
+            Assert.That(module.Timing.CooldownSeconds, Is.EqualTo(4f).Within(0.0001f));
+            Assert.That(module.Timing.GlideMoveDurationSeconds, Is.EqualTo(0.85f).Within(0.0001f));
+            Assert.That(module.PresentationSettings.LiftHeightCells, Is.EqualTo(1.25f).Within(0.0001f));
+            Assert.That(module.PresentationSettings.RecoveryDipHeightCells, Is.EqualTo(0f).Within(0.0001f));
+            Assert.That(definition.TryGetGlideBehavior(out var glide), Is.True);
+            Assert.That(glide.Timing.InitialDelayTicks, Is.EqualTo(240));
+            Assert.That(glide.Timing.WindupTicks, Is.EqualTo(15));
+            Assert.That(glide.Timing.DurationTicks, Is.EqualTo(180));
+            Assert.That(glide.Timing.RecoveryTicks, Is.EqualTo(15));
+            Assert.That(glide.Timing.CooldownTicks, Is.EqualTo(240));
+            Assert.That(glide.Timing.GlideMoveTicks, Is.EqualTo(52));
+            Assert.That(glide.PresentationSettings.LiftHeightUnits, Is.EqualTo(Mathf.RoundToInt(1.25f * KinematicFixed.UnitsPerCell)));
+            Assert.That(glide.PresentationSettings.RecoveryDipHeightUnits, Is.EqualTo(0));
+            Assert.That(definition.GlideTimingSettings.DurationTicks, Is.EqualTo(glide.Timing.DurationTicks));
+            Assert.That(definition.GlidePresentationSettings.LiftHeightUnits, Is.EqualTo(glide.PresentationSettings.LiftHeightUnits));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MigratedGlide_LegacyCapabilityAssetHasNoProductionReferences_AndTombstoneScriptRemains()
+        {
+            var profile = LoadRequiredProfile(GlideChaserProfilePath);
+            var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            var profileYaml = File.ReadAllText(GetAbsoluteAssetPath(GlideChaserProfilePath));
+
+            Assert.That(AssetDatabase.AssetPathToGUID(GlideChaserProfilePath), Is.EqualTo(GlideChaserProfileGuid));
+            Assert.That(AssetDatabase.AssetPathToGUID(GlideChaserGlideBehaviorModulePath), Is.EqualTo(GlideChaserGlideBehaviorModuleGuid));
+            Assert.That(AssetDatabase.AssetPathToGUID(GlideOverSolidCapabilitySourcePath), Is.EqualTo(GlideOverSolidCapabilityScriptGuid));
+            Assert.That(AssetDatabase.GUIDToAssetPath(GlideChaserLegacyGlideCapabilityGuid), Is.Empty);
+            Assert.That(File.Exists(GetAbsoluteAssetPath(GlideChaserLegacyGlideCapabilityPath)), Is.False, GlideChaserLegacyGlideCapabilityPath);
+            Assert.That(profileYaml, Does.Not.Contain(GlideChaserLegacyGlideCapabilityGuid), GlideChaserProfilePath);
+            Assert.That(profileYaml, Does.Not.Contain("EnemyCapability_GlideOverSolid_GlideChaser"), GlideChaserProfilePath);
+            Assert.That(profileYaml, Does.Contain(GlideChaserGlideBehaviorModuleGuid), GlideChaserProfilePath);
+            Assert.That(definition.Capabilities.TryGetMovementSkill(out _), Is.False, GlideChaserProfilePath);
+            Assert.That(definition.TryGetGlideBehavior(out _), Is.True, GlideChaserProfilePath);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MigratedGlide_ProductionAssetReimport_KeepsYamlAndMetaStable()
+        {
+            var assetPath = GetAbsoluteAssetPath(GlideChaserGlideBehaviorModulePath);
+            var metaPath = assetPath + ".meta";
+            var yamlBefore = File.ReadAllText(assetPath);
+            var metaBefore = File.ReadAllText(metaPath);
+            var moduleBefore = AssetDatabase.LoadAssetAtPath<EnemyGlideBehaviorModuleAsset>(
+                GlideChaserGlideBehaviorModulePath);
+
+            Assert.That(moduleBefore, Is.Not.Null, GlideChaserGlideBehaviorModulePath);
+            Assert.That(yamlBefore, Does.Contain("m_Script: {fileID: 11500000, guid: 14aa0d76cae8486bb2902a387365acaa"));
+            Assert.That(metaBefore, Does.Contain("guid: " + GlideChaserGlideBehaviorModuleGuid));
+            Assert.That(yamlBefore, Does.Not.Contain("managedReferences"));
+            Assert.That(yamlBefore, Does.Not.Contain(nameof(EnemyGlideRuntimeState)));
+
+            AssetDatabase.ImportAsset(GlideChaserGlideBehaviorModulePath, ImportAssetOptions.ForceUpdate);
+            AssetDatabase.Refresh();
+
+            var moduleAfter = AssetDatabase.LoadAssetAtPath<EnemyGlideBehaviorModuleAsset>(
+                GlideChaserGlideBehaviorModulePath);
+
+            Assert.That(moduleAfter, Is.Not.Null, GlideChaserGlideBehaviorModulePath);
+            Assert.That(File.ReadAllText(assetPath), Is.EqualTo(yamlBefore));
+            Assert.That(File.ReadAllText(metaPath), Is.EqualTo(metaBefore));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyGlideBehaviorModuleAssets_ProductionAllowlistContainsOnlyGlideChaser()
+        {
+            var assetPaths = AssetDatabase.FindAssets("t:EnemyGlideBehaviorModuleAsset", new[] { StageContentPaths.CampaignRoot })
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .OrderBy(path => path, System.StringComparer.Ordinal)
+                .ToArray();
+
+            Assert.That(
+                assetPaths,
+                Is.EquivalentTo(new[] { GlideChaserGlideBehaviorModulePath }),
+                "Production EnemyGlideBehaviorModuleAsset instances must remain asset-scoped to the Glider migration.");
         }
 
         [Test]
@@ -812,6 +933,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private const string JumpChaserProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset";
+
+        private const string GlideChaserProfilePath =
+            StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_GlideChaser/EnemyAi_GlideChaser.asset";
+        private const string GlideChaserProfileGuid =
+            "ee4160b1ea994e21b5b93ee5e5b66c8d";
+        private const string GlideChaserGlideBehaviorModulePath =
+            StageContentPaths.SharedEnemyAiRoot + "/BehaviorModules/Enemy_GlideChaser/EnemyGlideBehaviorModule_GlideChaser.asset";
+        private const string GlideChaserGlideBehaviorModuleGuid =
+            "d7e8f0185f0f4128ac6134a353402fe4";
+        private const string GlideChaserLegacyGlideCapabilityPath =
+            StageContentPaths.SharedEnemyAiRoot + "/Capabilities/Enemy_GlideChaser/EnemyCapability_GlideOverSolid_GlideChaser.asset";
+        private const string GlideChaserLegacyGlideCapabilityGuid =
+            "ad9b7109556a4fa39c2f024587232ba2";
+        private const string GlideOverSolidCapabilitySourcePath =
+            "Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/GlideOverSolidCapabilityAsset.cs";
+        private const string GlideOverSolidCapabilityScriptGuid =
+            "d057df79daa540a68b9a3ee57d02c7da";
 
         private const string ArchetypeSummonerProfilePath =
             StageContentPaths.SharedEnemyAiRoot + "/Profiles/Enemy_ArchetypeSummoner/EnemyAi_ArchetypeSummoner.asset";
