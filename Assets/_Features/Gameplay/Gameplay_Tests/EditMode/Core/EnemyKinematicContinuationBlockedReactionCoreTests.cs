@@ -480,8 +480,8 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             return new UnitKinematicRuntimeState
             {
-                localOffset = new KinematicOffset2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
-                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                localOffset = new SimulationOffset2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                velocity = new SimulationVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
                 mode = MotionMode.Voluntary,
                 forcedOp = ForcedMotionOp.None,
                 remainingDistanceUnits = 3072,

@@ -584,8 +584,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             20,
                             MotionMode.Held,
                             ForcedMotionOp.None,
-                            sourceLocalOffset: new KinematicOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero),
-                            destinationLocalOffset: new KinematicOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero)),
+                            sourceLocalOffset: new SimulationOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero),
+                            destinationLocalOffset: new SimulationOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero)),
                         CreateKinematicTrack(
                             21,
                             MotionMode.Voluntary,
@@ -2663,8 +2663,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             ForcedMotionOp forcedMotionOp,
             EntityType entityType = EntityType.Unit,
             TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None,
-            KinematicOffset2? sourceLocalOffset = null,
-            KinematicOffset2? destinationLocalOffset = null,
+            SimulationOffset2? sourceLocalOffset = null,
+            SimulationOffset2? destinationLocalOffset = null,
             int startedTick = 0,
             int elapsedTicks = 0,
             int totalTicks = 0)
@@ -2672,9 +2672,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new TickKinematicMotionTrack(
                 entityId,
                 new SurfaceCell(FaceId.Floor, 0, 0),
-                sourceLocalOffset ?? KinematicOffset2.Zero,
+                sourceLocalOffset ?? SimulationOffset2.Zero,
                 new SurfaceCell(FaceId.Floor, 1, 0),
-                destinationLocalOffset ?? KinematicOffset2.Zero,
+                destinationLocalOffset ?? SimulationOffset2.Zero,
                 motionMode,
                 forcedMotionOp,
                 entityType,

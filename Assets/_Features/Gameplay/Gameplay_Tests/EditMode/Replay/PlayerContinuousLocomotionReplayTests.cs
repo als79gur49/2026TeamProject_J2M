@@ -568,10 +568,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 10,
                 new UnitContinuousLocomotionState
                 {
-                    localOffset = new KinematicOffset2(
+                    localOffset = new SimulationOffset2(
                         KinematicFixed.FromRaw(localX),
                         KinematicFixed.FromRaw(localY)),
-                    velocity = KinematicVelocity2.Zero,
+                    velocity = SimulationVelocity2.Zero,
                     facing = Direction.Right,
                     lastMoveDirection = Direction.Right,
                     speedUnitsPerTick = 0,

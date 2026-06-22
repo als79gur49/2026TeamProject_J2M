@@ -976,9 +976,9 @@ namespace Game.Feature.Gameplay.Loop
         public TickKinematicMotionTrack(
             int entityId,
             SurfaceCell sourceAnchorCell,
-            KinematicOffset2 sourceLocalOffset,
+            SimulationOffset2 sourceLocalOffset,
             SurfaceCell destinationAnchorCell,
-            KinematicOffset2 destinationLocalOffset,
+            SimulationOffset2 destinationLocalOffset,
             MotionMode motionMode,
             ForcedMotionOp forcedMotionOp,
             TickKinematicMotionTerminalKind terminalKind = TickKinematicMotionTerminalKind.None,
@@ -1008,9 +1008,9 @@ namespace Game.Feature.Gameplay.Loop
         public TickKinematicMotionTrack(
             int entityId,
             SurfaceCell sourceAnchorCell,
-            KinematicOffset2 sourceLocalOffset,
+            SimulationOffset2 sourceLocalOffset,
             SurfaceCell destinationAnchorCell,
-            KinematicOffset2 destinationLocalOffset,
+            SimulationOffset2 destinationLocalOffset,
             MotionMode motionMode,
             ForcedMotionOp forcedMotionOp,
             EntityType entityType,
@@ -1045,11 +1045,11 @@ namespace Game.Feature.Gameplay.Loop
 
         public SurfaceCell SourceAnchorCell { get; }
 
-        public KinematicOffset2 SourceLocalOffset { get; }
+        public SimulationOffset2 SourceLocalOffset { get; }
 
         public SurfaceCell DestinationAnchorCell { get; }
 
-        public KinematicOffset2 DestinationLocalOffset { get; }
+        public SimulationOffset2 DestinationLocalOffset { get; }
 
         public MotionMode MotionMode { get; }
 
@@ -1079,9 +1079,9 @@ namespace Game.Feature.Gameplay.Loop
         public TickContinuousLocomotionTrack(
             int entityId,
             SurfaceCell sourceAnchorCell,
-            KinematicOffset2 sourceLocalOffset,
+            SimulationOffset2 sourceLocalOffset,
             SurfaceCell destinationAnchorCell,
-            KinematicOffset2 destinationLocalOffset,
+            SimulationOffset2 destinationLocalOffset,
             Direction sourceFacing,
             Direction destinationFacing,
             ContinuousLocomotionMode mode,
@@ -1106,9 +1106,9 @@ namespace Game.Feature.Gameplay.Loop
         public TickContinuousLocomotionTrack(
             int entityId,
             SurfaceCell sourceAnchorCell,
-            KinematicOffset2 sourceLocalOffset,
+            SimulationOffset2 sourceLocalOffset,
             SurfaceCell destinationAnchorCell,
-            KinematicOffset2 destinationLocalOffset,
+            SimulationOffset2 destinationLocalOffset,
             Direction sourceFacing,
             Direction destinationFacing,
             ContinuousLocomotionMode mode,
@@ -1137,11 +1137,11 @@ namespace Game.Feature.Gameplay.Loop
 
         public SurfaceCell SourceAnchorCell { get; }
 
-        public KinematicOffset2 SourceLocalOffset { get; }
+        public SimulationOffset2 SourceLocalOffset { get; }
 
         public SurfaceCell DestinationAnchorCell { get; }
 
-        public KinematicOffset2 DestinationLocalOffset { get; }
+        public SimulationOffset2 DestinationLocalOffset { get; }
 
         public Direction SourceFacing { get; }
 

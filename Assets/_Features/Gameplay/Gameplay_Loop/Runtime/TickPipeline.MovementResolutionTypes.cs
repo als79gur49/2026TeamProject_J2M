@@ -529,10 +529,10 @@ namespace Game.Feature.Gameplay.Loop
         public KinematicMotionOutcome(
             int entityId,
             SurfaceCell sourceAnchorCell,
-            KinematicOffset2 sourceLocalOffset,
+            SimulationOffset2 sourceLocalOffset,
             SurfaceCell resolvedAnchorCell,
-            KinematicOffset2 resolvedLocalOffset,
-            KinematicVelocity2 resolvedVelocity,
+            SimulationOffset2 resolvedLocalOffset,
+            SimulationVelocity2 resolvedVelocity,
             UnitKinematicRuntimeState resolvedState,
             bool anchorChanged,
             bool blocked,
@@ -554,13 +554,13 @@ namespace Game.Feature.Gameplay.Loop
 
         public SurfaceCell SourceAnchorCell { get; }
 
-        public KinematicOffset2 SourceLocalOffset { get; }
+        public SimulationOffset2 SourceLocalOffset { get; }
 
         public SurfaceCell ResolvedAnchorCell { get; }
 
-        public KinematicOffset2 ResolvedLocalOffset { get; }
+        public SimulationOffset2 ResolvedLocalOffset { get; }
 
-        public KinematicVelocity2 ResolvedVelocity { get; }
+        public SimulationVelocity2 ResolvedVelocity { get; }
 
         public UnitKinematicRuntimeState ResolvedState { get; }
 
@@ -575,7 +575,7 @@ namespace Game.Feature.Gameplay.Loop
     {
         public UnitLocomotionIntent(
             int entityId,
-            KinematicVelocity2 requestedDelta,
+            SimulationVelocity2 requestedDelta,
             MotionMode requestedMode,
             ForcedMotionOp forcedOp = ForcedMotionOp.None)
         {
@@ -587,7 +587,7 @@ namespace Game.Feature.Gameplay.Loop
 
         public int EntityId { get; }
 
-        public KinematicVelocity2 RequestedDelta { get; }
+        public SimulationVelocity2 RequestedDelta { get; }
 
         public MotionMode RequestedMode { get; }
 
@@ -599,7 +599,7 @@ namespace Game.Feature.Gameplay.Loop
         public ForcedMotionOpRequest(
             int entityId,
             ForcedMotionOp forcedOp,
-            KinematicVelocity2 requestedDelta,
+            SimulationVelocity2 requestedDelta,
             int startTick)
         {
             EntityId = entityId;
@@ -612,7 +612,7 @@ namespace Game.Feature.Gameplay.Loop
 
         public ForcedMotionOp ForcedOp { get; }
 
-        public KinematicVelocity2 RequestedDelta { get; }
+        public SimulationVelocity2 RequestedDelta { get; }
 
         public int StartTick { get; }
     }

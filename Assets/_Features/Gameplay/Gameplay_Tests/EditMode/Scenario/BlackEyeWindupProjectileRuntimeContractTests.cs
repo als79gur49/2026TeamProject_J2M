@@ -1220,10 +1220,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             return new UnitKinematicRuntimeState
             {
-                localOffset = new KinematicOffset2(
+                localOffset = new SimulationOffset2(
                     KinematicFixed.FromRaw(KinematicFixed.UnitsPerCell / 4),
                     KinematicFixed.Zero),
-                velocity = KinematicVelocity2.Zero,
+                velocity = SimulationVelocity2.Zero,
                 mode = MotionMode.Voluntary,
                 forcedOp = ForcedMotionOp.None,
                 remainingDistanceUnits = KinematicFixed.UnitsPerCell / 4,

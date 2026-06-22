@@ -161,8 +161,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var state = new UnitKinematicRuntimeState
             {
-                localOffset = new KinematicOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero),
-                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(128), KinematicFixed.Zero),
+                localOffset = new SimulationOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero),
+                velocity = new SimulationVelocity2(KinematicFixed.FromRaw(128), KinematicFixed.Zero),
                 mode = MotionMode.Charge,
                 remainingDistanceUnits = 3584,
                 remainingTicks = 3,
@@ -395,8 +395,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return new UnitKinematicRuntimeState
             {
-                localOffset = new KinematicOffset2(KinematicFixed.FromRaw(localX), KinematicFixed.FromRaw(localY)),
-                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(localX == 0 ? 0 : 1024), KinematicFixed.Zero),
+                localOffset = new SimulationOffset2(KinematicFixed.FromRaw(localX), KinematicFixed.FromRaw(localY)),
+                velocity = new SimulationVelocity2(KinematicFixed.FromRaw(localX == 0 ? 0 : 1024), KinematicFixed.Zero),
                 mode = MotionMode.Voluntary,
                 forcedOp = ForcedMotionOp.None,
                 remainingDistanceUnits = 4096,
@@ -413,7 +413,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static UnitKinematicRuntimeState CreateHeldStepState(
-            KinematicOffset2 localOffset,
+            SimulationOffset2 localOffset,
             int elapsedTicks,
             int stepX,
             int stepY)
@@ -421,7 +421,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new UnitKinematicRuntimeState
             {
                 localOffset = localOffset,
-                velocity = KinematicVelocity2.Zero,
+                velocity = SimulationVelocity2.Zero,
                 mode = MotionMode.Held,
                 forcedOp = ForcedMotionOp.None,
                 remainingDistanceUnits = KinematicFixed.UnitsPerCell,

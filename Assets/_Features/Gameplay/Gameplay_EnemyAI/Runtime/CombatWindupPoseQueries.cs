@@ -526,7 +526,7 @@ namespace Game.Feature.Gameplay.Entities
 
         private static CombatOriginAnchor CreateOrigin(
             SurfaceCell anchorCell,
-            KinematicOffset2 localOffset,
+            SimulationOffset2 localOffset,
             Direction facing)
         {
             return new CombatOriginAnchor(

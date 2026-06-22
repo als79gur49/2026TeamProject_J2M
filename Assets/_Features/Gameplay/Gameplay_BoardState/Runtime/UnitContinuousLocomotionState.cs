@@ -11,8 +11,8 @@ namespace Game.Feature.Gameplay.BoardState
 
     public struct UnitContinuousLocomotionState : IEquatable<UnitContinuousLocomotionState>
     {
-        public KinematicOffset2 localOffset;
-        public KinematicVelocity2 velocity;
+        public SimulationOffset2 localOffset;
+        public SimulationVelocity2 velocity;
         public Direction facing;
         public Direction? lastMoveDirection;
         public int speedUnitsPerTick;
@@ -58,7 +58,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
             else if (normalized.mode == ContinuousLocomotionMode.Idle)
             {
-                normalized.velocity = KinematicVelocity2.Zero;
+                normalized.velocity = SimulationVelocity2.Zero;
             }
             else if (normalized.velocity.IsZero)
             {
@@ -74,7 +74,7 @@ namespace Game.Feature.Gameplay.BoardState
             return new UnitContinuousLocomotionState
             {
                 localOffset = normalizedSource.localOffset,
-                velocity = KinematicVelocity2.Zero,
+                velocity = SimulationVelocity2.Zero,
                 facing = normalizedSource.facing,
                 lastMoveDirection = normalizedSource.lastMoveDirection,
                 speedUnitsPerTick = normalizedSource.speedUnitsPerTick,
@@ -149,7 +149,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public bool HasAuthoritativeState { get; }
 
-        public KinematicOffset2 LocalOffset => State.localOffset;
+        public SimulationOffset2 LocalOffset => State.localOffset;
 
         public ContinuousLocomotionMode Mode => State.mode;
 

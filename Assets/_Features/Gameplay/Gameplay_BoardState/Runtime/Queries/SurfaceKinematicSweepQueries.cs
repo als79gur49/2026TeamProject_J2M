@@ -21,8 +21,8 @@ namespace Game.Feature.Gameplay.BoardState
             int entityId,
             UnitKinematicPose sourcePose,
             SurfaceCell resolvedAnchorCell,
-            KinematicOffset2 resolvedLocalOffset,
-            KinematicVelocity2 resolvedVelocity,
+            SimulationOffset2 resolvedLocalOffset,
+            SimulationVelocity2 resolvedVelocity,
             bool anchorChanged,
             bool blocked,
             KinematicSweepRejectionReason rejectedBy)
@@ -43,9 +43,9 @@ namespace Game.Feature.Gameplay.BoardState
 
         public SurfaceCell ResolvedAnchorCell { get; }
 
-        public KinematicOffset2 ResolvedLocalOffset { get; }
+        public SimulationOffset2 ResolvedLocalOffset { get; }
 
-        public KinematicVelocity2 ResolvedVelocity { get; }
+        public SimulationVelocity2 ResolvedVelocity { get; }
 
         public bool AnchorChanged { get; }
 
@@ -74,7 +74,7 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool TryResolveSameFaceDelta(
             WorldSnapshot snapshot,
             int entityId,
-            KinematicVelocity2 delta,
+            SimulationVelocity2 delta,
             out KinematicSweepResult result,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
         {
@@ -110,7 +110,7 @@ namespace Game.Feature.Gameplay.BoardState
                     entityId,
                     pose,
                     pose.AnchorCell,
-                    new KinematicOffset2(KinematicFixed.FromRaw(targetX), KinematicFixed.FromRaw(targetY)),
+                    new SimulationOffset2(KinematicFixed.FromRaw(targetX), KinematicFixed.FromRaw(targetY)),
                     delta,
                     anchorChanged: false,
                     blocked: false,
@@ -168,7 +168,7 @@ namespace Game.Feature.Gameplay.BoardState
                 pose,
                 pose.AnchorCell,
                 pose.LocalOffset,
-                KinematicVelocity2.Zero,
+                SimulationVelocity2.Zero,
                 anchorChanged: false,
                 blocked: true,
                 rejectedBy: reason);
@@ -177,7 +177,7 @@ namespace Game.Feature.Gameplay.BoardState
         private static KinematicSweepResult CreateClamped(
             int entityId,
             UnitKinematicPose pose,
-            KinematicVelocity2 delta,
+            SimulationVelocity2 delta,
             Vector2Int anchorDelta,
             KinematicSweepRejectionReason reason)
         {
@@ -204,14 +204,14 @@ namespace Game.Feature.Gameplay.BoardState
                 entityId,
                 pose,
                 pose.AnchorCell,
-                new KinematicOffset2(KinematicFixed.FromRaw(clampX), KinematicFixed.FromRaw(clampY)),
-                KinematicVelocity2.Zero,
+                new SimulationOffset2(KinematicFixed.FromRaw(clampX), KinematicFixed.FromRaw(clampY)),
+                SimulationVelocity2.Zero,
                 anchorChanged: false,
                 blocked: true,
                 rejectedBy: reason);
         }
 
-        private static KinematicOffset2 NormalizeCrossedOffset(int targetX, int targetY, Vector2Int anchorDelta)
+        private static SimulationOffset2 NormalizeCrossedOffset(int targetX, int targetY, Vector2Int anchorDelta)
         {
             if (anchorDelta.x > 0)
             {
@@ -230,7 +230,7 @@ namespace Game.Feature.Gameplay.BoardState
                 targetY += KinematicFixed.UnitsPerCell;
             }
 
-            return new KinematicOffset2(KinematicFixed.FromRaw(targetX), KinematicFixed.FromRaw(targetY));
+            return new SimulationOffset2(KinematicFixed.FromRaw(targetX), KinematicFixed.FromRaw(targetY));
         }
     }
 }

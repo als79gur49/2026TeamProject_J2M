@@ -836,8 +836,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 1),
                 Vector2Int.up,
-                new KinematicOffset2(KinematicFixed.FromRaw(384), KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationOffset2(KinematicFixed.FromRaw(384), KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
                 collisionRadiusUnits: 0,
                 out var rejectReason,
                 out var remap);
@@ -859,8 +859,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 0),
                 Vector2Int.down,
-                new KinematicOffset2(KinematicFixed.FromRaw(-384), KinematicFixed.FromRaw(KinematicFixed.MinLocalOffset)),
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(-1024)),
+                new SimulationOffset2(KinematicFixed.FromRaw(-384), KinematicFixed.FromRaw(KinematicFixed.MinLocalOffset)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(-1024)),
                 collisionRadiusUnits: 0,
                 out var rejectReason,
                 out var remap);
@@ -884,8 +884,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 1),
                 Vector2Int.up,
-                new KinematicOffset2(KinematicFixed.FromRaw(512), KinematicFixed.FromRaw(sourceThresholdY - 1024)),
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationOffset2(KinematicFixed.FromRaw(512), KinematicFixed.FromRaw(sourceThresholdY - 1024)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
                 radius,
                 out var rejectReason,
                 out _);
@@ -905,8 +905,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 0),
                 Vector2Int.down,
-                new KinematicOffset2(KinematicFixed.FromRaw(-512), KinematicFixed.FromRaw(sourceThresholdY + 1024)),
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(-1024)),
+                new SimulationOffset2(KinematicFixed.FromRaw(-512), KinematicFixed.FromRaw(sourceThresholdY + 1024)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(-1024)),
                 radius,
                 out var rejectReason,
                 out _);
@@ -925,8 +925,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 1),
                 Vector2Int.up,
-                new KinematicOffset2(KinematicFixed.Zero, KinematicFixed.FromRaw(KinematicFixed.HalfCellUnits - radius - 1025)),
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationOffset2(KinematicFixed.Zero, KinematicFixed.FromRaw(KinematicFixed.HalfCellUnits - radius - 1025)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
                 radius,
                 out var rejectReason,
                 out _);
@@ -944,8 +944,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Front, 0, 1),
                 Vector2Int.right,
-                KinematicOffset2.Zero,
-                new KinematicVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                SimulationOffset2.Zero,
+                new SimulationVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
                 collisionRadiusUnits: 0,
                 out var rejectReason,
                 out _);
@@ -971,7 +971,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState.CreateSnapshot(),
                 10,
                 Vector2Int.up,
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
                 collisionRadiusUnits: 0,
                 out var result);
 
@@ -998,7 +998,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState.CreateSnapshot(),
                 10,
                 Vector2Int.up,
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
                 collisionRadiusUnits: 0,
                 out var result);
 
@@ -1134,7 +1134,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 unrelatedWorldState.CreateSnapshot(),
                 20,
                 Vector2Int.up,
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
                 collisionRadiusUnits: 0,
                 out var unrelatedResult,
                 new[] { CreateDefinition(101, TileFeatureActivationRule.FrontFaceOnly) });
@@ -1202,7 +1202,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 StateQuery.BuildActorRef(snapshot, actor),
                 sourceCell,
-                new KinematicOffset2(KinematicFixed.FromRaw(oneBeyondX), KinematicFixed.Zero),
+                new SimulationOffset2(KinematicFixed.FromRaw(oneBeyondX), KinematicFixed.Zero),
                 radius,
                 snapshot.Topology,
                 null,
@@ -1234,7 +1234,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 StateQuery.BuildActorRef(snapshot, actor),
                 sourceCell,
-                new KinematicOffset2(KinematicFixed.FromRaw(oneBeyondX), KinematicFixed.Zero),
+                new SimulationOffset2(KinematicFixed.FromRaw(oneBeyondX), KinematicFixed.Zero),
                 radius,
                 snapshot.Topology,
                 null,
@@ -1292,7 +1292,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState.CreateSnapshot(),
                 10,
                 Vector2Int.up,
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speed)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speed)),
                 radius,
                 out var result);
 
@@ -1352,7 +1352,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState.CreateSnapshot(),
                 10,
                 Vector2Int.up,
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speed)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speed)),
                 radius,
                 out var result);
 
@@ -1380,7 +1380,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState.CreateSnapshot(),
                 10,
                 Vector2Int.up,
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
                 collisionRadiusUnits: 0,
                 out var result,
                 new[] { CreateDefinition(100, activationRule) });
@@ -1419,10 +1419,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 entityId,
                 new UnitContinuousLocomotionState
                 {
-                    localOffset = new KinematicOffset2(
+                    localOffset = new SimulationOffset2(
                         KinematicFixed.FromRaw(localX),
                         KinematicFixed.FromRaw(localY)),
-                    velocity = KinematicVelocity2.Zero,
+                    velocity = SimulationVelocity2.Zero,
                     facing = Direction.Up,
                     lastMoveDirection = Direction.Up,
                     speedUnitsPerTick = speedUnitsPerTick,
@@ -1465,10 +1465,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 1),
                 Vector2Int.up,
-                new KinematicOffset2(
+                new SimulationOffset2(
                     KinematicFixed.FromRaw(localX),
                     KinematicFixed.FromRaw(sourceThresholdY - speedUnitsPerTick + 1)),
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speedUnitsPerTick)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speedUnitsPerTick)),
                 radiusUnits,
                 out var rejectReason,
                 out var remap);
@@ -1507,7 +1507,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState.CreateSnapshot(),
                 10,
                 Vector2Int.up,
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speedUnitsPerTick)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speedUnitsPerTick)),
                 radiusUnits,
                 out var result);
             return (resolved, result);
@@ -1534,7 +1534,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 StateQuery.BuildActorRef(snapshot, actor),
                 sourceCell,
-                new KinematicOffset2(KinematicFixed.FromRaw(oneBeyondX), KinematicFixed.Zero),
+                new SimulationOffset2(KinematicFixed.FromRaw(oneBeyondX), KinematicFixed.Zero),
                 radius,
                 snapshot.Topology,
                 new[] { CreateDefinition(100, activationRule) },

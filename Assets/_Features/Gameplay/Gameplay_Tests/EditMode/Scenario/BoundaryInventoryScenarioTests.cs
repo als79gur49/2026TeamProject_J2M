@@ -940,10 +940,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 10,
                 new UnitContinuousLocomotionState
                 {
-                    localOffset = new KinematicOffset2(
+                    localOffset = new SimulationOffset2(
                         KinematicFixed.FromRaw(256),
                         KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
-                    velocity = KinematicVelocity2.Zero,
+                    velocity = SimulationVelocity2.Zero,
                     facing = Direction.Right,
                     lastMoveDirection = Direction.Right,
                     mode = ContinuousLocomotionMode.Idle,
@@ -984,10 +984,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 10,
                 new UnitContinuousLocomotionState
                 {
-                    localOffset = new KinematicOffset2(
+                    localOffset = new SimulationOffset2(
                         KinematicFixed.FromRaw(256),
                         KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
-                    velocity = KinematicVelocity2.Zero,
+                    velocity = SimulationVelocity2.Zero,
                     facing = Direction.Right,
                     lastMoveDirection = Direction.Right,
                     mode = ContinuousLocomotionMode.Idle,
@@ -3006,10 +3006,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 10,
                 new UnitContinuousLocomotionState
                 {
-                    localOffset = new KinematicOffset2(
+                    localOffset = new SimulationOffset2(
                         KinematicFixed.FromRaw(localX),
                         KinematicFixed.FromRaw(localY)),
-                    velocity = KinematicVelocity2.Zero,
+                    velocity = SimulationVelocity2.Zero,
                     facing = Direction.Right,
                     lastMoveDirection = Direction.Right,
                     speedUnitsPerTick = speedUnitsPerTick,

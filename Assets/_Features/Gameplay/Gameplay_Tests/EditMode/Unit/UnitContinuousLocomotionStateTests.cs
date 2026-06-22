@@ -18,8 +18,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var baselineHash = BuildHash(worldState.CreateSnapshot());
             var idleZeroWithProgressMetadata = new UnitContinuousLocomotionState
             {
-                localOffset = KinematicOffset2.Zero,
-                velocity = KinematicVelocity2.Zero,
+                localOffset = SimulationOffset2.Zero,
+                velocity = SimulationVelocity2.Zero,
                 facing = Direction.Right,
                 lastMoveDirection = Direction.Right,
                 speedUnitsPerTick = 410,
@@ -48,8 +48,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
             var alignState = new UnitContinuousLocomotionState
             {
-                localOffset = new KinematicOffset2(KinematicFixed.FromRaw(1280), KinematicFixed.Zero),
-                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(-205), KinematicFixed.Zero),
+                localOffset = new SimulationOffset2(KinematicFixed.FromRaw(1280), KinematicFixed.Zero),
+                velocity = new SimulationVelocity2(KinematicFixed.FromRaw(-205), KinematicFixed.Zero),
                 facing = Direction.Right,
                 lastMoveDirection = Direction.Right,
                 speedUnitsPerTick = 205,
@@ -72,8 +72,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
             var alignZero = new UnitContinuousLocomotionState
             {
-                localOffset = KinematicOffset2.Zero,
-                velocity = KinematicVelocity2.Zero,
+                localOffset = SimulationOffset2.Zero,
+                velocity = SimulationVelocity2.Zero,
                 facing = Direction.Right,
                 lastMoveDirection = Direction.Right,
                 speedUnitsPerTick = 205,
@@ -169,8 +169,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return new UnitContinuousLocomotionState
             {
-                localOffset = new KinematicOffset2(KinematicFixed.FromRaw(localX), KinematicFixed.FromRaw(localY)),
-                velocity = new KinematicVelocity2(
+                localOffset = new SimulationOffset2(KinematicFixed.FromRaw(localX), KinematicFixed.FromRaw(localY)),
+                velocity = new SimulationVelocity2(
                     KinematicFixed.FromRaw(localX == 0 ? 0 : 410),
                     KinematicFixed.FromRaw(localY == 0 ? 0 : 410)),
                 facing = localX < 0 ? Direction.Left : Direction.Right,
@@ -185,8 +185,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return new UnitKinematicRuntimeState
             {
-                localOffset = new KinematicOffset2(KinematicFixed.FromRaw(localX), KinematicFixed.FromRaw(localY)),
-                velocity = new KinematicVelocity2(KinematicFixed.FromRaw(410), KinematicFixed.Zero),
+                localOffset = new SimulationOffset2(KinematicFixed.FromRaw(localX), KinematicFixed.FromRaw(localY)),
+                velocity = new SimulationVelocity2(KinematicFixed.FromRaw(410), KinematicFixed.Zero),
                 mode = MotionMode.Voluntary,
                 forcedOp = ForcedMotionOp.None,
                 remainingDistanceUnits = KinematicFixed.UnitsPerCell,

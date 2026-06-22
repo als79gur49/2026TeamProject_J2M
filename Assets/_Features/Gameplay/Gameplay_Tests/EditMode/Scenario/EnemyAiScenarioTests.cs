@@ -360,8 +360,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 40,
                 new UnitKinematicRuntimeState
                 {
-                    localOffset = new KinematicOffset2(KinematicFixed.FromRaw(256), KinematicFixed.Zero),
-                    velocity = new KinematicVelocity2(KinematicFixed.FromRaw(128), KinematicFixed.Zero),
+                    localOffset = new SimulationOffset2(KinematicFixed.FromRaw(256), KinematicFixed.Zero),
+                    velocity = new SimulationVelocity2(KinematicFixed.FromRaw(128), KinematicFixed.Zero),
                     mode = MotionMode.Forced,
                     forcedOp = ForcedMotionOp.Knockback,
                     sequenceId = 1,
@@ -481,8 +481,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 40,
                 new UnitKinematicRuntimeState
                 {
-                    localOffset = new KinematicOffset2(KinematicFixed.FromRaw(256), KinematicFixed.Zero),
-                    velocity = new KinematicVelocity2(KinematicFixed.FromRaw(128), KinematicFixed.Zero),
+                    localOffset = new SimulationOffset2(KinematicFixed.FromRaw(256), KinematicFixed.Zero),
+                    velocity = new SimulationVelocity2(KinematicFixed.FromRaw(128), KinematicFixed.Zero),
                     mode = MotionMode.Forced,
                     forcedOp = ForcedMotionOp.Knockback,
                     sequenceId = 1,
@@ -4804,8 +4804,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 40,
                 new UnitKinematicRuntimeState
                 {
-                    localOffset = new KinematicOffset2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
-                    velocity = new KinematicVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                    localOffset = new SimulationOffset2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                    velocity = new SimulationVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
                     mode = MotionMode.Voluntary,
                     remainingDistanceUnits = 3072,
                     remainingTicks = 3,
@@ -5678,8 +5678,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 40,
                 new UnitKinematicRuntimeState
                 {
-                    localOffset = new KinematicOffset2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
-                    velocity = new KinematicVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                    localOffset = new SimulationOffset2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                    velocity = new SimulationVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
                     mode = MotionMode.Charge,
                     remainingDistanceUnits = 3072,
                     remainingTicks = 3,
@@ -6846,10 +6846,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 entityId,
                 new UnitContinuousLocomotionState
                 {
-                    localOffset = new KinematicOffset2(
+                    localOffset = new SimulationOffset2(
                         KinematicFixed.FromRaw(localX),
                         KinematicFixed.FromRaw(localY)),
-                    velocity = new KinematicVelocity2(
+                    velocity = new SimulationVelocity2(
                         KinematicFixed.FromRaw(velocityX),
                         KinematicFixed.FromRaw(velocityY)),
                     mode = mode,
@@ -6886,10 +6886,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 entityId,
                 new UnitKinematicRuntimeState
                 {
-                    localOffset = new KinematicOffset2(
+                    localOffset = new SimulationOffset2(
                         KinematicFixed.FromRaw(localX),
                         KinematicFixed.FromRaw(localY)),
-                    velocity = new KinematicVelocity2(
+                    velocity = new SimulationVelocity2(
                         KinematicFixed.FromRaw(stepDirectionX * KinematicFixed.UnitsPerCell / 4),
                         KinematicFixed.FromRaw(stepDirectionY * KinematicFixed.UnitsPerCell / 4)),
                     mode = MotionMode.Voluntary,
@@ -8309,7 +8309,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(entityId, out var entity), Is.True);
             var anchor = new CombatOriginAnchor(
                 entity.position,
-                KinematicOffset2.Zero,
+                SimulationOffset2.Zero,
                 entity.position.x * KinematicFixed.UnitsPerCell,
                 entity.position.y * KinematicFixed.UnitsPerCell,
                 Direction.Left);

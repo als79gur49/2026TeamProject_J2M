@@ -651,7 +651,7 @@ namespace Game.Feature.Gameplay.Tests.Core
             return new UnitKinematicRuntimeState
             {
                 localOffset = resolution.LocalOffset,
-                velocity = new KinematicVelocity2(
+                velocity = new SimulationVelocity2(
                     KinematicFixed.FromRaw(stepDirectionX * KinematicFixed.UnitsPerCell / totalTicks),
                     KinematicFixed.FromRaw(stepDirectionY * KinematicFixed.UnitsPerCell / totalTicks)),
                 mode = MotionMode.Voluntary,

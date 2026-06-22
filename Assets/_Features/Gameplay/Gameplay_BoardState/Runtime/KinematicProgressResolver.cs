@@ -6,7 +6,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
         public KinematicProgressResolution(
             SurfaceCell anchorCell,
-            KinematicOffset2 localOffset,
+            SimulationOffset2 localOffset,
             bool isAnchorCommitTick,
             bool isSettled,
             int remainingTicks,
@@ -24,7 +24,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public SurfaceCell AnchorCell { get; }
 
-        public KinematicOffset2 LocalOffset { get; }
+        public SimulationOffset2 LocalOffset { get; }
 
         public bool IsAnchorCommitTick { get; }
 
@@ -135,7 +135,7 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 return new KinematicProgressResolution(
                     currentAnchor,
-                    KinematicOffset2.Zero,
+                    SimulationOffset2.Zero,
                     isAnchorCommitTick: false,
                     isSettled: true,
                     remainingTicks: 0,
@@ -185,18 +185,18 @@ namespace Game.Feature.Gameplay.BoardState
             return Math.Abs(x) + Math.Abs(y) == 1;
         }
 
-        private static KinematicVelocity2 CreateDebugVelocity(int stepDirectionX, int stepDirectionY)
+        private static SimulationVelocity2 CreateDebugVelocity(int stepDirectionX, int stepDirectionY)
         {
-            return new KinematicVelocity2(
-                KinematicFixed.FromRaw(stepDirectionX * KinematicFixed.DefaultPlayerUnitsPerTick),
-                KinematicFixed.FromRaw(stepDirectionY * KinematicFixed.DefaultPlayerUnitsPerTick));
+            return new SimulationVelocity2(
+                KinematicFixed.FromRaw(stepDirectionX * KinematicFixed.DefaultReferenceUnitsPerTick),
+                KinematicFixed.FromRaw(stepDirectionY * KinematicFixed.DefaultReferenceUnitsPerTick));
         }
 
         private static int ResolvePoseDeltaRawUnits(
             SurfaceCell oldAnchor,
-            KinematicOffset2 oldOffset,
+            SimulationOffset2 oldOffset,
             SurfaceCell newAnchor,
-            KinematicOffset2 newOffset)
+            SimulationOffset2 newOffset)
         {
             if (oldAnchor.face != newAnchor.face)
             {
@@ -210,16 +210,16 @@ namespace Game.Feature.Gameplay.BoardState
             return (int)Math.Max(Math.Abs(oldWorldX - newWorldX), Math.Abs(oldWorldY - newWorldY));
         }
 
-        private static KinematicOffset2 CreateAxisOffset(int stepDirectionX, int stepDirectionY, int localUnits)
+        private static SimulationOffset2 CreateAxisOffset(int stepDirectionX, int stepDirectionY, int localUnits)
         {
-            return new KinematicOffset2(
+            return new SimulationOffset2(
                 KinematicFixed.FromRaw(stepDirectionX == 0 ? 0 : localUnits * stepDirectionX),
                 KinematicFixed.FromRaw(stepDirectionY == 0 ? 0 : localUnits * stepDirectionY));
         }
 
-        private static KinematicOffset2 CreateCommitOffset(int stepDirectionX, int stepDirectionY)
+        private static SimulationOffset2 CreateCommitOffset(int stepDirectionX, int stepDirectionY)
         {
-            return new KinematicOffset2(
+            return new SimulationOffset2(
                 KinematicFixed.FromRaw(CreateCommitAxisOffset(stepDirectionX)),
                 KinematicFixed.FromRaw(CreateCommitAxisOffset(stepDirectionY)));
         }

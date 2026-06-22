@@ -35,7 +35,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
         public const int UnitsPerCell = 4096;
         public const int HalfCellUnits = UnitsPerCell / 2;
-        public const int DefaultPlayerUnitsPerTick = UnitsPerCell / 4;
+        public const int DefaultReferenceUnitsPerTick = UnitsPerCell / 4;
         public const int MaxPositiveLocalOffset = HalfCellUnits - 1;
         public const int MinLocalOffset = -HalfCellUnits;
 
@@ -111,9 +111,9 @@ namespace Game.Feature.Gameplay.BoardState
         }
     }
 
-    public readonly struct KinematicOffset2 : IEquatable<KinematicOffset2>
+    public readonly struct SimulationOffset2 : IEquatable<SimulationOffset2>
     {
-        public KinematicOffset2(KinematicFixed x, KinematicFixed y)
+        public SimulationOffset2(KinematicFixed x, KinematicFixed y)
         {
             X = x;
             Y = y;
@@ -123,7 +123,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public KinematicFixed Y { get; }
 
-        public static KinematicOffset2 Zero => default;
+        public static SimulationOffset2 Zero => default;
 
         public bool IsZero => X.IsZero && Y.IsZero;
 
@@ -131,21 +131,21 @@ namespace Game.Feature.Gameplay.BoardState
             KinematicFixed.IsRepresentableLocalOffset(X) &&
             KinematicFixed.IsRepresentableLocalOffset(Y);
 
-        public KinematicOffset2 ClampToLocalOffsetRange()
+        public SimulationOffset2 ClampToLocalOffsetRange()
         {
-            return new KinematicOffset2(
+            return new SimulationOffset2(
                 KinematicFixed.ClampToLocalOffsetRange(X),
                 KinematicFixed.ClampToLocalOffsetRange(Y));
         }
 
-        public bool Equals(KinematicOffset2 other)
+        public bool Equals(SimulationOffset2 other)
         {
             return X == other.X && Y == other.Y;
         }
 
         public override bool Equals(object obj)
         {
-            return obj is KinematicOffset2 other && Equals(other);
+            return obj is SimulationOffset2 other && Equals(other);
         }
 
         public override int GetHashCode()
@@ -162,9 +162,9 @@ namespace Game.Feature.Gameplay.BoardState
         }
     }
 
-    public readonly struct KinematicVelocity2 : IEquatable<KinematicVelocity2>
+    public readonly struct SimulationVelocity2 : IEquatable<SimulationVelocity2>
     {
-        public KinematicVelocity2(KinematicFixed x, KinematicFixed y)
+        public SimulationVelocity2(KinematicFixed x, KinematicFixed y)
         {
             X = x;
             Y = y;
@@ -174,18 +174,18 @@ namespace Game.Feature.Gameplay.BoardState
 
         public KinematicFixed Y { get; }
 
-        public static KinematicVelocity2 Zero => default;
+        public static SimulationVelocity2 Zero => default;
 
         public bool IsZero => X.IsZero && Y.IsZero;
 
-        public bool Equals(KinematicVelocity2 other)
+        public bool Equals(SimulationVelocity2 other)
         {
             return X == other.X && Y == other.Y;
         }
 
         public override bool Equals(object obj)
         {
-            return obj is KinematicVelocity2 other && Equals(other);
+            return obj is SimulationVelocity2 other && Equals(other);
         }
 
         public override int GetHashCode()
@@ -204,8 +204,8 @@ namespace Game.Feature.Gameplay.BoardState
 
     public struct UnitKinematicRuntimeState : IEquatable<UnitKinematicRuntimeState>
     {
-        public KinematicOffset2 localOffset;
-        public KinematicVelocity2 velocity;
+        public SimulationOffset2 localOffset;
+        public SimulationVelocity2 velocity;
         public MotionMode mode;
         public ForcedMotionOp forcedOp;
         public int remainingDistanceUnits;
@@ -257,7 +257,7 @@ namespace Game.Feature.Gameplay.BoardState
             normalized.stepDirectionY = Math.Max(-1, Math.Min(1, normalized.stepDirectionY));
             if (normalized.mode == MotionMode.Settled)
             {
-                normalized.velocity = KinematicVelocity2.Zero;
+                normalized.velocity = SimulationVelocity2.Zero;
                 normalized.forcedOp = ForcedMotionOp.None;
                 normalized.remainingDistanceUnits = 0;
                 normalized.remainingTicks = 0;
@@ -270,7 +270,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
             else if (normalized.mode == MotionMode.Interrupted)
             {
-                normalized.velocity = KinematicVelocity2.Zero;
+                normalized.velocity = SimulationVelocity2.Zero;
                 normalized.forcedOp = ForcedMotionOp.None;
                 normalized.remainingDistanceUnits = 0;
                 normalized.remainingTicks = 0;
@@ -284,7 +284,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
             else if (normalized.mode == MotionMode.Held)
             {
-                normalized.velocity = KinematicVelocity2.Zero;
+                normalized.velocity = SimulationVelocity2.Zero;
                 normalized.forcedOp = ForcedMotionOp.None;
                 normalized.speedScalePermille = 0;
             }
@@ -298,7 +298,7 @@ namespace Game.Feature.Gameplay.BoardState
             return new UnitKinematicRuntimeState
             {
                 localOffset = normalizedSource.localOffset,
-                velocity = KinematicVelocity2.Zero,
+                velocity = SimulationVelocity2.Zero,
                 mode = MotionMode.Held,
                 forcedOp = ForcedMotionOp.None,
                 remainingDistanceUnits = normalizedSource.remainingDistanceUnits,
@@ -316,7 +316,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static UnitKinematicRuntimeState CreateVoluntaryResumeFromHeld(
             UnitKinematicRuntimeState sourceState,
-            KinematicVelocity2 velocity)
+            SimulationVelocity2 velocity)
         {
             var normalizedSource = sourceState.NormalizedForStorage();
             return new UnitKinematicRuntimeState
@@ -344,7 +344,7 @@ namespace Game.Feature.Gameplay.BoardState
             return new UnitKinematicRuntimeState
             {
                 localOffset = normalizedSource.localOffset,
-                velocity = KinematicVelocity2.Zero,
+                velocity = SimulationVelocity2.Zero,
                 mode = MotionMode.Interrupted,
                 forcedOp = ForcedMotionOp.None,
                 remainingDistanceUnits = 0,
@@ -421,7 +421,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public bool HasAuthoritativeState { get; }
 
-        public KinematicOffset2 LocalOffset => State.localOffset;
+        public SimulationOffset2 LocalOffset => State.localOffset;
 
         public MotionMode Mode => State.mode;
 

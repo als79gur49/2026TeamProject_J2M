@@ -9,8 +9,8 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell targetAnchor,
             CubeTopologyState updatedTopology,
             CubeRotationKind rotationKind,
-            KinematicOffset2 targetLocalOffset,
-            KinematicVelocity2 targetVelocity)
+            SimulationOffset2 targetLocalOffset,
+            SimulationVelocity2 targetVelocity)
         {
             TargetAnchor = targetAnchor;
             UpdatedTopology = updatedTopology;
@@ -25,9 +25,9 @@ namespace Game.Feature.Gameplay.BoardState
 
         public CubeRotationKind RotationKind { get; }
 
-        public KinematicOffset2 TargetLocalOffset { get; }
+        public SimulationOffset2 TargetLocalOffset { get; }
 
-        public KinematicVelocity2 TargetVelocity { get; }
+        public SimulationVelocity2 TargetVelocity { get; }
     }
 
     internal static class SurfaceTopologyBasisQueries
@@ -37,8 +37,8 @@ namespace Game.Feature.Gameplay.BoardState
             BoardBounds boardBounds,
             SurfaceCell sourceAnchor,
             Vector2Int directionDelta,
-            KinematicOffset2 sourceLocalOffset,
-            KinematicVelocity2 sourceVelocity,
+            SimulationOffset2 sourceLocalOffset,
+            SimulationVelocity2 sourceVelocity,
             int collisionRadiusUnits,
             out Free2DTopologyTransitionRejectReason rejectReason,
             out Free2DTopologyRemapResult result)
@@ -102,7 +102,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return false;
             }
 
-            var targetLocalOffset = new KinematicOffset2(
+            var targetLocalOffset = new SimulationOffset2(
                 sourceLocalOffset.X,
                 KinematicFixed.FromRaw(targetY));
             if (!targetLocalOffset.IsRepresentableLocalOffset)
@@ -111,7 +111,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return false;
             }
 
-            var targetVelocity = new KinematicVelocity2(
+            var targetVelocity = new SimulationVelocity2(
                 KinematicFixed.Zero,
                 sourceVelocity.Y);
             result = new Free2DTopologyRemapResult(

@@ -81,7 +81,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(after.TryGetUnitContinuousLocomotionState(10, out var idle), Is.True);
             Assert.That(idle.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
-            Assert.That(idle.velocity, Is.EqualTo(KinematicVelocity2.Zero));
+            Assert.That(idle.velocity, Is.EqualTo(SimulationVelocity2.Zero));
             Assert.That(idle.localOffset, Is.EqualTo(moving.localOffset));
         }
 
@@ -3219,10 +3219,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 10,
                 new UnitContinuousLocomotionState
                 {
-                    localOffset = new KinematicOffset2(
+                    localOffset = new SimulationOffset2(
                         KinematicFixed.FromRaw(localX),
                         KinematicFixed.FromRaw(localY)),
-                    velocity = KinematicVelocity2.Zero,
+                    velocity = SimulationVelocity2.Zero,
                     facing = Direction.Right,
                     lastMoveDirection = Direction.Right,
                     speedUnitsPerTick = speedUnitsPerTick,
@@ -3280,10 +3280,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 1),
                 Vector2Int.up,
-                new KinematicOffset2(
+                new SimulationOffset2(
                     KinematicFixed.FromRaw(localX),
                     KinematicFixed.FromRaw(sourceThresholdY - speedUnitsPerTick + 1)),
-                new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speedUnitsPerTick)),
+                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speedUnitsPerTick)),
                 radiusUnits,
                 out var rejectReason,
                 out var remap);

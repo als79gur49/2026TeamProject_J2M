@@ -27,7 +27,7 @@ namespace Game.Feature.Gameplay.Loop
 {
     public sealed partial class TickPipeline
     {
-        private static KinematicVelocity2 CreateDebugKinematicVelocity(
+        private static SimulationVelocity2 CreateDebugKinematicVelocity(
             int stepDirectionX,
             int stepDirectionY,
             int totalTicks)
@@ -38,7 +38,7 @@ namespace Game.Feature.Gameplay.Loop
                     1,
                     Math.Max(2, totalTicks),
                     KinematicFixed.UnitsPerCell));
-            return new KinematicVelocity2(
+            return new SimulationVelocity2(
                 KinematicFixed.FromRaw(stepDirectionX * unitsPerTick),
                 KinematicFixed.FromRaw(stepDirectionY * unitsPerTick));
         }

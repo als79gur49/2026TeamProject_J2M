@@ -4914,13 +4914,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 entityId,
                 new UnitContinuousLocomotionState
                 {
-                    localOffset = new KinematicOffset2(
+                    localOffset = new SimulationOffset2(
                         KinematicFixed.FromRaw(x),
                         KinematicFixed.FromRaw(y)),
-                    velocity = KinematicVelocity2.Zero,
+                    velocity = SimulationVelocity2.Zero,
                     facing = direction,
                     lastMoveDirection = direction,
-                    speedUnitsPerTick = KinematicFixed.DefaultPlayerUnitsPerTick,
+                    speedUnitsPerTick = KinematicFixed.DefaultReferenceUnitsPerTick,
                     mode = ContinuousLocomotionMode.Moving,
                     sequenceId = 1,
                 }.NormalizedForStorage());

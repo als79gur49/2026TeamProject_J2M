@@ -19,7 +19,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal static void EnumerateSweptCells(
             in UnitKinematicPose pose,
-            KinematicVelocity2 delta,
+            SimulationVelocity2 delta,
             List<SurfaceCell> buffer)
         {
             if (buffer == null)
@@ -36,8 +36,8 @@ namespace Game.Feature.Gameplay.BoardState
         }
 
         internal static bool TryResolveAnchorDelta(
-            KinematicOffset2 localOffset,
-            KinematicVelocity2 delta,
+            SimulationOffset2 localOffset,
+            SimulationVelocity2 delta,
             out Vector2Int anchorDelta)
         {
             var targetX = checked(localOffset.X.RawValue + delta.X.RawValue);

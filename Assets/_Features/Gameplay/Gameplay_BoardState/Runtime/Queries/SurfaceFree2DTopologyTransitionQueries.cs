@@ -30,13 +30,13 @@ namespace Game.Feature.Gameplay.BoardState
             bool success,
             int entityId,
             SurfaceCell sourceAnchor,
-            KinematicOffset2 sourceLocalOffset,
-            KinematicVelocity2 sourceVelocity,
+            SimulationOffset2 sourceLocalOffset,
+            SimulationVelocity2 sourceVelocity,
             SurfaceCell targetAnchor,
             CubeTopologyState updatedTopology,
             CubeRotationKind rotationKind,
-            KinematicOffset2 targetLocalOffset,
-            KinematicVelocity2 targetVelocity,
+            SimulationOffset2 targetLocalOffset,
+            SimulationVelocity2 targetVelocity,
             int targetResidualX,
             int targetResidualY,
             Free2DTopologyTransitionRejectReason rejectReason,
@@ -66,9 +66,9 @@ namespace Game.Feature.Gameplay.BoardState
 
         public SurfaceCell SourceAnchor { get; }
 
-        public KinematicOffset2 SourceLocalOffset { get; }
+        public SimulationOffset2 SourceLocalOffset { get; }
 
-        public KinematicVelocity2 SourceVelocity { get; }
+        public SimulationVelocity2 SourceVelocity { get; }
 
         public SurfaceCell TargetAnchor { get; }
 
@@ -76,9 +76,9 @@ namespace Game.Feature.Gameplay.BoardState
 
         public CubeRotationKind RotationKind { get; }
 
-        public KinematicOffset2 TargetLocalOffset { get; }
+        public SimulationOffset2 TargetLocalOffset { get; }
 
-        public KinematicVelocity2 TargetVelocity { get; }
+        public SimulationVelocity2 TargetVelocity { get; }
 
         public int TargetResidualX { get; }
 
@@ -133,8 +133,8 @@ namespace Game.Feature.Gameplay.BoardState
             Array.Empty<SurfaceContactProjectionContact>();
 
         public SurfaceContactProjectionResult(
-            KinematicOffset2 originalLocalOffset,
-            KinematicOffset2 projectedLocalOffset,
+            SimulationOffset2 originalLocalOffset,
+            SimulationOffset2 projectedLocalOffset,
             bool clampedPositiveX,
             bool clampedNegativeX,
             bool clampedPositiveY,
@@ -150,9 +150,9 @@ namespace Game.Feature.Gameplay.BoardState
             Contacts = contacts ?? EmptyContacts;
         }
 
-        public KinematicOffset2 OriginalLocalOffset { get; }
+        public SimulationOffset2 OriginalLocalOffset { get; }
 
-        public KinematicOffset2 ProjectedLocalOffset { get; }
+        public SimulationOffset2 ProjectedLocalOffset { get; }
 
         public bool ClampedPositiveX { get; }
 
@@ -171,7 +171,7 @@ namespace Game.Feature.Gameplay.BoardState
             WorldSnapshot snapshot,
             in LegalityActorRef actor,
             SurfaceCell sourceAnchor,
-            KinematicOffset2 sourceLocalOffset,
+            SimulationOffset2 sourceLocalOffset,
             int radiusUnits,
             CubeTopologyState evaluationTopology,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions,
@@ -271,7 +271,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             return new SurfaceContactProjectionResult(
                 sourceLocalOffset,
-                new KinematicOffset2(
+                new SimulationOffset2(
                     KinematicFixed.FromRaw(projectedX),
                     KinematicFixed.FromRaw(projectedY)),
                 clampedPositiveX,
@@ -340,7 +340,7 @@ namespace Game.Feature.Gameplay.BoardState
             WorldSnapshot snapshot,
             int entityId,
             Vector2Int directionDelta,
-            KinematicVelocity2 velocityDelta,
+            SimulationVelocity2 velocityDelta,
             int collisionRadiusUnits,
             out Free2DTopologyTransitionResult result,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null)
@@ -352,25 +352,25 @@ namespace Game.Feature.Gameplay.BoardState
 
             if (Math.Abs(directionDelta.x) + Math.Abs(directionDelta.y) != 1)
             {
-                result = CreateRejected(entityId, default, KinematicOffset2.Zero, velocityDelta, Free2DTopologyTransitionRejectReason.NonCardinalDelta);
+                result = CreateRejected(entityId, default, SimulationOffset2.Zero, velocityDelta, Free2DTopologyTransitionRejectReason.NonCardinalDelta);
                 return false;
             }
 
             if (!snapshot.TryGetEntity(entityId, out var entity))
             {
-                result = CreateRejected(entityId, default, KinematicOffset2.Zero, velocityDelta, Free2DTopologyTransitionRejectReason.MissingEntity);
+                result = CreateRejected(entityId, default, SimulationOffset2.Zero, velocityDelta, Free2DTopologyTransitionRejectReason.MissingEntity);
                 return false;
             }
 
             if (entity.type != EntityType.Unit)
             {
-                result = CreateRejected(entityId, entity.position, KinematicOffset2.Zero, velocityDelta, Free2DTopologyTransitionRejectReason.NonUnit);
+                result = CreateRejected(entityId, entity.position, SimulationOffset2.Zero, velocityDelta, Free2DTopologyTransitionRejectReason.NonUnit);
                 return false;
             }
 
             if (!snapshot.TryGetUnitContinuousLocomotionPose(entityId, out var pose))
             {
-                result = CreateRejected(entityId, entity.position, KinematicOffset2.Zero, velocityDelta, Free2DTopologyTransitionRejectReason.MissingContinuousPose);
+                result = CreateRejected(entityId, entity.position, SimulationOffset2.Zero, velocityDelta, Free2DTopologyTransitionRejectReason.MissingContinuousPose);
                 return false;
             }
 
@@ -573,8 +573,8 @@ namespace Game.Feature.Gameplay.BoardState
         private static Free2DTopologyTransitionResult CreateRejected(
             int entityId,
             SurfaceCell sourceAnchor,
-            KinematicOffset2 sourceLocalOffset,
-            KinematicVelocity2 sourceVelocity,
+            SimulationOffset2 sourceLocalOffset,
+            SimulationVelocity2 sourceVelocity,
             Free2DTopologyTransitionRejectReason reason,
             SurfaceContactProjectionResult sourceContactProjection = default)
         {
@@ -587,8 +587,8 @@ namespace Game.Feature.Gameplay.BoardState
                 default,
                 default,
                 CubeRotationKind.None,
-                KinematicOffset2.Zero,
-                KinematicVelocity2.Zero,
+                SimulationOffset2.Zero,
+                SimulationVelocity2.Zero,
                 0,
                 0,
                 reason,
@@ -645,7 +645,7 @@ namespace Game.Feature.Gameplay.BoardState
             WorldSnapshot snapshot,
             int entityId,
             SurfaceCell targetAnchor,
-            KinematicOffset2 targetLocalOffset,
+            SimulationOffset2 targetLocalOffset,
             int collisionRadiusUnits,
             Vector2Int entryDirectionDelta,
             CubeTopologyState targetTopology,

@@ -11105,9 +11105,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                        0f));
         }
 
-        private static KinematicOffset2 CreateKinematicOffset(int localX, int localY)
+        private static SimulationOffset2 CreateKinematicOffset(int localX, int localY)
         {
-            return new KinematicOffset2(
+            return new SimulationOffset2(
                 KinematicFixed.FromRaw(localX),
                 KinematicFixed.FromRaw(localY));
         }

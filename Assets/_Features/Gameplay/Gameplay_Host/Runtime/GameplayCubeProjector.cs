@@ -234,7 +234,7 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
-        public Vector2 ResolveKinematicPresentationPlaneOffset(KinematicOffset2 localOffset)
+        public Vector2 ResolveKinematicPresentationPlaneOffset(SimulationOffset2 localOffset)
         {
             var fixedToWorldScale = _cellSize / KinematicFixed.UnitsPerCell;
             return new Vector2(

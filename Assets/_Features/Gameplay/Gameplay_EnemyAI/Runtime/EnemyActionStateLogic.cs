@@ -445,7 +445,7 @@ namespace Game.Feature.Gameplay.Entities
 
         private static bool TryResolveHeldResumeVelocity(
             in UnitKinematicRuntimeState state,
-            out KinematicVelocity2 velocity)
+            out SimulationVelocity2 velocity)
         {
             velocity = default;
             if (state.totalTicks <= 0 ||
@@ -454,7 +454,7 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            velocity = new KinematicVelocity2(
+            velocity = new SimulationVelocity2(
                 KinematicFixed.FromRaw(state.stepDirectionX * KinematicFixed.UnitsPerCell / state.totalTicks),
                 KinematicFixed.FromRaw(state.stepDirectionY * KinematicFixed.UnitsPerCell / state.totalTicks));
             return true;

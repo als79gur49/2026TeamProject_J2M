@@ -2422,10 +2422,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 entityId,
                 new UnitContinuousLocomotionState
                 {
-                    localOffset = new KinematicOffset2(
+                    localOffset = new SimulationOffset2(
                         KinematicFixed.Zero,
                         KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
-                    velocity = KinematicVelocity2.Zero,
+                    velocity = SimulationVelocity2.Zero,
                     facing = Direction.Up,
                     lastMoveDirection = Direction.Up,
                     speedUnitsPerTick = speed,

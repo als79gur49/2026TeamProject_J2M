@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         public CombatOriginAnchor(
             SurfaceCell anchorCell,
-            KinematicOffset2 localOffset,
+            SimulationOffset2 localOffset,
             int tileSpaceX,
             int tileSpaceY,
             Direction facing)
@@ -28,7 +28,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public SurfaceCell AnchorCell { get; }
 
-        public KinematicOffset2 LocalOffset { get; }
+        public SimulationOffset2 LocalOffset { get; }
 
         public int TileSpaceX { get; }
 
