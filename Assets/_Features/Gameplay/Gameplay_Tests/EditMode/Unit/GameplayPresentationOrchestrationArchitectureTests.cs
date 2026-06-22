@@ -101,7 +101,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var hostFactorySource = ReadRepoFile(HostFactoryPath);
             var hostConstructionBlock = ExtractSourceBetween(
                 hostFactorySource,
-                "var presentationComposition = GameplayPresentationRuntimeCompositionFactory.Create();",
+                "var presentationDependencies = DiscoverPresentationHostDependencies(hostObject);",
                 "presenter.Initialize(");
 
             Assert.That(File.Exists(compositionFullPath), Is.True);
@@ -173,9 +173,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presenterSource, Does.Contain("BindCoordinator(GameplayTickPresentationCoordinator coordinator)"));
             Assert.That(presenterSource, Does.Not.Contain("new GameplayTickPresentationCoordinator"));
             Assert.That(presenterSource, Does.Not.Contain("GameplayPresentationRuntimeCompositionFactory"));
-            Assert.That(hostConstructionBlock, Does.Contain("GameplayPresentationRuntimeCompositionFactory.Create()"));
+            Assert.That(hostConstructionBlock, Does.Contain("DiscoverPresentationHostDependencies(hostObject)"));
+            Assert.That(hostConstructionBlock, Does.Contain("GameplayPresentationRuntimeCompositionFactory.Create("));
+            Assert.That(hostConstructionBlock, Does.Contain("DamageDeathVfxPlaybackPort = presentationDependencies.DamageDeathVfxPlaybackPort"));
             Assert.That(hostConstructionBlock, Does.Contain("new GameplayTickPresentationCoordinator(presentationComposition)"));
             Assert.That(hostConstructionBlock, Does.Contain("presenter.BindCoordinator(presentationCoordinator)"));
+            Assert.That(hostFactorySource, Does.Not.Contain("presenter.ConfigureDamageDeathVfxExecution("));
+            Assert.That(hostFactorySource, Does.Contain("AttachPresentationExtensions(presenter, presentationDependencies.PresentationExtensions)"));
+            Assert.That(CountOccurrences(hostFactorySource, "GetComponents<MonoBehaviour>()"), Is.EqualTo(1));
+            Assert.That(compositionFactorySource, Does.Contain("public IDamageDeathVfxPlaybackPort DamageDeathVfxPlaybackPort { get; set; }"));
+            Assert.That(compositionFactorySource, Does.Contain("options.DamageDeathVfxPlaybackPort"));
+            Assert.That(compositionFactorySource, Does.Contain("damageDeathVfxLane.ConfigureExecution("));
+            Assert.That(compositionFactorySource, Does.Contain("DamageDeathVfxExecutionPolicy.ProductionDefault,"));
+            Assert.That(compositionFactorySource, Does.Contain("damageDeathVfxPlaybackPort"));
+            Assert.That(compositionSource, Does.Not.Contain("GameplayVfxProductionRuntime"));
+            Assert.That(compositionSource, Does.Not.Contain("GameplayVfxGameObjectPool"));
+            Assert.That(compositionSource, Does.Not.Contain("GameplayVfxPresentationController"));
+            Assert.That(presenterSource, Does.Not.Contain("GameplayVfxProductionRuntime"));
+            Assert.That(presenterSource, Does.Not.Contain("IDamageDeathGameplayVfxPlaybackRuntime"));
+            Assert.That(presenterSource, Does.Not.Contain("GameplayVfxGameObjectPool"));
 
             foreach (var forbiddenFactoryPolicyToken in new[]
                      {
@@ -191,6 +207,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 Assert.That(compositionFactorySource, Does.Not.Contain(forbiddenFactoryPolicyToken), forbiddenFactoryPolicyToken);
                 Assert.That(hostConstructionBlock, Does.Not.Contain(forbiddenFactoryPolicyToken), forbiddenFactoryPolicyToken);
+            }
+
+            foreach (var forbiddenDiscoveryToken in new[]
+                     {
+                         "GameObject.Find",
+                         "FindObjectOfType",
+                         "FindObjectsByType",
+                         "Resources.Load",
+                     })
+            {
+                Assert.That(hostFactorySource, Does.Not.Contain(forbiddenDiscoveryToken), forbiddenDiscoveryToken);
             }
         }
 
@@ -3058,6 +3085,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var end = source.IndexOf(endToken, start, StringComparison.Ordinal);
             Assert.That(end, Is.GreaterThan(start), $"Missing end token after {startToken}: {endToken}");
             return source.Substring(start, end - start);
+        }
+
+        private static int CountOccurrences(string source, string token)
+        {
+            var count = 0;
+            var index = 0;
+            while ((index = source.IndexOf(token, index, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                index += token.Length;
+            }
+
+            return count;
         }
     }
 }

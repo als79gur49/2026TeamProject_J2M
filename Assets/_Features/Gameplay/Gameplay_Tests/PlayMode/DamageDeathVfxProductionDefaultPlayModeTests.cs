@@ -147,6 +147,118 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
+        public IEnumerator DamageDeathVfxProductionDefault_PlayMode_HostDiscoveryBindsSameRuntimeAndExtensionOnce()
+        {
+            var presentationOrder = new List<string>();
+            var hostObject = new GameObject(nameof(DamageDeathVfxProductionDefault_PlayMode_HostDiscoveryBindsSameRuntimeAndExtensionOnce));
+            hostObject.SetActive(false);
+            var firstExtension = hostObject.AddComponent<OrderedPresentationExtensionSpy>();
+            firstExtension.Configure("first", presentationOrder);
+            var runtime = hostObject.AddComponent<HostLocalDamageDeathVfxRuntimeSpy>();
+            runtime.Configure("runtime", presentationOrder);
+            var secondExtension = hostObject.AddComponent<OrderedPresentationExtensionSpy>();
+            secondExtension.Configure("second", presentationOrder);
+            var host = hostObject.AddComponent<GameplaySceneHost>();
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            try
+            {
+                hostObject.SetActive(true);
+                host.Initialize(CreateHostConfiguration(topology));
+
+                host.Presenter.Present(CreateDamageDeathVfxResult(
+                    tickIndex: 33,
+                    topology,
+                    enemyDamageEntityId: 40));
+                yield return null;
+
+                Assert.That(host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(host.Presenter.DamageDeathVfxExecutorDiagnostics.PortMissingCount, Is.Zero);
+                Assert.That(host.Presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(runtime.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(runtime.ExtensionPresentCallCount, Is.EqualTo(1));
+                Assert.That(firstExtension.PresentCallCount, Is.EqualTo(1));
+                Assert.That(secondExtension.PresentCallCount, Is.EqualTo(1));
+                Assert.That(presentationOrder, Is.EqualTo(new[] { "first", "runtime", "second" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator DamageDeathVfxProductionDefault_PlayMode_MissingHostRuntimeKeepsProductionPortMissingContract()
+        {
+            var presentationOrder = new List<string>();
+            var hostObject = new GameObject(nameof(DamageDeathVfxProductionDefault_PlayMode_MissingHostRuntimeKeepsProductionPortMissingContract));
+            hostObject.SetActive(false);
+            var extension = hostObject.AddComponent<OrderedPresentationExtensionSpy>();
+            extension.Configure("unrelated", presentationOrder);
+            var host = hostObject.AddComponent<GameplaySceneHost>();
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            try
+            {
+                hostObject.SetActive(true);
+                host.Initialize(CreateHostConfiguration(topology));
+
+                host.Presenter.Present(CreateDamageDeathVfxResult(
+                    tickIndex: 34,
+                    topology,
+                    enemyDamageEntityId: 40));
+                yield return null;
+
+                Assert.That(host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(host.Presenter.DamageDeathVfxExecutorDiagnostics.IsProductionDefaultOwner, Is.True);
+                Assert.That(host.Presenter.DamageDeathVfxExecutorDiagnostics.PortMissingCount, Is.EqualTo(1));
+                Assert.That(host.Presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(host.Presenter.DamageDeathVfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(host.Presenter.DamageDeathVfxOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(extension.PresentCallCount, Is.EqualTo(1));
+                Assert.That(presentationOrder, Is.EqualTo(new[] { "unrelated" }));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator DamageDeathVfxProductionDefault_PlayMode_DuplicateHostRuntimeFailsBeforePartialAttachment()
+        {
+            var presentationOrder = new List<string>();
+            var hostObject = new GameObject(nameof(DamageDeathVfxProductionDefault_PlayMode_DuplicateHostRuntimeFailsBeforePartialAttachment));
+            hostObject.SetActive(false);
+            var firstRuntime = hostObject.AddComponent<HostLocalDamageDeathVfxRuntimeSpy>();
+            firstRuntime.Configure("first", presentationOrder);
+            var secondRuntime = hostObject.AddComponent<HostLocalDamageDeathVfxRuntimeSpy>();
+            secondRuntime.Configure("second", presentationOrder);
+            var host = hostObject.AddComponent<GameplaySceneHost>();
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            try
+            {
+                hostObject.SetActive(true);
+                var exception = Assert.Throws<InvalidOperationException>(() => host.Initialize(CreateHostConfiguration(topology)));
+                Assert.That(
+                    exception.Message,
+                    Is.EqualTo("GameplaySceneHost requires exactly one host-local Damage/Death VFX playback runtime."));
+                Assert.That(firstRuntime.ExtensionResetCallCount, Is.Zero);
+                Assert.That(secondRuntime.ExtensionResetCallCount, Is.Zero);
+                Assert.That(presentationOrder, Is.Empty);
+                yield return null;
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [UnityTest]
+        [Category("Core")]
         public IEnumerator DamageDeathVfxProductionDefault_PlayMode_RoutesDamageAndDeath()
         {
             var port = new RecordingDamageDeathVfxPlaybackPort();
@@ -478,7 +590,18 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var topology = new CubeTopologyState(FaceId.Floor);
 
             hostObject.SetActive(true);
-            host.Initialize(new GameplaySceneHostConfiguration
+            host.Initialize(CreateHostConfiguration(topology));
+            if (configureManualPlaybackPort)
+            {
+                host.Presenter.ConfigureDamageDeathVfxExecution(executionMode, playbackPort);
+            }
+
+            return new HostVfxSmokeContext(hostObject, host, runtime, topology);
+        }
+
+        private static GameplaySceneHostConfiguration CreateHostConfiguration(CubeTopologyState topology)
+        {
+            return new GameplaySceneHostConfiguration
             {
                 AutoAdvanceTicks = false,
                 AutoCreateViews = false,
@@ -486,13 +609,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 InitialEntities = Array.Empty<EntityState>(),
                 InitialTopology = topology,
                 TopologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault(),
-            });
-            if (configureManualPlaybackPort)
-            {
-                host.Presenter.ConfigureDamageDeathVfxExecution(executionMode, playbackPort);
-            }
-
-            return new HostVfxSmokeContext(hostObject, host, runtime, topology);
+            };
         }
 
         private static TickResult CreateDamageDeathVfxResult(
@@ -782,6 +899,84 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 HardCleanupCallCount++;
                 TryPlayCallCount = 0;
                 _requests.Clear();
+            }
+        }
+
+        private sealed class OrderedPresentationExtensionSpy : MonoBehaviour, IGameplayTickPresentationExtension
+        {
+            private List<string> _presentationOrder;
+            private string _name;
+
+            public int PresentCallCount { get; private set; }
+
+            public void Configure(string name, List<string> presentationOrder)
+            {
+                _name = name;
+                _presentationOrder = presentationOrder;
+            }
+
+            public void ResetSession()
+            {
+            }
+
+            public void Present(in GameplayTickPresentationExtensionContext context)
+            {
+                PresentCallCount++;
+                _presentationOrder.Add(_name);
+            }
+
+            public void UpdatePresentation(float deltaTime)
+            {
+            }
+
+            public void HardCleanup()
+            {
+            }
+        }
+
+        private sealed class HostLocalDamageDeathVfxRuntimeSpy : MonoBehaviour, IGameplayTickPresentationExtension, IDamageDeathGameplayVfxPlaybackRuntime
+        {
+            private List<string> _presentationOrder;
+            private string _name;
+
+            public int TryPlayCallCount { get; private set; }
+
+            public int ExtensionPresentCallCount { get; private set; }
+
+            public int ExtensionResetCallCount { get; private set; }
+
+            public void Configure(string name, List<string> presentationOrder)
+            {
+                _name = name;
+                _presentationOrder = presentationOrder;
+            }
+
+            public bool TryPlayDamageDeathVfx(
+                in GameplayVfxRequest request,
+                out GameplayVfxPlaybackResult result)
+            {
+                TryPlayCallCount++;
+                result = new GameplayVfxPlaybackResult(GameplayVfxPlaybackResultKind.Succeeded);
+                return true;
+            }
+
+            public void ResetSession()
+            {
+                ExtensionResetCallCount++;
+            }
+
+            public void Present(in GameplayTickPresentationExtensionContext context)
+            {
+                ExtensionPresentCallCount++;
+                _presentationOrder.Add(_name);
+            }
+
+            public void UpdatePresentation(float deltaTime)
+            {
+            }
+
+            public void HardCleanup()
+            {
             }
         }
     }

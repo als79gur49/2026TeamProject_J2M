@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Host
             CoreGameplaySfxExecutionPipelineFactory coreGameplaySfxExecutionPipelineFactory = null,
             ActionAudioExecutionPipelineFactory actionAudioExecutionPipelineFactory = null,
             EnemyAudioExecutionPipelineFactory enemyAudioExecutionPipelineFactory = null,
+            IDamageDeathVfxPlaybackPort damageDeathVfxPlaybackPort = null,
             Action<GameplayPresentationRuntimeComposition> configure = null)
         {
             var composition = GameplayPresentationRuntimeCompositionFactory.Create(
@@ -21,6 +22,7 @@ namespace Game.Feature.Gameplay.Host
                 {
                     TopologyExecutionPipelineFactory = topologyExecutionPipelineFactory,
                     DamageDeathVfxExecutionPipelineFactory = damageDeathVfxExecutionPipelineFactory,
+                    DamageDeathVfxPlaybackPort = damageDeathVfxPlaybackPort,
                     BoxMotionExecutionPipelineFactory = boxMotionExecutionPipelineFactory,
                     PlayerActionAnimationExecutionPipelineFactory = playerActionAnimationExecutionPipelineFactory,
                     EnemyPresentationExecutionPipelineFactory = enemyPresentationExecutionPipelineFactory,
@@ -41,6 +43,7 @@ namespace Game.Feature.Gameplay.Host
             CoreGameplaySfxExecutionPipelineFactory coreGameplaySfxExecutionPipelineFactory = null,
             ActionAudioExecutionPipelineFactory actionAudioExecutionPipelineFactory = null,
             EnemyAudioExecutionPipelineFactory enemyAudioExecutionPipelineFactory = null,
+            IDamageDeathVfxPlaybackPort damageDeathVfxPlaybackPort = null,
             Action<GameplayPresentationRuntimeComposition> configure = null)
         {
             return new GameplayTickPresentationCoordinator(
@@ -53,6 +56,7 @@ namespace Game.Feature.Gameplay.Host
                     coreGameplaySfxExecutionPipelineFactory,
                     actionAudioExecutionPipelineFactory,
                     enemyAudioExecutionPipelineFactory,
+                    damageDeathVfxPlaybackPort,
                     configure));
         }
 

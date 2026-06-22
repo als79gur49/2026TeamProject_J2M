@@ -402,6 +402,77 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void DamageDeathVfx_CompositionFactoryPort_RoutesExecutorWithoutPostConfigure()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_CompositionFactoryPort_RoutesExecutorWithoutPostConfigure));
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedFactoryConfiguredDamageDeathVfxCoordinator(
+                    rootObject,
+                    port,
+                    topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 12,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
+                var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
+                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(telemetry.PortMissingCount, Is.Zero);
+                Assert.That(telemetry.PlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_CompositionFactoryNullPort_KeepsProductionMissingPortDiagnostics()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_CompositionFactoryNullPort_KeepsProductionMissingPortDiagnostics));
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedFactoryConfiguredDamageDeathVfxCoordinator(
+                    rootObject,
+                    playbackPort: null,
+                    initialTopology: topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 12,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
+                var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
+                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
+                Assert.That(telemetry.PortMissingCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackRequestedCount, Is.Zero);
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
         public void DamageDeathVfx_ExplicitLegacyRollback_TelemetryConfirmsNoExecutorPlayback()
         {
             var rootObject = new GameObject(nameof(DamageDeathVfx_ExplicitLegacyRollback_TelemetryConfirmsNoExecutorPlayback));
@@ -13080,6 +13151,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     guard,
                     playbackPort,
                     duplicateExecutors));
+
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                initialTopology,
+                1f,
+                CreateTimingProfile());
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static GameplayTickPresentationCoordinator CreateInitializedFactoryConfiguredDamageDeathVfxCoordinator(
+            GameObject rootObject,
+            IDamageDeathVfxPlaybackPort playbackPort,
+            CubeTopologyState initialTopology)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
+                topologyExecutionPipelineFactory: GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
+                damageDeathVfxExecutionPipelineFactory: (pipelineMode, port, guard) =>
+                    CreateRecordingDamageDeathVfxExecutionPipeline(
+                        pipelineMode,
+                        guard,
+                        port,
+                        duplicateExecutors: false),
+                damageDeathVfxPlaybackPort: playbackPort);
 
             coordinator.Initialize(
                 binder,
