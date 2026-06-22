@@ -327,17 +327,41 @@ namespace Game.Feature.Gameplay.Host
 
         private static void AttachPresentationExtensions(GameObject hostObject, GameplayTickViewPresenter presenter)
         {
+            IDamageDeathVfxPlaybackPort damageDeathVfxPlaybackPort = null;
             var behaviours = hostObject.GetComponents<MonoBehaviour>();
             for (var i = 0; i < behaviours.Length; i++)
             {
                 var behaviour = behaviours[i];
-                if (behaviour != null &&
-                    behaviour.enabled &&
-                    behaviour.gameObject.activeInHierarchy &&
-                    behaviour is IGameplayTickPresentationExtension extension)
+                if (behaviour == null ||
+                    !behaviour.enabled ||
+                    !behaviour.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                if (behaviour is IDamageDeathGameplayVfxPlaybackRuntime damageDeathVfxRuntime)
+                {
+                    if (damageDeathVfxPlaybackPort != null)
+                    {
+                        throw new InvalidOperationException(
+                            "GameplaySceneHost requires exactly one host-local Damage/Death VFX playback runtime.");
+                    }
+
+                    damageDeathVfxPlaybackPort =
+                        new DamageDeathGameplayVfxPlaybackPortAdapter(damageDeathVfxRuntime);
+                }
+
+                if (behaviour is IGameplayTickPresentationExtension extension)
                 {
                     presenter.AttachPresentationExtension(extension);
                 }
+            }
+
+            if (damageDeathVfxPlaybackPort != null)
+            {
+                presenter.ConfigureDamageDeathVfxExecution(
+                    DamageDeathVfxExecutionPolicy.ProductionDefault,
+                    damageDeathVfxPlaybackPort);
             }
         }
 

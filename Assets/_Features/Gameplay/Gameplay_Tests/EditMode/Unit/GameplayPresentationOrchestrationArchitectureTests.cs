@@ -56,6 +56,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationLaneRuntime.cs";
         private const string DamageDeathVfxLaneRuntimeMetaPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationLaneRuntime.cs.meta";
+        private const string DamageDeathVfxExecutorPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationExecutor.cs";
         private const string BoxMotionExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs";
         private const string BoxMotionLaneRuntimePath =
@@ -450,6 +452,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var laneMetaPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", DamageDeathVfxLaneRuntimeMetaPath));
             var coordinatorSource = ReadRepoFile(CoordinatorPath);
             var laneSource = ReadRepoFile(DamageDeathVfxLaneRuntimePath);
+            var hostFactorySource = ReadRepoFile(HostFactoryPath);
+            var executorSource = ReadRepoFile(DamageDeathVfxExecutorPath);
             var hostRuntimeSource = ReadDirectorySource(HostRuntimeDirectory);
             var vfxRuntimeSource = ReadRepoFile(
                 "Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs");
@@ -485,6 +489,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                          "DamageHitSuppressedByEnemyDeathCount",
                          "RecordSameTickDamageHitSuppressedByDeath",
                          "DamageDeathVfxExecutionMode.OrchestrationExecutor",
+                         "DamageDeathGameplayVfxPlaybackPortAdapter",
+                         "IDamageDeathGameplayVfxPlaybackRuntime",
                      })
             {
                 Assert.That(coordinatorSource, Does.Not.Contain(forbiddenCoordinatorToken), forbiddenCoordinatorToken);
@@ -516,6 +522,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                          "GameplayVfxGameObjectPool",
                          "GameplayVfxPooledInstance",
                          "IGameplayTickPresentationExtension",
+                         "GameplayVfxPresentationController",
                      })
             {
                 Assert.That(laneSource, Does.Not.Contain(forbiddenLaneToken), forbiddenLaneToken);
@@ -537,6 +544,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(vfxRuntimeSource, Does.Contain("EnemyVfxCue.Damage"));
             Assert.That(vfxRuntimeSource, Does.Contain("EnemyVfxCue.Death"));
             Assert.That(vfxRuntimeSource, Does.Contain("LegacyDamageDeathUnrelatedCueRetainedCount"));
+            Assert.That(vfxRuntimeSource, Does.Contain("IDamageDeathGameplayVfxPlaybackRuntime"));
+            Assert.That(vfxRuntimeSource, Does.Contain("TryPlayDamageDeathVfx"));
+            Assert.That(hostFactorySource, Does.Contain("new DamageDeathGameplayVfxPlaybackPortAdapter(damageDeathVfxRuntime)"));
+            Assert.That(hostFactorySource, Does.Contain("presenter.AttachPresentationExtension(extension)"));
+            Assert.That(hostFactorySource, Does.Contain("presenter.ConfigureDamageDeathVfxExecution"));
+            Assert.That(hostFactorySource, Does.Not.Contain("AddComponent<GameplayVfxProductionRuntime>"));
+            Assert.That(executorSource, Does.Not.Contain("GameObject.Find"));
+            Assert.That(executorSource, Does.Not.Contain("FindObjectOfType"));
+            Assert.That(executorSource, Does.Not.Contain("FindObjectsByType"));
+            Assert.That(executorSource, Does.Not.Contain("Resources.Load"));
+            Assert.That(executorSource, Does.Not.Contain("GameplayVfxGameObjectPool"));
+            Assert.That(executorSource, Does.Not.Contain("HardCleanupAll"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfxPlaybackPortAdapter_DelegatesToConcreteRuntimeAndPreservesFailure()
+        {
+            var runtime = new RecordingDamageDeathGameplayVfxRuntime(
+                GameplayVfxPlaybackResultKind.AnchorMissing);
+            var adapter = new DamageDeathGameplayVfxPlaybackPortAdapter(runtime);
+
+            var damageSucceeded = adapter.TryPlayDamageDeathVfx(
+                CreateDamageDeathGameplayVfxPlaybackRequest(GameplayVfxCueId.From(EnemyVfxCue.Damage), tickIndex: 3),
+                out var damageResult);
+            var deathSucceeded = adapter.TryPlayDamageDeathVfx(
+                CreateDamageDeathGameplayVfxPlaybackRequest(GameplayVfxCueId.From(EnemyVfxCue.Death), tickIndex: 4),
+                out var deathResult);
+            adapter.UpdatePresentation(0.25f);
+            adapter.ResetSession();
+            adapter.HardCleanup();
+
+            Assert.That(damageSucceeded, Is.False);
+            Assert.That(deathSucceeded, Is.False);
+            Assert.That(damageResult.Kind, Is.EqualTo(GameplayVfxPlaybackResultKind.AnchorMissing));
+            Assert.That(deathResult.Kind, Is.EqualTo(GameplayVfxPlaybackResultKind.AnchorMissing));
+            Assert.That(runtime.TryPlayCallCount, Is.EqualTo(2));
+            Assert.That(runtime.Requests[0].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.Damage)));
+            Assert.That(runtime.Requests[1].CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.Death)));
+            Assert.That(runtime.Requests[0].TickIndex, Is.EqualTo(3));
+            Assert.That(runtime.Requests[1].TickIndex, Is.EqualTo(4));
         }
 
         [Test]
@@ -2875,6 +2923,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 HardCleanupCallCount++;
                 TryPlayCallCount = 0;
                 LastRequest = default;
+            }
+        }
+
+        private static GameplayVfxPlaybackRequest CreateDamageDeathGameplayVfxPlaybackRequest(
+            GameplayVfxCueId cueId,
+            int tickIndex)
+        {
+            return new GameplayVfxPlaybackRequest(
+                default,
+                default,
+                cueId,
+                tickIndex,
+                sequenceId: tickIndex + 10,
+                presentationSeed: 100 + tickIndex,
+                sourceEntityId: 40,
+                default,
+                default,
+                default);
+        }
+
+        private sealed class RecordingDamageDeathGameplayVfxRuntime : IDamageDeathGameplayVfxPlaybackRuntime
+        {
+            private readonly GameplayVfxPlaybackResultKind _resultKind;
+            private readonly List<GameplayVfxRequest> _requests = new();
+
+            public RecordingDamageDeathGameplayVfxRuntime(GameplayVfxPlaybackResultKind resultKind)
+            {
+                _resultKind = resultKind;
+            }
+
+            public int TryPlayCallCount { get; private set; }
+
+            public IReadOnlyList<GameplayVfxRequest> Requests => _requests;
+
+            public bool TryPlayDamageDeathVfx(
+                in GameplayVfxRequest request,
+                out GameplayVfxPlaybackResult result)
+            {
+                TryPlayCallCount++;
+                _requests.Add(request);
+                result = new GameplayVfxPlaybackResult(_resultKind);
+                return _resultKind == GameplayVfxPlaybackResultKind.Succeeded;
             }
         }
 

@@ -603,6 +603,13 @@ namespace Game.Feature.Gameplay.Host
         void HardCleanup();
     }
 
+    internal interface IDamageDeathGameplayVfxPlaybackRuntime
+    {
+        bool TryPlayDamageDeathVfx(
+            in GameplayVfxRequest request,
+            out GameplayVfxPlaybackResult result);
+    }
+
     internal delegate GameplayPresentationPipeline DamageDeathVfxExecutionPipelineFactory(
         DamageDeathVfxExecutionMode mode,
         IDamageDeathVfxPlaybackPort playbackPort,
@@ -610,18 +617,18 @@ namespace Game.Feature.Gameplay.Host
 
     internal sealed class DamageDeathGameplayVfxPlaybackPortAdapter : IDamageDeathVfxPlaybackPort
     {
-        private readonly IGameplayVfxPlaybackPort _playbackPort;
+        private readonly IDamageDeathGameplayVfxPlaybackRuntime _runtime;
 
-        public DamageDeathGameplayVfxPlaybackPortAdapter(IGameplayVfxPlaybackPort playbackPort)
+        public DamageDeathGameplayVfxPlaybackPortAdapter(IDamageDeathGameplayVfxPlaybackRuntime runtime)
         {
-            _playbackPort = playbackPort;
+            _runtime = runtime;
         }
 
         public bool TryPlayDamageDeathVfx(
             in GameplayVfxPlaybackRequest request,
             out GameplayVfxPlaybackResult result)
         {
-            if (_playbackPort == null)
+            if (_runtime == null)
             {
                 result = new GameplayVfxPlaybackResult(GameplayVfxPlaybackResultKind.BindingMissing);
                 return false;
@@ -637,9 +644,7 @@ namespace Game.Feature.Gameplay.Host
                 timing: VfxTimingKind.ImmediateOnTickPresentation,
                 isPersistent: false,
                 persistentKey: VfxPersistentKey.None);
-            _playbackPort.Play(gameplayRequest);
-            result = new GameplayVfxPlaybackResult(GameplayVfxPlaybackResultKind.Succeeded);
-            return true;
+            return _runtime.TryPlayDamageDeathVfx(gameplayRequest, out result);
         }
 
         public void UpdatePresentation(float deltaTime)

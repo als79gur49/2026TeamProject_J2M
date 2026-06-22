@@ -11,7 +11,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Vfx.Host
 {
     [DisallowMultipleComponent]
-    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayInitialPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayDestroyShrinkVfxSequenceStateProvider, IGameplayTopologyTransitionCompletionPresentationExtension, IGameplayPresentationPausable, IGameplayStageTerminalPresentationExtension
+    public sealed class GameplayVfxProductionRuntime : MonoBehaviour, IGameplayTickPresentationExtension, IGameplayInitialPresentationExtension, IGameplayOutputCameraPresentationExtension, IGameplayPresentationMotionVfxExtension, IGameplayDestroyShrinkVfxSequenceStateProvider, IGameplayTopologyTransitionCompletionPresentationExtension, IGameplayPresentationPausable, IGameplayStageTerminalPresentationExtension, IDamageDeathGameplayVfxPlaybackRuntime
     {
         [SerializeField] private bool enableEnemyJumpTargetVfx = true;
         [SerializeField] private bool enableEnemyJumpLandingDustVfx = true;
@@ -106,6 +106,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
         private int legacyDeathCueSuppressedCount;
         private int legacyDamageDeathUnrelatedCueRetainedCount;
         private int lastDamageDeathExecutorOwnedFilteredRequestCount;
+        private int damageDeathPlaybackRequestCount;
+        private int damageDeathPlaybackSucceededCount;
+        private GameplayVfxCueId lastDamageDeathPlaybackCueId;
         private const bool CanonicalMigratedGameplayVfxEnabled = true;
         private const float TopologyTransitionSoftSpawnDelaySeconds = 0.12f;
 
@@ -423,6 +426,12 @@ namespace Game.Feature.Gameplay.Vfx.Host
 
         public int InvalidPlaybackModePolicyCount => pool?.InvalidPlaybackModePolicyCount ?? 0;
 
+        public int DamageDeathPlaybackRequestCount => damageDeathPlaybackRequestCount;
+
+        public int DamageDeathPlaybackSucceededCount => damageDeathPlaybackSucceededCount;
+
+        public GameplayVfxCueId LastDamageDeathPlaybackCueId => lastDamageDeathPlaybackCueId;
+
         public bool IsRuntimeInitialized => controller != null;
 
         public bool IsStageTerminalVfxSuppressed => isStageTerminalVfxSuppressed;
@@ -534,6 +543,9 @@ namespace Game.Feature.Gameplay.Vfx.Host
             legacyDeathCueSuppressedCount = 0;
             legacyDamageDeathUnrelatedCueRetainedCount = 0;
             lastDamageDeathExecutorOwnedFilteredRequestCount = 0;
+            damageDeathPlaybackRequestCount = 0;
+            damageDeathPlaybackSucceededCount = 0;
+            lastDamageDeathPlaybackCueId = default;
             flipDestroySelfMotionMissingBindingCount = 0;
             flipImpactStayTrailMissingBindingCount = 0;
             flipImpactStayTrailMissingOwnerViewCount = 0;
@@ -596,6 +608,8 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
+            EnsureRuntime(context.Projector, context.StateStore);
+
             var visibilityContext = BuildVisibilityContext(context.StateStore);
             planBuilder.Clear();
             var planningContext = GameplayVfxPlanningContext.ForInitial(
@@ -639,12 +653,66 @@ namespace Game.Feature.Gameplay.Vfx.Host
                 return;
             }
 
-            EnsureRuntime(context.Projector, context.StateStore);
             controller.SetVisibilityContext(visibilityContext);
             controller.Refresh(plan);
             LastPlannedRequestCount = plan.Requests.Count;
             lastInitialActiveEntranceSpawnInstanceCount =
                 GetActiveVfxInstanceCount(GameplayVfxCueIds.EntranceSpawn);
+        }
+
+        bool IDamageDeathGameplayVfxPlaybackRuntime.TryPlayDamageDeathVfx(
+            in GameplayVfxRequest request,
+            out GameplayVfxPlaybackResult result)
+        {
+            damageDeathPlaybackRequestCount++;
+            lastDamageDeathPlaybackCueId = request.CueId;
+
+            if (!IsDamageDeathVfxExecutorOwnedCue(request.CueId))
+            {
+                result = new GameplayVfxPlaybackResult(GameplayVfxPlaybackResultKind.BindingMissing);
+                return false;
+            }
+
+            if (configuredProjector == null ||
+                configuredStateStore == null)
+            {
+                result = new GameplayVfxPlaybackResult(GameplayVfxPlaybackResultKind.TargetMissing);
+                return false;
+            }
+
+            EnsureRuntime(configuredProjector, configuredStateStore);
+
+            var missingBindingBefore = controller?.MissingBindingCount ?? 0;
+            var missingAnchorBefore = controller?.MissingAnchorCount ?? 0;
+            var missingPrefabBefore = pool?.MissingPrefabCount ?? 0;
+            var activeBefore = pool?.GetActiveCount(request.CueId) ?? 0;
+
+            controller.SetVisibilityContext(BuildVisibilityContext(configuredStateStore));
+            controller.Refresh(new GameplayVfxRequestPlan(new[] { request }));
+
+            var activeAfter = pool?.GetActiveCount(request.CueId) ?? 0;
+            if (activeAfter > activeBefore)
+            {
+                damageDeathPlaybackSucceededCount++;
+                result = new GameplayVfxPlaybackResult(GameplayVfxPlaybackResultKind.Succeeded);
+                return true;
+            }
+
+            if ((controller?.MissingBindingCount ?? 0) > missingBindingBefore ||
+                (pool?.MissingPrefabCount ?? 0) > missingPrefabBefore)
+            {
+                result = new GameplayVfxPlaybackResult(GameplayVfxPlaybackResultKind.BindingMissing);
+                return false;
+            }
+
+            if ((controller?.MissingAnchorCount ?? 0) > missingAnchorBefore)
+            {
+                result = new GameplayVfxPlaybackResult(GameplayVfxPlaybackResultKind.AnchorMissing);
+                return false;
+            }
+
+            result = new GameplayVfxPlaybackResult(GameplayVfxPlaybackResultKind.TargetMissing);
+            return false;
         }
 
         private void RecordMapNotConfigured(

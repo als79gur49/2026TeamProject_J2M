@@ -88,6 +88,79 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Core")]
+        public IEnumerator ActualSceneBootstrap_UIAudioScene_DamageDeathVfxProductionPort_ReachesConcreteRuntimeWithoutMissingPort()
+        {
+            var stageId = StageId.CreateOrThrow("stage-0-1");
+            StageLaunchContextStore.SetCurrent(stageId);
+            EditorDirectPlayContextStore.SetCurrent(EditorDirectPlayContext.CreateNonCampaign(stageId));
+            yield return LoadScene(UIAudioScenePath);
+
+            var host = Object.FindObjectsByType<GameplaySceneHost>(FindObjectsInactive.Exclude, FindObjectsSortMode.None)
+                .Single();
+            AssertDamageDeathVfxBootstrap(UIAudioScenePath, host);
+            var runtime = host.GetComponent<GameplayVfxProductionRuntime>();
+            Assert.That(runtime, Is.Not.Null);
+
+            var baselineTick = host.InputHost.RunSingleTick();
+            yield return null;
+            Assert.That(baselineTick, Is.Not.Null, "UIAudioScene must produce a baseline tick before Damage/Death VFX presentation injection.");
+
+            var diagnosticsBefore = host.Presenter.DamageDeathVfxExecutorDiagnostics;
+            var classifiedPlaybackBefore =
+                diagnosticsBefore.PlaybackSucceededCount +
+                diagnosticsBefore.BindingMissingCount +
+                diagnosticsBefore.TargetMissingCount +
+                diagnosticsBefore.AnchorMissingCount;
+            var runtimeRequestBefore = runtime.DamageDeathPlaybackRequestCount;
+            var legacyDamageSuppressedBefore = runtime.LegacyDamageCueSuppressedCount;
+            var legacyDeathSuppressedBefore = runtime.LegacyDeathCueSuppressedCount;
+            var unrelatedRetainedBefore = runtime.LegacyDamageDeathUnrelatedCueRetainedCount;
+            var filteredBefore = runtime.LastDamageDeathExecutorOwnedFilteredRequestCount;
+            var result = CreateDamageDeathVfxTickResult(
+                tickIndex: 803,
+                topology: host.Presenter.CurrentTopology,
+                finalEntities: baselineTick.FinalEntities.ToArray(),
+                enemyDamageEntityId: 40,
+                includeBoxDestroy: true);
+
+            host.Presenter.Present(result);
+            yield return null;
+
+            var diagnosticsAfter = host.Presenter.DamageDeathVfxExecutorDiagnostics;
+            Assert.That(host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+            Assert.That(diagnosticsAfter.IsProductionDefaultOwner, Is.True);
+            Assert.That(
+                diagnosticsAfter.PlaybackRequestedCount - diagnosticsBefore.PlaybackRequestedCount,
+                Is.EqualTo(1));
+            Assert.That(
+                diagnosticsAfter.PortMissingCount - diagnosticsBefore.PortMissingCount,
+                Is.Zero);
+            Assert.That(
+                diagnosticsAfter.PlaybackSucceededCount +
+                diagnosticsAfter.BindingMissingCount +
+                diagnosticsAfter.TargetMissingCount +
+                diagnosticsAfter.AnchorMissingCount -
+                classifiedPlaybackBefore,
+                Is.EqualTo(1));
+            Assert.That(
+                runtime.DamageDeathPlaybackRequestCount - runtimeRequestBefore,
+                Is.EqualTo(1));
+            Assert.That(
+                runtime.LegacyDamageCueSuppressedCount - legacyDamageSuppressedBefore,
+                Is.EqualTo(1));
+            Assert.That(
+                runtime.LegacyDeathCueSuppressedCount - legacyDeathSuppressedBefore,
+                Is.Zero);
+            Assert.That(
+                runtime.LegacyDamageDeathUnrelatedCueRetainedCount - unrelatedRetainedBefore,
+                Is.EqualTo(1));
+            Assert.That(
+                runtime.LastDamageDeathExecutorOwnedFilteredRequestCount,
+                Is.GreaterThanOrEqualTo(filteredBefore));
+        }
+
+        [UnityTest]
         [Category("Full")]
         public IEnumerator ActualSceneBootstrap_UIAudioScene_TopologyRuntimeGate_ProductionBridgeLockCleanupAndDeterminism()
         {
@@ -479,6 +552,67 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 result,
                 "_eventLog",
                 new ReadOnlyCollection<string>(new List<string>(eventLog ?? Array.Empty<string>())));
+            return result;
+        }
+
+        private static TickResult CreateDamageDeathVfxTickResult(
+            int tickIndex,
+            CubeTopologyState topology,
+            IReadOnlyList<EntityState> finalEntities,
+            int enemyDamageEntityId,
+            bool includeBoxDestroy)
+        {
+            var exits = new List<TickEntityExitPresentationSignal>();
+            if (includeBoxDestroy)
+            {
+                exits.Add(new TickEntityExitPresentationSignal(
+                    80,
+                    TickEntityExitCause.BoxDestroy,
+                    new SurfaceCell(FaceId.Floor, 2, 2),
+                    topology,
+                    Direction.Up,
+                    EntityType.Box,
+                    sourceActorEntityId: 10,
+                    presentationSeed: 9080));
+            }
+
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                new[]
+                {
+                    new TickEnemyDamagePresentationSignal(
+                        enemyDamageEntityId,
+                        tookDamageThisTick: true,
+                        damageAmount: 2),
+                },
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                exits);
+
+            var result = new TickResult(
+                tickIndex,
+                new[] { TickPhase.Plan },
+                Array.Empty<string>());
+            SetSerializedField(typeof(TickResult), result, "<PresentationData>k__BackingField", presentationData);
+            SetSerializedField(typeof(TickResult), result, "<FinalTopology>k__BackingField", topology);
+            SetSerializedField(typeof(TickResult), result, "<DeterminismHash>k__BackingField", "DAMAGE-DEATH-VFX-PORT-WIRING");
+            SetSerializedField(typeof(TickResult), result, "<ObjectiveResult>k__BackingField", StageObjectiveTickResult.NoObjective);
+            SetSerializedField(
+                typeof(TickResult),
+                result,
+                "_finalEntities",
+                new ReadOnlyCollection<EntityState>(new List<EntityState>(finalEntities ?? Array.Empty<EntityState>())));
+            SetSerializedField(
+                typeof(TickResult),
+                result,
+                "_eventLog",
+                new ReadOnlyCollection<string>(new List<string>(new[] { "DamageDeathVfxPortWiring|Injected" })));
             return result;
         }
 
