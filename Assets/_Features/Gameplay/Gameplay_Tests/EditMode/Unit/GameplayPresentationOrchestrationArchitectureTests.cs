@@ -223,6 +223,154 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void CoordinatorFinalZeroGuard_UsesCompletedLanesWithoutDomainResidue()
+        {
+            var coordinatorSource = ReadRepoFile(CoordinatorPath);
+            var presenterSource = ReadRepoFile(PresenterPath);
+            var hostFactorySource = ReadRepoFile(HostFactoryPath);
+            var compositionSource = ReadRepoFile(CompositionPath);
+            var compositionFactorySource = ReadRepoFile(CompositionFactoryPath);
+            var coordinatorFields = typeof(GameplayTickPresentationCoordinator)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+            var coordinatorFieldTypes = coordinatorFields.Select(field => field.FieldType).ToArray();
+            var compositionProperties = typeof(GameplayPresentationRuntimeComposition)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly);
+
+            var constructor = typeof(GameplayTickPresentationCoordinator)
+                .GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+                .Single();
+            Assert.That(constructor.GetParameters().Select(parameter => parameter.ParameterType), Is.EqualTo(new[]
+            {
+                typeof(GameplayPresentationRuntimeComposition),
+            }));
+
+            foreach (var laneType in new[]
+                     {
+                         typeof(TopologyPresentationLaneRuntime),
+                         typeof(DamageDeathVfxPresentationLaneRuntime),
+                         typeof(BoxMotionPresentationLaneRuntime),
+                         typeof(PlayerActionAnimationLaneRuntime),
+                         typeof(EnemyPresentationLaneRuntime),
+                         typeof(CoreGameplaySfxLaneRuntime),
+                         typeof(GameplayActionAudioLaneRuntime),
+                         typeof(EnemyOneShotAudioLaneRuntime),
+                     })
+            {
+                Assert.That(coordinatorFieldTypes, Has.Member(laneType), laneType.Name);
+            }
+
+            foreach (var forbiddenModeType in new[]
+                     {
+                         typeof(TopologyPresentationExecutionMode),
+                         typeof(DamageDeathVfxExecutionMode),
+                         typeof(BoxMotionPresentationExecutionMode),
+                         typeof(PlayerActionAnimationExecutionMode),
+                         typeof(EnemyPresentationExecutionMode),
+                         typeof(CoreGameplaySfxExecutionMode),
+                         typeof(ActionAudioExecutionMode),
+                         typeof(EnemyAudioExecutionMode),
+                     })
+            {
+                Assert.That(coordinatorFieldTypes, Has.No.Member(forbiddenModeType), forbiddenModeType.Name);
+            }
+
+            foreach (var field in coordinatorFields)
+            {
+                var typeName = field.FieldType.Name;
+                var isAllowedSharedAudioSeam =
+                    field.FieldType == typeof(IGameplayAudioPlaybackPort) ||
+                    field.FieldType == typeof(GameplaySfxArbitratingPlaybackPort);
+                Assert.That(typeName, Does.Not.Contain("ExecutionGuard"), field.Name);
+                Assert.That(typeName, Does.Not.Contain("PipelineFactory"), field.Name);
+                Assert.That(typeName, Does.Not.Contain("ExecutionPipeline"), field.Name);
+                Assert.That(typeName, Does.Not.Contain("PlaybackPortAdapter"), field.Name);
+                if (!isAllowedSharedAudioSeam)
+                {
+                    Assert.That(typeName, Does.Not.Contain("PlaybackPort"), field.Name);
+                    Assert.That(typeName, Does.Not.Contain("CleanupPort"), field.Name);
+                }
+
+                Assert.That(field.Name, Does.Not.Contain("ExecutionMode"), field.Name);
+                Assert.That(field.Name, Does.Not.Contain("ExecutionPolicy"), field.Name);
+                Assert.That(field.Name, Does.Not.Contain("Normalize"), field.Name);
+            }
+
+            foreach (var property in compositionProperties)
+            {
+                var typeName = property.PropertyType.Name;
+                Assert.That(typeName, Does.Not.Contain("ExecutionMode"), property.Name);
+                Assert.That(typeName, Does.Not.Contain("ExecutionPolicy"), property.Name);
+                Assert.That(typeName, Does.Not.Contain("PipelineFactory"), property.Name);
+                Assert.That(typeName, Does.Not.Contain("ExecutionGuard"), property.Name);
+                Assert.That(typeName, Does.Not.Contain("PlaybackPort"), property.Name);
+                Assert.That(typeName, Does.Not.Contain("CleanupPort"), property.Name);
+            }
+
+            var composition = GameplayPresentationRuntimeCompositionFactory.Create();
+            Assert.That(composition.TopologyLane.ExecutionMode, Is.EqualTo(TopologyPresentationExecutionDefaults.ProductionDefault));
+            Assert.That(composition.DamageDeathVfxLane.ExecutionMode, Is.EqualTo(DamageDeathVfxExecutionPolicy.ProductionDefault));
+            Assert.That(composition.BoxMotionLane.ExecutionMode, Is.EqualTo(BoxMotionExecutionPolicy.ProductionDefault));
+            Assert.That(composition.PlayerActionAnimationLane.ExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionPolicy.ProductionDefault));
+            Assert.That(composition.EnemyPresentationLane.ExecutionMode, Is.EqualTo(EnemyPresentationExecutionPolicy.ProductionDefault));
+            Assert.That(composition.CoreGameplaySfxLane.ExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionPolicy.ProductionDefault));
+            Assert.That(composition.GameplayActionAudioLane.ExecutionMode, Is.EqualTo(ActionAudioExecutionPolicy.ProductionDefault));
+            Assert.That(composition.EnemyOneShotAudioLane.ExecutionMode, Is.EqualTo(EnemyAudioExecutionPolicy.ProductionDefault));
+
+            foreach (var forbiddenCoordinatorToken in new[]
+                     {
+                         "ExecutionPolicy.Normalize",
+                         "new GameplayPresentationPipeline",
+                         "CreateDamageDeathVfxExecutionPipeline",
+                         "CreateBoxMotionExecutionPipeline",
+                         "CreatePlayerActionAnimationExecutionPipeline",
+                         "CreateEnemyPresentationExecutionPipeline",
+                         "CreateCoreGameplaySfxExecutionPipeline",
+                         "CreateActionAudioExecutionPipeline",
+                         "CreateEnemyAudioExecutionPipeline",
+                         "BuildDamageDeathVfxPlaybackKeys",
+                         "BuildBoxMotionPlaybackKeys",
+                         "BuildPlayerActionAnimationPlaybackKeys",
+                         "BuildEnemyPresentationPlaybackKeys",
+                         "BuildCoreGameplaySfxPlaybackKeys",
+                         "BuildActionAudioPlaybackKeys",
+                         "BuildEnemyAudioPlaybackKeys",
+                         "RecordSkippedByPolicy(",
+                         "TryBeginExecution(",
+                         "RecordSameTickDamageHitSuppressedByDeath",
+                         "SuppressLethalEnemyDamageRequests",
+                         "ConfigureEnemyDeathCueSuppression",
+                         "DamageDeathGameplayVfxPlaybackPortAdapter",
+                         "GameplayVfxGameObjectPool",
+                         "ParticleSystem.",
+                         "AudioSource.",
+                         "Animator.Set",
+                         "Animator.Play",
+                     })
+            {
+                Assert.That(coordinatorSource, Does.Not.Contain(forbiddenCoordinatorToken), forbiddenCoordinatorToken);
+            }
+
+            Assert.That(hostFactorySource, Does.Not.Contain("presenter.ConfigureDamageDeathVfxExecution("));
+            Assert.That(hostFactorySource, Does.Not.Contain("presentationCoordinator.ConfigureDamageDeathVfxExecution("));
+            Assert.That(CountOccurrences(hostFactorySource, "ConfigureDamageDeathVfxExecution("), Is.Zero);
+            Assert.That(CountOccurrences(hostFactorySource, "ConfigureBoxMotionPresentationExecution("), Is.Zero);
+            Assert.That(CountOccurrences(hostFactorySource, "ConfigurePlayerActionAnimationExecution("), Is.Zero);
+            Assert.That(CountOccurrences(hostFactorySource, "ConfigureEnemyPresentationExecution("), Is.Zero);
+            Assert.That(CountOccurrences(hostFactorySource, "ConfigureCoreGameplaySfxExecution("), Is.Zero);
+            Assert.That(CountOccurrences(hostFactorySource, "ConfigureActionAudioExecution("), Is.Zero);
+            Assert.That(CountOccurrences(hostFactorySource, "ConfigureEnemyAudioExecution("), Is.Zero);
+            Assert.That(presenterSource, Does.Not.Contain("GameplayPresentationRuntimeCompositionFactory"));
+            Assert.That(presenterSource, Does.Not.Contain("new GameplayTickPresentationCoordinator"));
+            Assert.That(compositionSource, Does.Not.Contain("IDamageDeathVfxPlaybackPort"));
+            Assert.That(compositionFactorySource, Does.Contain("ConfigureProductionDefaultExecutionGuards("));
+            Assert.That(compositionFactorySource, Does.Contain("damageDeathVfxLane.ConfigureExecution("));
+            Assert.That(compositionFactorySource, Does.Not.Contain("TryBeginExecution("));
+            Assert.That(compositionFactorySource, Does.Not.Contain("RecordSkippedByPolicy("));
+            Assert.That(compositionFactorySource, Does.Not.Contain("ShouldSuppress"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void PresentationOrchestration_Assemblies_FollowReferenceDirection()
         {
             var contractsReferences = GetReferenceNames(typeof(PresentationFactFrame).Assembly);
@@ -574,8 +722,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(vfxRuntimeSource, Does.Contain("IDamageDeathGameplayVfxPlaybackRuntime"));
             Assert.That(vfxRuntimeSource, Does.Contain("TryPlayDamageDeathVfx"));
             Assert.That(hostFactorySource, Does.Contain("new DamageDeathGameplayVfxPlaybackPortAdapter(damageDeathVfxRuntime)"));
-            Assert.That(hostFactorySource, Does.Contain("presenter.AttachPresentationExtension(extension)"));
-            Assert.That(hostFactorySource, Does.Contain("presenter.ConfigureDamageDeathVfxExecution"));
+            Assert.That(hostFactorySource, Does.Contain("presenter.AttachPresentationExtension(presentationExtensions[i])"));
+            Assert.That(hostFactorySource, Does.Not.Contain("presenter.ConfigureDamageDeathVfxExecution("));
             Assert.That(hostFactorySource, Does.Not.Contain("AddComponent<GameplayVfxProductionRuntime>"));
             Assert.That(executorSource, Does.Not.Contain("GameObject.Find"));
             Assert.That(executorSource, Does.Not.Contain("FindObjectOfType"));
