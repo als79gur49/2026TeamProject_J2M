@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Host
     {
         public TopologyExecutionPipelineFactory TopologyExecutionPipelineFactory { get; set; }
         public DamageDeathVfxExecutionPipelineFactory DamageDeathVfxExecutionPipelineFactory { get; set; }
+        public IDamageDeathVfxPlaybackPort DamageDeathVfxPlaybackPort { get; set; }
         public BoxMotionExecutionPipelineFactory BoxMotionExecutionPipelineFactory { get; set; }
         public PlayerActionAnimationExecutionPipelineFactory PlayerActionAnimationExecutionPipelineFactory { get; set; }
         public EnemyPresentationExecutionPipelineFactory EnemyPresentationExecutionPipelineFactory { get; set; }
@@ -141,6 +142,7 @@ namespace Game.Feature.Gameplay.Host
             ConfigureProductionDefaultExecutionGuards(
                 topologyLane,
                 damageDeathVfxLane,
+                options.DamageDeathVfxPlaybackPort,
                 boxMotionLane,
                 playerActionAnimationLane,
                 enemyPresentationLane,
@@ -196,6 +198,7 @@ namespace Game.Feature.Gameplay.Host
         private static void ConfigureProductionDefaultExecutionGuards(
             TopologyPresentationLaneRuntime topologyLane,
             DamageDeathVfxPresentationLaneRuntime damageDeathVfxLane,
+            IDamageDeathVfxPlaybackPort damageDeathVfxPlaybackPort,
             BoxMotionPresentationLaneRuntime boxMotionLane,
             PlayerActionAnimationLaneRuntime playerActionAnimationLane,
             EnemyPresentationLaneRuntime enemyPresentationLane,
@@ -204,7 +207,9 @@ namespace Game.Feature.Gameplay.Host
             EnemyOneShotAudioLaneRuntime enemyOneShotAudioLane)
         {
             topologyLane.ConfigureExecution(TopologyPresentationExecutionPolicy.ProductionDefault);
-            damageDeathVfxLane.ConfigureExecution(DamageDeathVfxExecutionPolicy.ProductionDefault);
+            damageDeathVfxLane.ConfigureExecution(
+                DamageDeathVfxExecutionPolicy.ProductionDefault,
+                damageDeathVfxPlaybackPort);
             boxMotionLane.ConfigureExecution(BoxMotionExecutionPolicy.ProductionDefault);
             playerActionAnimationLane.ConfigureExecution(PlayerActionAnimationExecutionPolicy.ProductionDefault);
             enemyPresentationLane.ConfigureExecution(EnemyPresentationExecutionPolicy.ProductionDefault);
