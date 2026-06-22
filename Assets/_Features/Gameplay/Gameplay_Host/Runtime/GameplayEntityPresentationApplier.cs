@@ -299,17 +299,18 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                var hasKinematicPoseOverride = _trackState.KinematicPoseOverrides.TryGetValue(
+                var hasPresentationPoseOverride = TryGetPresentationPoseOverride(
                     entityId,
-                    out var kinematicPoseOverride);
+                    out var presentationPoseOverride,
+                    out var isActivePresentationPoseLocomotion);
                 var hasPlayerDeathHoldPose = _trackState.PlayerDeathHoldPoses.TryGetValue(
                     entityId,
                     out var playerDeathHoldPose);
                 if (!_poseResolver.TryResolveFallbackLocalPose(entityId, out var localPose))
                 {
-                    if (hasKinematicPoseOverride)
+                    if (hasPresentationPoseOverride)
                     {
-                        localPose = kinematicPoseOverride.LocalPose;
+                        localPose = presentationPoseOverride;
                     }
                     else if (hasPlayerDeathHoldPose)
                     {
@@ -322,9 +323,9 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 var motionVisualScaleMultiplier = Vector3.one;
-                if (hasKinematicPoseOverride)
+                if (hasPresentationPoseOverride)
                 {
-                    localPose = kinematicPoseOverride.LocalPose;
+                    localPose = presentationPoseOverride;
                 }
                 else if (hasPlayerDeathHoldPose)
                 {
@@ -421,7 +422,7 @@ namespace Game.Feature.Gameplay.Host
                 var isDeathPresentationPlaying =
                     _trackState.DeathPresentationPlayingEntityIds.Contains(entityId) &&
                     _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
-                var isVisible = hasKinematicPoseOverride ||
+                var isVisible = hasPresentationPoseOverride ||
                                 hasPlayerDeathHoldPose ||
                                 _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId) ||
                                 hasActiveLocalMotion ||
@@ -441,7 +442,7 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
 
-                var hasActiveMotion = hasKinematicPoseOverride && kinematicPoseOverride.IsActiveLocomotion ||
+                var hasActiveMotion = hasPresentationPoseOverride && isActivePresentationPoseLocomotion ||
                                       hasActiveLocalMotion;
                 var enemyVisualFacts = BuildEnemyVisualPresentationFacts(
                     entityId,
@@ -480,7 +481,7 @@ namespace Game.Feature.Gameplay.Host
                     requiresEnemyPresentationApply = RequiresEnemyPresentationApply(
                         entityId,
                         hasActiveBoardRotationTween,
-                        hasKinematicPoseOverride,
+                        hasPresentationPoseOverride,
                         hasPlayerDeathHoldPose,
                         hasActiveLocalMotion,
                         hasActiveOriginalViewMotion,
@@ -668,7 +669,12 @@ namespace Game.Feature.Gameplay.Host
                 AddProcessingEntityId(stateStoreEntityIds[i]);
             }
 
-            foreach (var pair in _trackState.KinematicPoseOverrides)
+            foreach (var pair in _trackState.EnemyKinematicPresentationPoseOverrides)
+            {
+                AddProcessingEntityId(pair.Key);
+            }
+
+            foreach (var pair in _trackState.PlayerContinuousLocomotionPresentationPoseOverrides)
             {
                 AddProcessingEntityId(pair.Key);
             }
@@ -693,6 +699,32 @@ namespace Game.Feature.Gameplay.Host
             {
                 _processingEntityIdBuffer.Add(entityId);
             }
+        }
+
+        private bool TryGetPresentationPoseOverride(
+            int entityId,
+            out GameplayEntityPose localPose,
+            out bool isActiveLocomotion)
+        {
+            if (_trackState.PlayerContinuousLocomotionPresentationPoseOverrides.TryGetValue(
+                    entityId,
+                    out var continuousLocomotionPose))
+            {
+                localPose = continuousLocomotionPose.LocalPose;
+                isActiveLocomotion = continuousLocomotionPose.IsActiveLocomotion;
+                return true;
+            }
+
+            if (_trackState.EnemyKinematicPresentationPoseOverrides.TryGetValue(entityId, out var kinematicPose))
+            {
+                localPose = kinematicPose.LocalPose;
+                isActiveLocomotion = kinematicPose.IsActiveLocomotion;
+                return true;
+            }
+
+            localPose = default;
+            isActiveLocomotion = false;
+            return false;
         }
 
         private bool HasJumpAirborneVisualState(int entityId)
@@ -1126,8 +1158,10 @@ namespace Game.Feature.Gameplay.Host
 
         private bool HasActivePlayerWalkMotion(int entityId)
         {
-            if (_trackState.KinematicPoseOverrides.TryGetValue(entityId, out var kinematicPose) &&
-                kinematicPose.IsActiveLocomotion)
+            if (_trackState.PlayerContinuousLocomotionPresentationPoseOverrides.TryGetValue(
+                    entityId,
+                    out var continuousLocomotionPose) &&
+                continuousLocomotionPose.IsActiveLocomotion)
             {
                 return true;
             }
@@ -1167,7 +1201,7 @@ namespace Game.Feature.Gameplay.Host
         private bool RequiresEnemyPresentationApply(
             int entityId,
             bool hasActiveBoardRotationTween,
-            bool hasKinematicPoseOverride,
+            bool hasPresentationPoseOverride,
             bool hasPlayerDeathHoldPose,
             bool hasActiveLocalMotion,
             bool hasActiveOriginalViewMotion,
@@ -1176,7 +1210,7 @@ namespace Game.Feature.Gameplay.Host
             bool isDeathPresentationPlaying)
         {
             return hasActiveBoardRotationTween ||
-                   hasKinematicPoseOverride ||
+                   hasPresentationPoseOverride ||
                    hasPlayerDeathHoldPose ||
                    hasActiveLocalMotion ||
                    hasActiveOriginalViewMotion ||

@@ -104,6 +104,30 @@ namespace Game.Feature.Gameplay.Host
              MotionMode == MotionMode.Charge);
     }
 
+    internal readonly struct PlayerContinuousLocomotionPresentationPose
+    {
+        public PlayerContinuousLocomotionPresentationPose(
+            GameplayEntityPose localPose,
+            ContinuousLocomotionMode mode,
+            TickKinematicMotionTerminalKind terminalKind)
+        {
+            LocalPose = localPose;
+            Mode = mode;
+            TerminalKind = terminalKind;
+        }
+
+        public GameplayEntityPose LocalPose { get; }
+
+        public ContinuousLocomotionMode Mode { get; }
+
+        public TickKinematicMotionTerminalKind TerminalKind { get; }
+
+        public bool IsActiveLocomotion =>
+            TerminalKind == TickKinematicMotionTerminalKind.None &&
+            (Mode == ContinuousLocomotionMode.Moving ||
+             Mode == ContinuousLocomotionMode.AlignToAnchor);
+    }
+
     internal sealed class PlayerFlipResultTurnTrackEntry
     {
         public PlayerFlipResultTurnTrackEntry(
@@ -156,7 +180,9 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, JumpTrack> _jumpTracks = new();
         private readonly Dictionary<int, RotationTrack> _jumpWindupRotationTracks = new();
         private readonly Dictionary<int, PlayerFlipResultTurnTrackEntry> _playerFlipResultTurnTracks = new();
-        private readonly Dictionary<int, KinematicPresentationPose> _kinematicPoseOverrides = new();
+        private readonly Dictionary<int, KinematicPresentationPose> _enemyKinematicPresentationPoseOverrides = new();
+        private readonly Dictionary<int, PlayerContinuousLocomotionPresentationPose>
+            _playerContinuousLocomotionPresentationPoseOverrides = new();
         private readonly Dictionary<int, Vector3> _glidePresentationOffsetsByEntityId = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
         private readonly HashSet<int> _motionVisualScaleEntityIds = new();
@@ -215,7 +241,12 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, PlayerFlipResultTurnTrackEntry> PlayerFlipResultTurnTracks => _playerFlipResultTurnTracks;
 
-        public Dictionary<int, KinematicPresentationPose> KinematicPoseOverrides => _kinematicPoseOverrides;
+        public Dictionary<int, KinematicPresentationPose> EnemyKinematicPresentationPoseOverrides =>
+            _enemyKinematicPresentationPoseOverrides;
+
+        public Dictionary<int, PlayerContinuousLocomotionPresentationPose>
+            PlayerContinuousLocomotionPresentationPoseOverrides =>
+                _playerContinuousLocomotionPresentationPoseOverrides;
 
         public Dictionary<int, Vector3> GlidePresentationOffsetsByEntityId => _glidePresentationOffsetsByEntityId;
 
@@ -271,7 +302,8 @@ namespace Game.Feature.Gameplay.Host
             _jumpTracks.Clear();
             _jumpWindupRotationTracks.Clear();
             _playerFlipResultTurnTracks.Clear();
-            _kinematicPoseOverrides.Clear();
+            _enemyKinematicPresentationPoseOverrides.Clear();
+            _playerContinuousLocomotionPresentationPoseOverrides.Clear();
             _glidePresentationOffsetsByEntityId.Clear();
             _localMotionTracks.Clear();
             _motionVisualScaleEntityIds.Clear();

@@ -736,7 +736,8 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(projector));
             }
 
-            _trackState.KinematicPoseOverrides.Clear();
+            _trackState.EnemyKinematicPresentationPoseOverrides.Clear();
+            _trackState.PlayerContinuousLocomotionPresentationPoseOverrides.Clear();
             for (var i = 0; i < presentationData.KinematicMotionTracks.Count; i++)
             {
                 var track = presentationData.KinematicMotionTracks[i];
@@ -751,7 +752,7 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                _trackState.KinematicPoseOverrides[track.EntityId] = new KinematicPresentationPose(
+                _trackState.EnemyKinematicPresentationPoseOverrides[track.EntityId] = new KinematicPresentationPose(
                     localPose,
                     track.MotionMode,
                     track.TerminalKind);
@@ -771,13 +772,11 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                _trackState.KinematicPoseOverrides[track.EntityId] = new KinematicPresentationPose(
-                    localPose,
-                    track.Mode == ContinuousLocomotionMode.Moving ||
-                    track.Mode == ContinuousLocomotionMode.AlignToAnchor
-                        ? MotionMode.Voluntary
-                        : MotionMode.Held,
-                    track.TerminalKind);
+                _trackState.PlayerContinuousLocomotionPresentationPoseOverrides[track.EntityId] =
+                    new PlayerContinuousLocomotionPresentationPose(
+                        localPose,
+                        track.Mode,
+                        track.TerminalKind);
             }
         }
 
@@ -794,7 +793,17 @@ namespace Game.Feature.Gameplay.Host
                 var signal = presentationData.PlayerDeathHoldSignals[i];
                 _trackState.PlayerDeathHoldSignalEntityIds.Add(signal.EntityId);
 
-                if (_trackState.KinematicPoseOverrides.TryGetValue(signal.EntityId, out var kinematicPose))
+                if (_trackState.PlayerContinuousLocomotionPresentationPoseOverrides.TryGetValue(
+                        signal.EntityId,
+                        out var continuousLocomotionPose))
+                {
+                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = continuousLocomotionPose.LocalPose;
+                    continue;
+                }
+
+                if (_trackState.EnemyKinematicPresentationPoseOverrides.TryGetValue(
+                        signal.EntityId,
+                        out var kinematicPose))
                 {
                     _trackState.PlayerDeathHoldPoses[signal.EntityId] = kinematicPose.LocalPose;
                     continue;
