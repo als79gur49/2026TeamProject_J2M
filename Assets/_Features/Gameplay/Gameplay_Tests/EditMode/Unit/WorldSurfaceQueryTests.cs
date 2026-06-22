@@ -875,7 +875,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SurfaceTopologyBasis_RadiusForward_TriggersAtContactThresholdAndPreservesLocalX()
+        public void SurfaceTopologyBasis_RadiusForward_ExactContactThresholdDoesNotCross()
         {
             const int radius = 768;
             var sourceThresholdY = KinematicFixed.HalfCellUnits - radius;
@@ -888,17 +888,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
                 radius,
                 out var rejectReason,
-                out var remap);
+                out _);
 
-            Assert.That(resolved, Is.True);
-            Assert.That(rejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
-            Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(512));
-            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radius));
+            Assert.That(resolved, Is.False);
+            Assert.That(rejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.CrossingAxisDidNotReachSeam));
         }
 
         [Test]
         [Category("Extended")]
-        public void SurfaceTopologyBasis_RadiusBackward_TriggersAtContactThresholdAndPreservesLocalX()
+        public void SurfaceTopologyBasis_RadiusBackward_ExactContactThresholdDoesNotCross()
         {
             const int radius = 768;
             var sourceThresholdY = KinematicFixed.MinLocalOffset + radius;
@@ -911,12 +909,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(-1024)),
                 radius,
                 out var rejectReason,
-                out var remap);
+                out _);
 
-            Assert.That(resolved, Is.True);
-            Assert.That(rejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
-            Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(-512));
-            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset - radius));
+            Assert.That(resolved, Is.False);
+            Assert.That(rejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.CrossingAxisDidNotReachSeam));
         }
 
         [Test]
@@ -1471,7 +1467,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Vector2Int.up,
                 new KinematicOffset2(
                     KinematicFixed.FromRaw(localX),
-                    KinematicFixed.FromRaw(sourceThresholdY - speedUnitsPerTick)),
+                    KinematicFixed.FromRaw(sourceThresholdY - speedUnitsPerTick + 1)),
                 new KinematicVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speedUnitsPerTick)),
                 radiusUnits,
                 out var rejectReason,
@@ -1482,7 +1478,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(remap.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
             Assert.That(remap.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(localX));
-            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radiusUnits));
+            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radiusUnits + 1));
             return remap;
         }
 

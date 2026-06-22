@@ -69,7 +69,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.MoonBlockRespawnDefinitions ?? Array.Empty<MoonBlockRespawnDefinition>();
             var generalTimingProfile = configuration.CreateTimingProfile();
             var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
-            var playerKinematicLocomotionTiming = configuration.CreatePlayerKinematicLocomotionTimingSnapshot();
+            var unitKinematicLocomotionTiming = configuration.CreateUnitKinematicLocomotionTimingSnapshot();
             var playerContinuousLocomotion = configuration.CreatePlayerContinuousLocomotionSnapshot();
             var playerRespawnTiming = configuration.CreatePlayerRespawnTimingSnapshot();
             var enemyAiRuntime = configuration.CreateEnemyAiRuntimeSnapshot();
@@ -117,7 +117,7 @@ namespace Game.Feature.Gameplay.Host
                 startTickIndex: 1,
                 allowPlayerRespawn: !configuration.DisablePlayerRespawn,
                 runtimeFeatureFlags: configuration.CreateRuntimeFeatureFlags(),
-                playerKinematicLocomotionTiming: playerKinematicLocomotionTiming,
+                unitKinematicLocomotionTiming: unitKinematicLocomotionTiming,
                 playerContinuousLocomotion: playerContinuousLocomotion,
                 tileFeatureDefinitions: tileFeatureDefinitions,
                 moonBlockRespawnDefinitions: moonBlockRespawnDefinitions,

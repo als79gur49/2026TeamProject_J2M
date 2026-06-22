@@ -1238,16 +1238,6 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerKinematicLocomotionScenarioTests.PlayerMovesIntoEnemy_KinematicMidpoint_PassiveContactFiresOnFinalizedSameCellMove",
-      "category": "Core",
-      "contracts": [
-        "damage_affects_movement",
-        "player_kinematic_locomotion_scenario_contract"
-      ],
-      "reason": "Locked Core coverage for player kinematic midpoint contact timing.",
-      "locked": true
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.FlipBlockedFailure_StillEntersRecoveryWithoutReturnTrack",
       "category": "Core",
       "contracts": [
@@ -1891,34 +1881,24 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.Player_Free2D_TopologyEdge_ApproachFromInterior_HandsOffToTopologyGridTransaction",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.Player_Free2D_TopologyEdge_ApproachFromInterior_CrossesNativelyOnOvershoot",
       "category": "Core",
       "contracts": [
         "player_free2d_continuous_locomotion",
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage for Free2D topology approach handoff through retained topology grid transaction.",
+      "reason": "Locked Core coverage for Free2D topology approach crossing through native transition.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerContinuousLocomotionScenarioTests.Player_Free2D_TopologyEdge_CenterCrossing_SameTickHandoff",
-      "category": "Core",
-      "contracts": [
-        "player_free2d_continuous_locomotion",
-        "movement_boundary_v1"
-      ],
-      "reason": "Locked Core coverage for same-tick zero-settle and topology handoff at the edge center crossing.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.PlayerContinuousLocomotionReplayTests.Replay_PlayerFree2D_TopologyApproachHandoff_IsDeterministic",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.PlayerContinuousLocomotionReplayTests.Replay_PlayerFree2D_TopologyApproachNativeTransition_IsDeterministic",
       "category": "Core",
       "contracts": [
         "determinism",
         "player_free2d_continuous_locomotion",
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core replay coverage for deterministic Free2D topology approach handoff.",
+      "reason": "Locked Core replay coverage for deterministic Free2D native topology approach transition.",
       "locked": true
     },
     {

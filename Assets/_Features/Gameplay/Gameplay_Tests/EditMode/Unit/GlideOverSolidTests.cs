@@ -1904,7 +1904,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         GameplayTimingProfile.CreateDefault(),
                         CreatePlayerTiming(),
                         runtimeFeatureFlags: runtimeFeatureFlags,
-                        playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
+                        unitKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
 
                 var startTick = pipeline.RunTick(new TickInput(1));
 
@@ -2112,7 +2112,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         GameplayTimingProfile.CreateDefault(),
                         CreatePlayerTiming(),
                         runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
-                        playerKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell: 6));
+                        unitKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell: 6));
 
                 var tick = pipeline.RunTick(new TickInput(1));
 
@@ -2158,7 +2158,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         GameplayTimingProfile.CreateDefault(),
                         CreatePlayerTiming(),
                         runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
-                        playerKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell: 6));
+                        unitKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell: 6));
 
                 var startTick = pipeline.RunTick(new TickInput(1));
                 Assert.That(startTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
@@ -2271,7 +2271,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         GameplayTimingProfile.CreateDefault(),
                         CreatePlayerTiming(),
                         runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                        playerKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell: 6));
+                        unitKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell: 6));
 
                 var tick = pipeline.RunTick(new TickInput(3));
 
@@ -2641,7 +2641,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         GameplayTimingProfile.CreateDefault(),
                         CreatePlayerTiming(),
                         runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled,
-                        playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
+                        unitKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
                 TickResult contactTick = null;
                 for (var tickIndex = 1; tickIndex <= 10; tickIndex++)
                 {
@@ -2695,7 +2695,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GameplayTimingProfile.CreateDefault(),
                     CreatePlayerTiming(),
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
-                    playerKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell));
+                    unitKinematicLocomotionTiming: CreateKinematicTiming(ticksPerCell));
         }
 
         private static TickPipeline CreateGlideKinematicPipelineWithoutGeneratedEntityLogics(
@@ -2712,7 +2712,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GameplayTimingProfile.CreateDefault(),
                     CreatePlayerTiming(),
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
-                    playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming(),
+                    unitKinematicLocomotionTiming: CreateTwoTickKinematicTiming(),
                     tileFeatureDefinitions: tileDefinitions,
                     moonBlockRespawnDefinitions: moonBlockRespawnDefinitions);
         }
@@ -2823,15 +2823,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 timingProfile.RepeatedMoveIntervalSeconds);
         }
 
-        private static PlayerKinematicLocomotionTimingSnapshot CreateTwoTickKinematicTiming()
+        private static UnitKinematicLocomotionTimingSnapshot CreateTwoTickKinematicTiming()
         {
             return CreateKinematicTiming(ticksPerCell: 2);
         }
 
-        private static PlayerKinematicLocomotionTimingSnapshot CreateKinematicTiming(int ticksPerCell)
+        private static UnitKinematicLocomotionTimingSnapshot CreateKinematicTiming(int ticksPerCell)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return new PlayerKinematicLocomotionTimingSettings
+            return new UnitKinematicLocomotionTimingSettings
             {
                 KinematicMoveDurationSeconds = ticksPerCell / (float)timingProfile.SimulationTicksPerSecond,
             }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);
@@ -2849,7 +2849,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GameplayTimingProfile.CreateDefault(),
                     CreatePlayerTiming(),
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
-                    playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
+                    unitKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
         }
 
         private static TickPipeline CreateGlideKinematicPipelineWithoutGeneratedEntityLogics(
@@ -2864,7 +2864,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GameplayTimingProfile.CreateDefault(),
                     CreatePlayerTiming(),
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
-                    playerKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
+                    unitKinematicLocomotionTiming: CreateTwoTickKinematicTiming());
         }
 
         private static (TickResult Tick, WorldState WorldState) RunActiveAnchorCommitScenario(

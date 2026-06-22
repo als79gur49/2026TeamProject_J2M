@@ -1134,7 +1134,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }),
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 playerInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
             var secondPlayerReplay = harness.Run(
                 GameplayWorldStateTestFactory.CreateBounded(new[]
                 {
@@ -1142,7 +1142,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }),
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 playerInputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             AssertReplayBoundaryCanaryEqual(firstPlayerReplay, secondPlayerReplay);
 

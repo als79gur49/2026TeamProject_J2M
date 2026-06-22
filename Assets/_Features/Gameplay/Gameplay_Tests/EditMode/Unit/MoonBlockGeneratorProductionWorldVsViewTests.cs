@@ -170,7 +170,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     objectiveDefinition: build.ObjectiveRuntimeDefinition,
                     allowPlayerRespawn: true,
                     runtimeFeatureFlags: default,
-                    playerKinematicLocomotionTiming: default,
+                    unitKinematicLocomotionTiming: default,
                     playerContinuousLocomotion: default,
                     tileFeatureDefinitions: build.TileFeatureDefinitions,
                     moonBlockRespawnDefinitions: build.MoonBlockRespawnDefinitions);

@@ -118,10 +118,6 @@ namespace Game.Feature.Gameplay.Host
         public float FaceSeamGap = -1f;
         public bool DirectionChangeConsumesDelay;
         public bool EnablePlayerFree2DActionAssist;
-        public bool EnablePlayerFree2DLocalLocomotion;
-        public bool EnablePlayerFree2DNativeTopologyTransition;
-        public bool EnablePlayerSameFaceContinuousLocomotion;
-        public bool EnablePlayerStoppableKinematicLocomotion;
         public bool EnableEnemySameFaceContinuousLocomotion;
         public bool EnableEnemyChargeKinematicLocomotion;
         public bool EnableEnemyGlideKinematicLocomotion;
@@ -160,8 +156,8 @@ namespace Game.Feature.Gameplay.Host
         public StageObjectiveRuntimeDefinition ObjectiveRuntimeDefinition = StageObjectiveRuntimeDefinition.Disabled;
         public int PlayerEntityId = 1;
         public PlayerControlTimingSettings PlayerControlTiming = PlayerControlTimingSettings.CreateDefault();
-        public PlayerKinematicLocomotionTimingSettings PlayerKinematicLocomotionTiming =
-            PlayerKinematicLocomotionTimingSettings.CreateDefault();
+        public UnitKinematicLocomotionTimingSettings UnitKinematicLocomotionTiming =
+            UnitKinematicLocomotionTimingSettings.CreateDefault();
         public PlayerContinuousLocomotionSettings PlayerContinuousLocomotion =
             PlayerContinuousLocomotionSettings.CreateDefault();
         public PlayerRespawnTimingSettings PlayerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();
@@ -239,9 +235,9 @@ namespace Game.Feature.Gameplay.Host
             return ResolvePlayerRespawnTimingSettings().CreateAuthoritativeSnapshot(SimulationTicksPerSecond);
         }
 
-        public PlayerKinematicLocomotionTimingSnapshot CreatePlayerKinematicLocomotionTimingSnapshot()
+        public UnitKinematicLocomotionTimingSnapshot CreateUnitKinematicLocomotionTimingSnapshot()
         {
-            return ResolvePlayerKinematicLocomotionTimingSettings()
+            return ResolveUnitKinematicLocomotionTimingSettings()
                 .CreateAuthoritativeSnapshot(SimulationTicksPerSecond);
         }
 
@@ -254,26 +250,18 @@ namespace Game.Feature.Gameplay.Host
         public GameplayRuntimeFeatureFlags CreateRuntimeFeatureFlags()
         {
             return new GameplayRuntimeFeatureFlags(
-                EnablePlayerSameFaceContinuousLocomotion,
-                EnableEnemySameFaceContinuousLocomotion,
-                EnableEnemyChargeKinematicLocomotion,
-                EnableEnemyGlideKinematicLocomotion,
-                EnablePlayerStoppableKinematicLocomotion,
-                EnablePlayerFree2DLocalLocomotion,
-                EnablePlayerFree2DActionAssist,
-                EnablePlayerFree2DNativeTopologyTransition);
+                enableEnemySameFaceContinuousLocomotion: EnableEnemySameFaceContinuousLocomotion,
+                enableEnemyChargeKinematicLocomotion: EnableEnemyChargeKinematicLocomotion,
+                enableEnemyGlideKinematicLocomotion: EnableEnemyGlideKinematicLocomotion,
+                enablePlayerFree2DActionAssist: EnablePlayerFree2DActionAssist);
         }
 
         public void ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags flags)
         {
-            EnablePlayerSameFaceContinuousLocomotion = flags.EnablePlayerSameFaceContinuousLocomotion;
             EnableEnemySameFaceContinuousLocomotion = flags.EnableEnemySameFaceContinuousLocomotion;
             EnableEnemyChargeKinematicLocomotion = flags.EnableEnemyChargeKinematicLocomotion;
             EnableEnemyGlideKinematicLocomotion = flags.EnableEnemyGlideKinematicLocomotion;
-            EnablePlayerStoppableKinematicLocomotion = flags.EnablePlayerStoppableKinematicLocomotion;
-            EnablePlayerFree2DLocalLocomotion = flags.EnablePlayerFree2DLocalLocomotion;
             EnablePlayerFree2DActionAssist = flags.EnablePlayerFree2DActionAssist;
-            EnablePlayerFree2DNativeTopologyTransition = flags.EnablePlayerFree2DNativeTopologyTransition;
         }
 
         public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()
@@ -419,10 +407,10 @@ namespace Game.Feature.Gameplay.Host
             return PlayerControlTiming?.Clone() ?? PlayerControlTimingSettings.CreateDefault();
         }
 
-        private PlayerKinematicLocomotionTimingSettings ResolvePlayerKinematicLocomotionTimingSettings()
+        private UnitKinematicLocomotionTimingSettings ResolveUnitKinematicLocomotionTimingSettings()
         {
-            return PlayerKinematicLocomotionTiming?.Clone() ??
-                   PlayerKinematicLocomotionTimingSettings.CreateDefault();
+            return UnitKinematicLocomotionTiming?.Clone() ??
+                   UnitKinematicLocomotionTimingSettings.CreateDefault();
         }
 
         private PlayerContinuousLocomotionSettings ResolvePlayerContinuousLocomotionSettings()

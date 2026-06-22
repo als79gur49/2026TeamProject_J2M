@@ -964,10 +964,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var topologyIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(0, 2));
             topologyIntent.AssignIntentId(1);
 
-            AssertLegacyExpansionIntentAllowed(pushWorldState, pushIntent, GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
-            AssertLegacyExpansionIntentAllowed(flipWorldState, flipIntent, GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
-            AssertLegacyExpansionIntentAllowed(itemWorldState, itemIntent, GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
-            AssertLegacyExpansionIntentAllowed(topologyWorldState, topologyIntent, GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+            AssertLegacyExpansionIntentAllowed(pushWorldState, pushIntent, GameplayRuntimeFeatureFlags.None);
+            AssertLegacyExpansionIntentAllowed(flipWorldState, flipIntent, GameplayRuntimeFeatureFlags.None);
+            AssertLegacyExpansionIntentAllowed(itemWorldState, itemIntent, GameplayRuntimeFeatureFlags.None);
+            AssertLegacyExpansionIntentAllowed(topologyWorldState, topologyIntent, GameplayRuntimeFeatureFlags.None);
         }
 
         [Test]
@@ -985,7 +985,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertLegacyExpansionIntentBlocked(
                 playerWorldState,
                 playerIntent,
-                GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                GameplayRuntimeFeatureFlags.None,
                 "PlayerCoveredLocomotionReachedLegacyExpansion");
 
             var enemyWorldState = CreateWorldState(new[]
@@ -1038,7 +1038,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertLegacyExpansionIntentBlocked(
                 worldState,
                 free2DIntent,
-                GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                GameplayRuntimeFeatureFlags.None,
                 "PlayerCoveredLocomotionReachedLegacyExpansion");
 
             var kinematicIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
@@ -1046,7 +1046,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertLegacyExpansionIntentBlocked(
                 worldState,
                 kinematicIntent,
-                GameplayRuntimeFeatureFlags.PlayerSameFaceContinuousLocomotionEnabled,
+                GameplayRuntimeFeatureFlags.None,
                 "PlayerCoveredLocomotionReachedLegacyExpansion");
 
             var flagOffIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
@@ -1055,7 +1055,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 flagOffIntent,
                 GameplayRuntimeFeatureFlags.None,
-                LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason);
+                "PlayerCoveredLocomotionReachedLegacyExpansion");
 
             var legacyBaselineIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
             legacyBaselineIntent.AssignIntentId(4);
@@ -1082,7 +1082,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 intent,
                 GameplayRuntimeFeatureFlags.None,
-                LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason);
+                "PlayerCoveredLocomotionReachedLegacyExpansion");
         }
 
         [Test]
@@ -3576,7 +3576,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new[] { definition },
                 resolver,
-                GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled);
+                GameplayRuntimeFeatureFlags.None);
 
             var firstActivation = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
@@ -5397,7 +5397,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 enemySpawnDefaultsByArchetypeId: null,
                 allowPlayerRespawn: true,
                 runtimeFeatureFlags: runtimeFeatureFlags,
-                playerKinematicLocomotionTiming: default,
+                unitKinematicLocomotionTiming: default,
                 playerContinuousLocomotion: default,
                 tileFeatureDefinitions: tileFeatureDefinitions,
                 moonBlockRespawnDefinitions: null,

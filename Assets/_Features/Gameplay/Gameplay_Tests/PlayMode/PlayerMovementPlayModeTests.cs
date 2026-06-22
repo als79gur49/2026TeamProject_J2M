@@ -55,6 +55,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
             });
+            SetPlayerForwardTopologyOvershootPose(host, 10);
 
             host.InputHost.SetRawMoveInput(Vector2.up);
 
@@ -102,6 +103,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
             });
+            SetPlayerForwardTopologyOvershootPose(host, 10);
 
             host.InputHost.SetRawMoveInput(Vector2.up);
             Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
@@ -129,6 +131,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
             });
+            SetPlayerForwardTopologyOvershootPose(host, 10);
 
             host.InputHost.SetRawMoveInput(Vector2.up);
             Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
@@ -153,6 +156,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
             });
+            SetPlayerForwardTopologyOvershootPose(host, 10);
 
             host.InputHost.SetRawMoveInput(Vector2.up);
             Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
@@ -174,6 +178,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
             });
+            SetPlayerForwardTopologyOvershootPose(host, 10);
 
             host.InputHost.SetRawMoveInput(Vector2.up);
             Assert.That(host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds), Is.EqualTo(1));
@@ -479,7 +484,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 },
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             var firstTick = host.InputHost.RunSingleTick();
@@ -1384,7 +1389,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 playerControlTiming: CreateFlipTimingSettings(
                     flipExecuteDelayTicks: 1,
                     flipInputLockDurationTicks: 1),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             host.InputHost.SetRawMoveInput(Vector2.left);
             host.InputHost.BufferFlip();
@@ -2369,6 +2374,29 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static WorldSnapshot CaptureAuthoritativeSnapshot(GameplaySceneHost host)
         {
             return GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+        }
+
+        private static void SetPlayerForwardTopologyOvershootPose(GameplaySceneHost host, int entityId)
+        {
+            var speed = PlayerContinuousLocomotionSettings.CreateDefault()
+                .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+                .SpeedUnitsPerTick;
+            InvokeWorldWriteContextMethod(
+                host.WorldState,
+                "SetUnitContinuousLocomotionState",
+                entityId,
+                new UnitContinuousLocomotionState
+                {
+                    localOffset = new KinematicOffset2(
+                        KinematicFixed.Zero,
+                        KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
+                    velocity = KinematicVelocity2.Zero,
+                    facing = Direction.Up,
+                    lastMoveDirection = Direction.Up,
+                    speedUnitsPerTick = speed,
+                    mode = ContinuousLocomotionMode.Idle,
+                    sequenceId = 1,
+                }.NormalizedForStorage());
         }
 
         private static class GameplayCameraRigReflectionAdapter

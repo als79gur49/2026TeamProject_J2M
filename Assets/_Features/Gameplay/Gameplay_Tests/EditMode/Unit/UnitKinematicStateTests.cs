@@ -178,11 +178,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [TestCase(60, 20)]
         [TestCase(120, 40)]
         [Category("Extended")]
-        public void PlayerKinematicLocomotionTimingSettings_DefaultDuration_QuantizesToEvenTicks(
+        public void UnitKinematicLocomotionTimingSettings_DefaultDuration_QuantizesToEvenTicks(
             int simulationTicksPerSecond,
             int expectedTicksPerCell)
         {
-            var snapshot = PlayerKinematicLocomotionTimingSettings.CreateDefault()
+            var snapshot = UnitKinematicLocomotionTimingSettings.CreateDefault()
                 .CreateAuthoritativeSnapshot(simulationTicksPerSecond);
 
             Assert.That(snapshot.TicksPerCell, Is.EqualTo(expectedTicksPerCell));
@@ -193,11 +193,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [TestCase(60, 22)]
         [TestCase(120, 42)]
         [Category("Extended")]
-        public void PlayerKinematicLocomotionTimingSettings_ExplicitPointThirtyFive_UsesEvenCeil(
+        public void UnitKinematicLocomotionTimingSettings_ExplicitPointThirtyFive_UsesEvenCeil(
             int simulationTicksPerSecond,
             int expectedTicksPerCell)
         {
-            var snapshot = new PlayerKinematicLocomotionTimingSettings
+            var snapshot = new UnitKinematicLocomotionTimingSettings
             {
                 KinematicMoveDurationSeconds = 0.35f,
             }.CreateAuthoritativeSnapshot(simulationTicksPerSecond);
@@ -210,9 +210,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [TestCase(-0.1f)]
         [TestCase(2.01f)]
         [Category("Extended")]
-        public void PlayerKinematicLocomotionTimingSettings_InvalidDuration_Throws(float durationSeconds)
+        public void UnitKinematicLocomotionTimingSettings_InvalidDuration_Throws(float durationSeconds)
         {
-            var settings = new PlayerKinematicLocomotionTimingSettings
+            var settings = new UnitKinematicLocomotionTimingSettings
             {
                 KinematicMoveDurationSeconds = durationSeconds,
             };

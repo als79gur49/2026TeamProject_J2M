@@ -65,7 +65,7 @@ namespace Game.Feature.Gameplay.BoardState
                 var thresholdY = radius > 0
                     ? KinematicFixed.HalfCellUnits - radius
                     : KinematicFixed.HalfCellUnits;
-                if (projectedY < thresholdY)
+                if (projectedY <= thresholdY)
                 {
                     rejectReason = Free2DTopologyTransitionRejectReason.CrossingAxisDidNotReachSeam;
                     return false;
@@ -83,10 +83,7 @@ namespace Game.Feature.Gameplay.BoardState
                 var thresholdY = radius > 0
                     ? KinematicFixed.MinLocalOffset + radius
                     : KinematicFixed.MinLocalOffset;
-                var reachedThreshold = radius > 0
-                    ? projectedY <= thresholdY
-                    : projectedY < thresholdY;
-                if (!reachedThreshold)
+                if (projectedY >= thresholdY)
                 {
                     rejectReason = Free2DTopologyTransitionRejectReason.CrossingAxisDidNotReachSeam;
                     return false;

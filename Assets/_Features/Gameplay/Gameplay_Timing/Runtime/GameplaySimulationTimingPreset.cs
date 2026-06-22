@@ -13,8 +13,8 @@ namespace Game.Feature.Gameplay.Timing
     {
         [SerializeField] private float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds;
         [SerializeField] private PlayerControlTimingSettings playerControlTiming = PlayerControlTimingSettings.CreateDefault();
-        [SerializeField] private PlayerKinematicLocomotionTimingSettings playerKinematicLocomotionTiming =
-            PlayerKinematicLocomotionTimingSettings.CreateDefault();
+        [SerializeField] private UnitKinematicLocomotionTimingSettings unitKinematicLocomotionTiming =
+            UnitKinematicLocomotionTimingSettings.CreateDefault();
         [SerializeField] private PlayerRespawnTimingSettings playerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();
         [SerializeField] private float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds;
         [SerializeField] private float boxSlideStepIntervalSeconds = GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
@@ -31,7 +31,7 @@ namespace Game.Feature.Gameplay.Timing
 
             configuration.InitialMoveDelaySeconds = initialMoveDelaySeconds;
             configuration.PlayerControlTiming = playerControlTiming.Clone();
-            configuration.PlayerKinematicLocomotionTiming = playerKinematicLocomotionTiming.Clone();
+            configuration.UnitKinematicLocomotionTiming = unitKinematicLocomotionTiming.Clone();
             configuration.PlayerRespawnTiming = playerRespawnTiming.Clone();
             configuration.RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds;
             configuration.BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds;
@@ -63,14 +63,14 @@ namespace Game.Feature.Gameplay.Timing
                     $"{nameof(GameplaySimulationTimingPreset)} '{name}' requires {nameof(playerRespawnTiming)}.");
             }
 
-            if (playerKinematicLocomotionTiming == null)
+            if (unitKinematicLocomotionTiming == null)
             {
                 throw new InvalidOperationException(
-                    $"{nameof(GameplaySimulationTimingPreset)} '{name}' requires {nameof(playerKinematicLocomotionTiming)}.");
+                    $"{nameof(GameplaySimulationTimingPreset)} '{name}' requires {nameof(unitKinematicLocomotionTiming)}.");
             }
 
             playerControlTiming.Validate(repeatedMoveIntervalSeconds);
-            playerKinematicLocomotionTiming.Validate();
+            unitKinematicLocomotionTiming.Validate();
             playerRespawnTiming.Validate();
         }
 

@@ -517,7 +517,7 @@ namespace Game.Feature.Gameplay.Tests.Core
                     GameplayTimingProfile.CreateDefault(),
                     CreatePlayerTiming(),
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.EnemyGlideKinematicLocomotionEnabled,
-                    playerKinematicLocomotionTiming: CreateKinematicTiming(glideMoveTicks));
+                    unitKinematicLocomotionTiming: CreateKinematicTiming(glideMoveTicks));
         }
 
         private static EnemyLogic CreateGlideLogic()
@@ -898,10 +898,10 @@ namespace Game.Feature.Gameplay.Tests.Core
                 timingProfile.RepeatedMoveIntervalSeconds);
         }
 
-        private static PlayerKinematicLocomotionTimingSnapshot CreateKinematicTiming(int ticksPerCell)
+        private static UnitKinematicLocomotionTimingSnapshot CreateKinematicTiming(int ticksPerCell)
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return new PlayerKinematicLocomotionTimingSettings
+            return new UnitKinematicLocomotionTimingSettings
             {
                 KinematicMoveDurationSeconds = ticksPerCell / (float)timingProfile.SimulationTicksPerSecond,
             }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);

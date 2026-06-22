@@ -37,14 +37,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0))),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
             var secondReplay = harness.Run(
                 CreateWorldState(
                     CreatePlayer(10),
                     CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0))),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay[0].DeterminismHash, Is.Not.EqualTo(firstReplay[1].DeterminismHash));
@@ -71,7 +71,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0))),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None,
                 playerContinuousLocomotion: playerContinuousLocomotion);
             var secondReplay = harness.Run(
                 CreateWorldState(
@@ -79,7 +79,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateWall(90, new SurfaceCell(FaceId.Floor, 1, 0))),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled,
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None,
                 playerContinuousLocomotion: playerContinuousLocomotion);
 
             AssertReplayEqual(firstReplay, secondReplay);
@@ -101,14 +101,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateUnit(40, new SurfaceCell(FaceId.Floor, 1, 0), teamId: 2)),
                 CreatePlayerLogics(new TickGatedPassiveContactProbeLogic(40, 10, firstTick: 9)),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
             var secondReplay = harness.Run(
                 CreateWorldState(
                     CreatePlayer(10),
                     CreateUnit(40, new SurfaceCell(FaceId.Floor, 1, 0), teamId: 2)),
                 CreatePlayerLogics(new TickGatedPassiveContactProbeLogic(40, 10, firstTick: 9)),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay[8].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3"));
@@ -118,7 +118,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Extended")]
-        public void Replay_PlayerFree2D_TopologyHandoff_IsDeterministic()
+        public void Replay_PlayerFree2D_ExactEdgeNoOvershoot_IsDeterministic()
         {
             var inputs = new[]
             {
@@ -145,8 +145,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
 
             AssertReplayEqual(firstReplay, secondReplay);
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Not.Contain("Pos=(0,1)"));
-            Assert.That(firstReplay[0].OccupancyDump, Does.Not.Contain("Cell=(0,1)|E=10|Face=Floor"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,1)|Hp=3"));
+            Assert.That(firstReplay[0].OccupancyDump, Does.Contain("Cell=(0,1)|E=10|Face=Floor"));
+            Assert.That(firstReplay[0].Trace, Does.Not.Contain("Free2DTopologyNativeTransition"));
         }
 
         [Test]
@@ -179,12 +180,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstWorld,
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
             var secondReplay = harness.Run(
                 secondWorld,
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DNativeTopologyTransitionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay[0].Trace, Does.Contain("Free2DTopologyNativeTransition"));
@@ -193,7 +194,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
-        public void Replay_PlayerFree2D_TopologyApproachHandoff_IsDeterministic()
+        public void Replay_PlayerFree2D_TopologyApproachNativeTransition_IsDeterministic()
         {
             var inputs = Enumerable.Range(1, 20)
                 .Select(tick => new TickInput(tick, PlayerTickCommand.Move(Direction.Up)))
@@ -306,7 +307,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Any(frame =>
                     frame.Trace.Contains(LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason, StringComparison.Ordinal) ||
                     frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason, StringComparison.Ordinal)),
-                Is.True);
+                Is.False);
         }
 
         [Test]
@@ -347,7 +348,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Any(frame =>
                     frame.Trace.Contains(LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason, StringComparison.Ordinal) ||
                     frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason, StringComparison.Ordinal)),
-                Is.True);
+                Is.False);
         }
 
         [Test]
@@ -368,14 +369,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateUnit(40, new SurfaceCell(FaceId.Floor, 0, 1), teamId: 2)),
                 CreatePlayerLogics(new TickScriptedAttackLogic(40, 10, attackTick: 2)),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
             var secondReplay = harness.Run(
                 CreateWorldState(
                     CreatePlayer(10, hp: 1),
                     CreateUnit(40, new SurfaceCell(FaceId.Floor, 0, 1), teamId: 2)),
                 CreatePlayerLogics(new TickScriptedAttackLogic(40, 10, attackTick: 2)),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.PlayerFree2DLocalLocomotionEnabled);
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay[1].EventLogDump, Does.Contain("ContinuousLocomotionInterrupted|E=10"));

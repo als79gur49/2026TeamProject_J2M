@@ -216,7 +216,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         timingProfile.SimulationTicksPerSecond,
                         timingProfile.RepeatedMoveIntervalSeconds),
                     runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                    playerKinematicLocomotionTiming: CreateOneTickKinematicTiming(),
+                    unitKinematicLocomotionTiming: CreateOneTickKinematicTiming(),
                     tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
@@ -242,10 +242,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return entry;
         }
 
-        private static PlayerKinematicLocomotionTimingSnapshot CreateOneTickKinematicTiming()
+        private static UnitKinematicLocomotionTimingSnapshot CreateOneTickKinematicTiming()
         {
             var timingProfile = GameplayTimingProfile.CreateDefault();
-            return new PlayerKinematicLocomotionTimingSettings
+            return new UnitKinematicLocomotionTimingSettings
             {
                 KinematicMoveDurationSeconds = 1f / timingProfile.SimulationTicksPerSecond,
             }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);

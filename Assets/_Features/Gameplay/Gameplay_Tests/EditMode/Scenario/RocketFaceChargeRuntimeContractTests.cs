@@ -435,13 +435,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile,
                 playerTiming,
                 runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                playerKinematicLocomotionTiming: CreateOneTickKinematicTiming(timingProfile),
+                unitKinematicLocomotionTiming: CreateOneTickKinematicTiming(timingProfile),
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }
 
-        private static PlayerKinematicLocomotionTimingSnapshot CreateOneTickKinematicTiming(GameplayTimingProfile timingProfile)
+        private static UnitKinematicLocomotionTimingSnapshot CreateOneTickKinematicTiming(GameplayTimingProfile timingProfile)
         {
-            return new PlayerKinematicLocomotionTimingSettings
+            return new UnitKinematicLocomotionTimingSettings
             {
                 KinematicMoveDurationSeconds = 1f / timingProfile.SimulationTicksPerSecond,
             }.CreateAuthoritativeSnapshot(timingProfile.SimulationTicksPerSecond);

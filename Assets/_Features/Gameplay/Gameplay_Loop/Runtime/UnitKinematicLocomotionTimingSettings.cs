@@ -2,9 +2,9 @@ using System;
 
 namespace Game.Feature.Gameplay.Loop
 {
-    public readonly struct PlayerKinematicLocomotionTimingSnapshot
+    public readonly struct UnitKinematicLocomotionTimingSnapshot
     {
-        public PlayerKinematicLocomotionTimingSnapshot(
+        public UnitKinematicLocomotionTimingSnapshot(
             float kinematicMoveDurationSeconds,
             int ticksPerCell,
             int commitTick)
@@ -24,7 +24,7 @@ namespace Game.Feature.Gameplay.Loop
     }
 
     [Serializable]
-    public sealed class PlayerKinematicLocomotionTimingSettings
+    public sealed class UnitKinematicLocomotionTimingSettings
     {
         public const float DefaultKinematicMoveDurationSeconds = 1f / 3f;
         public const float MaxKinematicMoveDurationSeconds = 2f;
@@ -32,14 +32,14 @@ namespace Game.Feature.Gameplay.Loop
 
         public float KinematicMoveDurationSeconds = DefaultKinematicMoveDurationSeconds;
 
-        public static PlayerKinematicLocomotionTimingSettings CreateDefault()
+        public static UnitKinematicLocomotionTimingSettings CreateDefault()
         {
-            return new PlayerKinematicLocomotionTimingSettings();
+            return new UnitKinematicLocomotionTimingSettings();
         }
 
-        public PlayerKinematicLocomotionTimingSettings Clone()
+        public UnitKinematicLocomotionTimingSettings Clone()
         {
-            return new PlayerKinematicLocomotionTimingSettings
+            return new UnitKinematicLocomotionTimingSettings
             {
                 KinematicMoveDurationSeconds = KinematicMoveDurationSeconds,
             };
@@ -53,18 +53,18 @@ namespace Game.Feature.Gameplay.Loop
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(KinematicMoveDurationSeconds),
-                    "Player kinematic move duration must be greater than zero.");
+                    "Unit kinematic move duration must be greater than zero.");
             }
 
             if (KinematicMoveDurationSeconds > MaxKinematicMoveDurationSeconds)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(KinematicMoveDurationSeconds),
-                    "Player kinematic move duration exceeds the supported maximum.");
+                    "Unit kinematic move duration exceeds the supported maximum.");
             }
         }
 
-        public PlayerKinematicLocomotionTimingSnapshot CreateAuthoritativeSnapshot(
+        public UnitKinematicLocomotionTimingSnapshot CreateAuthoritativeSnapshot(
             int simulationTicksPerSecond)
         {
             Validate();
@@ -73,7 +73,7 @@ namespace Game.Feature.Gameplay.Loop
                 KinematicMoveDurationSeconds,
                 simulationTicksPerSecond,
                 MinTicksPerCell);
-            return new PlayerKinematicLocomotionTimingSnapshot(
+            return new UnitKinematicLocomotionTimingSnapshot(
                 KinematicMoveDurationSeconds,
                 ticksPerCell,
                 ticksPerCell / 2);
