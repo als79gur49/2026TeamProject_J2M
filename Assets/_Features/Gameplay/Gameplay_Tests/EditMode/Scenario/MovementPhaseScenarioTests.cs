@@ -645,7 +645,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
@@ -678,7 +678,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
 
             var result = pipeline.RunTick(new TickInput(1));
 
@@ -885,7 +885,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 CreateTimingProfile(),
                 CreateDefaultPlayerControlTimingSnapshot(CreateTimingProfile()),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
@@ -927,13 +927,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void TickPipeline_ValidateLegacyExpansionIntents_AllowsGridTransactions()
+        public void MovementIntentPartitioner_PlayerExplicitActionsRemainGenericExpansionInput()
         {
             var pushWorldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
             });
+            pushWorldState.CreateWriteContext().SetPlayerControlState(10, default);
             var pushIntent = new PushIntent(10, priority: 100, destination: new Vector2Int(1, 0), localSequence: 0);
             pushIntent.AssignIntentId(1);
 
@@ -942,6 +943,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
             });
+            flipWorldState.CreateWriteContext().SetPlayerControlState(10, default);
             var flipIntent = new FlipIntent(10, priority: 100, destination: new Vector2Int(-1, 0), localSequence: 0);
             flipIntent.AssignIntentId(1);
 
@@ -954,25 +956,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var itemIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
             itemIntent.AssignIntentId(1);
 
-            var topologyWorldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
-                },
-                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
-            topologyWorldState.CreateWriteContext().SetPlayerControlState(10, default);
-            var topologyIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(0, 2));
-            topologyIntent.AssignIntentId(1);
-
-            AssertLegacyExpansionIntentAllowed(pushWorldState, pushIntent, GameplayRuntimeFeatureFlags.None);
-            AssertLegacyExpansionIntentAllowed(flipWorldState, flipIntent, GameplayRuntimeFeatureFlags.None);
-            AssertLegacyExpansionIntentAllowed(itemWorldState, itemIntent, GameplayRuntimeFeatureFlags.None);
-            AssertLegacyExpansionIntentAllowed(topologyWorldState, topologyIntent, GameplayRuntimeFeatureFlags.None);
+            AssertPartitionKeepsGenericExpansionIntent(pushWorldState, pushIntent);
+            AssertPartitionKeepsGenericExpansionIntent(flipWorldState, flipIntent);
+            AssertPartitionKeepsGenericExpansionIntent(itemWorldState, itemIntent);
         }
 
         [Test]
         [Category("Core")]
-        public void TickPipeline_ValidateLegacyExpansionIntents_BlocksFlagOnUnitOrdinaryMove()
+        public void MovementIntentPartitioner_PlayerOrdinaryMove_IsFree2DOwnedAndEnemyRemainsGeneric()
         {
             var playerWorldState = CreateWorldState(new[]
             {
@@ -982,11 +973,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var playerIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
             playerIntent.AssignIntentId(1);
 
-            AssertLegacyExpansionIntentBlocked(
-                playerWorldState,
-                playerIntent,
-                GameplayRuntimeFeatureFlags.None,
-                "PlayerCoveredLocomotionReachedLegacyExpansion");
+            AssertPartitionConsumesPlayerFree2DOrdinaryIntent(playerWorldState, playerIntent);
 
             var enemyWorldState = CreateWorldState(new[]
             {
@@ -995,11 +982,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var enemyIntent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
             enemyIntent.AssignIntentId(1);
 
-            AssertLegacyExpansionIntentBlocked(
-                enemyWorldState,
-                enemyIntent,
-                GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled,
-                "EnemyCoveredOrdinaryKinematicReachedLegacyExpansion");
+            AssertPartitionKeepsGenericExpansionIntent(enemyWorldState, enemyIntent);
 
             var chargeEnemy = CreateFrontFaceEnemy(entityId: 50, position: new SurfaceCell(FaceId.Floor, 0, 0));
             chargeEnemy.aiMode = EnemyAiMode.Charge;
@@ -1016,59 +999,29 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var chargeIntent = new MoveIntent(50, priority: 100, destination: new Vector2Int(1, 0));
             chargeIntent.AssignIntentId(1);
 
-            AssertLegacyExpansionIntentBlocked(
-                chargeWorldState,
-                chargeIntent,
-                GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled,
-                "ChargeCoveredKinematicReachedLegacyExpansion");
+            AssertPartitionKeepsGenericExpansionIntent(chargeWorldState, chargeIntent);
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase2_PlayerLegacyFallback_ValidateLegacyExpansionIntents_PlayerFlagReachability()
+        public void MovementIntentPartitioner_PlayerTopologyMove_IsFree2DOwned()
         {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-            });
-            worldState.CreateWriteContext().SetPlayerControlState(10, default);
+            var topologyWorldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
+            topologyWorldState.CreateWriteContext().SetPlayerControlState(10, default);
+            var topologyIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(0, 2));
+            topologyIntent.AssignIntentId(1);
 
-            var free2DIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
-            free2DIntent.AssignIntentId(1);
-            AssertLegacyExpansionIntentBlocked(
-                worldState,
-                free2DIntent,
-                GameplayRuntimeFeatureFlags.None,
-                "PlayerCoveredLocomotionReachedLegacyExpansion");
-
-            var kinematicIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
-            kinematicIntent.AssignIntentId(2);
-            AssertLegacyExpansionIntentBlocked(
-                worldState,
-                kinematicIntent,
-                GameplayRuntimeFeatureFlags.None,
-                "PlayerCoveredLocomotionReachedLegacyExpansion");
-
-            var flagOffIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
-            flagOffIntent.AssignIntentId(3);
-            AssertLegacyExpansionIntentBlocked(
-                worldState,
-                flagOffIntent,
-                GameplayRuntimeFeatureFlags.None,
-                "PlayerCoveredLocomotionReachedLegacyExpansion");
-
-            var legacyBaselineIntent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
-            legacyBaselineIntent.AssignIntentId(4);
-            AssertLegacyExpansionIntentBlocked(
-                worldState,
-                legacyBaselineIntent,
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
-                LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason);
+            AssertPartitionConsumesPlayerFree2DOrdinaryIntent(topologyWorldState, topologyIntent);
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase4_None_PlayerFallbackStillBlocked()
+        public void MovementIntentPartitioner_PlayerOrdinaryMove_DoesNotEnterGenericExpansion()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -1078,50 +1031,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var intent = new MoveIntent(10, priority: 100, destination: new Vector2Int(1, 0));
             intent.AssignIntentId(1);
-            AssertLegacyExpansionIntentBlocked(
-                worldState,
-                intent,
-                GameplayRuntimeFeatureFlags.None,
-                "PlayerCoveredLocomotionReachedLegacyExpansion");
+
+            var partitions = MovementIntentPartitioner.Partition(
+                worldState.CreateSnapshot(),
+                new[] { intent });
+
+            Assert.That(partitions.PlayerFree2DOrdinaryIntents.Select(candidate => candidate.IntentId), Is.EquivalentTo(new[] { 1 }));
+            Assert.That(partitions.GenericExpansionIntents.Select(candidate => candidate.IntentId), Is.Empty);
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase2B_EnemyLegacyFallback_ValidateLegacyExpansionIntents_EnemyFlagReachability()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-            });
-
-            var kinematicIntent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
-            kinematicIntent.AssignIntentId(1);
-            AssertLegacyExpansionIntentBlocked(
-                worldState,
-                kinematicIntent,
-                GameplayRuntimeFeatureFlags.EnemySameFaceContinuousLocomotionEnabled,
-                "EnemyCoveredOrdinaryKinematicReachedLegacyExpansion");
-
-            var flagOffIntent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
-            flagOffIntent.AssignIntentId(2);
-            AssertLegacyExpansionIntentBlocked(
-                worldState,
-                flagOffIntent,
-                GameplayRuntimeFeatureFlags.None,
-                LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason);
-
-            var legacyBaselineIntent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
-            legacyBaselineIntent.AssignIntentId(3);
-            AssertLegacyExpansionIntentBlocked(
-                worldState,
-                legacyBaselineIntent,
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
-                LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedReason);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void Phase5_None_EnemyFallbackStillBlocked()
+        public void MovementIntentPartitioner_EnemyOrdinaryMove_RemainsGenericExpansionInput()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -1130,16 +1051,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var intent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
             intent.AssignIntentId(1);
 
-            AssertLegacyExpansionIntentBlocked(
-                worldState,
-                intent,
-                GameplayRuntimeFeatureFlags.None,
-                LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason);
+            AssertPartitionKeepsGenericExpansionIntent(worldState, intent);
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase2C_ChargeLegacyFallback_ValidateLegacyExpansionIntents_ChargeFlagReachability()
+        public void MovementIntentPartitioner_EnemyOrdinaryMove_DoesNotBecomePlayerFree2DInput()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateFrontFaceEnemy(entityId: 40, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            var intent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
+            intent.AssignIntentId(1);
+
+            var partitions = MovementIntentPartitioner.Partition(
+                worldState.CreateSnapshot(),
+                new[] { intent });
+
+            Assert.That(partitions.PlayerFree2DOrdinaryIntents.Select(candidate => candidate.IntentId), Is.Empty);
+            Assert.That(partitions.GenericExpansionIntents.Select(candidate => candidate.IntentId), Is.EquivalentTo(new[] { 1 }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void MovementIntentPartitioner_ChargeActiveMove_RemainsGenericExpansionInput()
         {
             var chargeEnemy = CreateFrontFaceEnemy(entityId: 50, position: new SurfaceCell(FaceId.Floor, 0, 0));
             chargeEnemy.aiMode = EnemyAiMode.Charge;
@@ -1156,41 +1092,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var kinematicIntent = new MoveIntent(50, priority: 100, destination: new Vector2Int(1, 0));
             kinematicIntent.AssignIntentId(1);
-            AssertLegacyExpansionIntentBlocked(
-                worldState,
-                kinematicIntent,
-                GameplayRuntimeFeatureFlags.EnemyChargeKinematicLocomotionEnabled,
-                "ChargeCoveredKinematicReachedLegacyExpansion");
 
-            var flagOffIntent = new MoveIntent(50, priority: 100, destination: new Vector2Int(1, 0));
-            flagOffIntent.AssignIntentId(2);
-            AssertLegacyExpansionIntentBlocked(
-                worldState,
-                flagOffIntent,
-                GameplayRuntimeFeatureFlags.None,
-                LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason);
-
-            var legacyBaselineIntent = new MoveIntent(50, priority: 100, destination: new Vector2Int(1, 0));
-            legacyBaselineIntent.AssignIntentId(3);
-            AssertLegacyExpansionIntentBlocked(
-                worldState,
-                legacyBaselineIntent,
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
-                LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedReason);
+            AssertPartitionKeepsGenericExpansionIntent(worldState, kinematicIntent);
         }
 
         [Test]
         [Category("Extended")]
         public void Phase6_ChargeKinematicFlagOn_NoLegacyChargeMove()
         {
-            Phase2C_ChargeLegacyFallback_ValidateLegacyExpansionIntents_ChargeFlagReachability();
+            MovementIntentPartitioner_ChargeActiveMove_RemainsGenericExpansionInput();
         }
 
         [Test]
         [Category("Core")]
         public void ChargeMoveCleanup_ChargeKinematicFlagOn_NoChargeMoveProducer()
         {
-            Phase2C_ChargeLegacyFallback_ValidateLegacyExpansionIntents_ChargeFlagReachability();
+            MovementIntentPartitioner_ChargeActiveMove_RemainsGenericExpansionInput();
         }
 
         [Test]
@@ -1273,42 +1190,29 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void MovementExpander_ForbiddenLegacyUnitOrdinaryIntent_DetectsDebug()
+        public void MovementExpander_PlayerOrdinaryMove_IsNotDirectExpansionInput()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
             });
+            worldState.CreateWriteContext().SetPlayerControlState(10, default);
             var intent = new MoveIntent(10, priority: 1, destination: new Vector2Int(1, 0));
             intent.AssignIntentId(1);
-            var expandedCandidates = new List<ActionGroup>();
-            var rejectedReasons = new List<string>();
 
-            new MovementExpander().Expand(
-                CreateSnapshot(worldState),
-                tickIndex: 1,
-                sortedIntents: new[] { intent },
-                playerTraversalSourceIds: null,
-                buffer: expandedCandidates,
-                rejectedReasons: rejectedReasons,
-                forbiddenLegacyUnitOrdinaryIntentIds: new HashSet<int> { intent.IntentId });
+            var partitions = MovementIntentPartitioner.Partition(
+                worldState.CreateSnapshot(),
+                new[] { intent });
 
-            Assert.That(expandedCandidates, Is.Empty);
-            Assert.That(
-                rejectedReasons.Any(reason =>
-                    reason.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) &&
-                    reason.Contains("E=10", StringComparison.Ordinal) &&
-                    reason.Contains("ForbiddenCoveredLocomotionReachedMovementExpander", StringComparison.Ordinal)),
-                Is.True,
-                "MovementExpander forbidden-intent diagnostics are guard coverage only; they do not make grid transactions or MoveEntity deletion candidates.\n" +
-                string.Join("\n", rejectedReasons));
+            Assert.That(partitions.PlayerFree2DOrdinaryIntents.Select(candidate => candidate.IntentId), Is.EquivalentTo(new[] { 1 }));
+            Assert.That(partitions.GenericExpansionIntents.Select(candidate => candidate.IntentId), Is.Empty);
         }
 
         [Test]
         [Category("Extended")]
-        public void CoveredLocomotion_ForcedLeak_IsBlocked()
+        public void CoveredLocomotion_PlayerOrdinaryMove_IsPartitionedBeforeExpansion()
         {
-            MovementExpander_ForbiddenLegacyUnitOrdinaryIntent_DetectsDebug();
+            MovementExpander_PlayerOrdinaryMove_IsNotDirectExpansionInput();
         }
 
         [Test]
@@ -2195,7 +2099,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 CreateTimingProfile(),
                 CreateDefaultPlayerControlTimingSnapshot(CreateTimingProfile()),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var finalSnapshot = CreateSnapshot(worldState);
@@ -3935,7 +3839,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
 
@@ -4770,67 +4674,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 runtimeFeatureFlags: runtimeFeatureFlags);
         }
 
-        private static List<MoveIntent> InvokeValidateLegacyExpansionIntents(
-            TickPipeline pipeline,
-            WorldSnapshot snapshot,
-            IReadOnlyList<MoveIntent> expansionIntents,
-            List<string> rejectedReasons)
+        private static void AssertPartitionKeepsGenericExpansionIntent(WorldState worldState, MoveIntent intent)
         {
-            var method = typeof(TickPipeline).GetMethod(
-                "ValidateLegacyExpansionIntents",
-                BindingFlags.Instance | BindingFlags.NonPublic);
+            var partitions = MovementIntentPartitioner.Partition(
+                worldState.CreateSnapshot(),
+                new[] { intent });
 
-            Assert.That(method, Is.Not.Null);
-
-            return (List<MoveIntent>)method.Invoke(
-                pipeline,
-                new object[]
-                {
-                    snapshot,
-                    expansionIntents,
-                    rejectedReasons,
-                });
+            Assert.That(partitions.PlayerFree2DOrdinaryIntents.Select(candidate => candidate.IntentId), Is.Empty);
+            Assert.That(partitions.GenericExpansionIntents.Select(candidate => candidate.IntentId), Is.EquivalentTo(new[] { intent.IntentId }));
         }
 
-        private static void AssertLegacyExpansionIntentAllowed(
-            WorldState worldState,
-            MoveIntent intent,
-            GameplayRuntimeFeatureFlags runtimeFeatureFlags)
+        private static void AssertPartitionConsumesPlayerFree2DOrdinaryIntent(WorldState worldState, MoveIntent intent)
         {
-            var rejectedReasons = new List<string>();
-            var filteredIntents = InvokeValidateLegacyExpansionIntents(
-                CreateTickPipelineWithFlags(worldState, runtimeFeatureFlags),
-                CreateSnapshot(worldState),
-                new[] { intent },
-                rejectedReasons);
+            var partitions = MovementIntentPartitioner.Partition(
+                worldState.CreateSnapshot(),
+                new[] { intent });
 
-            CollectionAssert.AreEqual(new[] { intent.IntentId }, filteredIntents.Select(filtered => filtered.IntentId).ToArray());
-            Assert.That(
-                rejectedReasons.Any(reason => reason.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
-                Is.False);
-        }
-
-        private static void AssertLegacyExpansionIntentBlocked(
-            WorldState worldState,
-            MoveIntent intent,
-            GameplayRuntimeFeatureFlags runtimeFeatureFlags,
-            string expectedReason)
-        {
-            var rejectedReasons = new List<string>();
-            var filteredIntents = InvokeValidateLegacyExpansionIntents(
-                CreateTickPipelineWithFlags(worldState, runtimeFeatureFlags),
-                CreateSnapshot(worldState),
-                new[] { intent },
-                rejectedReasons);
-
-            Assert.That(filteredIntents, Is.Empty);
-            Assert.That(
-                rejectedReasons.Any(reason =>
-                    reason.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal) &&
-                    reason.Contains($"E={intent.SourceId}", StringComparison.Ordinal) &&
-                    reason.Contains(expectedReason, StringComparison.Ordinal)),
-                Is.True,
-                string.Join("\n", rejectedReasons));
+            Assert.That(partitions.PlayerFree2DOrdinaryIntents.Select(candidate => candidate.IntentId), Is.EquivalentTo(new[] { intent.IntentId }));
+            Assert.That(partitions.GenericExpansionIntents.Select(candidate => candidate.IntentId), Is.Empty);
         }
 
         private static void AssertNoUnexpectedUnknownMovementBoundary(TickResult result)
@@ -5374,7 +5235,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
                 playerRespawnDelayTicks: 1,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
+                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true),
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }
 

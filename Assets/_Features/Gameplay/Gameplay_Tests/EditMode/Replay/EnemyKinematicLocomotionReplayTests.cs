@@ -506,7 +506,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public void Replay_Phase8B_RemovedDiagnosticBaseline_DiagnosticsDeterministic()
         {
             AssertRemovedDiagnosticBaselineReplayDeterministic(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
         }
 
         [Test]
@@ -521,7 +521,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public void Replay_Phase8C_RemovedDiagnosticBaseline_DiagnosticsDeterministic()
         {
             AssertRemovedDiagnosticBaselineReplayDeterministic(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
         }
 
         [Test]
@@ -536,10 +536,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public void Replay_Phase8D_RemovedDiagnosticHelper_DiagnosticsDeterministic()
         {
             Assert.That(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.RemovedLegacyFallbackDiagnosticsEnabled,
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true).RemovedLegacyFallbackDiagnosticsEnabled,
                 Is.True);
             AssertRemovedDiagnosticBaselineReplayDeterministic(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
         }
 
         [Test]
@@ -547,13 +547,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public void Replay_Phase8E_RemovedDiagnosticRouting_Deterministic()
         {
             Assert.That(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.RemovedLegacyFallbackDiagnosticsEnabled,
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true).RemovedLegacyFallbackDiagnosticsEnabled,
                 Is.True);
             Assert.That(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.RemovedLegacyFallbackDiagnosticsEnabled,
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true).RemovedLegacyFallbackDiagnosticsEnabled,
                 Is.True);
             AssertRemovedDiagnosticBaselineReplayDeterministic(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
         }
 
         [Test]
@@ -561,7 +561,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public void Replay_FallbackWrapperCleanup_DiagnosticsStillDeterministic()
         {
             AssertRemovedDiagnosticBaselineReplayDeterministic(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
         }
 
         [Test]
@@ -569,13 +569,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public void Replay_CompatibilityLayer_DiagnosticBaseline_StillDeterministic()
         {
             Assert.That(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.RemovedLegacyFallbackDiagnosticsEnabled,
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true).RemovedLegacyFallbackDiagnosticsEnabled,
                 Is.True);
             Assert.That(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.RemovedLegacyFallbackDiagnosticsEnabled,
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true).RemovedLegacyFallbackDiagnosticsEnabled,
                 Is.True);
             AssertRemovedDiagnosticBaselineReplayDeterministic(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
         }
 
         [Test]
@@ -749,7 +749,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public void Replay_Phase5_EnemyLegacyBaseline_FallbackRemoved()
         {
             var replay = RunScriptedEnemyOrdinaryReplay(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true),
                 out var secondReplay);
 
             AssertReplayCanonicalStateEqual(replay, secondReplay);
@@ -812,7 +812,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public void Replay_Phase6_ChargeLegacyBaseline_FallbackRemoved()
         {
             var replay = RunScriptedChargeActiveReplay(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true),
                 out var secondReplay);
 
             AssertReplayCanonicalStateEqual(replay, secondReplay);
@@ -856,7 +856,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public void Replay_ChargeMoveCleanup_DiagnosticBaseline_NoChargeMoveOutput()
         {
             var replay = RunScriptedChargeActiveReplay(
-                GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline,
+                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true),
                 out var secondReplay);
 
             AssertReplayCanonicalStateEqual(replay, secondReplay);

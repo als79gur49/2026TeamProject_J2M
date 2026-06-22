@@ -1794,19 +1794,18 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.TickPipeline_ValidateLegacyExpansionIntents_AllowsGridTransactions",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.MovementIntentPartitioner_PlayerExplicitActionsRemainGenericExpansionInput",
       "category": "Core",
       "contracts": [
         "interaction_push",
         "interaction_flip",
-        "topology_materialization",
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage for Boundary v1 grid transaction legacy expansion allowance.",
+      "reason": "Locked Core coverage for Boundary v1 explicit player action partition into generic expansion.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.TickPipeline_ValidateLegacyExpansionIntents_BlocksFlagOnUnitOrdinaryMove",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.MovementIntentPartitioner_PlayerOrdinaryMove_IsFree2DOwnedAndEnemyRemainsGeneric",
       "category": "Core",
       "contracts": [
         "player_free2d_continuous_locomotion",
@@ -1814,7 +1813,7 @@
         "enemy_charge_kinematic_locomotion",
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage for Boundary v1 flag-on ordinary Unit movement leak blocking.",
+      "reason": "Locked Core coverage for Boundary v1 player ordinary Free2D partition and non-player generic expansion preservation.",
       "locked": true
     },
     {

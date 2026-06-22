@@ -73,7 +73,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 buffer,
                 rejectedReasons,
                 barricadeBlockFacts: null,
-                forbiddenLegacyUnitOrdinaryIntentIds: null,
                 tileFeatureDefinitions: null,
                 boxSlideStops: null,
                 playerTopologyTransitionBlockedSignals: null);
@@ -87,7 +86,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons,
             List<BarricadeBlockFact> barricadeBlockFacts = null,
-            ISet<int> forbiddenLegacyUnitOrdinaryIntentIds = null,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions = null,
             List<BoxSlideStopResult> boxSlideStops = null,
             List<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals = null)
@@ -123,16 +121,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 {
                     rejectedReasons.Add(
                         $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=MissingSource");
-                    continue;
-                }
-
-                if (forbiddenLegacyUnitOrdinaryIntentIds != null &&
-                    forbiddenLegacyUnitOrdinaryIntentIds.Contains(intent.IntentId) &&
-                    entity.type == EntityType.Unit &&
-                    intent.CommandKind == MovementCommandKind.Move)
-                {
-                    rejectedReasons.Add(
-                        $"LegacyUnitOrdinaryMovementDetected|Stage=Expand|E={intent.SourceId}|EntityType={entity.type}|Intent={intent.CommandKind}|Reason=ForbiddenCoveredLocomotionReachedMovementExpander|I={intent.IntentId}");
                     continue;
                 }
 

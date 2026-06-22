@@ -335,12 +335,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreateWorldStateWithPlayerControl(CreatePlayer(10)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
             var secondReplay = harness.Run(
                 CreateWorldStateWithPlayerControl(CreatePlayer(10)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
 
             AssertReplayDeterministicAllowingLegacyDiagnostic(firstReplay, secondReplay);
             Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);

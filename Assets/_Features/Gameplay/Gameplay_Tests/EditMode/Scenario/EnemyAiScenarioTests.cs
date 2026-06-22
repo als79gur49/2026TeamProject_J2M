@@ -4328,7 +4328,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var pipeline = CreateEnemyPipeline(
                     worldState,
                     profile,
-                    GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
                 var result = pipeline.RunTick(new TickInput(1));
                 var snapshot = worldState.CreateSnapshot();
 
@@ -4380,7 +4380,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var pipeline = CreateEnemyPipeline(
                     worldState,
                     profile,
-                    GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
                 var result = pipeline.RunTick(new TickInput(1));
                 var snapshot = worldState.CreateSnapshot();
 
@@ -5112,7 +5112,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
                 Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
                 Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.False);
-                LegacyMovementBoundaryAssert.RequiresExplicitLegacyFallbackBaseline(result, 40);
+                LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(result, 40);
+                Assert.That(
+                    result.MovementPhaseResult.RejectedReasons.Any(reason =>
+                        reason.Contains("EnemyChargeKinematicFlagOffActiveMoveRejected", StringComparison.Ordinal) &&
+                        reason.Contains("Source=40", StringComparison.Ordinal)),
+                    Is.True,
+                    BuildChargeKinematicDebug(1, worldState, result));
             }
             finally
             {
@@ -5358,7 +5364,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         motion.EntityId == 40),
                     Is.False,
                     BuildChargeKinematicDebug(3, worldState, thirdTick));
-                LegacyMovementBoundaryAssert.RequiresExplicitLegacyFallbackBaseline(thirdTick, 40);
+                LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(thirdTick, 40);
+                Assert.That(
+                    thirdTick.MovementPhaseResult.RejectedReasons.Any(reason =>
+                        reason.Contains("EnemyChargeKinematicFlagOffActiveMoveRejected", StringComparison.Ordinal) &&
+                        reason.Contains("Source=40", StringComparison.Ordinal)),
+                    Is.True,
+                    BuildChargeKinematicDebug(3, worldState, thirdTick));
             }
             finally
             {

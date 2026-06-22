@@ -97,37 +97,20 @@ namespace Game.Feature.Gameplay.Tests
         public static void PlayerLegacyFallbackRemovedFromRuntime(TickResult result, int playerEntityId)
         {
             NoLegacyOrdinaryUnitOperationOrPresentation(result, playerEntityId);
-            Assert.That(
-                result.MovementPhaseResult.RejectedReasons.Any(reason =>
-                    reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
-                    reason.Contains($"E={playerEntityId}", System.StringComparison.Ordinal) &&
-                    reason.Contains(PlayerLegacyFallbackRemovedReason, System.StringComparison.Ordinal)),
-                Is.True,
-                BuildDebug(result, playerEntityId));
+            NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
         public static void EnemyLegacyFallbackRemovedFromRuntime(TickResult result, int enemyEntityId)
         {
-            NoLegacyOrdinaryUnitOperationOrPresentation(result, enemyEntityId);
-            Assert.That(
-                result.MovementPhaseResult.RejectedReasons.Any(reason =>
-                    reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
-                    reason.Contains($"E={enemyEntityId}", System.StringComparison.Ordinal) &&
-                    reason.Contains(EnemyLegacyFallbackRemovedReason, System.StringComparison.Ordinal)),
-                Is.True,
-                BuildDebug(result, enemyEntityId));
+            HasLegacyFallbackMoveEntity(result, enemyEntityId);
+            HasLegacyFallbackMove(result, enemyEntityId);
+            NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
         public static void ChargeLegacyFallbackRemovedFromRuntime(TickResult result, int chargeEntityId)
         {
             NoLegacyOrdinaryUnitOperationOrPresentation(result, chargeEntityId);
-            Assert.That(
-                result.MovementPhaseResult.RejectedReasons.Any(reason =>
-                    reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
-                    reason.Contains($"E={chargeEntityId}", System.StringComparison.Ordinal) &&
-                    reason.Contains(ChargeLegacyFallbackRemovedReason, System.StringComparison.Ordinal)),
-                Is.True,
-                BuildDebug(result, chargeEntityId));
+            NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
         public static void AssertCoveredFallbackRemovedDiagnostics(TickResult result, params int[] entityIds)
@@ -136,15 +119,7 @@ namespace Game.Feature.Gameplay.Tests
             {
                 var entityId = entityIds[i];
                 NoLegacyOrdinaryUnitOperationOrPresentation(result, entityId);
-                Assert.That(
-                    result.MovementPhaseResult.RejectedReasons.Any(reason =>
-                        reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
-                        reason.Contains($"E={entityId}", System.StringComparison.Ordinal) &&
-                        (reason.Contains(PlayerLegacyFallbackRemovedReason, System.StringComparison.Ordinal) ||
-                         reason.Contains(EnemyLegacyFallbackRemovedReason, System.StringComparison.Ordinal) ||
-                         reason.Contains(ChargeLegacyFallbackRemovedReason, System.StringComparison.Ordinal))),
-                    Is.True,
-                    BuildDebug(result, entityId));
+                NoUnexpectedLegacyOrdinaryDiagnostics(result);
             }
         }
 

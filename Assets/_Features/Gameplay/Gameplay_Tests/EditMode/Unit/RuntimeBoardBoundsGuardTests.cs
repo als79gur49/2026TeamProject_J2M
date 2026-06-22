@@ -57,10 +57,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var configuration = new GameplaySceneHostConfiguration();
 
-            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline);
+            configuration.ApplyRuntimeFeatureFlags(new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
             var flags = configuration.CreateRuntimeFeatureFlags();
 
-            Assert.That(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticBaseline.RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
+            Assert.That(new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true).RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
             Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
             Assert.That(flags.EnablePlayerFree2DActionAssist, Is.False);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.False);

@@ -46,7 +46,6 @@ namespace Game.Feature.Gameplay.Loop
         private readonly TickTraceBuilder _tickTraceBuilder = new();
         private readonly DelayedAttackEffectQueue _delayedAttackEffectQueue = new();
         private readonly GravityFieldLockedBoxOneShotState _gravityFieldLockedBoxOneShotState = new();
-        private readonly List<EntityState> _legacyUnitOccupantBuffer = new();
         private readonly List<EntityState> _playerRespawnTemplates;
         private readonly StageObjectiveTracker _objectiveTracker;
         private readonly int _moveOccupancyTicks;
@@ -702,14 +701,18 @@ namespace Game.Feature.Gameplay.Loop
             FilterConsumedPlayerActionAttemptMovementIntents(rawMovementIntents, consumedPlayerActionAttemptEntityIds);
             var executableMovementIntents = FilterExecutionLockedMovementIntents(planSnapshot, input.TickIndex, rawMovementIntents, rejectedReasons);
             var sortedIntents = BuildMovementIntents(executableMovementIntents);
-            var expansionIntents = sortedIntents;
+            var movementIntentPartitions = MovementIntentPartitioner.Partition(
+                planSnapshot,
+                sortedIntents,
+                consumedPlayerActionAttemptEntityIds);
+            var expansionIntents = movementIntentPartitions.GenericExpansionIntents;
             var kinematicMovementActionPlanPayloads = new Dictionary<int, MovementActionPlanPayload>();
             var playerTopologyTransitionBlockedSignals =
                 new List<TickPlayerTopologyTransitionBlockedSignal>();
             var free2DBatch = new FinalizationBatch();
-            expansionIntents = BuildPlayerFree2DLocalLocomotionPlans(
+            BuildPlayerFree2DLocalLocomotionPlans(
                 planSnapshot,
-                sortedIntents,
+                movementIntentPartitions.PlayerFree2DOrdinaryIntents,
                 input.PlayerCommand,
                 input.TickIndex,
                 rejectedReasons,
@@ -743,28 +746,27 @@ namespace Game.Feature.Gameplay.Loop
                     rejectedReasons,
                     kinematicMovementActionPlanPayloads);
             }
+            else
+            {
+                expansionIntents = RejectEnemyChargeActiveFallbackIntents(
+                    planSnapshot,
+                    expansionIntents,
+                    rejectedReasons);
+            }
 
             var playerTraversalSourceIds = CollectPlayerTraversalSourceIds(entityLogicsForTick.MovementLogics);
             var barricadeBlockFacts = new List<BarricadeBlockFact>();
             var boxSlideStops = new List<BoxSlideStopResult>();
             var expandedCandidates = new List<ActionGroup>();
             var preExpansionRejectedReasons = new List<string>(rejectedReasons);
-            var legacyExpansionIntents = ValidateLegacyExpansionIntents(
-                planSnapshot,
-                expansionIntents,
-                preExpansionRejectedReasons);
-            var forbiddenLegacyUnitOrdinaryIntentIds = BuildForbiddenLegacyUnitOrdinaryIntentIds(
-                expansionIntents,
-                legacyExpansionIntents);
             _movementExpander.Expand(
                 planSnapshot,
                 input.TickIndex,
-                legacyExpansionIntents,
+                expansionIntents,
                 playerTraversalSourceIds,
                 expandedCandidates,
                 rejectedReasons,
                 barricadeBlockFacts,
-                forbiddenLegacyUnitOrdinaryIntentIds,
                 _tileFeatureDefinitions,
                 boxSlideStops,
                 playerTopologyTransitionBlockedSignals);
@@ -1759,231 +1761,7 @@ namespace Game.Feature.Gameplay.Loop
                    consumedPlayerActionAttemptEntityIds.Contains(entityId);
         }
 
-        private List<MoveIntent> ValidateLegacyExpansionIntents(
-            WorldSnapshot snapshot,
-            IReadOnlyList<MoveIntent> expansionIntents,
-            List<string> rejectedReasons)
-        {
-            var filteredIntents = new List<MoveIntent>(expansionIntents.Count);
-            for (var i = 0; i < expansionIntents.Count; i++)
-            {
-                var intent = expansionIntents[i];
-                if (TryResolveForbiddenLegacyUnitOrdinaryMovement(
-                        snapshot,
-                        intent,
-                        out var entity,
-                        out var reason))
-                {
-                    rejectedReasons.Add(
-                        $"LegacyUnitOrdinaryMovementDetected|E={intent.SourceId}|EntityType={entity.type}|Intent={intent.CommandKind}|Flags={FormatLocomotionFeatureFlags()}|Reason={reason}|I={intent.IntentId}");
-                    continue;
-                }
-
-                filteredIntents.Add(intent);
-            }
-
-            return filteredIntents;
-        }
-
-        private static ISet<int> BuildForbiddenLegacyUnitOrdinaryIntentIds(
-            IReadOnlyList<MoveIntent> expansionIntents,
-            IReadOnlyList<MoveIntent> legacyExpansionIntents)
-        {
-            if (expansionIntents == null ||
-                legacyExpansionIntents == null ||
-                expansionIntents.Count == legacyExpansionIntents.Count)
-            {
-                return null;
-            }
-
-            var allowedIntentIds = new HashSet<int>();
-            for (var i = 0; i < legacyExpansionIntents.Count; i++)
-            {
-                allowedIntentIds.Add(legacyExpansionIntents[i].IntentId);
-            }
-
-            var forbiddenIntentIds = new HashSet<int>();
-            for (var i = 0; i < expansionIntents.Count; i++)
-            {
-                var intentId = expansionIntents[i].IntentId;
-                if (!allowedIntentIds.Contains(intentId))
-                {
-                    forbiddenIntentIds.Add(intentId);
-                }
-            }
-
-            return forbiddenIntentIds.Count > 0 ? forbiddenIntentIds : null;
-        }
-
-        private bool TryResolveForbiddenLegacyUnitOrdinaryMovement(
-            WorldSnapshot snapshot,
-            MoveIntent intent,
-            out EntityState entity,
-            out string reason)
-        {
-            entity = default;
-            reason = string.Empty;
-            if (intent == null ||
-                intent.CommandKind != Movement.MovementCommandKind.Move ||
-                !snapshot.TryGetEntity(intent.SourceId, out entity) ||
-                entity.type != EntityType.Unit)
-            {
-                return false;
-            }
-
-            if (IsAllowedLegacyGridTransactionIntent(snapshot, entity, intent))
-            {
-                return false;
-            }
-
-            var isPlayerOrdinaryFallback = snapshot.TryGetPlayerControlState(intent.SourceId, out _);
-            var isChargeActiveFallback = TryResolveEnemyChargeKinematicStartScope(snapshot, intent, out _, out _, out _, out _);
-            var hasEnemyKinematicScope = TryResolveEnemyKinematicStartScope(
-                snapshot,
-                intent,
-                out _,
-                out _,
-                out _,
-                out _,
-                out _,
-                out var ordinaryScopeGlideKind,
-                out _);
-            var isActiveGlideFallback = (hasEnemyKinematicScope && ordinaryScopeGlideKind != EnemyGlideKinematicKind.None) ||
-                                        IsEnemyActiveGlideKinematicParticipant(snapshot, entity);
-            var isEnemyOrdinaryFallback = IsEnemyLogicParticipant(entity) &&
-                                          !isPlayerOrdinaryFallback &&
-                                          !isChargeActiveFallback &&
-                                          !isActiveGlideFallback;
-
-            if (isPlayerOrdinaryFallback)
-            {
-                reason = "PlayerCoveredLocomotionReachedLegacyExpansion";
-                return true;
-            }
-
-            if (_runtimeFeatureFlags.EnableEnemyChargeKinematicLocomotion &&
-                isChargeActiveFallback)
-            {
-                reason = "ChargeCoveredKinematicReachedLegacyExpansion";
-                return true;
-            }
-
-            if (_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion &&
-                isEnemyOrdinaryFallback)
-            {
-                reason = "EnemyCoveredOrdinaryKinematicReachedLegacyExpansion";
-                return true;
-            }
-
-            if (_runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion &&
-                TryResolveEnemyKinematicStartScope(snapshot, intent, out _, out _, out _, out _, out _, out var glideKinematicKind, out _) &&
-                glideKinematicKind != EnemyGlideKinematicKind.None)
-            {
-                reason = "EnemyGlideActiveKinematicReachedLegacyExpansion";
-                return true;
-            }
-
-            if (!_runtimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled &&
-                (isPlayerOrdinaryFallback ||
-                 isEnemyOrdinaryFallback ||
-                 isChargeActiveFallback))
-            {
-                reason = "LegacyOrdinaryFallbackRequiresExplicitBaseline";
-                return true;
-            }
-
-            if (isPlayerOrdinaryFallback)
-            {
-                reason = "PlayerLegacyFallbackRemovedFromRuntime";
-                return true;
-            }
-
-            if (isEnemyOrdinaryFallback)
-            {
-                reason = "EnemyLegacyFallbackRemovedFromRuntime";
-                return true;
-            }
-
-            if (isChargeActiveFallback)
-            {
-                reason = "ChargeLegacyFallbackRemovedFromRuntime";
-                return true;
-            }
-
-            return false;
-        }
-
-        private bool IsAllowedLegacyGridTransactionIntent(
-            WorldSnapshot snapshot,
-            in EntityState entity,
-            MoveIntent intent)
-        {
-            var delta = intent.Destination - entity.position.PlanarPosition;
-            if (!snapshot.TryResolveUnitStep(
-                    entity.position,
-                    delta,
-                    out var destination,
-                    out var rotationKind,
-                    out var updatedTopology))
-            {
-                return snapshot.TryResolvePlayerStep(
-                           entity.position,
-                           delta,
-                           out _,
-                           out var playerRotationKind,
-                           out _) &&
-                       playerRotationKind != CubeRotationKind.None;
-            }
-
-            if (rotationKind != CubeRotationKind.None)
-            {
-                return true;
-            }
-
-            if (!snapshot.TryGetSolidSemanticAt(updatedTopology, destination, out var targetSemantic))
-            {
-                return HasDifferentUnitAt(snapshot, updatedTopology, destination, entity.entityId);
-            }
-
-            if (targetSemantic.Kind != SolidKind.Box)
-            {
-                return false;
-            }
-
-            return (targetSemantic.Entity.boxCapabilities & BoxCapabilities.Item) == BoxCapabilities.Item;
-        }
-
-        private bool HasDifferentUnitAt(
-            WorldSnapshot snapshot,
-            CubeTopologyState topology,
-            SurfaceCell cell,
-            int entityId)
-        {
-            _legacyUnitOccupantBuffer.Clear();
-            snapshot.EnumerateUnitsAt(topology, cell, _legacyUnitOccupantBuffer);
-            for (var i = 0; i < _legacyUnitOccupantBuffer.Count; i++)
-            {
-                if (_legacyUnitOccupantBuffer[i].entityId != entityId)
-                {
-                    _legacyUnitOccupantBuffer.Clear();
-                    return true;
-                }
-            }
-
-            _legacyUnitOccupantBuffer.Clear();
-            return false;
-        }
-
-        private string FormatLocomotionFeatureFlags()
-        {
-            return
-                $"EnemyKinematic={(_runtimeFeatureFlags.EnableEnemySameFaceContinuousLocomotion ? 1 : 0)}," +
-                $"ChargeKinematic={(_runtimeFeatureFlags.EnableEnemyChargeKinematicLocomotion ? 1 : 0)}," +
-                $"GlideKinematic={(_runtimeFeatureFlags.EnableEnemyGlideKinematicLocomotion ? 1 : 0)}," +
-                $"RemovedLegacyFallbackDiagnosticsEnabled={(_runtimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled ? 1 : 0)}";
-        }
-
-        private List<MoveIntent> BuildPlayerFree2DLocalLocomotionPlans(
+        private void BuildPlayerFree2DLocalLocomotionPlans(
             WorldSnapshot snapshot,
             IReadOnlyList<MoveIntent> sortedIntents,
             PlayerTickCommand playerCommand,
@@ -1993,7 +1771,6 @@ namespace Game.Feature.Gameplay.Loop
             HashSet<int> consumedPlayerActionAttemptEntityIds,
             List<TickPlayerTopologyTransitionBlockedSignal> playerTopologyTransitionBlockedSignals)
         {
-            var legacyIntents = new List<MoveIntent>(sortedIntents.Count);
             var consumedFree2DIntentIds = new HashSet<int>();
             var settledApproachPlayerIds = new HashSet<int>();
             var entities = new List<EntityState>();
@@ -2080,18 +1857,6 @@ namespace Game.Feature.Gameplay.Loop
                     batch);
             }
 
-            for (var i = 0; i < sortedIntents.Count; i++)
-            {
-                var intent = sortedIntents[i];
-                if (consumedFree2DIntentIds.Contains(intent.IntentId))
-                {
-                    continue;
-                }
-
-                legacyIntents.Add(intent);
-            }
-
-            return legacyIntents;
         }
 
         private PlayerFree2DNativeTopologyDisposition TryMaterializePlayerFree2DNativeTopologyTransition(
@@ -3374,6 +3139,34 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return legacyIntents;
+        }
+
+        private List<MoveIntent> RejectEnemyChargeActiveFallbackIntents(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            List<string> rejectedReasons)
+        {
+            var filteredIntents = new List<MoveIntent>(sortedIntents.Count);
+            for (var i = 0; i < sortedIntents.Count; i++)
+            {
+                var intent = sortedIntents[i];
+                if (TryResolveEnemyChargeKinematicStartScope(
+                        snapshot,
+                        intent,
+                        out var entity,
+                        out _,
+                        out _,
+                        out _))
+                {
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Plan|Source={intent.SourceId}|I={intent.IntentId}|Reason=EnemyChargeKinematicFlagOffActiveMoveRejected|Anchor={FormatCell(entity.position)}");
+                    continue;
+                }
+
+                filteredIntents.Add(intent);
+            }
+
+            return filteredIntents;
         }
 
         private bool TryBuildEnemyKinematicStartPayload(

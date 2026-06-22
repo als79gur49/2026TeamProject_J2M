@@ -112,4 +112,119 @@ namespace Game.Feature.Gameplay.Loop
         public ResolvedActionSemanticKind SemanticKind { get; }
     }
 
+    internal sealed class MovementIntentPartitions
+    {
+        public MovementIntentPartitions(
+            IReadOnlyList<MoveIntent> playerFree2DOrdinaryIntents,
+            IReadOnlyList<MoveIntent> playerExplicitActionIntents,
+            IReadOnlyList<MoveIntent> genericExpansionIntents)
+        {
+            PlayerFree2DOrdinaryIntents = playerFree2DOrdinaryIntents ?? throw new ArgumentNullException(nameof(playerFree2DOrdinaryIntents));
+            PlayerExplicitActionIntents = playerExplicitActionIntents ?? throw new ArgumentNullException(nameof(playerExplicitActionIntents));
+            GenericExpansionIntents = genericExpansionIntents ?? throw new ArgumentNullException(nameof(genericExpansionIntents));
+        }
+
+        public IReadOnlyList<MoveIntent> PlayerFree2DOrdinaryIntents { get; }
+
+        public IReadOnlyList<MoveIntent> PlayerExplicitActionIntents { get; }
+
+        public IReadOnlyList<MoveIntent> GenericExpansionIntents { get; }
+    }
+
+    internal static class MovementIntentPartitioner
+    {
+        public static MovementIntentPartitions Partition(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            ISet<int> consumedPlayerActionAttemptEntityIds = null)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (sortedIntents == null)
+            {
+                throw new ArgumentNullException(nameof(sortedIntents));
+            }
+
+            var playerFree2DOrdinaryIntents = new List<MoveIntent>();
+            var playerExplicitActionIntents = new List<MoveIntent>();
+            var genericExpansionIntents = new List<MoveIntent>();
+
+            for (var i = 0; i < sortedIntents.Count; i++)
+            {
+                var intent = sortedIntents[i];
+                if (intent == null ||
+                    !snapshot.TryGetEntity(intent.SourceId, out var entity) ||
+                    entity.type != EntityType.Unit ||
+                    !snapshot.TryGetPlayerControlState(intent.SourceId, out _))
+                {
+                    genericExpansionIntents.Add(intent);
+                    continue;
+                }
+
+                if (consumedPlayerActionAttemptEntityIds != null &&
+                    consumedPlayerActionAttemptEntityIds.Contains(intent.SourceId))
+                {
+                    playerExplicitActionIntents.Add(intent);
+                    continue;
+                }
+
+                if (IsPlayerExplicitActionIntent(snapshot, entity, intent))
+                {
+                    playerExplicitActionIntents.Add(intent);
+                    genericExpansionIntents.Add(intent);
+                    continue;
+                }
+
+                if (intent.CommandKind == Movement.MovementCommandKind.Move)
+                {
+                    playerFree2DOrdinaryIntents.Add(intent);
+                    continue;
+                }
+
+                genericExpansionIntents.Add(intent);
+            }
+
+            return new MovementIntentPartitions(
+                playerFree2DOrdinaryIntents,
+                playerExplicitActionIntents,
+                genericExpansionIntents);
+        }
+
+        private static bool IsPlayerExplicitActionIntent(
+            WorldSnapshot snapshot,
+            in EntityState entity,
+            MoveIntent intent)
+        {
+            if (intent.CommandKind == Movement.MovementCommandKind.Push ||
+                intent.CommandKind == Movement.MovementCommandKind.Flip)
+            {
+                return true;
+            }
+
+            if (intent.CommandKind != Movement.MovementCommandKind.Move)
+            {
+                return false;
+            }
+
+            var delta = intent.Destination - entity.position.PlanarPosition;
+            if (Math.Abs(delta.x) + Math.Abs(delta.y) != 1 ||
+                !snapshot.TryResolveUnitStep(
+                    entity.position,
+                    delta,
+                    out var destination,
+                    out _,
+                    out var resolvedTopology))
+            {
+                return false;
+            }
+
+            return snapshot.TryGetSolidSemanticAt(resolvedTopology, destination, out var targetSemantic) &&
+                   targetSemantic.Kind == SolidKind.Box &&
+                   (targetSemantic.Entity.boxCapabilities & BoxCapabilities.Item) == BoxCapabilities.Item;
+        }
+    }
+
 }

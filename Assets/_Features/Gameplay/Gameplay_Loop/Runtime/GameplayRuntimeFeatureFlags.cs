@@ -28,9 +28,6 @@ namespace Game.Feature.Gameplay.Loop
                 enableEnemyGlideKinematicLocomotion: true,
                 enablePlayerFree2DActionAssist: true);
 
-        public static GameplayRuntimeFeatureFlags RemovedLegacyFallbackDiagnosticBaseline =>
-            new(removedLegacyFallbackDiagnosticsEnabled: true);
-
         public static GameplayRuntimeFeatureFlags EnemySameFaceContinuousLocomotionEnabled =>
             new(enableEnemySameFaceContinuousLocomotion: true);
 
