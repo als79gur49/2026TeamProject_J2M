@@ -260,7 +260,7 @@ Rollback:
 
 Scope:
 
-- Keep `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical removed-fallback diagnostics field.
+- Keep `deleted legacy fallback diagnostic flag` as the canonical removed-fallback diagnostics field.
 - Either keep with clearer docs, add `[Obsolete]` window, introduce canonical replacement field, or remove after replay/API migration.
 
 Files:

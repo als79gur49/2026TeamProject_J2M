@@ -5,7 +5,7 @@ Date: 2026-05-02
 ## Executive Decision
 
 C안 immediate deletion is complete.
-RemovedLegacyFallbackDiagnosticsEnabled is the canonical runtime flag.
+deleted legacy fallback diagnostic flag is the canonical runtime flag.
 The old fallback-authored API shape is not retained as an alias, wrapper, constructor parameter, named argument, replay projection, or trace projection.
 
 This flag does not authorize covered player ordinary, enemy ordinary, or Charge active fallback.
@@ -17,11 +17,11 @@ It only controls removed-fallback diagnostic routing:
 ## Current State
 
 `the removed diagnostic baseline preset (historical, deleted)` remains the canonical preset for deterministic removed-fallback diagnostics.
-`GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` is the canonical field on the runtime flag struct.
+`GameplayRuntimeFeatureFlags.deleted legacy fallback diagnostic flag` is the canonical field on the runtime flag struct.
 `GameplaySceneHostConfiguration` does not expose this diagnostics field as a scene-authored setting.
 Scene hosts still create/apply only the gameplay locomotion flags; tests and replay helpers opt into removed diagnostics through `removed diagnostic baseline preset (historical, deleted)`.
 
-Trace vocabulary now uses `RemovedLegacyFallbackDiagnosticsEnabled=`.
+Trace vocabulary now uses `deleted legacy fallback diagnostic flag=`.
 No compatibility trace projection is retained.
 No compatibility API projection is retained.
 

@@ -2,8 +2,8 @@
 
 Date: 2026-05-01
 
-This rollout is guarded by `GameplayRuntimeFeatureFlags.EnablePlayerFree2DLocalLocomotion`.
-Player Free2D Action Assist v1.1 is separately guarded by `GameplayRuntimeFeatureFlags.EnablePlayerFree2DActionAssist`, and that flag is effective only when `EnablePlayerFree2DLocalLocomotion` is also enabled.
+Player ordinary movement is now unconditionally Free2D-owned in production.
+Player Free2D Action Assist v1.1 is separately guarded by `GameplayRuntimeFeatureFlags.EnablePlayerFree2DActionAssist`.
 Current player ordinary movement is Free2D-owned. It uses `UnitContinuousLocomotionState` and must not fall back to player kinematic or legacy discrete locomotion. Enemy ordinary movement, charge, jump, phase, forced motion, and existing enemy kinematic behavior remain on `UnitKinematicRuntimeState`.
 
 ## Validation Contract
@@ -44,17 +44,14 @@ Current player ordinary movement is Free2D-owned. It uses `UnitContinuousLocomot
 - Replay/hash includes ordered `UnitContinuousLocomotion` canonical state. Explicit idle-zero and absent state are hash-equivalent.
 - Replay/hash includes queued Action Assist kind, direction, and requested tick through ordered `PlayerControl` state.
 
-## Flag Hierarchy
+## Ownership Boundary
 
 Player ordinary movement dispatch is Free2D-owned. Historical player kinematic and legacy discrete fallback lanes are no longer supported for player ordinary movement.
 
-Action Assist flag hierarchy:
-
-1. `EnablePlayerFree2DLocalLocomotion`
-2. `EnablePlayerFree2DActionAssist`
+Action Assist is optional and controlled only by `EnablePlayerFree2DActionAssist`.
 
 The Free2D player contract is independent of enemy and charge kinematic flags. Enemy and charge movement ownership must not change when player ordinary movement is hardened.
-Turning Action Assist off while keeping free2D on restores local-nonzero push/flip rejection without disabling Free2D movement.
+Turning Action Assist off restores local-nonzero push/flip rejection without disabling Free2D movement.
 
 `GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion` is the readiness default-on bundle for gameplay hosts and boundary inventory tests. No runtime diagnostic preset authorizes player ordinary fallback.
 Default bundle adoption is explicit: showcase/dev gameplay hosts may call `GameplaySceneHostConfiguration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)`, but replay harnesses, composition-root helpers, historical tests, migration comparison tests, and flag-off goldens must keep `None` unless they intentionally opt into the bundle.
@@ -78,7 +75,7 @@ The stabilization suite locks the following acceptance tests:
 
 - Unit/state: `UnitContinuousLocomotionState_IdleZero_OmissionPolicy`, `WorldState_RemoveEntity_PurgesContinuousLocomotionState`, `WorldState_MutualExclusion_KinematicAndContinuous`, `FinalizationBatch_MoveEntityThenSetContinuousState_PreservesNormalizedPose`.
 - Movement/scenario: `Player_Free2D_WallClamp`, `Player_Free2D_TerrainClamp`, retained flag-off topology handoff coverage, native flag-on `Free2DTopology_LateralProgressThenForward_CrossesFace`, `Free2DTopology_WithLeftOffset_CrossesAndPreservesLateralOffset`, `Free2DTopology_WithRightOffset_CrossesAndPreservesLateralOffset`, `Free2DTopology_TargetFaceBox_Blocks`, radius blocker approach coverage, `Player_Free2D_BeforeAnchorBoundary_NoEnemyContact`, `Player_Free2D_AfterAnchorBoundary_EnemyContactPossible`, `Player_Free2D_LocalZero_PushFlipAllowed`, `Player_Free2D_LocalNonZero_ActionPreviewRejected`, `Player_Free2D_HitNonlethal_PreservesPose`, `Player_Free2D_HitLethal_RemovedTerminalPreservesPose`.
-- Action Assist: `Free2DActionAssist_PushQueuedAtLocalNonZero`, `Free2DActionAssist_EmptyFloorWithinSettleWindow_PushDoesNotQueueOrAlign`, `Free2DActionAssist_EmptyFloorWithinSettleWindow_FlipDoesNotQueueOrAlign`, `Free2DActionAssist_NoCandidatePushWithHeldMove_ContinuesFree2DMovement`, `Free2DActionAssist_NoCandidateFlipWithHeldMove_ContinuesFree2DMovement`, `Free2DActionAssist_NoActionCandidate_EmitsDeterministicRejectTrace`, `Free2DActionAssist_BoxWithoutPushCapability_DoesNotQueueOrAlign`, `Free2DActionAssist_AlignsToAnchorWithoutSnap`, `Free2DActionAssist_PushExecutesAfterAlign`, `Free2DActionAssist_FlipExecutesAfterAlign`, `Free2DActionAssist_BoxRadiusClampThenPush`, `Free2DActionAssist_WithinSettleWindow_QueuesAndAligns`, `Free2DActionAssist_OutsideSettleWindow_DoesNotQueueOrAlign`, `Free2DActionAssist_WindowBoundaryInclusive`, `Free2DActionAssist_WindowBoundaryExclusiveAbove`, `Free2DActionAssist_ExistingQueue_IgnoresWindowAndContinuesAlign`, `Free2DActionAssist_ExistingQueue_NoCandidateClearsWithoutAlign`, `Free2DActionAssist_ActionTargetRevalidatedAtExecute`, `Free2DActionAssist_InvalidAfterAlign_ClearsQueue`, `Free2DActionAssist_MovementInputDoesNotCancelQueue`, `Free2DActionAssist_HitClearsQueue`, `Free2DActionAssist_DeathClearsQueue`, `Free2DActionAssist_LocalZero_PushStillImmediate`, `Free2DActionAssist_LocalNonZero_ActionNotExecutedBeforeSettled`, `Free2DActionAssist_FlagOff_Baseline`, and `Free2DActionAssist_DoesNotAffectKinematicFallback`.
+- Action Assist: `Free2DActionAssist_PushQueuedAtLocalNonZero`, `Free2DActionAssist_EmptyFloorWithinSettleWindow_PushDoesNotQueueOrAlign`, `Free2DActionAssist_EmptyFloorWithinSettleWindow_FlipDoesNotQueueOrAlign`, `Free2DActionAssist_NoCandidatePushWithHeldMove_ContinuesFree2DMovement`, `Free2DActionAssist_NoCandidateFlipWithHeldMove_ContinuesFree2DMovement`, `Free2DActionAssist_NoActionCandidate_EmitsDeterministicRejectTrace`, `Free2DActionAssist_BoxWithoutPushCapability_DoesNotQueueOrAlign`, `Free2DActionAssist_AlignsToAnchorWithoutSnap`, `Free2DActionAssist_PushExecutesAfterAlign`, `Free2DActionAssist_FlipExecutesAfterAlign`, `Free2DActionAssist_BoxRadiusClampThenPush`, `Free2DActionAssist_WithinSettleWindow_QueuesAndAligns`, `Free2DActionAssist_OutsideSettleWindow_DoesNotQueueOrAlign`, `Free2DActionAssist_WindowBoundaryInclusive`, `Free2DActionAssist_WindowBoundaryExclusiveAbove`, `Free2DActionAssist_ExistingQueue_IgnoresWindowAndContinuesAlign`, `Free2DActionAssist_ExistingQueue_NoCandidateClearsWithoutAlign`, `Free2DActionAssist_ActionTargetRevalidatedAtExecute`, `Free2DActionAssist_InvalidAfterAlign_ClearsQueue`, `Free2DActionAssist_MovementInputDoesNotCancelQueue`, `Free2DActionAssist_HitClearsQueue`, `Free2DActionAssist_DeathClearsQueue`, `Free2DActionAssist_LocalZero_PushStillImmediate`, `Free2DActionAssist_LocalNonZero_ActionNotExecutedBeforeSettled`, `Free2DActionAssist_FlagOff_Baseline`, and enemy/charge preservation coverage.
 - Presentation: `GameplayTickViewPresenter_ContinuousPose_AppliesAnchorPlusLocalOffset`, `GameplayTickViewPresenter_ContinuousIdleNonZero_DoesNotSnapToAnchor`, `GameplayTickViewPresenter_ContinuousRemovedTerminal_RetainsPose`.
 - Replay: `Replay_PlayerFree2D_StopTurnClamp_IsDeterministic`, `Replay_PlayerFree2D_RadiusApproachBlocker_IsDeterministic`, `Replay_PlayerFree2D_AnchorNormalizeContact_IsDeterministic`, `Replay_PlayerFree2D_TopologyApproachHandoff_IsDeterministic`, `Replay_PlayerFree2D_HitDeath_IsDeterministic`, `Replay_Free2DActionAssist_QueueAlignExecute_IsDeterministic`, `Replay_Free2DActionAssist_OutsideWindowReject_IsDeterministic`, `Replay_Free2DActionAssist_NoCandidateReject_IsDeterministic`.
 - Boundary/partition: `MovementIntentPartitioner_PlayerOrdinaryMove_IsFree2DOwnedAndEnemyRemainsGeneric`, `MovementIntentPartitioner_PlayerTopologyMove_IsFree2DOwned`, and `MovementExpander_PlayerOrdinaryMove_IsNotDirectExpansionInput` verify that player ordinary Free2D movement does not enter generic expansion while enemy/non-player movement remains preserved.
@@ -94,7 +91,6 @@ The stabilization suite locks the following acceptance tests:
 
 ## Rollback
 
-First set `EnablePlayerFree2DActionAssist` to false to restore settled-only local-nonzero push/flip rejection while keeping Free2D movement enabled.
-If the full Free2D movement rollout must be disabled, set `EnablePlayerFree2DLocalLocomotion` to false.
-This is a test/migration switch only; production player ordinary movement must remain Free2D-owned. No data migration is required because continuous local-zero idle is represented by absent state.
+Set `EnablePlayerFree2DActionAssist` to false to restore settled-only local-nonzero push/flip rejection while keeping Free2D movement enabled.
+There is no supported runtime rollback from Free2D-owned player ordinary movement to player kinematic or legacy discrete fallback. No data migration is required because continuous local-zero idle is represented by absent state.
 No data migration is required for Action Assist because the default queued action is `None`.

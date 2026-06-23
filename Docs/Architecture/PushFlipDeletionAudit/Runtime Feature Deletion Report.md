@@ -116,7 +116,7 @@ Delete action: do not delete; rename/migration only. Profile content and Push/Fl
 | --- | --- | --- | --- |
 | P1 | `GameplayRuntimeFeatureFlags.RemovedDiagnosticBaselineAlias` | REMOVED_ALIAS | Tests/docs migrated to canonical removed-diagnostic preset. |
 | P1 | `GameplayRuntimeFeatureFlags.RemovedDiagnosticHelperAlias` | REMOVED_ALIAS | Tests/docs migrated to canonical removed-diagnostic helper. |
-| P1/P3 | `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` | CANONICAL_DIAGNOSTICS_FIELD | C안 completed; canonical field retained and old-name compatibility removed. |
+| P1/P3 | `GameplayRuntimeFeatureFlags.deleted legacy fallback diagnostic flag` | CANONICAL_DIAGNOSTICS_FIELD | C안 completed; canonical field retained and old-name compatibility removed. |
 | P1 | `StageSpawnDefinition.PresentationId` | REMOVED_LEGACY_FIELD | Migrated to `StagePresentationDefinition`, content and validators updated. |
 | P1/P3 | `GroupId` / `SourceActionGroupId` compatibility aliases | REMOVED_ALIAS | Tests migrated to `ActionPlanId` / `SourceActionPlanId`; `IntentId` remains canonical internal ID. |
 | P2/P3 | Push/Item stale trace ledger rows | REMOVED_STALE_LEDGER | Active stale legacy Push/Item trace-token rows removed from DeferredStale and Lane-A ledgers. |

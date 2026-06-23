@@ -4,7 +4,7 @@
 
 Phase 8B adds `the removed diagnostic baseline preset (historical, deleted)` as the canonical diagnostic preset for deterministic removed-fallback diagnostics. C안 later removes old diagnostic baseline alias vocabulary; runtime code accepts the canonical preset only. Runtime validation semantics are unchanged: player, enemy, and Charge covered fallback attempts still reject with removed diagnostics, while `None` still rejects covered attempts with the explicit-baseline-required diagnostic.
 
-`RemovedLegacyFallbackDiagnosticsEnabled`, `TickPipeline`, `MovementExpander`, `MoveEntity`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, glide retained fallback, and replay/golden assets are not renamed or changed in this phase. Phase 8D later adds `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical helper.
+`deleted legacy fallback diagnostic flag`, `TickPipeline`, `MovementExpander`, `MoveEntity`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, glide retained fallback, and replay/golden assets are not renamed or changed in this phase. Phase 8D later adds `deleted legacy fallback diagnostic flag` as the canonical helper.
 
 ## Preset Contract
 
@@ -33,7 +33,7 @@ Historical Phase 6, Phase 7, and Phase 8A tests remain as canary provenance only
 
 Phase 8C completes the internal usage cleanup readiness pass: current tests, replay helpers, and current-policy docs use `removed diagnostic baseline preset (historical, deleted)`; old diagnostic baseline alias vocabulary is historical-only after C안 migration.
 
-Phase 8D completes the helper naming readiness pass: current runtime/tests/docs use `RemovedLegacyFallbackDiagnosticsEnabled`; old helper alias vocabulary is historical-only after C안 migration.
+Phase 8D completes the helper naming readiness pass: current runtime/tests/docs use `deleted legacy fallback diagnostic flag`; old helper alias vocabulary is historical-only after C안 migration.
 
 ## Replay And Golden
 
@@ -43,4 +43,4 @@ Replay and golden traces now use canonical removed-fallback diagnostics vocabula
 
 - Keep monitoring that non-historical tests use `removed diagnostic baseline preset (historical, deleted)`.
 - Keep `removed diagnostic baseline preset (historical, deleted)` canonical and do not restore old diagnostic baseline alias vocabulary.
-- Decide whether `RemovedLegacyFallbackDiagnosticsEnabled` should remain a compatibility diagnostic field, be renamed to align with `RemovedLegacyFallbackDiagnosticsEnabled`, or be removed after replay migration.
+- Decide whether `deleted legacy fallback diagnostic flag` should remain a compatibility diagnostic field, be renamed to align with `deleted legacy fallback diagnostic flag`, or be removed after replay migration.

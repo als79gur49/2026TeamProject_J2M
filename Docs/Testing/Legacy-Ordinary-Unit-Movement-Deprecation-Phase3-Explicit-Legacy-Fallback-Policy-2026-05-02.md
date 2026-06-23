@@ -20,11 +20,11 @@ This phase does not delete the player fallback branch, enemy ordinary fallback b
 | `removed diagnostic baseline preset (historical, deleted)` | true | false | false |
 | `AllKinematicLocomotionEnabled` | false | true | true |
 
-`GameplaySceneHostConfiguration` does not expose `RemovedLegacyFallbackDiagnosticsEnabled`. Scene-authored hosts cannot enable this fallback accidentally; tests and migration replay helpers must pass the preset directly.
+`GameplaySceneHostConfiguration` does not expose `deleted legacy fallback diagnostic flag`. Scene-authored hosts cannot enable this fallback accidentally; tests and migration replay helpers must pass the preset directly.
 
 ## Validation Policy
 
-`legacy expansion validation hook (historical, deleted)` rejects covered player ordinary, enemy ordinary, and Charge active fallback when `RemovedLegacyFallbackDiagnosticsEnabled` is false. The diagnostic reason is `LegacyOrdinaryFallbackRequiresExplicitBaseline`.
+`legacy expansion validation hook (historical, deleted)` rejects covered player ordinary, enemy ordinary, and Charge active fallback when `deleted legacy fallback diagnostic flag` is false. The diagnostic reason is `LegacyOrdinaryFallbackRequiresExplicitBaseline`.
 
 Phase 4 supersedes the player portion of this policy. `the removed diagnostic baseline preset (historical, deleted)` no longer authorizes player ordinary fallback; player attempts are rejected with `PlayerLegacyFallbackRemovedFromRuntime`.
 

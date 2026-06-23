@@ -40,7 +40,7 @@ Historical Phase 2 note: `GameplayRuntimeFeatureFlags.None` was the player fallb
 
 Phase 8B/8C names `the removed diagnostic baseline preset (historical, deleted)` as the canonical removed-diagnostic preset. Old diagnostic baseline alias vocabulary is historical-only and is not accepted by runtime code.
 
-Historical Phase 2 custom flags with both player Free2D and player same-face kinematic disabled used `RemovedLegacyFallbackDiagnosticsEnabled` for player fallback. Phase 4/7 supersede that behavior: the field is diagnostic compatibility only and player fallback rejects with `PlayerLegacyFallbackRemovedFromRuntime`.
+Historical Phase 2 custom flags with both player Free2D and player same-face kinematic disabled used `deleted legacy fallback diagnostic flag` for player fallback. Phase 4/7 supersede that behavior: the field is diagnostic compatibility only and player fallback rejects with `PlayerLegacyFallbackRemovedFromRuntime`.
 
 ## Retained Paths
 

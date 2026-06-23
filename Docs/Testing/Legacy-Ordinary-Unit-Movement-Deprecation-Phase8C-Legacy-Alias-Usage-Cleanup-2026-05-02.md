@@ -6,7 +6,7 @@ Date: 2026-05-02
 
 Phase 8C changed tests and documentation only. `the removed diagnostic baseline preset (historical, deleted)` is the canonical preset for deterministic removed-fallback diagnostics. The old `GameplayRuntimeFeatureFlags.RemovedDiagnosticBaselineAlias` alias has since been removed.
 
-Runtime validation semantics are unchanged. Covered player, enemy, and Charge fallback attempts reject with removed diagnostics under the canonical preset. `GameplayRuntimeFeatureFlags.None` still rejects covered fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 8D supersedes the helper naming inventory with `RemovedLegacyFallbackDiagnosticsEnabled`; Phase 8E makes that name the canonical runtime field and removes old-name compatibility projection.
+Runtime validation semantics are unchanged. Covered player, enemy, and Charge fallback attempts reject with removed diagnostics under the canonical preset. `GameplayRuntimeFeatureFlags.None` still rejects covered fallback with `LegacyOrdinaryFallbackRequiresExplicitBaseline`. Phase 8D supersedes the helper naming inventory with `deleted legacy fallback diagnostic flag`; Phase 8E makes that name the canonical runtime field and removes old-name compatibility projection.
 
 `TickPipeline`, `MovementExpander`, `MoveEntity`, retained grid transactions, `TickEntityMotionKind.Move`, `TickEntityMotionKind.ChargeMove`, glide retained fallback, replay assets, and golden files are not changed in Phase 8C.
 
@@ -54,8 +54,8 @@ The replay canaries compare deterministic trace/state output under `removed diag
 
 ## Phase 8D Follow-up
 
-- `RemovedLegacyFallbackDiagnosticsEnabled` is the canonical helper property for removed diagnostic routing.
-- `RemovedDiagnosticHelperAlias` has been removed; use `RemovedLegacyFallbackDiagnosticsEnabled`.
-- `RemovedLegacyFallbackDiagnosticsEnabled` is the canonical runtime field after Phase 8E.
+- `deleted legacy fallback diagnostic flag` is the canonical helper property for removed diagnostic routing.
+- `RemovedDiagnosticHelperAlias` has been removed; use `deleted legacy fallback diagnostic flag`.
+- `deleted legacy fallback diagnostic flag` is the canonical runtime field after Phase 8E.
 - `RemovedDiagnosticBaselineAlias` has been removed; use `removed diagnostic baseline preset (historical, deleted)`.
 - Continue retained presentation inventory for `TickEntityMotionKind.Move` and `TickEntityMotionKind.ChargeMove` without changing retained grid transaction or glide policy.

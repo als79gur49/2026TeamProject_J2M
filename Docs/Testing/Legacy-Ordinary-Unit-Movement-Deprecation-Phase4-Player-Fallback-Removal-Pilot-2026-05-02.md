@@ -21,7 +21,7 @@ Phase 8B/8C names the current diagnostic preset `the removed diagnostic baseline
 - `DefaultGameplayLocomotion`, Free2D-on, and player kinematic-on lanes keep the existing `player covered locomotion leak reason (historical, deleted)` leak reason.
 - `GameplayRuntimeFeatureFlags.None` keeps the Phase 3 `LegacyOrdinaryFallbackRequiresExplicitBaseline` reason.
 - `the removed diagnostic baseline preset (historical, deleted)` now rejects player ordinary fallback with `PlayerLegacyFallbackRemovedFromRuntime`.
-- At Phase 4, enemy ordinary fallback and Charge active fallback remained allowed when `RemovedLegacyFallbackDiagnosticsEnabled` was true. Phase 5/6 supersede those allowances.
+- At Phase 4, enemy ordinary fallback and Charge active fallback remained allowed when `deleted legacy fallback diagnostic flag` was true. Phase 5/6 supersede those allowances.
 
 Retained grid transactions still pass the grid transaction allowlist before player fallback removal applies. Topology handoff, box/action materialization, spawn, respawn, cleanup, scripted relocation, anchor normalization, `MoveEntity`, and the `MovementExpander` grid branch are not deletion targets.
 

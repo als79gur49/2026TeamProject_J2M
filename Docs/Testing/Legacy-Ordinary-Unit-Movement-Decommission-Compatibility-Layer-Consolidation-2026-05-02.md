@@ -9,7 +9,7 @@ The project stops extending the tiny Phase 8F/8G/8H chain and treats the remaini
 Covered fallback authorization is already removed for covered player ordinary, enemy ordinary, and Charge active fallback.
 
 Removed fallback diagnostics canonical migration is complete.
-`RemovedLegacyFallbackDiagnosticsEnabled` is the canonical runtime flag, and `RemovedLegacyFallbackDiagnosticsEnabled=` is the canonical trace token.
+`deleted legacy fallback diagnostic flag` is the canonical runtime flag, and `deleted legacy fallback diagnostic flag=` is the canonical trace token.
 No old-name compatibility projection remains.
 The diagnostics flag does not re-enable ordinary fallback; it only selects the explicit-baseline diagnostic or the removed player/enemy/Charge diagnostic.
 
@@ -37,7 +37,7 @@ Phase 5 removed enemy ordinary covered fallback authorization.
 Phase 6 removed Charge active covered fallback authorization.
 Covered attempts now reject with `PlayerLegacyFallbackRemovedFromRuntime`, `EnemyLegacyFallbackRemovedFromRuntime`, or `ChargeLegacyFallbackRemovedFromRuntime`.
 Phase 8B and Phase 8C made `removed diagnostic baseline preset (historical, deleted)` the canonical preset.
-Phase 8D made `RemovedLegacyFallbackDiagnosticsEnabled` the canonical helper.
+Phase 8D made `deleted legacy fallback diagnostic flag` the canonical helper.
 Phase 8E completes the underlying field and trace vocabulary migration to canonical removed-fallback diagnostics naming.
 
 ## Retained And Removed Inventory
@@ -45,8 +45,8 @@ Phase 8E completes the underlying field and trace vocabulary migration to canoni
 | item | kind | current status | action |
 |---|---|---|---|
 | `removed diagnostic baseline preset (historical, deleted)` | preset | canonical removed-diagnostic preset | keep |
-| `RemovedLegacyFallbackDiagnosticsEnabled` | runtime flag | canonical removed-diagnostic routing field | keep |
-| `RemovedLegacyFallbackDiagnosticsEnabled=` | trace token | canonical diagnostic routing trace token | keep |
+| `deleted legacy fallback diagnostic flag` | runtime flag | canonical removed-diagnostic routing field | keep |
+| `deleted legacy fallback diagnostic flag=` | trace token | canonical diagnostic routing trace token | keep |
 | removed diagnostic reasons | diagnostics | current runtime contract | keep canaries |
 | obsolete helper surface | test helpers | deleted by C안 final cleanup | keep canonical removed-diagnostic helpers |
 | `TickEntityMotionKind.Move` | presentation enum | retained by grid/item/topology paths | defer ownership narrowing |

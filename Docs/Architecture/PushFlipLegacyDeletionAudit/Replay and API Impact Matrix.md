@@ -5,8 +5,8 @@
 Current production API surface stays canonical:
 
 - `the removed diagnostic baseline preset (historical, deleted)`
-- `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`
-- `removedLegacyFallbackDiagnosticsEnabled`
+- `GameplayRuntimeFeatureFlags.deleted legacy fallback diagnostic flag`
+- `deletedLegacyFallbackDiagnosticFlag`
 - `PlayerLegacyFallbackRemovedFromRuntime`
 - `EnemyLegacyFallbackRemovedFromRuntime`
 - `ChargeLegacyFallbackRemovedFromRuntime`
@@ -15,7 +15,7 @@ The retired old API surface remains absent. No compatibility overload, alias, or
 
 ## Test-Support Surface
 
-The obsolete `LegacyMovementBoundaryAssert` fallback helper wrappers are deleted. Current tests use canonical removed-diagnostic helpers and retained grid/glide helpers.
+The obsolete `MovementExecutionOwnershipAssert` fallback helper wrappers are deleted. Current tests use canonical removed-diagnostic helpers and retained grid/glide helpers.
 
 Deleting wrapper surface does not change simulation behavior, replay state, or determinism hashes.
 
@@ -23,9 +23,9 @@ Deleting wrapper surface does not change simulation behavior, replay state, or d
 
 Canonical trace vocabulary stays:
 
-- `RemovedLegacyFallbackDiagnosticsEnabled=`
+- `deleted legacy fallback diagnostic flag=`
 
-`Boundary=LegacyFallback` is retained boundary vocabulary for `MovementExecutionBoundaryKind.LegacyFallback`. It is not the retired exact trace projection.
+`Boundary=LegacyFallback` is retained boundary vocabulary for `MovementExecutionBoundaryKind.GenericExpansionOwned`. It is not the retired exact trace projection.
 
 Current replay canaries continue to compare deterministic state, trace text, removed diagnostics, and absence of covered fallback boundary output.
 
@@ -36,7 +36,7 @@ C안 accepts breakage for external source callers or parser consumers that still
 Mitigation is documentation and canonical migration guidance only:
 
 - use `the removed diagnostic baseline preset (historical, deleted)` for deterministic removed diagnostics
-- consume `RemovedLegacyFallbackDiagnosticsEnabled=` for canonical trace routing
+- consume `deleted legacy fallback diagnostic flag=` for canonical trace routing
 - do not restore old projection aliases
 
 ## Rollback

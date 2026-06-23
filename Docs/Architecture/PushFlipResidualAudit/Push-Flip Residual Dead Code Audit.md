@@ -9,7 +9,7 @@ No core Push/Flip gameplay feature qualifies for immediate deletion. `Player/Pus
 The highest-value residual candidates are:
 
 - `P0/P1`: docs-only stale ledger rows and historical Push contact threshold wording.
-- `P1/P3`: `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` is now the canonical removed-fallback diagnostics field, not a Push/Flip runtime feature.
+- `P1/P3`: `GameplayRuntimeFeatureFlags.deleted legacy fallback diagnostic flag` is now the canonical removed-fallback diagnostics field, not a Push/Flip runtime feature.
 - `P2`: the gameplay UI Push/Flip action command injection route was not wired to any production UI button/surface and is removed by current product policy. Settings/rebind Push/Flip UI remains active.
 - `P2`: Flip is keyboard-only by current product input policy; the existing Push controller binding remains authored.
 - `P2`: low-usage box capability combos exist only in `stage-4-2`.
@@ -25,7 +25,7 @@ Verified removed or current status:
 - Old `_Test` action-audio profile name: no active repo artifact found; historical-only after rename.
 - Action audio GUID `42a2e109fc5141ec9e866925a0a85c3b`: points to the canonical production asset and is referenced by `Player_S1.prefab`.
 - removed baseline/helper aliases: no runtime aliases found in `Assets`; current code uses canonical removed-fallback diagnostics vocabulary.
-- `RemovedLegacyFallbackDiagnosticsEnabled`: still present in `GameplayRuntimeFeatureFlags` and tests as canonical diagnostic routing.
+- `deleted legacy fallback diagnostic flag`: still present in `GameplayRuntimeFeatureFlags` and tests as canonical diagnostic routing.
 - `GroupId`: active internal action-group vocabulary remains. The public `DamageResolutionRecord.GroupId` / `DestroyResolutionRecord.GroupId` compatibility alias pattern was not found.
 - `SourceActionGroupId`: not found as active compatibility alias. `SourceActionPlanId` remains active presentation/VFX/audio correlation vocabulary.
 - `StageSpawnDefinition.PresentationId`: generated gameplay assets have no `PresentationId` rows. Authoring placements and presentation bindings still use `PresentationId` for active editor/content presentation selection.
@@ -53,13 +53,13 @@ Verified removed or current status:
 - `PushBox`, `FlipBox`, `MovableBox`, `InteractableBox`, `PlayerPushController`, `PlayerFlipController`: no active component/runtime artifact found. Some test/doc names contain `PushBox`/`FlipBox` as scenario vocabulary, not old component classes.
 - `ActionBar`: no runtime type found. Current architecture docs mention it only as retired HUD vocabulary.
 - `HelpScreen` Push/Flip prompt: no active prompt artifact found.
-- `LegacyMovementBoundaryAssert`: no asset/code helper found; docs-only historical cleanup candidate.
+- `MovementExecutionOwnershipAssert`: no asset/code helper found; docs-only historical cleanup candidate.
 - Player hand flip presentation driver: `PlayerFlipInteractionDriver.cs` and `PlayerFlipInteractionDriver.cs.meta` are removed. The path depended on unavailable player hand/IK support and had no production prefab/scene/asset GUID reference.
 
 ## Meaningless / Low-Value Findings
 
 - `GameplayInputHost` subscribes Flip to both `started` and `performed`; Push subscribes only `started`. Since both Flip callbacks set the same bool buffer, this is potentially duplicate edge handling. It is still behavior-affecting for Input System interaction differences, so classify as `NEEDS_PRODUCT_DECISION`, not immediate deletion.
-- `RemovedLegacyFallbackDiagnosticsEnabled` is the canonical removed-fallback diagnostic routing field. It must not be described as fallback authorization.
+- `deleted legacy fallback diagnostic flag` is the canonical removed-fallback diagnostic routing field. It must not be described as fallback authorization.
 - `SourceActionPlanId` and `IntentId` are active correlation/determinism fields. They are not deletion candidates.
 - `PresentationId` in authoring placements is active editor/content presentation selection. Generated gameplay spawn-side rows are absent, so no generated migration miss was found.
 
@@ -169,7 +169,7 @@ Immediate deletion:
 Test/docs migration before deletion:
 
 - Direct low-level `PlayerTickCommand.Create(... pushPressed: true)` edge tests if covered by physical/playmode input tests.
-- Historical `LegacyMovementBoundaryAssert` docs if no helper exists.
+- Historical `MovementExecutionOwnershipAssert` docs if no helper exists.
 
 Product/content decision before deletion or simplification:
 

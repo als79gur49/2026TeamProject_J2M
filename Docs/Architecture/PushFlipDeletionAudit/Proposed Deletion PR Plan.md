@@ -93,7 +93,7 @@ Expected deletions:
 
 - `RemovedDiagnosticBaselineAlias` after consumers migrate to `removed diagnostic baseline preset (historical, deleted)`.
 - `RemovedDiagnosticHelperAlias` after tests/docs no longer require alias compatibility.
-- Old diagnostics API projection after the C안 API/replay decision; keep `RemovedLegacyFallbackDiagnosticsEnabled` as the canonical field.
+- Old diagnostics API projection after the C안 API/replay decision; keep `deleted legacy fallback diagnostic flag` as the canonical field.
 
 Migration required:
 

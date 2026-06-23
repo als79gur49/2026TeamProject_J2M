@@ -20,7 +20,7 @@ Phase 8B/8C names the current diagnostic preset `the removed diagnostic baseline
 - `GameplayRuntimeFeatureFlags.None` keeps the Phase 3 `LegacyOrdinaryFallbackRequiresExplicitBaseline` reason.
 - `the removed diagnostic baseline preset (historical, deleted)` now rejects enemy ordinary fallback with `EnemyLegacyFallbackRemovedFromRuntime`.
 - Player ordinary fallback continues to reject with `PlayerLegacyFallbackRemovedFromRuntime`.
-- At Phase 5, Charge active fallback remained allowed when `RemovedLegacyFallbackDiagnosticsEnabled` was true. Phase 6 supersedes this allowance.
+- At Phase 5, Charge active fallback remained allowed when `deleted legacy fallback diagnostic flag` was true. Phase 6 supersedes this allowance.
 
 Retained grid transactions still pass the grid transaction allowlist before fallback removal applies. Topology handoff, box/action materialization, spawn, respawn, cleanup, scripted relocation, anchor normalization, `MoveEntity`, and the `MovementExpander` grid branch are not deletion targets.
 

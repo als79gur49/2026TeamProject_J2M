@@ -6,23 +6,23 @@ Verdict: `C_OPTION_DELETE_COMPLETE`.
 
 The retired ordinary movement fallback runtime API names and retired exact trace token remain absent. This document intentionally avoids spelling those retired identifiers so repository-wide zero-hit acceptance searches can stay meaningful.
 
-The final active compatibility debt was the obsolete test-support helper wrapper surface in `LegacyMovementBoundaryAssert`. C안 final cleanup deletes that helper surface and removes tests that asserted wrapper existence.
+The final active compatibility debt was the obsolete test-support helper wrapper surface in `MovementExecutionOwnershipAssert`. C안 final cleanup deletes that helper surface and removes tests that asserted wrapper existence.
 
 Canonical removed-fallback governance remains active:
 
 - `the removed diagnostic baseline preset (historical, deleted)`
-- `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`
-- `removedLegacyFallbackDiagnosticsEnabled`
-- `RemovedLegacyFallbackDiagnosticsEnabled=`
+- `GameplayRuntimeFeatureFlags.deleted legacy fallback diagnostic flag`
+- `deletedLegacyFallbackDiagnosticFlag`
+- `deleted legacy fallback diagnostic flag=`
 - `PlayerLegacyFallbackRemovedFromRuntime`
 - `EnemyLegacyFallbackRemovedFromRuntime`
 - `ChargeLegacyFallbackRemovedFromRuntime`
 
-`RemovedLegacyFallbackDiagnosticsEnabled` is diagnostic routing only. It is not fallback authorization.
+`deleted legacy fallback diagnostic flag` is diagnostic routing only. It is not fallback authorization.
 
 ## Boundary Vocabulary
 
-`Boundary=LegacyFallback` is retained boundary vocabulary for `MovementExecutionBoundaryKind.LegacyFallback` when grid/glide governance requires it. It is not the retired exact trace token.
+`Boundary=LegacyFallback` is retained boundary vocabulary for `MovementExecutionBoundaryKind.GenericExpansionOwned` when grid/glide governance requires it. It is not the retired exact trace token.
 
 Removed player/enemy/Charge fallback canaries continue to assert removed diagnostics and no covered fallback output.
 

@@ -3,7 +3,7 @@
 ## Required State
 
 - Retired old runtime/API/trace symbols stay zero-hit in `Assets`, `Docs`, and `ProjectSettings`.
-- Obsolete `LegacyMovementBoundaryAssert` helper wrappers are deleted.
+- Obsolete `MovementExecutionOwnershipAssert` helper wrappers are deleted.
 - Tests that asserted obsolete wrapper existence are deleted.
 - Canonical removed-fallback diagnostics remain present.
 - Push/Flip runtime, input, action, box capability, presentation, and audio paths remain untouched.
@@ -15,15 +15,15 @@ This checklist intentionally does not spell retired identifiers. Use the impleme
 Keep:
 
 - `the removed diagnostic baseline preset (historical, deleted)`
-- `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled`
-- `removedLegacyFallbackDiagnosticsEnabled`
-- `RemovedLegacyFallbackDiagnosticsEnabled=`
+- `GameplayRuntimeFeatureFlags.deleted legacy fallback diagnostic flag`
+- `deletedLegacyFallbackDiagnosticFlag`
+- `deleted legacy fallback diagnostic flag=`
 - `PlayerLegacyFallbackRemovedFromRuntime`
 - `EnemyLegacyFallbackRemovedFromRuntime`
 - `ChargeLegacyFallbackRemovedFromRuntime`
 - retained grid/glide boundary vocabulary where current tests require it
 
-`RemovedLegacyFallbackDiagnosticsEnabled` only selects removed-diagnostic routing. It does not authorize covered fallback.
+`deleted legacy fallback diagnostic flag` only selects removed-diagnostic routing. It does not authorize covered fallback.
 
 ## Tests
 
@@ -31,7 +31,7 @@ Delete tests that preserve obsolete wrapper surface. Keep tests that prove canon
 
 - `Phase8C_RemovedDiagnosticBaseline_IsCanonicalUsage`
 - `Phase8C_RemovedDiagnosticBaselineAlias_IsRemoved`
-- `Phase8D_RemovedLegacyFallbackDiagnosticsEnabled_IsCanonicalHelper`
+- `Phase8D_deleted legacy fallback diagnostic flag_IsCanonicalHelper`
 - `Phase8D_RemovedDiagnosticHelperAlias_IsRemoved`
 - `Phase8E_RemovedDiagnosticField_IsCanonicalApi`
 - `Phase8E_TraceToken_UsesCanonicalRemovedDiagnosticVocabulary`
@@ -46,7 +46,7 @@ Docs should state:
 - C안 immediate deletion is complete.
 - old aliases and retired trace projection remain removed.
 - canonical diagnostics vocabulary is retained.
-- `RemovedLegacyFallbackDiagnosticsEnabled` is not fallback authorization.
+- `deleted legacy fallback diagnostic flag` is not fallback authorization.
 - Push/Flip is not deletion scope.
 - plain move must not start Push.
 
@@ -69,6 +69,6 @@ Do not delete or behavior-change:
 ## No-Go Triggers
 
 - Reintroducing retired old API or retired trace projection.
-- Treating `RemovedLegacyFallbackDiagnosticsEnabled` as fallback authorization.
+- Treating `deleted legacy fallback diagnostic flag` as fallback authorization.
 - Removing Push/Flip feature paths.
 - Removing plain move -> Push suppression coverage without replacement.

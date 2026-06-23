@@ -3,12 +3,12 @@ Retired old runtime/API symbols,old compatibility surface,DELETE_NOW_COMPAT_DEBT
 Retired old trace projection,old compatibility surface,DELETE_NOW_COMPAT_DEBT,Already absent; keep zero-hit evidence,External old parsers are unsupported under C option
 Obsolete test-support fallback helper wrappers,test helper surface,DELETE_NOW_COMPAT_DEBT,Deleted in final cleanup,Low
 removed diagnostic baseline preset (historical, deleted),canonical preset,KEEP_CANONICAL_GOVERNANCE,Keep,Removing loses deterministic removed diagnostics
-RemovedLegacyFallbackDiagnosticsEnabled,canonical field,KEEP_CANONICAL_GOVERNANCE,Keep,Removing loses removed-diagnostic routing
-RemovedLegacyFallbackDiagnosticsEnabled=,canonical trace token,KEEP_CANONICAL_GOVERNANCE,Keep,Trace/golden parser churn if renamed
+deleted legacy fallback diagnostic flag,canonical field,KEEP_CANONICAL_GOVERNANCE,Keep,Removing loses removed-diagnostic routing
+deleted legacy fallback diagnostic flag=,canonical trace token,KEEP_CANONICAL_GOVERNANCE,Keep,Trace/golden parser churn if renamed
 PlayerLegacyFallbackRemovedFromRuntime,removed diagnostic reason,KEEP_CANONICAL_GOVERNANCE,Keep,Removing weakens fallback removal proof
 EnemyLegacyFallbackRemovedFromRuntime,removed diagnostic reason,KEEP_CANONICAL_GOVERNANCE,Keep,Removing weakens fallback removal proof
 ChargeLegacyFallbackRemovedFromRuntime,removed diagnostic reason,KEEP_CANONICAL_GOVERNANCE,Keep,Removing weakens fallback removal proof
-MovementExecutionBoundaryKind.LegacyFallback,boundary vocabulary,KEEP_CANONICAL_GOVERNANCE,Keep for retained grid/glide governance,High if confused with retired trace projection
+MovementExecutionBoundaryKind.GenericExpansionOwned,boundary vocabulary,KEEP_CANONICAL_GOVERNANCE,Keep for retained grid/glide governance,High if confused with retired trace projection
 Boundary=LegacyFallback,boundary trace assertion,KEEP_CANONICAL_GOVERNANCE,Keep where retained boundary assertions require it,Medium
 Player/Push,input action,KEEP_PUSH_FLIP_FEATURE,Keep,High if removed
 Player/Flip,input action,KEEP_PUSH_FLIP_FEATURE,Keep,High if removed

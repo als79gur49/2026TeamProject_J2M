@@ -13,7 +13,7 @@ The deletion opportunity is narrower and mostly outside the canonical feature pa
 | Group | Conclusion |
 | --- | --- |
 | Immediate delete | No production Push/Flip input action, command route, runtime branch, prefab component, or audio asset qualifies for immediate deletion. Old `MovePush`, `AutoPush`, `PushBox`, `FlipBox`, `MovableBox`, generated input wrapper, and HelpScreen Push/Flip prompt were not found as active repo artifacts. |
-| Migration 후 삭제 | Legacy diagnostics aliases, `StageSpawnDefinition.PresentationId`, and public action-plan `GroupId` / `SourceActionGroupId` compatibility aliases were migrated to canonical names and removed. `RemovedLegacyFallbackDiagnosticsEnabled` is retained as the canonical removed-fallback diagnostics field. |
+| Migration 후 삭제 | Legacy diagnostics aliases, `StageSpawnDefinition.PresentationId`, and public action-plan `GroupId` / `SourceActionGroupId` compatibility aliases were migrated to canonical names and removed. `deleted legacy fallback diagnostic flag` is retained as the canonical removed-fallback diagnostics field. |
 | Rename/refactor 후 유지 또는 삭제 | `Player_S1_GameplayActionAudioProfile.asset` was renamed from the misleading `_Test` name while preserving GUID `42a2e109fc5141ec9e866925a0a85c3b`. `SettingsScreen.prefab` inactive duplicate Push/Flip change-button objects were deleted after serialized reference checks. |
 | 삭제 금지 | `Push`/`Flip` InputActions, `GameplayInputHost` physical Push/Flip buffers, `PlayerTickCommand.PushPressed/FlipPressed`, `PlayerActionKind.Push/Flip`, `BoxCapabilities.Push/Flip`, `MovementExpander` Push/Flip handling, `FlipImpactPresentationSignal`, and `GameplayActionKind.Push/Flip` are currently used. |
 
@@ -161,7 +161,7 @@ Serialized value counts observed:
 | Gameplay UI Push/Flip action request route | UI command gateway | No production UI surface | UI/host tests migrated | Runtime ports | UI architecture docs | Removed | REMOVED_BY_PRODUCT_DECISION | Current product keeps Push/Flip on physical input |
 | `PlayerTickCommand.PushPressed/FlipPressed` | Command fields | Tick pipeline/player logic | Many core/playmode tests | None serialized | Architecture docs | Yes | KEEP_CURRENTLY_USED | None |
 | `GameplayRuntimeFeatureFlags.RemovedDiagnosticBaselineAlias` / `RemovedDiagnosticHelperAlias` | Removed C# compatibility aliases | None after migration | Boundary/replay governance tests now use canonical names | No scene exposure | Migration docs mark historical/removed | Diagnostic only | REMOVED_ALIAS | Deleted after canonical migration |
-| `GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled` | C# canonical field | Removed-fallback diagnostics field | Boundary/replay governance tests | Docs state scene config does not expose it | Current docs use canonical naming | Diagnostic only | CANONICAL_DIAGNOSTICS_FIELD | C안 completed |
+| `GameplayRuntimeFeatureFlags.deleted legacy fallback diagnostic flag` | C# canonical field | Removed-fallback diagnostics field | Boundary/replay governance tests | Docs state scene config does not expose it | Current docs use canonical naming | Diagnostic only | CANONICAL_DIAGNOSTICS_FIELD | C안 completed |
 | `StageSpawnDefinition.PresentationId` | Removed serialized legacy field | Canonical `StagePresentationDefinition` path | Stage builder/validator tests migrated | Stage gameplay assets migrated off legacy field | Stage migration docs | No legacy read path remains | REMOVED_LEGACY_FIELD | Deleted after content/test migration |
 | `SettingsScreen.prefab` legacy Push/Flip duplicate change buttons | Deleted inactive duplicate GameObjects | Current `PushInputRow` / `FlipInputRow` retained | UI tests indirectly | Legacy object names removed from prefab | None found | No | REMOVED_DUPLICATE | Deleted inactive duplicate objects |
 | `Player_S1_GameplayActionAudioProfile.asset` | ScriptableObject asset | Referenced by `Player_S1.prefab` | Action audio runtime/smoke tests | GUID `42a2e109fc5141ec9e866925a0a85c3b` | Audio governance docs | Yes | RENAMED_RETAINED | Renamed from `_Test`; do not delete |
@@ -175,8 +175,8 @@ Serialized value counts observed:
 | Priority | Classification | Item | Required action |
 | --- | --- | --- | --- |
 | P0 | DELETE_CANDIDATE_OBSOLETE_FEATURE | Push contact accumulation / threshold mentions outside current contract | Only docs/archive cleanup is possible; no active runtime artifact found. |
-| P1 | REMOVED_ALIAS | `GameplayRuntimeFeatureFlags.RemovedDiagnosticBaselineAlias` and `RemovedDiagnosticHelperAlias` | Tests/docs migrated to canonical `removed diagnostic baseline preset (historical, deleted)` / `RemovedLegacyFallbackDiagnosticsEnabled`; aliases deleted. |
-| P1/P3 | CANONICAL_DIAGNOSTICS_FIELD | `RemovedLegacyFallbackDiagnosticsEnabled` | C안 completed; canonical diagnostics field retained and old compatibility projection removed. |
+| P1 | REMOVED_ALIAS | `GameplayRuntimeFeatureFlags.RemovedDiagnosticBaselineAlias` and `RemovedDiagnosticHelperAlias` | Tests/docs migrated to canonical `removed diagnostic baseline preset (historical, deleted)` / `deleted legacy fallback diagnostic flag`; aliases deleted. |
+| P1/P3 | CANONICAL_DIAGNOSTICS_FIELD | `deleted legacy fallback diagnostic flag` | C안 completed; canonical diagnostics field retained and old compatibility projection removed. |
 | P1 | REMOVED_LEGACY_FIELD | `StageSpawnDefinition.PresentationId` legacy field | Migrated to `StagePresentationDefinition`; generated gameplay assets and validation expectations updated. |
 | P1/P3 | REMOVED_ALIAS | `GroupId` / `SourceActionGroupId` compatibility aliases | Tests migrated to `ActionPlanId` / `SourceActionPlanId`; `IntentId` remains canonical internal carry-forward. |
 | P2/P3 | REMOVED_STALE_LEDGER | Push/Item stale trace ledger rows | Active DeferredStale and Lane-A ledger rows for stale legacy Push/Item trace-token drift were removed. |
@@ -205,7 +205,7 @@ Serialized value counts observed:
 | 15 | `_Test` action-audio profile naming | `RENAMED_RETAINED` | Production prefab still references the same profile GUID; only misleading file/name suffix was removed. |
 | 16 | Stale Push/Item trace ledgers | `REMOVED_STALE_LEDGER` | `Docs/DeferredStaleLedger.md` and Lane-A ledger stale legacy Push/Item trace-token rows were removed. |
 | 17 | Obsolete action-plan `GroupId` / `IntentId` alias | `REMOVED_ALIAS` for `GroupId` aliases only | `GroupId` / `SourceActionGroupId` compatibility aliases were removed; `IntentId` remains canonical internal ID and is not a delete candidate. |
-| 18 | Legacy ordinary fallback feature flags | `CANONICAL_DIAGNOSTICS_MIGRATED` | Old aliases and old diagnostics API projection were removed; `RemovedLegacyFallbackDiagnosticsEnabled` is canonical. |
+| 18 | Legacy ordinary fallback feature flags | `CANONICAL_DIAGNOSTICS_MIGRATED` | Old aliases and old diagnostics API projection were removed; `deleted legacy fallback diagnostic flag` is canonical. |
 | 19 | Unused Push/Flip presentation driver | Not unused; `KEEP_CURRENTLY_USED` | `GameplayEntityPresentationApplier` resolves flip drivers and VFX/flip tests cover them. |
 | 20 | Docs-only Push/Flip removed behavior | Mixed | Historical archive notes are docs-only; clean active stale wording, retain archive if policy requires. |
 
