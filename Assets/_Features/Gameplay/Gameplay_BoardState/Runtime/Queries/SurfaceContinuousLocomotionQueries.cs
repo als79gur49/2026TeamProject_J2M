@@ -129,7 +129,7 @@ namespace Game.Feature.Gameplay.BoardState
                         entityId,
                         pose,
                         pose.AnchorCell,
-                        new SimulationOffset2(KinematicFixed.FromRaw(targetX), KinematicFixed.FromRaw(targetY)),
+                        new SimulationOffset2(SimulationFixed.FromRaw(targetX), SimulationFixed.FromRaw(targetY)),
                         delta,
                         anchorChanged: false,
                         blocked: false,
@@ -155,7 +155,7 @@ namespace Game.Feature.Gameplay.BoardState
                     entityId,
                     pose,
                     pose.AnchorCell,
-                    new SimulationOffset2(KinematicFixed.FromRaw(targetX), KinematicFixed.FromRaw(targetY)),
+                    new SimulationOffset2(SimulationFixed.FromRaw(targetX), SimulationFixed.FromRaw(targetY)),
                     delta,
                     anchorChanged: false,
                     blocked: false,
@@ -282,25 +282,25 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static bool TryResolveAnchorDelta(int targetX, int targetY, out Vector2Int anchorDelta)
         {
-            if (targetX >= KinematicFixed.HalfCellUnits)
+            if (targetX >= SimulationFixed.HalfCellUnits)
             {
                 anchorDelta = Vector2Int.right;
                 return true;
             }
 
-            if (targetX < KinematicFixed.MinLocalOffset)
+            if (targetX < SimulationFixed.MinLocalOffset)
             {
                 anchorDelta = Vector2Int.left;
                 return true;
             }
 
-            if (targetY >= KinematicFixed.HalfCellUnits)
+            if (targetY >= SimulationFixed.HalfCellUnits)
             {
                 anchorDelta = Vector2Int.up;
                 return true;
             }
 
-            if (targetY < KinematicFixed.MinLocalOffset)
+            if (targetY < SimulationFixed.MinLocalOffset)
             {
                 anchorDelta = Vector2Int.down;
                 return true;
@@ -357,7 +357,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entityId,
                 pose,
                 pose.AnchorCell,
-                new SimulationOffset2(KinematicFixed.FromRaw(clampX), KinematicFixed.FromRaw(clampY)),
+                new SimulationOffset2(SimulationFixed.FromRaw(clampX), SimulationFixed.FromRaw(clampY)),
                 SimulationVelocity2.Zero,
                 anchorChanged: false,
                 blocked: true,
@@ -366,45 +366,45 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static int NormalizeCollisionRadiusUnits(int collisionRadiusUnits)
         {
-            return Math.Max(0, Math.Min(KinematicFixed.HalfCellUnits - 1, collisionRadiusUnits));
+            return Math.Max(0, Math.Min(SimulationFixed.HalfCellUnits - 1, collisionRadiusUnits));
         }
 
         private static int GetPositiveBlockedClamp(int collisionRadiusUnits)
         {
             return collisionRadiusUnits <= 0
-                ? KinematicFixed.MaxPositiveLocalOffset
+                ? SimulationFixed.MaxPositiveLocalOffset
                 : Math.Min(
-                    KinematicFixed.MaxPositiveLocalOffset,
-                    KinematicFixed.HalfCellUnits - collisionRadiusUnits);
+                    SimulationFixed.MaxPositiveLocalOffset,
+                    SimulationFixed.HalfCellUnits - collisionRadiusUnits);
         }
 
         private static int GetNegativeBlockedClamp(int collisionRadiusUnits)
         {
             return collisionRadiusUnits <= 0
-                ? KinematicFixed.MinLocalOffset
-                : KinematicFixed.MinLocalOffset + collisionRadiusUnits;
+                ? SimulationFixed.MinLocalOffset
+                : SimulationFixed.MinLocalOffset + collisionRadiusUnits;
         }
 
         private static SimulationOffset2 NormalizeCrossedOffset(int targetX, int targetY, Vector2Int anchorDelta)
         {
             if (anchorDelta.x > 0)
             {
-                targetX -= KinematicFixed.UnitsPerCell;
+                targetX -= SimulationFixed.UnitsPerCell;
             }
             else if (anchorDelta.x < 0)
             {
-                targetX += KinematicFixed.UnitsPerCell;
+                targetX += SimulationFixed.UnitsPerCell;
             }
             else if (anchorDelta.y > 0)
             {
-                targetY -= KinematicFixed.UnitsPerCell;
+                targetY -= SimulationFixed.UnitsPerCell;
             }
             else if (anchorDelta.y < 0)
             {
-                targetY += KinematicFixed.UnitsPerCell;
+                targetY += SimulationFixed.UnitsPerCell;
             }
 
-            return new SimulationOffset2(KinematicFixed.FromRaw(targetX), KinematicFixed.FromRaw(targetY));
+            return new SimulationOffset2(SimulationFixed.FromRaw(targetX), SimulationFixed.FromRaw(targetY));
         }
     }
 }

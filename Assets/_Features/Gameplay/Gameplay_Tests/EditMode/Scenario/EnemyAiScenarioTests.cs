@@ -325,7 +325,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
             });
-            SetUnitContinuousLocomotionState(worldState, 40, localX: -KinematicFixed.HalfCellUnits, localY: 0);
+            SetUnitContinuousLocomotionState(worldState, 40, localX: -SimulationFixed.HalfCellUnits, localY: 0);
             var profile = CreateEnemyProfile(windupTicks: 1);
 
             try
@@ -360,8 +360,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 40,
                 new UnitKinematicRuntimeState
                 {
-                    localOffset = new SimulationOffset2(KinematicFixed.FromRaw(256), KinematicFixed.Zero),
-                    velocity = new SimulationVelocity2(KinematicFixed.FromRaw(128), KinematicFixed.Zero),
+                    localOffset = new SimulationOffset2(SimulationFixed.FromRaw(256), SimulationFixed.Zero),
+                    velocity = new SimulationVelocity2(SimulationFixed.FromRaw(128), SimulationFixed.Zero),
                     mode = MotionMode.Forced,
                     forcedOp = ForcedMotionOp.Knockback,
                     sequenceId = 1,
@@ -392,7 +392,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
-            SetUnitContinuousLocomotionState(worldState, 40, localX: -KinematicFixed.HalfCellUnits, localY: 0);
+            SetUnitContinuousLocomotionState(worldState, 40, localX: -SimulationFixed.HalfCellUnits, localY: 0);
 
             try
             {
@@ -449,7 +449,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
-            SetUnitContinuousLocomotionState(worldState, 40, localX: -KinematicFixed.HalfCellUnits, localY: 0);
+            SetUnitContinuousLocomotionState(worldState, 40, localX: -SimulationFixed.HalfCellUnits, localY: 0);
 
             try
             {
@@ -481,8 +481,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 40,
                 new UnitKinematicRuntimeState
                 {
-                    localOffset = new SimulationOffset2(KinematicFixed.FromRaw(256), KinematicFixed.Zero),
-                    velocity = new SimulationVelocity2(KinematicFixed.FromRaw(128), KinematicFixed.Zero),
+                    localOffset = new SimulationOffset2(SimulationFixed.FromRaw(256), SimulationFixed.Zero),
+                    velocity = new SimulationVelocity2(SimulationFixed.FromRaw(128), SimulationFixed.Zero),
                     mode = MotionMode.Forced,
                     forcedOp = ForcedMotionOp.Knockback,
                     sequenceId = 1,
@@ -4312,7 +4312,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void EnemyMovesIntoPlayer_LegacyFallbackBaseline_CommitsMoveAndPassiveContact()
+        public void EnemyMovesIntoPlayer_GenericExpansionOwnedBaseline_CommitsMoveAndPassiveContact()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -4328,7 +4328,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var pipeline = CreateEnemyPipeline(
                     worldState,
                     profile,
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
+                    GameplayRuntimeFeatureFlags.None);
                 var result = pipeline.RunTick(new TickInput(1));
                 var snapshot = worldState.CreateSnapshot();
 
@@ -4364,7 +4364,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void EnemyMovesIntoPlayer_LegacyFallbackBaseline_PublishesLegacyMotionAndContact()
+        public void EnemyMovesIntoPlayer_GenericExpansionOwnedBaseline_PublishesLegacyMotionAndContact()
         {
             var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
             var enemySourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -4380,7 +4380,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var pipeline = CreateEnemyPipeline(
                     worldState,
                     profile,
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
+                    GameplayRuntimeFeatureFlags.None);
                 var result = pipeline.RunTick(new TickInput(1));
                 var snapshot = worldState.CreateSnapshot();
 
@@ -4493,12 +4493,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         entry.Contains("E=40", StringComparison.Ordinal) &&
                         entry.Contains("To=(0,0)", StringComparison.Ordinal)),
                     Is.True);
-                LegacyMovementBoundaryAssert.HasMoveEntityBoundaryReason(
+                MovementExecutionOwnershipAssert.HasMoveEntityBoundaryReason(
                     result,
                     40,
                     MovementExecutionBoundaryKind.LocomotionAnchorCommit,
                     "OrdinaryKinematicAnchorCommit");
-                LegacyMovementBoundaryAssert.NoEnemyLegacyOrdinaryFallback(result, 40);
+                MovementExecutionOwnershipAssert.NoEnemyLegacyOrdinaryFallback(result, 40);
                 Assert.That(
                     HasAcceptedPassiveContact(result, 40, 10),
                     Is.True,
@@ -4562,7 +4562,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     Is.False,
                     BuildContactTimingDebug(1, "EnemyGlide", 40, 10, snapshot, result));
                 Assert.That(player.hp, Is.EqualTo(3));
-                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
+                MovementExecutionOwnershipAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
             }
             finally
             {
@@ -4610,7 +4610,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         entry.Contains("E=40", StringComparison.Ordinal) &&
                         entry.Contains("To=(0,0)", StringComparison.Ordinal)),
                     Is.True);
-                LegacyMovementBoundaryAssert.HasMoveEntityBoundaryReason(
+                MovementExecutionOwnershipAssert.HasMoveEntityBoundaryReason(
                     result,
                     40,
                     MovementExecutionBoundaryKind.LocomotionAnchorCommit,
@@ -4620,7 +4620,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     Is.True,
                     BuildContactTimingDebug(1, "EnemyGlide", 40, 10, snapshot, result));
                 Assert.That(player.hp, Is.EqualTo(2));
-                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
+                MovementExecutionOwnershipAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
             }
             finally
             {
@@ -4667,7 +4667,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     Is.True,
                     BuildContactTimingDebug(1, "EnemyGlideCooldown", 40, 10, snapshot, result));
                 Assert.That(result.Trace.Text, Does.Not.Contain("EnemyGlideActiveKinematicStart"));
-                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
+                MovementExecutionOwnershipAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(result, 40);
             }
             finally
             {
@@ -4804,8 +4804,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 40,
                 new UnitKinematicRuntimeState
                 {
-                    localOffset = new SimulationOffset2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
-                    velocity = new SimulationVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                    localOffset = new SimulationOffset2(SimulationFixed.FromRaw(1024), SimulationFixed.Zero),
+                    velocity = new SimulationVelocity2(SimulationFixed.FromRaw(1024), SimulationFixed.Zero),
                     mode = MotionMode.Voluntary,
                     remainingDistanceUnits = 3072,
                     remainingTicks = 3,
@@ -4878,7 +4878,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     result.PresentationData.EntityMotions.Any(motion => motion.EntityId == 40),
                     Is.False,
                     BuildContactTimingDebug(1, "Enemy", 40, 10, snapshot, result));
-                LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(result, 40);
+                MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(result, 40);
             }
             finally
             {
@@ -5112,7 +5112,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
                 Assert.That(snapshot.TryGetUnitKinematicState(40, out _), Is.False);
                 Assert.That(result.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.False);
-                LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(result, 40);
+                MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(result, 40);
                 Assert.That(
                     result.MovementPhaseResult.RejectedReasons.Any(reason =>
                         reason.Contains("EnemyChargeKinematicFlagOffActiveMoveRejected", StringComparison.Ordinal) &&
@@ -5171,7 +5171,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     result.PresentationData.EntityMotions.Any(motion =>
                         motion.EntityId == 40),
                     Is.False);
-                LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(result, 40);
+                MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(result, 40);
             }
             finally
             {
@@ -5364,7 +5364,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         motion.EntityId == 40),
                     Is.False,
                     BuildChargeKinematicDebug(3, worldState, thirdTick));
-                LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(thirdTick, 40);
+                MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(thirdTick, 40);
                 Assert.That(
                     thirdTick.MovementPhaseResult.RejectedReasons.Any(reason =>
                         reason.Contains("EnemyChargeKinematicFlagOffActiveMoveRejected", StringComparison.Ordinal) &&
@@ -5690,8 +5690,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 40,
                 new UnitKinematicRuntimeState
                 {
-                    localOffset = new SimulationOffset2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
-                    velocity = new SimulationVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                    localOffset = new SimulationOffset2(SimulationFixed.FromRaw(1024), SimulationFixed.Zero),
+                    velocity = new SimulationVelocity2(SimulationFixed.FromRaw(1024), SimulationFixed.Zero),
                     mode = MotionMode.Charge,
                     remainingDistanceUnits = 3072,
                     remainingTicks = 3,
@@ -6859,11 +6859,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new UnitContinuousLocomotionState
                 {
                     localOffset = new SimulationOffset2(
-                        KinematicFixed.FromRaw(localX),
-                        KinematicFixed.FromRaw(localY)),
+                        SimulationFixed.FromRaw(localX),
+                        SimulationFixed.FromRaw(localY)),
                     velocity = new SimulationVelocity2(
-                        KinematicFixed.FromRaw(velocityX),
-                        KinematicFixed.FromRaw(velocityY)),
+                        SimulationFixed.FromRaw(velocityX),
+                        SimulationFixed.FromRaw(velocityY)),
                     mode = mode,
                     facing = Direction.Right,
                     speedUnitsPerTick = Math.Max(Math.Abs(velocityX), Math.Abs(velocityY)),
@@ -6899,13 +6899,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new UnitKinematicRuntimeState
                 {
                     localOffset = new SimulationOffset2(
-                        KinematicFixed.FromRaw(localX),
-                        KinematicFixed.FromRaw(localY)),
+                        SimulationFixed.FromRaw(localX),
+                        SimulationFixed.FromRaw(localY)),
                     velocity = new SimulationVelocity2(
-                        KinematicFixed.FromRaw(stepDirectionX * KinematicFixed.UnitsPerCell / 4),
-                        KinematicFixed.FromRaw(stepDirectionY * KinematicFixed.UnitsPerCell / 4)),
+                        SimulationFixed.FromRaw(stepDirectionX * SimulationFixed.UnitsPerCell / 4),
+                        SimulationFixed.FromRaw(stepDirectionY * SimulationFixed.UnitsPerCell / 4)),
                     mode = MotionMode.Voluntary,
-                    remainingDistanceUnits = KinematicFixed.UnitsPerCell - Math.Abs(localX) - Math.Abs(localY),
+                    remainingDistanceUnits = SimulationFixed.UnitsPerCell - Math.Abs(localX) - Math.Abs(localY),
                     remainingTicks = 3,
                     speedScalePermille = 1000,
                     sequenceId = 1,
@@ -8322,8 +8322,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var anchor = new CombatOriginAnchor(
                 entity.position,
                 SimulationOffset2.Zero,
-                entity.position.x * KinematicFixed.UnitsPerCell,
-                entity.position.y * KinematicFixed.UnitsPerCell,
+                entity.position.x * SimulationFixed.UnitsPerCell,
+                entity.position.y * SimulationFixed.UnitsPerCell,
                 Direction.Left);
             writeContext.SetEnemyActionState(
                 entityId,

@@ -995,7 +995,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Governance_DocumentsTileFeatureAndGravityFieldNoLegacyFallbackPolicy()
+        public void Governance_DocumentsTileFeatureAndGravityFieldNoGenericExpansionOwnedPolicy()
         {
             var document = ReadRepoFile("Docs/Architecture/Gameplay-VFX-Governance.md");
 

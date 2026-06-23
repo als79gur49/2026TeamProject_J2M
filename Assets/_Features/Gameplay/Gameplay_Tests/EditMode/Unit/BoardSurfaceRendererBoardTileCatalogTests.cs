@@ -178,9 +178,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void BoardSurfaceRenderer_CatalogNullStillLegacyFallback()
+        public void BoardSurfaceRenderer_CatalogNullStillGenericExpansionOwned()
         {
-            var rootObject = new GameObject("BoardSurfaceRenderer_CatalogNullStillLegacyFallback");
+            var rootObject = new GameObject("BoardSurfaceRenderer_CatalogNullStillGenericExpansionOwned");
 
             try
             {

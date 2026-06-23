@@ -1185,7 +1185,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyMovesIntoPlayer_LegacyFallbackBaseline_CommitsMoveAndPassiveContact",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyMovesIntoPlayer_GenericExpansionOwnedBaseline_CommitsMoveAndPassiveContact",
       "category": "Core",
       "contracts": [
         "damage_affects_movement",
@@ -1782,7 +1782,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_NoUnexpectedLegacyUnitOrdinaryMovementDetected",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_NoUnexpectedGenericUnitOrdinaryMovementDetected",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -1790,7 +1790,7 @@
         "enemy_kinematic_locomotion",
         "enemy_charge_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage for Boundary v1 replay no unexpected legacy ordinary movement diagnostic.",
+      "reason": "Locked Core coverage for Boundary v1 replay no unexpected generic ordinary movement diagnostic.",
       "locked": true
     },
     {
@@ -1913,7 +1913,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase6_LegacyBaseline_PlayerEnemyChargeRemoved",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase6_CurrentOwnershipBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -1925,7 +1925,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase7_LegacyFallbackBaseline_DiagnosticsDeterministic",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase7_GenericExpansionOwnedBaseline_DiagnosticsDeterministic",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -1961,7 +1961,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase8B_RemovedDiagnosticBaseline_DiagnosticsDeterministic",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase8B_CurrentOwnershipBaseline_DiagnosticsDeterministic",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -1985,7 +1985,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_LegacyBaseline_PlayerEnemyChargeRemoved",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.BoundaryInventory_CurrentOwnershipBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -1996,7 +1996,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase6_LegacyBaseline_PlayerEnemyChargeRemoved",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase6_CurrentOwnershipBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -2007,7 +2007,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.DeprecationPhase1_LegacyBaseline_PlayerEnemyChargeRemoved",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.DeprecationPhase1_CurrentOwnershipBaseline_PlayerEnemyChargeRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -2018,7 +2018,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase7_LegacyFallbackBaseline_IsDiagnosticCompatibilityPreset",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase7_GenericExpansionOwnedBaseline_IsDiagnosticCompatibilityPreset",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -2082,7 +2082,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8A_LegacyFallbackBaseline_IsDiagnosticCompatibilityNaming",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8A_GenericExpansionOwnedBaseline_IsDiagnosticCompatibilityNaming",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
@@ -2124,7 +2124,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.FallbackWrapperCleanup_CurrentPolicyTests_UseRemovedDiagnosticVocabulary",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.FallbackWrapperCleanup_CurrentPolicyTests_UseCurrentOwnershipVocabulary",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
@@ -2164,7 +2164,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_RemovedDiagnosticBaseline_IsCanonicalAlias",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_CurrentOwnershipBaseline_IsCanonicalAlias",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
@@ -2173,7 +2173,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_RemovedDiagnosticBaseline_PlayerEnemyChargeDiagnostics",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8B_CurrentOwnershipBaseline_PlayerEnemyChargeDiagnostics",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -2228,7 +2228,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_RemovedDiagnosticBaseline_IsCanonicalUsage",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_CurrentOwnershipBaseline_IsCanonicalUsage",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -2239,7 +2239,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_CurrentPolicyDocs_UseRemovedDiagnosticBaseline",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_CurrentPolicyDocs_UseCurrentOwnershipBaseline",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
@@ -2248,7 +2248,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_RemovedDiagnosticBaselineAlias_IsRemoved",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8C_CurrentOwnershipBaselineAlias_IsRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
@@ -2279,7 +2279,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase8C_RemovedDiagnosticBaseline_DiagnosticsDeterministic",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase8C_CurrentOwnershipBaseline_DiagnosticsDeterministic",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -2303,7 +2303,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_RemovedLegacyFallbackDiagnosticsEnabled_IsCanonicalHelper",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.DiagnosticRoutingFlag_IsDeleted",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
@@ -2312,7 +2312,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_RemovedDiagnosticHelper_DoesNotAuthorizeFallback",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_CurrentOwnershipHelper_DoesNotAuthorizeFallback",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -2332,7 +2332,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_RemovedDiagnosticHelperAlias_IsRemoved",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_CurrentOwnershipHelperAlias_IsRemoved",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
@@ -2341,7 +2341,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_CurrentPolicyDocs_UseRemovedDiagnosticHelper",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8D_CurrentPolicyDocs_UseCurrentOwnershipHelper",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
@@ -2372,7 +2372,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase8D_RemovedDiagnosticHelper_DiagnosticsDeterministic",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase8D_CurrentOwnershipHelper_DiagnosticsDeterministic",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -2384,16 +2384,16 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_RemovedLegacyFallbackDiagnosticsEnabled_IsCanonicalField",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.CurrentOwnershipCanaries_StillPass",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage that Phase 8E uses RemovedLegacyFallbackDiagnosticsEnabled as canonical removed-fallback diagnostic routing.",
+      "reason": "Locked Core coverage that deleted diagnostic routing flags stay absent.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_RemovedDiagnosticField_RemainsNotSceneConfigExposed",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_CurrentOwnershipField_RemainsNotSceneConfigExposed",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
@@ -2402,22 +2402,22 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_RemovedDiagnosticField_IsCanonicalApi",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_CurrentOwnershipField_IsCanonicalApi",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage that Phase 8E exposes RemovedLegacyFallbackDiagnosticsEnabled as the canonical runtime API.",
+      "reason": "Locked Core coverage that current ownership canaries still pass after diagnostic API deletion.",
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_TraceToken_UsesCanonicalRemovedDiagnosticVocabulary",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.Phase8E_TraceToken_UsesCanonicalCurrentOwnershipVocabulary",
       "category": "Core",
       "contracts": [
         "determinism",
         "movement_boundary_v1"
       ],
-      "reason": "Locked Core coverage that Phase 8E migrates replay trace vocabulary to RemovedLegacyFallbackDiagnosticsEnabled.",
+      "reason": "Locked Core coverage that replay trace vocabulary no longer depends on deleted diagnostic routing.",
       "locked": true
     },
     {
@@ -2452,7 +2452,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase8E_RemovedDiagnosticRouting_Deterministic",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.EnemyKinematicLocomotionReplayTests.Replay_Phase8E_CurrentOwnershipRouting_Deterministic",
       "category": "Core",
       "contracts": [
         "determinism",
@@ -2561,13 +2561,13 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ScopedDeletionPrep_EnemyLegacyFallback_RemovedByPhase5",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ScopedDeletionPrep_EnemyGenericExpansionOwned_RemovedByPhase5",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
         "enemy_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage for Phase 5 enemy legacy fallback removal.",
+      "reason": "Locked Core coverage for Phase 5 enemy generic expansion removal.",
       "locked": true
     },
     {
@@ -2578,7 +2578,7 @@
         "enemy_ai_scenario_contract",
         "enemy_kinematic_locomotion"
       ],
-      "reason": "Locked Core coverage that enemy kinematic anchor commits use MoveEntity without legacy fallback.",
+      "reason": "Locked Core coverage that enemy kinematic anchor commits use MoveEntity without generic expansion.",
       "locked": true
     },
     {
@@ -2612,7 +2612,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveCleanup_RemovedDiagnosticBaseline_NoChargeMoveProducer",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveCleanup_CurrentOwnershipBaseline_NoChargeMoveProducer",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -2775,7 +2775,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveProducer_RemovedDiagnosticBaseline_Unreachable",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveProducer_CurrentOwnershipBaseline_Unreachable",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",
@@ -2877,7 +2877,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveIsolation_RemovedDiagnosticBaseline_NoChargeMove",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.BoundaryInventoryScenarioTests.ChargeMoveIsolation_CurrentOwnershipBaseline_NoChargeMove",
       "category": "Core",
       "contracts": [
         "movement_boundary_v1",

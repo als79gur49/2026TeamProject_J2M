@@ -6,14 +6,12 @@ namespace Game.Feature.Gameplay.Loop
             bool enableEnemySameFaceContinuousLocomotion = false,
             bool enableEnemyChargeKinematicLocomotion = false,
             bool enableEnemyGlideKinematicLocomotion = false,
-            bool enablePlayerFree2DActionAssist = false,
-            bool removedLegacyFallbackDiagnosticsEnabled = false)
+            bool enablePlayerFree2DActionAssist = false)
         {
             EnableEnemySameFaceContinuousLocomotion = enableEnemySameFaceContinuousLocomotion;
             EnableEnemyChargeKinematicLocomotion = enableEnemyChargeKinematicLocomotion;
             EnableEnemyGlideKinematicLocomotion = enableEnemyGlideKinematicLocomotion;
             EnablePlayerFree2DActionAssist = enablePlayerFree2DActionAssist;
-            RemovedLegacyFallbackDiagnosticsEnabled = removedLegacyFallbackDiagnosticsEnabled;
         }
 
         public static GameplayRuntimeFeatureFlags None => default;
@@ -55,7 +53,5 @@ namespace Game.Feature.Gameplay.Loop
         public bool EnableEnemyGlideKinematicLocomotion { get; }
 
         public bool EnablePlayerFree2DActionAssist { get; }
-
-        public bool RemovedLegacyFallbackDiagnosticsEnabled { get; }
     }
 }

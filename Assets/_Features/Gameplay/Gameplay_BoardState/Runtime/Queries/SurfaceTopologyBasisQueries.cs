@@ -55,7 +55,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             var projectedY = checked(sourceLocalOffset.Y.RawValue + sourceVelocity.Y.RawValue);
-            var radius = Math.Max(0, Math.Min(KinematicFixed.HalfCellUnits - 1, collisionRadiusUnits));
+            var radius = Math.Max(0, Math.Min(SimulationFixed.HalfCellUnits - 1, collisionRadiusUnits));
             SurfaceCell targetAnchor;
             CubeRotationKind rotationKind;
             CubeTopologyState updatedTopology;
@@ -63,8 +63,8 @@ namespace Game.Feature.Gameplay.BoardState
             if (directionDelta.y > 0 && sourceAnchor.y == boardBounds.MaxInclusive.y)
             {
                 var thresholdY = radius > 0
-                    ? KinematicFixed.HalfCellUnits - radius
-                    : KinematicFixed.HalfCellUnits;
+                    ? SimulationFixed.HalfCellUnits - radius
+                    : SimulationFixed.HalfCellUnits;
                 if (projectedY <= thresholdY)
                 {
                     rejectReason = Free2DTopologyTransitionRejectReason.CrossingAxisDidNotReachSeam;
@@ -75,14 +75,14 @@ namespace Game.Feature.Gameplay.BoardState
                 updatedTopology = topology.Rotate(rotationKind);
                 targetAnchor = new SurfaceCell(updatedTopology.BottomFace, sourceAnchor.x, boardBounds.MinInclusive.y);
                 targetY = radius > 0
-                    ? checked(KinematicFixed.MinLocalOffset + radius + Math.Max(0, projectedY - thresholdY))
-                    : checked(projectedY - KinematicFixed.UnitsPerCell);
+                    ? checked(SimulationFixed.MinLocalOffset + radius + Math.Max(0, projectedY - thresholdY))
+                    : checked(projectedY - SimulationFixed.UnitsPerCell);
             }
             else if (directionDelta.y < 0 && sourceAnchor.y == boardBounds.MinInclusive.y)
             {
                 var thresholdY = radius > 0
-                    ? KinematicFixed.MinLocalOffset + radius
-                    : KinematicFixed.MinLocalOffset;
+                    ? SimulationFixed.MinLocalOffset + radius
+                    : SimulationFixed.MinLocalOffset;
                 if (projectedY >= thresholdY)
                 {
                     rejectReason = Free2DTopologyTransitionRejectReason.CrossingAxisDidNotReachSeam;
@@ -93,8 +93,8 @@ namespace Game.Feature.Gameplay.BoardState
                 updatedTopology = topology.Rotate(rotationKind);
                 targetAnchor = new SurfaceCell(updatedTopology.BottomFace, sourceAnchor.x, boardBounds.MaxInclusive.y);
                 targetY = radius > 0
-                    ? checked(KinematicFixed.MaxPositiveLocalOffset - radius - Math.Max(0, thresholdY - projectedY))
-                    : checked(projectedY + KinematicFixed.UnitsPerCell);
+                    ? checked(SimulationFixed.MaxPositiveLocalOffset - radius - Math.Max(0, thresholdY - projectedY))
+                    : checked(projectedY + SimulationFixed.UnitsPerCell);
             }
             else
             {
@@ -104,7 +104,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             var targetLocalOffset = new SimulationOffset2(
                 sourceLocalOffset.X,
-                KinematicFixed.FromRaw(targetY));
+                SimulationFixed.FromRaw(targetY));
             if (!targetLocalOffset.IsRepresentableLocalOffset)
             {
                 rejectReason = Free2DTopologyTransitionRejectReason.RemapInvalid;
@@ -112,7 +112,7 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             var targetVelocity = new SimulationVelocity2(
-                KinematicFixed.Zero,
+                SimulationFixed.Zero,
                 sourceVelocity.Y);
             result = new Free2DTopologyRemapResult(
                 targetAnchor,

@@ -31,7 +31,7 @@ namespace Game.Feature.Gameplay.BoardState
         RejectVoluntaryMotion = 3,
     }
 
-    public readonly struct KinematicFixed : IEquatable<KinematicFixed>, IComparable<KinematicFixed>
+    public readonly struct SimulationFixed : IEquatable<SimulationFixed>, IComparable<SimulationFixed>
     {
         public const int UnitsPerCell = 4096;
         public const int HalfCellUnits = UnitsPerCell / 2;
@@ -39,45 +39,45 @@ namespace Game.Feature.Gameplay.BoardState
         public const int MaxPositiveLocalOffset = HalfCellUnits - 1;
         public const int MinLocalOffset = -HalfCellUnits;
 
-        public KinematicFixed(int rawValue)
+        public SimulationFixed(int rawValue)
         {
             RawValue = rawValue;
         }
 
         public int RawValue { get; }
 
-        public static KinematicFixed Zero => default;
+        public static SimulationFixed Zero => default;
 
         public bool IsZero => RawValue == 0;
 
-        public static KinematicFixed FromRaw(int rawValue)
+        public static SimulationFixed FromRaw(int rawValue)
         {
-            return new KinematicFixed(rawValue);
+            return new SimulationFixed(rawValue);
         }
 
-        public static KinematicFixed ClampToLocalOffsetRange(KinematicFixed value)
+        public static SimulationFixed ClampToLocalOffsetRange(SimulationFixed value)
         {
-            return new KinematicFixed(Math.Max(MinLocalOffset, Math.Min(MaxPositiveLocalOffset, value.RawValue)));
+            return new SimulationFixed(Math.Max(MinLocalOffset, Math.Min(MaxPositiveLocalOffset, value.RawValue)));
         }
 
-        public static bool IsRepresentableLocalOffset(KinematicFixed value)
+        public static bool IsRepresentableLocalOffset(SimulationFixed value)
         {
             return value.RawValue >= MinLocalOffset && value.RawValue <= MaxPositiveLocalOffset;
         }
 
-        public int CompareTo(KinematicFixed other)
+        public int CompareTo(SimulationFixed other)
         {
             return RawValue.CompareTo(other.RawValue);
         }
 
-        public bool Equals(KinematicFixed other)
+        public bool Equals(SimulationFixed other)
         {
             return RawValue == other.RawValue;
         }
 
         public override bool Equals(object obj)
         {
-            return obj is KinematicFixed other && Equals(other);
+            return obj is SimulationFixed other && Equals(other);
         }
 
         public override int GetHashCode()
@@ -90,22 +90,22 @@ namespace Game.Feature.Gameplay.BoardState
             return RawValue.ToString();
         }
 
-        public static KinematicFixed operator +(KinematicFixed left, KinematicFixed right)
+        public static SimulationFixed operator +(SimulationFixed left, SimulationFixed right)
         {
-            return new KinematicFixed(checked(left.RawValue + right.RawValue));
+            return new SimulationFixed(checked(left.RawValue + right.RawValue));
         }
 
-        public static KinematicFixed operator -(KinematicFixed left, KinematicFixed right)
+        public static SimulationFixed operator -(SimulationFixed left, SimulationFixed right)
         {
-            return new KinematicFixed(checked(left.RawValue - right.RawValue));
+            return new SimulationFixed(checked(left.RawValue - right.RawValue));
         }
 
-        public static bool operator ==(KinematicFixed left, KinematicFixed right)
+        public static bool operator ==(SimulationFixed left, SimulationFixed right)
         {
             return left.Equals(right);
         }
 
-        public static bool operator !=(KinematicFixed left, KinematicFixed right)
+        public static bool operator !=(SimulationFixed left, SimulationFixed right)
         {
             return !left.Equals(right);
         }
@@ -113,29 +113,29 @@ namespace Game.Feature.Gameplay.BoardState
 
     public readonly struct SimulationOffset2 : IEquatable<SimulationOffset2>
     {
-        public SimulationOffset2(KinematicFixed x, KinematicFixed y)
+        public SimulationOffset2(SimulationFixed x, SimulationFixed y)
         {
             X = x;
             Y = y;
         }
 
-        public KinematicFixed X { get; }
+        public SimulationFixed X { get; }
 
-        public KinematicFixed Y { get; }
+        public SimulationFixed Y { get; }
 
         public static SimulationOffset2 Zero => default;
 
         public bool IsZero => X.IsZero && Y.IsZero;
 
         public bool IsRepresentableLocalOffset =>
-            KinematicFixed.IsRepresentableLocalOffset(X) &&
-            KinematicFixed.IsRepresentableLocalOffset(Y);
+            SimulationFixed.IsRepresentableLocalOffset(X) &&
+            SimulationFixed.IsRepresentableLocalOffset(Y);
 
         public SimulationOffset2 ClampToLocalOffsetRange()
         {
             return new SimulationOffset2(
-                KinematicFixed.ClampToLocalOffsetRange(X),
-                KinematicFixed.ClampToLocalOffsetRange(Y));
+                SimulationFixed.ClampToLocalOffsetRange(X),
+                SimulationFixed.ClampToLocalOffsetRange(Y));
         }
 
         public bool Equals(SimulationOffset2 other)
@@ -164,15 +164,15 @@ namespace Game.Feature.Gameplay.BoardState
 
     public readonly struct SimulationVelocity2 : IEquatable<SimulationVelocity2>
     {
-        public SimulationVelocity2(KinematicFixed x, KinematicFixed y)
+        public SimulationVelocity2(SimulationFixed x, SimulationFixed y)
         {
             X = x;
             Y = y;
         }
 
-        public KinematicFixed X { get; }
+        public SimulationFixed X { get; }
 
-        public KinematicFixed Y { get; }
+        public SimulationFixed Y { get; }
 
         public static SimulationVelocity2 Zero => default;
 

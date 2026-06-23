@@ -645,7 +645,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
@@ -678,7 +678,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             var result = pipeline.RunTick(new TickInput(1));
 
@@ -822,11 +822,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(
+            MovementExecutionOwnershipAssert.HasMoveEntityBoundary(
                 result,
                 30,
                 MovementExecutionBoundaryKind.BoxActionMovement);
-            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
+            MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
             Assert.That(
                 result.PresentationData.EntityMotions.Any(
                     motion => motion.EntityId == 30 &&
@@ -854,11 +854,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
 
-            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(
+            MovementExecutionOwnershipAssert.HasMoveEntityBoundary(
                 result,
                 30,
                 MovementExecutionBoundaryKind.BoxActionMovement);
-            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
+            MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
             Assert.That(
                 result.PresentationData.EntityMotions.Any(
                     motion => motion.EntityId == 30 &&
@@ -885,15 +885,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 CreateTimingProfile(),
                 CreateDefaultPlayerControlTimingSnapshot(CreateTimingProfile()),
-                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(
+            MovementExecutionOwnershipAssert.HasMoveEntityBoundary(
                 result,
                 10,
                 MovementExecutionBoundaryKind.BoxActionMovement);
-            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
+            MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(result, 10);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(
                 SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog),
@@ -1240,7 +1240,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(expandedCandidates, Is.Not.Empty);
             Assert.That(
                 rejectedReasons.Any(reason =>
-                    reason.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                    reason.Contains("GenericUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
                 Is.False,
                 string.Join("\n", rejectedReasons));
         }
@@ -2099,7 +2099,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 CreateTimingProfile(),
                 CreateDefaultPlayerControlTimingSnapshot(CreateTimingProfile()),
-                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var finalSnapshot = CreateSnapshot(worldState);
@@ -3474,7 +3474,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new[] { CreateDestroyTile(100, destroyCell) });
-            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: KinematicFixed.MaxPositiveLocalOffset, Direction.Up);
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var resolver = new RecordingTileEffectResolver();
             var pipeline = CreatePlayerTileFeaturePipeline(
                 worldState,
@@ -3493,7 +3493,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 expectedBoxId: 20,
                 expectedFactMessage: "first activation");
 
-            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: KinematicFixed.MinLocalOffset, Direction.Down);
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MinLocalOffset, Direction.Down);
             var inactiveTransition = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Down)));
             var inactiveSnapshot = CreateSnapshot(worldState);
 
@@ -3510,7 +3510,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 "second activation previous topology should be logically inactive");
 
             worldState.CreateWriteContext().SpawnEntity(CreateBox(entityId: 21, position: destroyCell));
-            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: KinematicFixed.MaxPositiveLocalOffset, Direction.Up);
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var secondPreviousSnapshot = CreateSnapshot(worldState);
 
             Assert.That(secondPreviousSnapshot.TryGetEntity(21, out var boxBeforeSecond), Is.True);
@@ -3839,12 +3839,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
 
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(result, 10);
+            MovementExecutionOwnershipAssert.PlayerGenericExpansionRemovedFromRuntime(result, 10);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
         }
 
@@ -4450,7 +4450,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(1, 0)));
             Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(2, 0)));
-            LegacyMovementBoundaryAssert.HasMoveEntityBoundary(
+            MovementExecutionOwnershipAssert.HasMoveEntityBoundary(
                 result,
                 40,
                 MovementExecutionBoundaryKind.BoxActionMovement);
@@ -4776,12 +4776,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new UnitContinuousLocomotionState
                 {
                     localOffset = new SimulationOffset2(
-                        KinematicFixed.FromRaw(x),
-                        KinematicFixed.FromRaw(y)),
+                        SimulationFixed.FromRaw(x),
+                        SimulationFixed.FromRaw(y)),
                     velocity = SimulationVelocity2.Zero,
                     facing = direction,
                     lastMoveDirection = direction,
-                    speedUnitsPerTick = KinematicFixed.DefaultReferenceUnitsPerTick,
+                    speedUnitsPerTick = SimulationFixed.DefaultReferenceUnitsPerTick,
                     mode = ContinuousLocomotionMode.Moving,
                     sequenceId = 1,
                 }.NormalizedForStorage());
@@ -5235,7 +5235,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 timingProfile,
                 CreateDefaultPlayerControlTimingSnapshot(timingProfile),
                 playerRespawnDelayTicks: 1,
-                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true),
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None,
                 tileFeatureDefinitions: tileFeatureDefinitions);
         }
 

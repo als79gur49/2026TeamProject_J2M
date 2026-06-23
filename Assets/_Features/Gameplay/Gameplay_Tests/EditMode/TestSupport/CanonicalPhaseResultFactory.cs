@@ -397,7 +397,7 @@ namespace Game.Feature.Gameplay.Tests
 
             if (group.GroupKind == ActionGroupKind.Move)
             {
-                return MovementExecutionBoundaryKind.LegacyFallback;
+                return MovementExecutionBoundaryKind.GenericExpansionOwned;
             }
 
             return MovementExecutionBoundaryKind.Unknown;
@@ -409,7 +409,7 @@ namespace Game.Feature.Gameplay.Tests
             {
                 MovementExecutionBoundaryKind.TopologyMaterialization => "TopologyMaterialization",
                 MovementExecutionBoundaryKind.BoxActionMovement => "BoxActionMovement",
-                MovementExecutionBoundaryKind.LegacyFallback => "LegacyFallback",
+                MovementExecutionBoundaryKind.GenericExpansionOwned => "GenericExpansionOwned",
                 _ => string.Empty,
             };
         }

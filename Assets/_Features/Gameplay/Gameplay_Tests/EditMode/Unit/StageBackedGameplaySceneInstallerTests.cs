@@ -634,9 +634,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(flags.EnablePlayerFree2DActionAssist, Is.True);
                 Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
                 Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.True);
-                Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);
-                Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-                Assert.That(configuration.PlayerContinuousLocomotion.ActionAssistSettleWindowCells, Is.EqualTo(0.3125f));
+                Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);                Assert.That(configuration.PlayerContinuousLocomotion.ActionAssistSettleWindowCells, Is.EqualTo(0.3125f));
                 Assert.That(configuration.PlayerContinuousLocomotion.CollisionRadiusCells, Is.EqualTo(0.25f));
             }
             finally

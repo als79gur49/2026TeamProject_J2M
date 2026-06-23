@@ -385,8 +385,8 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             return new UnitKinematicRuntimeState
             {
-                localOffset = new SimulationOffset2(KinematicFixed.FromRaw(256), KinematicFixed.Zero),
-                velocity = new SimulationVelocity2(KinematicFixed.FromRaw(256), KinematicFixed.Zero),
+                localOffset = new SimulationOffset2(SimulationFixed.FromRaw(256), SimulationFixed.Zero),
+                velocity = new SimulationVelocity2(SimulationFixed.FromRaw(256), SimulationFixed.Zero),
                 mode = MotionMode.Voluntary,
                 forcedOp = ForcedMotionOp.None,
                 remainingDistanceUnits = 1024,
@@ -405,8 +405,8 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             return new UnitContinuousLocomotionState
             {
-                localOffset = new SimulationOffset2(KinematicFixed.FromRaw(-256), KinematicFixed.Zero),
-                velocity = new SimulationVelocity2(KinematicFixed.FromRaw(-256), KinematicFixed.Zero),
+                localOffset = new SimulationOffset2(SimulationFixed.FromRaw(-256), SimulationFixed.Zero),
+                velocity = new SimulationVelocity2(SimulationFixed.FromRaw(-256), SimulationFixed.Zero),
                 facing = Direction.Left,
                 lastMoveDirection = Direction.Left,
                 speedUnitsPerTick = 256,

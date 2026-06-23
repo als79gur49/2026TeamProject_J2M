@@ -584,8 +584,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             20,
                             MotionMode.Held,
                             ForcedMotionOp.None,
-                            sourceLocalOffset: new SimulationOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero),
-                            destinationLocalOffset: new SimulationOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero)),
+                            sourceLocalOffset: new SimulationOffset2(SimulationFixed.FromRaw(512), SimulationFixed.Zero),
+                            destinationLocalOffset: new SimulationOffset2(SimulationFixed.FromRaw(512), SimulationFixed.Zero)),
                         CreateKinematicTrack(
                             21,
                             MotionMode.Voluntary,

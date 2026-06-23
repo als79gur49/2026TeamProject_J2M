@@ -48,8 +48,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldState = GameplayWorldStateTestFactory.CreateBounded(new[] { CreateUnit(10) });
             var alignState = new UnitContinuousLocomotionState
             {
-                localOffset = new SimulationOffset2(KinematicFixed.FromRaw(1280), KinematicFixed.Zero),
-                velocity = new SimulationVelocity2(KinematicFixed.FromRaw(-205), KinematicFixed.Zero),
+                localOffset = new SimulationOffset2(SimulationFixed.FromRaw(1280), SimulationFixed.Zero),
+                velocity = new SimulationVelocity2(SimulationFixed.FromRaw(-205), SimulationFixed.Zero),
                 facing = Direction.Right,
                 lastMoveDirection = Direction.Right,
                 speedUnitsPerTick = 205,
@@ -139,7 +139,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             batch.MoveEntity(10, new SurfaceCell(FaceId.Floor, 1, 0));
             batch.SetUnitContinuousLocomotionState(
                 10,
-                CreateContinuousState(localX: KinematicFixed.MinLocalOffset, localY: 0));
+                CreateContinuousState(localX: SimulationFixed.MinLocalOffset, localY: 0));
 
             batch.ApplyTo(worldState.CreateWriteContext(), delayedAttackEffectSink: null);
 
@@ -147,7 +147,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetEntity(10, out var unit), Is.True);
             Assert.That(unit.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var continuousState), Is.True);
-            Assert.That(continuousState.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset));
+            Assert.That(continuousState.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.MinLocalOffset));
             Assert.That(continuousState.localOffset.Y.RawValue, Is.EqualTo(0));
             Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
         }
@@ -169,10 +169,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return new UnitContinuousLocomotionState
             {
-                localOffset = new SimulationOffset2(KinematicFixed.FromRaw(localX), KinematicFixed.FromRaw(localY)),
+                localOffset = new SimulationOffset2(SimulationFixed.FromRaw(localX), SimulationFixed.FromRaw(localY)),
                 velocity = new SimulationVelocity2(
-                    KinematicFixed.FromRaw(localX == 0 ? 0 : 410),
-                    KinematicFixed.FromRaw(localY == 0 ? 0 : 410)),
+                    SimulationFixed.FromRaw(localX == 0 ? 0 : 410),
+                    SimulationFixed.FromRaw(localY == 0 ? 0 : 410)),
                 facing = localX < 0 ? Direction.Left : Direction.Right,
                 lastMoveDirection = localX < 0 ? Direction.Left : Direction.Right,
                 speedUnitsPerTick = 410,
@@ -185,11 +185,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return new UnitKinematicRuntimeState
             {
-                localOffset = new SimulationOffset2(KinematicFixed.FromRaw(localX), KinematicFixed.FromRaw(localY)),
-                velocity = new SimulationVelocity2(KinematicFixed.FromRaw(410), KinematicFixed.Zero),
+                localOffset = new SimulationOffset2(SimulationFixed.FromRaw(localX), SimulationFixed.FromRaw(localY)),
+                velocity = new SimulationVelocity2(SimulationFixed.FromRaw(410), SimulationFixed.Zero),
                 mode = MotionMode.Voluntary,
                 forcedOp = ForcedMotionOp.None,
-                remainingDistanceUnits = KinematicFixed.UnitsPerCell,
+                remainingDistanceUnits = SimulationFixed.UnitsPerCell,
                 remainingTicks = 10,
                 speedScalePermille = 1000,
                 sequenceId = 1,

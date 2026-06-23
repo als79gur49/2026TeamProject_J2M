@@ -2338,8 +2338,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 expectedLocalPosition +=
                     projectedPose.LocalRotation *
                     new Vector3(
-                        continuousPose.LocalOffset.X.RawValue / (float)KinematicFixed.UnitsPerCell,
-                        continuousPose.LocalOffset.Y.RawValue / (float)KinematicFixed.UnitsPerCell,
+                        continuousPose.LocalOffset.X.RawValue / (float)SimulationFixed.UnitsPerCell,
+                        continuousPose.LocalOffset.Y.RawValue / (float)SimulationFixed.UnitsPerCell,
                         0f);
                 if (continuousPose.State.facing != Direction.None)
                 {
@@ -2423,8 +2423,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 new UnitContinuousLocomotionState
                 {
                     localOffset = new SimulationOffset2(
-                        KinematicFixed.Zero,
-                        KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
+                        SimulationFixed.Zero,
+                        SimulationFixed.FromRaw(SimulationFixed.MaxPositiveLocalOffset)),
                     velocity = SimulationVelocity2.Zero,
                     facing = Direction.Up,
                     lastMoveDirection = Direction.Up,

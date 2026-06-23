@@ -37,10 +37,10 @@ namespace Game.Feature.Gameplay.Loop
                 KinematicProgressResolver.ResolveProgressUnits(
                     1,
                     Math.Max(2, totalTicks),
-                    KinematicFixed.UnitsPerCell));
+                    SimulationFixed.UnitsPerCell));
             return new SimulationVelocity2(
-                KinematicFixed.FromRaw(stepDirectionX * unitsPerTick),
-                KinematicFixed.FromRaw(stepDirectionY * unitsPerTick));
+                SimulationFixed.FromRaw(stepDirectionX * unitsPerTick),
+                SimulationFixed.FromRaw(stepDirectionY * unitsPerTick));
         }
         private static string FormatCell(SurfaceCell cell)
         {

@@ -649,7 +649,7 @@ namespace Game.Feature.Gameplay.Entities
         public static EnemyGlidePresentationSettings CreateDefault()
         {
             return new EnemyGlidePresentationSettings(
-                liftHeightUnits: KinematicFixed.UnitsPerCell / 4,
+                liftHeightUnits: SimulationFixed.UnitsPerCell / 4,
                 recoveryDipHeightUnits: 0);
         }
     }
@@ -688,8 +688,8 @@ namespace Game.Feature.Gameplay.Entities
             Validate(nameof(EnemyGlidePresentationAuthoringSettings));
 
             return new EnemyGlidePresentationSettings(
-                Mathf.RoundToInt(liftHeightCells * KinematicFixed.UnitsPerCell),
-                Mathf.RoundToInt(recoveryDipHeightCells * KinematicFixed.UnitsPerCell));
+                Mathf.RoundToInt(liftHeightCells * SimulationFixed.UnitsPerCell),
+                Mathf.RoundToInt(recoveryDipHeightCells * SimulationFixed.UnitsPerCell));
         }
 
         public static EnemyGlidePresentationAuthoringSettings CreateDefault()
@@ -701,8 +701,8 @@ namespace Game.Feature.Gameplay.Entities
             EnemyGlidePresentationSettings runtimeSettings)
         {
             return new EnemyGlidePresentationAuthoringSettings(
-                runtimeSettings.LiftHeightUnits / (float)KinematicFixed.UnitsPerCell,
-                runtimeSettings.RecoveryDipHeightUnits / (float)KinematicFixed.UnitsPerCell);
+                runtimeSettings.LiftHeightUnits / (float)SimulationFixed.UnitsPerCell,
+                runtimeSettings.RecoveryDipHeightUnits / (float)SimulationFixed.UnitsPerCell);
         }
     }
 

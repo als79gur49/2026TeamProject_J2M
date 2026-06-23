@@ -652,8 +652,8 @@ namespace Game.Feature.Gameplay.Tests.Core
             {
                 localOffset = resolution.LocalOffset,
                 velocity = new SimulationVelocity2(
-                    KinematicFixed.FromRaw(stepDirectionX * KinematicFixed.UnitsPerCell / totalTicks),
-                    KinematicFixed.FromRaw(stepDirectionY * KinematicFixed.UnitsPerCell / totalTicks)),
+                    SimulationFixed.FromRaw(stepDirectionX * SimulationFixed.UnitsPerCell / totalTicks),
+                    SimulationFixed.FromRaw(stepDirectionY * SimulationFixed.UnitsPerCell / totalTicks)),
                 mode = MotionMode.Voluntary,
                 forcedOp = ForcedMotionOp.None,
                 remainingDistanceUnits = resolution.RemainingDistanceUnits,

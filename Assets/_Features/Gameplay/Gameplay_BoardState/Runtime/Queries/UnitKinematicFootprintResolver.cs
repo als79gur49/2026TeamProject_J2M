@@ -51,12 +51,12 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static int ResolveAxisAnchorDelta(int rawTargetOffset)
         {
-            if (rawTargetOffset >= KinematicFixed.HalfCellUnits)
+            if (rawTargetOffset >= SimulationFixed.HalfCellUnits)
             {
                 return 1;
             }
 
-            if (rawTargetOffset < -KinematicFixed.HalfCellUnits)
+            if (rawTargetOffset < -SimulationFixed.HalfCellUnits)
             {
                 return -1;
             }

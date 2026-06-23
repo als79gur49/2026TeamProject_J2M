@@ -1913,7 +1913,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         track.EntityId == 40 &&
                         track.MotionMode == MotionMode.Voluntary),
                     Is.True);
-                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(startTick, 40);
+                MovementExecutionOwnershipAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(startTick, 40);
                 var commitTick = HasGlideActiveKinematicAnchorCommit(startTick, 40)
                     ? startTick
                     : null;
@@ -1925,7 +1925,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     }
 
                     var tick = pipeline.RunTick(new TickInput(tickIndex));
-                    LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(tick, 40);
+                    MovementExecutionOwnershipAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(tick, 40);
                     if (HasGlideActiveKinematicAnchorCommit(tick, 40))
                     {
                         commitTick = tick;
@@ -1933,7 +1933,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
 
                 Assert.That(commitTick, Is.Not.Null);
-                LegacyMovementBoundaryAssert.HasMoveEntityBoundaryReason(
+                MovementExecutionOwnershipAssert.HasMoveEntityBoundaryReason(
                     commitTick,
                     40,
                     MovementExecutionBoundaryKind.LocomotionAnchorCommit,
@@ -2172,7 +2172,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(HasMoveEntity(activeEndTick, 40, destination), Is.False);
                 Assert.That(HasGlideBoundaryKinematicClose(activeEndTick, 40), Is.True);
                 Assert.That(worldState.CreateSnapshot().TryGetUnitKinematicState(40, out _), Is.False);
-                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(activeEndTick, 40);
+                MovementExecutionOwnershipAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(activeEndTick, 40);
 
                 var snapshot = worldState.CreateSnapshot();
                 Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
@@ -2988,8 +2988,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 localOffset = resolution.LocalOffset,
                 velocity = new SimulationVelocity2(
-                    KinematicFixed.FromRaw(stepDirectionX * KinematicFixed.UnitsPerCell / totalTicks),
-                    KinematicFixed.FromRaw(stepDirectionY * KinematicFixed.UnitsPerCell / totalTicks)),
+                    SimulationFixed.FromRaw(stepDirectionX * SimulationFixed.UnitsPerCell / totalTicks),
+                    SimulationFixed.FromRaw(stepDirectionY * SimulationFixed.UnitsPerCell / totalTicks)),
                 mode = MotionMode.Voluntary,
                 forcedOp = ForcedMotionOp.None,
                 remainingDistanceUnits = resolution.RemainingDistanceUnits,

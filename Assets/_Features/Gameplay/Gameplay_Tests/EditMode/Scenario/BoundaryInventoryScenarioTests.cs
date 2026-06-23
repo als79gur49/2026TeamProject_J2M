@@ -61,7 +61,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
             Assert.That(playerTick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
-            LegacyMovementBoundaryAssert.NoCoveredLocomotionLegacyFallback(playerTick, 10);
+            MovementExecutionOwnershipAssert.NoCoveredLocomotionGenericExpansionOwned(playerTick, 10);
 
             var enemyWorld = CreateWorldState(new[]
             {
@@ -74,7 +74,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .RunTick(new TickInput(1));
 
             Assert.That(enemyTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
-            LegacyMovementBoundaryAssert.NoCoveredLocomotionLegacyFallback(enemyTick, 40);
+            MovementExecutionOwnershipAssert.NoCoveredLocomotionGenericExpansionOwned(enemyTick, 40);
 
             var chargeWorld = CreateWorldState(new[]
             {
@@ -100,33 +100,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     track.EntityId == 50 &&
                     track.MotionMode == MotionMode.Charge),
                 Is.True);
-            LegacyMovementBoundaryAssert.NoCoveredLocomotionLegacyFallback(chargeTick, 50);
+            MovementExecutionOwnershipAssert.NoCoveredLocomotionGenericExpansionOwned(chargeTick, 50);
         }
 
         [Test]
         [Category("Core")]
-        public void DeprecationPhase1_DefaultGameplayLocomotion_PlayerEnemyCharge_NoLegacyFallback()
+        public void DeprecationPhase1_DefaultGameplayLocomotion_PlayerEnemyCharge_NoGenericExpansionOwned()
         {
             BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
         }
 
         [Test]
         [Category("Core")]
-        public void DeprecationPhase1_DefaultGameplayLocomotion_PlayerOrdinary_NoLegacyFallback()
+        public void DeprecationPhase1_DefaultGameplayLocomotion_PlayerOrdinary_NoGenericExpansionOwned()
         {
             BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
         }
 
         [Test]
         [Category("Core")]
-        public void DeprecationPhase1_DefaultGameplayLocomotion_EnemyOrdinary_NoLegacyFallback()
+        public void DeprecationPhase1_DefaultGameplayLocomotion_EnemyOrdinary_NoGenericExpansionOwned()
         {
             BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
         }
 
         [Test]
         [Category("Core")]
-        public void DeprecationPhase1_DefaultGameplayLocomotion_ChargeActive_NoLegacyFallback()
+        public void DeprecationPhase1_DefaultGameplayLocomotion_ChargeActive_NoGenericExpansionOwned()
         {
             BoundaryInventory_DefaultGameplayLocomotion_NoLegacyOrdinaryUnitMovement();
         }
@@ -145,7 +145,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(
                 tick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 10),
                 Is.False);
-            LegacyMovementBoundaryAssert.NoCoveredLocomotionLegacyFallback(tick, 10);
+            MovementExecutionOwnershipAssert.NoCoveredLocomotionGenericExpansionOwned(tick, 10);
         }
 
         [Test]
@@ -162,7 +162,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10),
                 Is.True);
             Assert.That(tick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 10), Is.False);
-            LegacyMovementBoundaryAssert.NoCoveredLocomotionLegacyFallback(tick, 10);
+            MovementExecutionOwnershipAssert.NoCoveredLocomotionGenericExpansionOwned(tick, 10);
         }
 
         [Test]
@@ -176,7 +176,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .RunTick(new TickInput(1));
 
             Assert.That(tick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
-            LegacyMovementBoundaryAssert.NoCoveredLocomotionLegacyFallback(tick, 40);
+            MovementExecutionOwnershipAssert.NoCoveredLocomotionGenericExpansionOwned(tick, 40);
         }
 
         [Test]
@@ -199,41 +199,41 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     signal.EntityId == 50 &&
                     signal.Phase == EnemyChargePhase.Active),
                 Is.True);
-            LegacyMovementBoundaryAssert.NoCoveredLocomotionLegacyFallback(tick, 50);
+            MovementExecutionOwnershipAssert.NoCoveredLocomotionGenericExpansionOwned(tick, 50);
         }
 
         [Test]
         [Category("Extended")]
-        public void MoveOwnership_RemovedDiagnosticBaseline_NoCoveredEntityMove()
+        public void MoveOwnership_CurrentOwnershipBaseline_NoCoveredEntityMove()
         {
             var playerTick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))
+                    GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(playerTick, 10);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(playerTick);
+            MovementExecutionOwnershipAssert.PlayerGenericExpansionRemovedFromRuntime(playerTick, 10);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(playerTick);
 
             var enemyTick = CreatePipeline(
                     CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))
+                    GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedFromRuntime(enemyTick, 40);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(enemyTick, 40);
+            MovementExecutionOwnershipAssert.EnemyGenericExpansionRemovedFromRuntime(enemyTick, 40);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(enemyTick, 40);
 
             var chargeTick = CreatePipeline(
                     CreateActiveChargeWorldState(50),
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))
+                    GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedFromRuntime(chargeTick, 50);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(chargeTick);
+            MovementExecutionOwnershipAssert.ChargeGenericExpansionRemovedFromRuntime(chargeTick, 50);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(chargeTick);
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase2_PlayerLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback()
+        public void Phase2_PlayerGenericExpansionOwned_DefaultGameplayLocomotion_NoGenericExpansionOwned()
         {
             AssertDefaultGameplayLocomotionFlags();
 
@@ -244,13 +244,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
             Assert.That(tick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
-            LegacyMovementBoundaryAssert.NoPlayerLegacyOrdinaryFallback(tick, 10);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+            MovementExecutionOwnershipAssert.NoPlayerLegacyOrdinaryFallback(tick, 10);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick);
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase2_PlayerLegacyFallback_Free2DFlagOn_BlockedBeforeMovementExpander()
+        public void Phase2_PlayerGenericExpansionOwned_Free2DFlagOn_BlockedBeforeMovementExpander()
         {
             var worldState = CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) });
             worldState.CreateWriteContext().SetPlayerControlState(10, default);
@@ -262,7 +262,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase2_PlayerLegacyFallback_KinematicFlagOn_BlockedBeforeMovementExpander()
+        public void Phase2_PlayerGenericExpansionOwned_KinematicFlagOn_BlockedBeforeMovementExpander()
         {
             var worldState = CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) });
             worldState.CreateWriteContext().SetPlayerControlState(10, default);
@@ -275,28 +275,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         [Category("Extended")]
         // Historical/pre-Phase4 canary: delegates to the canonical player removed-diagnostic test.
-        public void Phase2_PlayerLegacyFallback_FlagOffBaseline_RemovedByPhase4()
+        public void Phase2_PlayerGenericExpansionOwned_FlagOffBaseline_RemovedByPhase4()
         {
-            Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved();
+            Phase4_CurrentOwnershipBaseline_PlayerFallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved()
+        public void Phase4_CurrentOwnershipBaseline_PlayerFallbackRemoved()
         {
             var tick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))
+                    GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(tick, 10);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+            MovementExecutionOwnershipAssert.PlayerGenericExpansionRemovedFromRuntime(tick, 10);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick);
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase2_PlayerLegacyFallback_TopologySeam_UsesNativeFree2DOnly()
+        public void Phase2_PlayerGenericExpansionOwned_TopologySeam_UsesNativeFree2DOnly()
         {
             Player_Free2D_TopologySeam_NoLegacyOrdinaryFallback();
 
@@ -306,18 +306,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
                 new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(approachWorld, localX: 0, localY: KinematicFixed.MaxPositiveLocalOffset, speedUnitsPerTick: speed);
+            SetPlayerContinuousLocalOffset(approachWorld, localX: 0, localY: SimulationFixed.MaxPositiveLocalOffset, speedUnitsPerTick: speed);
             var approachPipeline = CreatePipeline(
                 approachWorld,
                 new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                 GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion);
 
             var handoffTick = approachPipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
-            LegacyMovementBoundaryAssert.GridTransactionBranchesRemainAllowed(
+            MovementExecutionOwnershipAssert.GridTransactionBranchesRemainAllowed(
                 handoffTick,
                 10,
                 MovementExecutionBoundaryKind.Free2DTopologyTransition);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(handoffTick);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(handoffTick);
             Assert.That(
                 handoffTick.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Metadata.BoundaryReason == "Free2DTopologyNativeTransition"),
@@ -333,33 +333,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void Phase4_DefaultGameplay_PlayerFallbackStillAbsent()
         {
-            Phase2_PlayerLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback();
+            Phase2_PlayerGenericExpansionOwned_DefaultGameplayLocomotion_NoGenericExpansionOwned();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase4_PlayerCompatibilityPreset_NoLegacyFallback()
+        public void Phase4_PlayerCompatibilityPreset_NoGenericExpansionOwned()
         {
-            Phase2_PlayerLegacyFallback_KinematicFlagOn_BlockedBeforeMovementExpander();
+            Phase2_PlayerGenericExpansionOwned_KinematicFlagOn_BlockedBeforeMovementExpander();
         }
 
         [Test]
         [Category("Extended")]
         public void Phase4_PlayerTopologySeam_StillNativeFree2DOnly()
         {
-            Phase2_PlayerLegacyFallback_TopologySeam_UsesNativeFree2DOnly();
+            Phase2_PlayerGenericExpansionOwned_TopologySeam_UsesNativeFree2DOnly();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase5_LegacyBaseline_PlayerFallbackStillRemoved()
+        public void Phase5_CurrentOwnershipBaseline_PlayerFallbackStillRemoved()
         {
-            Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved();
+            Phase4_CurrentOwnershipBaseline_PlayerFallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase2B_EnemyLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback()
+        public void Phase2B_EnemyGenericExpansionOwned_DefaultGameplayLocomotion_NoGenericExpansionOwned()
         {
             AssertDefaultGameplayLocomotionFlags();
 
@@ -370,20 +370,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .RunTick(new TickInput(1));
 
             Assert.That(tick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
-            LegacyMovementBoundaryAssert.NoEnemyLegacyOrdinaryFallback(tick, 40);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+            MovementExecutionOwnershipAssert.NoEnemyLegacyOrdinaryFallback(tick, 40);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick);
         }
 
         [Test]
         [Category("Extended")]
         public void Phase5_DefaultGameplay_EnemyFallbackStillAbsent()
         {
-            Phase2B_EnemyLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback();
+            Phase2B_EnemyGenericExpansionOwned_DefaultGameplayLocomotion_NoGenericExpansionOwned();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase2B_EnemyLegacyFallback_KinematicFlagOn_BlockedBeforeMovementExpander()
+        public void Phase2B_EnemyGenericExpansionOwned_KinematicFlagOn_BlockedBeforeMovementExpander()
         {
             var worldState = CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) });
             var intent = new MoveIntent(40, priority: 100, destination: new Vector2Int(1, 0));
@@ -394,43 +394,43 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase5_EnemyKinematicFlagOn_NoLegacyFallback()
+        public void Phase5_EnemyKinematicFlagOn_NoGenericExpansionOwned()
         {
-            Phase2B_EnemyLegacyFallback_KinematicFlagOn_BlockedBeforeMovementExpander();
+            Phase2B_EnemyGenericExpansionOwned_KinematicFlagOn_BlockedBeforeMovementExpander();
         }
 
         [Test]
         [Category("Extended")]
         // Historical/pre-Phase5 canary: delegates to the canonical enemy removed-diagnostic test.
-        public void Phase2B_EnemyLegacyFallback_FlagOffBaseline_RemovedByPhase5()
+        public void Phase2B_EnemyGenericExpansionOwned_FlagOffBaseline_RemovedByPhase5()
         {
-            Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemoved();
+            Phase5_CurrentOwnershipBaseline_EnemyFallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemoved()
+        public void Phase5_CurrentOwnershipBaseline_EnemyFallbackRemoved()
         {
             var tick = CreatePipeline(
                     CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))
+                    GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
 
-            LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedFromRuntime(tick, 40);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick, 40);
+            MovementExecutionOwnershipAssert.EnemyGenericExpansionRemovedFromRuntime(tick, 40);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick, 40);
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase5_LegacyBaseline_EnemyFallbackRemovedByPhase5()
+        public void Phase5_CurrentOwnershipBaseline_EnemyFallbackRemovedByPhase5()
         {
-            Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemoved();
+            Phase5_CurrentOwnershipBaseline_EnemyFallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase2B_EnemyLegacyFallback_GlideDefault_IsKinematic_NotEnemyOrdinaryPilot()
+        public void Phase2B_EnemyGenericExpansionOwned_GlideDefault_IsKinematic_NotEnemyOrdinaryPilot()
         {
             BoundaryInventory_DefaultGameplayLocomotion_GlideActiveKinematic();
         }
@@ -444,14 +444,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase2B_EnemyLegacyFallback_ChargeActive_IsOutOfScope()
+        public void Phase2B_EnemyGenericExpansionOwned_ChargeActive_IsOutOfScope()
         {
-            ScopedDeletionPrep_ChargeLegacyFallback_RemovedByPhase6();
+            ScopedDeletionPrep_ChargeGenericExpansionOwned_RemovedByPhase6();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase2C_ChargeLegacyFallback_DefaultGameplayLocomotion_NoChargeMoveFallback()
+        public void Phase2C_ChargeGenericExpansionOwned_DefaultGameplayLocomotion_NoChargeMoveFallback()
         {
             AssertDefaultGameplayLocomotionFlags();
 
@@ -472,22 +472,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     signal.EntityId == 50 &&
                     signal.Phase == EnemyChargePhase.Active),
                 Is.True);
-            LegacyMovementBoundaryAssert.NoChargeActiveLegacyFallback(tick, 50);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+            MovementExecutionOwnershipAssert.NoChargeActiveGenericExpansionOwned(tick, 50);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick);
         }
 
         [Test]
         [Category("Extended")]
         public void Phase6_DefaultGameplay_ChargeFallbackStillAbsent()
         {
-            Phase2C_ChargeLegacyFallback_DefaultGameplayLocomotion_NoChargeMoveFallback();
+            Phase2C_ChargeGenericExpansionOwned_DefaultGameplayLocomotion_NoChargeMoveFallback();
         }
 
         [Test]
         [Category("Core")]
         public void ChargeMoveCleanup_DefaultGameplay_NoChargeMoveProducer()
         {
-            Phase2C_ChargeLegacyFallback_DefaultGameplayLocomotion_NoChargeMoveFallback();
+            Phase2C_ChargeGenericExpansionOwned_DefaultGameplayLocomotion_NoChargeMoveFallback();
         }
 
         [Test]
@@ -506,7 +506,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase2C_ChargeLegacyFallback_ChargeKinematicFlagOn_BlockedBeforeMovementExpander()
+        public void Phase2C_ChargeGenericExpansionOwned_ChargeKinematicFlagOn_BlockedBeforeMovementExpander()
         {
             var worldState = CreateActiveChargeWorldState(50);
             var intent = new MoveIntent(50, priority: 100, destination: new Vector2Int(1, 0));
@@ -526,13 +526,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
 
-            LegacyMovementBoundaryAssert.NoChargeActiveLegacyFallback(tick, 50);
+            MovementExecutionOwnershipAssert.NoChargeActiveGenericExpansionOwned(tick, 50);
             Assert.That(
                 tick.MovementPhaseResult.RejectedReasons.Any(reason =>
                     reason.Contains("EnemyChargeKinematicFlagOffActiveMoveRejected", StringComparison.Ordinal) &&
                     reason.Contains("Source=50", StringComparison.Ordinal)),
                 Is.True);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick);
         }
 
         [Test]
@@ -559,45 +559,45 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         [Category("Extended")]
         // Historical/pre-Phase6 canary: delegates to the canonical Charge removed-diagnostic test.
-        public void Phase2C_ChargeLegacyFallback_FlagOffBaseline_RemovedByPhase6()
+        public void Phase2C_ChargeGenericExpansionOwned_FlagOffBaseline_RemovedByPhase6()
         {
-            Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved();
+            Phase6_CurrentOwnershipBaseline_ChargeFallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved()
+        public void Phase6_CurrentOwnershipBaseline_ChargeFallbackRemoved()
         {
             var worldState = CreateActiveChargeWorldState(50);
             var tick = CreatePipeline(
                     worldState,
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))
+                    GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
 
-            LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedFromRuntime(tick, 50);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+            MovementExecutionOwnershipAssert.ChargeGenericExpansionRemovedFromRuntime(tick, 50);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick);
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveCleanup_RemovedDiagnosticBaseline_NoChargeMoveProducer()
+        public void ChargeMoveCleanup_CurrentOwnershipBaseline_NoChargeMoveProducer()
         {
-            Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved();
+            Phase6_CurrentOwnershipBaseline_ChargeFallbackRemoved();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveProducer_RemovedDiagnosticBaseline_Unreachable()
+        public void ChargeMoveProducer_CurrentOwnershipBaseline_Unreachable()
         {
-            ChargeMoveCleanup_RemovedDiagnosticBaseline_NoChargeMoveProducer();
+            ChargeMoveCleanup_CurrentOwnershipBaseline_NoChargeMoveProducer();
         }
 
         [Test]
         [Category("Core")]
-        public void ChargeMoveIsolation_RemovedDiagnosticBaseline_NoChargeMove()
+        public void ChargeMoveIsolation_CurrentOwnershipBaseline_NoChargeMove()
         {
-            ChargeMoveProducer_RemovedDiagnosticBaseline_Unreachable();
+            ChargeMoveProducer_CurrentOwnershipBaseline_Unreachable();
         }
 
         [Test]
@@ -625,8 +625,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     track.EntityId == 50 &&
                     track.MotionMode == MotionMode.Charge),
                 Is.True);
-            LegacyMovementBoundaryAssert.NoChargeActiveLegacyFallback(tick, 50);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+            MovementExecutionOwnershipAssert.NoChargeActiveGenericExpansionOwned(tick, 50);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick);
         }
 
         [Test]
@@ -673,8 +673,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     track.EntityId == 50 &&
                     track.MotionMode == MotionMode.Charge),
                 Is.True);
-            LegacyMovementBoundaryAssert.NoChargeActiveLegacyFallback(tick, 50);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+            MovementExecutionOwnershipAssert.NoChargeActiveGenericExpansionOwned(tick, 50);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick);
         }
 
         [Test]
@@ -690,36 +690,36 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             ChargeMoveProducer_DefaultGameplay_Unreachable();
             ChargeMoveProducer_None_Unreachable();
-            ChargeMoveProducer_RemovedDiagnosticBaseline_Unreachable();
+            ChargeMoveProducer_CurrentOwnershipBaseline_Unreachable();
             ChargeMoveProducer_AllKinematic_Unreachable();
             ChargeMoveProducer_ChargeKinematicSignal_IsNotChargeMove();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase4_LegacyBaseline_ChargeFallbackRemovedByPhase6()
+        public void Phase4_CurrentOwnershipBaseline_ChargeFallbackRemovedByPhase6()
         {
-            Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved();
+            Phase6_CurrentOwnershipBaseline_ChargeFallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase5_LegacyBaseline_ChargeFallbackRemovedByPhase6()
+        public void Phase5_CurrentOwnershipBaseline_ChargeFallbackRemovedByPhase6()
         {
-            Phase6_RemovedDiagnosticBaseline_ChargeFallbackRemoved();
+            Phase6_CurrentOwnershipBaseline_ChargeFallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase2C_ChargeLegacyFallback_PlayerEnemyOrdinary_AreOutOfScope()
+        public void Phase2C_ChargeGenericExpansionOwned_PlayerEnemyOrdinary_AreOutOfScope()
         {
-            Phase2_PlayerLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback();
-            Phase2B_EnemyLegacyFallback_DefaultGameplayLocomotion_NoLegacyFallback();
+            Phase2_PlayerGenericExpansionOwned_DefaultGameplayLocomotion_NoGenericExpansionOwned();
+            Phase2B_EnemyGenericExpansionOwned_DefaultGameplayLocomotion_NoGenericExpansionOwned();
         }
 
         [Test]
         [Category("Extended")]
-        public void Phase2C_ChargeLegacyFallback_GlideFlagOff_IsRetainedException_NotChargePilot()
+        public void Phase2C_ChargeGenericExpansionOwned_GlideFlagOff_IsRetainedException_NotChargePilot()
         {
             BoundaryInventory_GlideFlagOff_FallbackStillRetained();
         }
@@ -744,7 +744,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)) },
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.GridTransactionsRemainAllowed(pushTick, 30, MovementExecutionBoundaryKind.BoxActionMovement);
+            MovementExecutionOwnershipAssert.GridTransactionsRemainAllowed(pushTick, 30, MovementExecutionBoundaryKind.BoxActionMovement);
             Assert.That(pushTick.PresentationData.EntityMotions.Any(motion => motion.EntityId == 30), Is.True);
 
             var flipTick = CreatePipeline(
@@ -756,7 +756,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(10, 100, new Vector2Int(-1, 0), MovementCommandKind.Flip)) },
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.GridTransactionsRemainAllowed(flipTick, 30, MovementExecutionBoundaryKind.BoxActionMovement);
+            MovementExecutionOwnershipAssert.GridTransactionsRemainAllowed(flipTick, 30, MovementExecutionBoundaryKind.BoxActionMovement);
             Assert.That(flipTick.PresentationData.EntityMotions.Any(motion => motion.EntityId == 30), Is.True);
 
             var itemTick = CreatePipeline(
@@ -768,7 +768,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(10, 100, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.GridTransactionsRemainAllowed(itemTick, 10, MovementExecutionBoundaryKind.BoxActionMovement);
+            MovementExecutionOwnershipAssert.GridTransactionsRemainAllowed(itemTick, 10, MovementExecutionBoundaryKind.BoxActionMovement);
             Assert.That(itemTick.PresentationData.EntityMotions.Any(motion => motion.EntityId == 10), Is.True);
 
             var topologyWorld = GameplayWorldStateTestFactory.CreateBounded(
@@ -779,9 +779,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             topologyIntent.AssignIntentId(1);
             AssertPartitionConsumesPlayerFree2DOrdinaryIntent(topologyWorld, topologyIntent);
 
-            LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(pushTick);
-            LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(flipTick);
-            LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(itemTick);
+            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(pushTick);
+            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(flipTick);
+            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(itemTick);
         }
 
         [Test]
@@ -793,23 +793,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Phase3_None_NoPlayerEnemyChargeLegacyFallback()
+        public void Phase3_None_NoPlayerEnemyChargeGenericExpansionOwned()
         {
             var playerTick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.NoCoveredFallbackUnderNone(playerTick, 10);
+            MovementExecutionOwnershipAssert.NoCoveredFallbackUnderNone(playerTick, 10);
 
             var enemyTick = CreatePipeline(
                     CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.HasLegacyFallbackMoveEntity(enemyTick, 40);
-            LegacyMovementBoundaryAssert.HasLegacyFallbackMove(enemyTick, 40);
-            LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(enemyTick);
+            MovementExecutionOwnershipAssert.HasGenericExpansionOwnedMoveEntity(enemyTick, 40);
+            MovementExecutionOwnershipAssert.HasGenericExpansionOwnedMove(enemyTick, 40);
+            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(enemyTick);
 
             var chargeWorld = CreateActiveChargeWorldState(50);
             var chargeTick = CreatePipeline(
@@ -817,7 +817,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.NoChargeActiveLegacyFallback(chargeTick, 50);
+            MovementExecutionOwnershipAssert.NoChargeActiveGenericExpansionOwned(chargeTick, 50);
             Assert.That(
                 chargeTick.MovementPhaseResult.RejectedReasons.Any(reason =>
                     reason.Contains("EnemyChargeKinematicFlagOffActiveMoveRejected", StringComparison.Ordinal) &&
@@ -829,19 +829,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void Phase3_None_DoesNotMeanLegacyOrdinaryFallback()
         {
-            Assert.That(GameplayRuntimeFeatureFlags.None.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-
-            Phase3_None_NoPlayerEnemyChargeLegacyFallback();
+            Phase3_None_NoPlayerEnemyChargeGenericExpansionOwned();
         }
 
         [Test]
         [Category("Core")]
-        public void Phase3_LegacyBaseline_DoesNotEnableGlideKinematic()
+        public void Phase3_CurrentOwnershipBaseline_DoesNotEnableGlideKinematic()
         {
-            var flags = new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true);
-
-            Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
-            Assert.That(flags.EnablePlayerFree2DActionAssist, Is.False);
+            var flags = GameplayRuntimeFeatureFlags.None;            Assert.That(flags.EnablePlayerFree2DActionAssist, Is.False);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.False);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.False);
             Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
@@ -860,7 +855,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)) },
                     GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.GridTransactionsRemainAllowedWithoutLegacyFallback(
+            MovementExecutionOwnershipAssert.GridTransactionsRemainAllowedWithoutGenericExpansionOwned(
                 pushTick,
                 30,
                 MovementExecutionBoundaryKind.BoxActionMovement);
@@ -874,7 +869,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(10, 100, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.GridTransactionsRemainAllowedWithoutLegacyFallback(
+            MovementExecutionOwnershipAssert.GridTransactionsRemainAllowedWithoutGenericExpansionOwned(
                 itemTick,
                 10,
                 MovementExecutionBoundaryKind.BoxActionMovement);
@@ -910,7 +905,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick);
             Assert.That(
                 tick.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.TopologyMaterialization),
@@ -920,7 +915,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void BoundaryInventory_Free2DTopologyNativeTransition_IsNotLegacyFallback()
+        public void BoundaryInventory_Free2DTopologyNativeTransition_IsNotGenericExpansionOwned()
         {
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
@@ -931,8 +926,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new UnitContinuousLocomotionState
                 {
                     localOffset = new SimulationOffset2(
-                        KinematicFixed.FromRaw(256),
-                        KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
+                        SimulationFixed.FromRaw(256),
+                        SimulationFixed.FromRaw(SimulationFixed.MaxPositiveLocalOffset)),
                     velocity = SimulationVelocity2.Zero,
                     facing = Direction.Right,
                     lastMoveDirection = Direction.Right,
@@ -945,14 +940,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(tick);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(tick);
             Assert.That(
                 tick.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition),
                 Is.True);
             Assert.That(
                 tick.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback),
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.GenericExpansionOwned),
                 Is.False);
             Assert.That(tick.PresentationData.EntityMotions.Any(motion => motion.EntityId == 10), Is.False);
             Assert.That(tick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
@@ -975,8 +970,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new UnitContinuousLocomotionState
                 {
                     localOffset = new SimulationOffset2(
-                        KinematicFixed.FromRaw(256),
-                        KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
+                        SimulationFixed.FromRaw(256),
+                        SimulationFixed.FromRaw(SimulationFixed.MaxPositiveLocalOffset)),
                     velocity = SimulationVelocity2.Zero,
                     facing = Direction.Right,
                     lastMoveDirection = Direction.Right,
@@ -1042,7 +1037,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void Phase7_None_NoCoveredFallback()
         {
-            Phase3_None_NoPlayerEnemyChargeLegacyFallback();
+            Phase3_None_NoPlayerEnemyChargeGenericExpansionOwned();
         }
 
         [Test]
@@ -1072,37 +1067,56 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void BoundaryInventory_LegacyBaseline_PlayerEnemyChargeRemoved()
+        public void BoundaryInventory_CurrentOwnershipBaseline_PlayerEnemyChargeRemoved()
         {
-            Phase8C_RemovedDiagnosticsField_IsCanonicalUsage();
+            Phase7_GenericExpansionOwnedBaseline_IsDiagnosticCompatibilityPreset();
         }
 
         [Test]
         [Category("Core")]
-        public void Phase6_LegacyBaseline_PlayerEnemyChargeRemoved()
+        public void Phase6_CurrentOwnershipBaseline_PlayerEnemyChargeRemoved()
         {
-            Phase8C_RemovedDiagnosticsField_IsCanonicalUsage();
+            Phase7_GenericExpansionOwnedBaseline_IsDiagnosticCompatibilityPreset();
         }
 
         [Test]
         [Category("Core")]
-        public void Phase7_LegacyFallbackBaseline_IsDiagnosticCompatibilityPreset()
+        public void Phase8C_CurrentOwnershipBaseline_IsCanonicalUsage()
+        {
+            Phase7_GenericExpansionOwnedBaseline_IsDiagnosticCompatibilityPreset();
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase8C_CurrentPolicyDocs_UseCurrentOwnershipBaseline()
+        {
+            var free2D = ReadRepoFile("Docs/Testing/Player-Free2D-Continuous-Locomotion-Rollout-2026-05-01.md");
+            var adr = ReadRepoFile("Docs/Architecture/ADR/ADR-005-Grid-Authoritative-Unit-Kinematics.md");
+
+            Assert.That(free2D, Does.Contain("Player ordinary movement is now unconditionally Free2D-owned in production."));
+            Assert.That(free2D, Does.Not.Contain("EnablePlayerFree2DLocalLocomotion"));
+            Assert.That(adr, Does.Contain("the removed Player legacy fallback diagnostic flag, constructor parameter, trace token, and helper vocabulary are no longer current API"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Phase7_GenericExpansionOwnedBaseline_IsDiagnosticCompatibilityPreset()
         {
             var playerTick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))
+                    GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.AssertPlayerFallbackRemovedFromRuntime(playerTick, 10);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(playerTick);
+            MovementExecutionOwnershipAssert.AssertPlayerFallbackRemovedFromRuntime(playerTick, 10);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(playerTick);
 
             var enemyTick = CreatePipeline(
                     CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))
+                    GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.AssertEnemyFallbackRemovedFromRuntime(enemyTick, 40);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(enemyTick, 40);
+            MovementExecutionOwnershipAssert.AssertEnemyFallbackRemovedFromRuntime(enemyTick, 40);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(enemyTick, 40);
 
             var chargeWorld = CreateWorldState(new[]
             {
@@ -1120,557 +1134,51 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var chargeTick = CreatePipeline(
                     chargeWorld,
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))
+                    GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.AssertChargeFallbackRemovedFromRuntime(chargeTick, 50);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(chargeTick);
+            MovementExecutionOwnershipAssert.AssertChargeFallbackRemovedFromRuntime(chargeTick, 50);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(chargeTick);
         }
 
         [Test]
         [Category("Core")]
-        public void DeprecationPhase1_LegacyBaseline_PlayerEnemyChargeRemoved()
+        public void DeprecationPhase1_CurrentOwnershipBaseline_PlayerEnemyChargeRemoved()
         {
-            BoundaryInventory_LegacyBaseline_PlayerEnemyChargeRemoved();
+            BoundaryInventory_CurrentOwnershipBaseline_PlayerEnemyChargeRemoved();
         }
 
         [Test]
         [Category("Core")]
-        public void Phase7_HelperNames_AreCurrent()
+        public void DiagnosticRoutingFlag_IsDeleted()
         {
-            var canonicalHelperNames = new[]
-            {
-                nameof(LegacyMovementBoundaryAssert.AssertCoveredFallbackRemovedDiagnostics),
-                nameof(LegacyMovementBoundaryAssert.AssertPlayerFallbackRemovedFromRuntime),
-                nameof(LegacyMovementBoundaryAssert.AssertEnemyFallbackRemovedFromRuntime),
-                nameof(LegacyMovementBoundaryAssert.AssertChargeFallbackRemovedFromRuntime),
-            };
-            var phase7ReportStrings = new[]
-            {
-                "RemovedLegacyFallbackDiagnosticsEnabled: diagnostic compatibility field",
-                "covered fallback authorization: removed",
-                "grid transactions: retained",
-                "glide default adoption: complete; flag-off fallback retained",
-            };
+            var runtimeFlags = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GameplayRuntimeFeatureFlags.cs");
 
-            Assert.That(canonicalHelperNames.Any(name => name.Contains("Allows", StringComparison.Ordinal)), Is.False);
-            Assert.That(canonicalHelperNames.Any(name => name.Contains("Allowed", StringComparison.Ordinal)), Is.False);
-            Assert.That(phase7ReportStrings.Any(text => text.Contains("allows covered fallback", StringComparison.Ordinal)), Is.False);
-            Assert.That(phase7ReportStrings, Does.Contain("RemovedLegacyFallbackDiagnosticsEnabled: diagnostic compatibility field"));
+            Assert.That(runtimeFlags, Does.Not.Contain("RemovedLegacy" + "FallbackDiagnosticsEnabled"));
+            Assert.That(runtimeFlags, Does.Not.Contain("removedLegacy" + "FallbackDiagnosticsEnabled"));
         }
 
         [Test]
         [Category("Core")]
-        public void Phase8A_RemovedDiagnosticsField_IsDiagnosticCompatibilityNaming()
+        public void CurrentOwnershipCanaries_StillPass()
         {
-            var currentVocabulary = new[]
-            {
-                "RemovedLegacyFallbackDiagnosticsEnabled: diagnostic compatibility field",
-                "covered fallback authorization: removed",
-                "obsolete covered fallback helpers: deleted",
-                "retained grid transactions remain allowed",
-                "glide retained fallback remains separate",
-            };
-
-            Assert.That(currentVocabulary, Does.Contain("RemovedLegacyFallbackDiagnosticsEnabled: diagnostic compatibility field"));
-            Assert.That(currentVocabulary.Any(text => text.Contains("baseline allows fallback", StringComparison.Ordinal)), Is.False);
-            Assert.That(currentVocabulary.Any(text => text.Contains("covered fallback allowed", StringComparison.Ordinal)), Is.False);
-            Assert.That(currentVocabulary.Any(text => text.Contains("fallback output retained", StringComparison.Ordinal)), Is.False);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8A_Phase7Canaries_StillPass()
-        {
-            Phase8C_RemovedDiagnosticsField_IsCanonicalUsage();
             Phase7_None_NoCoveredFallback();
             Phase7_DefaultGameplay_NoCoveredFallback();
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8A_GridTransactionsRemainAllowed()
-        {
             Phase7_GridTransactionsRemainAllowed();
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8A_GlideDefaultAdoptionAndFlagOffFallbackRetained()
-        {
             Phase7_GlidePolicy_DefaultAdoptedAndFlagOffFallbackRetained();
-        }
-
-        [Test]
-        [Category("Core")]
-        public void FallbackWrapperCleanup_CurrentPolicyTests_UseRemovedDiagnosticVocabulary()
-        {
-            var docs = new[]
-            {
-                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Readiness-2026-05-01.md"),
-                ReadRepoFile("Docs/Architecture/ADR/ADR-005-Grid-Authoritative-Unit-Kinematics.md"),
-                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md"),
-                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Move-Presentation-Ownership-Narrowing-2026-05-02.md"),
-            };
-            var forbiddenCurrentPolicyPhrases = new[]
-            {
-                "fallback " + "allowed",
-                "still " + "allowed",
-                "flag-off baseline " + "allows",
-                "RemovedLegacyFallbackDiagnosticsEnabled " + "allows",
-            };
-
-            foreach (var doc in docs)
-            {
-                foreach (var phrase in forbiddenCurrentPolicyPhrases)
-                {
-                    Assert.That(doc, Does.Not.Contain(phrase), phrase);
-                }
-            }
-
-            var scenarioSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/BoundaryInventoryScenarioTests.cs");
-            Assert.That(scenarioSource, Does.Not.Contain("FallbackWrapperCleanup_Obsolete" + "AllowsHelpers_HaveNoInternalCallSites"));
-            Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertCoveredFallbackRemovedDiagnostics)));
-            Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertPlayerFallbackRemovedFromRuntime)));
-            Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertEnemyFallbackRemovedFromRuntime)));
-            Assert.That(scenarioSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.AssertChargeFallbackRemovedFromRuntime)));
-        }
-
-        [Test]
-        [Category("Core")]
-        public void FallbackWrapperCleanup_HistoricalCanaries_AreExplicitlyMarked()
-        {
-            var boundarySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/BoundaryInventoryScenarioTests.cs");
-            var playerReplaySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/PlayerContinuousLocomotionReplayTests.cs");
-            var enemyReplaySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/EnemyKinematicLocomotionReplayTests.cs");
-            var phase2Docs = new[]
-            {
-                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase2-Player-Pilot-2026-05-02.md"),
-                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase2B-Enemy-Pilot-2026-05-02.md"),
-                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase2C-Charge-Pilot-2026-05-02.md"),
-                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase3-Explicit-Legacy-Fallback-Policy-2026-05-02.md"),
-            };
-
-            Assert.That(boundarySource, Does.Contain("Historical/pre-Phase4 canary"));
-            Assert.That(boundarySource, Does.Contain("Historical/pre-Phase5 canary"));
-            Assert.That(boundarySource, Does.Contain("Historical/pre-Phase6 canary"));
-            Assert.That(playerReplaySource, Does.Contain("Historical/pre-Phase4 canary"));
-            Assert.That(enemyReplaySource, Does.Contain("Historical/pre-Phase6 canary"));
-
-            foreach (var doc in phase2Docs)
-            {
-                Assert.That(doc, Does.Contain("Historical/pre-Phase").Or.Contain("historical/pre-Phase"));
-                Assert.That(doc, Does.Not.Contain("FlagOffBaseline tests remain as compatibility wrappers"));
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void FallbackWrapperCleanup_RetainedGridAllowedWording_IsPreserved()
-        {
-            var helperSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/LegacyMovementBoundaryAssert.cs");
-            var readinessDoc = ReadRepoFile(
-                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Readiness-2026-05-01.md");
-            var ownershipDoc = ReadRepoFile(
-                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Move-Presentation-Ownership-Narrowing-2026-05-02.md");
-
-            Phase8E_GridTransactionsRemainAllowed();
-
-            Assert.That(helperSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.GridTransactionsRemainAllowed)));
-            Assert.That(helperSource, Does.Contain(nameof(LegacyMovementBoundaryAssert.GridTransactionsRemainAllowedWithoutLegacyFallback)));
-            Assert.That(readinessDoc, Does.Contain("retained grid transactions remain allowed"));
-            Assert.That(ownershipDoc, Does.Contain("retained grid transaction presentation"));
-            Assert.That(ownershipDoc, Does.Contain("TickEntityMotionKind.Move remains retained"));
-        }
-
-        [Test]
-        [Category("Core")]
-        public void FallbackWrapperCleanup_MoveOwnershipTests_DoNotUseFallbackAllowedWording()
-        {
-            var boundarySource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/BoundaryInventoryScenarioTests.cs");
-            var movementSource = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/MovementPhaseScenarioTests.cs");
-            var ownershipDoc = ReadRepoFile(
-                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Move-Presentation-Ownership-Narrowing-2026-05-02.md");
-            var consolidationDoc = ReadRepoFile(
-                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Decommission-Compatibility-Layer-Consolidation-2026-05-02.md");
-
-            Assert.That(boundarySource, Does.Contain("MoveOwnership_PlayerContinuous_DoesNotEmitEntityMove"));
-            Assert.That(boundarySource, Does.Contain("MoveOwnership_GridTransactions_Retained"));
-            Assert.That(movementSource, Does.Contain("MoveOwnership_BoxActionMovement_RetainsRequiredMovePresentation"));
-            Assert.That(ownershipDoc, Does.Contain("TickEntityMotionKind.Move remains retained"));
-            Assert.That(ownershipDoc, Does.Contain("Retained generic movement and retained grid transaction presentation"));
-            Assert.That(consolidationDoc, Does.Contain("`TickEntityMotionKind.Move` is not deleted"));
-            Assert.That(ownershipDoc, Does.Not.Contain("Move ownership " + "fallback allowed"));
-            Assert.That(consolidationDoc, Does.Not.Contain("Move ownership " + "fallback allowed"));
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8B_RemovedDiagnosticsField_HasExpectedShape()
-        {
-            var flags = new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true);
-
-            AssertRemovedDiagnosticBaselineShape(flags);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8B_RemovedDiagnosticsField_PlayerEnemyChargeDiagnostics()
-        {
-            AssertRemovedDiagnosticBaselinePlayerEnemyChargeDiagnostics(
-                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8B_DefaultGameplay_NoCoveredFallback_Unchanged()
-        {
-            Phase7_DefaultGameplay_NoCoveredFallback();
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8B_None_NoCoveredFallback_Unchanged()
-        {
-            Phase7_None_NoCoveredFallback();
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8B_GridTransactionsRemainAllowed()
-        {
-            Phase8A_GridTransactionsRemainAllowed();
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8B_GlideDefaultAdoptionAndFlagOffFallbackRetained()
-        {
-            Phase8A_GlideDefaultAdoptionAndFlagOffFallbackRetained();
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8C_RemovedDiagnosticsField_IsCanonicalUsage()
-        {
-            var flags = new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true);
-            var phase8CVocabulary = new[]
-            {
-                "RemovedLegacyFallbackDiagnosticsEnabled: canonical diagnostic field",
-                "RemovedDiagnosticBaselineAlias: removed compatibility alias",
-                "covered fallback authorization: removed",
-            };
-
-            AssertRemovedDiagnosticBaselineShape(flags);
-            AssertRemovedDiagnosticBaselinePlayerEnemyChargeDiagnostics(flags);
-            Assert.That(phase8CVocabulary, Does.Contain("RemovedLegacyFallbackDiagnosticsEnabled: canonical diagnostic field"));
-            Assert.That(phase8CVocabulary.Any(text => text.Contains("fallback allowed", StringComparison.Ordinal)), Is.False);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8C_CurrentPolicyDocs_UseRemovedDiagnosticsField()
-        {
-            var docs = new[]
-            {
-                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase8C-Legacy-Alias-Usage-Cleanup-2026-05-02.md"),
-                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Readiness-2026-05-01.md"),
-                ReadRepoFile("Docs/Architecture/ADR/ADR-005-Grid-Authoritative-Unit-Kinematics.md"),
-                ReadRepoFile("Docs/Testing/Player-Free2D-Continuous-Locomotion-Rollout-2026-05-01.md"),
-                ReadRepoFile("Docs/Testing/Enemy-Same-Face-Kinematic-Locomotion-Rollout-2026-04-30.md"),
-                ReadRepoFile("Docs/Testing/Enemy-Charge-Kinematic-Locomotion-Rollout-2026-04-30.md"),
-            };
-
-            foreach (var doc in docs)
-            {
-                Assert.That(doc, Does.Not.Contain("RemovedDiagnosticBaselineAlias allows fallback"));
-                Assert.That(doc, Does.Not.Contain("RemovedDiagnosticBaselineAlias is the baseline"));
-                Assert.That(doc, Does.Not.Contain("Legacy fallback baseline remains allowed"));
-            }
-
-            Assert.That(
-                docs.Any(doc => doc.Contains(
-                    "RemovedDiagnosticBaselineAlias` remains a deprecated compatibility alias",
-                    StringComparison.Ordinal)),
-                Is.False);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8C_RemovedDiagnosticPreset_IsRemoved()
-        {
-            var runtimeFlags = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GameplayRuntimeFeatureFlags.cs");
-            var sourceFilesWithoutOldAliasDirectUsage = new[]
-            {
-                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/MovementPhaseScenarioTests.cs",
-                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/EnemyKinematicLocomotionReplayTests.cs",
-                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/PlayerContinuousLocomotionReplayTests.cs",
-            };
-
-            Assert.That(
-                runtimeFlags,
-                Does.Not.Contain("RemovedDiagnosticBaselineAlias"));
-            Assert.That(runtimeFlags, Does.Not.Contain("RemovedLegacyFallback" + "DiagnosticBaseline"));
-
-            foreach (var relativePath in sourceFilesWithoutOldAliasDirectUsage)
-            {
-                var source = ReadRepoFile(relativePath);
-                Assert.That(
-                    source,
-                    Does.Not.Contain("GameplayRuntimeFeatureFlags.RemovedDiagnosticBaselineAlias"),
-                    relativePath);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8C_GridTransactionsRemainAllowed()
-        {
-            Phase8B_GridTransactionsRemainAllowed();
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8C_GlideDefaultAdoptionAndFlagOffFallbackRetained()
-        {
-            Phase8B_GlideDefaultAdoptionAndFlagOffFallbackRetained();
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8D_RemovedLegacyFallbackDiagnosticsEnabled_IsCanonicalHelper()
-        {
-            var presets = new[]
-            {
-                GameplayRuntimeFeatureFlags.None,
-                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true),
-                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true),
-                GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled,
-            };
-            var phase8DVocabulary = new[]
-            {
-                "RemovedLegacyFallbackDiagnosticsEnabled: canonical diagnostic routing helper",
-                "RemovedDiagnosticHelperAlias: removed compatibility alias",
-                "covered fallback authorization: removed",
-            };
-
-            foreach (var preset in presets)
-            {
-                Assert.That(
-                    preset.RemovedLegacyFallbackDiagnosticsEnabled,
-                    Is.EqualTo(preset.Equals(new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))));
-            }
-
-            Assert.That(GameplayRuntimeFeatureFlags.None.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true).RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
-            Assert.That(phase8DVocabulary, Does.Contain("RemovedLegacyFallbackDiagnosticsEnabled: canonical diagnostic routing helper"));
-            Assert.That(phase8DVocabulary.Any(text => text.Contains("fallback allowed", StringComparison.Ordinal)), Is.False);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8D_RemovedDiagnosticHelper_DoesNotAuthorizeFallback()
-        {
-            var flags = new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true);
-
-            Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
-            AssertRemovedDiagnosticBaselinePlayerEnemyChargeDiagnostics(flags);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8D_None_Default_AllKinematic_HelperFalse()
-        {
-            Assert.That(GameplayRuntimeFeatureFlags.None.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8D_RemovedDiagnosticHelperAlias_IsRemoved()
-        {
-            var runtimeFlags = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GameplayRuntimeFeatureFlags.cs");
-            var tickPipeline = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");
-            var sourceFilesWithoutOldHelperUsage = new[]
-            {
-                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/MovementPhaseScenarioTests.cs",
-                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/EnemyKinematicLocomotionReplayTests.cs",
-                "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/PlayerContinuousLocomotionReplayTests.cs",
-            };
-
-            Assert.That(runtimeFlags, Does.Contain("public bool RemovedLegacyFallbackDiagnosticsEnabled"));
-            Assert.That(
-                runtimeFlags,
-                Does.Not.Contain("RemovedDiagnosticHelperAlias"));
-            Assert.That(tickPipeline, Does.Not.Contain("RemovedLegacyFallbackDiagnosticsEnabled"));
-            Assert.That(tickPipeline, Does.Not.Contain("RemovedDiagnosticHelperAlias"));
-
-            foreach (var relativePath in sourceFilesWithoutOldHelperUsage)
-            {
-                var source = ReadRepoFile(relativePath);
-                Assert.That(source, Does.Not.Contain("RemovedDiagnosticHelperAlias"), relativePath);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8D_CurrentPolicyDocs_UseRemovedDiagnosticHelper()
-        {
-            var docs = new[]
-            {
-                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase8D-Diagnostic-Helper-Naming-2026-05-02.md"),
-                ReadRepoFile("Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Readiness-2026-05-01.md"),
-                ReadRepoFile("Docs/Architecture/ADR/ADR-005-Grid-Authoritative-Unit-Kinematics.md"),
-            };
-
-            foreach (var doc in docs)
-            {
-                Assert.That(doc, Does.Not.Contain("RemovedDiagnosticHelperAlias allows fallback"));
-                Assert.That(doc, Does.Not.Contain("RemovedDiagnosticHelperAlias is the helper"));
-            }
-
-            Assert.That(
-                docs.Any(doc => doc.Contains(
-                    "RemovedDiagnosticHelperAlias` remains a deprecated compatibility alias",
-                    StringComparison.Ordinal)),
-                Is.False);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8D_GridTransactionsRemainAllowed()
-        {
-            Phase8C_GridTransactionsRemainAllowed();
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8D_GlideDefaultAdoptionAndFlagOffFallbackRetained()
-        {
-            Phase8C_GlideDefaultAdoptionAndFlagOffFallbackRetained();
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8E_RemovedLegacyFallbackDiagnosticsEnabled_IsCanonicalField()
-        {
-            var removedDiagnosticField = typeof(GameplayRuntimeFeatureFlags).GetProperty(
-                nameof(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled),
-                BindingFlags.Public | BindingFlags.Instance);
-            var presets = new[]
-            {
-                GameplayRuntimeFeatureFlags.None,
-                GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion,
-                GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled,
-                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true),
-                new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true),
-            };
-            var phase8EVocabulary = new[]
-            {
-                "RemovedLegacyFallbackDiagnosticsEnabled: canonical removed-fallback diagnostics field",
-                "covered fallback authorization: removed",
-            };
-
-            Assert.That(removedDiagnosticField, Is.Not.Null);
-            foreach (var preset in presets)
-            {
-                Assert.That(
-                    preset.RemovedLegacyFallbackDiagnosticsEnabled,
-                    Is.EqualTo(preset.Equals(new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))));
-            }
-
-            Assert.That(GameplayRuntimeFeatureFlags.None.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.AllKinematicLocomotionEnabled.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true).RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
-            Assert.That(phase8EVocabulary, Does.Contain("RemovedLegacyFallbackDiagnosticsEnabled: canonical removed-fallback diagnostics field"));
-            Assert.That(phase8EVocabulary.Any(text => text.Contains("fallback allowed", StringComparison.Ordinal)), Is.False);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8E_RemovedDiagnosticField_RemainsNotSceneConfigExposed()
-        {
-            var hostFields = typeof(GameplaySceneHostConfiguration).GetFields(
-                BindingFlags.Public | BindingFlags.Instance);
-            var configuration = new GameplaySceneHostConfiguration();
-
-            configuration.ApplyRuntimeFeatureFlags(new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
-            var flags = configuration.CreateRuntimeFeatureFlags();
-
-            Assert.That(
-                hostFields.Select(field => field.Name),
-                Does.Not.Contain(nameof(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled)));
-            Assert.That(
-                ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs"),
-                Does.Not.Contain(nameof(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled)));
-            Assert.That(new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true).RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
-            Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-
-            foreach (var scenePath in Directory.GetFiles(
-                         Path.Combine(Application.dataPath, "Scenes"),
-                         "*.unity",
-                         SearchOption.AllDirectories))
-            {
-                Assert.That(
-                    File.ReadAllText(scenePath),
-                    Does.Not.Contain(nameof(GameplayRuntimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled)),
-                    scenePath);
-            }
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8E_RemovedDiagnosticField_IsCanonicalApi()
-        {
-            var runtimeFlags = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GameplayRuntimeFeatureFlags.cs");
-            var tickPipeline = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");
-
-            Assert.That(runtimeFlags, Does.Contain("public bool RemovedLegacyFallbackDiagnosticsEnabled { get; }"));
-            Assert.That(runtimeFlags, Does.Not.Contain("EnableRemovedLegacyFallbackDiagnostics"));
-            Assert.That(tickPipeline, Does.Not.Contain("_runtimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled"));
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8E_TraceToken_UsesCanonicalRemovedDiagnosticVocabulary()
-        {
-            var tickPipeline = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");
-            var phase8EDoc = ReadRepoFile(
-                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase8E-Underlying-Field-Readiness-2026-05-02.md");
-
-            Assert.That(tickPipeline, Does.Not.Contain("RemovedLegacyFallbackDiagnosticsEnabled="));
-            Assert.That(tickPipeline, Does.Not.Contain("_runtimeFeatureFlags.RemovedLegacyFallbackDiagnosticsEnabled"));
-            Assert.That(phase8EDoc, Does.Contain("No compatibility trace projection is retained."));
-        }
-
-        [Test]
-        [Category("Core")]
-        public void Phase8E_ImmediateDeletionDecision_IsDocumented()
-        {
-            var phase8EDoc = ReadRepoFile(
-                "Docs/Testing/Legacy-Ordinary-Unit-Movement-Deprecation-Phase8E-Underlying-Field-Readiness-2026-05-02.md");
-
-            Assert.That(phase8EDoc, Does.Contain("C안 immediate deletion is complete."));
-            Assert.That(phase8EDoc, Does.Contain("RemovedLegacyFallbackDiagnosticsEnabled is the canonical runtime flag."));
-            Assert.That(phase8EDoc, Does.Not.Contain("compatibility wrapper is retained"));
         }
 
         [Test]
         [Category("Core")]
         public void Phase8E_GridTransactionsRemainAllowed()
         {
-            Phase8D_GridTransactionsRemainAllowed();
+            Phase7_GridTransactionsRemainAllowed();
         }
 
         [Test]
         [Category("Core")]
         public void Phase8E_GlideDefaultAdoptionAndFlagOffFallbackRetained()
         {
-            Phase8D_GlideDefaultAdoptionAndFlagOffFallbackRetained();
+            Phase7_GlidePolicy_DefaultAdoptedAndFlagOffFallbackRetained();
         }
 
         [Test]
@@ -1879,22 +1387,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Phase6_LegacyBaseline_PlayerEnemyStillRemoved()
+        public void Phase6_CurrentOwnershipBaseline_PlayerEnemyStillRemoved()
         {
-            Phase4_RemovedDiagnosticBaseline_PlayerFallbackRemoved();
-            Phase5_RemovedDiagnosticBaseline_EnemyFallbackRemoved();
+            Phase4_CurrentOwnershipBaseline_PlayerFallbackRemoved();
+            Phase5_CurrentOwnershipBaseline_EnemyFallbackRemoved();
         }
 
         [Test]
         [Category("Core")]
-        public void ScopedDeletionPrep_PlayerLegacyFallback_RemovedByPhase4()
+        public void ScopedDeletionPrep_PlayerGenericExpansionOwned_RemovedByPhase4()
         {
             var flagOffTick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))
+                    GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(flagOffTick, 10);
+            MovementExecutionOwnershipAssert.PlayerGenericExpansionRemovedFromRuntime(flagOffTick, 10);
 
             var defaultTick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
@@ -1903,21 +1411,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
             Assert.That(defaultTick.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
-            LegacyMovementBoundaryAssert.NoCoveredFallbackInDefaultGameplayLocomotion(defaultTick, 10);
-            LegacyMovementBoundaryAssert.NoLegacyUnitPresentationForCoveredEntities(defaultTick, 10);
+            MovementExecutionOwnershipAssert.NoCoveredFallbackInDefaultGameplayLocomotion(defaultTick, 10);
+            MovementExecutionOwnershipAssert.NoLegacyUnitPresentationForCoveredEntities(defaultTick, 10);
         }
 
         [Test]
         [Category("Core")]
-        public void ScopedDeletionPrep_EnemyLegacyFallback_RemovedByPhase5()
+        public void ScopedDeletionPrep_EnemyGenericExpansionOwned_RemovedByPhase5()
         {
             var flagOffTick = CreatePipeline(
                     CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))
+                    GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.EnemyLegacyFallbackRemovedFromRuntime(flagOffTick, 40);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(flagOffTick, 40);
+            MovementExecutionOwnershipAssert.EnemyGenericExpansionRemovedFromRuntime(flagOffTick, 40);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(flagOffTick, 40);
 
             var defaultTick = CreatePipeline(
                     CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
@@ -1926,13 +1434,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 .RunTick(new TickInput(1));
 
             Assert.That(defaultTick.PresentationData.KinematicMotionTracks.Any(track => track.EntityId == 40), Is.True);
-            LegacyMovementBoundaryAssert.NoCoveredFallbackInDefaultGameplayLocomotion(defaultTick, 40);
-            LegacyMovementBoundaryAssert.NoLegacyUnitPresentationForCoveredEntities(defaultTick, 40);
+            MovementExecutionOwnershipAssert.NoCoveredFallbackInDefaultGameplayLocomotion(defaultTick, 40);
+            MovementExecutionOwnershipAssert.NoLegacyUnitPresentationForCoveredEntities(defaultTick, 40);
         }
 
         [Test]
         [Category("Core")]
-        public void ScopedDeletionPrep_ChargeLegacyFallback_RemovedByPhase6()
+        public void ScopedDeletionPrep_ChargeGenericExpansionOwned_RemovedByPhase6()
         {
             var flagOffWorld = CreateWorldState(new[]
             {
@@ -1950,10 +1458,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var flagOffTick = CreatePipeline(
                     flagOffWorld,
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))
+                    GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.ChargeLegacyFallbackRemovedFromRuntime(flagOffTick, 50);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(flagOffTick);
+            MovementExecutionOwnershipAssert.ChargeGenericExpansionRemovedFromRuntime(flagOffTick, 50);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(flagOffTick);
 
             var defaultWorld = CreateWorldState(new[]
             {
@@ -1979,8 +1487,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     track.EntityId == 50 &&
                     track.MotionMode == MotionMode.Charge),
                 Is.True);
-            LegacyMovementBoundaryAssert.NoCoveredFallbackInDefaultGameplayLocomotion(defaultTick, 50);
-            LegacyMovementBoundaryAssert.NoLegacyUnitPresentationForCoveredEntities(defaultTick, 50);
+            MovementExecutionOwnershipAssert.NoCoveredFallbackInDefaultGameplayLocomotion(defaultTick, 50);
+            MovementExecutionOwnershipAssert.NoLegacyUnitPresentationForCoveredEntities(defaultTick, 50);
         }
 
         [Test]
@@ -2013,7 +1521,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             ((IAttackCommitContext)worldState.CreateWriteContext()).MarkDestroy(10);
             var cleanupTick = pipeline.RunTick(new TickInput(1));
             Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(cleanupTick.EventLog), Does.Contain(10));
-            LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(cleanupTick);
+            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(cleanupTick);
 
             var respawnTick = pipeline.RunTick(new TickInput(2));
             Assert.That(
@@ -2024,7 +1532,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 respawnTick.Trace.Text.Contains("Boundary=SpawnRespawnPlacement", StringComparison.Ordinal) ||
                 respawnTick.Trace.Text.Contains("BoundaryReason=PlayerRespawnPlacement", StringComparison.Ordinal),
                 Is.True);
-            LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(respawnTick);
+            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(respawnTick);
         }
 
         [Test]
@@ -2056,12 +1564,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var jumpTick = GameplayCompositionRoot.CreateDefaultBootstrapper(jumpProfile)
                     .CreateTickPipeline(jumpWorld, Array.Empty<IEntityLogic>())
                     .RunTick(new TickInput(1));
-                LegacyMovementBoundaryAssert.HasOperationBoundary(
+                MovementExecutionOwnershipAssert.HasOperationBoundary(
                     jumpTick,
                     40,
                     FinalizationOperationKind.MoveEntity,
                     MovementExecutionBoundaryKind.UnitSpecialLocomotion);
-                LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(jumpTick);
+                MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(jumpTick);
             }
             finally
             {
@@ -2086,7 +1594,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         runtimeFeatureFlags: GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                     .RunTick(new TickInput(1));
                 Assert.That(glideWorld.CreateSnapshot().TryGetEnemyGlideState(40, out _), Is.True);
-                LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(glideTick);
+                MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(glideTick);
             }
             finally
             {
@@ -2125,17 +1633,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .CreateTickPipeline(jumpWorld, Array.Empty<IEntityLogic>())
                     .RunTick(new TickInput(1));
 
-                LegacyMovementBoundaryAssert.HasOperationBoundary(
+                MovementExecutionOwnershipAssert.HasOperationBoundary(
                     jumpTick,
                     40,
                     FinalizationOperationKind.MoveEntity,
                     MovementExecutionBoundaryKind.UnitSpecialLocomotion);
-                LegacyMovementBoundaryAssert.HasOperationBoundary(
+                MovementExecutionOwnershipAssert.HasOperationBoundary(
                     jumpTick,
                     40,
                     FinalizationOperationKind.SetEnemyJumpState,
                     MovementExecutionBoundaryKind.UnitSpecialLocomotion);
-                LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(jumpTick);
+                MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(jumpTick);
             }
             finally
             {
@@ -2166,7 +1674,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .RunTick(new TickInput(1));
 
                 Assert.That(glideWorld.CreateSnapshot().TryGetEnemyGlideState(40, out _), Is.True);
-                LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(glideTick, 40);
+                MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMoveOperationOrDiagnostic(glideTick, 40);
             }
             finally
             {
@@ -2199,7 +1707,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 Assert.That(glideWorld.CreateSnapshot().TryGetEnemyGlideState(40, out var glideState), Is.True);
                 Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.Windup));
-                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(windupTick, 40);
+                MovementExecutionOwnershipAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(windupTick, 40);
             }
             finally
             {
@@ -2248,7 +1756,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         signal.Phase == EnemyGlidePhase.Active &&
                         signal.CurrentHeightUnits > 0),
                     Is.True);
-                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(activeTick, 40);
+                MovementExecutionOwnershipAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(activeTick, 40);
                 var commitTick = HasGlideActiveKinematicAnchorCommit(activeTick, 40)
                     ? activeTick
                     : null;
@@ -2260,7 +1768,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     }
 
                     var tick = glidePipeline.RunTick(new TickInput(tickIndex));
-                    LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(tick, 40);
+                    MovementExecutionOwnershipAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(tick, 40);
                     if (HasGlideActiveKinematicAnchorCommit(tick, 40))
                     {
                         commitTick = tick;
@@ -2268,7 +1776,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 }
 
                 Assert.That(commitTick, Is.Not.Null);
-                LegacyMovementBoundaryAssert.HasMoveEntityBoundaryReason(
+                MovementExecutionOwnershipAssert.HasMoveEntityBoundaryReason(
                     commitTick,
                     40,
                     MovementExecutionBoundaryKind.LocomotionAnchorCommit,
@@ -2331,7 +1839,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1));
 
-            LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(tick, 40);
+            MovementExecutionOwnershipAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(tick, 40);
             Assert.That(HasMoveEntity(tick, 40, out var destination), Is.True);
             Assert.That(destination, Is.EqualTo(wallCell));
             Assert.That(ManhattanDistance(startCell, destination), Is.EqualTo(1));
@@ -2373,7 +1881,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 Assert.That(glideWorld.CreateSnapshot().TryGetEnemyGlideState(40, out var glideState), Is.True);
                 Assert.That(glideState.Phase, Is.EqualTo(EnemyGlidePhase.Active));
-                LegacyMovementBoundaryAssert.AllowsRetainedGlideFallback(activeTick, 40);
+                MovementExecutionOwnershipAssert.AllowsRetainedGlideFallback(activeTick, 40);
             }
             finally
             {
@@ -2419,7 +1927,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         signal.Phase == EnemyGlidePhase.Active &&
                         signal.CurrentHeightUnits > 0),
                     Is.True);
-                LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(activeTick, 40);
+                MovementExecutionOwnershipAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(activeTick, 40);
                 var commitTick = HasGlideActiveKinematicAnchorCommit(activeTick, 40)
                     ? activeTick
                     : null;
@@ -2431,7 +1939,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     }
 
                     var tick = glidePipeline.RunTick(new TickInput(tickIndex));
-                    LegacyMovementBoundaryAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(tick, 40);
+                    MovementExecutionOwnershipAssert.NoFlagOnLegacyOrdinaryReadinessLeaks(tick, 40);
                     if (HasGlideActiveKinematicAnchorCommit(tick, 40))
                     {
                         commitTick = tick;
@@ -2439,7 +1947,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 }
 
                 Assert.That(commitTick, Is.Not.Null);
-                LegacyMovementBoundaryAssert.HasMoveEntityBoundaryReason(
+                MovementExecutionOwnershipAssert.HasMoveEntityBoundaryReason(
                     commitTick,
                     40,
                     MovementExecutionBoundaryKind.LocomotionAnchorCommit,
@@ -2492,14 +2000,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.NoForcedKinematicProducer(playerTick, 10);
+            MovementExecutionOwnershipAssert.NoForcedKinematicProducer(playerTick, 10);
 
             var enemyTick = CreatePipeline(
                     CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.NoForcedKinematicProducer(enemyTick, 40);
+            MovementExecutionOwnershipAssert.NoForcedKinematicProducer(enemyTick, 40);
 
             var chargeWorld = CreateWorldState(new[]
             {
@@ -2519,7 +2027,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.NoForcedKinematicProducer(chargeTick, 50);
+            MovementExecutionOwnershipAssert.NoForcedKinematicProducer(chargeTick, 50);
         }
 
         [Test]
@@ -2531,7 +2039,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.NoUnexpectedUnknownMovementBoundaryAllowingStateOnly(playerTick);
+            MovementExecutionOwnershipAssert.NoUnexpectedUnknownMovementBoundaryAllowingStateOnly(playerTick);
 
             var pushTick = CreatePipeline(
                     CreateWorldState(new[]
@@ -2542,7 +2050,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(10, 100, new Vector2Int(1, 0), MovementCommandKind.Push)) },
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.NoUnexpectedUnknownMovementBoundaryAllowingStateOnly(pushTick);
+            MovementExecutionOwnershipAssert.NoUnexpectedUnknownMovementBoundaryAllowingStateOnly(pushTick);
 
         }
 
@@ -2574,10 +2082,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var flagOffTick = CreatePipeline(
                     CreateWorldState(new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)) }),
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
-                    new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true))
+                    GameplayRuntimeFeatureFlags.None)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedFromRuntime(flagOffTick, 10);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(flagOffTick);
+            MovementExecutionOwnershipAssert.PlayerGenericExpansionRemovedFromRuntime(flagOffTick, 10);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(flagOffTick);
 
             var itemTick = CreatePipeline(
                     CreateWorldState(new[]
@@ -2588,11 +2096,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(10, 100, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.GridTransactionBranchesRemainAllowed(
+            MovementExecutionOwnershipAssert.GridTransactionBranchesRemainAllowed(
                 itemTick,
                 10,
                 MovementExecutionBoundaryKind.BoxActionMovement);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(itemTick);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(itemTick);
 
             var defaultChargeWorld = CreateWorldState(new[]
             {
@@ -2612,7 +2120,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
                     GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.NoLegacyUnitPresentationForCoveredEntities(defaultChargeTick, 50);
+            MovementExecutionOwnershipAssert.NoLegacyUnitPresentationForCoveredEntities(defaultChargeTick, 50);
         }
 
         [Test]
@@ -2628,9 +2136,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var flagOffFallbacks = new[]
             {
-                "player legacy fallback: removed with PlayerLegacyFallbackRemovedFromRuntime",
-                "enemy legacy fallback: removed with EnemyLegacyFallbackRemovedFromRuntime",
-                "charge legacy fallback: removed with ChargeLegacyFallbackRemovedFromRuntime",
+                "player generic expansion: removed with PlayerGenericExpansionRemovedFromRuntime",
+                "enemy generic expansion: removed with EnemyGenericExpansionRemovedFromRuntime",
+                "charge generic expansion: removed with ChargeGenericExpansionRemovedFromRuntime",
             };
             var flagOnTargets = new[]
             {
@@ -2680,14 +2188,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(flags.EnablePlayerFree2DActionAssist, Is.True);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.True);
-            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);
-            Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.None.EnablePlayerFree2DActionAssist, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.None.EnableEnemyGlideKinematicLocomotion, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.None.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-        }
+            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);            Assert.That(GameplayRuntimeFeatureFlags.None.EnablePlayerFree2DActionAssist, Is.False);
+            Assert.That(GameplayRuntimeFeatureFlags.None.EnableEnemyGlideKinematicLocomotion, Is.False);        }
 
-        private static void AssertRemovedDiagnosticBaselinePlayerEnemyChargeDiagnostics(
+        private static void AssertCurrentOwnershipBaselinePlayerEnemyChargeDiagnostics(
             GameplayRuntimeFeatureFlags runtimeFeatureFlags)
         {
             var playerTick = CreatePipeline(
@@ -2695,16 +2199,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new PlayerLogic(10), new PlayerControlStateLogic(10) },
                     runtimeFeatureFlags)
                 .RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            LegacyMovementBoundaryAssert.AssertPlayerFallbackRemovedFromRuntime(playerTick, 10);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(playerTick);
+            MovementExecutionOwnershipAssert.AssertPlayerFallbackRemovedFromRuntime(playerTick, 10);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(playerTick);
 
             var enemyTick = CreatePipeline(
                     CreateWorldState(new[] { CreateUnit(40, 2, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Chase) }),
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(40, 50, new Vector2Int(1, 0))) },
                     runtimeFeatureFlags)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.AssertEnemyFallbackRemovedFromRuntime(enemyTick, 40);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(enemyTick, 40);
+            MovementExecutionOwnershipAssert.AssertEnemyFallbackRemovedFromRuntime(enemyTick, 40);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(enemyTick, 40);
 
             var chargeWorld = CreateWorldState(new[]
             {
@@ -2724,14 +2228,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new IEntityLogic[] { new ScriptedMovementLogic(1, new RawMovementIntent(50, 50, new Vector2Int(1, 0))) },
                     runtimeFeatureFlags)
                 .RunTick(new TickInput(1));
-            LegacyMovementBoundaryAssert.AssertChargeFallbackRemovedFromRuntime(chargeTick, 50);
-            LegacyMovementBoundaryAssert.LegacyFallbackIsOnlyForAllowedEntities(chargeTick);
+            MovementExecutionOwnershipAssert.AssertChargeFallbackRemovedFromRuntime(chargeTick, 50);
+            MovementExecutionOwnershipAssert.GenericExpansionOwnedIsOnlyForAllowedEntities(chargeTick);
         }
 
-        private static void AssertRemovedDiagnosticBaselineShape(GameplayRuntimeFeatureFlags flags)
-        {
-            Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
-            Assert.That(flags.EnablePlayerFree2DActionAssist, Is.False);
+        private static void AssertCurrentOwnershipBaselineShape(GameplayRuntimeFeatureFlags flags)
+        {            Assert.That(flags.EnablePlayerFree2DActionAssist, Is.False);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.False);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.False);
             Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
@@ -2740,11 +2242,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static void AssertSameRuntimeFeatureFlags(
             GameplayRuntimeFeatureFlags actual,
             GameplayRuntimeFeatureFlags expected)
-        {
-            Assert.That(
-                actual.RemovedLegacyFallbackDiagnosticsEnabled,
-                Is.EqualTo(expected.RemovedLegacyFallbackDiagnosticsEnabled));
-            Assert.That(actual.EnablePlayerFree2DActionAssist, Is.EqualTo(expected.EnablePlayerFree2DActionAssist));
+        {            Assert.That(actual.EnablePlayerFree2DActionAssist, Is.EqualTo(expected.EnablePlayerFree2DActionAssist));
             Assert.That(actual.EnableEnemySameFaceContinuousLocomotion, Is.EqualTo(expected.EnableEnemySameFaceContinuousLocomotion));
             Assert.That(actual.EnableEnemyChargeKinematicLocomotion, Is.EqualTo(expected.EnableEnemyChargeKinematicLocomotion));
             Assert.That(actual.EnableEnemyGlideKinematicLocomotion, Is.EqualTo(expected.EnableEnemyGlideKinematicLocomotion));
@@ -2944,8 +2442,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new UnitContinuousLocomotionState
                 {
                     localOffset = new SimulationOffset2(
-                        KinematicFixed.FromRaw(localX),
-                        KinematicFixed.FromRaw(localY)),
+                        SimulationFixed.FromRaw(localX),
+                        SimulationFixed.FromRaw(localY)),
                     velocity = SimulationVelocity2.Zero,
                     facing = Direction.Right,
                     lastMoveDirection = Direction.Right,

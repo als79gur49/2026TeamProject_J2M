@@ -36,7 +36,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 track.EntityId == 10 &&
                 track.DestinationAnchorCell == new SurfaceCell(FaceId.Floor, 0, 0) &&
                 track.DestinationLocalOffset.X.RawValue == state.localOffset.X.RawValue), Is.True);
-            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(result, 10);
+            MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(result, 10);
         }
 
         [Test]
@@ -60,9 +60,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Kind == FinalizationOperationKind.MoveEntity &&
                     operation.EntityId == 10 &&
-                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback),
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.GenericExpansionOwned),
                 Is.False);
-            LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(result);
+            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
         [Test]
@@ -141,9 +141,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.MinLocalOffset));
             Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
-            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(result, 10);
+            MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(result, 10);
         }
 
         [Test]
@@ -164,7 +164,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.MaxPositiveLocalOffset));
             Assert.That(state.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
         }
 
@@ -225,7 +225,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.MaxPositiveLocalOffset));
             Assert.That(state.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
             Assert.That(
                 result.MovementPhaseResult.RejectedReasons.Any(reason =>
@@ -252,7 +252,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.MaxPositiveLocalOffset));
             Assert.That(state.mode, Is.EqualTo(ContinuousLocomotionMode.Idle));
             Assert.That(snapshot.TryGetUnitKinematicState(10, out _), Is.False);
         }
@@ -311,7 +311,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(snapshot.Topology.BottomFace, 0, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out _), Is.True);
-            LegacyMovementBoundaryAssert.GridTransactionBranchesRemainAllowed(
+            MovementExecutionOwnershipAssert.GridTransactionBranchesRemainAllowed(
                 result,
                 10,
                 MovementExecutionBoundaryKind.Free2DTopologyTransition);
@@ -361,7 +361,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
                 new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
+            SetPlayerContinuousLocalOffset(worldState, 0, SimulationFixed.MaxPositiveLocalOffset, speed);
             var pipeline = CreateDefaultGameplayPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
@@ -372,8 +372,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
             Assert.That(state.localOffset.X.RawValue, Is.EqualTo(0));
-            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + speed - KinematicFixed.UnitsPerCell));
-            LegacyMovementBoundaryAssert.GridTransactionBranchesRemainAllowed(
+            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(SimulationFixed.MaxPositiveLocalOffset + speed - SimulationFixed.UnitsPerCell));
+            MovementExecutionOwnershipAssert.GridTransactionBranchesRemainAllowed(
                 result,
                 10,
                 MovementExecutionBoundaryKind.Free2DTopologyTransition);
@@ -398,7 +398,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
                 new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(worldState, 256, KinematicFixed.MaxPositiveLocalOffset, speed);
+            SetPlayerContinuousLocalOffset(worldState, 256, SimulationFixed.MaxPositiveLocalOffset, speed);
             var pipeline = CreateDefaultGameplayPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
@@ -409,7 +409,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
             Assert.That(state.localOffset.X.RawValue, Is.EqualTo(256));
-            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + speed - KinematicFixed.UnitsPerCell));
+            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(SimulationFixed.MaxPositiveLocalOffset + speed - SimulationFixed.UnitsPerCell));
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Kind == FinalizationOperationKind.MoveEntity &&
@@ -422,7 +422,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.TopologyMaterialization),
                 Is.False);
             Assert.That(result.PresentationData.ContinuousLocomotionTracks.Any(track => track.EntityId == 10), Is.True);
-            LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(result);
+            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
         [Test]
@@ -435,7 +435,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 boardBounds,
                 new CubeTopologyState(FaceId.Floor));
             var speed = DefaultFree2DSpeedUnitsPerTick();
-            SetPlayerContinuousLocalOffset(worldState, 256, KinematicFixed.MaxPositiveLocalOffset, speed);
+            SetPlayerContinuousLocalOffset(worldState, 256, SimulationFixed.MaxPositiveLocalOffset, speed);
             var pipeline = CreateNativeTopologyPipeline(worldState);
             var preSnapshot = worldState.CreateSnapshot();
             Assert.That(preSnapshot.TryGetUnitContinuousLocomotionState(10, out var preState), Is.True);
@@ -449,7 +449,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
             Assert.That(state.localOffset.X.RawValue, Is.EqualTo(256));
-            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + speed - KinematicFixed.UnitsPerCell));
+            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(SimulationFixed.MaxPositiveLocalOffset + speed - SimulationFixed.UnitsPerCell));
             Assert.That(state.subUnitRemainderX, Is.EqualTo(0));
             Assert.That(state.subUnitRemainderY, Is.EqualTo(0));
             Assert.That(
@@ -461,7 +461,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
-                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback),
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.GenericExpansionOwned),
                 Is.False);
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
@@ -500,7 +500,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             SetPlayerContinuousLocalOffset(
                 worldState,
                 -384,
-                KinematicFixed.MaxPositiveLocalOffset,
+                SimulationFixed.MaxPositiveLocalOffset,
                 DefaultFree2DSpeedUnitsPerTick());
             var pipeline = CreateNativeTopologyPipeline(worldState);
             var preSnapshot = worldState.CreateSnapshot();
@@ -528,7 +528,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             SetPlayerContinuousLocalOffset(
                 worldState,
                 384,
-                KinematicFixed.MaxPositiveLocalOffset,
+                SimulationFixed.MaxPositiveLocalOffset,
                 DefaultFree2DSpeedUnitsPerTick());
             var pipeline = CreateNativeTopologyPipeline(worldState);
             var preSnapshot = worldState.CreateSnapshot();
@@ -549,10 +549,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void Free2DTopology_RadiusContactBeforeCenter_CrossesNatively()
         {
-            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const int radius = SimulationFixed.UnitsPerCell * 3 / 16;
             const float radiusCells = 0.1875f;
             var speed = DefaultFree2DSpeedUnitsPerTick();
-            var sourceThresholdY = KinematicFixed.HalfCellUnits - radius;
+            var sourceThresholdY = SimulationFixed.HalfCellUnits - radius;
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
@@ -563,7 +563,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(preSnapshot.TryGetUnitContinuousLocomotionState(10, out var preState), Is.True);
             Assert.That(preState.localOffset.X.RawValue, Is.EqualTo(512));
             Assert.That(preState.localOffset.Y.RawValue + speed, Is.EqualTo(sourceThresholdY + 1));
-            Assert.That(preState.localOffset.Y.RawValue + speed, Is.LessThan(KinematicFixed.HalfCellUnits));
+            Assert.That(preState.localOffset.Y.RawValue + speed, Is.LessThan(SimulationFixed.HalfCellUnits));
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
@@ -573,7 +573,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
             Assert.That(state.localOffset.X.RawValue, Is.EqualTo(512));
-            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radius + 1));
+            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(SimulationFixed.MinLocalOffset + radius + 1));
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition),
@@ -599,7 +599,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 boardBounds,
                 new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(worldState, 256, KinematicFixed.MaxPositiveLocalOffset, DefaultFree2DSpeedUnitsPerTick());
+            SetPlayerContinuousLocalOffset(worldState, 256, SimulationFixed.MaxPositiveLocalOffset, DefaultFree2DSpeedUnitsPerTick());
             var pipeline = CreateNativeTopologyPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
@@ -631,7 +631,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 boardBounds,
                 new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MinLocalOffset, DefaultFree2DSpeedUnitsPerTick());
+            SetPlayerContinuousLocalOffset(worldState, 0, SimulationFixed.MinLocalOffset, DefaultFree2DSpeedUnitsPerTick());
             var pipeline = CreateNativeTopologyPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
@@ -662,7 +662,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 boardBounds,
                 new CubeTopologyState(FaceId.Front));
-            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MinLocalOffset, DefaultFree2DSpeedUnitsPerTick());
+            SetPlayerContinuousLocalOffset(worldState, 0, SimulationFixed.MinLocalOffset, DefaultFree2DSpeedUnitsPerTick());
             var pipeline = CreateNativeTopologyPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
@@ -690,7 +690,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 0)), CreateWall(20, targetCell) },
                 boardBounds,
                 new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MinLocalOffset, DefaultFree2DSpeedUnitsPerTick());
+            SetPlayerContinuousLocalOffset(worldState, 0, SimulationFixed.MinLocalOffset, DefaultFree2DSpeedUnitsPerTick());
             var pipeline = CreateNativeTopologyPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
@@ -712,10 +712,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void Free2DTopology_TargetFaceFootprintBlocked_DoesNotApproachSettle()
         {
-            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const int radius = SimulationFixed.UnitsPerCell * 3 / 16;
             const float radiusCells = 0.1875f;
             var speed = DefaultFree2DSpeedUnitsPerTick();
-            var sourceThresholdY = KinematicFixed.HalfCellUnits - radius;
+            var sourceThresholdY = SimulationFixed.HalfCellUnits - radius;
             var worldState = CreateWorldState(
                 new[]
                 {
@@ -724,7 +724,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.HalfCellUnits - radius + 1, sourceThresholdY - speed + 1, speed);
+            SetPlayerContinuousLocalOffset(worldState, SimulationFixed.HalfCellUnits - radius + 1, sourceThresholdY - speed + 1, speed);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, radiusCells);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
@@ -749,10 +749,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void Free2DTopology_TargetFaceFootprintTangentToBox_CrossesNatively()
         {
-            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const int radius = SimulationFixed.UnitsPerCell * 3 / 16;
             const float radiusCells = 0.1875f;
             var speed = DefaultFree2DSpeedUnitsPerTick();
-            var sourceThresholdY = KinematicFixed.HalfCellUnits - radius;
+            var sourceThresholdY = SimulationFixed.HalfCellUnits - radius;
             var worldState = CreateWorldState(
                 new[]
                 {
@@ -761,7 +761,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.HalfCellUnits - radius, sourceThresholdY - speed + 1, speed);
+            SetPlayerContinuousLocalOffset(worldState, SimulationFixed.HalfCellUnits - radius, sourceThresholdY - speed + 1, speed);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, radiusCells);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
@@ -771,7 +771,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.HalfCellUnits - radius));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.HalfCellUnits - radius));
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition &&
@@ -783,15 +783,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Extended")]
         public void Free2DTopology_TargetFaceFootprintTangentToBoardEdge_CrossesNatively()
         {
-            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const int radius = SimulationFixed.UnitsPerCell * 3 / 16;
             const float radiusCells = 0.1875f;
             var speed = DefaultFree2DSpeedUnitsPerTick();
-            var sourceThresholdY = KinematicFixed.HalfCellUnits - radius;
+            var sourceThresholdY = SimulationFixed.HalfCellUnits - radius;
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
                 new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.HalfCellUnits - radius, sourceThresholdY - speed + 1, speed);
+            SetPlayerContinuousLocalOffset(worldState, SimulationFixed.HalfCellUnits - radius, sourceThresholdY - speed + 1, speed);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(worldState, radiusCells);
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
@@ -801,7 +801,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.HalfCellUnits - radius));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.HalfCellUnits - radius));
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition &&
@@ -814,7 +814,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void PlayerFree2D_NativeTopologyTransition_BottomToFront_AdjacentWallExactMaxContact_AllowsTransition()
         {
             var radius = BoundaryFootprintRadiusUnits();
-            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            var exactMaxContactX = SimulationFixed.HalfCellUnits - radius;
             AssertBottomToFrontBoundaryRemap(exactMaxContactX, radius, BoundaryRadiusSpeedUnitsPerTick());
 
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -834,7 +834,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(exactMaxContactX + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            Assert.That(exactMaxContactX + radius, Is.EqualTo(SimulationFixed.HalfCellUnits));
             AssertBottomToFrontNativeTransitionSucceeded(snapshot, result, targetCell, exactMaxContactX);
             AssertNoTargetFootprintOrTileFeatureReject(result);
             Assert.That(snapshot.TryGetSolidOccupantAt(snapshot.Topology, footprintNeighbor, out var wall), Is.True);
@@ -846,7 +846,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void PlayerFree2D_NativeTopologyTransition_BottomToFront_AdjacentWallOneInsideMaxContact_AllowsTransition()
         {
             var radius = BoundaryFootprintRadiusUnits();
-            var oneInsideX = KinematicFixed.HalfCellUnits - radius - 1;
+            var oneInsideX = SimulationFixed.HalfCellUnits - radius - 1;
             AssertBottomToFrontBoundaryRemap(oneInsideX, radius, BoundaryRadiusSpeedUnitsPerTick());
 
             var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
@@ -864,7 +864,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(oneInsideX + radius, Is.LessThan(KinematicFixed.HalfCellUnits));
+            Assert.That(oneInsideX + radius, Is.LessThan(SimulationFixed.HalfCellUnits));
             AssertBottomToFrontNativeTransitionSucceeded(snapshot, result, targetCell, oneInsideX);
             AssertNoTargetFootprintOrTileFeatureReject(result);
         }
@@ -874,7 +874,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void PlayerFree2D_NativeTopologyTransition_BottomToFront_AdjacentWallOneBeyondMaxContact_BlocksWithFootprintReason()
         {
             var radius = BoundaryFootprintRadiusUnits();
-            var oneBeyondX = KinematicFixed.HalfCellUnits - radius + 1;
+            var oneBeyondX = SimulationFixed.HalfCellUnits - radius + 1;
             AssertBottomToFrontBoundaryRemap(oneBeyondX, radius, BoundaryRadiusSpeedUnitsPerTick());
 
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -892,7 +892,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(oneBeyondX + radius, Is.GreaterThan(KinematicFixed.HalfCellUnits));
+            Assert.That(oneBeyondX + radius, Is.GreaterThan(SimulationFixed.HalfCellUnits));
             AssertBottomToFrontNativeTransitionBlockedByFootprint(snapshot, result, sourceCell);
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
                 reason.Contains("TargetFaceBlockedByTileFeature")), Is.False);
@@ -903,7 +903,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void PlayerFree2D_NativeTopologyTransition_BottomToFront_SourceSideWallProjectsOneBeyondBeforeRemap_AllowsTransition()
         {
             var radius = BoundaryFootprintRadiusUnits();
-            var maxContactX = KinematicFixed.HalfCellUnits - radius;
+            var maxContactX = SimulationFixed.HalfCellUnits - radius;
             var oneBeyondX = maxContactX + 1;
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
@@ -924,8 +924,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(oneBeyondX + radius, Is.GreaterThan(KinematicFixed.HalfCellUnits));
-            Assert.That(maxContactX + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            Assert.That(oneBeyondX + radius, Is.GreaterThan(SimulationFixed.HalfCellUnits));
+            Assert.That(maxContactX + radius, Is.EqualTo(SimulationFixed.HalfCellUnits));
             AssertBottomToFrontNativeTransitionSucceeded(snapshot, result, targetCell, maxContactX);
             AssertNoTargetFootprintOrTileFeatureReject(result);
             Assert.That(snapshot.TryGetSolidOccupantAt(snapshot.Topology, targetFootprintNeighbor, out var targetBox), Is.True);
@@ -955,7 +955,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void PlayerFree2D_NativeTopologyTransition_BottomToFront_SourceSideActiveBarricadeProjectsOneBeyondBeforeRemap()
         {
             var radius = BoundaryFootprintRadiusUnits();
-            var maxContactX = KinematicFixed.HalfCellUnits - radius;
+            var maxContactX = SimulationFixed.HalfCellUnits - radius;
             var oneBeyondX = maxContactX + 1;
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
@@ -979,8 +979,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(oneBeyondX + radius, Is.GreaterThan(KinematicFixed.HalfCellUnits));
-            Assert.That(maxContactX + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            Assert.That(oneBeyondX + radius, Is.GreaterThan(SimulationFixed.HalfCellUnits));
+            Assert.That(maxContactX + radius, Is.EqualTo(SimulationFixed.HalfCellUnits));
             AssertBottomToFrontNativeTransitionSucceeded(snapshot, result, targetCell, maxContactX);
             AssertNoTargetFootprintOrTileFeatureReject(result);
         }
@@ -990,7 +990,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void PlayerFree2D_NativeTopologyTransition_BottomToFront_SourceSideWallsDoNotCauseFalseTargetFootprintBlock()
         {
             var radius = BoundaryFootprintRadiusUnits();
-            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            var exactMaxContactX = SimulationFixed.HalfCellUnits - radius;
             AssertBottomToFrontBoundaryRemap(exactMaxContactX, radius, BoundaryRadiusSpeedUnitsPerTick());
 
             var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
@@ -1018,7 +1018,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void PlayerFree2D_NativeTopologyTransition_BottomToFront_WrongFaceNeighborWallIgnored()
         {
             var radius = BoundaryFootprintRadiusUnits();
-            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            var exactMaxContactX = SimulationFixed.HalfCellUnits - radius;
             AssertBottomToFrontBoundaryRemap(exactMaxContactX, radius, BoundaryRadiusSpeedUnitsPerTick());
 
             var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
@@ -1045,7 +1045,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void PlayerFree2D_NativeTopologyTransition_BottomToFront_AdjacentActiveBarricadeExactMaxContact_AllowsTransition()
         {
             var radius = BoundaryFootprintRadiusUnits();
-            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            var exactMaxContactX = SimulationFixed.HalfCellUnits - radius;
             AssertBottomToFrontBoundaryRemap(exactMaxContactX, radius, BoundaryRadiusSpeedUnitsPerTick());
 
             var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
@@ -1063,7 +1063,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(exactMaxContactX + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            Assert.That(exactMaxContactX + radius, Is.EqualTo(SimulationFixed.HalfCellUnits));
             AssertBottomToFrontNativeTransitionSucceeded(snapshot, result, targetCell, exactMaxContactX);
             AssertNoTargetFootprintOrTileFeatureReject(result);
         }
@@ -1073,7 +1073,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         public void PlayerFree2D_NativeTopologyTransition_BottomToFront_AdjacentActiveBarricadeOneBeyond_BlocksWithFootprintReason()
         {
             var radius = BoundaryFootprintRadiusUnits();
-            var oneBeyondX = KinematicFixed.HalfCellUnits - radius + 1;
+            var oneBeyondX = SimulationFixed.HalfCellUnits - radius + 1;
             AssertBottomToFrontBoundaryRemap(oneBeyondX, radius, BoundaryRadiusSpeedUnitsPerTick());
 
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -1091,7 +1091,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(oneBeyondX + radius, Is.GreaterThan(KinematicFixed.HalfCellUnits));
+            Assert.That(oneBeyondX + radius, Is.GreaterThan(SimulationFixed.HalfCellUnits));
             AssertBottomToFrontNativeTransitionBlockedByFootprint(snapshot, result, sourceCell);
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
                 reason.Contains("TargetFaceBlockedByTileFeature")), Is.False);
@@ -1123,10 +1123,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerFree2D_GroundPlayer_ActivatedBarricadeBlocksMovement()
         {
-            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const int radius = SimulationFixed.UnitsPerCell * 3 / 16;
             const float radiusCells = 0.1875f;
             var speed = DefaultFree2DSpeedUnitsPerTick();
-            var expectedClampX = KinematicFixed.HalfCellUnits - radius;
+            var expectedClampX = SimulationFixed.HalfCellUnits - radius;
             var barricadeCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10) },
@@ -1173,7 +1173,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateBarricade(100, barricadeCell) });
-            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.MaxPositiveLocalOffset, 0, speed);
+            SetPlayerContinuousLocalOffset(worldState, SimulationFixed.MaxPositiveLocalOffset, 0, speed);
             var pipeline = CreatePipelineWithCollisionRadius(
                 worldState,
                 radiusCells,
@@ -1185,7 +1185,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(barricadeCell));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + speed - KinematicFixed.UnitsPerCell));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.MaxPositiveLocalOffset + speed - SimulationFixed.UnitsPerCell));
             Assert.That(snapshot.TryGetSolidSemanticAt(barricadeCell, out _), Is.False);
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
                 reason.Contains("Free2DContinuousBlocked") ||
@@ -1215,7 +1215,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBarricade(100, otherFaceCell),
                     CreateDestroyTile(200, otherFaceCell),
                 });
-            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.MaxPositiveLocalOffset, 0, speed);
+            SetPlayerContinuousLocalOffset(worldState, SimulationFixed.MaxPositiveLocalOffset, 0, speed);
             var pipeline = CreatePipelineWithCollisionRadius(
                 worldState,
                 radiusCells,
@@ -1234,7 +1234,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
             Assert.That(player.markedForDeath, Is.False);
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + speed - KinematicFixed.UnitsPerCell));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.MaxPositiveLocalOffset + speed - SimulationFixed.UnitsPerCell));
             Assert.That(snapshot.TryGetSolidSemanticAt(otherFaceCell, out _), Is.False);
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
                 reason.Contains("TraversalBlocked") ||
@@ -1275,7 +1275,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 boardBounds,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { createTileFeature(100, targetCell) });
-            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
+            SetPlayerContinuousLocalOffset(worldState, 0, SimulationFixed.MaxPositiveLocalOffset, speed);
             var pipeline = CreateDefaultGameplayPipeline(
                 worldState,
                 new[] { CreateTileFeatureDefinition(100, activationRule) });
@@ -1305,10 +1305,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerFree2D_GroundPlayer_ActivatedDestroyTile_CurrentPolicyGuard()
         {
-            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const int radius = SimulationFixed.UnitsPerCell * 3 / 16;
             const float radiusCells = 0.1875f;
             var speed = DefaultFree2DSpeedUnitsPerTick();
-            var expectedClampX = KinematicFixed.HalfCellUnits - radius;
+            var expectedClampX = SimulationFixed.HalfCellUnits - radius;
             var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10) },
@@ -1353,8 +1353,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var speed = DefaultFree2DSpeedUnitsPerTick();
             var destroyCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
-            var largeRadiusClampX = KinematicFixed.HalfCellUnits - KinematicFixed.UnitsPerCell * 3 / 16;
-            var smallRadiusClampX = KinematicFixed.HalfCellUnits - KinematicFixed.UnitsPerCell / 8;
+            var largeRadiusClampX = SimulationFixed.HalfCellUnits - SimulationFixed.UnitsPerCell * 3 / 16;
+            var smallRadiusClampX = SimulationFixed.HalfCellUnits - SimulationFixed.UnitsPerCell / 8;
 
             var largeRadiusWorldState = CreateWorldState(
                 new[] { CreatePlayer(10, sourceCell) },
@@ -1408,7 +1408,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, destroyCell) });
-            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.MaxPositiveLocalOffset, 0, speed);
+            SetPlayerContinuousLocalOffset(worldState, SimulationFixed.MaxPositiveLocalOffset, 0, speed);
             var pipeline = CreatePipelineWithCollisionRadius(
                 worldState,
                 radiusCells,
@@ -1423,7 +1423,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
             Assert.That(player.markedForDeath, Is.False);
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + speed - KinematicFixed.UnitsPerCell));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.MaxPositiveLocalOffset + speed - SimulationFixed.UnitsPerCell));
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
                 reason.Contains("Stage=Free2D") &&
                 reason.Contains("Reason=PlayerVoluntaryDestroyTileEntryBlocked")), Is.False);
@@ -1443,7 +1443,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 0)),
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, destroyCell) });
-            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.MaxPositiveLocalOffset, 0, speed);
+            SetPlayerContinuousLocalOffset(worldState, SimulationFixed.MaxPositiveLocalOffset, 0, speed);
             var pipeline = CreatePipelineWithCollisionRadius(
                 worldState,
                 radiusCells,
@@ -1456,7 +1456,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.position, Is.EqualTo(destroyCell));
             Assert.That(player.hp, Is.EqualTo(3));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + speed - KinematicFixed.UnitsPerCell));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.MaxPositiveLocalOffset + speed - SimulationFixed.UnitsPerCell));
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
                 reason.Contains("PlayerVoluntaryDestroyTileEntryBlocked")), Is.False);
             Assert.That(result.PresentationData.TileEvents, Is.Empty);
@@ -1548,7 +1548,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 boardBounds,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, targetCell) });
-            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MinLocalOffset, speed);
+            SetPlayerContinuousLocalOffset(worldState, 0, SimulationFixed.MinLocalOffset, speed);
             var pipeline = CreateDefaultGameplayPipeline(
                 worldState,
                 new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.ActiveFaceOnly) });
@@ -1581,7 +1581,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 boardBounds,
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateDestroyTile(100, targetCell) });
-            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
+            SetPlayerContinuousLocalOffset(worldState, 0, SimulationFixed.MaxPositiveLocalOffset, speed);
             var pipeline = CreateDefaultGameplayPipeline(
                 worldState,
                 new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.ActiveFaceOnly) });
@@ -1626,7 +1626,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateDestroyTile(100, new SurfaceCell(FaceId.Front, 1, 0)),
                     CreateBarricade(101, new SurfaceCell(FaceId.Back, 0, 0)),
                 });
-            SetPlayerContinuousLocalOffset(worldState, 0, KinematicFixed.MaxPositiveLocalOffset, speed);
+            SetPlayerContinuousLocalOffset(worldState, 0, SimulationFixed.MaxPositiveLocalOffset, speed);
             var pipeline = CreateDefaultGameplayPipeline(
                 worldState,
                 new[]
@@ -1672,17 +1672,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Category("Core")]
         public void PlayerFree2D_NativeTopologyTransition_FootprintActiveBarricadeMayBlockByExistingLegality_NotPresenceRule()
         {
-            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const int radius = SimulationFixed.UnitsPerCell * 3 / 16;
             const float radiusCells = 0.1875f;
             var speed = DefaultFree2DSpeedUnitsPerTick();
-            var sourceThresholdY = KinematicFixed.HalfCellUnits - radius;
+            var sourceThresholdY = SimulationFixed.HalfCellUnits - radius;
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var worldState = CreateWorldState(
                 new[] { CreatePlayer(10, sourceCell) },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new CubeTopologyState(FaceId.Floor),
                 new[] { CreateBarricade(100, new SurfaceCell(FaceId.Front, 1, 0)) });
-            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.HalfCellUnits - radius + 1, sourceThresholdY - speed + 1, speed);
+            SetPlayerContinuousLocalOffset(worldState, SimulationFixed.HalfCellUnits - radius + 1, sourceThresholdY - speed + 1, speed);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(
                 worldState,
                 radiusCells,
@@ -1708,10 +1708,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Func<int, SurfaceCell, TileFeatureState> createTileFeature,
             TileFeatureActivationRule activationRule)
         {
-            const int radius = KinematicFixed.UnitsPerCell * 3 / 16;
+            const int radius = SimulationFixed.UnitsPerCell * 3 / 16;
             const float radiusCells = 0.1875f;
             var speed = DefaultFree2DSpeedUnitsPerTick();
-            var sourceThresholdY = KinematicFixed.HalfCellUnits - radius;
+            var sourceThresholdY = SimulationFixed.HalfCellUnits - radius;
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var targetCell = new SurfaceCell(FaceId.Front, 0, 0);
             var footprintNeighbor = new SurfaceCell(FaceId.Front, 1, 0);
@@ -1720,7 +1720,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new CubeTopologyState(FaceId.Floor),
                 new[] { createTileFeature(100, footprintNeighbor) });
-            SetPlayerContinuousLocalOffset(worldState, KinematicFixed.HalfCellUnits - radius + 1, sourceThresholdY - speed + 1, speed);
+            SetPlayerContinuousLocalOffset(worldState, SimulationFixed.HalfCellUnits - radius + 1, sourceThresholdY - speed + 1, speed);
             var pipeline = CreateNativeTopologyPipelineWithCollisionRadius(
                 worldState,
                 radiusCells,
@@ -1856,7 +1856,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition &&
                     operation.Metadata.BoundaryReason == "Free2DTopologyNativeTransition"),
                 Is.True);
-            LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(result);
+            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
         [Test]
@@ -1875,7 +1875,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.MinLocalOffset));
         }
 
         [Test]
@@ -2174,7 +2174,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 signal.ActiveActionKind == PlayerActionKind.Push &&
                 signal.StartedThisTick), Is.True);
             Assert.That(executeResult.PresentationData.PlayerActionAttemptSignals, Is.Empty);
-            LegacyMovementBoundaryAssert.NoLegacyOrdinaryUnitMove(executeResult, 10);
+            MovementExecutionOwnershipAssert.NoLegacyOrdinaryUnitMove(executeResult, 10);
         }
 
         [Test]
@@ -2575,7 +2575,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Kind == FinalizationOperationKind.SetTopology),
                 Is.False);
-            LegacyMovementBoundaryAssert.NoUnexpectedLegacyOrdinaryDiagnostics(result);
+            MovementExecutionOwnershipAssert.NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
         [Test]
@@ -2830,7 +2830,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.LessThan(KinematicFixed.HalfCellUnits));
+            Assert.That(state.localOffset.X.RawValue, Is.LessThan(SimulationFixed.HalfCellUnits));
             Assert.That(HasAcceptedPassiveContact(result, 40, 10), Is.False);
         }
 
@@ -2856,7 +2856,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(HasAcceptedPassiveContact(result, 40, 10), Is.True);
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
-            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset));
+            Assert.That(state.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.MinLocalOffset));
         }
 
         [Test]
@@ -3220,8 +3220,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new UnitContinuousLocomotionState
                 {
                     localOffset = new SimulationOffset2(
-                        KinematicFixed.FromRaw(localX),
-                        KinematicFixed.FromRaw(localY)),
+                        SimulationFixed.FromRaw(localX),
+                        SimulationFixed.FromRaw(localY)),
                     velocity = SimulationVelocity2.Zero,
                     facing = Direction.Right,
                     lastMoveDirection = Direction.Right,
@@ -3240,12 +3240,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static int BoundaryFootprintRadiusUnits()
         {
-            return KinematicFixed.UnitsPerCell * 3 / 16;
+            return SimulationFixed.UnitsPerCell * 3 / 16;
         }
 
         private static float BoundaryFootprintRadiusCells()
         {
-            return BoundaryFootprintRadiusUnits() / (float)KinematicFixed.UnitsPerCell;
+            return BoundaryFootprintRadiusUnits() / (float)SimulationFixed.UnitsPerCell;
         }
 
         private static int BoundaryRadiusSpeedUnitsPerTick()
@@ -3259,7 +3259,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             SetPlayerContinuousLocalOffset(
                 worldState,
                 localX,
-                KinematicFixed.HalfCellUnits - radiusUnits - speed + 1,
+                SimulationFixed.HalfCellUnits - radiusUnits - speed + 1,
                 speed);
         }
 
@@ -3274,16 +3274,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond).CollisionRadiusUnits;
             Assert.That(configuredRadius, Is.EqualTo(radiusUnits));
 
-            var sourceThresholdY = KinematicFixed.HalfCellUnits - radiusUnits;
+            var sourceThresholdY = SimulationFixed.HalfCellUnits - radiusUnits;
             var resolved = SurfaceTopologyBasisQueries.TryRemapBottomFaceYEdgeCrossing(
                 new CubeTopologyState(FaceId.Floor),
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 1),
                 Vector2Int.up,
                 new SimulationOffset2(
-                    KinematicFixed.FromRaw(localX),
-                    KinematicFixed.FromRaw(sourceThresholdY - speedUnitsPerTick + 1)),
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speedUnitsPerTick)),
+                    SimulationFixed.FromRaw(localX),
+                    SimulationFixed.FromRaw(sourceThresholdY - speedUnitsPerTick + 1)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(speedUnitsPerTick)),
                 radiusUnits,
                 out var rejectReason,
                 out var remap);
@@ -3293,7 +3293,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(remap.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
             Assert.That(remap.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(localX));
-            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radiusUnits + 1));
+            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(SimulationFixed.MinLocalOffset + radiusUnits + 1));
             Assert.That(remap.TargetVelocity.X.RawValue, Is.Zero);
             Assert.That(remap.TargetVelocity.Y.RawValue, Is.EqualTo(speedUnitsPerTick));
             return remap;
@@ -3313,7 +3313,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshot.TryGetSolidOccupantAt(snapshot.Topology, targetCell, out _), Is.False);
             Assert.That(snapshot.TryGetUnitContinuousLocomotionState(10, out var state), Is.True);
             Assert.That(state.localOffset.X.RawValue, Is.EqualTo(expectedLocalX));
-            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radius + 1));
+            Assert.That(state.localOffset.Y.RawValue, Is.EqualTo(SimulationFixed.MinLocalOffset + radius + 1));
             Assert.That(result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Kind == FinalizationOperationKind.MoveEntity &&
                     operation.EntityId == 10 &&
@@ -3358,7 +3358,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             TileFeatureActivationRule activationRule)
         {
             var radius = BoundaryFootprintRadiusUnits();
-            var oneBeyondX = KinematicFixed.HalfCellUnits - radius + 1;
+            var oneBeyondX = SimulationFixed.HalfCellUnits - radius + 1;
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var sourceContactCell = new SurfaceCell(FaceId.Floor, 1, 1);
             var targetFootprintNeighbor = new SurfaceCell(FaceId.Front, 1, 0);
@@ -3380,7 +3380,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshot = worldState.CreateSnapshot();
 
-            Assert.That(oneBeyondX + radius, Is.GreaterThan(KinematicFixed.HalfCellUnits));
+            Assert.That(oneBeyondX + radius, Is.GreaterThan(SimulationFixed.HalfCellUnits));
             AssertBottomToFrontNativeTransitionBlockedByFootprint(snapshot, result, sourceCell);
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
                     reason.Contains("TargetFaceBlockedByTileFeature")),

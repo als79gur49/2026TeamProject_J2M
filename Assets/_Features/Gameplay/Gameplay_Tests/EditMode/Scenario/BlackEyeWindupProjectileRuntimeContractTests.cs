@@ -1221,12 +1221,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return new UnitKinematicRuntimeState
             {
                 localOffset = new SimulationOffset2(
-                    KinematicFixed.FromRaw(KinematicFixed.UnitsPerCell / 4),
-                    KinematicFixed.Zero),
+                    SimulationFixed.FromRaw(SimulationFixed.UnitsPerCell / 4),
+                    SimulationFixed.Zero),
                 velocity = SimulationVelocity2.Zero,
                 mode = MotionMode.Voluntary,
                 forcedOp = ForcedMotionOp.None,
-                remainingDistanceUnits = KinematicFixed.UnitsPerCell / 4,
+                remainingDistanceUnits = SimulationFixed.UnitsPerCell / 4,
                 remainingTicks = 4,
                 speedScalePermille = 1000,
                 sequenceId = 1,

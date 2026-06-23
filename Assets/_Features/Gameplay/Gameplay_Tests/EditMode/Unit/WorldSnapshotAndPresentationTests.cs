@@ -2795,7 +2795,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 (BoundaryKind: MovementExecutionBoundaryKind.SpawnRespawnPlacement, Suppressed: false),
                 (BoundaryKind: MovementExecutionBoundaryKind.CleanupRemoval, Suppressed: false),
                 (BoundaryKind: MovementExecutionBoundaryKind.ScriptedRelocation, Suppressed: false),
-                (BoundaryKind: MovementExecutionBoundaryKind.LegacyFallback, Suppressed: false),
+                (BoundaryKind: MovementExecutionBoundaryKind.GenericExpansionOwned, Suppressed: false),
                 (BoundaryKind: MovementExecutionBoundaryKind.Unknown, Suppressed: false),
             };
             var preEntities = new List<EntityState>();
@@ -4456,8 +4456,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(signal.PhaseElapsedTicks, Is.EqualTo(2));
             Assert.That(signal.PhaseTotalTicks, Is.EqualTo(4));
             Assert.That(signal.NormalizedPhaseProgress, Is.EqualTo(0.5f).Within(0.0001f));
-            Assert.That(signal.LiftHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 4));
-            Assert.That(signal.CurrentHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 8));
+            Assert.That(signal.LiftHeightUnits, Is.EqualTo(SimulationFixed.UnitsPerCell / 4));
+            Assert.That(signal.CurrentHeightUnits, Is.EqualTo(SimulationFixed.UnitsPerCell / 8));
             Assert.That(signal.IsTerminalZero, Is.False);
         }
 
@@ -4483,10 +4483,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var wantsRecoverSignal = BuildSingleGlideSignal(enemyId, enemyCell, wantsRecoverState, currentTickIndex: 12);
 
             Assert.That(activeSignal.Phase, Is.EqualTo(EnemyGlidePhase.Active));
-            Assert.That(activeSignal.CurrentHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 4));
+            Assert.That(activeSignal.CurrentHeightUnits, Is.EqualTo(SimulationFixed.UnitsPerCell / 4));
             Assert.That(activeSignal.WantsRecover, Is.False);
             Assert.That(wantsRecoverSignal.Phase, Is.EqualTo(EnemyGlidePhase.Active));
-            Assert.That(wantsRecoverSignal.CurrentHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 4));
+            Assert.That(wantsRecoverSignal.CurrentHeightUnits, Is.EqualTo(SimulationFixed.UnitsPerCell / 4));
             Assert.That(wantsRecoverSignal.WantsRecover, Is.True);
         }
 
@@ -4510,14 +4510,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 currentTickIndex: 12,
                 new FixedEnemyGlidePresentationSettingsResolver(
                     new EnemyGlidePresentationSettings(
-                        KinematicFixed.UnitsPerCell / 4,
-                        KinematicFixed.UnitsPerCell / 16)));
+                        SimulationFixed.UnitsPerCell / 4,
+                        SimulationFixed.UnitsPerCell / 16)));
 
             Assert.That(defaultSignal.Phase, Is.EqualTo(EnemyGlidePhase.Recovery));
-            Assert.That(defaultSignal.CurrentHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 8));
+            Assert.That(defaultSignal.CurrentHeightUnits, Is.EqualTo(SimulationFixed.UnitsPerCell / 8));
             Assert.That(defaultSignal.RecoveryDipHeightUnits, Is.Zero);
-            Assert.That(dipSignal.RecoveryDipHeightUnits, Is.EqualTo(KinematicFixed.UnitsPerCell / 16));
-            Assert.That(dipSignal.CurrentHeightUnits, Is.EqualTo(-(KinematicFixed.UnitsPerCell / 16)));
+            Assert.That(dipSignal.RecoveryDipHeightUnits, Is.EqualTo(SimulationFixed.UnitsPerCell / 16));
+            Assert.That(dipSignal.CurrentHeightUnits, Is.EqualTo(-(SimulationFixed.UnitsPerCell / 16)));
         }
 
         [Test]

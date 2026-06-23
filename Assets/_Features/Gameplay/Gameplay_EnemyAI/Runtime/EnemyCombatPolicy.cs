@@ -46,7 +46,7 @@ namespace Game.Feature.Gameplay.Entities
         public float VisualRangeSlackCells => visualRangeSlackCells;
 
         public int VisualRangeSlackUnits =>
-            Mathf.RoundToInt(Mathf.Clamp(visualRangeSlackCells, 0f, MaxVisualRangeSlackCells) * KinematicFixed.UnitsPerCell);
+            Mathf.RoundToInt(Mathf.Clamp(visualRangeSlackCells, 0f, MaxVisualRangeSlackCells) * SimulationFixed.UnitsPerCell);
 
         public void Validate(string paramName)
         {
@@ -108,7 +108,7 @@ namespace Game.Feature.Gameplay.Entities
         public float VisualStartSlackCells => visualStartSlackCells;
 
         public int VisualStartSlackUnits =>
-            Mathf.RoundToInt(Mathf.Clamp(visualStartSlackCells, 0f, ProjectileWindupSettings.MaxVisualRangeSlackCells) * KinematicFixed.UnitsPerCell);
+            Mathf.RoundToInt(Mathf.Clamp(visualStartSlackCells, 0f, ProjectileWindupSettings.MaxVisualRangeSlackCells) * SimulationFixed.UnitsPerCell);
 
         public int ImpactDelayTicks => impactDelayTicks;
 

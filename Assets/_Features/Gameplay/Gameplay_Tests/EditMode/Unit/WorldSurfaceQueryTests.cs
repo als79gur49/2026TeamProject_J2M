@@ -836,8 +836,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 1),
                 Vector2Int.up,
-                new SimulationOffset2(KinematicFixed.FromRaw(384), KinematicFixed.FromRaw(KinematicFixed.MaxPositiveLocalOffset)),
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationOffset2(SimulationFixed.FromRaw(384), SimulationFixed.FromRaw(SimulationFixed.MaxPositiveLocalOffset)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(1024)),
                 collisionRadiusUnits: 0,
                 out var rejectReason,
                 out var remap);
@@ -847,7 +847,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(remap.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
             Assert.That(remap.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(384));
-            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset + 1024 - KinematicFixed.UnitsPerCell));
+            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(SimulationFixed.MaxPositiveLocalOffset + 1024 - SimulationFixed.UnitsPerCell));
         }
 
         [Test]
@@ -859,8 +859,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 0),
                 Vector2Int.down,
-                new SimulationOffset2(KinematicFixed.FromRaw(-384), KinematicFixed.FromRaw(KinematicFixed.MinLocalOffset)),
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(-1024)),
+                new SimulationOffset2(SimulationFixed.FromRaw(-384), SimulationFixed.FromRaw(SimulationFixed.MinLocalOffset)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(-1024)),
                 collisionRadiusUnits: 0,
                 out var rejectReason,
                 out var remap);
@@ -870,7 +870,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(remap.RotationKind, Is.EqualTo(CubeRotationKind.Backward));
             Assert.That(remap.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Back, 0, 1)));
             Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(-384));
-            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset - 1024 + KinematicFixed.UnitsPerCell));
+            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(SimulationFixed.MinLocalOffset - 1024 + SimulationFixed.UnitsPerCell));
         }
 
         [Test]
@@ -878,14 +878,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void SurfaceTopologyBasis_RadiusForward_ExactContactThresholdDoesNotCross()
         {
             const int radius = 768;
-            var sourceThresholdY = KinematicFixed.HalfCellUnits - radius;
+            var sourceThresholdY = SimulationFixed.HalfCellUnits - radius;
             var resolved = SurfaceTopologyBasisQueries.TryRemapBottomFaceYEdgeCrossing(
                 new CubeTopologyState(FaceId.Floor),
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 1),
                 Vector2Int.up,
-                new SimulationOffset2(KinematicFixed.FromRaw(512), KinematicFixed.FromRaw(sourceThresholdY - 1024)),
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationOffset2(SimulationFixed.FromRaw(512), SimulationFixed.FromRaw(sourceThresholdY - 1024)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(1024)),
                 radius,
                 out var rejectReason,
                 out _);
@@ -899,14 +899,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void SurfaceTopologyBasis_RadiusBackward_ExactContactThresholdDoesNotCross()
         {
             const int radius = 768;
-            var sourceThresholdY = KinematicFixed.MinLocalOffset + radius;
+            var sourceThresholdY = SimulationFixed.MinLocalOffset + radius;
             var resolved = SurfaceTopologyBasisQueries.TryRemapBottomFaceYEdgeCrossing(
                 new CubeTopologyState(FaceId.Floor),
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 0),
                 Vector2Int.down,
-                new SimulationOffset2(KinematicFixed.FromRaw(-512), KinematicFixed.FromRaw(sourceThresholdY + 1024)),
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(-1024)),
+                new SimulationOffset2(SimulationFixed.FromRaw(-512), SimulationFixed.FromRaw(sourceThresholdY + 1024)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(-1024)),
                 radius,
                 out var rejectReason,
                 out _);
@@ -925,8 +925,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 1),
                 Vector2Int.up,
-                new SimulationOffset2(KinematicFixed.Zero, KinematicFixed.FromRaw(KinematicFixed.HalfCellUnits - radius - 1025)),
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationOffset2(SimulationFixed.Zero, SimulationFixed.FromRaw(SimulationFixed.HalfCellUnits - radius - 1025)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(1024)),
                 radius,
                 out var rejectReason,
                 out _);
@@ -945,7 +945,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new SurfaceCell(FaceId.Front, 0, 1),
                 Vector2Int.right,
                 SimulationOffset2.Zero,
-                new SimulationVelocity2(KinematicFixed.FromRaw(1024), KinematicFixed.Zero),
+                new SimulationVelocity2(SimulationFixed.FromRaw(1024), SimulationFixed.Zero),
                 collisionRadiusUnits: 0,
                 out var rejectReason,
                 out _);
@@ -971,7 +971,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState.CreateSnapshot(),
                 10,
                 Vector2Int.up,
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(1024)),
                 collisionRadiusUnits: 0,
                 out var result);
 
@@ -998,7 +998,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState.CreateSnapshot(),
                 10,
                 Vector2Int.up,
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(1024)),
                 collisionRadiusUnits: 0,
                 out var result);
 
@@ -1134,7 +1134,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 unrelatedWorldState.CreateSnapshot(),
                 20,
                 Vector2Int.up,
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(1024)),
                 collisionRadiusUnits: 0,
                 out var unrelatedResult,
                 new[] { CreateDefinition(101, TileFeatureActivationRule.FrontFaceOnly) });
@@ -1149,7 +1149,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var radius = BoundaryFootprintRadiusUnits();
             var speed = BoundaryRadiusSpeedUnitsPerTick();
-            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            var exactMaxContactX = SimulationFixed.HalfCellUnits - radius;
             var oneInsideX = exactMaxContactX - 1;
             var oneBeyondX = exactMaxContactX + 1;
             var footprintNeighbor = new SurfaceCell(FaceId.Front, 1, 0);
@@ -1157,13 +1157,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var exact = ResolveBottomToFrontWithNeighborWall(exactMaxContactX, radius, speed, footprintNeighbor);
             Assert.That(exact.Resolved, Is.True);
             Assert.That(exact.Result.Success, Is.True);
-            Assert.That(exact.Result.TargetLocalOffset.X.RawValue + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            Assert.That(exact.Result.TargetLocalOffset.X.RawValue + radius, Is.EqualTo(SimulationFixed.HalfCellUnits));
             Assert.That(exact.Result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
 
             var inside = ResolveBottomToFrontWithNeighborWall(oneInsideX, radius, speed, footprintNeighbor);
             Assert.That(inside.Resolved, Is.True);
             Assert.That(inside.Result.Success, Is.True);
-            Assert.That(inside.Result.TargetLocalOffset.X.RawValue + radius, Is.LessThan(KinematicFixed.HalfCellUnits));
+            Assert.That(inside.Result.TargetLocalOffset.X.RawValue + radius, Is.LessThan(SimulationFixed.HalfCellUnits));
             Assert.That(inside.Result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
 
             var beyond = ResolveBottomToFrontWithNeighborWall(oneBeyondX, radius, speed, footprintNeighbor);
@@ -1171,7 +1171,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(beyond.Result.Success, Is.False);
             Assert.That(beyond.Result.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(beyond.Result.TargetLocalOffset.X.RawValue, Is.EqualTo(oneBeyondX));
-            Assert.That(beyond.Result.TargetLocalOffset.X.RawValue + radius, Is.GreaterThan(KinematicFixed.HalfCellUnits));
+            Assert.That(beyond.Result.TargetLocalOffset.X.RawValue + radius, Is.GreaterThan(SimulationFixed.HalfCellUnits));
             Assert.That(beyond.Result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.TargetFaceFootprintBlocked));
             Assert.That(beyond.Result.TargetLegality.Cell, Is.EqualTo(footprintNeighbor));
             Assert.That(beyond.Result.TargetLegality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Solid));
@@ -1183,7 +1183,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void SurfaceContinuousContactProjectionQueries_PositiveX_BlockingNeighborProjectsToMaxContact()
         {
             var radius = BoundaryFootprintRadiusUnits();
-            var maxContactX = KinematicFixed.HalfCellUnits - radius;
+            var maxContactX = SimulationFixed.HalfCellUnits - radius;
             var oneBeyondX = maxContactX + 1;
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var contactCell = new SurfaceCell(FaceId.Floor, 1, 1);
@@ -1202,7 +1202,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 StateQuery.BuildActorRef(snapshot, actor),
                 sourceCell,
-                new SimulationOffset2(KinematicFixed.FromRaw(oneBeyondX), KinematicFixed.Zero),
+                new SimulationOffset2(SimulationFixed.FromRaw(oneBeyondX), SimulationFixed.Zero),
                 radius,
                 snapshot.Topology,
                 null,
@@ -1221,7 +1221,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void SurfaceContinuousContactProjectionQueries_PositiveX_NoBlockingNeighborDoesNotProject()
         {
             var radius = BoundaryFootprintRadiusUnits();
-            var oneBeyondX = KinematicFixed.HalfCellUnits - radius + 1;
+            var oneBeyondX = SimulationFixed.HalfCellUnits - radius + 1;
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[] { CreateUnit(10, sourceCell) },
@@ -1234,7 +1234,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 StateQuery.BuildActorRef(snapshot, actor),
                 sourceCell,
-                new SimulationOffset2(KinematicFixed.FromRaw(oneBeyondX), KinematicFixed.Zero),
+                new SimulationOffset2(SimulationFixed.FromRaw(oneBeyondX), SimulationFixed.Zero),
                 radius,
                 snapshot.Topology,
                 null,
@@ -1250,7 +1250,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void SurfaceContinuousContactProjectionQueries_PositiveX_InactiveBarricadeAndDestroyTileDoNotProject()
         {
             var radius = BoundaryFootprintRadiusUnits();
-            var oneBeyondX = KinematicFixed.HalfCellUnits - radius + 1;
+            var oneBeyondX = SimulationFixed.HalfCellUnits - radius + 1;
             AssertPositiveXSourceFeatureDoesNotProject(
                 TileFeatureKind.Barricade,
                 TileFeatureActivationRule.FrontFaceOnly,
@@ -1269,7 +1269,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var radius = BoundaryFootprintRadiusUnits();
             var speed = BoundaryRadiusSpeedUnitsPerTick();
-            var maxContactX = KinematicFixed.HalfCellUnits - radius;
+            var maxContactX = SimulationFixed.HalfCellUnits - radius;
             var oneBeyondX = maxContactX + 1;
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var sourceContactCell = new SurfaceCell(FaceId.Floor, 1, 1);
@@ -1285,14 +1285,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState,
                 10,
                 oneBeyondX,
-                KinematicFixed.HalfCellUnits - radius - speed,
+                SimulationFixed.HalfCellUnits - radius - speed,
                 speed);
 
             var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
                 worldState.CreateSnapshot(),
                 10,
                 Vector2Int.up,
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speed)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(speed)),
                 radius,
                 out var result);
 
@@ -1303,7 +1303,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.SourceContactProjection.ProjectedLocalOffset.X.RawValue, Is.EqualTo(maxContactX));
             Assert.That(result.SourceContactProjection.Contacts[0].Cell, Is.EqualTo(sourceContactCell));
             Assert.That(result.TargetLocalOffset.X.RawValue, Is.EqualTo(maxContactX));
-            Assert.That(result.TargetLocalOffset.X.RawValue + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            Assert.That(result.TargetLocalOffset.X.RawValue + radius, Is.EqualTo(SimulationFixed.HalfCellUnits));
             Assert.That(result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
         }
 
@@ -1313,7 +1313,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var radius = BoundaryFootprintRadiusUnits();
             var speed = BoundaryRadiusSpeedUnitsPerTick();
-            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            var exactMaxContactX = SimulationFixed.HalfCellUnits - radius;
             var oneInsideX = exactMaxContactX - 1;
 
             foreach (var localX in new[] { exactMaxContactX, oneInsideX })
@@ -1321,8 +1321,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var remap = AssertBottomToFrontBoundaryRemap(localX, radius, speed);
 
                 Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(localX));
-                Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radius));
-                Assert.That(remap.TargetLocalOffset.X.RawValue + radius, Is.LessThanOrEqualTo(KinematicFixed.HalfCellUnits));
+                Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(SimulationFixed.MinLocalOffset + radius));
+                Assert.That(remap.TargetLocalOffset.X.RawValue + radius, Is.LessThanOrEqualTo(SimulationFixed.HalfCellUnits));
             }
         }
 
@@ -1332,7 +1332,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var radius = BoundaryFootprintRadiusUnits();
             var speed = BoundaryRadiusSpeedUnitsPerTick();
-            var exactMaxContactX = KinematicFixed.HalfCellUnits - radius;
+            var exactMaxContactX = SimulationFixed.HalfCellUnits - radius;
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
@@ -1345,21 +1345,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState,
                 10,
                 exactMaxContactX,
-                KinematicFixed.HalfCellUnits - radius - speed,
+                SimulationFixed.HalfCellUnits - radius - speed,
                 speed);
 
             var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
                 worldState.CreateSnapshot(),
                 10,
                 Vector2Int.up,
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speed)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(speed)),
                 radius,
                 out var result);
 
             Assert.That(resolved, Is.True);
             Assert.That(result.Success, Is.True);
             Assert.That(result.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
-            Assert.That(result.TargetLocalOffset.X.RawValue + radius, Is.EqualTo(KinematicFixed.HalfCellUnits));
+            Assert.That(result.TargetLocalOffset.X.RawValue + radius, Is.EqualTo(SimulationFixed.HalfCellUnits));
             Assert.That(result.RejectReason, Is.EqualTo(Free2DTopologyTransitionRejectReason.None));
         }
 
@@ -1380,7 +1380,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState.CreateSnapshot(),
                 10,
                 Vector2Int.up,
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(1024)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(1024)),
                 collisionRadiusUnits: 0,
                 out var result,
                 new[] { CreateDefinition(100, activationRule) });
@@ -1404,7 +1404,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState,
                 entityId,
                 localX: 0,
-                localY: KinematicFixed.MaxPositiveLocalOffset,
+                localY: SimulationFixed.MaxPositiveLocalOffset,
                 speedUnitsPerTick: 0);
         }
 
@@ -1420,8 +1420,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new UnitContinuousLocomotionState
                 {
                     localOffset = new SimulationOffset2(
-                        KinematicFixed.FromRaw(localX),
-                        KinematicFixed.FromRaw(localY)),
+                        SimulationFixed.FromRaw(localX),
+                        SimulationFixed.FromRaw(localY)),
                     velocity = SimulationVelocity2.Zero,
                     facing = Direction.Up,
                     lastMoveDirection = Direction.Up,
@@ -1433,12 +1433,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static int BoundaryFootprintRadiusUnits()
         {
-            return KinematicFixed.UnitsPerCell * 3 / 16;
+            return SimulationFixed.UnitsPerCell * 3 / 16;
         }
 
         private static float BoundaryFootprintRadiusCells()
         {
-            return BoundaryFootprintRadiusUnits() / (float)KinematicFixed.UnitsPerCell;
+            return BoundaryFootprintRadiusUnits() / (float)SimulationFixed.UnitsPerCell;
         }
 
         private static int BoundaryRadiusSpeedUnitsPerTick()
@@ -1459,16 +1459,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond).CollisionRadiusUnits;
             Assert.That(configuredRadius, Is.EqualTo(radiusUnits));
 
-            var sourceThresholdY = KinematicFixed.HalfCellUnits - radiusUnits;
+            var sourceThresholdY = SimulationFixed.HalfCellUnits - radiusUnits;
             var resolved = SurfaceTopologyBasisQueries.TryRemapBottomFaceYEdgeCrossing(
                 new CubeTopologyState(FaceId.Floor),
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new SurfaceCell(FaceId.Floor, 0, 1),
                 Vector2Int.up,
                 new SimulationOffset2(
-                    KinematicFixed.FromRaw(localX),
-                    KinematicFixed.FromRaw(sourceThresholdY - speedUnitsPerTick + 1)),
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speedUnitsPerTick)),
+                    SimulationFixed.FromRaw(localX),
+                    SimulationFixed.FromRaw(sourceThresholdY - speedUnitsPerTick + 1)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(speedUnitsPerTick)),
                 radiusUnits,
                 out var rejectReason,
                 out var remap);
@@ -1478,7 +1478,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(remap.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
             Assert.That(remap.TargetAnchor, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(localX));
-            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(KinematicFixed.MinLocalOffset + radiusUnits + 1));
+            Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(SimulationFixed.MinLocalOffset + radiusUnits + 1));
             return remap;
         }
 
@@ -1500,14 +1500,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState,
                 10,
                 localX,
-                KinematicFixed.HalfCellUnits - radiusUnits - speedUnitsPerTick,
+                SimulationFixed.HalfCellUnits - radiusUnits - speedUnitsPerTick,
                 speedUnitsPerTick);
 
             var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
                 worldState.CreateSnapshot(),
                 10,
                 Vector2Int.up,
-                new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(speedUnitsPerTick)),
+                new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(speedUnitsPerTick)),
                 radiusUnits,
                 out var result);
             return (resolved, result);
@@ -1534,7 +1534,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 snapshot,
                 StateQuery.BuildActorRef(snapshot, actor),
                 sourceCell,
-                new SimulationOffset2(KinematicFixed.FromRaw(oneBeyondX), KinematicFixed.Zero),
+                new SimulationOffset2(SimulationFixed.FromRaw(oneBeyondX), SimulationFixed.Zero),
                 radius,
                 snapshot.Topology,
                 new[] { CreateDefinition(100, activationRule) },

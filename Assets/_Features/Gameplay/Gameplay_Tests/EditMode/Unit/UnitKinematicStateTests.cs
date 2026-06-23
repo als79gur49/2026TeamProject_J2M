@@ -161,8 +161,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var state = new UnitKinematicRuntimeState
             {
-                localOffset = new SimulationOffset2(KinematicFixed.FromRaw(512), KinematicFixed.Zero),
-                velocity = new SimulationVelocity2(KinematicFixed.FromRaw(128), KinematicFixed.Zero),
+                localOffset = new SimulationOffset2(SimulationFixed.FromRaw(512), SimulationFixed.Zero),
+                velocity = new SimulationVelocity2(SimulationFixed.FromRaw(128), SimulationFixed.Zero),
                 mode = MotionMode.Charge,
                 remainingDistanceUnits = 3584,
                 remainingTicks = 3,
@@ -281,7 +281,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var commit = KinematicProgressResolver.ResolvePose(source, -1, 0, elapsedTicks: 10, totalTicks: 20);
 
             Assert.That(commit.AnchorCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
-            Assert.That(commit.LocalOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset));
+            Assert.That(commit.LocalOffset.X.RawValue, Is.EqualTo(SimulationFixed.MaxPositiveLocalOffset));
             Assert.That(commit.LocalOffset.IsRepresentableLocalOffset, Is.True);
         }
 
@@ -358,7 +358,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(poseDelta, Is.LessThanOrEqualTo(1));
             Assert.That(mirroredAnchor, Is.EqualTo(source));
             Assert.That(mirroredState.elapsedTicks, Is.EqualTo(10));
-            Assert.That(mirroredState.localOffset.X.RawValue, Is.EqualTo(KinematicFixed.MaxPositiveLocalOffset));
+            Assert.That(mirroredState.localOffset.X.RawValue, Is.EqualTo(SimulationFixed.MaxPositiveLocalOffset));
             Assert.That(mirroredState.stepDirectionX, Is.EqualTo(-1));
         }
 
@@ -395,8 +395,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return new UnitKinematicRuntimeState
             {
-                localOffset = new SimulationOffset2(KinematicFixed.FromRaw(localX), KinematicFixed.FromRaw(localY)),
-                velocity = new SimulationVelocity2(KinematicFixed.FromRaw(localX == 0 ? 0 : 1024), KinematicFixed.Zero),
+                localOffset = new SimulationOffset2(SimulationFixed.FromRaw(localX), SimulationFixed.FromRaw(localY)),
+                velocity = new SimulationVelocity2(SimulationFixed.FromRaw(localX == 0 ? 0 : 1024), SimulationFixed.Zero),
                 mode = MotionMode.Voluntary,
                 forcedOp = ForcedMotionOp.None,
                 remainingDistanceUnits = 4096,
@@ -424,7 +424,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 velocity = SimulationVelocity2.Zero,
                 mode = MotionMode.Held,
                 forcedOp = ForcedMotionOp.None,
-                remainingDistanceUnits = KinematicFixed.UnitsPerCell,
+                remainingDistanceUnits = SimulationFixed.UnitsPerCell,
                 remainingTicks = 20 - elapsedTicks,
                 speedScalePermille = 0,
                 sequenceId = 3,

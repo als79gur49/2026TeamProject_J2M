@@ -23,12 +23,21 @@ namespace Game.Feature.Gameplay.Loop
         public bool IsConfigured => TicksPerCell > 0 && CommitTick > 0;
     }
 
+    public static class SimulationMotionTimingDefaults
+    {
+        public const float DefaultMoveDurationSecondsPerCell = 1f / 3f;
+        public const float MaxMoveDurationSecondsPerCell = 2f;
+        public const int MinTicksPerCell = 2;
+    }
+
     [Serializable]
     public sealed class UnitKinematicLocomotionTimingSettings
     {
-        public const float DefaultKinematicMoveDurationSeconds = 1f / 3f;
-        public const float MaxKinematicMoveDurationSeconds = 2f;
-        public const int MinTicksPerCell = 2;
+        public const float DefaultKinematicMoveDurationSeconds =
+            SimulationMotionTimingDefaults.DefaultMoveDurationSecondsPerCell;
+        public const float MaxKinematicMoveDurationSeconds =
+            SimulationMotionTimingDefaults.MaxMoveDurationSecondsPerCell;
+        public const int MinTicksPerCell = SimulationMotionTimingDefaults.MinTicksPerCell;
 
         public float KinematicMoveDurationSeconds = DefaultKinematicMoveDurationSeconds;
 

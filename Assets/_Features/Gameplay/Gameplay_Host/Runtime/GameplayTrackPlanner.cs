@@ -801,14 +801,6 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                if (_trackState.EnemyKinematicPresentationPoseOverrides.TryGetValue(
-                        signal.EntityId,
-                        out var kinematicPose))
-                {
-                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = kinematicPose.LocalPose;
-                    continue;
-                }
-
                 if (_trackState.PlayerDeathHoldPoses.ContainsKey(signal.EntityId))
                 {
                     continue;

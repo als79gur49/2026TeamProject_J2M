@@ -165,14 +165,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
                 new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(firstWorld, 256, KinematicFixed.MaxPositiveLocalOffset);
+            SetPlayerContinuousLocalOffset(firstWorld, 256, SimulationFixed.MaxPositiveLocalOffset);
             Assert.That(firstWorld.CreateSnapshot().TryGetUnitContinuousLocomotionState(10, out var firstPreState), Is.True);
             Assert.That(firstPreState.localOffset.X.RawValue, Is.GreaterThan(0));
             var secondWorld = CreateWorldState(
                 new[] { CreatePlayer(10, new SurfaceCell(FaceId.Floor, 0, 1)) },
                 boardBounds,
                 new CubeTopologyState(FaceId.Floor));
-            SetPlayerContinuousLocalOffset(secondWorld, 256, KinematicFixed.MaxPositiveLocalOffset);
+            SetPlayerContinuousLocalOffset(secondWorld, 256, SimulationFixed.MaxPositiveLocalOffset);
             Assert.That(secondWorld.CreateSnapshot().TryGetUnitContinuousLocomotionState(10, out var secondPreState), Is.True);
             Assert.That(secondPreState.localOffset.X.RawValue, Is.GreaterThan(0));
 
@@ -221,12 +221,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
             AssertReplayEqual(firstReplay, secondReplay);
             Assert.That(firstReplay.Any(frame => !frame.FinalEntitiesDump.Contains("Pos=(0,0)")), Is.True);
-            Assert.That(firstReplay.Any(frame => frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected")), Is.False);
+            Assert.That(firstReplay.Any(frame => frame.EventLogDump.Contains("GenericUnitOrdinaryMovementDetected")), Is.False);
         }
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase2_PlayerDefaultGameplayLocomotion_NoLegacyFallback()
+        public void Replay_Phase2_PlayerDefaultGameplayLocomotion_NoGenericExpansionOwned()
         {
             var inputs = new[]
             {
@@ -256,28 +256,28 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 Is.EqualTo(secondReplay.Select(frame => frame.EventLogDump).ToArray()));
-            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);
-            Assert.That(firstReplay.Any(frame => frame.EventLogDump.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)), Is.False);
+            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal)), Is.False);
+            Assert.That(firstReplay.Any(frame => frame.EventLogDump.Contains("GenericUnitOrdinaryMovementDetected", StringComparison.Ordinal)), Is.False);
         }
 
         [Test]
         [Category("Extended")]
         public void Replay_MoveOwnership_NoCoveredFallbackMove()
         {
-            Replay_Phase2_PlayerDefaultGameplayLocomotion_NoLegacyFallback();
+            Replay_Phase2_PlayerDefaultGameplayLocomotion_NoGenericExpansionOwned();
         }
 
         [Test]
         [Category("Extended")]
         // Historical/pre-Phase4 canary: delegates to the canonical player removed-diagnostic replay.
-        public void Replay_Phase2_PlayerFlagOffLegacyFallback_BaselineDocumented()
+        public void Replay_Phase2_PlayerFlagOffGenericExpansionOwned_BaselineDocumented()
         {
-            Replay_Phase4_LegacyBaseline_PlayerFallbackRemoved();
+            Replay_Phase4_CurrentOwnershipBaseline_PlayerFallbackRemoved();
         }
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase3_None_NoCoveredLegacyFallback()
+        public void Replay_Phase3_None_NoCoveredGenericExpansionOwned()
         {
             var inputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
             var harness = new TickReplayHarness();
@@ -302,31 +302,31 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 Is.EqualTo(secondReplay.Select(frame => frame.EventLogDump).ToArray()));
-            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);
+            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal)), Is.False);
             Assert.That(
                 firstReplay.Any(frame =>
-                    frame.Trace.Contains(LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason, StringComparison.Ordinal) ||
-                    frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.ExplicitLegacyFallbackRequiredReason, StringComparison.Ordinal)),
+                    frame.Trace.Contains(MovementExecutionOwnershipAssert.ExplicitGenericExpansionOwnedRequiredReason, StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains(MovementExecutionOwnershipAssert.ExplicitGenericExpansionOwnedRequiredReason, StringComparison.Ordinal)),
                 Is.False);
         }
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase4_LegacyBaseline_PlayerFallbackRemoved()
+        public void Replay_Phase4_CurrentOwnershipBaseline_PlayerFallbackRemoved()
         {
-            Replay_Phase7_PlayerLegacyFallbackBaseline_DiagnosticCompatibility();
+            Replay_Phase7_PlayerGenericExpansionOwnedBaseline_DiagnosticCompatibility();
         }
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase7_PlayerLegacyFallbackBaseline_DiagnosticCompatibility()
+        public void Replay_Phase7_PlayerGenericExpansionOwnedBaseline_DiagnosticCompatibility()
         {
-            Replay_Phase8C_PlayerRemovedDiagnosticBaseline_DiagnosticCompatibility();
+            Replay_Phase8C_PlayerCurrentOwnershipBaseline_DiagnosticCompatibility();
         }
 
         [Test]
         [Category("Extended")]
-        public void Replay_Phase8C_PlayerRemovedDiagnosticBaseline_DiagnosticCompatibility()
+        public void Replay_Phase8C_PlayerCurrentOwnershipBaseline_DiagnosticCompatibility()
         {
             var inputs = new[] { new TickInput(1, PlayerTickCommand.Move(Direction.Right)) };
             var harness = new TickReplayHarness();
@@ -335,19 +335,19 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreateWorldStateWithPlayerControl(CreatePlayer(10)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
             var secondReplay = harness.Run(
                 CreateWorldStateWithPlayerControl(CreatePlayer(10)),
                 CreatePlayerLogics(),
                 inputs,
-                runtimeFeatureFlags: new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
+                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
 
             AssertReplayDeterministicAllowingLegacyDiagnostic(firstReplay, secondReplay);
-            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Boundary=LegacyFallback", StringComparison.Ordinal)), Is.False);
+            Assert.That(firstReplay.Any(frame => frame.Trace.Contains("Boundary=GenericExpansionOwned", StringComparison.Ordinal)), Is.False);
             Assert.That(
                 firstReplay.Any(frame =>
-                    frame.Trace.Contains(LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason, StringComparison.Ordinal) ||
-                    frame.EventLogDump.Contains(LegacyMovementBoundaryAssert.PlayerLegacyFallbackRemovedReason, StringComparison.Ordinal)),
+                    frame.Trace.Contains(MovementExecutionOwnershipAssert.PlayerGenericExpansionOwnedRemovedReason, StringComparison.Ordinal) ||
+                    frame.EventLogDump.Contains(MovementExecutionOwnershipAssert.PlayerGenericExpansionOwnedRemovedReason, StringComparison.Ordinal)),
                 Is.False);
         }
 
@@ -501,7 +501,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         {
             AssertReplayDeterministicAllowingLegacyDiagnostic(firstReplay, secondReplay);
             Assert.That(
-                firstReplay.Any(frame => frame.Trace.Contains("LegacyUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
+                firstReplay.Any(frame => frame.Trace.Contains("GenericUnitOrdinaryMovementDetected", StringComparison.Ordinal)),
                 Is.False);
         }
 
@@ -569,8 +569,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 new UnitContinuousLocomotionState
                 {
                     localOffset = new SimulationOffset2(
-                        KinematicFixed.FromRaw(localX),
-                        KinematicFixed.FromRaw(localY)),
+                        SimulationFixed.FromRaw(localX),
+                        SimulationFixed.FromRaw(localY)),
                     velocity = SimulationVelocity2.Zero,
                     facing = Direction.Right,
                     lastMoveDirection = Direction.Right,

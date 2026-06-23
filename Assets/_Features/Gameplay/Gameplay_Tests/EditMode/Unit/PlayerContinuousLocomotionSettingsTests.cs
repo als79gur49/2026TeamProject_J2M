@@ -37,7 +37,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }.CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
             Assert.That(snapshot.CollisionRadiusUnits, Is.EqualTo(768));
-            Assert.That(snapshot.CollisionRadiusUnits, Is.EqualTo(KinematicFixed.UnitsPerCell * 3 / 16));
+            Assert.That(snapshot.CollisionRadiusUnits, Is.EqualTo(SimulationFixed.UnitsPerCell * 3 / 16));
         }
 
         [TestCase(0f, 0)]

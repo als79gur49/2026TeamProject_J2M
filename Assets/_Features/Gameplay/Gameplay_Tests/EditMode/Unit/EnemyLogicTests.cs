@@ -6922,8 +6922,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new CombatOriginAnchor(
                 sourceCell,
                 SimulationOffset2.Zero,
-                sourceCell.x * KinematicFixed.UnitsPerCell,
-                sourceCell.y * KinematicFixed.UnitsPerCell,
+                sourceCell.x * SimulationFixed.UnitsPerCell,
+                sourceCell.y * SimulationFixed.UnitsPerCell,
                 facing);
         }
 

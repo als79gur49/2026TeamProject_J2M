@@ -222,7 +222,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Coordinator_FlagOff_DoesNotUseLegacyFallback()
+        public void Coordinator_FlagOff_DoesNotUseGenericExpansionOwned()
         {
             var scenario = CreateCoordinatorScenario("UtilityWindupLegacyFlagOff");
             VfxCueMapAsset cueMap = null;

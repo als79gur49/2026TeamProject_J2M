@@ -5,12 +5,12 @@ using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests
 {
-    internal static class LegacyMovementBoundaryAssert
+    internal static class MovementExecutionOwnershipAssert
     {
-        public const string ExplicitLegacyFallbackRequiredReason = "LegacyOrdinaryFallbackRequiresExplicitBaseline";
-        public const string PlayerLegacyFallbackRemovedReason = "PlayerLegacyFallbackRemovedFromRuntime";
-        public const string EnemyLegacyFallbackRemovedReason = "EnemyLegacyFallbackRemovedFromRuntime";
-        public const string ChargeLegacyFallbackRemovedReason = "ChargeLegacyFallbackRemovedFromRuntime";
+        public const string ExplicitGenericExpansionOwnedRequiredReason = "GenericOrdinaryExpansionRequiresExplicitOwner";
+        public const string PlayerGenericExpansionOwnedRemovedReason = "PlayerGenericExpansionRemovedFromRuntime";
+        public const string EnemyGenericExpansionOwnedRemovedReason = "EnemyGenericExpansionRemovedFromRuntime";
+        public const string ChargeGenericExpansionOwnedRemovedReason = "ChargeGenericExpansionRemovedFromRuntime";
 
         public static void NoLegacyOrdinaryUnitMove(TickResult result, params int[] entityIds)
         {
@@ -33,14 +33,14 @@ namespace Game.Feature.Gameplay.Tests
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Kind == FinalizationOperationKind.MoveEntity &&
                     operation.EntityId == entityId &&
-                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.GenericExpansionOwned &&
                     operation.Metadata.MovementSemanticKind == MovementSemanticKind.Move),
                 Is.False,
                 BuildDebug(result, entityId));
 
             Assert.That(
                 result.MovementPhaseResult.RejectedReasons.Any(reason =>
-                    reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
+                    reason.Contains("GenericUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
                     reason.Contains($"E={entityId}", System.StringComparison.Ordinal)),
                 Is.False,
                 BuildDebug(result, entityId));
@@ -50,12 +50,12 @@ namespace Game.Feature.Gameplay.Tests
         {
             Assert.That(
                 result.MovementPhaseResult.RejectedReasons.Any(reason =>
-                    reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal)),
+                    reason.Contains("GenericUnitOrdinaryMovementDetected", System.StringComparison.Ordinal)),
                 Is.False,
                 BuildDebug(result));
         }
 
-        public static void NoCoveredLocomotionLegacyFallback(TickResult result, params int[] entityIds)
+        public static void NoCoveredLocomotionGenericExpansionOwned(TickResult result, params int[] entityIds)
         {
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
             NoLegacyOrdinaryUnitMove(result, entityIds);
@@ -63,7 +63,7 @@ namespace Game.Feature.Gameplay.Tests
 
         public static void NoCoveredFallbackInDefaultGameplayLocomotion(TickResult result, params int[] entityIds)
         {
-            NoCoveredLocomotionLegacyFallback(result, entityIds);
+            NoCoveredLocomotionGenericExpansionOwned(result, entityIds);
         }
 
         public static void NoCoveredFallbackUnderDefaultGameplayLocomotion(TickResult result, params int[] entityIds)
@@ -79,41 +79,41 @@ namespace Game.Feature.Gameplay.Tests
             }
         }
 
-        public static void RequiresExplicitLegacyFallbackBaseline(TickResult result, params int[] entityIds)
+        public static void RequiresExplicitGenericExpansionOwnedBaseline(TickResult result, params int[] entityIds)
         {
             for (var i = 0; i < entityIds.Length; i++)
             {
                 NoLegacyOrdinaryUnitOperationOrPresentation(result, entityIds[i]);
                 Assert.That(
                     result.MovementPhaseResult.RejectedReasons.Any(reason =>
-                        reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
+                        reason.Contains("GenericUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
                         reason.Contains($"E={entityIds[i]}", System.StringComparison.Ordinal) &&
-                        reason.Contains(ExplicitLegacyFallbackRequiredReason, System.StringComparison.Ordinal)),
+                        reason.Contains(ExplicitGenericExpansionOwnedRequiredReason, System.StringComparison.Ordinal)),
                     Is.True,
                     BuildDebug(result, entityIds[i]));
             }
         }
 
-        public static void PlayerLegacyFallbackRemovedFromRuntime(TickResult result, int playerEntityId)
+        public static void PlayerGenericExpansionRemovedFromRuntime(TickResult result, int playerEntityId)
         {
             NoLegacyOrdinaryUnitOperationOrPresentation(result, playerEntityId);
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
-        public static void EnemyLegacyFallbackRemovedFromRuntime(TickResult result, int enemyEntityId)
+        public static void EnemyGenericExpansionRemovedFromRuntime(TickResult result, int enemyEntityId)
         {
-            HasLegacyFallbackMoveEntity(result, enemyEntityId);
-            HasLegacyFallbackMove(result, enemyEntityId);
+            HasGenericExpansionOwnedMoveEntity(result, enemyEntityId);
+            HasGenericExpansionOwnedMove(result, enemyEntityId);
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
-        public static void ChargeLegacyFallbackRemovedFromRuntime(TickResult result, int chargeEntityId)
+        public static void ChargeGenericExpansionRemovedFromRuntime(TickResult result, int chargeEntityId)
         {
             NoLegacyOrdinaryUnitOperationOrPresentation(result, chargeEntityId);
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
-        public static void AssertCoveredFallbackRemovedDiagnostics(TickResult result, params int[] entityIds)
+        public static void AssertCoveredFallbackCurrentOwnerships(TickResult result, params int[] entityIds)
         {
             for (var i = 0; i < entityIds.Length; i++)
             {
@@ -125,17 +125,17 @@ namespace Game.Feature.Gameplay.Tests
 
         public static void AssertPlayerFallbackRemovedFromRuntime(TickResult result, int playerEntityId)
         {
-            PlayerLegacyFallbackRemovedFromRuntime(result, playerEntityId);
+            PlayerGenericExpansionRemovedFromRuntime(result, playerEntityId);
         }
 
         public static void AssertEnemyFallbackRemovedFromRuntime(TickResult result, int enemyEntityId)
         {
-            EnemyLegacyFallbackRemovedFromRuntime(result, enemyEntityId);
+            EnemyGenericExpansionRemovedFromRuntime(result, enemyEntityId);
         }
 
         public static void AssertChargeFallbackRemovedFromRuntime(TickResult result, int chargeEntityId)
         {
-            ChargeLegacyFallbackRemovedFromRuntime(result, chargeEntityId);
+            ChargeGenericExpansionRemovedFromRuntime(result, chargeEntityId);
         }
 
         public static void NoPlayerLegacyOrdinaryFallback(TickResult result, int playerEntityId)
@@ -148,15 +148,15 @@ namespace Game.Feature.Gameplay.Tests
             NoLegacyOrdinaryUnitMove(result, enemyEntityId);
         }
 
-        public static void NoChargeActiveLegacyFallback(TickResult result, int chargeEntityId)
+        public static void NoChargeActiveGenericExpansionOwned(TickResult result, int chargeEntityId)
         {
             NoLegacyOrdinaryUnitMove(result, chargeEntityId);
         }
 
         public static void AllowsRetainedGlideFallback(TickResult result, int entityId)
         {
-            HasLegacyFallbackMoveEntity(result, entityId);
-            HasLegacyFallbackMove(result, entityId);
+            HasGenericExpansionOwnedMoveEntity(result, entityId);
+            HasGenericExpansionOwnedMove(result, entityId);
             NoUnexpectedLegacyOrdinaryDiagnostics(result);
         }
 
@@ -191,13 +191,13 @@ namespace Game.Feature.Gameplay.Tests
             GridTransactionsRemainAllowed(result, entityId, boundaryKind);
         }
 
-        public static void GridTransactionsRemainAllowedWithoutLegacyFallback(
+        public static void GridTransactionsRemainAllowedWithoutGenericExpansionOwned(
             TickResult result,
             int entityId,
             MovementExecutionBoundaryKind boundaryKind)
         {
             GridTransactionsRemainAllowed(result, entityId, boundaryKind);
-            LegacyFallbackIsOnlyForAllowedEntities(result);
+            GenericExpansionOwnedIsOnlyForAllowedEntities(result);
         }
 
         public static void NoLegacyUnitPresentationForCoveredEntities(TickResult result, params int[] entityIds)
@@ -213,12 +213,12 @@ namespace Game.Feature.Gameplay.Tests
             }
         }
 
-        public static void LegacyFallbackIsOnlyForAllowedEntities(TickResult result, params int[] allowedEntityIds)
+        public static void GenericExpansionOwnedIsOnlyForAllowedEntities(TickResult result, params int[] allowedEntityIds)
         {
             Assert.That(
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Kind == FinalizationOperationKind.MoveEntity &&
-                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.GenericExpansionOwned &&
                     !IsExceptedEntity(operation.EntityId, allowedEntityIds)),
                 Is.False,
                 BuildDebug(result));
@@ -234,7 +234,7 @@ namespace Game.Feature.Gameplay.Tests
                 BuildDebug(result));
         }
 
-        public static void HasLegacyFallbackMove(TickResult result, int entityId)
+        public static void HasGenericExpansionOwnedMove(TickResult result, int entityId)
         {
             Assert.That(
                 result.PresentationData.EntityMotions.Any(motion =>
@@ -244,9 +244,9 @@ namespace Game.Feature.Gameplay.Tests
                 BuildDebug(result, entityId));
         }
 
-        public static void HasLegacyFallbackMoveEntity(TickResult result, int entityId)
+        public static void HasGenericExpansionOwnedMoveEntity(TickResult result, int entityId)
         {
-            HasMoveEntityBoundary(result, entityId, MovementExecutionBoundaryKind.LegacyFallback);
+            HasMoveEntityBoundary(result, entityId, MovementExecutionBoundaryKind.GenericExpansionOwned);
         }
 
         public static void HasMoveEntityBoundary(
@@ -324,14 +324,14 @@ namespace Game.Feature.Gameplay.Tests
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Kind == FinalizationOperationKind.MoveEntity &&
                     operation.EntityId == entityId &&
-                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.GenericExpansionOwned &&
                     operation.Metadata.MovementSemanticKind == MovementSemanticKind.Move),
                 Is.False,
                 BuildDebug(result, entityId));
 
             Assert.That(
                 result.MovementPhaseResult.RejectedReasons.Any(reason =>
-                    reason.Contains("LegacyUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
+                    reason.Contains("GenericUnitOrdinaryMovementDetected", System.StringComparison.Ordinal) &&
                     reason.Contains($"E={entityId}", System.StringComparison.Ordinal)),
                 Is.False,
                 BuildDebug(result, entityId));
@@ -350,7 +350,7 @@ namespace Game.Feature.Gameplay.Tests
                 result.MovementPhaseResult.ResolvedOperations.Any(operation =>
                     operation.Kind == FinalizationOperationKind.MoveEntity &&
                     operation.EntityId == entityId &&
-                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.GenericExpansionOwned &&
                     operation.Metadata.MovementSemanticKind == MovementSemanticKind.Move),
                 Is.False,
                 BuildDebug(result, entityId));

@@ -110,7 +110,7 @@ namespace Game.Feature.Gameplay.BoardState
                     entityId,
                     pose,
                     pose.AnchorCell,
-                    new SimulationOffset2(KinematicFixed.FromRaw(targetX), KinematicFixed.FromRaw(targetY)),
+                    new SimulationOffset2(SimulationFixed.FromRaw(targetX), SimulationFixed.FromRaw(targetY)),
                     delta,
                     anchorChanged: false,
                     blocked: false,
@@ -185,26 +185,26 @@ namespace Game.Feature.Gameplay.BoardState
             var clampY = pose.LocalOffset.Y.RawValue;
             if (anchorDelta.x > 0)
             {
-                clampX = KinematicFixed.MaxPositiveLocalOffset;
+                clampX = SimulationFixed.MaxPositiveLocalOffset;
             }
             else if (anchorDelta.x < 0)
             {
-                clampX = KinematicFixed.MinLocalOffset;
+                clampX = SimulationFixed.MinLocalOffset;
             }
             else if (anchorDelta.y > 0)
             {
-                clampY = KinematicFixed.MaxPositiveLocalOffset;
+                clampY = SimulationFixed.MaxPositiveLocalOffset;
             }
             else if (anchorDelta.y < 0)
             {
-                clampY = KinematicFixed.MinLocalOffset;
+                clampY = SimulationFixed.MinLocalOffset;
             }
 
             return new KinematicSweepResult(
                 entityId,
                 pose,
                 pose.AnchorCell,
-                new SimulationOffset2(KinematicFixed.FromRaw(clampX), KinematicFixed.FromRaw(clampY)),
+                new SimulationOffset2(SimulationFixed.FromRaw(clampX), SimulationFixed.FromRaw(clampY)),
                 SimulationVelocity2.Zero,
                 anchorChanged: false,
                 blocked: true,
@@ -215,22 +215,22 @@ namespace Game.Feature.Gameplay.BoardState
         {
             if (anchorDelta.x > 0)
             {
-                targetX -= KinematicFixed.UnitsPerCell;
+                targetX -= SimulationFixed.UnitsPerCell;
             }
             else if (anchorDelta.x < 0)
             {
-                targetX += KinematicFixed.UnitsPerCell;
+                targetX += SimulationFixed.UnitsPerCell;
             }
             else if (anchorDelta.y > 0)
             {
-                targetY -= KinematicFixed.UnitsPerCell;
+                targetY -= SimulationFixed.UnitsPerCell;
             }
             else if (anchorDelta.y < 0)
             {
-                targetY += KinematicFixed.UnitsPerCell;
+                targetY += SimulationFixed.UnitsPerCell;
             }
 
-            return new SimulationOffset2(KinematicFixed.FromRaw(targetX), KinematicFixed.FromRaw(targetY));
+            return new SimulationOffset2(SimulationFixed.FromRaw(targetX), SimulationFixed.FromRaw(targetY));
         }
     }
 }

@@ -108,7 +108,7 @@ namespace Game.Feature.Gameplay.BoardState
             int stepDirectionY,
             int elapsedTicks,
             int totalTicks,
-            int unitsPerCell = KinematicFixed.UnitsPerCell)
+            int unitsPerCell = SimulationFixed.UnitsPerCell)
         {
             if (unitsPerCell <= 0)
             {
@@ -170,7 +170,7 @@ namespace Game.Feature.Gameplay.BoardState
                 progressUnits: progressUnits);
         }
 
-        public static int ResolveProgressUnits(int elapsedTicks, int totalTicks, int unitsPerCell = KinematicFixed.UnitsPerCell)
+        public static int ResolveProgressUnits(int elapsedTicks, int totalTicks, int unitsPerCell = SimulationFixed.UnitsPerCell)
         {
             if (elapsedTicks >= totalTicks)
             {
@@ -188,8 +188,8 @@ namespace Game.Feature.Gameplay.BoardState
         private static SimulationVelocity2 CreateDebugVelocity(int stepDirectionX, int stepDirectionY)
         {
             return new SimulationVelocity2(
-                KinematicFixed.FromRaw(stepDirectionX * KinematicFixed.DefaultReferenceUnitsPerTick),
-                KinematicFixed.FromRaw(stepDirectionY * KinematicFixed.DefaultReferenceUnitsPerTick));
+                SimulationFixed.FromRaw(stepDirectionX * SimulationFixed.DefaultReferenceUnitsPerTick),
+                SimulationFixed.FromRaw(stepDirectionY * SimulationFixed.DefaultReferenceUnitsPerTick));
         }
 
         private static int ResolvePoseDeltaRawUnits(
@@ -203,37 +203,37 @@ namespace Game.Feature.Gameplay.BoardState
                 return int.MaxValue;
             }
 
-            var oldWorldX = ((long)oldAnchor.x * KinematicFixed.UnitsPerCell) + oldOffset.X.RawValue;
-            var oldWorldY = ((long)oldAnchor.y * KinematicFixed.UnitsPerCell) + oldOffset.Y.RawValue;
-            var newWorldX = ((long)newAnchor.x * KinematicFixed.UnitsPerCell) + newOffset.X.RawValue;
-            var newWorldY = ((long)newAnchor.y * KinematicFixed.UnitsPerCell) + newOffset.Y.RawValue;
+            var oldWorldX = ((long)oldAnchor.x * SimulationFixed.UnitsPerCell) + oldOffset.X.RawValue;
+            var oldWorldY = ((long)oldAnchor.y * SimulationFixed.UnitsPerCell) + oldOffset.Y.RawValue;
+            var newWorldX = ((long)newAnchor.x * SimulationFixed.UnitsPerCell) + newOffset.X.RawValue;
+            var newWorldY = ((long)newAnchor.y * SimulationFixed.UnitsPerCell) + newOffset.Y.RawValue;
             return (int)Math.Max(Math.Abs(oldWorldX - newWorldX), Math.Abs(oldWorldY - newWorldY));
         }
 
         private static SimulationOffset2 CreateAxisOffset(int stepDirectionX, int stepDirectionY, int localUnits)
         {
             return new SimulationOffset2(
-                KinematicFixed.FromRaw(stepDirectionX == 0 ? 0 : localUnits * stepDirectionX),
-                KinematicFixed.FromRaw(stepDirectionY == 0 ? 0 : localUnits * stepDirectionY));
+                SimulationFixed.FromRaw(stepDirectionX == 0 ? 0 : localUnits * stepDirectionX),
+                SimulationFixed.FromRaw(stepDirectionY == 0 ? 0 : localUnits * stepDirectionY));
         }
 
         private static SimulationOffset2 CreateCommitOffset(int stepDirectionX, int stepDirectionY)
         {
             return new SimulationOffset2(
-                KinematicFixed.FromRaw(CreateCommitAxisOffset(stepDirectionX)),
-                KinematicFixed.FromRaw(CreateCommitAxisOffset(stepDirectionY)));
+                SimulationFixed.FromRaw(CreateCommitAxisOffset(stepDirectionX)),
+                SimulationFixed.FromRaw(CreateCommitAxisOffset(stepDirectionY)));
         }
 
         private static int CreateCommitAxisOffset(int stepDirection)
         {
             if (stepDirection > 0)
             {
-                return KinematicFixed.MinLocalOffset;
+                return SimulationFixed.MinLocalOffset;
             }
 
             if (stepDirection < 0)
             {
-                return KinematicFixed.MaxPositiveLocalOffset;
+                return SimulationFixed.MaxPositiveLocalOffset;
             }
 
             return 0;

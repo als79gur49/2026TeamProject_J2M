@@ -92,7 +92,7 @@ namespace Game.Feature.Gameplay.Loop
         SpawnRespawnPlacement = 6,
         CleanupRemoval = 7,
         ScriptedRelocation = 8,
-        LegacyFallback = 9,
+        GenericExpansionOwned = 9,
         Free2DTopologyTransition = 10,
     }
 

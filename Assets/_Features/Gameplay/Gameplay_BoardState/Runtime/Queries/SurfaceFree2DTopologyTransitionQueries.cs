@@ -205,7 +205,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             if ((axes & SurfaceContactProjectionAxes.X) != 0)
             {
-                if (projectedX + radius > KinematicFixed.HalfCellUnits &&
+                if (projectedX + radius > SimulationFixed.HalfCellUnits &&
                     IsSourceFaceContactBlocked(
                         snapshot,
                         actor,
@@ -220,7 +220,7 @@ namespace Game.Feature.Gameplay.BoardState
                     AddContact(ref contacts, SurfaceContactProjectionSide.PositiveX, legality.Cell, legality);
                 }
 
-                if (projectedX - radius < KinematicFixed.MinLocalOffset &&
+                if (projectedX - radius < SimulationFixed.MinLocalOffset &&
                     IsSourceFaceContactBlocked(
                         snapshot,
                         actor,
@@ -238,7 +238,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             if ((axes & SurfaceContactProjectionAxes.Y) != 0)
             {
-                if (projectedY + radius > KinematicFixed.HalfCellUnits &&
+                if (projectedY + radius > SimulationFixed.HalfCellUnits &&
                     IsSourceFaceContactBlocked(
                         snapshot,
                         actor,
@@ -253,7 +253,7 @@ namespace Game.Feature.Gameplay.BoardState
                     AddContact(ref contacts, SurfaceContactProjectionSide.PositiveY, legality.Cell, legality);
                 }
 
-                if (projectedY - radius < KinematicFixed.MinLocalOffset &&
+                if (projectedY - radius < SimulationFixed.MinLocalOffset &&
                     IsSourceFaceContactBlocked(
                         snapshot,
                         actor,
@@ -272,8 +272,8 @@ namespace Game.Feature.Gameplay.BoardState
             return new SurfaceContactProjectionResult(
                 sourceLocalOffset,
                 new SimulationOffset2(
-                    KinematicFixed.FromRaw(projectedX),
-                    KinematicFixed.FromRaw(projectedY)),
+                    SimulationFixed.FromRaw(projectedX),
+                    SimulationFixed.FromRaw(projectedY)),
                 clampedPositiveX,
                 clampedNegativeX,
                 clampedPositiveY,
@@ -318,19 +318,19 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static int NormalizeCollisionRadiusUnits(int radiusUnits)
         {
-            return Math.Max(0, Math.Min(KinematicFixed.HalfCellUnits - 1, radiusUnits));
+            return Math.Max(0, Math.Min(SimulationFixed.HalfCellUnits - 1, radiusUnits));
         }
 
         private static int GetPositiveBlockedClamp(int radiusUnits)
         {
             return Math.Min(
-                KinematicFixed.MaxPositiveLocalOffset,
-                KinematicFixed.HalfCellUnits - radiusUnits);
+                SimulationFixed.MaxPositiveLocalOffset,
+                SimulationFixed.HalfCellUnits - radiusUnits);
         }
 
         private static int GetNegativeBlockedClamp(int radiusUnits)
         {
-            return KinematicFixed.MinLocalOffset + radiusUnits;
+            return SimulationFixed.MinLocalOffset + radiusUnits;
         }
     }
 
@@ -655,7 +655,7 @@ namespace Game.Feature.Gameplay.BoardState
         {
             rejectReason = Free2DTopologyTransitionRejectReason.None;
             legality = default;
-            var radius = Math.Max(0, Math.Min(KinematicFixed.HalfCellUnits - 1, collisionRadiusUnits));
+            var radius = Math.Max(0, Math.Min(SimulationFixed.HalfCellUnits - 1, collisionRadiusUnits));
             if (radius <= 0)
             {
                 return false;
@@ -697,12 +697,12 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static bool OverflowsPositiveFootprint(int rawOffset, int radius)
         {
-            return rawOffset + radius > KinematicFixed.HalfCellUnits;
+            return rawOffset + radius > SimulationFixed.HalfCellUnits;
         }
 
         private static bool OverflowsNegativeFootprint(int rawOffset, int radius)
         {
-            return rawOffset - radius < KinematicFixed.MinLocalOffset;
+            return rawOffset - radius < SimulationFixed.MinLocalOffset;
         }
 
         private static bool IsBlocked(

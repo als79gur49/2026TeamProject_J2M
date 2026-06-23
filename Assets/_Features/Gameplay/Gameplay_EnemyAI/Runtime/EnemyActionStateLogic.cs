@@ -455,8 +455,8 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             velocity = new SimulationVelocity2(
-                KinematicFixed.FromRaw(state.stepDirectionX * KinematicFixed.UnitsPerCell / state.totalTicks),
-                KinematicFixed.FromRaw(state.stepDirectionY * KinematicFixed.UnitsPerCell / state.totalTicks));
+                SimulationFixed.FromRaw(state.stepDirectionX * SimulationFixed.UnitsPerCell / state.totalTicks),
+                SimulationFixed.FromRaw(state.stepDirectionY * SimulationFixed.UnitsPerCell / state.totalTicks));
             return true;
         }
 

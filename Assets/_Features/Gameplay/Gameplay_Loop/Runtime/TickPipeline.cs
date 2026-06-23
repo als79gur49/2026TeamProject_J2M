@@ -2872,8 +2872,8 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var nextOffset = new SimulationOffset2(
-                KinematicFixed.FromRaw(nextX),
-                KinematicFixed.FromRaw(nextY));
+                SimulationFixed.FromRaw(nextX),
+                SimulationFixed.FromRaw(nextY));
             var isSettled = nextOffset.IsZero;
             return new UnitContinuousLocomotionState
             {
@@ -2881,8 +2881,8 @@ namespace Game.Feature.Gameplay.Loop
                 velocity = isSettled
                     ? SimulationVelocity2.Zero
                     : new SimulationVelocity2(
-                        KinematicFixed.FromRaw(deltaX),
-                        KinematicFixed.FromRaw(deltaY)),
+                        SimulationFixed.FromRaw(deltaX),
+                        SimulationFixed.FromRaw(deltaY)),
                 facing = normalizedSource.facing,
                 lastMoveDirection = normalizedSource.lastMoveDirection,
                 speedUnitsPerTick = Math.Abs(deltaX) + Math.Abs(deltaY),
@@ -2961,8 +2961,8 @@ namespace Game.Feature.Gameplay.Loop
 
                 facing = directionDelta.x > 0 ? Direction.Right : Direction.Left;
                 return new SimulationVelocity2(
-                    KinematicFixed.FromRaw(directionDelta.x * rawUnits),
-                    KinematicFixed.Zero);
+                    SimulationFixed.FromRaw(directionDelta.x * rawUnits),
+                    SimulationFixed.Zero);
             }
 
             nextRemainderY += _playerContinuousLocomotion.UnitsPerTickRemainder;
@@ -2974,8 +2974,8 @@ namespace Game.Feature.Gameplay.Loop
 
             facing = directionDelta.y > 0 ? Direction.Up : Direction.Down;
             return new SimulationVelocity2(
-                KinematicFixed.Zero,
-                KinematicFixed.FromRaw(directionDelta.y * rawUnits));
+                SimulationFixed.Zero,
+                SimulationFixed.FromRaw(directionDelta.y * rawUnits));
         }
 
         private static UnitContinuousLocomotionState CreateContinuousLocomotionState(
@@ -4165,28 +4165,28 @@ namespace Game.Feature.Gameplay.Loop
         {
             if (delta == Vector2Int.right)
             {
-                velocity = new SimulationVelocity2(KinematicFixed.FromRaw(KinematicFixed.DefaultReferenceUnitsPerTick), KinematicFixed.Zero);
+                velocity = new SimulationVelocity2(SimulationFixed.FromRaw(SimulationFixed.DefaultReferenceUnitsPerTick), SimulationFixed.Zero);
                 facing = Direction.Right;
                 return true;
             }
 
             if (delta == Vector2Int.left)
             {
-                velocity = new SimulationVelocity2(KinematicFixed.FromRaw(-KinematicFixed.DefaultReferenceUnitsPerTick), KinematicFixed.Zero);
+                velocity = new SimulationVelocity2(SimulationFixed.FromRaw(-SimulationFixed.DefaultReferenceUnitsPerTick), SimulationFixed.Zero);
                 facing = Direction.Left;
                 return true;
             }
 
             if (delta == Vector2Int.up)
             {
-                velocity = new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(KinematicFixed.DefaultReferenceUnitsPerTick));
+                velocity = new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(SimulationFixed.DefaultReferenceUnitsPerTick));
                 facing = Direction.Up;
                 return true;
             }
 
             if (delta == Vector2Int.down)
             {
-                velocity = new SimulationVelocity2(KinematicFixed.Zero, KinematicFixed.FromRaw(-KinematicFixed.DefaultReferenceUnitsPerTick));
+                velocity = new SimulationVelocity2(SimulationFixed.Zero, SimulationFixed.FromRaw(-SimulationFixed.DefaultReferenceUnitsPerTick));
                 facing = Direction.Down;
                 return true;
             }
@@ -4490,8 +4490,8 @@ namespace Game.Feature.Gameplay.Loop
                 mode = MotionMode.Voluntary,
                 forcedOp = ForcedMotionOp.None,
                 remainingDistanceUnits = remainingDistanceUnits,
-                remainingTicks = (remainingDistanceUnits + KinematicFixed.DefaultReferenceUnitsPerTick - 1) /
-                                 KinematicFixed.DefaultReferenceUnitsPerTick,
+                remainingTicks = (remainingDistanceUnits + SimulationFixed.DefaultReferenceUnitsPerTick - 1) /
+                                 SimulationFixed.DefaultReferenceUnitsPerTick,
                 speedScalePermille = 1000,
                 sequenceId = sourceState.sequenceId + 1,
             }.NormalizedForStorage();
@@ -4540,28 +4540,28 @@ namespace Game.Feature.Gameplay.Loop
             {
                 return localOffset.X.RawValue < 0
                     ? -localOffset.X.RawValue
-                    : KinematicFixed.UnitsPerCell - localOffset.X.RawValue;
+                    : SimulationFixed.UnitsPerCell - localOffset.X.RawValue;
             }
 
             if (velocity.X.RawValue < 0)
             {
                 return localOffset.X.RawValue > 0
                     ? localOffset.X.RawValue
-                    : KinematicFixed.UnitsPerCell + localOffset.X.RawValue;
+                    : SimulationFixed.UnitsPerCell + localOffset.X.RawValue;
             }
 
             if (velocity.Y.RawValue > 0)
             {
                 return localOffset.Y.RawValue < 0
                     ? -localOffset.Y.RawValue
-                    : KinematicFixed.UnitsPerCell - localOffset.Y.RawValue;
+                    : SimulationFixed.UnitsPerCell - localOffset.Y.RawValue;
             }
 
             if (velocity.Y.RawValue < 0)
             {
                 return localOffset.Y.RawValue > 0
                     ? localOffset.Y.RawValue
-                    : KinematicFixed.UnitsPerCell + localOffset.Y.RawValue;
+                    : SimulationFixed.UnitsPerCell + localOffset.Y.RawValue;
             }
 
             return 0;
@@ -5223,7 +5223,7 @@ namespace Game.Feature.Gameplay.Loop
                 intent.CommandKind == Movement.MovementCommandKind.Move &&
                 group.GroupKind == ActionGroupKind.Move)
             {
-                return MovementExecutionBoundaryKind.LegacyFallback;
+                return MovementExecutionBoundaryKind.GenericExpansionOwned;
             }
 
             return MovementExecutionBoundaryKind.Unknown;
@@ -5235,7 +5235,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 MovementExecutionBoundaryKind.TopologyMaterialization => "TopologyMaterialization",
                 MovementExecutionBoundaryKind.BoxActionMovement => "BoxActionMovement",
-                MovementExecutionBoundaryKind.LegacyFallback => "LegacyFallback",
+                MovementExecutionBoundaryKind.GenericExpansionOwned => "GenericExpansionOwned",
                 _ => string.Empty,
             };
         }
@@ -7153,7 +7153,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 case MovementSemanticKind.Move:
                     return metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.UnitOrdinaryLocomotion ||
-                           metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LegacyFallback ||
+                           metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.GenericExpansionOwned ||
                            metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.LocomotionAnchorCommit;
                 case MovementSemanticKind.JumpLanding:
                     return metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.UnitSpecialLocomotion;

@@ -67,7 +67,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private static int DefaultActionAssistSettleWindowUnits => (int)Math.Round(
             PlayerContinuousLocomotionSettings.DefaultActionAssistSettleWindowCells *
-            KinematicFixed.UnitsPerCell,
+            SimulationFixed.UnitsPerCell,
             MidpointRounding.AwayFromZero);
     }
 
@@ -75,11 +75,12 @@ namespace Game.Feature.Gameplay.Loop
     public sealed class PlayerContinuousLocomotionSettings
     {
         public const float DefaultMoveDurationSecondsPerCell =
-            UnitKinematicLocomotionTimingSettings.DefaultKinematicMoveDurationSeconds;
+            SimulationMotionTimingDefaults.DefaultMoveDurationSecondsPerCell;
         public const float DefaultCollisionRadiusCells = 0f;
         public const float DefaultActionAssistSettleWindowCells = 0.125f;
-        public const float MaxMoveDurationSecondsPerCell = UnitKinematicLocomotionTimingSettings.MaxKinematicMoveDurationSeconds;
-        public const int MinTicksPerCell = 2;
+        public const float MaxMoveDurationSecondsPerCell =
+            SimulationMotionTimingDefaults.MaxMoveDurationSecondsPerCell;
+        public const int MinTicksPerCell = SimulationMotionTimingDefaults.MinTicksPerCell;
 
         public float MoveDurationSecondsPerCell = DefaultMoveDurationSecondsPerCell;
         public float CollisionRadiusCells = DefaultCollisionRadiusCells;
@@ -160,13 +161,13 @@ namespace Game.Feature.Gameplay.Loop
                 MoveDurationSecondsPerCell,
                 simulationTicksPerSecond,
                 MinTicksPerCell);
-            var speedUnitsPerTick = Math.Max(1, KinematicFixed.UnitsPerCell / ticksPerCell);
-            var remainder = KinematicFixed.UnitsPerCell % ticksPerCell;
+            var speedUnitsPerTick = Math.Max(1, SimulationFixed.UnitsPerCell / ticksPerCell);
+            var remainder = SimulationFixed.UnitsPerCell % ticksPerCell;
             var collisionRadiusUnits = (int)Math.Round(
-                CollisionRadiusCells * KinematicFixed.UnitsPerCell,
+                CollisionRadiusCells * SimulationFixed.UnitsPerCell,
                 MidpointRounding.AwayFromZero);
             var actionAssistSettleWindowUnits = (int)Math.Round(
-                ActionAssistSettleWindowCells * KinematicFixed.UnitsPerCell,
+                ActionAssistSettleWindowCells * SimulationFixed.UnitsPerCell,
                 MidpointRounding.AwayFromZero);
             return new PlayerContinuousLocomotionSnapshot(
                 MoveDurationSecondsPerCell,

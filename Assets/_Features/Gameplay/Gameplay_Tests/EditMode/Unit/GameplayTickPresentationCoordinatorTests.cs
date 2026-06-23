@@ -2677,7 +2677,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             },
                             new[]
                             {
-                                CreateGlideSignal(20, destinationCell, EnemyGlidePhase.Active, KinematicFixed.UnitsPerCell / 4),
+                                CreateGlideSignal(20, destinationCell, EnemyGlidePhase.Active, SimulationFixed.UnitsPerCell / 4),
                             })));
                 presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds);
 
@@ -2735,7 +2735,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             new[] { kinematicTrack },
                             enemyGlideSignals: new[]
                             {
-                                CreateGlideSignal(20, sourceCell, EnemyGlidePhase.Active, KinematicFixed.UnitsPerCell / 4),
+                                CreateGlideSignal(20, sourceCell, EnemyGlidePhase.Active, SimulationFixed.UnitsPerCell / 4),
                             })));
 
                 Assert.That(registry.TryGetView(20, out var view), Is.True);
@@ -2783,7 +2783,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             Array.Empty<TickEntityMotion>(),
                             new[]
                             {
-                                CreateGlideSignal(20, cell, EnemyGlidePhase.Active, KinematicFixed.UnitsPerCell / 4),
+                                CreateGlideSignal(20, cell, EnemyGlidePhase.Active, SimulationFixed.UnitsPerCell / 4),
                             })));
 
                 Assert.That(registry.TryGetView(20, out var view), Is.True);
@@ -2841,7 +2841,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             Array.Empty<TickEntityMotion>(),
                             new[]
                             {
-                                CreateGlideSignal(20, cell, EnemyGlidePhase.Windup, KinematicFixed.UnitsPerCell / 8),
+                                CreateGlideSignal(20, cell, EnemyGlidePhase.Windup, SimulationFixed.UnitsPerCell / 8),
                             })));
 
                 AssertPositionApproximately(view.transform.localPosition, basePosition - (normal * 0.125f));
@@ -2883,7 +2883,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             },
                             new[]
                             {
-                                CreateGlideSignal(20, solidCell, EnemyGlidePhase.Active, KinematicFixed.UnitsPerCell / 4),
+                                CreateGlideSignal(20, solidCell, EnemyGlidePhase.Active, SimulationFixed.UnitsPerCell / 4),
                             })));
                 presenter.UpdatePresentation(CreateTimingProfile().MoveMotionDurationSeconds);
 
@@ -2921,7 +2921,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     sourceCell,
                     sourceLocalX: 0,
                     destinationAnchorCell: sourceCell,
-                    destinationLocalX: KinematicFixed.UnitsPerCell / 2,
+                    destinationLocalX: SimulationFixed.UnitsPerCell / 2,
                     topology: topology);
                 presenter.Present(
                     CreateTickResult(
@@ -2933,7 +2933,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             new[] { kinematicTrack },
                             enemyGlideSignals: new[]
                             {
-                                CreateGlideSignal(20, sourceCell, EnemyGlidePhase.Active, KinematicFixed.UnitsPerCell / 4),
+                                CreateGlideSignal(20, sourceCell, EnemyGlidePhase.Active, SimulationFixed.UnitsPerCell / 4),
                             })));
 
                 Assert.That(registry.TryGetView(20, out var view), Is.True);
@@ -2942,7 +2942,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                    topology,
                                    sourceCell,
                                    EntityType.Unit,
-                                   KinematicFixed.UnitsPerCell / 2,
+                                   SimulationFixed.UnitsPerCell / 2,
                                    0) -
                                GetProjectedEntityNormal(boardBounds, topology, sourceCell, EntityType.Unit) * 0.25f;
                 var skippedPosition = GetProjectedEntityPosition(boardBounds, topology, nextCell, EntityType.Unit) -
@@ -2982,7 +2982,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             Array.Empty<TickEntityMotion>(),
                             new[]
                             {
-                                CreateGlideSignal(20, nonSolidCell, EnemyGlidePhase.Active, KinematicFixed.UnitsPerCell / 4),
+                                CreateGlideSignal(20, nonSolidCell, EnemyGlidePhase.Active, SimulationFixed.UnitsPerCell / 4),
                             })));
                 Assert.That(registry.TryGetView(20, out var view), Is.True);
                 var activePose = view.transform.localPosition;
@@ -2996,7 +2996,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             Array.Empty<TickEntityMotion>(),
                             new[]
                             {
-                                CreateGlideSignal(20, nonSolidCell, EnemyGlidePhase.Recovery, KinematicFixed.UnitsPerCell / 8),
+                                CreateGlideSignal(20, nonSolidCell, EnemyGlidePhase.Recovery, SimulationFixed.UnitsPerCell / 8),
                             })));
 
                 var basePosition = GetProjectedEntityPosition(boardBounds, topology, nonSolidCell, EntityType.Unit);
@@ -3327,9 +3327,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayTickViewPresenter_PlayerDeathHold_RetainsRemovedTerminalPoseUntilSignalClears()
+        public void GameplayTickViewPresenter_PlayerDeathHold_RetainsContinuousRemovedTerminalPoseUntilSignalClears()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_PlayerDeathHold_RetainsRemovedTerminalPoseUntilSignalClears");
+            var rootObject = new GameObject("GameplayTickViewPresenter_PlayerDeathHold_RetainsContinuousRemovedTerminalPoseUntilSignalClears");
 
             try
             {
@@ -3355,20 +3355,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     },
                     topology);
 
-                var removedTrack = CreateKinematicTrack(
+                var removedTrack = CreateContinuousTrack(
                     10,
                     sourceCell,
                     sourceLocalX: -2048,
                     sourceCell,
                     destinationLocalX: -2048,
-                    topology,
+                    ContinuousLocomotionMode.Idle,
                     TickKinematicMotionTerminalKind.Removed);
                 presenter.Present(
                     CreateTickResult(
                         tickIndex: 2,
                         Array.Empty<EntityState>(),
                         topology,
-                        CreateKinematicPresentationData(
+                        CreateContinuousPresentationData(
                             Array.Empty<TickEntityMotion>(),
                             new[] { removedTrack },
                             new[]
@@ -3390,9 +3390,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         tickIndex: 3,
                         Array.Empty<EntityState>(),
                         topology,
-                        CreateKinematicPresentationData(
+                        CreateContinuousPresentationData(
                             Array.Empty<TickEntityMotion>(),
-                            Array.Empty<TickKinematicMotionTrack>(),
+                            Array.Empty<TickContinuousLocomotionTrack>(),
                             new[]
                             {
                                 new TickPlayerDeathHoldPresentationSignal(
@@ -3414,6 +3414,74 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         TickPresentationData.Empty));
 
                 Assert.That(view.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_PlayerDeathHold_DoesNotUseEnemyKinematicPoseOverride()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_PlayerDeathHold_DoesNotUseEnemyKinematicPoseOverride");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var committedPosition = GetProjectedEntityPosition(boardBounds, topology, sourceCell, EntityType.Unit);
+                var enemyKinematicPosition = GetProjectedKinematicEntityPosition(
+                    boardBounds,
+                    topology,
+                    sourceCell,
+                    EntityType.Unit,
+                    -2048,
+                    0);
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, CreateTimingProfile());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, sourceCell),
+                    },
+                    topology);
+
+                var trackState = GetPresentationTrackState(presenter);
+                trackState.EnemyKinematicPresentationPoseOverrides[10] = new KinematicPresentationPose(
+                    new GameplayEntityPose(enemyKinematicPosition, Quaternion.identity),
+                    MotionMode.Voluntary,
+                    TickKinematicMotionTerminalKind.Removed);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        Array.Empty<EntityState>(),
+                        topology,
+                        CreateContinuousPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            Array.Empty<TickContinuousLocomotionTrack>(),
+                            new[]
+                            {
+                                new TickPlayerDeathHoldPresentationSignal(
+                                    10,
+                                    startTick: 2,
+                                    eligibleTick: 5,
+                                    remainingTicks: 3,
+                                    startedThisTick: true),
+                            })));
+
+                Assert.That(registry.TryGetView(10, out var view), Is.True);
+                Assert.That(view.gameObject.activeSelf, Is.True);
+                AssertPositionApproximately(view.transform.localPosition, committedPosition);
+                Assert.That(
+                    Vector3.Distance(view.transform.localPosition, enemyKinematicPosition),
+                    Is.GreaterThan(0.1f));
             }
             finally
             {
@@ -9878,9 +9946,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void DefaultGameplayEntityViewFactory_PrimitiveEnemy_AppliesInactiveVisualSettingsAndKeepsLegacyFallback()
+        public void DefaultGameplayEntityViewFactory_PrimitiveEnemy_AppliesInactiveVisualSettingsAndKeepsGenericExpansionOwned()
         {
-            var rootObject = new GameObject(nameof(DefaultGameplayEntityViewFactory_PrimitiveEnemy_AppliesInactiveVisualSettingsAndKeepsLegacyFallback));
+            var rootObject = new GameObject(nameof(DefaultGameplayEntityViewFactory_PrimitiveEnemy_AppliesInactiveVisualSettingsAndKeepsGenericExpansionOwned));
             var settings = CreateEnemyInactiveVisualSettings(
                 new Color(0.18f, 0.28f, 0.38f, 1f),
                 desaturateStrength: 0.22f,
@@ -9914,9 +9982,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void DefaultGameplayEntityViewFactory_PrefabEnemy_AppliesInactiveVisualSettingsWithoutLegacyFallback()
+        public void DefaultGameplayEntityViewFactory_PrefabEnemy_AppliesInactiveVisualSettingsWithoutGenericExpansionOwned()
         {
-            var rootObject = new GameObject(nameof(DefaultGameplayEntityViewFactory_PrefabEnemy_AppliesInactiveVisualSettingsWithoutLegacyFallback));
+            var rootObject = new GameObject(nameof(DefaultGameplayEntityViewFactory_PrefabEnemy_AppliesInactiveVisualSettingsWithoutGenericExpansionOwned));
             var prefabObject = new GameObject("EnemyPrefabWithInactiveSettings");
             var settings = CreateEnemyInactiveVisualSettings(
                 new Color(0.42f, 0.33f, 0.24f, 1f),
@@ -10933,7 +11001,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static TickPresentationData CreateContinuousPresentationData(
             IReadOnlyList<TickEntityMotion> entityMotions,
-            IReadOnlyList<TickContinuousLocomotionTrack> continuousLocomotionTracks)
+            IReadOnlyList<TickContinuousLocomotionTrack> continuousLocomotionTracks,
+            IReadOnlyList<TickPlayerDeathHoldPresentationSignal> playerDeathHoldSignals = null)
         {
             return new TickPresentationData(
                 entityMotions,
@@ -10951,7 +11020,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
                 impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
                 flipImpactSignals: Array.Empty<FlipImpactPresentationSignal>(),
-                continuousLocomotionTracks: continuousLocomotionTracks);
+                continuousLocomotionTracks: continuousLocomotionTracks,
+                playerDeathHoldSignals: playerDeathHoldSignals);
         }
 
         private static TickKinematicMotionTrack CreateKinematicTrack(
@@ -11079,7 +11149,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 phaseElapsedTicks: 0,
                 phaseTotalTicks: 1,
                 normalizedPhaseProgress: 0f,
-                liftHeightUnits: KinematicFixed.UnitsPerCell / 4,
+                liftHeightUnits: SimulationFixed.UnitsPerCell / 4,
                 recoveryDipHeightUnits: 0,
                 currentHeightUnits,
                 isAirborneVisual: currentHeightUnits != 0,
@@ -11100,16 +11170,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var localOffset = CreateKinematicOffset(localX, localY);
             return projectedPose.LocalPosition +
                    (projectedPose.LocalRotation * new Vector3(
-                       localOffset.X.RawValue / (float)KinematicFixed.UnitsPerCell,
-                       localOffset.Y.RawValue / (float)KinematicFixed.UnitsPerCell,
+                       localOffset.X.RawValue / (float)SimulationFixed.UnitsPerCell,
+                       localOffset.Y.RawValue / (float)SimulationFixed.UnitsPerCell,
                        0f));
         }
 
         private static SimulationOffset2 CreateKinematicOffset(int localX, int localY)
         {
             return new SimulationOffset2(
-                KinematicFixed.FromRaw(localX),
-                KinematicFixed.FromRaw(localY));
+                SimulationFixed.FromRaw(localX),
+                SimulationFixed.FromRaw(localY));
         }
 
         private static Vector3 ResolveLinearPosition(

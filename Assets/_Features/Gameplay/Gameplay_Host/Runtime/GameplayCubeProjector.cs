@@ -236,7 +236,7 @@ namespace Game.Feature.Gameplay.Host
 
         public Vector2 ResolveKinematicPresentationPlaneOffset(SimulationOffset2 localOffset)
         {
-            var fixedToWorldScale = _cellSize / KinematicFixed.UnitsPerCell;
+            var fixedToWorldScale = _cellSize / SimulationFixed.UnitsPerCell;
             return new Vector2(
                 localOffset.X.RawValue * fixedToWorldScale,
                 localOffset.Y.RawValue * fixedToWorldScale);

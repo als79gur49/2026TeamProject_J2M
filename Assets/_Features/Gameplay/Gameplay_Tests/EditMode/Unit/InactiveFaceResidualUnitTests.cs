@@ -126,7 +126,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 result.RespawnPlacementRecords[0].BoundaryKind,
                 Is.EqualTo(MovementExecutionBoundaryKind.SpawnRespawnPlacement));
             Assert.That(result.RespawnPlacementRecords[0].BoundaryReason, Is.EqualTo("PlayerRespawnPlacement"));
-            Assert.That(result.EventLogEntries, Has.None.Contains("LegacyUnitOrdinaryMovementDetected"));
+            Assert.That(result.EventLogEntries, Has.None.Contains("GenericUnitOrdinaryMovementDetected"));
         }
 
         [Test]
@@ -174,7 +174,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(trace, Does.Contain("Respawn.Placements"));
             Assert.That(trace, Does.Contain("Boundary=SpawnRespawnPlacement"));
             Assert.That(trace, Does.Contain("BoundaryReason=PlayerRespawnPlacement"));
-            Assert.That(trace, Does.Not.Contain("LegacyUnitOrdinaryMovementDetected"));
+            Assert.That(trace, Does.Not.Contain("GenericUnitOrdinaryMovementDetected"));
         }
 
         [TestCase("solid")]

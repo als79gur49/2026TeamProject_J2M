@@ -88,7 +88,7 @@ namespace Game.Feature.Gameplay.Entities
                 return CombatWindupStartQueryResult.Block(CombatWindupStartBlockReason.DifferentFace);
             }
 
-            var thresholdUnits = checked((attackDecisionSettings.AttackRange * KinematicFixed.UnitsPerCell) +
+            var thresholdUnits = checked((attackDecisionSettings.AttackRange * SimulationFixed.UnitsPerCell) +
                                          projectileWindupSettings.VisualRangeSlackUnits);
             var distanceUnits = GetManhattanDistanceUnits(enemyOrigin, playerOrigin);
             return distanceUnits <= thresholdUnits
@@ -532,8 +532,8 @@ namespace Game.Feature.Gameplay.Entities
             return new CombatOriginAnchor(
                 anchorCell,
                 localOffset,
-                checked((anchorCell.x * KinematicFixed.UnitsPerCell) + localOffset.X.RawValue),
-                checked((anchorCell.y * KinematicFixed.UnitsPerCell) + localOffset.Y.RawValue),
+                checked((anchorCell.x * SimulationFixed.UnitsPerCell) + localOffset.X.RawValue),
+                checked((anchorCell.y * SimulationFixed.UnitsPerCell) + localOffset.Y.RawValue),
                 facing);
         }
 

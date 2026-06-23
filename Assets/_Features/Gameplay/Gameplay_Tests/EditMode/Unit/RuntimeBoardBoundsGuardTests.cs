@@ -41,28 +41,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(flags.EnablePlayerFree2DActionAssist, Is.True);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.True);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.True);
-            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);
-            Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.None.EnablePlayerFree2DActionAssist, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.None.EnableEnemyGlideKinematicLocomotion, Is.False);
-            Assert.That(GameplayRuntimeFeatureFlags.None.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(new GameplaySceneHostConfiguration().CreateRuntimeFeatureFlags().EnablePlayerFree2DActionAssist, Is.False);
-            Assert.That(new GameplaySceneHostConfiguration().CreateRuntimeFeatureFlags().EnableEnemyGlideKinematicLocomotion, Is.False);
-            Assert.That(new GameplaySceneHostConfiguration().CreateRuntimeFeatureFlags().RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-        }
+            Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.True);            Assert.That(GameplayRuntimeFeatureFlags.None.EnablePlayerFree2DActionAssist, Is.False);
+            Assert.That(GameplayRuntimeFeatureFlags.None.EnableEnemyGlideKinematicLocomotion, Is.False);            Assert.That(new GameplaySceneHostConfiguration().CreateRuntimeFeatureFlags().EnablePlayerFree2DActionAssist, Is.False);
+            Assert.That(new GameplaySceneHostConfiguration().CreateRuntimeFeatureFlags().EnableEnemyGlideKinematicLocomotion, Is.False);        }
 
         [Test]
         [Category("Full")]
-        public void HostConfiguration_RemovedDiagnosticBaseline_IsNotSceneExposed()
+        public void HostConfiguration_CurrentOwnershipBaseline_IsNotSceneExposed()
         {
             var configuration = new GameplaySceneHostConfiguration();
 
-            configuration.ApplyRuntimeFeatureFlags(new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true));
-            var flags = configuration.CreateRuntimeFeatureFlags();
-
-            Assert.That(new GameplayRuntimeFeatureFlags(removedLegacyFallbackDiagnosticsEnabled: true).RemovedLegacyFallbackDiagnosticsEnabled, Is.True);
-            Assert.That(flags.RemovedLegacyFallbackDiagnosticsEnabled, Is.False);
-            Assert.That(flags.EnablePlayerFree2DActionAssist, Is.False);
+            configuration.ApplyRuntimeFeatureFlags(GameplayRuntimeFeatureFlags.None);
+            var flags = configuration.CreateRuntimeFeatureFlags();            Assert.That(flags.EnablePlayerFree2DActionAssist, Is.False);
             Assert.That(flags.EnableEnemySameFaceContinuousLocomotion, Is.False);
             Assert.That(flags.EnableEnemyChargeKinematicLocomotion, Is.False);
             Assert.That(flags.EnableEnemyGlideKinematicLocomotion, Is.False);
