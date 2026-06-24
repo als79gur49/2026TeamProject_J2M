@@ -1797,7 +1797,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var runtimeDefinition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             Assert.That(GameplayRuntimeFeatureFlags.DefaultGameplayLocomotion.EnableEnemyGlideKinematicLocomotion, Is.True);
-            Assert.That(runtimeDefinition.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
+            Assert.That(runtimeDefinition.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.None));
+            Assert.That(runtimeDefinition.TryGetGlideBehavior(out var glide), Is.True);
+            Assert.That(glide.Key, Is.EqualTo(EnemyBehaviorModuleKey.Glide));
             Assert.That(runtimeDefinition.GlideTimingSettings.InitialDelayTicks, Is.GreaterThanOrEqualTo(0));
             Assert.That(runtimeDefinition.GlideTimingSettings.WindupTicks, Is.EqualTo(15));
             Assert.That(runtimeDefinition.GlideTimingSettings.DurationTicks, Is.EqualTo(180));

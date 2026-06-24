@@ -19,7 +19,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void GlideCapability_CompilesTimingsAndGuardsWrongTimingLane()
+        public void GlideBehavior_CompilesTimingsAndDoesNotCreateMovementSkill()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(durationTicks: 3, cooldownTicks: 2));
@@ -28,16 +28,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
-                Assert.That(definition.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.GlideOverSolid));
+                Assert.That(definition.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.None));
+                Assert.That(definition.TryGetGlideBehavior(out var glide), Is.True);
                 Assert.That(definition.GlideTimingSettings.WindupTicks, Is.EqualTo(0));
                 Assert.That(definition.GlideTimingSettings.DurationTicks, Is.EqualTo(3));
                 Assert.That(definition.GlideTimingSettings.RecoveryTicks, Is.EqualTo(0));
                 Assert.That(definition.GlideTimingSettings.CooldownTicks, Is.EqualTo(2));
-                Assert.That(definition.Capabilities.TryGetMovementSkill(out var movementSkill), Is.True);
-                Assert.Throws<InvalidOperationException>(() =>
-                {
-                    _ = movementSkill.JumpTimingSettings;
-                });
+                Assert.That(glide.Timing.DurationTicks, Is.EqualTo(3));
+                Assert.That(definition.Capabilities.TryGetMovementSkill(out _), Is.False);
             }
             finally
             {
@@ -420,7 +418,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 DetectionStrategyKind = DetectionStrategyKind.None,
                 PatrolStrategyKind = PatrolStrategyKind.RandomWalk,
                 PatrolSettings = PatrolSettings.CreateDefaultRandomWalk(),
-                MovementSkillStrategyKind = MovementSkillStrategyKind.GlideOverSolid,
+                IncludeGlideBehaviorModule = true,
                 GlideTimingSettings = EnemyGlideTimingAuthoringSettings.FromRuntimeSettings(
                     new EnemyGlideTimingSettings(windupTicks: 3, durationTicks: 3, recoveryTicks: 3, cooldownTicks: 0),
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond),
@@ -1319,19 +1317,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void Legality_ActiveGlideBypassesOnlySolidBlockers()
+        public void Legality_ActiveGlideBypassesSolidButNotTileFeatureOrReservationBlockers()
         {
             var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var terrainCell = new SurfaceCell(FaceId.Floor, 0, 1);
             var emptyCell = new SurfaceCell(FaceId.Floor, 0, -1);
+            var tileDefinitions = new[]
+            {
+                CreateTileDefinition(100, TileFeatureKind.Barricade, activationRule: TileFeatureActivationRule.BottomFaceOnly),
+            };
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
                 {
                     CreateWall(30, wallCell),
-                    CreateWall(31, terrainCell),
                     CreateUnit(40, teamId: 2, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Chase),
                 },
-                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(1, 1)));
+                new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(1, 1)),
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault(),
+                new[] { CreateTileFeature(100, terrainCell, TileFeatureKind.Barricade, TileFeatureFlags.Activated) });
             worldState.CreateWriteContext().SetEnemyGlideState(
                 40,
                 CreateActiveGlide(activeUntilTickExclusive: 5, durationTicks: 3, cooldownTicks: 1));
@@ -1341,7 +1345,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(snapshot, EntityType.Unit, wallCell, 40).Verdict,
                 Is.EqualTo(LegalityVerdict.Allowed));
             Assert.That(
-                RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(snapshot, EntityType.Unit, terrainCell, 40).Verdict,
+                RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                    new SettlementContext(
+                        snapshot,
+                        StateQuery.BuildActorRef(snapshot, 40, EntityType.Unit),
+                        terrainCell,
+                        snapshot.Topology,
+                        SpatialState.Anchored,
+                        ReservationStatus.None,
+                        tileDefinitions)).Verdict,
                 Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(
                 RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
@@ -1672,7 +1684,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
         [Test]
         [Category("Extended")]
-        public void GlideActive_StillBlocksDisallowedSolidOrTerrain()
+        public void GlideActive_AllowsLockedStepSolidBypass()
         {
             var profile = EnemyAiProfileTestFactory.CreateGlideChaser(
                 new EnemyGlideTimingSettings(windupTicks: 0, durationTicks: 6, recoveryTicks: 1, cooldownTicks: 0));
@@ -1697,9 +1709,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var tick = pipeline.RunTick(new TickInput(1));
 
-                Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.False);
-                Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var blockedEnemy), Is.True);
-                Assert.That(blockedEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(HasGlideActiveKinematicAnchorCommit(tick, 40), Is.True);
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out var movedEnemy), Is.True);
+                Assert.That(movedEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             }
             finally
             {
@@ -2944,7 +2956,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     requireSameFace: true,
                     canTargetMarkedForDeath: false),
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                MovementSkillStrategyKind = MovementSkillStrategyKind.GlideOverSolid,
+                IncludeGlideBehaviorModule = true,
                 GlideTimingSettings = EnemyGlideTimingAuthoringSettings.FromRuntimeSettings(
                     glideTimingSettings,
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond),

@@ -15,7 +15,7 @@ MonoBehaviour:
   coreAuthoring: {fileID: 11400000, guid: 8e86aa168e474ee8be9ee51b257e5313, type: 2}
   brainAuthoring: {fileID: 11400000, guid: 7c9585f9f3794315b938da9370633c38, type: 2}
   capabilityAssets:
-  - {fileID: 11400000, guid: ad9b7109556a4fa39c2f024587232ba2, type: 2}
   - {fileID: 11400000, guid: bf094ca1fd8f4a378e18159ddaf0d4f0, type: 2}
-  behaviorModuleAssets: []
+  behaviorModuleAssets:
+  - {fileID: 11400000, guid: d7e8f0185f0f4128ac6134a353402fe4, type: 2}
   serializedVersion: 5

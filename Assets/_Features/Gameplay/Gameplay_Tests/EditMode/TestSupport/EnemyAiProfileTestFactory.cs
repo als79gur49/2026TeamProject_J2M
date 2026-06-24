@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.Tests
         public EnemyChargeTimingAuthoringSettings ChargeTimingSettings = EnemyChargeTimingAuthoringSettings.CreateDefault();
         public bool IncludeChargeBehaviorModule;
         public bool OmitRequiredChargeBehaviorModule;
+        public bool IncludeGlideBehaviorModule;
         public EnemyAiStateResolverKind StateResolverKind = EnemyAiStateResolverKind.Default;
         public PatrolStrategyKind PatrolStrategyKind = PatrolStrategyKind.Forward;
         public PatrolSettings PatrolSettings = PatrolSettings.CreateDefault();
@@ -32,6 +33,8 @@ namespace Game.Feature.Gameplay.Tests
         public MovementSkillStrategyKind MovementSkillStrategyKind = MovementSkillStrategyKind.None;
         public EnemyJumpTimingAuthoringSettings JumpTimingSettings = EnemyJumpTimingAuthoringSettings.CreateDefault();
         public EnemyGlideTimingAuthoringSettings GlideTimingSettings = EnemyGlideTimingAuthoringSettings.CreateDefault();
+        public EnemyGlidePresentationAuthoringSettings GlidePresentationSettings =
+            EnemyGlidePresentationAuthoringSettings.CreateDefault();
         public EnemyUtilityEffectAuthoring[] UtilityEffects;
     }
 
@@ -212,7 +215,7 @@ namespace Game.Feature.Gameplay.Tests
             {
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                MovementSkillStrategyKind = MovementSkillStrategyKind.GlideOverSolid,
+                IncludeGlideBehaviorModule = true,
                 GlideTimingSettings = ToAuthoring(glideTimingSettings),
                 IncludePassiveContact = includePassiveContact,
             });
@@ -228,7 +231,7 @@ namespace Game.Feature.Gameplay.Tests
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
                 DetectionStrategyKind = DetectionStrategyKind.None,
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
-                MovementSkillStrategyKind = MovementSkillStrategyKind.GlideOverSolid,
+                IncludeGlideBehaviorModule = true,
                 GlideTimingSettings = ToAuthoring(glideTimingSettings),
                 IncludePassiveContact = includePassiveContact,
             });
@@ -440,15 +443,29 @@ namespace Game.Feature.Gameplay.Tests
                  !spec.OmitRequiredChargeBehaviorModule);
             if (!shouldCreateCharge)
             {
-                yield break;
+                if (!spec.IncludeGlideBehaviorModule)
+                {
+                    yield break;
+                }
             }
 
-            var executionProfile = CreateHiddenAsset<EnemyChargeExecutionProfile>("Test_EnemyChargeExecutionProfile");
-            SetSerializedField(executionProfile, "timing", spec.ChargeTimingSettings);
+            if (shouldCreateCharge)
+            {
+                var executionProfile = CreateHiddenAsset<EnemyChargeExecutionProfile>("Test_EnemyChargeExecutionProfile");
+                SetSerializedField(executionProfile, "timing", spec.ChargeTimingSettings);
 
-            var chargeModule = CreateHiddenAsset<EnemyChargeBehaviorModuleAsset>("Test_EnemyChargeBehaviorModule");
-            SetSerializedField(chargeModule, "chargeExecutionProfile", executionProfile);
-            yield return chargeModule;
+                var chargeModule = CreateHiddenAsset<EnemyChargeBehaviorModuleAsset>("Test_EnemyChargeBehaviorModule");
+                SetSerializedField(chargeModule, "chargeExecutionProfile", executionProfile);
+                yield return chargeModule;
+            }
+
+            if (spec.IncludeGlideBehaviorModule)
+            {
+                var glideModule = CreateHiddenAsset<EnemyGlideBehaviorModuleAsset>("Test_EnemyGlideBehaviorModule");
+                SetSerializedField(glideModule, "timing", spec.GlideTimingSettings);
+                SetSerializedField(glideModule, "presentationSettings", spec.GlidePresentationSettings);
+                yield return glideModule;
+            }
         }
 
         private static IEnumerable<EnemyCapabilityAsset> CreateCapabilities(EnemyAiTestProfileSpec spec)
@@ -497,10 +514,11 @@ namespace Game.Feature.Gameplay.Tests
                     break;
                 }
 
-                case MovementSkillStrategyKind.GlideOverSolid:
+                case MovementSkillStrategyKind.RetiredGlideOverSolid:
                 {
                     var glide = CreateHiddenAsset<GlideOverSolidCapabilityAsset>("Test_GlideOverSolidCapability");
                     SetSerializedField(glide, "glideTimingSettings", spec.GlideTimingSettings);
+                    SetSerializedField(glide, "glidePresentationSettings", spec.GlidePresentationSettings);
                     yield return glide;
                     break;
                 }

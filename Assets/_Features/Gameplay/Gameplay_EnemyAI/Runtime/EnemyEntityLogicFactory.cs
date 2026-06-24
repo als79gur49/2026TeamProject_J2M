@@ -101,10 +101,9 @@ namespace Game.Feature.Gameplay.Entities
             out EnemyGlidePresentationSettings settings)
         {
             var definition = ResolveDefinition(snapshot, entity);
-            if (definition.Capabilities.TryGetMovementSkill(out var movementSkill) &&
-                movementSkill.Kind == MovementSkillStrategyKind.GlideOverSolid)
+            if (definition.TryGetGlideBehavior(out var glide))
             {
-                settings = movementSkill.GlidePresentationSettings;
+                settings = glide.PresentationSettings;
                 return true;
             }
 

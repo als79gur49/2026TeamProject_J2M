@@ -62,6 +62,7 @@ namespace Game.Feature.Gameplay.Entities
         private readonly EnemyLocomotionTimingSettings _locomotionTimingSettings;
         private readonly EnemyChargeBehaviorRuntime _chargeBehavior;
         private readonly EnemySummonBehaviorRuntime _summonBehavior;
+        private readonly EnemyGlideBehaviorRuntime _glideBehavior;
         private readonly PatrolStrategyKind _patrolStrategyKind;
         private readonly IPatrolStrategy _patrolStrategy;
         private readonly IDetectionStrategy _detectionStrategy;
@@ -121,6 +122,7 @@ namespace Game.Feature.Gameplay.Entities
 
             _chargeBehavior = chargeBehavior;
             aiDefinition.TryGetSummonBehavior(out _summonBehavior);
+            aiDefinition.TryGetGlideBehavior(out _glideBehavior);
             aiDefinition.Capabilities.TryGetCombat(out _combatCapability);
             aiDefinition.Capabilities.TryGetMovementSkill(out _movementSkillCapability);
             aiDefinition.Capabilities.TryGetPassiveContact(out _passiveContactCapability);
@@ -328,7 +330,7 @@ namespace Game.Feature.Gameplay.Entities
                 CommitChargeState(snapshot, in input, source, writeContext, updates);
             }
 
-            if (HasGlideMovementSkill())
+            if (HasGlideBehavior())
             {
                 CommitGlideState(snapshot, in input, source, writeContext, updates);
             }
@@ -886,10 +888,9 @@ namespace Game.Feature.Gameplay.Entities
                    _movementSkillCapability.Kind == MovementSkillStrategyKind.JumpToLockedTarget;
         }
 
-        private bool HasGlideMovementSkill()
+        private bool HasGlideBehavior()
         {
-            return _movementSkillCapability != null &&
-                   _movementSkillCapability.Kind == MovementSkillStrategyKind.GlideOverSolid;
+            return _glideBehavior != null;
         }
 
         private void CommitGlideState(
@@ -933,11 +934,11 @@ namespace Game.Feature.Gameplay.Entities
 
             if (nextState.Phase == EnemyGlidePhase.Ready &&
                 (!nextState.InitialDelayInitialized || nextState.InitialDelayTicksRemaining > 0) &&
-                _movementSkillCapability.GlideTimingSettings.InitialDelayTicks > 0)
+                _glideBehavior.Timing.InitialDelayTicks > 0)
             {
                 var delayedState = EnemyGlideQueries.TickInitialDelay(
                     nextState,
-                    _movementSkillCapability.GlideTimingSettings.InitialDelayTicks);
+                    _glideBehavior.Timing.InitialDelayTicks);
                 if (!AreEqual(nextState, delayedState))
                 {
                     nextState = delayedState;
@@ -961,7 +962,7 @@ namespace Game.Feature.Gameplay.Entities
                 nextState = EnemyGlideQueries.Start(
                     nextState,
                     input.TickIndex,
-                    _movementSkillCapability.GlideTimingSettings,
+                    _glideBehavior.Timing,
                     lockedStep,
                     chaseTarget.entityId);
                 hasPreviousState = true;
@@ -1093,7 +1094,7 @@ namespace Game.Feature.Gameplay.Entities
 
         private bool ShouldSuppressMovementForGlide(WorldSnapshot snapshot)
         {
-            if (!HasGlideMovementSkill() ||
+            if (!HasGlideBehavior() ||
                 !snapshot.TryGetEnemyGlideState(_entityId, out var glideState))
             {
                 return false;
@@ -2656,7 +2657,7 @@ namespace Game.Feature.Gameplay.Entities
                             source,
                             _detectionSettings,
                             out var chaseTarget,
-                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, _movementSkillCapability)))
+                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source)))
                     {
                         if (IsActiveGlide(snapshot, source) &&
                             TryBuildPatrolMovementIntentOwned(snapshot, source, tickIndex, out var glideFallbackIntent))
@@ -3234,18 +3235,14 @@ namespace Game.Feature.Gameplay.Entities
     {
         public static EnemyDetectionQueryOptions Resolve(
             WorldSnapshot snapshot,
-            in EntityState source,
-            EnemyMovementSkillCapabilityRuntime movementSkillCapability)
+            in EntityState source)
         {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
-            if (movementSkillCapability == null ||
-                movementSkillCapability.Kind != MovementSkillStrategyKind.GlideOverSolid ||
-                !snapshot.TryGetEnemyGlideState(source.entityId, out var glideState) ||
-                glideState.Phase != EnemyGlidePhase.Active)
+            if (!EnemyGlideSemanticQueries.IsActive(snapshot, source.entityId))
             {
                 return EnemyDetectionQueryOptions.Default;
             }
@@ -3349,7 +3346,7 @@ namespace Game.Feature.Gameplay.Entities
                             source,
                             detectionSettings,
                             out _,
-                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
+                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source)))
                     {
                         return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "RecoverComplete");
                     }
@@ -3496,7 +3493,7 @@ namespace Game.Feature.Gameplay.Entities
                     detectionSettings,
                     out var target,
                     out var freshAcquireResult,
-                    EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
+                    EnemyDetectionQueryOptionResolver.Resolve(snapshot, source)))
             {
                 if (TryResolveLocalEngagementHold(
                         snapshot,
@@ -3731,7 +3728,7 @@ namespace Game.Feature.Gameplay.Entities
                             detectionSettings,
                             out _,
                             out var patrolFreshResult,
-                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
+                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source)))
                     {
                         return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "TargetSensed");
                     }
@@ -3793,7 +3790,7 @@ namespace Game.Feature.Gameplay.Entities
                             detectionSettings,
                             out _,
                             out var recoverFreshResult,
-                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
+                            EnemyDetectionQueryOptionResolver.Resolve(snapshot, source)))
                     {
                         return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "RecoverComplete");
                     }
@@ -3878,7 +3875,7 @@ namespace Game.Feature.Gameplay.Entities
                     detectionSettings,
                     out var target,
                     out var freshAcquireResult,
-                    EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
+                    EnemyDetectionQueryOptionResolver.Resolve(snapshot, source)))
             {
                 if (TryResolveLocalEngagementHold(
                         snapshot,
@@ -4017,7 +4014,7 @@ namespace Game.Feature.Gameplay.Entities
                     detectionSettings,
                     out var target,
                     out var attackFreshResult,
-                    EnemyDetectionQueryOptionResolver.Resolve(snapshot, source, movementSkillCapability)))
+                    EnemyDetectionQueryOptionResolver.Resolve(snapshot, source)))
             {
                 if (TryResolveLocalEngagementHold(
                         snapshot,

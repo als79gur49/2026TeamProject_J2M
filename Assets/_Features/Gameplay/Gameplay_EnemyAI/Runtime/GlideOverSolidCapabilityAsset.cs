@@ -9,7 +9,7 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private EnemyGlidePresentationAuthoringSettings glidePresentationSettings =
             EnemyGlidePresentationAuthoringSettings.CreateDefault();
 
-        public override MovementSkillStrategyKind Kind => MovementSkillStrategyKind.GlideOverSolid;
+        public override MovementSkillStrategyKind Kind => MovementSkillStrategyKind.RetiredGlideOverSolid;
 
         public override EnemyGlideTimingAuthoringSettings GlideTimingSettings => glideTimingSettings;
 
