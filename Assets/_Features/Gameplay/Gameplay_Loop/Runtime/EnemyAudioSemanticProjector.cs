@@ -554,6 +554,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var binding = bindings[i];
                 if (binding.EntityId == summonedEntityId &&
+                    binding.HasEnemyDefinitionBinding &&
                     binding.SourceEntityId > 0)
                 {
                     sourceEntityId = binding.SourceEntityId;
