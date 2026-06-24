@@ -2092,6 +2092,313 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void TickPresentationFactExtractor_GravityFieldAuraPhases_EmitTypedEnemyAudioFacts()
+        {
+            const int UtilityActivationSequenceId = ((11 + 1) * 397) ^ (12 + 1);
+            const int UtilityRecoverSequenceId = ((11 + 1) * 397) ^ (13 + 1);
+            var result = CreateTickResult(
+                CreatePresentationData(enemyUtilitySignals: new[]
+                {
+                    new TickEnemyUtilityPresentationSignal(
+                        30,
+                        EnemyUtilityPresentationKind.GravityFieldAura,
+                        EnemyUtilityPresentationPhase.WindupStarted,
+                        startTick: 11,
+                        executeTick: 12,
+                        durationTicks: 2),
+                    new TickEnemyUtilityPresentationSignal(
+                        30,
+                        EnemyUtilityPresentationKind.GravityFieldAura,
+                        EnemyUtilityPresentationPhase.ActiveStarted,
+                        startTick: 11,
+                        executeTick: 12,
+                        durationTicks: 2),
+                    new TickEnemyUtilityPresentationSignal(
+                        30,
+                        EnemyUtilityPresentationKind.GravityFieldAura,
+                        EnemyUtilityPresentationPhase.AttackStarted,
+                        startTick: 11,
+                        executeTick: 12,
+                        durationTicks: 2),
+                    new TickEnemyUtilityPresentationSignal(
+                        30,
+                        EnemyUtilityPresentationKind.GravityFieldAura,
+                        EnemyUtilityPresentationPhase.RecoverStarted,
+                        startTick: 11,
+                        executeTick: 13,
+                        durationTicks: 1),
+                }),
+                tickIndex: 12);
+
+            var facts = ExtractEnemyAudioFacts(result);
+            var cues = PlanEnemyAudioCues(result);
+
+            Assert.That(
+                facts.Select(fact => (
+                    fact.EnemyAudioPayload.OwnerEntityId,
+                    (PresentationEnemyAudioCueKey)fact.EnemyAudioPayload.CueKey,
+                    fact.EnemyAudioPayload.OriginKind,
+                    fact.EnemyAudioPayload.Phase,
+                    fact.EnemyAudioPayload.SourceSequenceId)).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    (30, PresentationEnemyAudioCueKey.Windup, PresentationEnemyAudioOriginKind.Utility, PresentationEnemyAudioPhase.Windup, UtilityActivationSequenceId),
+                    (30, PresentationEnemyAudioCueKey.Active, PresentationEnemyAudioOriginKind.Utility, PresentationEnemyAudioPhase.Active, UtilityActivationSequenceId),
+                    (30, PresentationEnemyAudioCueKey.Recover, PresentationEnemyAudioOriginKind.Utility, PresentationEnemyAudioPhase.Recover, UtilityRecoverSequenceId),
+                }));
+            Assert.That(
+                cues.Select(cue => (cue.EnemyAudioPayload.OwnerEntityId, ResolveEnemyAudioCueKey(cue))).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    (30, PresentationEnemyAudioCueKey.Windup),
+                    (30, PresentationEnemyAudioCueKey.Active),
+                    (30, PresentationEnemyAudioCueKey.Recover),
+                }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationFactExtractor_GlidePhaseStarts_EmitTypedEnemyAudioFacts()
+        {
+            var cell = new SurfaceCell(FaceId.Floor, 2, 3);
+            var result = CreateTickResult(CreatePresentationData(
+                enemyGlideSignals: new[]
+                {
+                    CreateGlideSignal(60, cell, EnemyGlidePhase.Windup, phaseElapsedTicks: 0),
+                    CreateGlideSignal(60, cell, EnemyGlidePhase.Active, phaseElapsedTicks: 0),
+                    CreateGlideSignal(60, cell, EnemyGlidePhase.Active, phaseElapsedTicks: 1),
+                    CreateGlideSignal(60, cell, EnemyGlidePhase.Recovery, phaseElapsedTicks: 0),
+                }));
+
+            var facts = ExtractEnemyAudioFacts(result);
+
+            Assert.That(
+                facts.Select(fact => (
+                    fact.EnemyAudioPayload.OwnerEntityId,
+                    (PresentationEnemyAudioCueKey)fact.EnemyAudioPayload.CueKey,
+                    fact.EnemyAudioPayload.OriginKind,
+                    fact.EnemyAudioPayload.Phase,
+                    fact.EnemyAudioPayload.SourceSequenceId)).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    (60, PresentationEnemyAudioCueKey.Windup, PresentationEnemyAudioOriginKind.Glide, PresentationEnemyAudioPhase.Windup, 1),
+                    (60, PresentationEnemyAudioCueKey.Active, PresentationEnemyAudioOriginKind.Glide, PresentationEnemyAudioPhase.Active, 1),
+                    (60, PresentationEnemyAudioCueKey.Recover, PresentationEnemyAudioOriginKind.Glide, PresentationEnemyAudioPhase.Recover, 1),
+                }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationFactExtractor_SummonedEnemySpawn_EmitsSourceOwnerActiveFact()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var spawnCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var result = CreateTickResult(CreatePresentationData(
+                visibilityChanges: new[]
+                {
+                    new TickVisibilityChange(
+                        entityId: 60,
+                        TickVisibilityChangeKind.Spawn,
+                        spawnCell,
+                        topology,
+                        Direction.Left),
+                    new TickVisibilityChange(
+                        entityId: 61,
+                        TickVisibilityChangeKind.Spawn,
+                        spawnCell,
+                        topology,
+                        Direction.Left),
+                },
+                summonedEnemyPresentationBindings: new[]
+                {
+                    new TickSummonedEnemyPresentationBinding(
+                        entityId: 60,
+                        hasEnemyDefinitionBinding: true,
+                        archetypeId: default,
+                        sourceEntityId: 22),
+                    new TickSummonedEnemyPresentationBinding(
+                        entityId: 62,
+                        hasEnemyDefinitionBinding: true,
+                        archetypeId: default,
+                        sourceEntityId: 22),
+                }));
+
+            var facts = ExtractEnemyAudioFacts(result);
+
+            Assert.That(facts.Count, Is.EqualTo(1));
+            Assert.That(facts[0].Source.SemanticSource, Is.EqualTo(PresentationSemanticSource.EnemySummon));
+            Assert.That(facts[0].EnemyAudioPayload.OwnerEntityId, Is.EqualTo(22));
+            Assert.That((PresentationEnemyAudioCueKey)facts[0].EnemyAudioPayload.CueKey, Is.EqualTo(PresentationEnemyAudioCueKey.Active));
+            Assert.That(facts[0].EnemyAudioPayload.OriginKind, Is.EqualTo(PresentationEnemyAudioOriginKind.Summon));
+            Assert.That(facts[0].EnemyAudioPayload.Phase, Is.EqualTo(PresentationEnemyAudioPhase.Active));
+            Assert.That(facts[0].EnemyAudioPayload.TargetEntityId, Is.EqualTo(60));
+            Assert.That(facts[0].Target, Is.EqualTo(PresentationTarget.Entity(22)));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationFactExtractor_EnemyMoveSources_EmitSingleMoveFact()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var result = CreateTickResult(
+                CreatePresentationData(
+                    entityMotions: new[]
+                    {
+                        new TickEntityMotion(20, TickEntityMotionKind.Move, sourceCell, targetCell),
+                        new TickEntityMotion(10, TickEntityMotionKind.Move, sourceCell, targetCell),
+                    },
+                    kinematicMotionTracks: new[]
+                    {
+                        CreateKinematicTrack(20, MotionMode.Voluntary, ForcedMotionOp.None, startedTick: 1),
+                        CreateKinematicTrack(21, MotionMode.Voluntary, ForcedMotionOp.None, startedTick: 1),
+                        CreateKinematicTrack(22, MotionMode.Charge, ForcedMotionOp.None, startedTick: 1),
+                    }),
+                new[]
+                {
+                    CreateUnit(10, UnitRole.Player),
+                    CreateUnit(20, UnitRole.Enemy),
+                    CreateUnit(21, UnitRole.Enemy),
+                    CreateUnit(22, UnitRole.Enemy),
+                });
+
+            var facts = ExtractEnemyAudioFacts(result);
+
+            Assert.That(
+                facts.Select(fact => (
+                    fact.Source.SemanticSource,
+                    fact.EnemyAudioPayload.OwnerEntityId,
+                    (PresentationEnemyAudioCueKey)fact.EnemyAudioPayload.CueKey,
+                    fact.EnemyAudioPayload.OriginKind,
+                    fact.EnemyAudioPayload.Phase)).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    (PresentationSemanticSource.EnemyMove, 20, PresentationEnemyAudioCueKey.Move, PresentationEnemyAudioOriginKind.Move, PresentationEnemyAudioPhase.Move),
+                    (PresentationSemanticSource.EnemyMove, 21, PresentationEnemyAudioCueKey.Move, PresentationEnemyAudioOriginKind.Move, PresentationEnemyAudioPhase.Move),
+                }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TickPresentationFactExtractor_StationaryActive_EmitsOnlyWithoutSpecificCueOrMotion()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var result = CreateTickResult(
+                CreatePresentationData(
+                    entityMotions: new[]
+                    {
+                        new TickEntityMotion(21, TickEntityMotionKind.Move, sourceCell, targetCell),
+                    },
+                    enemyActionSignals: new[]
+                    {
+                        CreateEnemyActionExecutedSignal(
+                            22,
+                            EnemyActionPresentationSource.Combat,
+                            EnemyActionPresentationOutcome.Executed),
+                    }),
+                new[]
+                {
+                    CreateUnit(20, UnitRole.Enemy),
+                    CreateUnit(21, UnitRole.Enemy),
+                    CreateUnit(22, UnitRole.Enemy),
+                    CreateUnit(10, UnitRole.Player),
+                });
+
+            var facts = ExtractEnemyAudioFacts(result);
+
+            Assert.That(
+                facts.Select(fact => (
+                    fact.EnemyAudioPayload.OwnerEntityId,
+                    (PresentationEnemyAudioCueKey)fact.EnemyAudioPayload.CueKey,
+                    fact.EnemyAudioPayload.OriginKind,
+                    fact.EnemyAudioPayload.Phase)).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    (21, PresentationEnemyAudioCueKey.Move, PresentationEnemyAudioOriginKind.Move, PresentationEnemyAudioPhase.Move),
+                    (22, PresentationEnemyAudioCueKey.Active, PresentationEnemyAudioOriginKind.Action, PresentationEnemyAudioPhase.Active),
+                    (20, PresentationEnemyAudioCueKey.StationaryActive, PresentationEnemyAudioOriginKind.Stationary, PresentationEnemyAudioPhase.StationaryActive),
+                }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAudioPlanning_LegacyAndTypedRequiredSemanticParity_CoversRecoveredCarriers()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var result = CreateTickResult(
+                CreatePresentationData(
+                    entityMotions: new[]
+                    {
+                        new TickEntityMotion(20, TickEntityMotionKind.Move, sourceCell, targetCell),
+                    },
+                    enemyUtilitySignals: new[]
+                    {
+                        new TickEnemyUtilityPresentationSignal(
+                            30,
+                            EnemyUtilityPresentationKind.GravityFieldAura,
+                            EnemyUtilityPresentationPhase.WindupStarted,
+                            startTick: 1,
+                            executeTick: 2,
+                            durationTicks: 2),
+                        new TickEnemyUtilityPresentationSignal(
+                            30,
+                            EnemyUtilityPresentationKind.GravityFieldAura,
+                            EnemyUtilityPresentationPhase.AttackStarted,
+                            startTick: 1,
+                            executeTick: 2,
+                            durationTicks: 2),
+                        new TickEnemyUtilityPresentationSignal(
+                            30,
+                            EnemyUtilityPresentationKind.GravityFieldAura,
+                            EnemyUtilityPresentationPhase.RecoverStarted,
+                            startTick: 1,
+                            executeTick: 3,
+                            durationTicks: 1),
+                    },
+                    enemyGlideSignals: new[]
+                    {
+                        CreateGlideSignal(40, sourceCell, EnemyGlidePhase.Windup, phaseElapsedTicks: 0),
+                        CreateGlideSignal(40, sourceCell, EnemyGlidePhase.Active, phaseElapsedTicks: 0),
+                        CreateGlideSignal(40, sourceCell, EnemyGlidePhase.Recovery, phaseElapsedTicks: 0),
+                    },
+                    visibilityChanges: new[]
+                    {
+                        new TickVisibilityChange(
+                            entityId: 60,
+                            TickVisibilityChangeKind.Spawn,
+                            targetCell,
+                            topology,
+                            Direction.Left),
+                    },
+                    summonedEnemyPresentationBindings: new[]
+                    {
+                        new TickSummonedEnemyPresentationBinding(
+                            entityId: 60,
+                            hasEnemyDefinitionBinding: true,
+                            archetypeId: default,
+                            sourceEntityId: 50),
+                    }),
+                new[]
+                {
+                    CreateUnit(20, UnitRole.Enemy),
+                    CreateUnit(30, UnitRole.Enemy),
+                    CreateUnit(40, UnitRole.Enemy),
+                    CreateUnit(50, UnitRole.Enemy),
+                });
+
+            var legacyRequests = new EnemyAudioRequestPlanner().BuildRequests(result);
+            var typedCues = PlanEnemyAudioCues(result);
+
+            Assert.That(
+                typedCues.Select(ToSemanticCueKey).ToArray(),
+                Is.EqualTo(legacyRequests.Select(ToSemanticRequestKey).ToArray()));
+        }
+
+        [Test]
         [Category("Extended")]
         public void EnemyAudioRequestPlanner_ActionRecoveryStart_EmitsRecoverCue()
         {
@@ -3149,6 +3456,117 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new EnemyAudioCuePlanner(),
             }).Plan(factFrame);
             return new PresentationPlaybackPlanner().Plan(cueFrame);
+        }
+
+        private static IReadOnlyList<PresentationFact> ExtractEnemyAudioFacts(TickResult result)
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            return factFrame.Facts
+                .Where(fact => fact.Kind == PresentationFactKind.EnemyAudio)
+                .ToArray();
+        }
+
+        private static IReadOnlyList<PresentationCue> PlanEnemyAudioCues(TickResult result)
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new EnemyAudioCuePlanner(),
+            }).Plan(factFrame);
+            return cueFrame.Cues
+                .Where(cue => cue.Domain == PresentationDomain.EnemyAudio)
+                .ToArray();
+        }
+
+        private static PresentationEnemyAudioCueKey ResolveEnemyAudioCueKey(PresentationCue cue)
+        {
+            Assert.That(cue.Key.TryGetEnemyAudioCueKey(out var cueKey), Is.True);
+            return cueKey;
+        }
+
+        private static (
+            int OwnerEntityId,
+            PresentationEnemyAudioCueKey Cue,
+            PresentationEnemyAudioOriginKind OriginKind,
+            PresentationEnemyAudioPhase Phase,
+            int SourceSequenceId,
+            int TargetEntityId,
+            int ImpactTick,
+            int ImpactId,
+            int PresentationKey,
+            int Timing) ToSemanticCueKey(PresentationCue cue)
+        {
+            return (
+                cue.EnemyAudioPayload.OwnerEntityId,
+                ResolveEnemyAudioCueKey(cue),
+                cue.EnemyAudioPayload.OriginKind,
+                cue.EnemyAudioPayload.Phase,
+                cue.EnemyAudioPayload.SourceSequenceId,
+                cue.EnemyAudioPayload.TargetEntityId,
+                cue.EnemyAudioPayload.ImpactTick,
+                cue.EnemyAudioPayload.ImpactId,
+                cue.EnemyAudioPayload.PresentationKey,
+                cue.EnemyAudioPayload.Timing);
+        }
+
+        private static (
+            int OwnerEntityId,
+            PresentationEnemyAudioCueKey Cue,
+            PresentationEnemyAudioOriginKind OriginKind,
+            PresentationEnemyAudioPhase Phase,
+            int SourceSequenceId,
+            int TargetEntityId,
+            int ImpactTick,
+            int ImpactId,
+            int PresentationKey,
+            int Timing) ToSemanticRequestKey(EnemyAudioRequest request)
+        {
+            return (
+                request.OwnerEntityId,
+                (PresentationEnemyAudioCueKey)request.Cue,
+                ResolveRequestOriginKind(request.SemanticEvent.OriginKind),
+                ResolveRequestPhase(request.SemanticEvent.Phase),
+                request.SemanticEvent.SourceSequenceId,
+                request.SemanticEvent.TargetEntityId,
+                request.SemanticEvent.ImpactTick,
+                request.SemanticEvent.ImpactId,
+                request.SemanticEvent.PresentationKey,
+                request.SemanticEvent.Timing);
+        }
+
+        private static PresentationEnemyAudioOriginKind ResolveRequestOriginKind(
+            EnemyAudioSemanticOriginKind originKind)
+        {
+            return originKind switch
+            {
+                EnemyAudioSemanticOriginKind.Action => PresentationEnemyAudioOriginKind.Action,
+                EnemyAudioSemanticOriginKind.Jump => PresentationEnemyAudioOriginKind.Jump,
+                EnemyAudioSemanticOriginKind.Charge => PresentationEnemyAudioOriginKind.Charge,
+                EnemyAudioSemanticOriginKind.Death => PresentationEnemyAudioOriginKind.Death,
+                EnemyAudioSemanticOriginKind.ForwardCellImpact => PresentationEnemyAudioOriginKind.ForwardCellImpact,
+                EnemyAudioSemanticOriginKind.Utility => PresentationEnemyAudioOriginKind.Utility,
+                EnemyAudioSemanticOriginKind.Glide => PresentationEnemyAudioOriginKind.Glide,
+                EnemyAudioSemanticOriginKind.Summon => PresentationEnemyAudioOriginKind.Summon,
+                EnemyAudioSemanticOriginKind.Move => PresentationEnemyAudioOriginKind.Move,
+                EnemyAudioSemanticOriginKind.Stationary => PresentationEnemyAudioOriginKind.Stationary,
+                _ => PresentationEnemyAudioOriginKind.None,
+            };
+        }
+
+        private static PresentationEnemyAudioPhase ResolveRequestPhase(EnemyAudioSemanticPhase phase)
+        {
+            return phase switch
+            {
+                EnemyAudioSemanticPhase.Windup => PresentationEnemyAudioPhase.Windup,
+                EnemyAudioSemanticPhase.Active => PresentationEnemyAudioPhase.Active,
+                EnemyAudioSemanticPhase.Recover => PresentationEnemyAudioPhase.Recover,
+                EnemyAudioSemanticPhase.Landing => PresentationEnemyAudioPhase.Landing,
+                EnemyAudioSemanticPhase.Death => PresentationEnemyAudioPhase.Death,
+                EnemyAudioSemanticPhase.Impact => PresentationEnemyAudioPhase.Impact,
+                EnemyAudioSemanticPhase.Move => PresentationEnemyAudioPhase.Move,
+                EnemyAudioSemanticPhase.StationaryActive => PresentationEnemyAudioPhase.StationaryActive,
+                _ => PresentationEnemyAudioPhase.None,
+            };
         }
 
         private static PresentationPlaybackPlan CreateManualEnemyAudioPlaybackPlan(PresentationEnemyAudioCueKey cueKey)
