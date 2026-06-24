@@ -112,6 +112,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     staticViewPrefabsByEntityId: staticViewPrefabs);
                 var binder = new GameplayEntityViewBinder(registry, factory);
                 var presenter = root.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
 
                 presenter.Initialize(
                     binder,

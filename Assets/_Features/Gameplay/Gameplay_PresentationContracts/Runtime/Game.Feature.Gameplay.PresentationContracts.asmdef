@@ -1,0 +1,7 @@
+{
+  "name": "Game.Feature.Gameplay.PresentationContracts",
+  "rootNamespace": "Game.Feature.Gameplay.PresentationContracts",
+  "references": [
+    "Game.Feature.Gameplay"
+  ]
+}

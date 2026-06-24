@@ -5,6 +5,8 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PresentationContracts;
+using Game.Feature.Gameplay.PresentationPlanning;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -90,7 +92,8 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
             CubeTopologyState previousCommittedTopology,
             GameplayCubeProjector projector,
-            GameplayTimingProfile timingProfile)
+            GameplayTimingProfile timingProfile,
+            BoxMotionLegacySuppression boxMotionSuppression = BoxMotionLegacySuppression.None)
         {
             if (result == null)
             {
@@ -119,11 +122,13 @@ namespace Game.Feature.Gameplay.Host
                 previousCommittedTopology,
                 projector,
                 timingProfile,
-                kinematicEntityIds);
+                kinematicEntityIds,
+                boxMotionSuppression);
             RefreshOriginalViewMotionTracks(
                 result,
                 projector,
-                timingProfile);
+                timingProfile,
+                boxMotionSuppression);
             RefreshJumpWindupRotationTracks(
                 result,
                 previousCommittedLocalTargetPoses,
@@ -145,6 +150,74 @@ namespace Game.Feature.Gameplay.Host
             RefreshTransitionVisibilityState(presentationData, projector);
             RefreshFlipInteractionTracks(presentationData, timingProfile, flipImpactTimingSettings);
             _playerDeathDisplacementPlanner.RefreshTracks(presentationData, projector, timingProfile);
+        }
+
+        internal bool TryRequestBoxMotionPlayback(
+            in GameplayMotionPlaybackRequest request,
+            TickResult result,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
+            CubeTopologyState previousCommittedTopology,
+            GameplayCubeProjector projector,
+            GameplayTimingProfile timingProfile,
+            out GameplayMotionPlaybackResultKind resultKind)
+        {
+            resultKind = GameplayMotionPlaybackResultKind.None;
+            if (result == null ||
+                previousCommittedLocalTargetPoses == null ||
+                projector == null ||
+                timingProfile == null ||
+                request.EntityId <= 0)
+            {
+                resultKind = GameplayMotionPlaybackResultKind.BindingMissing;
+                return false;
+            }
+
+            if (request.CueKey == PresentationMotionCueKey.BoxFlipImpact)
+            {
+                return TryRequestBoxFlipImpactMotion(
+                    request,
+                    result,
+                    projector,
+                    timingProfile,
+                    out resultKind);
+            }
+
+            if (request.CueKey != PresentationMotionCueKey.BoxSlide &&
+                request.CueKey != PresentationMotionCueKey.BoxFlip)
+            {
+                resultKind = GameplayMotionPlaybackResultKind.BindingMissing;
+                return false;
+            }
+
+            var motionKind = request.CueKey == PresentationMotionCueKey.BoxSlide
+                ? TickEntityMotionKind.BoxSlide
+                : TickEntityMotionKind.Flip;
+            var payload = request.MotionPayload;
+            var topology = payload.HasTopology ? (CubeTopologyState?)payload.Topology : null;
+            var sourceFacing = payload.SourceFacing != Direction.None ? (Direction?)payload.SourceFacing : null;
+            var destinationFacing = payload.DestinationFacing != Direction.None
+                ? (Direction?)payload.DestinationFacing
+                : null;
+            var motion = new TickEntityMotion(
+                payload.EntityId,
+                motionKind,
+                payload.SourceCell,
+                payload.DestinationCell,
+                topology,
+                topology,
+                sourceFacing,
+                destinationFacing);
+            var started = TryAppendMotionClip(
+                result.PresentationData,
+                motion,
+                previousCommittedLocalTargetPoses,
+                previousCommittedTopology,
+                projector,
+                timingProfile);
+            resultKind = started
+                ? GameplayMotionPlaybackResultKind.Started
+                : GameplayMotionPlaybackResultKind.BindingMissing;
+            return started;
         }
 
         private void RefreshPresentationEventTargets(TickPresentationData presentationData)
@@ -848,7 +921,8 @@ namespace Game.Feature.Gameplay.Host
             CubeTopologyState previousCommittedTopology,
             GameplayCubeProjector projector,
             GameplayTimingProfile timingProfile,
-            ISet<int> kinematicEntityIds)
+            ISet<int> kinematicEntityIds,
+            BoxMotionLegacySuppression boxMotionSuppression)
         {
             if (presentationData == null)
             {
@@ -898,73 +972,105 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < presentationData.EntityMotions.Count; i++)
             {
                 var motion = presentationData.EntityMotions[i];
+                if (ShouldSuppressMotionClip(boxMotionSuppression, motion.MotionKind))
+                {
+                    _trackState.BoxMotionTelemetry.RecordLegacyBoxSourcePlanningSkipped(
+                        ToBoxMotionFactKind(motion.MotionKind),
+                        tickIndex: 0,
+                        motion.EntityId);
+                    continue;
+                }
+
+                if (boxMotionSuppression != BoxMotionLegacySuppression.None)
+                {
+                    _trackState.BoxMotionTelemetry.RecordLegacyUnrelatedMotionTrackRetained();
+                }
+
                 if (kinematicEntityIds != null &&
                     kinematicEntityIds.Contains(motion.EntityId))
                 {
                     continue;
                 }
-
-                var endLocalPose = ResolveMotionEndPose(motion, presentationData.TopologyMotion, projector);
-                var startLocalPose = ResolveMotionStartPose(
+                TryAppendMotionClip(
+                    presentationData,
                     motion,
                     previousCommittedLocalTargetPoses,
                     previousCommittedTopology,
-                    presentationData.TopologyMotion,
-                    endLocalPose,
-                    projector);
+                    projector,
+                    timingProfile);
+            }
+        }
 
-                if (_trackState.LocalMotionTracks.TryGetValue(motion.EntityId, out var existingTrack) &&
-                    existingTrack.HasClips)
+        private bool TryAppendMotionClip(
+            TickPresentationData presentationData,
+            TickEntityMotion motion,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
+            CubeTopologyState previousCommittedTopology,
+            GameplayCubeProjector projector,
+            GameplayTimingProfile timingProfile)
+        {
+            var endLocalPose = ResolveMotionEndPose(motion, presentationData.TopologyMotion, projector);
+            var startLocalPose = ResolveMotionStartPose(
+                motion,
+                previousCommittedLocalTargetPoses,
+                previousCommittedTopology,
+                presentationData.TopologyMotion,
+                endLocalPose,
+                projector);
+
+            if (_trackState.LocalMotionTracks.TryGetValue(motion.EntityId, out var existingTrack) &&
+                existingTrack.HasClips)
+            {
+                if (existingTrack.TailMotionKind == TickEntityMotionKind.Flip &&
+                    motion.MotionKind != TickEntityMotionKind.Flip)
                 {
-                    if (existingTrack.TailMotionKind == TickEntityMotionKind.Flip &&
-                        motion.MotionKind != TickEntityMotionKind.Flip)
-                    {
-                        startLocalPose = existingTrack.TailEndPose;
-                        existingTrack.Clear();
-                    }
-                    else
-                    {
-                        startLocalPose = existingTrack.TailEndPose;
-                    }
+                    startLocalPose = existingTrack.TailEndPose;
+                    existingTrack.Clear();
                 }
-
-                var motionDurationSeconds = ResolveMotionDurationSeconds(presentationData, motion, timingProfile);
-                if (_moonBlockDestructionPresentationController != null &&
-                    _moonBlockDestructionPresentationController.TryStartDestructionGhostMotion(
-                        motion.EntityId,
-                        startLocalPose,
-                        endLocalPose,
-                        motionDurationSeconds))
+                else
                 {
-                    continue;
-                }
-
-                if (!_trackState.LocalMotionTracks.TryGetValue(motion.EntityId, out var track))
-                {
-                    track = new MotionTrack();
-                    _trackState.LocalMotionTracks[motion.EntityId] = track;
-                }
-
-                track.Append(
-                    MotionClip.Create(
-                        motion.MotionKind,
-                        startLocalPose,
-                        endLocalPose,
-                        motionDurationSeconds,
-                        IsTopologyTransitionPresentation(presentationData.TopologyMotion),
-                        ResolveFlipPeakHeightWorld(
-                            presentationData,
-                            motion,
-                            startLocalPose,
-                            endLocalPose,
-                            projector,
-                            timingProfile)));
-
-                if (!_stateStore.CommittedLocalTargetPoses.ContainsKey(motion.EntityId))
-                {
-                    _stateStore.RetainedLocalTargetPoses[motion.EntityId] = endLocalPose;
+                    startLocalPose = existingTrack.TailEndPose;
                 }
             }
+
+            var motionDurationSeconds = ResolveMotionDurationSeconds(presentationData, motion, timingProfile);
+            if (_moonBlockDestructionPresentationController != null &&
+                _moonBlockDestructionPresentationController.TryStartDestructionGhostMotion(
+                    motion.EntityId,
+                    startLocalPose,
+                    endLocalPose,
+                    motionDurationSeconds))
+            {
+                return true;
+            }
+
+            if (!_trackState.LocalMotionTracks.TryGetValue(motion.EntityId, out var track))
+            {
+                track = new MotionTrack();
+                _trackState.LocalMotionTracks[motion.EntityId] = track;
+            }
+
+            track.Append(
+                MotionClip.Create(
+                    motion.MotionKind,
+                    startLocalPose,
+                    endLocalPose,
+                    motionDurationSeconds,
+                    IsTopologyTransitionPresentation(presentationData.TopologyMotion),
+                    ResolveFlipPeakHeightWorld(
+                        presentationData,
+                        motion,
+                        startLocalPose,
+                        endLocalPose,
+                        projector,
+                        timingProfile)));
+
+            if (!_stateStore.CommittedLocalTargetPoses.ContainsKey(motion.EntityId))
+            {
+                _stateStore.RetainedLocalTargetPoses[motion.EntityId] = endLocalPose;
+            }
+
+            return true;
         }
 
         private float ResolveMotionDurationSeconds(
@@ -1781,10 +1887,45 @@ namespace Game.Feature.Gameplay.Host
                    topologyMotion.Value.RotationKind != CubeRotationKind.None;
         }
 
+        private static bool ShouldSuppressMotionClip(
+            BoxMotionLegacySuppression suppression,
+            TickEntityMotionKind motionKind)
+        {
+            switch (motionKind)
+            {
+                case TickEntityMotionKind.BoxSlide:
+                    return (suppression & BoxMotionLegacySuppression.BoxSlide) != 0;
+                case TickEntityMotionKind.Flip:
+                    return (suppression & BoxMotionLegacySuppression.BoxFlip) != 0;
+                default:
+                    return false;
+            }
+        }
+
+        private static bool IsBoxMotionFamily(TickEntityMotionKind motionKind)
+        {
+            return motionKind == TickEntityMotionKind.BoxSlide ||
+                   motionKind == TickEntityMotionKind.Flip;
+        }
+
+        private static PresentationMotionFactKind ToBoxMotionFactKind(TickEntityMotionKind motionKind)
+        {
+            switch (motionKind)
+            {
+                case TickEntityMotionKind.BoxSlide:
+                    return PresentationMotionFactKind.BoxSlide;
+                case TickEntityMotionKind.Flip:
+                    return PresentationMotionFactKind.BoxFlip;
+                default:
+                    return PresentationMotionFactKind.None;
+            }
+        }
+
         private void RefreshOriginalViewMotionTracks(
             TickResult result,
             GameplayCubeProjector projector,
-            GameplayTimingProfile timingProfile)
+            GameplayTimingProfile timingProfile,
+            BoxMotionLegacySuppression boxMotionSuppression)
         {
             if (result == null)
             {
@@ -1827,6 +1968,16 @@ namespace Game.Feature.Gameplay.Host
             var flipImpactSignals = result.PresentationData.FlipImpactSignals;
             for (var i = 0; i < flipImpactSignals.Count; i++)
             {
+                if ((boxMotionSuppression & BoxMotionLegacySuppression.BoxFlipImpact) != 0)
+                {
+                    var skippedSignal = flipImpactSignals[i];
+                    _trackState.BoxMotionTelemetry.RecordLegacyBoxSourcePlanningSkipped(
+                        PresentationMotionFactKind.BoxFlipImpact,
+                        result.TickIndex,
+                        skippedSignal.BoxEntityId);
+                    continue;
+                }
+
                 var signal = flipImpactSignals[i];
                 if (signal.Disposition != FlipImpactPresentationDisposition.Stay)
                 {
@@ -1872,6 +2023,79 @@ namespace Game.Feature.Gameplay.Host
                 _trackState.OriginalViewMotionTracks[signal.BoxEntityId] =
                     PresentationMotionTrack.CreateFlipImpactStay(command);
             }
+        }
+
+        private bool TryRequestBoxFlipImpactMotion(
+            in GameplayMotionPlaybackRequest request,
+            TickResult result,
+            GameplayCubeProjector projector,
+            GameplayTimingProfile timingProfile,
+            out GameplayMotionPlaybackResultKind resultKind)
+        {
+            resultKind = GameplayMotionPlaybackResultKind.None;
+            var payload = request.MotionPayload;
+            if (payload.FlipDisposition != (int)FlipImpactPresentationDisposition.Stay)
+            {
+                resultKind = GameplayMotionPlaybackResultKind.Requested;
+                return true;
+            }
+
+            var signal = new FlipImpactPresentationSignal(
+                payload.SourceActionPlanId,
+                payload.EntityId,
+                payload.ImpactTargetEntityId > 0 ? payload.ImpactTargetEntityId : -1,
+                payload.ActorEntityId,
+                payload.SourceCell,
+                payload.DestinationCell,
+                payload.HasTopology ? payload.Topology : _stateStore.CommittedTopology,
+                payload.SourceFacing,
+                payload.DestinationFacing,
+                FlipImpactPresentationDisposition.Stay,
+                payload.HasLandingCell,
+                payload.LandingCell);
+            var key = PresentationMotionInstanceKey.CreateFlipImpactStay(signal, result.TickIndex);
+            if (_trackState.CompletedPresentationMotionKeys.Contains(key))
+            {
+                resultKind = GameplayMotionPlaybackResultKind.LegacyOwnerActive;
+                return false;
+            }
+
+            if (_trackState.OriginalViewMotionTracks.TryGetValue(signal.BoxEntityId, out var existingTrack))
+            {
+                if (existingTrack.InstanceKey.Equals(key))
+                {
+                    resultKind = GameplayMotionPlaybackResultKind.LegacyOwnerActive;
+                    return false;
+                }
+
+                _trackState.OriginalViewMotionTracks.Remove(signal.BoxEntityId);
+            }
+
+            if (!TryGetFinalEntity(result.FinalEntities, signal.BoxEntityId, out var finalEntity) ||
+                finalEntity.boardPresence != EntityBoardPresence.Occupying ||
+                finalEntity.position != signal.SourceCell)
+            {
+                resultKind = GameplayMotionPlaybackResultKind.TargetMissing;
+                return false;
+            }
+
+            if (!FlipImpactStayMotionCommandBuilder.TryBuild(
+                    signal,
+                    result.TickIndex,
+                    timingProfile,
+                    _motionTimingResolver,
+                    _poseResolver,
+                    projector,
+                    out var command))
+            {
+                resultKind = GameplayMotionPlaybackResultKind.BindingMissing;
+                return false;
+            }
+
+            _trackState.OriginalViewMotionTracks[signal.BoxEntityId] =
+                PresentationMotionTrack.CreateFlipImpactStay(command);
+            resultKind = GameplayMotionPlaybackResultKind.Started;
+            return true;
         }
 
         private void RefreshFlipInteractionTracks(

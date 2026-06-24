@@ -61,6 +61,14 @@ namespace Game.Feature.Gameplay.Host
             var viewRegistry = hostObject.GetComponent<GameplayEntityViewRegistry>() ?? hostObject.AddComponent<GameplayEntityViewRegistry>();
             var tileFeatureVisualRegistry =
                 hostObject.GetComponent<TileFeatureVisualRegistry>() ?? hostObject.AddComponent<TileFeatureVisualRegistry>();
+            var presentationDependencies = DiscoverPresentationHostDependencies(hostObject);
+            var presentationComposition = GameplayPresentationRuntimeCompositionFactory.Create(
+                new GameplayPresentationRuntimeCompositionFactoryOptions
+                {
+                    DamageDeathVfxPlaybackPort = presentationDependencies.DamageDeathVfxPlaybackPort,
+                });
+            var presentationCoordinator = new GameplayTickPresentationCoordinator(presentationComposition);
+            presenter.BindCoordinator(presentationCoordinator);
 
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
             var initialTileFeatures = configuration.InitialTileFeatures ?? Array.Empty<TileFeatureState>();
@@ -176,10 +184,11 @@ namespace Game.Feature.Gameplay.Host
                 configuration.EnemyPresentationCatalog,
                 configuration.EnemyPresentationBindings,
                 BuildTileFeatureVfxStyleBindings(configuration.TileFeaturePresentationBindings),
-                configuration.EnemyInactiveVisualSettings);
+                configuration.EnemyInactiveVisualSettings,
+                configuration.TopologyPresentationExecutionMode);
             presenter.AttachTileFeatureVisualRegistry(tileFeatureVisualRegistry);
             presenter.AttachTileFeatureVisualPoseSynchronizer(tileFeatureVisualPoseSynchronizer);
-            AttachPresentationExtensions(hostObject, presenter);
+            AttachPresentationExtensions(presenter, presentationDependencies.PresentationExtensions);
             AttachAudioRuntimesIfConfigured(hostObject, presenter, configuration);
 
             boardSurfaceRenderer.Initialize(
@@ -321,20 +330,72 @@ namespace Game.Feature.Gameplay.Host
                 configuration.Actions);
         }
 
-        private static void AttachPresentationExtensions(GameObject hostObject, GameplayTickViewPresenter presenter)
+        private static PresentationHostDependencyDiscovery DiscoverPresentationHostDependencies(GameObject hostObject)
         {
+            IDamageDeathVfxPlaybackPort damageDeathVfxPlaybackPort = null;
+            var presentationExtensions = new List<IGameplayTickPresentationExtension>();
             var behaviours = hostObject.GetComponents<MonoBehaviour>();
             for (var i = 0; i < behaviours.Length; i++)
             {
                 var behaviour = behaviours[i];
-                if (behaviour != null &&
-                    behaviour.enabled &&
-                    behaviour.gameObject.activeInHierarchy &&
-                    behaviour is IGameplayTickPresentationExtension extension)
+                if (behaviour == null ||
+                    !behaviour.enabled ||
+                    !behaviour.gameObject.activeInHierarchy)
                 {
-                    presenter.AttachPresentationExtension(extension);
+                    continue;
+                }
+
+                if (behaviour is IDamageDeathGameplayVfxPlaybackRuntime damageDeathVfxRuntime)
+                {
+                    if (damageDeathVfxPlaybackPort != null)
+                    {
+                        throw new InvalidOperationException(
+                            "GameplaySceneHost requires exactly one host-local Damage/Death VFX playback runtime.");
+                    }
+
+                    damageDeathVfxPlaybackPort =
+                        new DamageDeathGameplayVfxPlaybackPortAdapter(damageDeathVfxRuntime);
+                }
+
+                if (behaviour is IGameplayTickPresentationExtension extension)
+                {
+                    presentationExtensions.Add(extension);
                 }
             }
+
+            return new PresentationHostDependencyDiscovery(
+                presentationExtensions.ToArray(),
+                damageDeathVfxPlaybackPort);
+        }
+
+        private static void AttachPresentationExtensions(
+            GameplayTickViewPresenter presenter,
+            IReadOnlyList<IGameplayTickPresentationExtension> presentationExtensions)
+        {
+            if (presentationExtensions == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < presentationExtensions.Count; i++)
+            {
+                presenter.AttachPresentationExtension(presentationExtensions[i]);
+            }
+        }
+
+        private sealed class PresentationHostDependencyDiscovery
+        {
+            public PresentationHostDependencyDiscovery(
+                IReadOnlyList<IGameplayTickPresentationExtension> presentationExtensions,
+                IDamageDeathVfxPlaybackPort damageDeathVfxPlaybackPort)
+            {
+                PresentationExtensions = presentationExtensions ?? Array.Empty<IGameplayTickPresentationExtension>();
+                DamageDeathVfxPlaybackPort = damageDeathVfxPlaybackPort;
+            }
+
+            public IReadOnlyList<IGameplayTickPresentationExtension> PresentationExtensions { get; }
+
+            public IDamageDeathVfxPlaybackPort DamageDeathVfxPlaybackPort { get; }
         }
 
         private static IReadOnlyDictionary<int, GameplayEntityView> BuildStaticViewPrefabs(

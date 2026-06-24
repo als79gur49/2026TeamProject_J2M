@@ -101,6 +101,12 @@ namespace Game.Feature.Gameplay.Host
 
         public string LastCrossFadedStateName { get; private set; } = string.Empty;
 
+        internal int CrossFadeCommandCount { get; private set; }
+
+        internal int TriggerWriteCount { get; private set; }
+
+        internal bool CanDriveCurrentAnimator => CanDriveAnimator(ResolveAnimator());
+
         private void Reset()
         {
             animator = GetComponentInChildren<Animator>();
@@ -155,6 +161,22 @@ namespace Game.Feature.Gameplay.Host
             var targetAnimator = ResolveAnimator();
             if (!CanDriveAnimator(targetAnimator))
             {
+                var fallbackRestart = _pendingRestart || request.Restart;
+                var fallbackExecuteActionKind = _pendingExecuteActionKind;
+                var previousState = CurrentState;
+                var previousPhase = CurrentPresentationPhase;
+                CurrentState = request.State;
+                CurrentPresentationPhase = request.PhaseOverride != PlayerPresentationPhase.None
+                    ? request.PhaseOverride
+                    : ResolveTargetPresentationPhase(
+                        request.State,
+                        fallbackRestart,
+                        fallbackExecuteActionKind,
+                        previousState,
+                        previousPhase);
+                _pendingRestart = false;
+                _pendingHitTrigger = false;
+                _pendingExecuteActionKind = PlayerActionKind.None;
                 return;
             }
 
@@ -184,6 +206,27 @@ namespace Game.Feature.Gameplay.Host
         public void SyncHiddenRuntimeState()
         {
             IsVisible = false;
+        }
+
+        public void ResetDeathPresentationForRespawn()
+        {
+            _pendingRestart = false;
+            _pendingHitTrigger = false;
+            _pendingExecuteActionKind = PlayerActionKind.None;
+            CurrentState = PlayerViewAnimationState.Idle;
+            CurrentPresentationPhase = PlayerPresentationPhase.None;
+            _hasDrivenResolvedState = false;
+
+            var targetAnimator = ResolveAnimator();
+            if (CanDriveAnimator(targetAnimator))
+            {
+                ApplyResolvedState(
+                    targetAnimator,
+                    PlayerViewAnimationState.Idle,
+                    restart: true,
+                    PlayerActionKind.None,
+                    resolvedMotionDurationSeconds: 0f);
+            }
         }
 
         public float GetPresentationDurationSeconds(
@@ -419,6 +462,7 @@ namespace Game.Feature.Gameplay.Host
             targetAnimator.CrossFadeInFixedTime(Animator.StringToHash(stateName), resolvedDurationSeconds);
             LastCrossFadedStateName = stateName;
             LastCrossFadeDurationSeconds = resolvedDurationSeconds;
+            CrossFadeCommandCount++;
             return true;
         }
 
@@ -460,6 +504,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             targetAnimator.SetTrigger(hitTriggerName);
+            TriggerWriteCount++;
         }
 
         private static bool HasAnimatorParameter(

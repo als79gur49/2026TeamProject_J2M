@@ -4,6 +4,7 @@ using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PresentationContracts;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -343,6 +344,11 @@ namespace Game.Feature.Gameplay.Host
                         motionVisualScaleMultiplier = Vector3.one;
                         _trackState.CompletedOriginalViewMotionTrackIds.Add(entityId);
                         _trackState.CompletedPresentationMotionKeys.Add(originalViewMotionTrack.InstanceKey);
+                        _trackState.BoxMotionTelemetry.RecordTrackCompleted(
+                            PresentationMotionFactKind.BoxFlipImpact,
+                            tickIndex: 0,
+                            entityId,
+                            originalViewMotionTrack.InstanceKey.GetHashCode());
                     }
                 }
                 else if (_trackState.LocalMotionTracks.TryGetValue(entityId, out var motionTrack))
@@ -354,6 +360,16 @@ namespace Game.Feature.Gameplay.Host
                     if (!motionTrack.HasClips)
                     {
                         _trackState.CompletedMotionTrackIds.Add(entityId);
+                        if (TryMapBoxMotionSemantic(
+                                motionTrack.LastCompletedMotionKind,
+                                out var completedSemantic))
+                        {
+                            _trackState.BoxMotionTelemetry.RecordTrackCompleted(
+                                completedSemantic,
+                                tickIndex: 0,
+                                entityId,
+                                dedupeKey: 0);
+                        }
                     }
                 }
 
@@ -656,6 +672,27 @@ namespace Game.Feature.Gameplay.Host
         public void ResetEnemySemanticPresentationDriverCache()
         {
             _enemySemanticDriversByEntityId.Clear();
+        }
+
+        internal BoxFlipInteractionResetResult ResetBoxFlipInteractionsForKnownViews()
+        {
+            var result = default(BoxFlipInteractionResetResult);
+            foreach (var pair in _stateStore.ViewsByEntityId)
+            {
+                var entityId = pair.Key;
+                if (!_stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType) ||
+                    entityType != EntityType.Box ||
+                    pair.Value == null ||
+                    !pair.Value.TryGetComponent<BoxFlipInteractionDriver>(out var boxDriver) ||
+                    boxDriver == null)
+                {
+                    continue;
+                }
+
+                result = result.Add(boxDriver.ResetInteractionForDiagnostics());
+            }
+
+            return result;
         }
 
         private IReadOnlyList<int> BuildProcessingEntityIds()
@@ -1032,7 +1069,7 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < _trackState.FlipInteractionResetRequests.Count; i++)
             {
                 var request = _trackState.FlipInteractionResetRequests[i];
-                ResetFlipInteraction(request.PlayerEntityId, request.BoxEntityId);
+                RecordFlipInteractionReset(ResetFlipInteraction(request.PlayerEntityId, request.BoxEntityId));
             }
 
             _trackState.FlipInteractionResetRequests.Clear();
@@ -1047,7 +1084,7 @@ namespace Game.Feature.Gameplay.Host
                 var track = pair.Value;
                 if (track.IsComplete)
                 {
-                    ResetFlipInteraction(track.PlayerEntityId, track.BoxEntityId);
+                    RecordFlipInteractionReset(ResetFlipInteraction(track.PlayerEntityId, track.BoxEntityId));
                     _trackState.CompletedFlipInteractionTrackIds.Add(pair.Key);
                     continue;
                 }
@@ -1058,7 +1095,7 @@ namespace Game.Feature.Gameplay.Host
                                  boxView != null;
                 if (!hasPlayerView || !hasBoxView)
                 {
-                    ResetFlipInteraction(track.PlayerEntityId, track.BoxEntityId);
+                    RecordFlipInteractionReset(ResetFlipInteraction(track.PlayerEntityId, track.BoxEntityId));
                     _trackState.CompletedFlipInteractionTrackIds.Add(pair.Key);
                     continue;
                 }
@@ -1086,7 +1123,7 @@ namespace Game.Feature.Gameplay.Host
                 track.Advance(deltaTime);
                 if (track.IsComplete)
                 {
-                    ResetFlipInteraction(track.PlayerEntityId, track.BoxEntityId);
+                    RecordFlipInteractionReset(ResetFlipInteraction(track.PlayerEntityId, track.BoxEntityId));
                     _trackState.CompletedFlipInteractionTrackIds.Add(pair.Key);
                 }
             }
@@ -1125,15 +1162,22 @@ namespace Game.Feature.Gameplay.Host
             public IEnemyVisualSemanticPresentationDriver[] Drivers { get; }
         }
 
-        private void ResetFlipInteraction(int playerEntityId, int boxEntityId)
+        private BoxFlipInteractionResetResult ResetFlipInteraction(int playerEntityId, int boxEntityId)
         {
             if (_stateStore.ViewsByEntityId.TryGetValue(boxEntityId, out var boxView) &&
                 boxView != null &&
                 boxView.TryGetComponent<BoxFlipInteractionDriver>(out var boxDriver) &&
                 boxDriver != null)
             {
-                boxDriver.ResetInteraction();
+                return boxDriver.ResetInteractionForDiagnostics();
             }
+
+            return default;
+        }
+
+        private void RecordFlipInteractionReset(BoxFlipInteractionResetResult result)
+        {
+            _trackState.BoxMotionTelemetry.RecordPoseReset(result);
         }
 
         private bool HasSuppressingOriginalViewMotion(int entityId)
@@ -1169,6 +1213,24 @@ namespace Game.Feature.Gameplay.Host
             return _trackState.LocalMotionTracks.TryGetValue(entityId, out var motionTrack) &&
                    motionTrack.HasClips &&
                    motionTrack.TailMotionKind == TickEntityMotionKind.Move;
+        }
+
+        private static bool TryMapBoxMotionSemantic(
+            TickEntityMotionKind motionKind,
+            out PresentationMotionFactKind semantic)
+        {
+            switch (motionKind)
+            {
+                case TickEntityMotionKind.BoxSlide:
+                    semantic = PresentationMotionFactKind.BoxSlide;
+                    return true;
+                case TickEntityMotionKind.Flip:
+                    semantic = PresentationMotionFactKind.BoxFlip;
+                    return true;
+                default:
+                    semantic = PresentationMotionFactKind.None;
+                    return false;
+            }
         }
 
         private bool ShouldPlayPlayerWalkLoop(int entityId)

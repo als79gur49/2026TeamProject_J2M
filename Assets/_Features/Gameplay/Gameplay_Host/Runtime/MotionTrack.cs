@@ -13,6 +13,8 @@ namespace Game.Feature.Gameplay.Host
 
         public TickEntityMotionKind TailMotionKind => _clips[_clips.Count - 1].MotionKind;
 
+        public TickEntityMotionKind LastCompletedMotionKind { get; private set; }
+
         public GameplayEntityPose TailEndPose => _clips[_clips.Count - 1].EndPose;
 
         public float TotalRemainingSeconds
@@ -36,11 +38,13 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(clip));
             }
 
+            LastCompletedMotionKind = TickEntityMotionKind.None;
             _clips.Add(clip);
         }
 
         public void Clear()
         {
+            LastCompletedMotionKind = TickEntityMotionKind.None;
             _clips.Clear();
         }
 
@@ -93,6 +97,7 @@ namespace Game.Feature.Gameplay.Host
                     return pose;
                 }
 
+                LastCompletedMotionKind = clip.MotionKind;
                 _clips.RemoveAt(0);
                 if (_clips.Count == 0)
                 {

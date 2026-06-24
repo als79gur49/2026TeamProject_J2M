@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Game.Feature.Gameplay.Debug;
@@ -273,6 +274,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void DamageDeathVfx_LegacySuppressPolicy_TelemetryCoversOnlyDamageDeath()
+        {
+            var owner = new GameObject(nameof(DamageDeathVfx_LegacySuppressPolicy_TelemetryCoversOnlyDamageDeath));
+            try
+            {
+                var runtime = owner.AddComponent<GameplayVfxProductionRuntime>();
+                var plan = new GameplayVfxRequestPlan(new[]
+                {
+                    CreatePolicyFilterRequest(GameplayVfxCueId.From(EnemyVfxCue.Damage), sequenceId: 1),
+                    CreatePolicyFilterRequest(GameplayVfxCueId.From(EnemyVfxCue.Death), sequenceId: 2),
+                    CreatePolicyFilterRequest(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion), sequenceId: 3),
+                    CreatePolicyFilterRequest(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke), sequenceId: 4),
+                    CreatePolicyFilterRequest(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak), sequenceId: 5),
+                    CreatePolicyFilterRequest(GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning), sequenceId: 6),
+                });
+
+                var baseline = InvokeFilterByEnabledCues(runtime, plan, filterDamageDeathExecutorOwnedRequests: false);
+                var filtered = InvokeFilterByEnabledCues(runtime, plan, filterDamageDeathExecutorOwnedRequests: true);
+                var baselineCueIds = ToCueIds(baseline);
+                var cueIds = ToCueIds(filtered);
+
+                Assert.That(baselineCueIds, Has.Some.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.Damage)));
+                Assert.That(baselineCueIds, Has.Some.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.Death)));
+                Assert.That(baselineCueIds, Has.None.EqualTo(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)));
+                Assert.That(cueIds, Is.EquivalentTo(new[]
+                {
+                    GameplayVfxCueId.From(EnemyVfxCue.DeathMotion),
+                    GameplayVfxCueId.From(BoxVfxCue.DestroySmoke),
+                    GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning),
+                }));
+                Assert.That(cueIds, Has.None.EqualTo(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)));
+                Assert.That(IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId.From(BoxVfxCue.ImpactTransientBreak)), Is.False);
+                Assert.That(runtime.LegacyDamageCueSuppressedCount, Is.EqualTo(1));
+                Assert.That(runtime.LegacyDeathCueSuppressedCount, Is.EqualTo(1));
+                Assert.That(runtime.LastDamageDeathExecutorOwnedFilteredRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.LegacyDamageDeathUnrelatedCueRetainedCount, Is.EqualTo(3));
+                Assert.That(IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId.From(EnemyVfxCue.DeathMotion)), Is.False);
+                Assert.That(IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId.From(BoxVfxCue.DestroySmoke)), Is.False);
+                Assert.That(IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId.From(EnemyVfxCue.SummonWindupWarning)), Is.False);
+            }
+            finally
+            {
+                Destroy(owner);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ProfileAwareResolver_SourceProfileDeathBindingBeatsHostDefault()
         {
             var cueId = GameplayVfxCueId.From(EnemyVfxCue.Death);
@@ -466,7 +515,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayTickPresentationExtensionContext CreateExtensionContext(
             TickEntityExitPresentationSignal[] exitSignals,
-            TickEnemyDamagePresentationSignal[] enemyDamageSignals)
+            TickEnemyDamagePresentationSignal[] enemyDamageSignals,
+            DamageDeathVfxExtensionPolicy damageDeathVfxExtensionPolicy = default)
         {
             var topology = new CubeTopologyState(FaceId.Floor);
             var stateStore = new GameplayPresentationStateStore();
@@ -490,13 +540,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     }),
                 topology,
                 stateStore,
-                projector);
+                projector,
+                damageDeathVfxExtensionPolicy: damageDeathVfxExtensionPolicy);
+        }
+
+        private static GameplayVfxRequest CreatePolicyFilterRequest(GameplayVfxCueId cueId, int sequenceId)
+        {
+            return new GameplayVfxRequest(
+                tickIndex: 12,
+                sequenceId,
+                presentationSeed: sequenceId,
+                sourceEntityId: sequenceId,
+                cueId,
+                VfxAnchor.ForEntity(sequenceId, VfxAnchorSlot.EntityCenter),
+                VfxTimingKind.ImmediateOnTickPresentation);
+        }
+
+        private static GameplayVfxRequestPlan InvokeFilterByEnabledCues(
+            GameplayVfxProductionRuntime runtime,
+            GameplayVfxRequestPlan plan,
+            bool filterDamageDeathExecutorOwnedRequests)
+        {
+            var method = typeof(GameplayVfxProductionRuntime).GetMethod(
+                "FilterByEnabledCues",
+                BindingFlags.NonPublic | BindingFlags.Instance,
+                null,
+                new[] { typeof(GameplayVfxRequestPlan), typeof(bool) },
+                null);
+            Assert.That(method, Is.Not.Null);
+            return (GameplayVfxRequestPlan)method.Invoke(runtime, new object[] { plan, filterDamageDeathExecutorOwnedRequests });
+        }
+
+        private static bool IsDamageDeathVfxExecutorOwnedCue(GameplayVfxCueId cueId)
+        {
+            var method = typeof(GameplayVfxProductionRuntime).GetMethod(
+                "IsDamageDeathVfxExecutorOwnedCue",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null);
+            return (bool)method.Invoke(null, new object[] { cueId });
+        }
+
+        private static List<GameplayVfxCueId> ToCueIds(GameplayVfxRequestPlan plan)
+        {
+            var cueIds = new List<GameplayVfxCueId>(plan.Requests.Count);
+            for (var i = 0; i < plan.Requests.Count; i++)
+            {
+                cueIds.Add(plan.Requests[i].CueId);
+            }
+
+            return cueIds;
         }
 
         private static PresenterScenario CreatePresenterScenario(string name)
         {
             var root = new GameObject(name);
             var presenter = root.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+            presenter.ConfigureDamageDeathVfxExecution(DamageDeathVfxExecutionMode.LegacyExtension);
             var registry = root.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(
                 registry,

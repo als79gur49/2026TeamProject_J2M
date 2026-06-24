@@ -36,6 +36,15 @@ namespace Game.Feature.Gameplay.ActionAudio
         public string Message { get; }
     }
 
+    public enum GameplayActionAudioProfileResolveStatus
+    {
+        None = 0,
+        EntryMissing = 1,
+        OptionalBindingMissing = 2,
+        BindingMissing = 3,
+        Resolved = 4,
+    }
+
     [CreateAssetMenu(menuName = "Game/Audio/Gameplay Action Audio Profile")]
     public sealed class GameplayActionAudioProfile : ScriptableObject
     {
@@ -121,6 +130,48 @@ namespace Game.Feature.Gameplay.ActionAudio
 
             binding = null;
             return false;
+        }
+
+        public GameplayActionAudioProfileResolveStatus ResolveEntryStatus(
+            GameplayActionKind action,
+            GameplayActionAudioMoment moment,
+            out AudioBinding binding)
+        {
+            binding = null;
+            var found = false;
+            var isOptional = false;
+            for (var i = 0; i < entries.Length; i++)
+            {
+                if (entries[i].Action != action ||
+                    entries[i].Moment != moment)
+                {
+                    continue;
+                }
+
+                if (found)
+                {
+                    throw new InvalidOperationException(
+                        $"{name} contains duplicate gameplay action audio entry '{action}/{moment}'.");
+                }
+
+                found = true;
+                isOptional = entries[i].IsOptional;
+                binding = entries[i].Binding;
+            }
+
+            if (!found)
+            {
+                return GameplayActionAudioProfileResolveStatus.EntryMissing;
+            }
+
+            if (binding != null)
+            {
+                return GameplayActionAudioProfileResolveStatus.Resolved;
+            }
+
+            return isOptional
+                ? GameplayActionAudioProfileResolveStatus.OptionalBindingMissing
+                : GameplayActionAudioProfileResolveStatus.BindingMissing;
         }
 
         public void ValidateOrThrow()

@@ -5,6 +5,14 @@ using Game.Shared.Audio;
 
 namespace Game.Feature.Gameplay.Audio
 {
+    public enum GameplayAudioMapResolveFailureKind
+    {
+        None = 0,
+        UnsupportedSemantic = 1,
+        MapMissing = 2,
+        BindingMissing = 3,
+    }
+
     [CreateAssetMenu(menuName = "Game/Audio/Gameplay Audio Map")]
     public sealed class GameplayAudioMap : ScriptableObject
     {
@@ -67,6 +75,64 @@ namespace Game.Feature.Gameplay.Audio
 
             resolved.ValidateOrThrow(name, semanticLabel);
             return resolved;
+        }
+
+        public bool TryResolve(
+            GameplayAudioSemanticId semanticId,
+            out AudioBinding binding,
+            out GameplayAudioMapResolveFailureKind failureKind)
+        {
+            binding = null;
+            failureKind = GameplayAudioMapResolveFailureKind.None;
+            if (semanticId == GameplayAudioSemanticId.None)
+            {
+                failureKind = GameplayAudioMapResolveFailureKind.UnsupportedSemantic;
+                return false;
+            }
+
+            var found = false;
+            for (var i = 0; i < entries.Length; i++)
+            {
+                if (entries[i].SemanticId != semanticId)
+                {
+                    continue;
+                }
+
+                if (found)
+                {
+                    failureKind = GameplayAudioMapResolveFailureKind.BindingMissing;
+                    binding = null;
+                    return false;
+                }
+
+                found = true;
+                binding = entries[i].Binding;
+            }
+
+            if (!found)
+            {
+                failureKind = GameplayAudioMapResolveFailureKind.MapMissing;
+                return false;
+            }
+
+            if (binding == null)
+            {
+                failureKind = GameplayAudioMapResolveFailureKind.BindingMissing;
+                return false;
+            }
+
+            try
+            {
+                binding.ValidateOrThrow(name, GameplayAudioSemanticCatalog.Format(semanticId));
+            }
+            catch (InvalidOperationException)
+            {
+                binding = null;
+                failureKind = GameplayAudioMapResolveFailureKind.BindingMissing;
+                return false;
+            }
+
+            return true;
         }
 
         public void ValidateOrThrow()
