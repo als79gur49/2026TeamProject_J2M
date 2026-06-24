@@ -282,8 +282,8 @@ namespace Game.Feature.Gameplay.Tests.Core
                 Assert.That(glide.Timing.RecoveryTicks, Is.EqualTo(7));
                 Assert.That(glide.Timing.CooldownTicks, Is.EqualTo(11));
                 Assert.That(glide.Timing.GlideMoveTicks, Is.EqualTo(14));
-                Assert.That(glide.PresentationSettings.LiftHeightUnits, Is.EqualTo(Mathf.RoundToInt(1.25f * KinematicFixed.UnitsPerCell)));
-                Assert.That(glide.PresentationSettings.RecoveryDipHeightUnits, Is.EqualTo(Mathf.RoundToInt(0.5f * KinematicFixed.UnitsPerCell)));
+                Assert.That(glide.PresentationSettings.LiftHeightUnits, Is.EqualTo(Mathf.RoundToInt(1.25f * SimulationFixed.UnitsPerCell)));
+                Assert.That(glide.PresentationSettings.RecoveryDipHeightUnits, Is.EqualTo(Mathf.RoundToInt(0.5f * SimulationFixed.UnitsPerCell)));
                 Assert.That(definition.GlideTimingSettings.DurationTicks, Is.EqualTo(glide.Timing.DurationTicks));
                 Assert.That(definition.GlidePresentationSettings.LiftHeightUnits, Is.EqualTo(glide.PresentationSettings.LiftHeightUnits));
             }
