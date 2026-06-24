@@ -66,6 +66,9 @@ namespace Game.Feature.Gameplay.PresentationContracts
         PlayerActionAudio = 24,
         PlayerActionAttemptAudio = 25,
         EnemyForwardCellImpact = 26,
+        EnemyMove = 27,
+        EnemySummon = 28,
+        EnemyStationary = 29,
     }
 
     public enum PresentationTargetKind
@@ -845,6 +848,11 @@ namespace Game.Feature.Gameplay.PresentationContracts
         Charge = 3,
         Death = 4,
         ForwardCellImpact = 5,
+        Utility = 6,
+        Glide = 7,
+        Summon = 8,
+        Move = 9,
+        Stationary = 10,
     }
 
     public enum PresentationEnemyAudioPhase
@@ -856,6 +864,8 @@ namespace Game.Feature.Gameplay.PresentationContracts
         Landing = 4,
         Death = 5,
         Impact = 6,
+        Move = 7,
+        StationaryActive = 8,
     }
 
     public readonly struct PresentationEnemyAudioPayload : IEquatable<PresentationEnemyAudioPayload>

@@ -307,26 +307,7 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                 facts,
                 tickIndex,
                 presentationData.EntityExitSignals);
-            enemyAudioCount += AddEnemyActionAudioFacts(
-                facts,
-                tickIndex,
-                presentationData.EnemyActionSignals);
-            enemyAudioCount += AddEnemyJumpAudioFacts(
-                facts,
-                tickIndex,
-                presentationData.EnemyJumpSignals);
-            enemyAudioCount += AddEnemyChargeAudioFacts(
-                facts,
-                tickIndex,
-                presentationData.EnemyChargeSignals);
-            enemyAudioCount += AddForwardCellImpactEnemyAudioFacts(
-                facts,
-                tickIndex,
-                presentationData.ForwardCellProjectileArrivalSignals);
-            enemyAudioCount += AddEnemyDeathAudioFacts(
-                facts,
-                tickIndex,
-                presentationData.EntityExitSignals);
+            enemyAudioCount += AddEnemyAudioSemanticFacts(facts, result);
 
             for (var i = 0; i < presentationData.TileEvents.Count; i++)
             {
@@ -918,6 +899,199 @@ namespace Game.Feature.Gameplay.PresentationRuntime
                    exitCause == TickEntityExitCause.EnemyDeath ||
                    exitCause == TickEntityExitCause.Killed ||
                    exitCause == TickEntityExitCause.OutOfBounds;
+        }
+
+        private static int AddEnemyAudioSemanticFacts(List<PresentationFact> facts, TickResult result)
+        {
+            var semanticEvents = EnemyAudioSemanticProjector.Project(result);
+            var count = 0;
+            for (var i = 0; i < semanticEvents.Count; i++)
+            {
+                var semanticEvent = semanticEvents[i];
+                if (!TryResolveEnemyAudioCueKey(semanticEvent.Cue, out var cueKey) ||
+                    !TryResolveEnemyAudioOriginKind(semanticEvent.OriginKind, out var originKind) ||
+                    !TryResolveEnemyAudioPhase(semanticEvent.Phase, out var phase))
+                {
+                    continue;
+                }
+
+                AddEnemyAudioFact(
+                    facts,
+                    semanticEvent.TickIndex,
+                    ResolveEnemyAudioSemanticSource(semanticEvent.OriginKind),
+                    semanticEvent.OwnerEntityId,
+                    cueKey,
+                    originKind,
+                    phase,
+                    semanticEvent.SourceSequenceId,
+                    targetEntityId: semanticEvent.TargetEntityId,
+                    sourceActionKind: semanticEvent.SourceActionKind,
+                    sourceOutcome: semanticEvent.SourceOutcome,
+                    sourceCause: semanticEvent.SourceCause,
+                    timing: semanticEvent.Timing,
+                    sourceCell: semanticEvent.SourceCell,
+                    targetCell: semanticEvent.TargetCell,
+                    hasSourceCell: semanticEvent.HasSourceCell,
+                    hasTargetCell: semanticEvent.HasTargetCell,
+                    direction: semanticEvent.Direction,
+                    impactTick: semanticEvent.ImpactTick,
+                    impactId: semanticEvent.ImpactId,
+                    presentationKey: semanticEvent.PresentationKey,
+                    visualContactNormalizedTime: semanticEvent.VisualContactNormalizedTime);
+                count++;
+            }
+
+            return count;
+        }
+
+        private static PresentationSemanticSource ResolveEnemyAudioSemanticSource(
+            EnemyAudioSemanticOriginKind originKind)
+        {
+            switch (originKind)
+            {
+                case EnemyAudioSemanticOriginKind.Move:
+                    return PresentationSemanticSource.EnemyMove;
+                case EnemyAudioSemanticOriginKind.Action:
+                    return PresentationSemanticSource.EnemyAction;
+                case EnemyAudioSemanticOriginKind.Utility:
+                    return PresentationSemanticSource.EnemyUtility;
+                case EnemyAudioSemanticOriginKind.Summon:
+                    return PresentationSemanticSource.EnemySummon;
+                case EnemyAudioSemanticOriginKind.Jump:
+                    return PresentationSemanticSource.EnemyJump;
+                case EnemyAudioSemanticOriginKind.Glide:
+                    return PresentationSemanticSource.EnemyGlide;
+                case EnemyAudioSemanticOriginKind.Charge:
+                    return PresentationSemanticSource.EnemyCharge;
+                case EnemyAudioSemanticOriginKind.ForwardCellImpact:
+                    return PresentationSemanticSource.EnemyForwardCellImpact;
+                case EnemyAudioSemanticOriginKind.Death:
+                    return PresentationSemanticSource.EntityExit;
+                case EnemyAudioSemanticOriginKind.Stationary:
+                    return PresentationSemanticSource.EnemyStationary;
+                default:
+                    return PresentationSemanticSource.TickPresentationData;
+            }
+        }
+
+        private static bool TryResolveEnemyAudioCueKey(
+            EnemyAudioSemanticCue semanticCue,
+            out PresentationEnemyAudioCueKey cueKey)
+        {
+            switch (semanticCue)
+            {
+                case EnemyAudioSemanticCue.Move:
+                    cueKey = PresentationEnemyAudioCueKey.Move;
+                    return true;
+                case EnemyAudioSemanticCue.Death:
+                    cueKey = PresentationEnemyAudioCueKey.Death;
+                    return true;
+                case EnemyAudioSemanticCue.Windup:
+                    cueKey = PresentationEnemyAudioCueKey.Windup;
+                    return true;
+                case EnemyAudioSemanticCue.Landing:
+                    cueKey = PresentationEnemyAudioCueKey.Landing;
+                    return true;
+                case EnemyAudioSemanticCue.Active:
+                    cueKey = PresentationEnemyAudioCueKey.Active;
+                    return true;
+                case EnemyAudioSemanticCue.Recover:
+                    cueKey = PresentationEnemyAudioCueKey.Recover;
+                    return true;
+                case EnemyAudioSemanticCue.ForwardCellImpact:
+                    cueKey = PresentationEnemyAudioCueKey.ForwardCellImpact;
+                    return true;
+                case EnemyAudioSemanticCue.ChargeActiveLoop:
+                    cueKey = PresentationEnemyAudioCueKey.ChargeActiveLoop;
+                    return true;
+                case EnemyAudioSemanticCue.StationaryActive:
+                    cueKey = PresentationEnemyAudioCueKey.StationaryActive;
+                    return true;
+                case EnemyAudioSemanticCue.PassiveContact:
+                    cueKey = PresentationEnemyAudioCueKey.PassiveContact;
+                    return true;
+                default:
+                    cueKey = PresentationEnemyAudioCueKey.None;
+                    return false;
+            }
+        }
+
+        private static bool TryResolveEnemyAudioOriginKind(
+            EnemyAudioSemanticOriginKind semanticOriginKind,
+            out PresentationEnemyAudioOriginKind originKind)
+        {
+            switch (semanticOriginKind)
+            {
+                case EnemyAudioSemanticOriginKind.Action:
+                    originKind = PresentationEnemyAudioOriginKind.Action;
+                    return true;
+                case EnemyAudioSemanticOriginKind.Jump:
+                    originKind = PresentationEnemyAudioOriginKind.Jump;
+                    return true;
+                case EnemyAudioSemanticOriginKind.Charge:
+                    originKind = PresentationEnemyAudioOriginKind.Charge;
+                    return true;
+                case EnemyAudioSemanticOriginKind.Death:
+                    originKind = PresentationEnemyAudioOriginKind.Death;
+                    return true;
+                case EnemyAudioSemanticOriginKind.ForwardCellImpact:
+                    originKind = PresentationEnemyAudioOriginKind.ForwardCellImpact;
+                    return true;
+                case EnemyAudioSemanticOriginKind.Utility:
+                    originKind = PresentationEnemyAudioOriginKind.Utility;
+                    return true;
+                case EnemyAudioSemanticOriginKind.Glide:
+                    originKind = PresentationEnemyAudioOriginKind.Glide;
+                    return true;
+                case EnemyAudioSemanticOriginKind.Summon:
+                    originKind = PresentationEnemyAudioOriginKind.Summon;
+                    return true;
+                case EnemyAudioSemanticOriginKind.Move:
+                    originKind = PresentationEnemyAudioOriginKind.Move;
+                    return true;
+                case EnemyAudioSemanticOriginKind.Stationary:
+                    originKind = PresentationEnemyAudioOriginKind.Stationary;
+                    return true;
+                default:
+                    originKind = PresentationEnemyAudioOriginKind.None;
+                    return false;
+            }
+        }
+
+        private static bool TryResolveEnemyAudioPhase(
+            EnemyAudioSemanticPhase semanticPhase,
+            out PresentationEnemyAudioPhase phase)
+        {
+            switch (semanticPhase)
+            {
+                case EnemyAudioSemanticPhase.Windup:
+                    phase = PresentationEnemyAudioPhase.Windup;
+                    return true;
+                case EnemyAudioSemanticPhase.Active:
+                    phase = PresentationEnemyAudioPhase.Active;
+                    return true;
+                case EnemyAudioSemanticPhase.Recover:
+                    phase = PresentationEnemyAudioPhase.Recover;
+                    return true;
+                case EnemyAudioSemanticPhase.Landing:
+                    phase = PresentationEnemyAudioPhase.Landing;
+                    return true;
+                case EnemyAudioSemanticPhase.Death:
+                    phase = PresentationEnemyAudioPhase.Death;
+                    return true;
+                case EnemyAudioSemanticPhase.Impact:
+                    phase = PresentationEnemyAudioPhase.Impact;
+                    return true;
+                case EnemyAudioSemanticPhase.Move:
+                    phase = PresentationEnemyAudioPhase.Move;
+                    return true;
+                case EnemyAudioSemanticPhase.StationaryActive:
+                    phase = PresentationEnemyAudioPhase.StationaryActive;
+                    return true;
+                default:
+                    phase = PresentationEnemyAudioPhase.None;
+                    return false;
+            }
         }
 
         private static int AddEnemyActionAudioFacts(

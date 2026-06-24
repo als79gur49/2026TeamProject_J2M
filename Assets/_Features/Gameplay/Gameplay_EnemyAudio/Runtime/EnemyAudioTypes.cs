@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using Game.Shared.Audio;
 
 namespace Game.Feature.Gameplay.EnemyAudio
@@ -27,13 +28,15 @@ namespace Game.Feature.Gameplay.EnemyAudio
             EnemyAudioCue cue,
             in AudioPlaybackContext context,
             float delaySeconds = 0f,
-            EnemyAudioRequestIdentity identity = default)
+            EnemyAudioRequestIdentity identity = default,
+            EnemyAudioSemanticEvent semanticEvent = default)
         {
             OwnerEntityId = ownerEntityId;
             Cue = cue;
             Context = context;
             DelaySeconds = Math.Max(0f, delaySeconds);
             Identity = identity;
+            SemanticEvent = semanticEvent;
         }
 
         public int OwnerEntityId { get; }
@@ -45,6 +48,8 @@ namespace Game.Feature.Gameplay.EnemyAudio
         public float DelaySeconds { get; }
 
         public EnemyAudioRequestIdentity Identity { get; }
+
+        public EnemyAudioSemanticEvent SemanticEvent { get; }
     }
 
     public readonly struct EnemyAudioRequestIdentity : IEquatable<EnemyAudioRequestIdentity>
