@@ -47,6 +47,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioRequirementBindings/EnemyAudioRequirementBinding_RocketFace.asset";
         private const string ChargeLoopEnemyAudioRequirementPolicyPath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/AudioRequirementPolicies/EnemyAudioRequirementPolicy_ChargeLoop.asset";
+        private const string DrSaturnPrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_DrSaturn.prefab";
+        private const string NebulousPrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_Nebulous.prefab";
+        private const string JPeterPrefabPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Prefabs/EnemyView_JPeter.prefab";
+        private const string EnemyPresentationArchetypeCatalogPath =
+            "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Presentation/Enemy/Catalogs/EnemyPresentationArchetypeCatalog_CampaignMainEnemy.asset";
+        private const string PassiveContactMinionArchetypeId = "PassiveContactMinion";
 
         [UnityTest]
         [Category("Full")]
@@ -354,6 +363,108 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(loopBinding.HasAttachmentSlot, Is.True);
 
             yield return null;
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator GameplaySceneHost_EnemyAudioProductionBridge_ActualDrSaturnPrefab_UtilityPhasesPlayOnce()
+        {
+            yield return AssertActualEnemyUtilityPhasePlayback(
+                nameof(GameplaySceneHost_EnemyAudioProductionBridge_ActualDrSaturnPrefab_UtilityPhasesPlayOnce) + "_Windup",
+                DrSaturnPrefabPath,
+                EnemyUtilityPresentationPhase.WindupStarted,
+                PresentationEnemyAudioCueKey.Windup,
+                PresentationEnemyAudioPhase.Windup);
+            yield return AssertActualEnemyUtilityPhasePlayback(
+                nameof(GameplaySceneHost_EnemyAudioProductionBridge_ActualDrSaturnPrefab_UtilityPhasesPlayOnce) + "_Active",
+                DrSaturnPrefabPath,
+                EnemyUtilityPresentationPhase.ActiveStarted,
+                PresentationEnemyAudioCueKey.Active,
+                PresentationEnemyAudioPhase.Active);
+            yield return AssertActualEnemyUtilityPhasePlayback(
+                nameof(GameplaySceneHost_EnemyAudioProductionBridge_ActualDrSaturnPrefab_UtilityPhasesPlayOnce) + "_Recover",
+                DrSaturnPrefabPath,
+                EnemyUtilityPresentationPhase.RecoverStarted,
+                PresentationEnemyAudioCueKey.Recover,
+                PresentationEnemyAudioPhase.Recover);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator GameplaySceneHost_EnemyAudioProductionBridge_ActualNebulousPrefab_GlidePhaseStartsPlayOnce()
+        {
+            yield return AssertActualEnemyGlidePhasePlayback(
+                nameof(GameplaySceneHost_EnemyAudioProductionBridge_ActualNebulousPrefab_GlidePhaseStartsPlayOnce) + "_Windup",
+                EnemyGlidePhase.Windup,
+                PresentationEnemyAudioCueKey.Windup,
+                PresentationEnemyAudioPhase.Windup);
+            yield return AssertActualEnemyGlideContinuationDoesNotReplay();
+            yield return AssertActualEnemyGlidePhasePlayback(
+                nameof(GameplaySceneHost_EnemyAudioProductionBridge_ActualNebulousPrefab_GlidePhaseStartsPlayOnce) + "_Active",
+                EnemyGlidePhase.Active,
+                PresentationEnemyAudioCueKey.Active,
+                PresentationEnemyAudioPhase.Active);
+            yield return AssertActualEnemyGlidePhasePlayback(
+                nameof(GameplaySceneHost_EnemyAudioProductionBridge_ActualNebulousPrefab_GlidePhaseStartsPlayOnce) + "_Recover",
+                EnemyGlidePhase.Recovery,
+                PresentationEnemyAudioCueKey.Recover,
+                PresentationEnemyAudioPhase.Recover);
+        }
+
+        [UnityTest]
+        [Category("Core")]
+        public IEnumerator GameplaySceneHost_EnemyAudioProductionBridge_ActualJPeterPrefab_SummonActiveUsesSourceOwner()
+        {
+            var summoner = CreateUnit(60, UnitRole.Enemy, new SurfaceCell(FaceId.Floor, 0, 0));
+            var context = CreateActualEnemyPrefabHostContext(
+                nameof(GameplaySceneHost_EnemyAudioProductionBridge_ActualJPeterPrefab_SummonActiveUsesSourceOwner),
+                JPeterPrefabPath,
+                summoner);
+            try
+            {
+                AssertActualEnemyPrefabAudioAuthoring(JPeterPrefabPath, context, summoner.entityId);
+                AttachProductionSummonedEnemyPresentationRegistry(
+                    context,
+                    new EnemyUnitArchetypeId(PassiveContactMinionArchetypeId));
+
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreateSummonActivePresentationData(
+                        spawnedEntityId: 61,
+                        sourceEntityId: summoner.entityId,
+                        archetypeId: new EnemyUnitArchetypeId(PassiveContactMinionArchetypeId)),
+                    new[] { summoner },
+                    tickIndex: 321,
+                    determinismHash: "j-peter-summon-active"));
+                yield return null;
+
+                AssertEnemyAudioProductionOneShotRoute(
+                    context,
+                    expectedCue: PresentationEnemyAudioCueKey.Active,
+                    expectedOrigin: PresentationEnemyAudioOriginKind.Summon,
+                    expectedPhase: PresentationEnemyAudioPhase.Active,
+                    expectedExecutorCount: 1);
+                Assert.That(context.Host.Presenter.EnemyAudioProductionTelemetrySnapshot.LastOwnerEntityId, Is.EqualTo(summoner.entityId));
+
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreateSummonActivePresentationData(spawnedEntityId: 62, sourceEntityId: 0),
+                    new[] { summoner },
+                    tickIndex: 322,
+                    determinismHash: "j-peter-unrelated-spawn"));
+                yield return null;
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.Zero);
+
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreateEnemyActionWindupPresentationData(summoner.entityId),
+                    new[] { summoner },
+                    tickIndex: 323,
+                    determinismHash: "j-peter-disabled-windup"));
+                yield return null;
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.Zero);
+            }
+            finally
+            {
+                context.Dispose();
+            }
         }
 #endif
 
@@ -861,7 +972,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             bool autoCreateViews = false,
             IReadOnlyDictionary<GameplayAudioSemanticId, AudioAttachmentSlot> gameplayAudioAttachmentSlots = null,
             EnemyAudioProfile enemyAudioProfile = null,
-            CoreGameplaySfxExecutionMode? coreSfxExecutionMode = null)
+            CoreGameplaySfxExecutionMode? coreSfxExecutionMode = null,
+            IGameplayEntityViewFactory viewFactoryOverride = null)
         {
             persistenceStore ??= new RecordingAudioSettingsPersistenceStore();
             initialEntities ??= Array.Empty<EntityState>();
@@ -880,9 +992,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             var host = hostObject.AddComponent<GameplaySceneHost>();
             var mapBundle = CreateGameplayAudioMapBundle(gameplayAudioAttachmentSlots);
-            var viewFactory = autoCreateViews
-                ? new RuntimeCoreSfxViewFactory(hostObject.transform, enemyAudioProfile)
-                : null;
+            var viewFactory = viewFactoryOverride ??
+                              (autoCreateViews
+                                  ? new RuntimeCoreSfxViewFactory(hostObject.transform, enemyAudioProfile)
+                                  : null);
 
             hostObject.SetActive(true);
             host.Initialize(CreateHostConfiguration(
@@ -901,6 +1014,231 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             return new HostAudioIntegrationContext(hostObject, host, installer, manager, mapBundle, persistenceStore);
         }
+
+#if UNITY_EDITOR
+        private static HostAudioIntegrationContext CreateActualEnemyPrefabHostContext(
+            string rootName,
+            string prefabPath,
+            EntityState enemy)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(prefabPath);
+            Assert.That(prefab, Is.Not.Null, $"Missing production enemy prefab at '{prefabPath}'.");
+            var hostRoot = new GameObject($"{rootName}_ViewFactoryRoot");
+            var viewFactory = new DefaultGameplayEntityViewFactory(
+                hostRoot.transform,
+                cellSize: 1f,
+                playerEntityId: 10,
+                enemyViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                {
+                    { enemy.entityId, prefab },
+                });
+            var context = CreateHostContext(
+                rootName,
+                initialEntities: new[] { enemy },
+                autoCreateViews: true,
+                viewFactoryOverride: viewFactory);
+            hostRoot.transform.SetParent(context.Host.transform, worldPositionStays: false);
+            return context;
+        }
+
+        private static void AssertActualEnemyPrefabAudioAuthoring(
+            string prefabPath,
+            HostAudioIntegrationContext context,
+            int enemyEntityId)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(prefabPath);
+            Assert.That(prefab, Is.Not.Null, $"Missing production enemy prefab at '{prefabPath}'.");
+
+            var prefabAuthoring = prefab.GetComponent<EnemyAudioAuthoring>();
+            Assert.That(prefabAuthoring, Is.Not.Null, $"Missing {nameof(EnemyAudioAuthoring)} on '{prefabPath}'.");
+            Assert.That(prefabAuthoring.Profile, Is.Not.Null, $"{prefabPath}: missing production audio profile.");
+            Assert.DoesNotThrow(() => prefabAuthoring.Validate());
+
+            var instance = context.Host.GetComponentsInChildren<GameplayEntityView>(includeInactive: true)
+                .FirstOrDefault(view => view.EntityId == enemyEntityId);
+            Assert.That(instance, Is.Not.Null, $"Missing runtime view instance for entity {enemyEntityId}.");
+
+            var instanceAuthoring = instance.GetComponent<EnemyAudioAuthoring>();
+            Assert.That(instanceAuthoring, Is.Not.Null, $"Runtime instance missing {nameof(EnemyAudioAuthoring)}.");
+            Assert.That(instanceAuthoring.Profile, Is.SameAs(prefabAuthoring.Profile));
+        }
+
+        private static void AttachProductionSummonedEnemyPresentationRegistry(
+            HostAudioIntegrationContext context,
+            EnemyUnitArchetypeId archetypeId)
+        {
+            var registry = CreateProductionSummonedEnemyPresentationRegistry(archetypeId);
+            var presenter = context.Host.Presenter;
+            var coordinator = GetInstanceFieldValue(typeof(GameplayTickViewPresenter), presenter, "_presentationCoordinator");
+            Assert.That(coordinator, Is.Not.Null, "GameplayTickViewPresenter must be bound to a coordinator.");
+
+            var resolver = GetInstanceFieldValue(
+                typeof(GameplayTickPresentationCoordinator),
+                coordinator,
+                "_summonedEnemyPresentationResolver");
+            Assert.That(resolver, Is.Not.Null, "GameplayTickPresentationCoordinator must own a summoned enemy resolver.");
+            SetSerializedField(resolver.GetType(), resolver, "_registry", registry);
+        }
+
+        private static EnemyPresentationArchetypeRegistry CreateProductionSummonedEnemyPresentationRegistry(
+            EnemyUnitArchetypeId archetypeId)
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<EnemyPresentationArchetypeCatalog>(EnemyPresentationArchetypeCatalogPath);
+            Assert.That(
+                catalog,
+                Is.Not.Null,
+                $"Missing production enemy presentation archetype catalog at '{EnemyPresentationArchetypeCatalogPath}'.");
+
+            for (var i = 0; i < catalog.Entries.Length; i++)
+            {
+                var entry = catalog.Entries[i];
+                Assert.That(entry, Is.Not.Null, "Production enemy presentation archetype catalog cannot contain null entries.");
+                if (!entry.ArchetypeId.Equals(archetypeId))
+                {
+                    continue;
+                }
+
+                entry.ValidateConfiguration(nameof(CreateProductionSummonedEnemyPresentationRegistry));
+                return new EnemyPresentationArchetypeRegistry(
+                    new Dictionary<EnemyUnitArchetypeId, EnemyPresentationArchetypeRuntime>(EnemyUnitArchetypeId.EqualityComparer)
+                    {
+                        { archetypeId, new EnemyPresentationArchetypeRuntime(archetypeId, entry.ViewPrefab) },
+                    });
+            }
+
+            Assert.Fail(
+                $"Production enemy presentation archetype catalog '{EnemyPresentationArchetypeCatalogPath}' is missing '{archetypeId}'.");
+            return null;
+        }
+
+        private static void AssertEnemyAudioProductionOneShotRoute(
+            HostAudioIntegrationContext context,
+            PresentationEnemyAudioCueKey expectedCue,
+            PresentationEnemyAudioOriginKind expectedOrigin,
+            PresentationEnemyAudioPhase expectedPhase,
+            int expectedExecutorCount)
+        {
+            var diagnostics = context.Host.Presenter.EnemyAudioExecutorDiagnostics;
+            var ownership = context.Host.Presenter.EnemyAudioOwnershipDiagnostics;
+            var telemetry = context.Host.Presenter.EnemyAudioProductionTelemetrySnapshot;
+
+            Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
+            Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+            Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(expectedExecutorCount));
+            Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+            Assert.That(diagnostics.PlaybackRequestedCount, Is.EqualTo(expectedExecutorCount));
+            Assert.That(diagnostics.PlaybackSucceededCount, Is.EqualTo(expectedExecutorCount));
+            Assert.That(diagnostics.DuplicateSuppressedCount, Is.Zero);
+            Assert.That(diagnostics.PortMissingCount, Is.Zero);
+            Assert.That(diagnostics.LastFailureReason, Is.EqualTo(EnemyAudioTelemetryFailureReason.None));
+            Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.GreaterThanOrEqualTo(expectedExecutorCount));
+            Assert.That(telemetry.LastCueKey, Is.EqualTo(expectedCue));
+            Assert.That(telemetry.LastOriginKind, Is.EqualTo(expectedOrigin));
+            Assert.That(telemetry.LastPhase, Is.EqualTo(expectedPhase));
+        }
+
+        private static IEnumerator AssertActualEnemyUtilityPhasePlayback(
+            string rootName,
+            string prefabPath,
+            EnemyUtilityPresentationPhase utilityPhase,
+            PresentationEnemyAudioCueKey expectedCue,
+            PresentationEnemyAudioPhase expectedPhase)
+        {
+            var enemy = CreateUnit(60, UnitRole.Enemy, new SurfaceCell(FaceId.Floor, 0, 0));
+            var context = CreateActualEnemyPrefabHostContext(rootName, prefabPath, enemy);
+            try
+            {
+                AssertActualEnemyPrefabAudioAuthoring(prefabPath, context, enemy.entityId);
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreateEnemyUtilityPresentationData(
+                        enemy.entityId,
+                        utilityPhase,
+                        startTick: 301,
+                        executeTick: 302),
+                    new[] { enemy },
+                    tickIndex: 301,
+                    determinismHash: rootName));
+                yield return null;
+
+                AssertEnemyAudioProductionOneShotRoute(
+                    context,
+                    expectedCue,
+                    PresentationEnemyAudioOriginKind.Utility,
+                    expectedPhase,
+                    expectedExecutorCount: 1);
+            }
+            finally
+            {
+                context.Dispose();
+            }
+        }
+
+        private static IEnumerator AssertActualEnemyGlidePhasePlayback(
+            string rootName,
+            EnemyGlidePhase glidePhase,
+            PresentationEnemyAudioCueKey expectedCue,
+            PresentationEnemyAudioPhase expectedPhase)
+        {
+            var enemy = CreateUnit(60, UnitRole.Enemy, new SurfaceCell(FaceId.Floor, 0, 0));
+            var context = CreateActualEnemyPrefabHostContext(rootName, NebulousPrefabPath, enemy);
+            try
+            {
+                AssertActualEnemyPrefabAudioAuthoring(NebulousPrefabPath, context, enemy.entityId);
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreateEnemyGlidePresentationData(enemy.entityId, glidePhase, phaseElapsedTicks: 0),
+                    new[] { enemy },
+                    tickIndex: 311,
+                    determinismHash: rootName));
+                yield return null;
+
+                AssertEnemyAudioProductionOneShotRoute(
+                    context,
+                    expectedCue,
+                    PresentationEnemyAudioOriginKind.Glide,
+                    expectedPhase,
+                    expectedExecutorCount: 1);
+            }
+            finally
+            {
+                context.Dispose();
+            }
+        }
+
+        private static IEnumerator AssertActualEnemyGlideContinuationDoesNotReplay()
+        {
+            var enemy = CreateUnit(60, UnitRole.Enemy, new SurfaceCell(FaceId.Floor, 0, 0));
+            var context = CreateActualEnemyPrefabHostContext(
+                nameof(AssertActualEnemyGlideContinuationDoesNotReplay),
+                NebulousPrefabPath,
+                enemy);
+            try
+            {
+                AssertActualEnemyPrefabAudioAuthoring(NebulousPrefabPath, context, enemy.entityId);
+                var requestedBefore = context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackRequestedCount;
+                var succeededBefore = context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount;
+                var liveBefore = context.Manager.CaptureLivePlaybackCount();
+
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreateEnemyGlidePresentationData(
+                        enemy.entityId,
+                        EnemyGlidePhase.Windup,
+                        phaseElapsedTicks: 1,
+                        includeNonMoveMotion: true),
+                    new[] { enemy },
+                    tickIndex: 312,
+                    determinismHash: "nebulous-windup-continuation"));
+                yield return null;
+
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(requestedBefore));
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(succeededBefore));
+                Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.EqualTo(liveBefore));
+            }
+            finally
+            {
+                context.Dispose();
+            }
+        }
+#endif
 
         private static HostAudioIntegrationContext CreateActionAudioHostContext(
             string rootName,
@@ -1145,6 +1483,165 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 new ReadOnlyCollection<TickEnemyChargePresentationSignal>(
                     new List<TickEnemyChargePresentationSignal>(chargeSignals)));
             return data;
+        }
+
+        private static TickPresentationData CreateEnemyActionWindupPresentationData(int ownerEntityId)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                new[]
+                {
+                    new TickEnemyActionPresentationSignal(
+                        ownerEntityId,
+                        EnemyActionKind.Melee,
+                        activeActionSequence: 3,
+                        startedThisTick: true,
+                        canceledThisTick: false,
+                        executedThisTick: false,
+                        startedRecoveryThisTick: false),
+                },
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>());
+        }
+
+        private static TickPresentationData CreateEnemyUtilityPresentationData(
+            int ownerEntityId,
+            EnemyUtilityPresentationPhase phase,
+            int startTick,
+            int executeTick)
+        {
+            var data = CreateEmptyEnemyAudioPresentationData();
+            SetSerializedField(
+                typeof(TickPresentationData),
+                data,
+                "_enemyUtilitySignals",
+                new ReadOnlyCollection<TickEnemyUtilityPresentationSignal>(
+                    new List<TickEnemyUtilityPresentationSignal>
+                    {
+                        new TickEnemyUtilityPresentationSignal(
+                            ownerEntityId,
+                            EnemyUtilityPresentationKind.GravityFieldAura,
+                            phase,
+                            startTick,
+                            executeTick,
+                            durationTicks: 2),
+                    }));
+            return data;
+        }
+
+        private static TickPresentationData CreateEnemyGlidePresentationData(
+            int ownerEntityId,
+            EnemyGlidePhase phase,
+            int phaseElapsedTicks,
+            bool includeNonMoveMotion = false)
+        {
+            var data = CreateEmptyEnemyAudioPresentationData();
+            var anchorCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            if (includeNonMoveMotion)
+            {
+                SetSerializedField(
+                    typeof(TickPresentationData),
+                    data,
+                    "_entityMotions",
+                    new ReadOnlyCollection<TickEntityMotion>(
+                        new List<TickEntityMotion>
+                        {
+                            new TickEntityMotion(
+                                ownerEntityId,
+                                TickEntityMotionKind.Push,
+                                anchorCell,
+                                anchorCell),
+                        }));
+            }
+
+            SetSerializedField(
+                typeof(TickPresentationData),
+                data,
+                "_enemyGlideSignals",
+                new ReadOnlyCollection<TickEnemyGlidePresentationSignal>(
+                    new List<TickEnemyGlidePresentationSignal>
+                    {
+                        new TickEnemyGlidePresentationSignal(
+                            ownerEntityId,
+                            anchorCell,
+                            phase,
+                            sequence: 1,
+                            phaseElapsedTicks: phaseElapsedTicks,
+                            phaseTotalTicks: 2,
+                            normalizedPhaseProgress: phaseElapsedTicks == 0 ? 0f : 0.5f,
+                            liftHeightUnits: 1024,
+                            recoveryDipHeightUnits: 0,
+                            currentHeightUnits: phase == EnemyGlidePhase.Active ? 1024 : 0,
+                            isAirborneVisual: phase == EnemyGlidePhase.Active,
+                            wantsRecover: false,
+                            isTerminalZero: false),
+                    }));
+            return data;
+        }
+
+        private static TickPresentationData CreateSummonActivePresentationData(
+            int spawnedEntityId,
+            int sourceEntityId,
+            EnemyUnitArchetypeId? archetypeId = null)
+        {
+            var data = CreateEmptyEnemyAudioPresentationData();
+            var spawnCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var resolvedArchetypeId = archetypeId ?? EnemyUnitArchetypeId.None;
+            SetSerializedField(
+                typeof(TickPresentationData),
+                data,
+                "_visibilityChanges",
+                new ReadOnlyCollection<TickVisibilityChange>(
+                    new List<TickVisibilityChange>
+                    {
+                        new TickVisibilityChange(
+                            spawnedEntityId,
+                            TickVisibilityChangeKind.Spawn,
+                            spawnCell,
+                            topology,
+                            Direction.Left),
+                    }));
+            SetSerializedField(
+                typeof(TickPresentationData),
+                data,
+                "_summonedEnemyPresentationBindings",
+                sourceEntityId > 0
+                    ? new ReadOnlyCollection<TickSummonedEnemyPresentationBinding>(
+                        new List<TickSummonedEnemyPresentationBinding>
+                        {
+                            new TickSummonedEnemyPresentationBinding(
+                                spawnedEntityId,
+                                hasEnemyDefinitionBinding: true,
+                                archetypeId: resolvedArchetypeId,
+                                sourceEntityId: sourceEntityId),
+                        })
+                    : new ReadOnlyCollection<TickSummonedEnemyPresentationBinding>(
+                        new List<TickSummonedEnemyPresentationBinding>()));
+            return data;
+        }
+
+        private static TickPresentationData CreateEmptyEnemyAudioPresentationData()
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>());
         }
 
         private static TickPresentationData CreateCoreSfxPresentationData(int playerEntityId, int exitedEnemyEntityId)
@@ -1527,6 +2024,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var field = declaringType.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {declaringType.Name}.");
             field.SetValue(target, value);
+        }
+
+        private static object GetInstanceFieldValue(Type declaringType, object target, string fieldName)
+        {
+            var field = declaringType.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {declaringType.Name}.");
+            return field.GetValue(target);
         }
 
         private static EntityState CreatePlayerEntityState()
