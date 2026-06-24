@@ -623,7 +623,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreatePresentationData(entityExitSignals: new[] { CreateEnemyExitSignal(40, TickEntityExitCause.EnemyDeath, scenario.EnemyCell, scenario.Topology) }),
                     scenario.Topology,
                     Array.Empty<EntityState>()));
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(2));
+                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
+                Assert.That(runtime.LastDamageDeathExecutorOwnedFilteredRequestCount, Is.EqualTo(1));
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.EqualTo(1));
                 Assert.That(scenario.Registry.TryGetView(40, out var enemyView), Is.True);
                 Assert.That(enemyView.gameObject.activeSelf, Is.False);
@@ -795,6 +796,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var root = new GameObject(name);
             var presenter = root.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             var registry = root.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(
                 registry,

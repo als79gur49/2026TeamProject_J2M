@@ -12,6 +12,11 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PresentationContracts;
+using Game.Feature.Gameplay.PresentationPlanning;
+using Game.Feature.Gameplay.PresentationPlayback;
+using Game.Feature.Gameplay.PresentationRuntime;
+using Game.Feature.Gameplay.Vfx;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
@@ -68,7 +73,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CurrentTilePresentationRequests_DefaultsEmpty()
         {
-            var coordinator = new GameplayTickPresentationCoordinator();
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
 
             Assert.That(coordinator.CurrentTilePresentationRequests, Is.Not.Null);
             Assert.That(coordinator.CurrentTilePresentationRequests, Is.Empty);
@@ -78,12 +83,2655 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void CurrentGravityFieldPresentationRequests_DefaultsEmpty()
         {
-            var coordinator = new GameplayTickPresentationCoordinator();
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
 
             Assert.That(coordinator.CurrentGravityFieldPresentationRequests, Is.Not.Null);
             Assert.That(coordinator.CurrentGravityFieldPresentationRequests, Is.Empty);
             Assert.That(coordinator.CurrentGravityFieldVisualStates, Is.Not.Null);
             Assert.That(coordinator.CurrentGravityFieldVisualStates, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_LegacyCoordinatorMode_UsesDirectControllerPathAndDoesNotCallExecutorPort()
+        {
+            var rootObject = new GameObject(nameof(TopologyExecution_LegacyCoordinatorMode_UsesDirectControllerPathAndDoesNotCallExecutorPort));
+            var port = new RecordingTopologyTransitionPlaybackPort();
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var coordinator = CreateInitializedTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.LegacyCoordinator,
+                    port,
+                    initialTopology);
+                coordinator.EnablePresentationPipelineDiagnostics();
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 7,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+
+                var diagnostics = coordinator.TopologyPresentationOwnershipDiagnostics;
+                Assert.That(port.BeginOrRefreshCallCount, Is.Zero);
+                Assert.That(diagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+                Assert.That(diagnostics.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ExecutorAttemptCount, Is.Zero);
+                Assert.That(diagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(diagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.LegacyCoordinator));
+                Assert.That(diagnostics.LastExecutionTickIndex, Is.EqualTo(7));
+                Assert.That(coordinator.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+                Assert.That(coordinator.HasBlockingPresentation, Is.True);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.True);
+                AssertTopologyBlockingSnapshotParity(
+                    coordinator.PresentationPipelineBlockingSnapshot,
+                    expectedPlanned: true,
+                    expectedActive: true,
+                    expectedTickIndex: 7);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_ExecutorBridgeMode_UsesExecutorPortOnceAndSkipsLegacyDirectPath()
+        {
+            var rootObject = new GameObject(nameof(TopologyExecution_ExecutorBridgeMode_UsesExecutorPortOnceAndSkipsLegacyDirectPath));
+            var port = new RecordingTopologyTransitionPlaybackPort();
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var coordinator = CreateInitializedTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    port,
+                    initialTopology);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 7,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+
+                var diagnostics = coordinator.TopologyPresentationOwnershipDiagnostics;
+                Assert.That(port.BeginOrRefreshCallCount, Is.EqualTo(1));
+                Assert.That(port.LastRequest.TickIndex, Is.EqualTo(7));
+                Assert.That(port.LastRequest.SourceTopology, Is.EqualTo(initialTopology));
+                Assert.That(port.LastRequest.DestinationTopology, Is.EqualTo(destinationTopology));
+                Assert.That(port.LastRequest.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+                Assert.That(port.LastRequest.SourceTickIndex, Is.EqualTo(7));
+                Assert.That(port.LastRequest.HasSourceMetadata, Is.False);
+                Assert.That(diagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+                Assert.That(diagnostics.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ExecutorAttemptCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+                Assert.That(diagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
+                Assert.That(diagnostics.LastExecutionTickIndex, Is.EqualTo(7));
+                Assert.That(diagnostics.LastExecutionHasSourceMetadata, Is.False);
+                Assert.That(diagnostics.LastExecutionSourceMetadataKey, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_ProductionTelemetry_CoversRetainedLegacyOwnerSemanticAndRollbackValues()
+        {
+            var legacyRoot = new GameObject(nameof(TopologyExecution_ProductionTelemetry_CoversRetainedLegacyOwnerSemanticAndRollbackValues) + "_Legacy");
+            var executorRoot = new GameObject(nameof(TopologyExecution_ProductionTelemetry_CoversRetainedLegacyOwnerSemanticAndRollbackValues) + "_Executor");
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var legacyCoordinator = CreateInitializedDefaultTopologyCoordinator(
+                    legacyRoot,
+                    TopologyPresentationExecutionMode.LegacyCoordinator,
+                    initialTopology,
+                    CreateTimingProfile());
+                legacyCoordinator.EnablePresentationPipelineDiagnostics();
+                var legacyResult = CreateTopologyTransitionResult(
+                    tickIndex: 17,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                legacyCoordinator.Present(legacyResult);
+
+                var legacySnapshot = legacyCoordinator.TopologyProductionTelemetrySnapshot;
+                Assert.That(legacySnapshot.CurrentMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+                Assert.That(legacySnapshot.IsProductionDefaultOwner, Is.False);
+                Assert.That(legacySnapshot.ProductionDefaultMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+                Assert.That(legacySnapshot.RollbackMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+                Assert.That(legacySnapshot.LastTickIndex, Is.EqualTo(17));
+                Assert.That(legacySnapshot.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.LegacyCoordinator));
+                Assert.That(legacySnapshot.LegacyOwnerAttemptCount, Is.EqualTo(1));
+                Assert.That(legacySnapshot.LegacyOwnerExecutedCount, Is.EqualTo(1));
+                Assert.That(legacySnapshot.ExecutorOwnerAttemptCount, Is.Zero);
+                Assert.That(legacySnapshot.RouteCount, Is.Zero);
+                Assert.That(legacySnapshot.HasBlockingPresentation, Is.True);
+                Assert.That(legacySnapshot.IsTopologyTransitionActive, Is.True);
+                Assert.That(legacySnapshot.BlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+
+                var executorCoordinator = CreateInitializedDefaultTopologyCoordinator(
+                    executorRoot,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    initialTopology,
+                    CreateTimingProfile());
+                var executorResult = CreateTopologyTransitionResult(
+                    tickIndex: 18,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                executorCoordinator.Present(executorResult);
+
+                var executorSnapshot = executorCoordinator.TopologyProductionTelemetrySnapshot;
+                Assert.That(executorSnapshot.CurrentMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+                Assert.That(executorSnapshot.IsProductionDefaultOwner, Is.True);
+                Assert.That(executorSnapshot.ProductionDefaultMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+                Assert.That(executorSnapshot.RollbackMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+                Assert.That(executorSnapshot.LastTickIndex, Is.EqualTo(18));
+                Assert.That(executorSnapshot.LastSourceTopology, Is.EqualTo(initialTopology));
+                Assert.That(executorSnapshot.LastDestinationTopology, Is.EqualTo(destinationTopology));
+                Assert.That(executorSnapshot.LastRotationKind, Is.EqualTo(CubeRotationKind.Forward));
+                Assert.That(executorSnapshot.LastSourceTickIndex, Is.EqualTo(18));
+                Assert.That(executorSnapshot.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
+                Assert.That(executorSnapshot.LegacyOwnerAttemptCount, Is.EqualTo(1));
+                Assert.That(executorSnapshot.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
+                Assert.That(executorSnapshot.ExecutorOwnerAttemptCount, Is.EqualTo(1));
+                Assert.That(executorSnapshot.ExecutorOwnerExecutedCount, Is.EqualTo(1));
+                Assert.That(executorSnapshot.DuplicateOwnerAttemptCount, Is.Zero);
+                Assert.That(executorSnapshot.ObservedTrackCount, Is.EqualTo(1));
+                Assert.That(executorSnapshot.RouteCount, Is.EqualTo(1));
+                Assert.That(executorSnapshot.IgnoredCount, Is.Zero);
+                Assert.That(executorSnapshot.InvalidTrackCount, Is.Zero);
+                Assert.That(executorSnapshot.MissingPortCount, Is.Zero);
+                Assert.That(executorSnapshot.HasBlockingPresentation, Is.True);
+                Assert.That(executorSnapshot.IsTopologyTransitionActive, Is.True);
+                Assert.That(executorSnapshot.BlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(legacyRoot);
+                UnityEngine.Object.DestroyImmediate(executorRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_ExecutorBridgeMode_ForcedDoubleExecutorAttemptBlocksSecondOwner()
+        {
+            var rootObject = new GameObject(nameof(TopologyExecution_ExecutorBridgeMode_ForcedDoubleExecutorAttemptBlocksSecondOwner));
+            var port = new RecordingTopologyTransitionPlaybackPort();
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    port,
+                    initialTopology,
+                    duplicateExecutors: true);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 8,
+                    initialTopology,
+                    new CubeTopologyState(FaceId.Front),
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+
+                var diagnostics = coordinator.TopologyPresentationOwnershipDiagnostics;
+                Assert.That(port.BeginOrRefreshCallCount, Is.EqualTo(1));
+                Assert.That(diagnostics.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(diagnostics.ExecutorAttemptCount, Is.EqualTo(2));
+                Assert.That(diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
+                Assert.That(diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_DefaultOrchestration_TelemetryReportsProductionOwner()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_DefaultOrchestration_TelemetryReportsProductionOwner));
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(
+                    rootObject,
+                    port,
+                    topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 12,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
+                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(ownership.Mode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
+                Assert.That(telemetry.CurrentMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
+                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
+                Assert.That(telemetry.DamageCuePlannedCount, Is.EqualTo(1));
+                Assert.That(telemetry.DamagePlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(1));
+                Assert.That(telemetry.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(telemetry.LastTickIndex, Is.EqualTo(12));
+                Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationVfxCueKey.DamageHit));
+                Assert.That(telemetry.LastTargetEntityId, Is.EqualTo(40));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_ExplicitProductionConfiguration_RoutesExecutorAndSkipsLegacy()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_ExplicitProductionConfiguration_RoutesExecutorAndSkipsLegacy));
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedDamageDeathVfxCoordinator(
+                    rootObject,
+                    DamageDeathVfxExecutionPolicy.ProductionDefault,
+                    port,
+                    topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 12,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
+                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_CompositionFactoryPort_RoutesExecutorWithoutPostConfigure()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_CompositionFactoryPort_RoutesExecutorWithoutPostConfigure));
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedFactoryConfiguredDamageDeathVfxCoordinator(
+                    rootObject,
+                    port,
+                    topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 12,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
+                var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
+                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(telemetry.PortMissingCount, Is.Zero);
+                Assert.That(telemetry.PlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_CompositionFactoryNullPort_KeepsProductionMissingPortDiagnostics()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_CompositionFactoryNullPort_KeepsProductionMissingPortDiagnostics));
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedFactoryConfiguredDamageDeathVfxCoordinator(
+                    rootObject,
+                    playbackPort: null,
+                    initialTopology: topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 12,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
+                var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
+                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
+                Assert.That(telemetry.PortMissingCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackRequestedCount, Is.Zero);
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_ExplicitLegacyRollback_TelemetryConfirmsNoExecutorPlayback()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_ExplicitLegacyRollback_TelemetryConfirmsNoExecutorPlayback));
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedDamageDeathVfxCoordinator(
+                    rootObject,
+                    DamageDeathVfxExecutionMode.LegacyExtension,
+                    port,
+                    topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 12,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
+                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(ownership.Mode, Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutorAttemptCount, Is.Zero);
+                Assert.That(ownership.ExecutedByLegacyCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.IsProductionDefaultOwner, Is.False);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.DuplicateSuppressedCount, Is.Zero);
+
+                coordinator.PresentInitial(Array.Empty<EntityState>(), topology);
+                Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.LegacyAttemptCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.ObservedCueCount, Is.Zero);
+
+                coordinator.HardCleanupPresentationExtensions();
+                Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.LegacyAttemptCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_ConfigureRawDefaultAndInvalidModes_RouteLegacyWithoutExecutorPlayback()
+        {
+            AssertDamageDeathLegacyConfigureRoute(
+                default(DamageDeathVfxExecutionMode),
+                nameof(DamageDeathVfx_ConfigureRawDefaultAndInvalidModes_RouteLegacyWithoutExecutorPlayback) +
+                "_RawDefault");
+            AssertDamageDeathLegacyConfigureRoute(
+                (DamageDeathVfxExecutionMode)999,
+                nameof(DamageDeathVfx_ConfigureRawDefaultAndInvalidModes_RouteLegacyWithoutExecutorPlayback) +
+                "_Invalid");
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_DefaultOrchestration_TelemetryCoversDamageAndDeath()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_DefaultOrchestration_TelemetryCoversDamageAndDeath));
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var deathCell = new SurfaceCell(FaceId.Floor, 2, 1);
+                var coordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(
+                    rootObject,
+                    port,
+                    topology);
+
+                coordinator.Present(CreateDamageDeathVfxResult(
+                    tickIndex: 12,
+                    topology,
+                    enemyDamageEntityId: 40));
+                coordinator.Present(CreateDamageDeathVfxResult(
+                    tickIndex: 13,
+                    topology,
+                    enemyDeathEntityId: 41,
+                    enemyDeathCell: deathCell,
+                    presentationSeed: 9141));
+
+                Assert.That(port.Requests, Has.Count.EqualTo(2));
+                AssertDamageVfxRequest(port.Requests[0], tickIndex: 12, entityId: 40);
+                AssertDeathVfxRequest(port.Requests[1], tickIndex: 13, entityId: 41, deathCell, presentationSeed: 9141);
+                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
+                Assert.That(ownership.Mode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(2));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(2));
+                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(2));
+                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(2));
+                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
+                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(2));
+                Assert.That(telemetry.DamageCuePlannedCount, Is.EqualTo(1));
+                Assert.That(telemetry.DeathCuePlannedCount, Is.EqualTo(1));
+                Assert.That(telemetry.DamagePlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(telemetry.DeathPlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackRequestedCount, Is.EqualTo(2));
+                Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(2));
+                Assert.That(telemetry.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(telemetry.SemanticDiagnostics, Has.Count.EqualTo(2));
+                AssertSemanticTelemetry(
+                    telemetry,
+                    PresentationVfxCueKey.DamageHit,
+                    planned: 1,
+                    requested: 1,
+                    succeeded: 1,
+                    entityId: 40,
+                    anchorKind: PresentationAnchorKind.EntityCenter);
+                AssertSemanticTelemetry(
+                    telemetry,
+                    PresentationVfxCueKey.EnemyDeath,
+                    planned: 1,
+                    requested: 1,
+                    succeeded: 1,
+                    entityId: 41,
+                    anchorKind: PresentationAnchorKind.SurfaceCellCenter);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_SameTickDeathSuppression_TelemetryIsRecorded()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_SameTickDeathSuppression_TelemetryIsRecorded));
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var deathCell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var coordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(
+                    rootObject,
+                    port,
+                    topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 14,
+                    topology,
+                    enemyDamageEntityId: 40,
+                    enemyDeathEntityId: 40,
+                    enemyDeathCell: deathCell,
+                    presentationSeed: 9040);
+
+                coordinator.Present(result);
+
+                Assert.That(port.Requests, Has.Count.EqualTo(1));
+                AssertDeathVfxRequest(port.Requests[0], tickIndex: 14, entityId: 40, deathCell, presentationSeed: 9040);
+                Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                var telemetry = coordinator.DamageDeathVfxExecutorDiagnostics;
+                Assert.That(telemetry.DamageCuePlannedCount, Is.Zero);
+                Assert.That(telemetry.DamagePlaybackRequestedCount, Is.Zero);
+                Assert.That(telemetry.DeathCuePlannedCount, Is.EqualTo(1));
+                Assert.That(telemetry.DeathPlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(1));
+                Assert.That(telemetry.SameTickDamageHitSuppressedByDeathCount, Is.EqualTo(1));
+                Assert.That(telemetry.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(telemetry.LastSuppressionReason, Is.EqualTo(DamageDeathVfxSuppressionReason.SameTickDamageHitSuppressedByDeath));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_DefaultOrchestration_DoesNotDuplicateLegacyPlayback()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_DefaultOrchestration_DoesNotDuplicateLegacyPlayback));
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(
+                    rootObject,
+                    port,
+                    topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 15,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_ForcedDuplicateStillBlocksSecondOwner()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_ForcedDuplicateStillBlocksSecondOwner));
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(
+                    rootObject,
+                    port,
+                    topology,
+                    duplicateExecutors: true);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 15,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(2));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(ownership.DuplicateAttemptCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_MissingDiagnostics_TelemetryRemainsSeparated()
+        {
+            var missingPortRoot = new GameObject(nameof(DamageDeathVfx_MissingDiagnostics_TelemetryRemainsSeparated) + "_MissingPort");
+            var bindingRoot = new GameObject(nameof(DamageDeathVfx_MissingDiagnostics_TelemetryRemainsSeparated) + "_Binding");
+            var bindingPort = new RecordingDamageDeathVfxPlaybackPort(GameplayVfxPlaybackResultKind.BindingMissing);
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var missingPortCoordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(
+                    missingPortRoot,
+                    playbackPort: null,
+                    initialTopology: topology);
+                var bindingCoordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(
+                    bindingRoot,
+                    bindingPort,
+                    topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 16,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                missingPortCoordinator.Present(result);
+                bindingCoordinator.Present(result);
+
+                Assert.That(missingPortCoordinator.DamageDeathVfxExecutorDiagnostics.MissingPortCount, Is.EqualTo(1));
+                Assert.That(missingPortCoordinator.DamageDeathVfxExecutorDiagnostics.BindingMissingCount, Is.Zero);
+                Assert.That(bindingCoordinator.DamageDeathVfxExecutorDiagnostics.MissingPortCount, Is.Zero);
+                Assert.That(bindingCoordinator.DamageDeathVfxExecutorDiagnostics.BindingMissingCount, Is.EqualTo(1));
+                Assert.That(bindingPort.TryPlayCallCount, Is.EqualTo(1));
+
+                var targetMissing = PlayDamageDeathVfxCueDirectly(
+                    CreateDamageDeathVfxCue(
+                        PresentationVfxCueKey.DamageHit,
+                        PresentationTarget.Global(),
+                        PresentationAnchor.ForGlobal(),
+                        tickIndex: 17));
+                var anchorMissing = PlayDamageDeathVfxCueDirectly(
+                    CreateDamageDeathVfxCue(
+                        PresentationVfxCueKey.DamageHit,
+                        PresentationTarget.Entity(40),
+                        PresentationAnchor.ForGlobal(),
+                        tickIndex: 18));
+                Assert.That(targetMissing.TargetMissingCount, Is.EqualTo(1));
+                Assert.That(targetMissing.AnchorMissingCount, Is.Zero);
+                Assert.That(targetMissing.BindingMissingCount, Is.Zero);
+                Assert.That(targetMissing.PortMissingCount, Is.Zero);
+                Assert.That(targetMissing.LastSuppressionReason, Is.EqualTo(DamageDeathVfxSuppressionReason.TargetMissing));
+                Assert.That(anchorMissing.TargetMissingCount, Is.Zero);
+                Assert.That(anchorMissing.AnchorMissingCount, Is.EqualTo(1));
+                Assert.That(anchorMissing.BindingMissingCount, Is.Zero);
+                Assert.That(anchorMissing.PortMissingCount, Is.Zero);
+                Assert.That(anchorMissing.LastSuppressionReason, Is.EqualTo(DamageDeathVfxSuppressionReason.AnchorMissing));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(missingPortRoot);
+                UnityEngine.Object.DestroyImmediate(bindingRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_LifecycleCleanup_TelemetryClearsState()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_LifecycleCleanup_TelemetryClearsState));
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(
+                    rootObject,
+                    port,
+                    topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 17,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                coordinator.Present(result);
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+
+                coordinator.PresentInitial(Array.Empty<EntityState>(), topology);
+                Assert.That(port.ResetSessionCallCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.DamageCuePlannedCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.SemanticDiagnostics, Is.Empty);
+
+                coordinator.Present(result);
+                coordinator.HardCleanupPresentationExtensions();
+                Assert.That(port.HardCleanupCallCount, Is.EqualTo(1));
+                Assert.That(coordinator.DamageDeathVfxOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.SemanticDiagnostics, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DamageDeathVfx_ProductionTelemetry_IsNonAuthoritative()
+        {
+            var rootObject = new GameObject(nameof(DamageDeathVfx_ProductionTelemetry_IsNonAuthoritative));
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedDefaultDamageDeathVfxCoordinator(
+                    rootObject,
+                    port,
+                    topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 18,
+                    topology,
+                    enemyDamageEntityId: 40);
+                var finalEntities = result.FinalEntities.ToArray();
+                var eventLog = result.EventLog.ToArray();
+                var objectiveResult = result.ObjectiveResult;
+                var determinismHash = result.DeterminismHash;
+
+                coordinator.Present(result);
+
+                Assert.That(coordinator.HasBlockingPresentation, Is.False);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.False);
+                AssertBlockingSnapshotCleared(coordinator.DamageDeathVfxExecutionPipelineBlockingSnapshot);
+                Assert.That(result.DeterminismHash, Is.EqualTo(determinismHash));
+                Assert.That(result.FinalEntities, Is.EqualTo(finalEntities));
+                Assert.That(result.EventLog, Is.EqualTo(eventLog));
+                Assert.That(result.ObjectiveResult, Is.SameAs(objectiveResult));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxMotion_DefaultLegacyTrackPlannerMode_DoesNotCallExecutorPortAndKeepsLegacyOwner()
+        {
+            var rootObject = new GameObject(nameof(BoxMotion_DefaultLegacyTrackPlannerMode_DoesNotCallExecutorPortAndKeepsLegacyOwner));
+            var port = new RecordingGameplayMotionPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedBoxMotionCoordinator(
+                    rootObject,
+                    BoxMotionPresentationExecutionMode.LegacyTrackPlanner,
+                    port,
+                    topology);
+                var result = CreateBoxMotionResult(
+                    tickIndex: 21,
+                    topology,
+                    boxEntityId: 40,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    destinationCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                    TickEntityMotionKind.BoxSlide);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.BoxMotionOwnershipDiagnostics;
+                Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(ownership.Mode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutorAttemptCount, Is.Zero);
+                Assert.That(ownership.ExecutedByLegacyCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                AssertBlockingSnapshotCleared(coordinator.BoxMotionExecutionPipelineBlockingSnapshot);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxMotion_InvalidMode_NormalizesToLegacyTrackPlanner()
+        {
+            var rootObject = new GameObject(nameof(BoxMotion_InvalidMode_NormalizesToLegacyTrackPlanner));
+            var port = new RecordingGameplayMotionPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedBoxMotionCoordinator(
+                    rootObject,
+                    (BoxMotionPresentationExecutionMode)999,
+                    port,
+                    topology);
+                var result = CreateBoxMotionResult(
+                    tickIndex: 22,
+                    topology,
+                    boxEntityId: 40,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    destinationCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                    TickEntityMotionKind.BoxSlide);
+
+                coordinator.Present(result);
+
+                Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxMotion_DefaultMode_IsOrchestrationMotionExecutor()
+        {
+            var rootObject = new GameObject(nameof(BoxMotion_DefaultMode_IsOrchestrationMotionExecutor));
+            var port = new RecordingGameplayMotionPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedBoxMotionCoordinatorUsingProductionDefault(
+                    rootObject,
+                    port,
+                    topology);
+
+                coordinator.Present(CreateBoxMotionResult(
+                    tickIndex: 22,
+                    topology,
+                    boxEntityId: 40,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    destinationCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                    TickEntityMotionKind.BoxSlide));
+
+                Assert.That(default(BoxMotionPresentationExecutionMode), Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
+                Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+
+                coordinator.ConfigureBoxMotionPresentationExecution((BoxMotionPresentationExecutionMode)999, port);
+                Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxMotion_DefaultOrchestration_RoutesSlideFlipImpact()
+        {
+            var rootObject = new GameObject(nameof(BoxMotion_DefaultOrchestration_RoutesSlideFlipImpact));
+            var port = new RecordingGameplayMotionPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedBoxMotionCoordinatorUsingProductionDefault(
+                    rootObject,
+                    port,
+                    topology);
+                var slideSource = new SurfaceCell(FaceId.Floor, 0, 0);
+                var slideDestination = new SurfaceCell(FaceId.Floor, 1, 0);
+                var flipSource = new SurfaceCell(FaceId.Floor, 1, 0);
+                var flipDestination = new SurfaceCell(FaceId.Floor, 2, 0);
+                var impactSource = new SurfaceCell(FaceId.Floor, 2, 0);
+                var impactCell = new SurfaceCell(FaceId.Floor, 2, 1);
+
+                coordinator.Present(CreateBoxMotionResult(
+                    tickIndex: 23,
+                    topology,
+                    boxEntityId: 40,
+                    slideSource,
+                    slideDestination,
+                    TickEntityMotionKind.BoxSlide));
+                coordinator.Present(CreateBoxMotionResult(
+                    tickIndex: 24,
+                    topology,
+                    boxEntityId: 40,
+                    flipSource,
+                    flipDestination,
+                    TickEntityMotionKind.Flip));
+                coordinator.Present(CreateBoxFlipImpactResult(
+                    tickIndex: 25,
+                    topology,
+                    boxEntityId: 40,
+                    impactTargetEntityId: 50,
+                    impactSource,
+                    impactCell));
+
+                Assert.That(port.Requests, Has.Count.EqualTo(3));
+                AssertBoxMotionRequest(
+                    port.Requests[0],
+                    PresentationMotionCueKey.BoxSlide,
+                    tickIndex: 23,
+                    boxEntityId: 40,
+                    slideSource,
+                    slideDestination,
+                    topology);
+                AssertBoxMotionRequest(
+                    port.Requests[1],
+                    PresentationMotionCueKey.BoxFlip,
+                    tickIndex: 24,
+                    boxEntityId: 40,
+                    flipSource,
+                    flipDestination,
+                    topology);
+                AssertBoxMotionRequest(
+                    port.Requests[2],
+                    PresentationMotionCueKey.BoxFlipImpact,
+                    tickIndex: 25,
+                    boxEntityId: 40,
+                    impactSource,
+                    impactCell,
+                    topology);
+                var ownership = coordinator.BoxMotionOwnershipDiagnostics;
+                Assert.That(ownership.Mode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(3));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(3));
+                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(3));
+                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(3));
+                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsProductionDefaultOwner, Is.True);
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.TrackStartedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxMotion_Readiness_DuplicateGuardNormalAndForced()
+        {
+            var rootObject = new GameObject(nameof(BoxMotion_Readiness_DuplicateGuardNormalAndForced));
+            var port = new RecordingGameplayMotionPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedBoxMotionCoordinator(
+                    rootObject,
+                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
+                    port,
+                    topology,
+                    duplicateExecutors: true);
+                var result = CreateBoxMotionResult(
+                    tickIndex: 26,
+                    topology,
+                    boxEntityId: 40,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    destinationCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                    TickEntityMotionKind.BoxSlide);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.BoxMotionOwnershipDiagnostics;
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(2));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(ownership.DuplicateAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.LastExecutionOwner, Is.EqualTo(BoxMotionPresentationExecutionOwner.OrchestrationMotionExecutor));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxMotion_Readiness_IsNonBlockingAndInputLockNeutral()
+        {
+            var rootObject = new GameObject(nameof(BoxMotion_Readiness_IsNonBlockingAndInputLockNeutral));
+            var port = new RecordingGameplayMotionPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedBoxMotionCoordinator(
+                    rootObject,
+                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
+                    port,
+                    topology);
+                var result = CreateBoxMotionResult(
+                    tickIndex: 27,
+                    topology,
+                    boxEntityId: 40,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    destinationCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                    TickEntityMotionKind.BoxSlide);
+                var finalEntities = result.FinalEntities.ToArray();
+                var eventLog = result.EventLog.ToArray();
+                var objectiveResult = result.ObjectiveResult;
+                var determinismHash = result.DeterminismHash;
+
+                coordinator.Present(result);
+
+                Assert.That(coordinator.HasBlockingPresentation, Is.False);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.False);
+                AssertBlockingSnapshotCleared(coordinator.BoxMotionExecutionPipelineBlockingSnapshot);
+                Assert.That(result.DeterminismHash, Is.EqualTo(determinismHash));
+                Assert.That(result.FinalEntities, Is.EqualTo(finalEntities));
+                Assert.That(result.EventLog, Is.EqualTo(eventLog));
+                Assert.That(result.ObjectiveResult, Is.SameAs(objectiveResult));
+                Assert.That(result.MovementPhaseResult, Is.SameAs(MovementPhaseResult.Empty));
+                Assert.That(result.AttackPhaseResult, Is.SameAs(AttackPhaseResult.Empty));
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxMotion_Readiness_IsDeterminismNeutral()
+        {
+            var rootObject = new GameObject(nameof(BoxMotion_Readiness_IsDeterminismNeutral));
+            var port = new RecordingGameplayMotionPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedBoxMotionCoordinator(
+                    rootObject,
+                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
+                    port,
+                    topology);
+                var result = CreateBoxMotionResult(
+                    tickIndex: 28,
+                    topology,
+                    boxEntityId: 40,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    destinationCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                    TickEntityMotionKind.BoxSlide);
+                var finalEntities = result.FinalEntities.ToArray();
+                var eventLog = result.EventLog.ToArray();
+                var objectiveResult = result.ObjectiveResult;
+                var movementPhaseResult = result.MovementPhaseResult;
+                var attackPhaseResult = result.AttackPhaseResult;
+                var determinismHash = result.DeterminismHash;
+
+                coordinator.Present(result);
+
+                Assert.That(result.DeterminismHash, Is.EqualTo(determinismHash));
+                Assert.That(result.FinalEntities, Is.EqualTo(finalEntities));
+                Assert.That(result.EventLog, Is.EqualTo(eventLog));
+                Assert.That(result.ObjectiveResult, Is.SameAs(objectiveResult));
+                Assert.That(result.MovementPhaseResult, Is.SameAs(movementPhaseResult));
+                Assert.That(result.AttackPhaseResult, Is.SameAs(attackPhaseResult));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxMotion_Readiness_MissingDiagnosticsSeparated()
+        {
+            var driverRoot = new GameObject(nameof(BoxMotion_Readiness_MissingDiagnosticsSeparated) + "_Driver");
+            var bindingRoot = new GameObject(nameof(BoxMotion_Readiness_MissingDiagnosticsSeparated) + "_Binding");
+            var portRoot = new GameObject(nameof(BoxMotion_Readiness_MissingDiagnosticsSeparated) + "_Port");
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var driverMissingCoordinator = CreateInitializedDefaultBoxMotionCoordinator(
+                    driverRoot,
+                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
+                    topology,
+                    new MotionOverrideViewFactory(driverRoot.transform));
+                var bindingMissingCoordinator = CreateInitializedDefaultBoxMotionCoordinator(
+                    bindingRoot,
+                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
+                    topology,
+                    new MotionOverrideViewFactory(bindingRoot.transform));
+                var missingPortCoordinator = CreateInitializedBoxMotionCoordinatorWithNullExecutorPort(
+                    portRoot,
+                    topology);
+
+                driverMissingCoordinator.Present(CreateBoxFlipImpactResult(
+                    tickIndex: 28,
+                    topology,
+                    boxEntityId: 40,
+                    impactTargetEntityId: 50,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    impactCell: new SurfaceCell(FaceId.Floor, 1, 0)));
+                bindingMissingCoordinator.Present(CreateBoxMotionResult(
+                    tickIndex: 29,
+                    topology,
+                    boxEntityId: 41,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    destinationCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                    TickEntityMotionKind.BoxSlide,
+                    includeFinalBox: false));
+                missingPortCoordinator.Present(CreateBoxMotionResult(
+                    tickIndex: 30,
+                    topology,
+                    boxEntityId: 42,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    destinationCell: new SurfaceCell(FaceId.Floor, 1, 0),
+                    TickEntityMotionKind.BoxSlide));
+
+                Assert.That(driverMissingCoordinator.BoxMotionExecutorDiagnostics.DriverMissingCount, Is.EqualTo(1));
+                Assert.That(bindingMissingCoordinator.BoxMotionExecutorDiagnostics.BindingMissingCount, Is.EqualTo(1));
+                Assert.That(missingPortCoordinator.BoxMotionExecutorDiagnostics.MissingPortCount, Is.EqualTo(1));
+                Assert.That(driverMissingCoordinator.BoxMotionExecutorDiagnostics.TargetMissingCount, Is.Zero);
+                Assert.That(driverMissingCoordinator.BoxMotionExecutorDiagnostics.AnchorMissingCount, Is.Zero);
+                Assert.That(driverMissingCoordinator.BoxMotionExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(bindingMissingCoordinator.BoxMotionExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(missingPortCoordinator.BoxMotionExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(driverMissingCoordinator.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(bindingMissingCoordinator.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(missingPortCoordinator.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(driverRoot);
+                UnityEngine.Object.DestroyImmediate(bindingRoot);
+                UnityEngine.Object.DestroyImmediate(portRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_DefaultLegacyMode_DoesNotCallExecutorPortAndKeepsLegacyOwner()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_DefaultLegacyMode_DoesNotCallExecutorPortAndKeepsLegacyOwner));
+            var port = new RecordingGameplayAnimationPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    (PlayerActionAnimationExecutionMode)999,
+                    port,
+                    topology);
+                var result = CreatePlayerActionAnimationResult(tickIndex: 31, topology);
+                var expectedCueCount = CountPlayerActionAnimationCues(result);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.PlayerActionAnimationOwnershipDiagnostics;
+                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(ownership.Mode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(expectedCueCount));
+                Assert.That(ownership.ExecutorAttemptCount, Is.Zero);
+                Assert.That(ownership.ExecutedByLegacyCount, Is.EqualTo(expectedCueCount));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                AssertBlockingSnapshotCleared(coordinator.PlayerActionAnimationExecutionPipelineBlockingSnapshot);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_OrchestrationExecutorMode_RoutesPushFlipPhaseRequests()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_OrchestrationExecutorMode_RoutesPushFlipPhaseRequests));
+            var port = new RecordingGameplayAnimationPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology);
+                var result = CreatePlayerActionAnimationResult(tickIndex: 32, topology);
+
+                coordinator.Present(result);
+
+                Assert.That(port.Requests, Has.Count.EqualTo(9));
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerPushWindup,
+                    tickIndex: 32,
+                    sequenceId: 101,
+                    actionKind: PresentationAnimationActionKind.Push,
+                    phaseKind: PresentationAnimationPhaseKind.Windup,
+                    outcomeKind: PresentationAnimationOutcomeKind.Started);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    tickIndex: 32,
+                    sequenceId: 102,
+                    actionKind: PresentationAnimationActionKind.Push,
+                    phaseKind: PresentationAnimationPhaseKind.Execute,
+                    outcomeKind: PresentationAnimationOutcomeKind.Executed);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerPushRecovery,
+                    tickIndex: 32,
+                    sequenceId: 103,
+                    actionKind: PresentationAnimationActionKind.Push,
+                    phaseKind: PresentationAnimationPhaseKind.Recovery,
+                    outcomeKind: PresentationAnimationOutcomeKind.Recovery);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerPushBlocked,
+                    tickIndex: 32,
+                    sequenceId: 104,
+                    actionKind: PresentationAnimationActionKind.Push,
+                    phaseKind: PresentationAnimationPhaseKind.Execute,
+                    outcomeKind: PresentationAnimationOutcomeKind.Blocked);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerFlipWindup,
+                    tickIndex: 32,
+                    sequenceId: 201,
+                    actionKind: PresentationAnimationActionKind.Flip,
+                    phaseKind: PresentationAnimationPhaseKind.Windup,
+                    outcomeKind: PresentationAnimationOutcomeKind.Started);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerFlipExecute,
+                    tickIndex: 32,
+                    sequenceId: 202,
+                    actionKind: PresentationAnimationActionKind.Flip,
+                    phaseKind: PresentationAnimationPhaseKind.Execute,
+                    outcomeKind: PresentationAnimationOutcomeKind.Executed);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerFlipRecovery,
+                    tickIndex: 32,
+                    sequenceId: 203,
+                    actionKind: PresentationAnimationActionKind.Flip,
+                    phaseKind: PresentationAnimationPhaseKind.Recovery,
+                    outcomeKind: PresentationAnimationOutcomeKind.Recovery);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerFlipImpactContact,
+                    tickIndex: 32,
+                    sequenceId: 204,
+                    actionKind: PresentationAnimationActionKind.Flip,
+                    phaseKind: PresentationAnimationPhaseKind.Execute,
+                    outcomeKind: PresentationAnimationOutcomeKind.Impact);
+                AssertPlayerActionAnimationRequest(
+                    port.Requests,
+                    PresentationAnimationCueKey.PlayerFlipFailed,
+                    tickIndex: 32,
+                    sequenceId: 1,
+                    actionKind: PresentationAnimationActionKind.Flip,
+                    phaseKind: PresentationAnimationPhaseKind.Failed,
+                    outcomeKind: PresentationAnimationOutcomeKind.Failed,
+                    expectedSemanticSource: PresentationSemanticSource.PlayerActionAttempt,
+                    expectedActionPlanId: 0);
+
+                var ownership = coordinator.PlayerActionAnimationOwnershipDiagnostics;
+                Assert.That(ownership.Mode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(9));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(9));
+                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(9));
+                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(9));
+                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.CommandRequestedCount, Is.EqualTo(9));
+                Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.CommandAppliedCount, Is.EqualTo(9));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues));
+            var port = new RecordingGameplayAnimationPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    PlayerActionAnimationExecutionDefaults.ProductionDefault,
+                    port,
+                    topology);
+                var result = CreatePlayerActionAnimationResult(tickIndex: 132, topology);
+
+                coordinator.Present(result);
+
+                var telemetry = coordinator.PlayerActionAnimationProductionTelemetrySnapshot;
+                Assert.That(telemetry.CurrentMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
+                Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
+                Assert.That(telemetry.RollbackMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(telemetry.ObservedCueCount, Is.EqualTo(9));
+                Assert.That(telemetry.PlaybackCommandRequestedCount, Is.EqualTo(9));
+                Assert.That(telemetry.PlaybackCommandAppliedCount, Is.EqualTo(9));
+                Assert.That(telemetry.LegacyOwnerAttemptCount, Is.EqualTo(9));
+                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(9));
+                Assert.That(telemetry.ExecutorOwnerAttemptCount, Is.EqualTo(9));
+                Assert.That(telemetry.ExecutorOwnerExecutedCount, Is.EqualTo(9));
+                Assert.That(telemetry.DuplicateOwnerAttemptCount, Is.Zero);
+                Assert.That(telemetry.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(telemetry.LastTickIndex, Is.EqualTo(132));
+                Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationAnimationCueKey.PlayerFlipFailed));
+                Assert.That(telemetry.LastPlayerEntityId, Is.EqualTo(10));
+                Assert.That(telemetry.LastActionKind, Is.EqualTo(PresentationAnimationActionKind.Flip));
+                Assert.That(telemetry.LastPhaseKind, Is.EqualTo(PresentationAnimationPhaseKind.Failed));
+                Assert.That(telemetry.LastOutcomeKind, Is.EqualTo(PresentationAnimationOutcomeKind.Failed));
+                Assert.That(telemetry.LastFailureReason, Is.EqualTo(PlayerActionAnimationTelemetryFailureReason.None));
+                Assert.That(telemetry.LastCleanupReason, Is.EqualTo(PlayerActionAnimationTelemetryCleanupReason.None));
+                Assert.That(telemetry.SemanticDiagnostics.Count, Is.EqualTo(12));
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    telemetry,
+                    PresentationAnimationCueKey.PlayerPushWindup,
+                    planned: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    telemetry,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    planned: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    telemetry,
+                    PresentationAnimationCueKey.PlayerFlipFailed,
+                    planned: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    telemetry,
+                    PresentationAnimationCueKey.PlayerFlipImpactContact,
+                    planned: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_SemanticTelemetry_CoversAllPushFlipSemanticsWithPlannerOwnedPlannedCount()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_SemanticTelemetry_CoversAllPushFlipSemanticsWithPlannerOwnedPlannedCount));
+            var port = new RecordingGameplayAnimationPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology);
+                var result = CreateAllPlayerActionAnimationSemanticResult(tickIndex: 133, topology);
+
+                coordinator.Present(result);
+
+                var telemetry = coordinator.PlayerActionAnimationProductionTelemetrySnapshot;
+                Assert.That(telemetry.SemanticDiagnostics.Count, Is.EqualTo(12));
+                Assert.That(telemetry.ObservedCueCount, Is.EqualTo(12));
+                Assert.That(telemetry.PlaybackCommandRequestedCount, Is.EqualTo(12));
+                Assert.That(telemetry.PlaybackCommandAppliedCount, Is.EqualTo(12));
+
+                foreach (var cueKey in PlayerActionAnimationSemanticCueKeys())
+                {
+                    AssertPlayerActionAnimationSemanticTelemetry(
+                        telemetry,
+                        cueKey,
+                        planned: 1,
+                        requested: 1,
+                        applied: 1,
+                        ignored: 0,
+                        observed: 1);
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_SemanticTelemetry_RequestedResultDoesNotCountAsApplied()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_SemanticTelemetry_RequestedResultDoesNotCountAsApplied));
+            var port = new RecordingGameplayAnimationPlaybackPort(
+                GameplayAnimationPlaybackResultKind.Requested);
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology);
+                var result = CreateSinglePlayerActionAnimationResult(
+                    tickIndex: 134,
+                    topology,
+                    PlayerActionKind.Push,
+                    sequenceId: 134,
+                    executedThisTick: true);
+
+                coordinator.Present(result);
+
+                var telemetry = coordinator.PlayerActionAnimationProductionTelemetrySnapshot;
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    telemetry,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    planned: 1,
+                    requested: 1,
+                    applied: 0,
+                    ignored: 0,
+                    observed: 1);
+                Assert.That(telemetry.PlaybackCommandRequestedCount, Is.EqualTo(1));
+                Assert.That(telemetry.PlaybackCommandAppliedCount, Is.Zero);
+                Assert.That(telemetry.LastFailureReason, Is.EqualTo(PlayerActionAnimationTelemetryFailureReason.None));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_SemanticTelemetry_IgnoredTerminalResultDoesNotCountAsAppliedAcrossPushFlip()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_SemanticTelemetry_IgnoredTerminalResultDoesNotCountAsAppliedAcrossPushFlip));
+            var port = new RecordingGameplayAnimationPlaybackPort(
+                GameplayAnimationPlaybackResultKind.IgnoredByPolicy);
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology);
+                var result = CreateAllPlayerActionAnimationSemanticResult(tickIndex: 135, topology);
+
+                coordinator.Present(result);
+
+                var telemetry = coordinator.PlayerActionAnimationProductionTelemetrySnapshot;
+                Assert.That(telemetry.ObservedCueCount, Is.EqualTo(12));
+                Assert.That(telemetry.PlaybackCommandRequestedCount, Is.EqualTo(12));
+                Assert.That(telemetry.PlaybackCommandAppliedCount, Is.Zero);
+                Assert.That(telemetry.PlaybackCommandIgnoredByPolicyCount, Is.EqualTo(12));
+                Assert.That(telemetry.LastFailureReason, Is.EqualTo(PlayerActionAnimationTelemetryFailureReason.IgnoredByPolicy));
+
+                foreach (var cueKey in PlayerActionAnimationSemanticCueKeys())
+                {
+                    AssertPlayerActionAnimationSemanticTelemetry(
+                        telemetry,
+                        cueKey,
+                        planned: 1,
+                        requested: 1,
+                        applied: 0,
+                        ignored: 1,
+                        observed: 1);
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests()
+        {
+            var legacyRoot = new GameObject(nameof(PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests) + "_Legacy");
+            var executorRoot = new GameObject(nameof(PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests) + "_Executor");
+            var port = new RecordingGameplayAnimationPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var legacyCoordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    legacyRoot,
+                    PlayerActionAnimationExecutionMode.LegacyAnimationSync,
+                    playbackPort: null,
+                    initialTopology: topology,
+                    viewFactory: new DefaultGameplayEntityViewFactory(legacyRoot.transform, 1f, playerEntityId: 10));
+                var executorCoordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    executorRoot,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology,
+                    viewFactory: new DefaultGameplayEntityViewFactory(executorRoot.transform, 1f, playerEntityId: 10));
+                var cases = new[]
+                {
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Push,
+                        PresentationAnimationCueKey.PlayerPushWindup,
+                        PresentationAnimationPhaseKind.Windup,
+                        PresentationAnimationOutcomeKind.Started,
+                        sequenceId: 901,
+                        startedThisTick: true),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Push,
+                        PresentationAnimationCueKey.PlayerPushExecute,
+                        PresentationAnimationPhaseKind.Execute,
+                        PresentationAnimationOutcomeKind.Executed,
+                        sequenceId: 902,
+                        executedThisTick: true),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Push,
+                        PresentationAnimationCueKey.PlayerPushRecovery,
+                        PresentationAnimationPhaseKind.Recovery,
+                        PresentationAnimationOutcomeKind.Recovery,
+                        sequenceId: 903,
+                        recoveryPhase: true),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Push,
+                        PresentationAnimationCueKey.PlayerPushBlocked,
+                        PresentationAnimationPhaseKind.Execute,
+                        PresentationAnimationOutcomeKind.Blocked,
+                        sequenceId: 904,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Blocked),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Flip,
+                        PresentationAnimationCueKey.PlayerFlipWindup,
+                        PresentationAnimationPhaseKind.Windup,
+                        PresentationAnimationOutcomeKind.Started,
+                        sequenceId: 905,
+                        startedThisTick: true),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Flip,
+                        PresentationAnimationCueKey.PlayerFlipExecute,
+                        PresentationAnimationPhaseKind.Execute,
+                        PresentationAnimationOutcomeKind.Executed,
+                        sequenceId: 906,
+                        executedThisTick: true),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Flip,
+                        PresentationAnimationCueKey.PlayerFlipRecovery,
+                        PresentationAnimationPhaseKind.Recovery,
+                        PresentationAnimationOutcomeKind.Recovery,
+                        sequenceId: 907,
+                        recoveryPhase: true),
+                    new PlayerActionAnimationSemanticCase(
+                        PlayerActionKind.Flip,
+                        PresentationAnimationCueKey.PlayerFlipImpactContact,
+                        PresentationAnimationPhaseKind.Execute,
+                        PresentationAnimationOutcomeKind.Impact,
+                        sequenceId: 908,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Impact),
+                };
+
+                for (var i = 0; i < cases.Length; i++)
+                {
+                    var semanticCase = cases[i];
+                    var result = CreateSinglePlayerActionAnimationResult(
+                        tickIndex: 40 + i,
+                        topology,
+                        semanticCase.ActionKind,
+                        semanticCase.SequenceId,
+                        semanticCase.StartedThisTick,
+                        semanticCase.ExecutedThisTick,
+                        semanticCase.RecoveryPhase,
+                        semanticCase.ResolutionKind);
+
+                    legacyCoordinator.Present(result);
+                    executorCoordinator.Present(result);
+
+                    var legacyState = GetPlayerAnimatorDriver(legacyRoot).LastPresentationState;
+                    var request = port.Requests.Last();
+                    Assert.That(legacyState.EntityId, Is.EqualTo(request.PlayerEntityId));
+                    Assert.That(legacyState.ActiveActionKind, Is.EqualTo(semanticCase.ActionKind));
+                    Assert.That(legacyState.ActiveActionSequence, Is.EqualTo(request.AnimationPayload.SourceSequenceId));
+                    Assert.That(legacyState.ActionPlanId, Is.EqualTo(request.AnimationPayload.SourceActionPlanId));
+                    Assert.That(legacyState.StartedThisTick, Is.EqualTo(semanticCase.StartedThisTick));
+                    Assert.That(legacyState.ExecutedThisTick, Is.EqualTo(semanticCase.ExecutedThisTick));
+                    Assert.That(legacyState.IsRecoveryPhase, Is.EqualTo(semanticCase.RecoveryPhase));
+                    Assert.That(request.CueKey, Is.EqualTo(semanticCase.CueKey));
+                    Assert.That(request.AnimationPayload.PhaseKind, Is.EqualTo(semanticCase.PhaseKind));
+                    Assert.That(request.AnimationPayload.OutcomeKind, Is.EqualTo(semanticCase.OutcomeKind));
+                    Assert.That(request.Target, Is.EqualTo(PresentationTarget.Entity(10)));
+                    Assert.That(request.Anchor, Is.EqualTo(PresentationAnchor.ForEntityVisualRoot(10)));
+                    Assert.That(request.OwnershipKey.CueKey, Is.EqualTo(semanticCase.CueKey));
+                }
+
+                Assert.That(legacyCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(executorCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(legacyRoot);
+                UnityEngine.Object.DestroyImmediate(executorRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_OrchestrationExecutorMode_ForcedDuplicateAttemptBlocksSecondOwner()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_OrchestrationExecutorMode_ForcedDuplicateAttemptBlocksSecondOwner));
+            var port = new RecordingGameplayAnimationPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology,
+                    duplicateExecutors: true);
+                var result = CreateSinglePlayerActionAnimationResult(
+                    tickIndex: 33,
+                    topology,
+                    PlayerActionKind.Push,
+                    sequenceId: 301,
+                    startedThisTick: true);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.PlayerActionAnimationOwnershipDiagnostics;
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(2));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(ownership.DuplicateAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.LastExecutionOwner, Is.EqualTo(PlayerActionAnimationExecutionOwner.OrchestrationAnimationExecutor));
+                Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(coordinator.PlayerActionAnimationProductionTelemetrySnapshot.DuplicateOwnerAttemptCount, Is.EqualTo(1));
+                Assert.That(coordinator.PlayerActionAnimationProductionTelemetrySnapshot.DuplicateSuppressedCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_ControlledHostExecutor_DistinguishesMissingDiagnostics()
+        {
+            var malformedRoot = new GameObject(nameof(PlayerActionAnimation_ControlledHostExecutor_DistinguishesMissingDiagnostics) + "_Malformed");
+            var adapterRoot = new GameObject(nameof(PlayerActionAnimation_ControlledHostExecutor_DistinguishesMissingDiagnostics) + "_Adapter");
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var malformedCoordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    malformedRoot,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    new RecordingGameplayAnimationPlaybackPort(),
+                    topology,
+                    overrideCues: new[]
+                    {
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushWindup,
+                            PresentationAnimationPhaseKind.Windup,
+                            PresentationAnimationOutcomeKind.Started,
+                            tickIndex: 34,
+                            sequenceId: 401,
+                            target: PresentationTarget.None()),
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushExecute,
+                            PresentationAnimationPhaseKind.Execute,
+                            PresentationAnimationOutcomeKind.Executed,
+                            tickIndex: 34,
+                            sequenceId: 402,
+                            anchor: PresentationAnchor.None()),
+                    });
+                var adapterPort = new RecordingGameplayAnimationPlaybackPort(request =>
+                    request.CueKey == PresentationAnimationCueKey.PlayerPushWindup
+                        ? GameplayAnimationPlaybackResultKind.BindingMissing
+                        : request.CueKey == PresentationAnimationCueKey.PlayerPushExecute
+                            ? GameplayAnimationPlaybackResultKind.DriverMissing
+                            : GameplayAnimationPlaybackResultKind.AnimatorMissing);
+                var adapterCoordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    adapterRoot,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    adapterPort,
+                    topology,
+                    overrideCues: new[]
+                    {
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushWindup,
+                            PresentationAnimationPhaseKind.Windup,
+                            PresentationAnimationOutcomeKind.Started,
+                            tickIndex: 35,
+                            sequenceId: 501),
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushExecute,
+                            PresentationAnimationPhaseKind.Execute,
+                            PresentationAnimationOutcomeKind.Executed,
+                            tickIndex: 35,
+                            sequenceId: 502),
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushRecovery,
+                            PresentationAnimationPhaseKind.Recovery,
+                            PresentationAnimationOutcomeKind.Recovery,
+                            tickIndex: 35,
+                            sequenceId: 503),
+                    });
+                var missingPortGuard = new PlayerActionAnimationExecutionGuard(
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
+                missingPortGuard.ResetSession();
+                var missingPortExecutor = new GameplayAnimationPresentationExecutor(
+                    playbackPort: null,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    missingPortGuard);
+
+                malformedCoordinator.Present(CreateTickResult(34, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
+                adapterCoordinator.Present(CreateTickResult(35, Array.Empty<EntityState>(), topology, TickPresentationData.Empty));
+                missingPortExecutor.Play(CreatePlayerActionAnimationPlanFromStaticPlanner(
+                    36,
+                    new[]
+                    {
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerFlipWindup,
+                            PresentationAnimationPhaseKind.Windup,
+                            PresentationAnimationOutcomeKind.Started,
+                            tickIndex: 36,
+                            sequenceId: 601),
+                    }));
+
+                Assert.That(malformedCoordinator.PlayerActionAnimationExecutorDiagnostics.TargetMissingCount, Is.EqualTo(1));
+                Assert.That(malformedCoordinator.PlayerActionAnimationExecutorDiagnostics.AnchorMissingCount, Is.EqualTo(1));
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    malformedCoordinator.PlayerActionAnimationProductionTelemetrySnapshot,
+                    PresentationAnimationCueKey.PlayerPushWindup,
+                    planned: 1,
+                    requested: 0,
+                    applied: 0,
+                    ignored: 1,
+                    observed: 1);
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    malformedCoordinator.PlayerActionAnimationProductionTelemetrySnapshot,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    planned: 1,
+                    requested: 0,
+                    applied: 0,
+                    ignored: 1,
+                    observed: 1);
+                Assert.That(
+                    malformedCoordinator.PlayerActionAnimationProductionTelemetrySnapshot.LastFailureReason,
+                    Is.EqualTo(PlayerActionAnimationTelemetryFailureReason.AnchorMissing));
+                Assert.That(adapterCoordinator.PlayerActionAnimationExecutorDiagnostics.BindingMissingCount, Is.EqualTo(1));
+                Assert.That(adapterCoordinator.PlayerActionAnimationExecutorDiagnostics.DriverMissingCount, Is.EqualTo(1));
+                Assert.That(adapterCoordinator.PlayerActionAnimationExecutorDiagnostics.AnimatorMissingCount, Is.EqualTo(1));
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    adapterCoordinator.PlayerActionAnimationProductionTelemetrySnapshot,
+                    PresentationAnimationCueKey.PlayerPushWindup,
+                    planned: 1,
+                    requested: 1,
+                    applied: 0,
+                    ignored: 1,
+                    observed: 1);
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    adapterCoordinator.PlayerActionAnimationProductionTelemetrySnapshot,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    planned: 1,
+                    requested: 1,
+                    applied: 0,
+                    ignored: 1,
+                    observed: 1);
+                AssertPlayerActionAnimationSemanticTelemetry(
+                    adapterCoordinator.PlayerActionAnimationProductionTelemetrySnapshot,
+                    PresentationAnimationCueKey.PlayerPushRecovery,
+                    planned: 1,
+                    requested: 1,
+                    applied: 0,
+                    ignored: 1,
+                    observed: 1);
+                Assert.That(
+                    adapterCoordinator.PlayerActionAnimationProductionTelemetrySnapshot.LastFailureReason,
+                    Is.EqualTo(PlayerActionAnimationTelemetryFailureReason.AnimatorMissing));
+                Assert.That(missingPortExecutor.Diagnostics.MissingPortCount, Is.EqualTo(1));
+                Assert.That(missingPortExecutor.Diagnostics.LastFailureReason, Is.EqualTo(PlayerActionAnimationTelemetryFailureReason.PortMissing));
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    missingPortExecutor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerFlipWindup,
+                    planned: 1,
+                    observed: 1,
+                    requested: 0,
+                    applied: 0,
+                    ignored: 1);
+                Assert.That(malformedCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(adapterCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(missingPortGuard.Diagnostics.DuplicateAttemptCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(malformedRoot);
+                UnityEngine.Object.DestroyImmediate(adapterRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_OrchestrationRoute_IsNonBlockingCleansLifecycleAndDoesNotMutateTickResult()
+        {
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_OrchestrationRoute_IsNonBlockingCleansLifecycleAndDoesNotMutateTickResult));
+            var port = new RecordingGameplayAnimationPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedPlayerActionAnimationCoordinator(
+                    rootObject,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    port,
+                    topology);
+                var result = CreateSinglePlayerActionAnimationResult(
+                    tickIndex: 37,
+                    topology,
+                    PlayerActionKind.Flip,
+                    sequenceId: 701,
+                    startedThisTick: true);
+                var finalEntities = result.FinalEntities.ToArray();
+                var eventLog = result.EventLog.ToArray();
+                var objectiveResult = result.ObjectiveResult;
+                var determinismHash = result.DeterminismHash;
+
+                coordinator.Present(result);
+
+                Assert.That(coordinator.HasBlockingPresentation, Is.False);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.False);
+                AssertBlockingSnapshotCleared(coordinator.PlayerActionAnimationExecutionPipelineBlockingSnapshot);
+                Assert.That(result.DeterminismHash, Is.EqualTo(determinismHash));
+                Assert.That(result.FinalEntities, Is.EqualTo(finalEntities));
+                Assert.That(result.EventLog, Is.EqualTo(eventLog));
+                Assert.That(result.ObjectiveResult, Is.SameAs(objectiveResult));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+
+                coordinator.PresentInitial(Array.Empty<EntityState>(), topology);
+                Assert.That(port.ResetSessionCallCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(coordinator.PlayerActionAnimationOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
+                Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.CommandRequestedCount, Is.Zero);
+                Assert.That(
+                    coordinator.PlayerActionAnimationProductionTelemetrySnapshot.LastCleanupReason,
+                    Is.EqualTo(PlayerActionAnimationTelemetryCleanupReason.ResetSession));
+
+                coordinator.Present(result);
+                coordinator.HardCleanupPresentationExtensions();
+                Assert.That(port.HardCleanupCallCount, Is.EqualTo(1));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(coordinator.PlayerActionAnimationOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
+                Assert.That(
+                    coordinator.PlayerActionAnimationProductionTelemetrySnapshot.LastCleanupReason,
+                    Is.EqualTo(PlayerActionAnimationTelemetryCleanupReason.HardCleanupPresentationExtensions));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_ExecuteCueLowering_MapsToLegacyRecoveryDriverContract()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject(
+                nameof(PlayerActionAnimation_ExecuteCueLowering_MapsToLegacyRecoveryDriverContract));
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                Assert.That(view, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+                var sync = new GameplayAnimationSyncCoordinator();
+                var port = new GameplayAnimationSyncPlaybackPort(
+                    sync,
+                    CreateStateStoreWithView(view));
+                var guard = new PlayerActionAnimationExecutionGuard(
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
+                var executor = new GameplayAnimationPresentationExecutor(
+                    port,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    guard);
+                var plan = CreatePlayerActionAnimationPlanFromStaticPlanner(
+                    38,
+                    new[]
+                    {
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushExecute,
+                            PresentationAnimationPhaseKind.Execute,
+                            PresentationAnimationOutcomeKind.Executed,
+                            tickIndex: 38,
+                            sequenceId: 801),
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerFlipExecute,
+                            PresentationAnimationPhaseKind.Execute,
+                            PresentationAnimationOutcomeKind.Executed,
+                            tickIndex: 38,
+                            sequenceId: 802),
+                    });
+
+                sync.CacheDrivers(10, view);
+                executor.Play(plan);
+
+                Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(2));
+                Assert.That(executor.Diagnostics.CommandAppliedCount, Is.EqualTo(2));
+                Assert.That(executor.Diagnostics.ExecuteCueMappedToLegacyCommandCount, Is.EqualTo(2));
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    executor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    planned: 1,
+                    observed: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    executor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerFlipExecute,
+                    planned: 1,
+                    observed: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    executor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerPushRecovery,
+                    planned: 0,
+                    observed: 0,
+                    requested: 0,
+                    applied: 0,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    executor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerFlipRecovery,
+                    planned: 0,
+                    observed: 0,
+                    requested: 0,
+                    applied: 0,
+                    ignored: 0);
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.FlipRecovery));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Flip_Recovery"));
+                Assert.That(driver.ActionExecuteSignalCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PlayerActionAnimation_RecoveryCueTelemetry_DoesNotIncrementExecuteOrLoweringCounters()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject(
+                nameof(PlayerActionAnimation_RecoveryCueTelemetry_DoesNotIncrementExecuteOrLoweringCounters));
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                var sync = new GameplayAnimationSyncCoordinator();
+                var port = new GameplayAnimationSyncPlaybackPort(
+                    sync,
+                    CreateStateStoreWithView(view));
+                var guard = new PlayerActionAnimationExecutionGuard(
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor);
+                var executor = new GameplayAnimationPresentationExecutor(
+                    port,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    guard);
+                var plan = CreatePlayerActionAnimationPlanFromStaticPlanner(
+                    39,
+                    new[]
+                    {
+                        CreatePlayerActionAnimationCue(
+                            PresentationAnimationCueKey.PlayerPushRecovery,
+                            PresentationAnimationPhaseKind.Recovery,
+                            PresentationAnimationOutcomeKind.Recovery,
+                            tickIndex: 39,
+                            sequenceId: 803),
+                    });
+
+                sync.CacheDrivers(10, view);
+                executor.Play(plan);
+
+                Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(1));
+                Assert.That(executor.Diagnostics.CommandAppliedCount, Is.EqualTo(1));
+                Assert.That(executor.Diagnostics.ExecuteCueMappedToLegacyCommandCount, Is.Zero);
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    executor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerPushRecovery,
+                    planned: 1,
+                    observed: 1,
+                    requested: 1,
+                    applied: 1,
+                    ignored: 0);
+                AssertPlayerActionAnimationSemanticDiagnostics(
+                    executor.Diagnostics,
+                    PresentationAnimationCueKey.PlayerPushExecute,
+                    planned: 0,
+                    observed: 0,
+                    requested: 0,
+                    applied: 0,
+                    ignored: 0);
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushRecovery));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Recovery"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxMotion_Readiness_PoseEquivalenceAndVisualRootReset()
+        {
+            var legacyRoot = new GameObject(nameof(BoxMotion_Readiness_PoseEquivalenceAndVisualRootReset) + "_Legacy");
+            var executorRoot = new GameObject(nameof(BoxMotion_Readiness_PoseEquivalenceAndVisualRootReset) + "_Executor");
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+                var legacyPresenter = CreateInitializedBoxMotionPresenter(
+                    legacyRoot,
+                    BoxMotionPresentationExecutionMode.LegacyTrackPlanner,
+                    topology,
+                    boardBounds,
+                    timingProfile,
+                    out var legacyRegistry);
+                var executorPresenter = CreateInitializedBoxMotionPresenter(
+                    executorRoot,
+                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
+                    topology,
+                    boardBounds,
+                    timingProfile,
+                    out var executorRegistry);
+                var slideSource = new SurfaceCell(FaceId.Floor, 0, 0);
+                var slideDestination = new SurfaceCell(FaceId.Floor, 1, 0);
+                var flipDestination = new SurfaceCell(FaceId.Floor, 2, 0);
+
+                legacyPresenter.PresentInitial(new[] { CreateBox(40, slideSource) }, topology);
+                executorPresenter.PresentInitial(new[] { CreateBox(40, slideSource) }, topology);
+                Assert.That(legacyRegistry.TryGetView(40, out var legacyView), Is.True);
+                Assert.That(executorRegistry.TryGetView(40, out var executorView), Is.True);
+                AssertPositionApproximately(executorView.transform.localPosition, legacyView.transform.localPosition);
+                AssertPositionApproximately(executorView.ModelRoot.localPosition, Vector3.zero);
+                Assert.That(Quaternion.Angle(executorView.ModelRoot.localRotation, Quaternion.identity), Is.LessThan(0.001f));
+
+                legacyPresenter.Present(CreateBoxMotionResult(
+                    tickIndex: 31,
+                    topology,
+                    boxEntityId: 40,
+                    slideSource,
+                    slideDestination,
+                    TickEntityMotionKind.BoxSlide));
+                executorPresenter.Present(CreateBoxMotionResult(
+                    tickIndex: 31,
+                    topology,
+                    boxEntityId: 40,
+                    slideSource,
+                    slideDestination,
+                    TickEntityMotionKind.BoxSlide));
+                legacyPresenter.UpdatePresentation(timingProfile.BoxSlideStepIntervalSeconds * 0.5f);
+                executorPresenter.UpdatePresentation(timingProfile.BoxSlideStepIntervalSeconds * 0.5f);
+
+                AssertPositionApproximately(executorView.transform.localPosition, legacyView.transform.localPosition);
+                AssertScaleApproximately(executorView.ModelRoot.localScale, legacyView.ModelRoot.localScale);
+
+                legacyPresenter.UpdatePresentation(timingProfile.BoxSlideStepIntervalSeconds);
+                executorPresenter.UpdatePresentation(timingProfile.BoxSlideStepIntervalSeconds);
+                AssertPositionApproximately(executorView.transform.localPosition, legacyView.transform.localPosition);
+                AssertScaleApproximately(executorView.ModelRoot.localScale, Vector3.one);
+                AssertPositionApproximately(executorView.ModelRoot.localPosition, Vector3.zero);
+                Assert.That(Quaternion.Angle(executorView.ModelRoot.localRotation, Quaternion.identity), Is.LessThan(0.001f));
+
+                legacyPresenter.Present(CreateBoxMotionResult(
+                    tickIndex: 32,
+                    topology,
+                    boxEntityId: 40,
+                    slideDestination,
+                    flipDestination,
+                    TickEntityMotionKind.Flip));
+                executorPresenter.Present(CreateBoxMotionResult(
+                    tickIndex: 32,
+                    topology,
+                    boxEntityId: 40,
+                    slideDestination,
+                    flipDestination,
+                    TickEntityMotionKind.Flip));
+                legacyPresenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds * 0.5f);
+                executorPresenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds * 0.5f);
+                AssertPositionApproximately(executorView.transform.localPosition, legacyView.transform.localPosition);
+                Assert.That(Quaternion.Angle(executorView.transform.localRotation, legacyView.transform.localRotation), Is.LessThan(0.001f));
+                AssertScaleApproximately(executorView.ModelRoot.localScale, legacyView.ModelRoot.localScale);
+
+                legacyPresenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds);
+                executorPresenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds);
+                AssertPositionApproximately(executorView.transform.localPosition, legacyView.transform.localPosition);
+                Assert.That(Quaternion.Angle(executorView.transform.localRotation, legacyView.transform.localRotation), Is.LessThan(0.001f));
+                AssertScaleApproximately(executorView.ModelRoot.localScale, Vector3.one);
+                AssertPositionApproximately(executorView.ModelRoot.localPosition, Vector3.zero);
+                Assert.That(Quaternion.Angle(executorView.ModelRoot.localRotation, Quaternion.identity), Is.LessThan(0.001f));
+                Assert.That(executorPresenter.HasBlockingPresentation, Is.False);
+                Assert.That(executorPresenter.IsTopologyTransitionActive, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(legacyRoot);
+                UnityEngine.Object.DestroyImmediate(executorRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxMotion_Readiness_LifecycleCleanupClearsState()
+        {
+            var rootObject = new GameObject(nameof(BoxMotion_Readiness_LifecycleCleanupClearsState));
+            var port = new RecordingGameplayMotionPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedBoxMotionCoordinator(
+                    rootObject,
+                    BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor,
+                    port,
+                    topology,
+                    viewFactory: new BoxFlipDriverViewFactory(rootObject.transform));
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                coordinator.PresentInitial(new[] { CreateBox(40, sourceCell) }, topology);
+                Assert.That(rootObject.GetComponent<GameplayEntityViewRegistry>().TryGetView(40, out var view), Is.True);
+                var driver = view.GetComponent<BoxFlipInteractionDriver>();
+                Assert.That(driver, Is.Not.Null);
+                driver.ApplyInteraction(new Vector3(0.25f, 0.1f, 0f), Quaternion.Euler(0f, 0f, 15f), 1f);
+                Assert.That(Vector3.Distance(view.ModelRoot.localPosition, Vector3.zero), Is.GreaterThan(0.001f));
+
+                coordinator.Present(CreateBoxMotionResult(
+                    tickIndex: 33,
+                    topology,
+                    boxEntityId: 40,
+                    sourceCell,
+                    destinationCell,
+                    TickEntityMotionKind.BoxSlide));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(port.Requests, Has.Count.EqualTo(1));
+
+                coordinator.PresentInitial(new[] { CreateBox(40, sourceCell) }, topology);
+                Assert.That(port.ResetSessionCallCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(port.CleanupRequestedCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(port.CleanupSucceededCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(port.Requests, Is.Empty);
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(GetPresentationTrackState(coordinator).LocalMotionTracks.ContainsKey(40), Is.False);
+                Assert.That(GetPresentationTrackState(coordinator).CompletedPresentationMotionKeys.Any(key => key.EntityId == 40), Is.False);
+                Assert.That(GetPresentationTrackState(coordinator).FlipInteractionTracks, Is.Empty);
+                AssertPositionApproximately(view.ModelRoot.localPosition, Vector3.zero);
+                Assert.That(Quaternion.Angle(view.ModelRoot.localRotation, Quaternion.identity), Is.LessThan(0.001f));
+
+                coordinator.Present(CreateBoxMotionResult(
+                    tickIndex: 34,
+                    topology,
+                    boxEntityId: 40,
+                    sourceCell,
+                    destinationCell,
+                    TickEntityMotionKind.BoxSlide));
+                driver.ApplyInteraction(new Vector3(0.25f, 0.1f, 0f), Quaternion.Euler(0f, 0f, 15f), 1f);
+                coordinator.HardCleanupPresentationExtensions();
+
+                Assert.That(port.HardCleanupCallCount, Is.EqualTo(1));
+                Assert.That(port.CleanupRequestedCount, Is.GreaterThanOrEqualTo(2));
+                Assert.That(port.CleanupSucceededCount, Is.GreaterThanOrEqualTo(2));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(port.Requests, Is.Empty);
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(GetPresentationTrackState(coordinator).LocalMotionTracks.ContainsKey(40), Is.False);
+                Assert.That(GetPresentationTrackState(coordinator).CompletedPresentationMotionKeys.Any(key => key.EntityId == 40), Is.False);
+                Assert.That(GetPresentationTrackState(coordinator).FlipInteractionTracks, Is.Empty);
+                AssertPositionApproximately(view.ModelRoot.localPosition, Vector3.zero);
+                Assert.That(Quaternion.Angle(view.ModelRoot.localRotation, Quaternion.identity), Is.LessThan(0.001f));
+
+                coordinator.Present(CreateBoxMotionResult(
+                    tickIndex: 35,
+                    topology,
+                    boxEntityId: 40,
+                    sourceCell,
+                    destinationCell,
+                    TickEntityMotionKind.BoxSlide));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(port.Requests.Single().TickIndex, Is.EqualTo(35));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BoxMotion_DefaultOrchestration_DoesNotSuppressUnrelatedMotionTracks()
+        {
+            var rootObject = new GameObject(nameof(BoxMotion_DefaultOrchestration_DoesNotSuppressUnrelatedMotionTracks));
+            var port = new RecordingGameplayMotionPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedBoxMotionCoordinatorUsingProductionDefault(
+                    rootObject,
+                    port,
+                    topology);
+                var boxSource = new SurfaceCell(FaceId.Floor, 0, 0);
+                var boxDestination = new SurfaceCell(FaceId.Floor, 1, 0);
+                var enemySource = new SurfaceCell(FaceId.Floor, 0, 1);
+                var enemyDestination = new SurfaceCell(FaceId.Floor, 1, 1);
+                var presentationData = new TickPresentationData(new[]
+                {
+                    new TickEntityMotion(
+                        40,
+                        TickEntityMotionKind.BoxSlide,
+                        boxSource,
+                        boxDestination,
+                        topology,
+                        topology,
+                        Direction.Right,
+                        Direction.Right),
+                    new TickEntityMotion(
+                        20,
+                        TickEntityMotionKind.Move,
+                        enemySource,
+                        enemyDestination,
+                        topology,
+                        topology,
+                        Direction.Right,
+                        Direction.Right),
+                });
+
+                coordinator.Present(CreateTickResult(
+                    36,
+                    new[]
+                    {
+                        CreateBox(40, boxDestination),
+                        CreateEnemyUnit(20, enemyDestination),
+                    },
+                    topology,
+                    presentationData));
+
+                var trackState = GetPresentationTrackState(coordinator);
+                Assert.That(port.Requests.Single().CueKey, Is.EqualTo(PresentationMotionCueKey.BoxSlide));
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+                Assert.That(coordinator.BoxMotionOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(trackState.LocalMotionTracks.ContainsKey(40), Is.False);
+                Assert.That(trackState.LocalMotionTracks.ContainsKey(20), Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_ExecutorBridgeMode_BlockingMirrorMatchesControllerState()
+        {
+            var rootObject = new GameObject(nameof(TopologyExecution_ExecutorBridgeMode_BlockingMirrorMatchesControllerState));
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
+                var coordinator = CreateInitializedDefaultTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    initialTopology,
+                    timingProfile);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 11,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+
+                var diagnostics = coordinator.TopologyPresentationOwnershipDiagnostics;
+                Assert.That(diagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+                Assert.That(diagnostics.ExecutedByLegacyCount, Is.Zero);
+                Assert.That(diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+                Assert.That(diagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(coordinator.HasBlockingPresentation, Is.True);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.True);
+                AssertTopologyBlockingSnapshotParity(
+                    coordinator.TopologyExecutionPipelineBlockingSnapshot,
+                    expectedPlanned: true,
+                    expectedActive: true,
+                    expectedTickIndex: 11);
+
+                coordinator.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+
+                Assert.That(coordinator.HasBlockingPresentation, Is.False);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.False);
+                AssertTopologyBlockingSnapshotParity(
+                    coordinator.TopologyExecutionPipelineBlockingSnapshot,
+                    expectedPlanned: true,
+                    expectedActive: false,
+                    expectedTickIndex: 11);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_BlockingMirrorResetAndHardCleanup_ClearSnapshot()
+        {
+            var rootObject = new GameObject(nameof(TopologyExecution_BlockingMirrorResetAndHardCleanup_ClearSnapshot));
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
+                var coordinator = CreateInitializedDefaultTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    initialTopology,
+                    timingProfile);
+                coordinator.EnablePresentationPipelineDiagnostics();
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 12,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+
+                Assert.That(coordinator.PresentationPipelineBlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+                Assert.That(coordinator.TopologyExecutionPipelineBlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+
+                coordinator.PresentInitial(Array.Empty<EntityState>(), destinationTopology);
+
+                AssertBlockingSnapshotCleared(coordinator.PresentationPipelineBlockingSnapshot);
+                AssertBlockingSnapshotCleared(coordinator.TopologyExecutionPipelineBlockingSnapshot);
+
+                var secondResult = CreateTopologyTransitionResult(
+                    tickIndex: 13,
+                    destinationTopology,
+                    initialTopology,
+                    CubeRotationKind.Backward);
+                coordinator.Present(secondResult);
+                Assert.That(coordinator.PresentationPipelineBlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+                Assert.That(coordinator.TopologyExecutionPipelineBlockingSnapshot.HasActiveBlockingPresentation, Is.True);
+
+                coordinator.HardCleanupPresentationExtensions();
+
+                Assert.That(coordinator.HasBlockingPresentation, Is.False);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.False);
+                Assert.That(coordinator.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+                AssertBlockingSnapshotCleared(coordinator.PresentationPipelineBlockingSnapshot);
+                AssertBlockingSnapshotCleared(coordinator.TopologyExecutionPipelineBlockingSnapshot);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Topology_LegacyRollback_ActiveTransition_HardCleanup_ReleasesInputLock()
+        {
+            var rootObject = new GameObject(nameof(Topology_LegacyRollback_ActiveTransition_HardCleanup_ReleasesInputLock));
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
+                var coordinator = CreateInitializedDefaultTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.LegacyCoordinator,
+                    initialTopology,
+                    timingProfile);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 14,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+                Assert.That(coordinator.HasBlockingPresentation, Is.True);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.True);
+                Assert.That(coordinator.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+
+                coordinator.HardCleanupPresentationExtensions();
+
+                Assert.That(coordinator.HasBlockingPresentation, Is.False);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.False);
+                Assert.That(coordinator.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+                AssertBlockingSnapshotCleared(coordinator.TopologyExecutionPipelineBlockingSnapshot);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Topology_Production_ActiveTransition_HardCleanup_ReleasesInputLockAndClearsBarrier()
+        {
+            var rootObject = new GameObject(nameof(Topology_Production_ActiveTransition_HardCleanup_ReleasesInputLockAndClearsBarrier));
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
+                var coordinator = CreateInitializedDefaultTopologyCoordinator(
+                    rootObject,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    initialTopology,
+                    timingProfile);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 15,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                coordinator.Present(result);
+                Assert.That(coordinator.HasBlockingPresentation, Is.True);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.True);
+                AssertTopologyBlockingSnapshotParity(
+                    coordinator.TopologyExecutionPipelineBlockingSnapshot,
+                    expectedPlanned: true,
+                    expectedActive: true,
+                    expectedTickIndex: 15);
+
+                coordinator.HardCleanupPresentationExtensions();
+
+                Assert.That(coordinator.HasBlockingPresentation, Is.False);
+                Assert.That(coordinator.IsTopologyTransitionActive, Is.False);
+                Assert.That(coordinator.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+                AssertBlockingSnapshotCleared(coordinator.TopologyExecutionPipelineBlockingSnapshot);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_LegacyAndExecutorBridgePresenters_ProduceEquivalentVisualStateAndInputLock()
+        {
+            var legacyRoot = new GameObject(nameof(TopologyExecution_LegacyAndExecutorBridgePresenters_ProduceEquivalentVisualStateAndInputLock) + "_Legacy");
+            var executorRoot = new GameObject(nameof(TopologyExecution_LegacyAndExecutorBridgePresenters_ProduceEquivalentVisualStateAndInputLock) + "_Executor");
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
+                var legacyPresenter = CreateInitializedTopologyPresenter(
+                    legacyRoot,
+                    TopologyPresentationExecutionMode.LegacyCoordinator,
+                    initialTopology,
+                    timingProfile);
+                var executorPresenter = CreateInitializedTopologyPresenter(
+                    executorRoot,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    initialTopology,
+                    timingProfile);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 9,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+
+                legacyPresenter.Present(result);
+                executorPresenter.Present(result);
+
+                AssertTopologyVisualStateEquivalent(
+                    legacyPresenter.CurrentTopologyTransitionVisualState,
+                    executorPresenter.CurrentTopologyTransitionVisualState);
+                Assert.That(legacyPresenter.HasBlockingPresentation, Is.True);
+                Assert.That(executorPresenter.HasBlockingPresentation, Is.True);
+                Assert.That(legacyPresenter.IsTopologyTransitionActive, Is.True);
+                Assert.That(executorPresenter.IsTopologyTransitionActive, Is.True);
+                Assert.That(
+                    Quaternion.Angle(legacyPresenter.PresentedBoardRotation, executorPresenter.PresentedBoardRotation),
+                    Is.LessThan(0.001f));
+
+                legacyPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.5f);
+                executorPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.5f);
+
+                AssertTopologyVisualStateEquivalent(
+                    legacyPresenter.CurrentTopologyTransitionVisualState,
+                    executorPresenter.CurrentTopologyTransitionVisualState);
+                Assert.That(
+                    Quaternion.Angle(legacyPresenter.PresentedBoardRotation, executorPresenter.PresentedBoardRotation),
+                    Is.LessThan(0.001f));
+
+                legacyPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+                executorPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+
+                AssertTopologyVisualStateEquivalent(
+                    legacyPresenter.CurrentTopologyTransitionVisualState,
+                    executorPresenter.CurrentTopologyTransitionVisualState);
+                Assert.That(legacyPresenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+                Assert.That(executorPresenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+                Assert.That(legacyPresenter.HasBlockingPresentation, Is.False);
+                Assert.That(executorPresenter.HasBlockingPresentation, Is.False);
+                Assert.That(legacyPresenter.CurrentTopologyTransitionVisualState.SourceTopology, Is.EqualTo(destinationTopology));
+                Assert.That(executorPresenter.CurrentTopologyTransitionVisualState.SourceTopology, Is.EqualTo(destinationTopology));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(legacyRoot);
+                UnityEngine.Object.DestroyImmediate(executorRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyExecution_LegacyAndExecutorBridgePresenters_PreserveAuthoritativeTickResultOutputs()
+        {
+            var legacyRoot = new GameObject(nameof(TopologyExecution_LegacyAndExecutorBridgePresenters_PreserveAuthoritativeTickResultOutputs) + "_Legacy");
+            var executorRoot = new GameObject(nameof(TopologyExecution_LegacyAndExecutorBridgePresenters_PreserveAuthoritativeTickResultOutputs) + "_Executor");
+
+            try
+            {
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                var result = CreateTopologyTransitionResult(
+                    tickIndex: 10,
+                    initialTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward);
+                var initialHash = result.DeterminismHash;
+                var initialEntities = result.FinalEntities.ToArray();
+                var initialEventLog = result.EventLog.ToArray();
+                var initialObjective = result.ObjectiveResult;
+                var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 0.2f);
+                var legacyPresenter = CreateInitializedTopologyPresenter(
+                    legacyRoot,
+                    TopologyPresentationExecutionMode.LegacyCoordinator,
+                    initialTopology,
+                    timingProfile);
+                var executorPresenter = CreateInitializedTopologyPresenter(
+                    executorRoot,
+                    TopologyPresentationExecutionMode.ExecutorBridge,
+                    initialTopology,
+                    timingProfile);
+
+                legacyPresenter.Present(result);
+                executorPresenter.Present(result);
+                legacyPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+                executorPresenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds);
+
+                Assert.That(result.DeterminismHash, Is.EqualTo(initialHash));
+                Assert.That(result.FinalEntities, Is.EqualTo(initialEntities));
+                Assert.That(result.EventLog, Is.EqualTo(initialEventLog));
+                Assert.That(result.ObjectiveResult, Is.SameAs(initialObjective));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(legacyRoot);
+                UnityEngine.Object.DestroyImmediate(executorRoot);
+            }
         }
 
         [Test]
@@ -168,6 +2816,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -228,6 +2877,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -277,6 +2927,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -336,6 +2987,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -2542,6 +5194,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -2593,6 +5246,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -2646,6 +5300,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -2701,6 +5356,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -2758,6 +5414,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -2819,6 +5476,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -2862,6 +5520,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -2907,6 +5566,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
@@ -2965,6 +5625,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -3024,6 +5685,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -3089,6 +5751,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -3150,6 +5813,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -3203,6 +5867,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -3273,6 +5938,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -3334,6 +6000,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -3499,6 +6166,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 const float playerMoveOverrideSeconds = 0.4f;
@@ -3565,6 +6233,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 const float unitMoveOverrideSeconds = 0.4f;
                 var binder = new GameplayEntityViewBinder(
@@ -3628,6 +6297,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 const float entityMoveOverrideSeconds = 0.4f;
                 var binder = new GameplayEntityViewBinder(
@@ -3687,6 +6357,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 const float pushOverrideSeconds = 0.4f;
                 var binder = new GameplayEntityViewBinder(
@@ -3746,6 +6417,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -3800,6 +6472,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -3852,6 +6525,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -3917,6 +6591,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -3978,6 +6653,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -4053,6 +6729,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var jumpMotionSnapshot = new EnemyJumpMotionPresentationSnapshot(
                     horizontalHoldBias: 0.12f,
@@ -4113,6 +6790,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -4164,6 +6842,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -4217,6 +6896,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -4284,6 +6964,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -4360,6 +7041,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -4496,6 +7178,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -4594,6 +7277,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -4698,6 +7382,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -4801,6 +7486,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -4865,6 +7551,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -4936,6 +7623,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -5008,6 +7696,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 1.25f);
@@ -5079,6 +7768,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -5131,6 +7821,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -5222,6 +7913,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile(topologyMotionDurationSeconds: 1.25f);
@@ -5290,6 +7982,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -5342,6 +8035,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -5408,6 +8102,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -5489,6 +8184,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -5549,6 +8245,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -5611,6 +8308,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var timingProfile = CreateTimingProfile();
@@ -5664,6 +8362,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -5770,6 +8469,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -5894,6 +8594,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -6016,6 +8717,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -6127,6 +8829,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var timingProfile = CreateTimingProfile();
@@ -6175,6 +8878,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 const float playerMoveOverrideSeconds = 0.4f;
                 const float itemConsumeEffectDurationSeconds = 0.18f;
@@ -6291,6 +8995,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 const float pushOverrideSeconds = 0.45f;
                 const float boxDestroyEffectDurationSeconds = 0.18f;
@@ -6399,6 +9104,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -6489,6 +9195,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -6553,6 +9260,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -6625,6 +9333,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -6714,6 +9423,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -6772,6 +9482,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -6846,6 +9557,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 const float flipMotionDurationSeconds = 0.2f;
                 const float boxDestroyEffectDurationSeconds = 0.18f;
@@ -6960,6 +9672,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = GameplayTimingProfile.CreateDefault();
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -7032,6 +9745,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
                 var topology = new CubeTopologyState(FaceId.Floor);
@@ -7132,6 +9846,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = GameplayTimingProfile.CreateDefault();
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -7213,6 +9928,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var topology = new CubeTopologyState(FaceId.Floor);
@@ -7346,6 +10062,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var outputCamera = cameraObject.AddComponent<Camera>();
                 outputCamera.transform.SetParent(rootObject.transform, worldPositionStays: false);
@@ -7444,6 +10161,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var topology = new CubeTopologyState(FaceId.Floor);
@@ -7567,6 +10285,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var topology = new CubeTopologyState(FaceId.Floor);
@@ -7658,6 +10377,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var topology = new CubeTopologyState(FaceId.Floor);
@@ -7790,6 +10510,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var initialTopology = new CubeTopologyState(FaceId.Floor);
@@ -7927,6 +10648,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var initialTopology = new CubeTopologyState(FaceId.Floor);
@@ -8120,6 +10842,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -8170,6 +10893,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var timingProfile = CreateTimingProfile();
                 var binder = new GameplayEntityViewBinder(
@@ -8233,6 +10957,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -8293,6 +11018,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerViewPrefabTestUtility.SetSerializedField(floatingDriver, "target", enemyPrefab.ModelRoot);
 
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
@@ -8351,6 +11077,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 enemyPrefab.gameObject.AddComponent<RecordingEnemySemanticPresentationDriver>();
 
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
@@ -8395,6 +11122,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 enemyPrefab.gameObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
@@ -8471,6 +11199,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 enemyPrefab.gameObject.AddComponent<EnemySummonScalePulsePresentationDriver>();
 
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
@@ -8539,6 +11268,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -8600,6 +11330,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerViewPrefabTestUtility.SetSerializedField(floatingDriver, "target", enemyPrefab.ModelRoot);
 
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = CreateEnemyPrefabBinder(registry, enemyPrefab);
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
@@ -8654,6 +11385,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -8704,6 +11436,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -8756,6 +11489,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -8804,6 +11538,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
                     registry,
@@ -10372,6 +13107,1332 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        private static GameplayTickPresentationCoordinator CreateInitializedTopologyCoordinator(
+            GameObject rootObject,
+            TopologyPresentationExecutionMode mode,
+            RecordingTopologyTransitionPlaybackPort port,
+            CubeTopologyState initialTopology,
+            bool duplicateExecutors = false)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
+                (pipelineMode, _, guard) => CreateRecordingTopologyExecutionPipeline(
+                    pipelineMode,
+                    guard,
+                    port,
+                    duplicateExecutors));
+
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                initialTopology,
+                1f,
+                CreateTimingProfile(),
+                topologyPresentationExecutionMode: mode);
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static void AssertDamageDeathLegacyConfigureRoute(
+            DamageDeathVfxExecutionMode mode,
+            string ownerName)
+        {
+            var rootObject = new GameObject(ownerName);
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+
+            try
+            {
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var coordinator = CreateInitializedDamageDeathVfxCoordinator(
+                    rootObject,
+                    mode,
+                    port,
+                    topology);
+                var result = CreateDamageDeathVfxResult(
+                    tickIndex: 12,
+                    topology,
+                    enemyDamageEntityId: 40);
+
+                coordinator.Present(result);
+
+                var ownership = coordinator.DamageDeathVfxOwnershipDiagnostics;
+                Assert.That(coordinator.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
+                Assert.That(port.TryPlayCallCount, Is.Zero);
+                Assert.That(ownership.Mode, Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
+                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutorAttemptCount, Is.Zero);
+                Assert.That(ownership.ExecutedByLegacyCount, Is.EqualTo(1));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
+                Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        private static GameplayTickPresentationCoordinator CreateInitializedDamageDeathVfxCoordinator(
+            GameObject rootObject,
+            DamageDeathVfxExecutionMode mode,
+            IDamageDeathVfxPlaybackPort playbackPort,
+            CubeTopologyState initialTopology,
+            bool duplicateExecutors = false)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
+                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
+                (pipelineMode, port, guard) => CreateRecordingDamageDeathVfxExecutionPipeline(
+                    pipelineMode,
+                    guard,
+                    port,
+                    duplicateExecutors));
+
+            coordinator.ConfigureDamageDeathVfxExecution(mode, playbackPort);
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                initialTopology,
+                1f,
+                CreateTimingProfile());
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static GameplayTickPresentationCoordinator CreateInitializedDefaultDamageDeathVfxCoordinator(
+            GameObject rootObject,
+            IDamageDeathVfxPlaybackPort playbackPort,
+            CubeTopologyState initialTopology,
+            bool duplicateExecutors = false)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
+                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
+                (pipelineMode, _, guard) => CreateRecordingDamageDeathVfxExecutionPipeline(
+                    pipelineMode,
+                    guard,
+                    playbackPort,
+                    duplicateExecutors));
+
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                initialTopology,
+                1f,
+                CreateTimingProfile());
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static GameplayTickPresentationCoordinator CreateInitializedFactoryConfiguredDamageDeathVfxCoordinator(
+            GameObject rootObject,
+            IDamageDeathVfxPlaybackPort playbackPort,
+            CubeTopologyState initialTopology)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
+                topologyExecutionPipelineFactory: GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
+                damageDeathVfxExecutionPipelineFactory: (pipelineMode, port, guard) =>
+                    CreateRecordingDamageDeathVfxExecutionPipeline(
+                        pipelineMode,
+                        guard,
+                        port,
+                        duplicateExecutors: false),
+                damageDeathVfxPlaybackPort: playbackPort);
+
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                initialTopology,
+                1f,
+                CreateTimingProfile());
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static GameplayTickPresentationCoordinator CreateInitializedBoxMotionCoordinator(
+            GameObject rootObject,
+            BoxMotionPresentationExecutionMode mode,
+            IGameplayMotionPlaybackPort playbackPort,
+            CubeTopologyState initialTopology,
+            bool duplicateExecutors = false,
+            IGameplayEntityViewFactory viewFactory = null)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(
+                registry,
+                viewFactory ?? new MotionOverrideViewFactory(registry.transform));
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
+                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
+                (pipelineMode, port, guard) => CreateRecordingBoxMotionExecutionPipeline(
+                    pipelineMode,
+                    guard,
+                    port,
+                    duplicateExecutors));
+
+            coordinator.ConfigureBoxMotionPresentationExecution(mode, playbackPort);
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                initialTopology,
+                1f,
+                CreateTimingProfile());
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static GameplayTickPresentationCoordinator CreateInitializedBoxMotionCoordinatorUsingProductionDefault(
+            GameObject rootObject,
+            IGameplayMotionPlaybackPort playbackPort,
+            CubeTopologyState initialTopology,
+            bool duplicateExecutors = false,
+            IGameplayEntityViewFactory viewFactory = null)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(
+                registry,
+                viewFactory ?? new MotionOverrideViewFactory(registry.transform));
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
+                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
+                (pipelineMode, port, guard) => CreateRecordingBoxMotionExecutionPipeline(
+                    pipelineMode,
+                    guard,
+                    port,
+                    duplicateExecutors));
+
+            coordinator.ConfigureBoxMotionPresentationExecution(
+                coordinator.BoxMotionPresentationExecutionMode,
+                playbackPort);
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                initialTopology,
+                1f,
+                CreateTimingProfile());
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static GameplayTickPresentationCoordinator CreateInitializedDefaultBoxMotionCoordinator(
+            GameObject rootObject,
+            BoxMotionPresentationExecutionMode mode,
+            CubeTopologyState initialTopology,
+            IGameplayEntityViewFactory viewFactory)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, viewFactory);
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
+
+            coordinator.ConfigureBoxMotionPresentationExecution(mode);
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                initialTopology,
+                1f,
+                CreateTimingProfile());
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static GameplayTickPresentationCoordinator CreateInitializedBoxMotionCoordinatorWithNullExecutorPort(
+            GameObject rootObject,
+            CubeTopologyState initialTopology)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
+                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
+                (pipelineMode, _, guard) => CreateRecordingBoxMotionExecutionPipeline(
+                    pipelineMode,
+                    guard,
+                    playbackPort: null,
+                    duplicateExecutors: false));
+
+            coordinator.ConfigureBoxMotionPresentationExecution(
+                BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor);
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                initialTopology,
+                1f,
+                CreateTimingProfile());
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static GameplayTickPresentationCoordinator CreateInitializedPlayerActionAnimationCoordinator(
+            GameObject rootObject,
+            PlayerActionAnimationExecutionMode mode,
+            IGameplayAnimationPlaybackPort playbackPort,
+            CubeTopologyState initialTopology,
+            bool duplicateExecutors = false,
+            IReadOnlyList<PresentationCue> overrideCues = null,
+            IGameplayEntityViewFactory viewFactory = null)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(
+                registry,
+                viewFactory ?? new MotionOverrideViewFactory(registry.transform));
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
+                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
+                (pipelineMode, port, guard) => CreateRecordingPlayerActionAnimationExecutionPipeline(
+                    pipelineMode,
+                    guard,
+                    port,
+                    duplicateExecutors,
+                    overrideCues));
+
+            coordinator.ConfigurePlayerActionAnimationExecution(mode, playbackPort);
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 3)),
+                initialTopology,
+                1f,
+                CreateTimingProfile());
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static GameplayPresentationPipeline CreateRecordingPlayerActionAnimationExecutionPipeline(
+            PlayerActionAnimationExecutionMode mode,
+            PlayerActionAnimationExecutionGuard guard,
+            IGameplayAnimationPlaybackPort playbackPort,
+            bool duplicateExecutors,
+            IReadOnlyList<PresentationCue> overrideCues)
+        {
+            if (mode != PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor)
+            {
+                return null;
+            }
+
+            var executors = duplicateExecutors
+                ? new IPresentationExecutor[]
+                {
+                    new GameplayAnimationPresentationExecutor(playbackPort, mode, guard),
+                    new GameplayAnimationPresentationExecutor(playbackPort, mode, guard),
+                }
+                : new IPresentationExecutor[]
+                {
+                    new GameplayAnimationPresentationExecutor(playbackPort, mode, guard),
+                };
+            var cuePlanner = overrideCues == null
+                ? (IPresentationCuePlanner)new AnimationCuePlanner()
+                : new StaticAnimationCuePlanner(overrideCues);
+
+            return new GameplayPresentationPipeline(
+                new TickPresentationFactExtractor(),
+                new PresentationCuePlannerSet(new[]
+                {
+                    cuePlanner,
+                }),
+                new PresentationPlaybackPlanner(),
+                new PresentationPlaybackScheduler(),
+                executors);
+        }
+
+        private static GameplayPresentationPipeline CreateRecordingBoxMotionExecutionPipeline(
+            BoxMotionPresentationExecutionMode mode,
+            BoxMotionExecutionGuard guard,
+            IGameplayMotionPlaybackPort playbackPort,
+            bool duplicateExecutors)
+        {
+            if (mode != BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor)
+            {
+                return null;
+            }
+
+            var executors = duplicateExecutors
+                ? new IPresentationExecutor[]
+                {
+                    new GameplayMotionPresentationExecutor(playbackPort, mode, guard),
+                    new GameplayMotionPresentationExecutor(playbackPort, mode, guard),
+                }
+                : new IPresentationExecutor[]
+                {
+                    new GameplayMotionPresentationExecutor(playbackPort, mode, guard),
+                };
+
+            return new GameplayPresentationPipeline(
+                new TickPresentationFactExtractor(),
+                new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+                {
+                    new MotionCuePlanner(),
+                }),
+                new PresentationPlaybackPlanner(),
+                new PresentationPlaybackScheduler(),
+                executors);
+        }
+
+        private static GameplayPresentationPipeline CreateRecordingDamageDeathVfxExecutionPipeline(
+            DamageDeathVfxExecutionMode mode,
+            DamageDeathVfxExecutionGuard guard,
+            IDamageDeathVfxPlaybackPort port,
+            bool duplicateExecutors)
+        {
+            if (mode != DamageDeathVfxExecutionMode.OrchestrationExecutor)
+            {
+                return null;
+            }
+
+            var executors = duplicateExecutors
+                ? new IPresentationExecutor[]
+                {
+                    new GameplayVfxPresentationExecutor(port, mode, guard),
+                    new GameplayVfxPresentationExecutor(port, mode, guard),
+                }
+                : new IPresentationExecutor[]
+                {
+                    new GameplayVfxPresentationExecutor(port, mode, guard),
+                };
+
+            return new GameplayPresentationPipeline(
+                new TickPresentationFactExtractor(),
+                new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+                {
+                    new VfxCuePlanner(),
+                }),
+                new PresentationPlaybackPlanner(),
+                new PresentationPlaybackScheduler(),
+                executors);
+        }
+
+        private static GameplayTickPresentationCoordinator CreateInitializedDefaultTopologyCoordinator(
+            GameObject rootObject,
+            TopologyPresentationExecutionMode mode,
+            CubeTopologyState initialTopology,
+            GameplayTimingProfile timingProfile)
+        {
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
+
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                initialTopology,
+                1f,
+                timingProfile,
+                topologyPresentationExecutionMode: mode);
+            coordinator.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return coordinator;
+        }
+
+        private static TickResult CreateDamageDeathVfxResult(
+            int tickIndex,
+            CubeTopologyState topology,
+            int enemyDamageEntityId = 0,
+            int enemyDeathEntityId = 0,
+            SurfaceCell enemyDeathCell = default,
+            int presentationSeed = 0)
+        {
+            var enemyDamageSignals = enemyDamageEntityId > 0
+                ? new[]
+                {
+                    new TickEnemyDamagePresentationSignal(
+                        enemyDamageEntityId,
+                        tookDamageThisTick: true,
+                        damageAmount: 2),
+                }
+                : Array.Empty<TickEnemyDamagePresentationSignal>();
+            var entityExitSignals = enemyDeathEntityId > 0
+                ? new[]
+                {
+                    new TickEntityExitPresentationSignal(
+                        enemyDeathEntityId,
+                        TickEntityExitCause.Killed,
+                        enemyDeathCell,
+                        topology,
+                        Direction.Right,
+                        EntityType.Unit,
+                        sourceActorEntityId: 10,
+                        presentationSeed: presentationSeed),
+                }
+                : Array.Empty<TickEntityExitPresentationSignal>();
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
+                enemyDamageSignals,
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                entityExitSignals);
+
+            return CreateTickResult(
+                tickIndex,
+                Array.Empty<EntityState>(),
+                topology,
+                presentationData);
+        }
+
+        private static TickResult CreateBoxMotionResult(
+            int tickIndex,
+            CubeTopologyState topology,
+            int boxEntityId,
+            SurfaceCell sourceCell,
+            SurfaceCell destinationCell,
+            TickEntityMotionKind motionKind,
+            bool includeFinalBox = true)
+        {
+            var presentationData = new TickPresentationData(new[]
+            {
+                new TickEntityMotion(
+                    boxEntityId,
+                    motionKind,
+                    sourceCell,
+                    destinationCell,
+                    topology,
+                    topology,
+                    Direction.Right,
+                    Direction.Right),
+            });
+            var finalEntities = includeFinalBox
+                ? new[]
+                {
+                    CreateBox(boxEntityId, destinationCell),
+                }
+                : Array.Empty<EntityState>();
+
+            return CreateTickResult(tickIndex, finalEntities, topology, presentationData);
+        }
+
+        private static TickResult CreateBoxFlipImpactResult(
+            int tickIndex,
+            CubeTopologyState topology,
+            int boxEntityId,
+            int impactTargetEntityId,
+            SurfaceCell sourceCell,
+            SurfaceCell impactCell)
+        {
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                Array.Empty<TickPlayerActionPresentationSignal>(),
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>(),
+                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                flipImpactSignals: new[]
+                {
+                    new FlipImpactPresentationSignal(
+                        sourceActionPlanId: 700 + tickIndex,
+                        boxEntityId,
+                        impactTargetEntityId,
+                        actorEntityId: 10,
+                        sourceCell,
+                        impactCell,
+                        topology,
+                        Direction.Right,
+                        Direction.Right,
+                        FlipImpactPresentationDisposition.Stay,
+                        hasLandingCell: true,
+                        landingCell: sourceCell),
+                });
+
+            return CreateTickResult(
+                tickIndex,
+                new[]
+                {
+                    CreateBox(boxEntityId, sourceCell),
+                },
+                topology,
+                presentationData);
+        }
+
+        private static TickResult CreatePlayerActionAnimationResult(
+            int tickIndex,
+            CubeTopologyState topology)
+        {
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                new[]
+                {
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        101,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        direction: Direction.Right,
+                        actionPlanId: 1001),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        102,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Success,
+                        targetEntityId: 40,
+                        direction: Direction.Right,
+                        actionPlanId: 1002),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        103,
+                        startedThisTick: false,
+                        completedThisTick: true,
+                        canceledThisTick: false,
+                        isRecoveryPhase: true,
+                        direction: Direction.Right,
+                        actionPlanId: 1003),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        104,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Blocked,
+                        targetEntityId: 40,
+                        direction: Direction.Right,
+                        actionPlanId: 1004),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        201,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        direction: Direction.Up,
+                        actionPlanId: 2001),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        202,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Success,
+                        targetEntityId: 40,
+                        direction: Direction.Up,
+                        actionPlanId: 2002),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        203,
+                        startedThisTick: false,
+                        completedThisTick: true,
+                        canceledThisTick: false,
+                        isRecoveryPhase: true,
+                        direction: Direction.Up,
+                        actionPlanId: 2003),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        204,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Impact,
+                        targetEntityId: 40,
+                        direction: Direction.Up,
+                        actionPlanId: 2004),
+                },
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                playerActionAttemptSignals: new[]
+                {
+                    new TickPlayerActionAttemptPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        Direction.Up,
+                        PlayerActionAttemptFeedbackKind.Invalid,
+                        targetEntityId: 40,
+                        hasTarget: true),
+                });
+
+            return CreateTickResult(
+                tickIndex,
+                new[]
+                {
+                    CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 1, 1)),
+                },
+                topology,
+                presentationData);
+        }
+
+        private static TickResult CreateAllPlayerActionAnimationSemanticResult(
+            int tickIndex,
+            CubeTopologyState topology)
+        {
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                new[]
+                {
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        301,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        direction: Direction.Right,
+                        actionPlanId: 3001),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        302,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Success,
+                        targetEntityId: 40,
+                        direction: Direction.Right,
+                        actionPlanId: 3002),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        303,
+                        startedThisTick: false,
+                        completedThisTick: true,
+                        canceledThisTick: false,
+                        isRecoveryPhase: true,
+                        direction: Direction.Right,
+                        actionPlanId: 3003),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        304,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Blocked,
+                        targetEntityId: 40,
+                        direction: Direction.Right,
+                        actionPlanId: 3004),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        305,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Impact,
+                        targetEntityId: 40,
+                        direction: Direction.Right,
+                        actionPlanId: 3005),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        401,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        direction: Direction.Up,
+                        actionPlanId: 4001),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        402,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Success,
+                        targetEntityId: 40,
+                        direction: Direction.Up,
+                        actionPlanId: 4002),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        403,
+                        startedThisTick: false,
+                        completedThisTick: true,
+                        canceledThisTick: false,
+                        isRecoveryPhase: true,
+                        direction: Direction.Up,
+                        actionPlanId: 4003),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        404,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Blocked,
+                        targetEntityId: 40,
+                        direction: Direction.Up,
+                        actionPlanId: 4004),
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        405,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Impact,
+                        targetEntityId: 40,
+                        direction: Direction.Up,
+                        actionPlanId: 4005),
+                },
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>(),
+                playerActionAttemptSignals: new[]
+                {
+                    new TickPlayerActionAttemptPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        Direction.Right,
+                        PlayerActionAttemptFeedbackKind.Invalid,
+                        targetEntityId: 40,
+                        hasTarget: true),
+                    new TickPlayerActionAttemptPresentationSignal(
+                        10,
+                        PlayerActionKind.Flip,
+                        Direction.Up,
+                        PlayerActionAttemptFeedbackKind.Invalid,
+                        targetEntityId: 40,
+                        hasTarget: true),
+                });
+
+            return CreateTickResult(
+                tickIndex,
+                new[]
+                {
+                    CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 1, 1)),
+                },
+                topology,
+                presentationData);
+        }
+
+        private static TickResult CreateSinglePlayerActionAnimationResult(
+            int tickIndex,
+            CubeTopologyState topology,
+            PlayerActionKind actionKind,
+            int sequenceId,
+            bool startedThisTick = false,
+            bool executedThisTick = false,
+            bool recoveryPhase = false,
+            TickPlayerActionResolutionKind resolutionKind = TickPlayerActionResolutionKind.Success)
+        {
+            var presentationData = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                new[]
+                {
+                    new TickPlayerActionPresentationSignal(
+                        10,
+                        actionKind,
+                        sequenceId,
+                        startedThisTick,
+                        completedThisTick: recoveryPhase,
+                        canceledThisTick: false,
+                        executedThisTick: executedThisTick,
+                        isRecoveryPhase: recoveryPhase,
+                        resolutionKind: resolutionKind,
+                        targetEntityId: 40,
+                        direction: Direction.Right,
+                        actionPlanId: sequenceId + 9000),
+                });
+
+            return CreateTickResult(
+                tickIndex,
+                new[]
+                {
+                    CreatePlayerUnit(10, new SurfaceCell(FaceId.Floor, 1, 1)),
+                },
+                topology,
+                presentationData);
+        }
+
+        private static PresentationCue CreatePlayerActionAnimationCue(
+            PresentationAnimationCueKey cueKey,
+            PresentationAnimationPhaseKind phase,
+            PresentationAnimationOutcomeKind outcome,
+            int tickIndex,
+            int sequenceId,
+            PresentationTarget? target = null,
+            PresentationAnchor? anchor = null)
+        {
+            var actionKind = cueKey == PresentationAnimationCueKey.PlayerFlipWindup ||
+                             cueKey == PresentationAnimationCueKey.PlayerFlipExecute ||
+                             cueKey == PresentationAnimationCueKey.PlayerFlipRecovery ||
+                             cueKey == PresentationAnimationCueKey.PlayerFlipBlocked ||
+                             cueKey == PresentationAnimationCueKey.PlayerFlipImpactContact ||
+                             cueKey == PresentationAnimationCueKey.PlayerFlipFailed
+                ? PresentationAnimationActionKind.Flip
+                : PresentationAnimationActionKind.Push;
+            var payload = new PresentationAnimationPayload(
+                PresentationAnimationFactKind.PlayerAction,
+                10,
+                actionKind,
+                phase,
+                outcome,
+                tickIndex,
+                sequenceId,
+                sourceActionPlanId: sequenceId + 9000,
+                targetEntityId: 40,
+                direction: Direction.Right);
+            return new PresentationCue(
+                PresentationDomain.Animation,
+                PresentationCueKey.ForAnimation(cueKey),
+                new PresentationSource(
+                    tickIndex,
+                    PresentationSemanticSource.PlayerAction,
+                    sourceEntityId: 10,
+                    sourceActionKind: (int)actionKind,
+                    sourceSequence: sequenceId),
+                target ?? PresentationTarget.Entity(10),
+                anchor ?? PresentationAnchor.ForEntityVisualRoot(10),
+                PresentationPlaybackPolicyHint.OneShot(sequenceId + 10000),
+                animationPayload: payload);
+        }
+
+        private static int CountPlayerActionAnimationCues(TickResult result)
+        {
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new AnimationCuePlanner(),
+            }).Plan(factFrame);
+            return cueFrame.Cues.Count(cue => cue.Domain == PresentationDomain.Animation);
+        }
+
+        private static void AssertBoxMotionRequest(
+            in GameplayMotionPlaybackRequest request,
+            PresentationMotionCueKey cueKey,
+            int tickIndex,
+            int boxEntityId,
+            SurfaceCell sourceCell,
+            SurfaceCell destinationCell,
+            CubeTopologyState topology)
+        {
+            Assert.That(request.CueKey, Is.EqualTo(cueKey));
+            Assert.That(request.TickIndex, Is.EqualTo(tickIndex));
+            Assert.That(request.EntityId, Is.EqualTo(boxEntityId));
+            Assert.That(request.Target.Kind, Is.EqualTo(PresentationTargetKind.Entity));
+            Assert.That(request.Target.EntityId, Is.EqualTo(boxEntityId));
+            Assert.That(request.Anchor.Kind, Is.EqualTo(PresentationAnchorKind.EntityVisualRoot));
+            Assert.That(request.MotionPayload.SourceCell, Is.EqualTo(sourceCell));
+            Assert.That(request.MotionPayload.DestinationCell, Is.EqualTo(destinationCell));
+            Assert.That(request.MotionPayload.Topology, Is.EqualTo(topology));
+            Assert.That(request.MotionPayload.HasTopology, Is.True);
+            Assert.That(request.MotionPayload.SourceFacing, Is.EqualTo(Direction.Right));
+            Assert.That(request.MotionPayload.DestinationFacing, Is.EqualTo(Direction.Right));
+            Assert.That(
+                request.MotionPayload.ActionKind,
+                Is.EqualTo(cueKey == PresentationMotionCueKey.BoxSlide
+                    ? PresentationMotionActionKind.Push
+                    : PresentationMotionActionKind.Flip));
+            Assert.That(request.OwnershipKey.EntityId, Is.EqualTo(boxEntityId));
+            Assert.That(request.OwnershipKey.CueKey, Is.EqualTo(cueKey));
+            Assert.That(request.OwnershipKey.SourceCell, Is.EqualTo(sourceCell));
+            Assert.That(request.OwnershipKey.DestinationCell, Is.EqualTo(destinationCell));
+            Assert.That(request.OwnershipKey.TickIndex, Is.EqualTo(tickIndex));
+            Assert.That(
+                request.OwnershipKey.SemanticSource,
+                Is.EqualTo(cueKey == PresentationMotionCueKey.BoxSlide
+                    ? PresentationSemanticSource.BoxSlideMotion
+                    : cueKey == PresentationMotionCueKey.BoxFlip
+                        ? PresentationSemanticSource.BoxFlipMotion
+                        : PresentationSemanticSource.BoxFlipImpactMotion));
+        }
+
+        private static void AssertPlayerActionAnimationRequest(
+            IReadOnlyList<GameplayAnimationPlaybackRequest> requests,
+            PresentationAnimationCueKey cueKey,
+            int tickIndex,
+            int sequenceId,
+            PresentationAnimationActionKind actionKind,
+            PresentationAnimationPhaseKind phaseKind,
+            PresentationAnimationOutcomeKind outcomeKind,
+            PresentationSemanticSource expectedSemanticSource = PresentationSemanticSource.PlayerAction,
+            int? expectedActionPlanId = null)
+        {
+            var request = requests.Single(candidate =>
+                candidate.CueKey == cueKey &&
+                candidate.AnimationPayload.SourceSequenceId == sequenceId &&
+                candidate.OwnershipKey.SemanticSource == expectedSemanticSource);
+            Assert.That(request.TickIndex, Is.EqualTo(tickIndex));
+            Assert.That(request.PlayerEntityId, Is.EqualTo(10));
+            Assert.That(request.Target, Is.EqualTo(PresentationTarget.Entity(10)));
+            Assert.That(request.Anchor, Is.EqualTo(PresentationAnchor.ForEntityVisualRoot(10)));
+            Assert.That(request.AnimationPayload.ActionKind, Is.EqualTo(actionKind));
+            Assert.That(request.AnimationPayload.PhaseKind, Is.EqualTo(phaseKind));
+            Assert.That(request.AnimationPayload.OutcomeKind, Is.EqualTo(outcomeKind));
+            Assert.That(request.AnimationPayload.SourceTickIndex, Is.EqualTo(tickIndex));
+            var defaultActionPlanId = actionKind == PresentationAnimationActionKind.Flip
+                ? sequenceId + 1800
+                : sequenceId + 900;
+            Assert.That(request.AnimationPayload.SourceActionPlanId, Is.EqualTo(expectedActionPlanId ?? defaultActionPlanId));
+            Assert.That(request.OwnershipKey.CueKey, Is.EqualTo(cueKey));
+            Assert.That(request.OwnershipKey.PlayerEntityId, Is.EqualTo(10));
+            Assert.That(request.OwnershipKey.ActionKind, Is.EqualTo(actionKind));
+            Assert.That(request.OwnershipKey.PhaseKind, Is.EqualTo(phaseKind));
+        }
+
+        private static GameplayPresentationStateStore CreateStateStoreWithView(GameplayEntityView view)
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            stateStore.ViewsByEntityId[view.EntityId] = view;
+            return stateStore;
+        }
+
+        private static PlayerAnimatorDriver GetPlayerAnimatorDriver(GameObject rootObject)
+        {
+            var registry = rootObject.GetComponent<GameplayEntityViewRegistry>();
+            Assert.That(registry, Is.Not.Null);
+            Assert.That(registry.TryGetView(10, out var view), Is.True);
+            var driver = view.GetComponent<PlayerAnimatorDriver>();
+            Assert.That(driver, Is.Not.Null);
+            return driver;
+        }
+
+        private static void AssertDamageVfxRequest(
+            in GameplayVfxPlaybackRequest request,
+            int tickIndex,
+            int entityId)
+        {
+            Assert.That(request.CueKey, Is.EqualTo(PresentationVfxCueKey.DamageHit));
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.Damage)));
+            Assert.That(request.TickIndex, Is.EqualTo(tickIndex));
+            Assert.That(request.SequenceId, Is.EqualTo(entityId));
+            Assert.That(request.PresentationSeed, Is.EqualTo(entityId));
+            Assert.That(request.SourceEntityId, Is.EqualTo(entityId));
+            Assert.That(request.Target.EntityId, Is.EqualTo(entityId));
+            Assert.That(request.PresentationAnchor.Kind, Is.EqualTo(PresentationAnchorKind.EntityCenter));
+            Assert.That(request.VfxAnchor.Kind, Is.EqualTo(VfxAnchorKind.Entity));
+            Assert.That(request.VfxAnchor.EntityId, Is.EqualTo(entityId));
+            Assert.That(request.VfxAnchor.Slot, Is.EqualTo(VfxAnchorSlot.EntityCenter));
+        }
+
+        private static void AssertDeathVfxRequest(
+            in GameplayVfxPlaybackRequest request,
+            int tickIndex,
+            int entityId,
+            SurfaceCell deathCell,
+            int presentationSeed)
+        {
+            Assert.That(request.CueKey, Is.EqualTo(PresentationVfxCueKey.EnemyDeath));
+            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.Death)));
+            Assert.That(request.TickIndex, Is.EqualTo(tickIndex));
+            Assert.That(request.SequenceId, Is.EqualTo(entityId));
+            Assert.That(request.PresentationSeed, Is.EqualTo(presentationSeed));
+            Assert.That(request.SourceEntityId, Is.EqualTo(entityId));
+            Assert.That(request.Target.EntityId, Is.EqualTo(entityId));
+            Assert.That(request.PresentationAnchor.Kind, Is.EqualTo(PresentationAnchorKind.SurfaceCellCenter));
+            Assert.That(request.PresentationAnchor.Target.Cell, Is.EqualTo(deathCell));
+            Assert.That(request.VfxAnchor.Kind, Is.EqualTo(VfxAnchorKind.Cell));
+            Assert.That(request.VfxAnchor.Cell, Is.EqualTo(deathCell));
+            Assert.That(request.VfxAnchor.Topology, Is.EqualTo(new CubeTopologyState(deathCell.face)));
+            Assert.That(request.VfxAnchor.Slot, Is.EqualTo(VfxAnchorSlot.CellCenter));
+        }
+
+        private static void AssertSemanticTelemetry(
+            DamageDeathVfxExecutorDiagnostics diagnostics,
+            PresentationVfxCueKey cueKey,
+            int planned,
+            int requested,
+            int succeeded,
+            int entityId,
+            PresentationAnchorKind anchorKind)
+        {
+            var semantic = diagnostics.SemanticDiagnostics.Single(candidate => candidate.CueKey == cueKey);
+            Assert.That(semantic.PlannedCount, Is.EqualTo(planned));
+            Assert.That(semantic.RequestedCount, Is.EqualTo(requested));
+            Assert.That(semantic.SucceededCount, Is.EqualTo(succeeded));
+            Assert.That(semantic.DuplicateSuppressedCount, Is.Zero);
+            Assert.That(semantic.LastDedupeKey, Is.GreaterThan(0));
+            Assert.That(semantic.LastTargetEntityId, Is.EqualTo(entityId));
+            Assert.That(semantic.LastAnchorKind, Is.EqualTo(anchorKind));
+        }
+
+        private static void AssertPlayerActionAnimationSemanticTelemetry(
+            PlayerActionAnimationProductionTelemetrySnapshot telemetry,
+            PresentationAnimationCueKey cueKey,
+            int planned,
+            int requested,
+            int applied,
+            int ignored,
+            int? observed = null)
+        {
+            var semantic = telemetry.SemanticDiagnostics.Single(candidate => candidate.CueKey == cueKey);
+            Assert.That(semantic.PlannedCount, Is.EqualTo(planned), cueKey.ToString());
+            Assert.That(semantic.ObservedCount, Is.EqualTo(observed ?? planned), cueKey.ToString());
+            Assert.That(semantic.RequestedCount, Is.EqualTo(requested), cueKey.ToString());
+            Assert.That(semantic.AppliedCount, Is.EqualTo(applied), cueKey.ToString());
+            Assert.That(semantic.IgnoredCount, Is.EqualTo(ignored), cueKey.ToString());
+        }
+
+        private static void AssertPlayerActionAnimationSemanticDiagnostics(
+            GameplayAnimationExecutorDiagnostics diagnostics,
+            PresentationAnimationCueKey cueKey,
+            int planned,
+            int observed,
+            int requested,
+            int applied,
+            int ignored)
+        {
+            var semantic = diagnostics.SemanticDiagnostics.Single(candidate => candidate.CueKey == cueKey);
+            Assert.That(semantic.PlannedCount, Is.EqualTo(planned), cueKey.ToString());
+            Assert.That(semantic.ObservedCount, Is.EqualTo(observed), cueKey.ToString());
+            Assert.That(semantic.RequestedCount, Is.EqualTo(requested), cueKey.ToString());
+            Assert.That(semantic.AppliedCount, Is.EqualTo(applied), cueKey.ToString());
+            Assert.That(semantic.IgnoredCount, Is.EqualTo(ignored), cueKey.ToString());
+        }
+
+        private static IEnumerable<PresentationAnimationCueKey> PlayerActionAnimationSemanticCueKeys()
+        {
+            yield return PresentationAnimationCueKey.PlayerPushWindup;
+            yield return PresentationAnimationCueKey.PlayerPushExecute;
+            yield return PresentationAnimationCueKey.PlayerPushRecovery;
+            yield return PresentationAnimationCueKey.PlayerPushBlocked;
+            yield return PresentationAnimationCueKey.PlayerPushImpactContact;
+            yield return PresentationAnimationCueKey.PlayerPushFailed;
+            yield return PresentationAnimationCueKey.PlayerFlipWindup;
+            yield return PresentationAnimationCueKey.PlayerFlipExecute;
+            yield return PresentationAnimationCueKey.PlayerFlipRecovery;
+            yield return PresentationAnimationCueKey.PlayerFlipBlocked;
+            yield return PresentationAnimationCueKey.PlayerFlipImpactContact;
+            yield return PresentationAnimationCueKey.PlayerFlipFailed;
+        }
+
+        private static PresentationPlaybackPlan CreatePlayerActionAnimationPlanFromStaticPlanner(
+            int tickIndex,
+            IReadOnlyList<PresentationCue> cues)
+        {
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new StaticAnimationCuePlanner(cues),
+            }).Plan(PresentationFactFrame.Empty(tickIndex));
+            return new PresentationPlaybackPlanner().Plan(cueFrame);
+        }
+
+        private static DamageDeathVfxExecutorDiagnostics PlayDamageDeathVfxCueDirectly(PresentationCue cue)
+        {
+            var port = new RecordingDamageDeathVfxPlaybackPort();
+            var guard = new DamageDeathVfxExecutionGuard(DamageDeathVfxExecutionMode.OrchestrationExecutor);
+            var executor = new GameplayVfxPresentationExecutor(
+                port,
+                DamageDeathVfxExecutionMode.OrchestrationExecutor,
+                guard);
+            var plan = new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
+                cue.Source.TickIndex,
+                new[] { cue },
+                new PresentationCueFrameDiagnostics(1, 1, 1)));
+
+            executor.Play(plan);
+
+            return executor.Diagnostics;
+        }
+
+        private static PresentationCue CreateDamageDeathVfxCue(
+            PresentationVfxCueKey cueKey,
+            PresentationTarget target,
+            PresentationAnchor anchor,
+            int tickIndex)
+        {
+            var key = PresentationCueKey.ForVfx(cueKey);
+            return new PresentationCue(
+                PresentationDomain.Vfx,
+                key,
+                new PresentationSource(
+                    tickIndex,
+                    cueKey == PresentationVfxCueKey.DamageHit
+                        ? PresentationSemanticSource.EnemyDamage
+                        : PresentationSemanticSource.EntityExit,
+                    target.EntityId,
+                    sourceSequence: Math.Max(1, target.EntityId)),
+                target,
+                anchor,
+                PresentationPlaybackPolicyHint.OneShot(tickIndex * 1000 + (int)cueKey));
+        }
+
+        private static GameplayTickViewPresenter CreateInitializedTopologyPresenter(
+            GameObject rootObject,
+            TopologyPresentationExecutionMode mode,
+            CubeTopologyState initialTopology,
+            GameplayTimingProfile timingProfile)
+        {
+            var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
+
+            presenter.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                initialTopology,
+                1f,
+                timingProfile,
+                topologyPresentationExecutionMode: mode);
+            presenter.PresentInitial(Array.Empty<EntityState>(), initialTopology);
+            return presenter;
+        }
+
+        private static GameplayTickViewPresenter CreateInitializedBoxMotionPresenter(
+            GameObject rootObject,
+            BoxMotionPresentationExecutionMode mode,
+            CubeTopologyState initialTopology,
+            BoardBounds boardBounds,
+            GameplayTimingProfile timingProfile,
+            out GameplayEntityViewRegistry registry)
+        {
+            var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+            registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(
+                registry,
+                new BoxFlipDriverViewFactory(registry.transform));
+
+            presenter.ConfigureBoxMotionPresentationExecution(mode);
+            presenter.Initialize(
+                binder,
+                boardBounds,
+                initialTopology,
+                1f,
+                timingProfile);
+            return presenter;
+        }
+
+        private static GameplayPresentationPipeline CreateRecordingTopologyExecutionPipeline(
+            TopologyPresentationExecutionMode mode,
+            TopologyPresentationExecutionGuard guard,
+            ITopologyTransitionPlaybackPort port,
+            bool duplicateExecutors)
+        {
+            if (mode != TopologyPresentationExecutionMode.ExecutorBridge)
+            {
+                return null;
+            }
+
+            var executors = duplicateExecutors
+                ? new IPresentationExecutor[]
+                {
+                    new TopologyPresentationExecutor(port, mode, guard),
+                    new TopologyPresentationExecutor(port, mode, guard),
+                }
+                : new IPresentationExecutor[]
+                {
+                    new TopologyPresentationExecutor(port, mode, guard),
+                };
+
+            return new GameplayPresentationPipeline(
+                new TickPresentationFactExtractor(),
+                new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+                {
+                    new TopologyCuePlanner(),
+                }),
+                new PresentationPlaybackPlanner(),
+                new PresentationPlaybackScheduler(),
+                executors);
+        }
+
+        private static TickResult CreateTopologyTransitionResult(
+            int tickIndex,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            CubeRotationKind rotationKind)
+        {
+            return CreateTickResult(
+                tickIndex,
+                Array.Empty<EntityState>(),
+                destinationTopology,
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    new TickTopologyMotion(sourceTopology, destinationTopology, rotationKind),
+                    Array.Empty<TickVisibilityChange>()));
+        }
+
+        private static void AssertTopologyVisualStateEquivalent(
+            TopologyTransitionVisualState expected,
+            TopologyTransitionVisualState actual)
+        {
+            Assert.That(actual.IsActive, Is.EqualTo(expected.IsActive));
+            Assert.That(actual.SourceTopology, Is.EqualTo(expected.SourceTopology));
+            Assert.That(actual.DestinationTopology, Is.EqualTo(expected.DestinationTopology));
+            Assert.That(actual.RotationKind, Is.EqualTo(expected.RotationKind));
+            Assert.That(actual.Progress01, Is.EqualTo(expected.Progress01).Within(0.001f));
+            Assert.That(
+                Quaternion.Angle(actual.PresentedVisualRotation, expected.PresentedVisualRotation),
+                Is.LessThan(0.001f));
+        }
+
+        private static void AssertTopologyBlockingSnapshotParity(
+            PresentationBlockingSnapshot snapshot,
+            bool expectedPlanned,
+            bool expectedActive,
+            int expectedTickIndex)
+        {
+            Assert.That(snapshot.HasPlannedBlockingBarrier, Is.EqualTo(expectedPlanned));
+            Assert.That(snapshot.HasActiveBlockingPresentation, Is.EqualTo(expectedActive));
+            Assert.That(snapshot.PlannedBlockingBarrierCount, Is.EqualTo(expectedPlanned ? 1 : 0));
+            Assert.That(snapshot.ActiveBlockingSourceCount, Is.EqualTo(expectedActive ? 1 : 0));
+            Assert.That(snapshot.TopologyPlannedBarrierCount, Is.EqualTo(expectedPlanned ? 1 : 0));
+            Assert.That(snapshot.TopologyActiveBlockingCount, Is.EqualTo(expectedActive ? 1 : 0));
+            Assert.That(
+                snapshot.LastReason,
+                Is.EqualTo(expectedActive
+                    ? PresentationBlockingReason.TopologyTransitionActive
+                    : expectedPlanned
+                        ? PresentationBlockingReason.TopologyTransitionPlanned
+                        : PresentationBlockingReason.None));
+            Assert.That(
+                snapshot.LastOwnerDomain,
+                Is.EqualTo(expectedPlanned || expectedActive
+                    ? PresentationDomain.Topology
+                    : PresentationDomain.None));
+            Assert.That(snapshot.LastTickIndex, Is.EqualTo(expectedPlanned || expectedActive ? expectedTickIndex : 0));
+        }
+
+        private static void AssertBlockingSnapshotCleared(PresentationBlockingSnapshot snapshot)
+        {
+            Assert.That(snapshot.HasPlannedBlockingBarrier, Is.False);
+            Assert.That(snapshot.HasActiveBlockingPresentation, Is.False);
+            Assert.That(snapshot.PlannedBlockingBarrierCount, Is.Zero);
+            Assert.That(snapshot.ActiveBlockingSourceCount, Is.Zero);
+            Assert.That(snapshot.TopologyPlannedBarrierCount, Is.Zero);
+            Assert.That(snapshot.TopologyActiveBlockingCount, Is.Zero);
+            Assert.That(snapshot.Sources, Is.Empty);
+            Assert.That(snapshot.LastReason, Is.EqualTo(PresentationBlockingReason.None));
+            Assert.That(snapshot.LastOwnerDomain, Is.EqualTo(PresentationDomain.None));
+            Assert.That(snapshot.LastTickIndex, Is.Zero);
+        }
+
         private static GameplayTimingProfile CreateTimingProfile(float topologyMotionDurationSeconds = 0.2f)
         {
             return new GameplayTimingProfile(
@@ -10386,6 +14447,275 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 flipMotionDurationSeconds: 0.2f,
                 flipArcHeightInCells: 0.65f,
                 maxTicksPerFrame: 8);
+        }
+
+        private sealed class RecordingTopologyTransitionPlaybackPort : ITopologyTransitionPlaybackPort
+        {
+            public int BeginOrRefreshCallCount { get; private set; }
+
+            public int UpdatePresentationCallCount { get; private set; }
+
+            public int ResetSessionCallCount { get; private set; }
+
+            public int HardCleanupCallCount { get; private set; }
+
+            public bool IsTransitionActive { get; private set; }
+
+            public TopologyTransitionPlaybackRequest LastRequest { get; private set; }
+
+            public void BeginOrRefreshTopologyTransition(TopologyTransitionPlaybackRequest request)
+            {
+                BeginOrRefreshCallCount++;
+                IsTransitionActive = true;
+                LastRequest = request;
+            }
+
+            public void UpdatePresentation(float deltaTime)
+            {
+                UpdatePresentationCallCount++;
+            }
+
+            public void ResetSession()
+            {
+                ResetSessionCallCount++;
+                IsTransitionActive = false;
+            }
+
+            public void HardCleanup()
+            {
+                HardCleanupCallCount++;
+                IsTransitionActive = false;
+            }
+        }
+
+        private sealed class RecordingDamageDeathVfxPlaybackPort : IDamageDeathVfxPlaybackPort
+        {
+            private readonly GameplayVfxPlaybackResultKind _resultKind;
+            private readonly List<GameplayVfxPlaybackRequest> _requests = new();
+
+            public RecordingDamageDeathVfxPlaybackPort(
+                GameplayVfxPlaybackResultKind resultKind = GameplayVfxPlaybackResultKind.Succeeded)
+            {
+                _resultKind = resultKind;
+            }
+
+            public int TryPlayCallCount { get; private set; }
+
+            public int UpdatePresentationCallCount { get; private set; }
+
+            public int ResetSessionCallCount { get; private set; }
+
+            public int HardCleanupCallCount { get; private set; }
+
+            public IReadOnlyList<GameplayVfxPlaybackRequest> Requests => _requests;
+
+            public bool TryPlayDamageDeathVfx(
+                in GameplayVfxPlaybackRequest request,
+                out GameplayVfxPlaybackResult result)
+            {
+                TryPlayCallCount++;
+                _requests.Add(request);
+                result = new GameplayVfxPlaybackResult(_resultKind);
+                return _resultKind == GameplayVfxPlaybackResultKind.Succeeded;
+            }
+
+            public void UpdatePresentation(float deltaTime)
+            {
+                UpdatePresentationCallCount++;
+            }
+
+            public void ResetSession()
+            {
+                ResetSessionCallCount++;
+                TryPlayCallCount = 0;
+                _requests.Clear();
+            }
+
+            public void HardCleanup()
+            {
+                HardCleanupCallCount++;
+                TryPlayCallCount = 0;
+                _requests.Clear();
+            }
+        }
+
+        private sealed class RecordingGameplayMotionPlaybackPort : IGameplayMotionPlaybackPort
+        {
+            private readonly GameplayMotionPlaybackResultKind _resultKind;
+            private readonly List<GameplayMotionPlaybackRequest> _requests = new();
+
+            public RecordingGameplayMotionPlaybackPort(
+                GameplayMotionPlaybackResultKind resultKind = GameplayMotionPlaybackResultKind.Started)
+            {
+                _resultKind = resultKind;
+            }
+
+            public int TryPlayCallCount { get; private set; }
+
+            public int UpdatePresentationCallCount { get; private set; }
+
+            public int ResetSessionCallCount { get; private set; }
+
+            public int HardCleanupCallCount { get; private set; }
+
+            public int CleanupRequestedCount { get; private set; }
+
+            public int CleanupSucceededCount { get; private set; }
+
+            public IReadOnlyList<GameplayMotionPlaybackRequest> Requests => _requests;
+
+            public bool TryPlayBoxMotion(
+                in GameplayMotionPlaybackRequest request,
+                out GameplayMotionPlaybackResult result)
+            {
+                TryPlayCallCount++;
+                _requests.Add(request);
+                result = new GameplayMotionPlaybackResult(_resultKind);
+                return _resultKind == GameplayMotionPlaybackResultKind.Started ||
+                       _resultKind == GameplayMotionPlaybackResultKind.Requested;
+            }
+
+            public void UpdatePresentation(float deltaTime)
+            {
+                UpdatePresentationCallCount++;
+            }
+
+            public void ResetSession()
+            {
+                CleanupRequestedCount++;
+                ResetSessionCallCount++;
+                TryPlayCallCount = 0;
+                UpdatePresentationCallCount = 0;
+                _requests.Clear();
+                CleanupSucceededCount++;
+            }
+
+            public void HardCleanup()
+            {
+                CleanupRequestedCount++;
+                HardCleanupCallCount++;
+                TryPlayCallCount = 0;
+                UpdatePresentationCallCount = 0;
+                _requests.Clear();
+                CleanupSucceededCount++;
+            }
+        }
+
+        private sealed class RecordingGameplayAnimationPlaybackPort : IGameplayAnimationPlaybackPort
+        {
+            private readonly Func<GameplayAnimationPlaybackRequest, GameplayAnimationPlaybackResultKind> _resultFactory;
+            private readonly List<GameplayAnimationPlaybackRequest> _requests = new();
+
+            public RecordingGameplayAnimationPlaybackPort(
+                GameplayAnimationPlaybackResultKind resultKind = GameplayAnimationPlaybackResultKind.Applied)
+                : this(_ => resultKind)
+            {
+            }
+
+            public RecordingGameplayAnimationPlaybackPort(
+                Func<GameplayAnimationPlaybackRequest, GameplayAnimationPlaybackResultKind> resultFactory)
+            {
+                _resultFactory = resultFactory ?? throw new ArgumentNullException(nameof(resultFactory));
+            }
+
+            public int TryPlayCallCount { get; private set; }
+
+            public int ResetSessionCallCount { get; private set; }
+
+            public int HardCleanupCallCount { get; private set; }
+
+            public IReadOnlyList<GameplayAnimationPlaybackRequest> Requests => _requests;
+
+            public bool TryPlayPlayerActionAnimation(
+                in GameplayAnimationPlaybackRequest request,
+                out GameplayAnimationPlaybackResult result)
+            {
+                TryPlayCallCount++;
+                _requests.Add(request);
+                var resultKind = _resultFactory(request);
+                result = new GameplayAnimationPlaybackResult(resultKind);
+                return resultKind == GameplayAnimationPlaybackResultKind.Applied ||
+                       resultKind == GameplayAnimationPlaybackResultKind.Requested;
+            }
+
+            public void ResetSession()
+            {
+                ResetSessionCallCount++;
+                TryPlayCallCount = 0;
+                _requests.Clear();
+            }
+
+            public void HardCleanup()
+            {
+                HardCleanupCallCount++;
+                TryPlayCallCount = 0;
+                _requests.Clear();
+            }
+        }
+
+        private sealed class StaticAnimationCuePlanner : IPresentationCuePlanner
+        {
+            private readonly IReadOnlyList<PresentationCue> _cues;
+
+            public StaticAnimationCuePlanner(IReadOnlyList<PresentationCue> cues)
+            {
+                _cues = cues ?? Array.Empty<PresentationCue>();
+            }
+
+            public void Plan(in PresentationFactFrame facts, PresentationCueFrameBuilder builder)
+            {
+                for (var i = 0; i < _cues.Count; i++)
+                {
+                    builder.Add(_cues[i]);
+                    if (_cues[i].Key.TryGetAnimationCueKey(out var cueKey))
+                    {
+                        builder.RecordPlayerActionAnimationPlanned(cueKey);
+                    }
+                }
+            }
+        }
+
+        private readonly struct PlayerActionAnimationSemanticCase
+        {
+            public PlayerActionAnimationSemanticCase(
+                PlayerActionKind actionKind,
+                PresentationAnimationCueKey cueKey,
+                PresentationAnimationPhaseKind phaseKind,
+                PresentationAnimationOutcomeKind outcomeKind,
+                int sequenceId,
+                bool startedThisTick = false,
+                bool executedThisTick = false,
+                bool recoveryPhase = false,
+                TickPlayerActionResolutionKind resolutionKind = TickPlayerActionResolutionKind.Success)
+            {
+                ActionKind = actionKind;
+                CueKey = cueKey;
+                PhaseKind = phaseKind;
+                OutcomeKind = outcomeKind;
+                SequenceId = sequenceId;
+                StartedThisTick = startedThisTick;
+                ExecutedThisTick = executedThisTick;
+                RecoveryPhase = recoveryPhase;
+                ResolutionKind = resolutionKind;
+            }
+
+            public PlayerActionKind ActionKind { get; }
+
+            public PresentationAnimationCueKey CueKey { get; }
+
+            public PresentationAnimationPhaseKind PhaseKind { get; }
+
+            public PresentationAnimationOutcomeKind OutcomeKind { get; }
+
+            public int SequenceId { get; }
+
+            public bool StartedThisTick { get; }
+
+            public bool ExecutedThisTick { get; }
+
+            public bool RecoveryPhase { get; }
+
+            public TickPlayerActionResolutionKind ResolutionKind { get; }
         }
 
         private static Color ResolveExpectedInactiveColor(
@@ -10495,6 +14825,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             out CubeTopologyState topology)
         {
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
             topology = new CubeTopologyState(FaceId.Floor);
@@ -10516,6 +14847,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             BoardBounds? boardBounds = null)
         {
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(
                 registry,
@@ -11234,6 +15566,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static GameplayPresentationTrackState GetPresentationTrackState(GameplayTickViewPresenter presenter)
         {
             var coordinator = GetPresentationCoordinator(presenter);
+            return GetPresentationTrackState((GameplayTickPresentationCoordinator)coordinator);
+        }
+
+        private static GameplayPresentationTrackState GetPresentationTrackState(
+            GameplayTickPresentationCoordinator coordinator)
+        {
             var trackStateField = coordinator.GetType()
                 .GetField("_trackState", BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(trackStateField, Is.Not.Null);
@@ -12009,6 +16347,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     var authoring = viewObject.AddComponent<EnemyJumpMotionPresentationAuthoring>();
                     PlayerViewPrefabTestUtility.SetSerializedField(authoring, "horizontalHoldBias", jumpMotionOverride.HorizontalHoldBias);
                     PlayerViewPrefabTestUtility.SetSerializedField(authoring, "apexHoldPower", jumpMotionOverride.ApexHoldPower);
+                }
+
+                return view;
+            }
+        }
+
+        private sealed class BoxFlipDriverViewFactory : IGameplayEntityViewFactory
+        {
+            private readonly Transform _parent;
+
+            public BoxFlipDriverViewFactory(Transform parent)
+            {
+                _parent = parent;
+            }
+
+            public GameplayEntityView CreateView(in EntityState entity)
+            {
+                var viewObject = new GameObject($"EntityView_{entity.entityId}");
+                viewObject.transform.SetParent(_parent, worldPositionStays: false);
+                viewObject.transform.localPosition = Vector3.zero;
+                viewObject.transform.localRotation = Quaternion.identity;
+                viewObject.transform.localScale = Vector3.one;
+
+                var view = viewObject.AddComponent<GameplayEntityView>();
+                view.Initialize(entity.entityId);
+                if (entity.type == EntityType.Box)
+                {
+                    var gripPoint = new GameObject("GripPoint").transform;
+                    gripPoint.SetParent(view.ModelRoot, worldPositionStays: false);
+                    gripPoint.localPosition = new Vector3(0.25f, 0f, 0f);
+                    var driver = viewObject.AddComponent<BoxFlipInteractionDriver>();
+                    PlayerViewPrefabTestUtility.SetSerializedField(driver, "visualRoot", view.ModelRoot);
+                    PlayerViewPrefabTestUtility.SetSerializedField(driver, "gripPoint", gripPoint);
                 }
 
                 return view;

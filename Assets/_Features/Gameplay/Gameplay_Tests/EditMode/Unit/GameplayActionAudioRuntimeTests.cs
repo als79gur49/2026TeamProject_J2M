@@ -13,6 +13,10 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PresentationContracts;
+using Game.Feature.Gameplay.PresentationPlanning;
+using Game.Feature.Gameplay.PresentationPlayback;
+using Game.Feature.Gameplay.PresentationRuntime;
 using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEditor;
@@ -494,6 +498,322 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void ActionAudioFactExtraction_ObservesCurrentV1MomentsAsSemanticFacts()
+        {
+            var result = CreateTickResult(CreatePresentationData(
+                new[]
+                {
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 11,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        targetEntityId: 20,
+                        direction: Direction.Right,
+                        actionPlanId: 101),
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 12,
+                        activeActionKind: PlayerActionKind.Flip,
+                        activeActionSequence: 12,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        targetEntityId: 30,
+                        direction: Direction.Left,
+                        actionPlanId: 102),
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 14,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 13,
+                        startedThisTick: false,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        executedThisTick: true,
+                        resolutionKind: TickPlayerActionResolutionKind.Blocked),
+                },
+                new[]
+                {
+                    new TickPlayerActionAttemptPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        Direction.Up,
+                        PlayerActionAttemptFeedbackKind.AssistOutOfRange),
+                    new TickPlayerActionAttemptPresentationSignal(
+                        12,
+                        PlayerActionKind.Flip,
+                        Direction.Down,
+                        PlayerActionAttemptFeedbackKind.Invalid,
+                        targetEntityId: 30,
+                        hasTarget: true),
+                }));
+
+            var frame = new TickPresentationFactExtractor().Extract(result);
+            var facts = frame.Facts
+                .Where(fact => fact.Kind == PresentationFactKind.ActionAudio)
+                .ToArray();
+
+            Assert.That(frame.Diagnostics.ActionAudioFactCount, Is.EqualTo(4));
+            Assert.That(facts.Select(fact => fact.Source.SemanticSource).ToArray(), Is.EqualTo(new[]
+            {
+                PresentationSemanticSource.PlayerActionAudio,
+                PresentationSemanticSource.PlayerActionAudio,
+                PresentationSemanticSource.PlayerActionAttemptAudio,
+                PresentationSemanticSource.PlayerActionAttemptAudio,
+            }));
+            AssertActionAudioPayload(
+                facts[0].ActionAudioPayload,
+                10,
+                GameplayActionKind.Push,
+                GameplayActionAudioMoment.Windup,
+                sourceSequenceId: 11,
+                sourceActionPlanId: 101,
+                targetEntityId: 20,
+                Direction.Right,
+                PresentationActionAudioOutcomeKind.Started);
+            AssertActionAudioPayload(
+                facts[1].ActionAudioPayload,
+                12,
+                GameplayActionKind.Flip,
+                GameplayActionAudioMoment.Windup,
+                sourceSequenceId: 12,
+                sourceActionPlanId: 102,
+                targetEntityId: 30,
+                Direction.Left,
+                PresentationActionAudioOutcomeKind.Started);
+            AssertActionAudioPayload(
+                facts[2].ActionAudioPayload,
+                10,
+                GameplayActionKind.Push,
+                GameplayActionAudioMoment.AssistOutOfRange,
+                sourceSequenceId: 1,
+                sourceActionPlanId: 0,
+                targetEntityId: 0,
+                Direction.Up,
+                PresentationActionAudioOutcomeKind.AttemptFeedback);
+            AssertActionAudioPayload(
+                facts[3].ActionAudioPayload,
+                12,
+                GameplayActionKind.Flip,
+                GameplayActionAudioMoment.Invalid,
+                sourceSequenceId: 2,
+                sourceActionPlanId: 0,
+                targetEntityId: 30,
+                Direction.Down,
+                PresentationActionAudioOutcomeKind.AttemptFeedback);
+            Assert.That(
+                facts.Select(fact => (GameplayActionAudioMoment)fact.ActionAudioPayload.Moment).ToArray(),
+                Has.No.Member((GameplayActionAudioMoment)1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudioCuePlanning_UsesTypedActionAudioVocabularySeparateFromCoreSfx()
+        {
+            var result = CreateTickResult(CreatePresentationData(
+                new[]
+                {
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 1,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false),
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 20,
+                        activeActionKind: PlayerActionKind.Flip,
+                        activeActionSequence: 2,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false),
+                },
+                new[]
+                {
+                    new TickPlayerActionAttemptPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        Direction.Right,
+                        PlayerActionAttemptFeedbackKind.NoTarget),
+                    new TickPlayerActionAttemptPresentationSignal(
+                        20,
+                        PlayerActionKind.Flip,
+                        Direction.Left,
+                        PlayerActionAttemptFeedbackKind.AssistOutOfRange),
+                }));
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            var actionAudioCueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new ActionAudioCuePlanner(),
+            }).Plan(factFrame);
+            var coreSfxCueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new SfxCuePlanner(),
+            }).Plan(factFrame);
+
+            Assert.That(actionAudioCueFrame.Cues.Select(cue => cue.Key.LocalKey).ToArray(), Is.EqualTo(new[]
+            {
+                (int)PresentationActionAudioCueKey.PlayerPushWindup,
+                (int)PresentationActionAudioCueKey.PlayerFlipWindup,
+                (int)PresentationActionAudioCueKey.PlayerPushNoTarget,
+                (int)PresentationActionAudioCueKey.PlayerFlipAssistOutOfRange,
+            }));
+            Assert.That(actionAudioCueFrame.Cues.All(cue => cue.Domain == PresentationDomain.ActionAudio), Is.True);
+            Assert.That(actionAudioCueFrame.Cues.All(cue => cue.Key.TryGetActionAudioCueKey(out _)), Is.True);
+            Assert.That(actionAudioCueFrame.Cues.Any(cue => cue.Key.TryGetSfxCueKey(out _)), Is.False);
+            Assert.That(coreSfxCueFrame.Cues, Is.Empty);
+            Assert.That(
+                actionAudioCueFrame.Cues.Select(cue => (GameplayActionAudioMoment)cue.ActionAudioPayload.Moment).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    GameplayActionAudioMoment.Windup,
+                    GameplayActionAudioMoment.Windup,
+                    GameplayActionAudioMoment.NoTarget,
+                    GameplayActionAudioMoment.AssistOutOfRange,
+                }));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudioPlaybackPlan_IsPlanningOnlyOneShotAndNonBlocking()
+        {
+            var result = CreateTickResult(CreatePresentationData(
+                new TickPlayerActionPresentationSignal(
+                    entityId: 10,
+                    activeActionKind: PlayerActionKind.Push,
+                    activeActionSequence: 1,
+                    startedThisTick: true,
+                    completedThisTick: false,
+                    canceledThisTick: false)));
+            var pipeline = GameplayPresentationPipelineInstaller.CreateDiagnosticsOnly();
+
+            pipeline.Present(result);
+
+            Assert.That(pipeline.LastFactFrame.Diagnostics.ActionAudioFactCount, Is.EqualTo(1));
+            Assert.That(
+                pipeline.LastCueFrame.Cues.Count(cue => cue.Domain == PresentationDomain.ActionAudio),
+                Is.EqualTo(1));
+            var actionAudioPlaybackCue = pipeline.LastPlaybackPlan.Cues
+                .Single(cue => cue.Cue.Domain == PresentationDomain.ActionAudio);
+            Assert.That(actionAudioPlaybackCue.Policy.UnitKind, Is.EqualTo(PresentationPlaybackUnitKind.OneShot));
+            Assert.That(actionAudioPlaybackCue.Policy.Blocking, Is.False);
+            Assert.That(pipeline.LastPlaybackPlan.Tracks, Is.Empty);
+            Assert.That(pipeline.LastPlaybackPlan.Barriers, Is.Empty);
+            Assert.That(pipeline.LastPlaybackPlan.Diagnostics.ActionAudioCueCount, Is.EqualTo(1));
+            Assert.That(pipeline.LastPlaybackPlan.Diagnostics.ActionAudioPlaybackCueCount, Is.EqualTo(1));
+            Assert.That(
+                pipeline.LastPlaybackPlan.Diagnostics.ActionAudioNoPlaybackBecausePlanningOnlyCount,
+                Is.EqualTo(1));
+            Assert.That(pipeline.BlockingSnapshot.HasPlannedBlockingBarrier, Is.False);
+            Assert.That(pipeline.BlockingSnapshot.HasActiveBlockingPresentation, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudioPlanning_LegacyRequestPlannerParity_UsesCurrentV1Moments()
+        {
+            var result = CreateTickResult(CreatePresentationData(
+                new[]
+                {
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 4,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false),
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 20,
+                        activeActionKind: PlayerActionKind.Flip,
+                        activeActionSequence: 5,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false),
+                },
+                new[]
+                {
+                    new TickPlayerActionAttemptPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        Direction.Right,
+                        PlayerActionAttemptFeedbackKind.AssistOutOfRange),
+                    new TickPlayerActionAttemptPresentationSignal(
+                        20,
+                        PlayerActionKind.Flip,
+                        Direction.Left,
+                        PlayerActionAttemptFeedbackKind.Invalid),
+                }));
+            var legacyRequests = new GameplayActionAudioRequestPlanner().BuildRequests(result);
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new ActionAudioCuePlanner(),
+            }).Plan(factFrame);
+
+            Assert.That(cueFrame.Cues, Has.Count.EqualTo(legacyRequests.Count));
+            for (var i = 0; i < legacyRequests.Count; i++)
+            {
+                Assert.That(
+                    (GameplayActionKind)cueFrame.Cues[i].ActionAudioPayload.ActionKind,
+                    Is.EqualTo(legacyRequests[i].Action));
+                Assert.That(
+                    (GameplayActionAudioMoment)cueFrame.Cues[i].ActionAudioPayload.Moment,
+                    Is.EqualTo(legacyRequests[i].Moment));
+                Assert.That(cueFrame.Cues[i].ActionAudioPayload.OwnerEntityId, Is.EqualTo(legacyRequests[i].OwnerEntityId));
+                Assert.That(cueFrame.Cues[i].Target, Is.EqualTo(PresentationTarget.Entity(legacyRequests[i].OwnerEntityId)));
+                Assert.That(cueFrame.Cues[i].Anchor.Kind, Is.EqualTo(PresentationAnchorKind.EntityVisualRoot));
+                Assert.That(cueFrame.Cues[i].Source.TickIndex, Is.EqualTo(result.TickIndex));
+                Assert.That(cueFrame.Cues[i].PolicyHint.Kind, Is.EqualTo(PresentationPlaybackPolicyHintKind.OneShot));
+                Assert.That(cueFrame.Cues[i].PolicyHint.Blocking, Is.False);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudioPlanningOnly_DoesNotChangeLegacyPlaybackCount()
+        {
+            var rootObject = new GameObject(nameof(ActionAudioPlanningOnly_DoesNotChangeLegacyPlaybackCount));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateActionAudioProfile(
+                new ActionAudioEntrySpec(
+                    GameplayActionKind.Push,
+                    GameplayActionAudioMoment.Windup,
+                    CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new ActionAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var result = CreateTickResult(
+                    CreatePresentationData(
+                        new TickPlayerActionPresentationSignal(
+                            entityId: 10,
+                            activeActionKind: PlayerActionKind.Push,
+                            activeActionSequence: 1,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false)),
+                    new[] { CreateUnit(10, UnitRole.Player) });
+                var diagnosticsPipeline = GameplayPresentationPipelineInstaller.CreateDiagnosticsOnly();
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { CreateUnit(10, UnitRole.Player) }, new CubeTopologyState(FaceId.Floor));
+                diagnosticsPipeline.Present(result);
+                presenter.Present(result);
+
+                Assert.That(diagnosticsPipeline.LastPlaybackPlan.Diagnostics.ActionAudioPlaybackCueCount, Is.EqualTo(1));
+                Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(1));
+                Assert.That(playbackPort.TwoDCalls[0].Context.DebugTag, Is.EqualTo("Action:Push:Windup"));
+                Assert.That(playbackPort.AttachedCalls, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayTickViewPresenter_Present_MissingGameplayActionAudioAuthoring_IsRuntimeNoOp()
         {
@@ -719,6 +1039,654 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void GameplayActionAudio_PlayerActionAnimationExecutorMode_DoesNotChangeActionAudioLane()
+        {
+            var legacyRoot = new GameObject(nameof(GameplayActionAudio_PlayerActionAnimationExecutorMode_DoesNotChangeActionAudioLane) + "_Legacy");
+            var executorRoot = new GameObject(nameof(GameplayActionAudio_PlayerActionAnimationExecutorMode_DoesNotChangeActionAudioLane) + "_Executor");
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateActionAudioProfile(
+                new ActionAudioEntrySpec(
+                    GameplayActionKind.Push,
+                    GameplayActionAudioMoment.Windup,
+                    CreateDefinitionSpec()));
+            try
+            {
+                var legacyPresenter = CreatePresenter(
+                    legacyRoot,
+                    new ActionAudioViewFactory(legacyRoot.transform, profileBundle.Profile));
+                var executorPresenter = CreatePresenter(
+                    executorRoot,
+                    new ActionAudioViewFactory(executorRoot.transform, profileBundle.Profile));
+                var legacyAudioPort = new RecordingGameplayAudioPlaybackPort();
+                var executorAudioPort = new RecordingGameplayAudioPlaybackPort();
+                var legacyAnimationPort = new RecordingGameplayAnimationPlaybackPort();
+                var executorAnimationPort = new RecordingGameplayAnimationPlaybackPort();
+                var player = CreateUnit(10, UnitRole.Player);
+                var tick = CreateTickResult(CreatePresentationData(
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 1,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false)),
+                    new[] { player });
+
+                legacyPresenter.AttachGameplayAudioRuntime(legacyAudioPort, mapBundle.Map);
+                executorPresenter.AttachGameplayAudioRuntime(executorAudioPort, mapBundle.Map);
+                legacyPresenter.ConfigurePlayerActionAnimationExecution(
+                    PlayerActionAnimationExecutionMode.LegacyAnimationSync,
+                    legacyAnimationPort);
+                executorPresenter.ConfigurePlayerActionAnimationExecution(
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
+                    executorAnimationPort);
+                legacyPresenter.PresentInitial(new[] { player }, new CubeTopologyState(FaceId.Floor));
+                executorPresenter.PresentInitial(new[] { player }, new CubeTopologyState(FaceId.Floor));
+
+                legacyPresenter.Present(tick);
+                executorPresenter.Present(tick);
+
+                Assert.That(legacyAudioPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(), Is.EqualTo(new[] { "Action:Push:Windup" }));
+                Assert.That(executorAudioPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(), Is.EqualTo(new[] { "Action:Push:Windup" }));
+                Assert.That(legacyAudioPort.AttachedCalls, Is.Empty);
+                Assert.That(executorAudioPort.AttachedCalls, Is.Empty);
+                Assert.That(legacyAnimationPort.TryPlayCallCount, Is.Zero);
+                Assert.That(executorAnimationPort.TryPlayCallCount, Is.EqualTo(1));
+                Assert.That(Enum.GetNames(typeof(GameplayActionAudioMoment)), Does.Contain(nameof(GameplayActionAudioMoment.Windup)));
+                Assert.That(Enum.GetNames(typeof(GameplayActionAudioMoment)), Does.Not.Contain("Execute"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(legacyRoot);
+                UnityEngine.Object.DestroyImmediate(executorRoot);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudio_DefaultMode_UsesLegacyControllerAndDoesNotCallBridgePort()
+        {
+            var rootObject = new GameObject(nameof(ActionAudio_DefaultMode_UsesLegacyControllerAndDoesNotCallBridgePort));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateActionAudioProfile(
+                new ActionAudioEntrySpec(
+                    GameplayActionKind.Push,
+                    GameplayActionAudioMoment.Windup,
+                    CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new ActionAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var legacyPort = new RecordingGameplayAudioPlaybackPort();
+                var bridgePort = new RecordingGameplayActionAudioPlaybackPort();
+                var player = CreateUnit(10, UnitRole.Player);
+
+                presenter.ConfigureActionAudioExecution(ActionAudioExecutionMode.LegacyActionAudioController, bridgePort);
+                presenter.AttachGameplayAudioRuntime(legacyPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { player }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePresentationData(
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 7,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        targetEntityId: 20,
+                        direction: Direction.Right,
+                        actionPlanId: 70)),
+                    new[] { player },
+                    tickIndex: 17));
+
+                Assert.That(presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
+                Assert.That(bridgePort.Requests, Is.Empty);
+                Assert.That(legacyPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(), Is.EqualTo(new[]
+                {
+                    "Action:Push:Windup",
+                }));
+                Assert.That(presenter.ActionAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
+                Assert.That(presenter.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(presenter.ActionAudioOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(presenter.ActionAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudio_OrchestrationBridgeMode_RoutesPublicMomentsToInjectedPort()
+        {
+            var rootObject = new GameObject(nameof(ActionAudio_OrchestrationBridgeMode_RoutesPublicMomentsToInjectedPort));
+            using var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new ActionAudioViewFactory(rootObject.transform));
+                var legacyPort = new RecordingGameplayAudioPlaybackPort();
+                var bridgePort = new RecordingGameplayActionAudioPlaybackPort();
+
+                presenter.ConfigureActionAudioExecution(ActionAudioExecutionMode.OrchestrationActionAudioBridge, bridgePort);
+                presenter.AttachGameplayAudioRuntime(legacyPort, mapBundle.Map);
+                presenter.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePresentationData(
+                    new[]
+                    {
+                        new TickPlayerActionPresentationSignal(
+                            entityId: 10,
+                            activeActionKind: PlayerActionKind.Push,
+                            activeActionSequence: 11,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false,
+                            targetEntityId: 20,
+                            direction: Direction.Right,
+                            actionPlanId: 101),
+                        new TickPlayerActionPresentationSignal(
+                            entityId: 12,
+                            activeActionKind: PlayerActionKind.Flip,
+                            activeActionSequence: 12,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false,
+                            targetEntityId: 30,
+                            direction: Direction.Left,
+                            actionPlanId: 102),
+                    },
+                    new[]
+                    {
+                        new TickPlayerActionAttemptPresentationSignal(
+                            10,
+                            PlayerActionKind.Push,
+                            Direction.Up,
+                            PlayerActionAttemptFeedbackKind.NoTarget),
+                        new TickPlayerActionAttemptPresentationSignal(
+                            12,
+                            PlayerActionKind.Flip,
+                            Direction.Down,
+                            PlayerActionAttemptFeedbackKind.AssistOutOfRange,
+                            targetEntityId: 30,
+                            hasTarget: true),
+                    }),
+                    tickIndex: 23));
+
+                Assert.That(legacyPort.TwoDCalls, Is.Empty);
+                Assert.That(legacyPort.AttachedCalls, Is.Empty);
+                Assert.That(bridgePort.Requests.Select(request => request.CueKey).ToArray(), Is.EqualTo(new[]
+                {
+                    PresentationActionAudioCueKey.PlayerPushWindup,
+                    PresentationActionAudioCueKey.PlayerFlipWindup,
+                    PresentationActionAudioCueKey.PlayerPushNoTarget,
+                    PresentationActionAudioCueKey.PlayerFlipAssistOutOfRange,
+                }));
+                AssertActionAudioBridgeRequest(
+                    bridgePort.Requests[0],
+                    GameplayActionKind.Push,
+                    GameplayActionAudioMoment.Windup,
+                    ownerEntityId: 10,
+                    targetEntityId: 20,
+                    sourceTick: 23,
+                    sourceSequenceId: 11,
+                    sourceActionPlanId: 101,
+                    Direction.Right,
+                    PresentationActionAudioOutcomeKind.Started);
+                AssertActionAudioBridgeRequest(
+                    bridgePort.Requests[3],
+                    GameplayActionKind.Flip,
+                    GameplayActionAudioMoment.AssistOutOfRange,
+                    ownerEntityId: 12,
+                    targetEntityId: 30,
+                    sourceTick: 23,
+                    sourceSequenceId: 2,
+                    sourceActionPlanId: 0,
+                    Direction.Down,
+                    PresentationActionAudioOutcomeKind.AttemptFeedback);
+                Assert.That(presenter.ActionAudioOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(4));
+                Assert.That(presenter.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(4));
+                Assert.That(presenter.ActionAudioOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
+                Assert.That(presenter.ActionAudioExecutorDiagnostics.RequestPlannedCount, Is.EqualTo(4));
+                Assert.That(presenter.ActionAudioExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(4));
+                Assert.That(presenter.ActionAudioExecutionPipelineBlockingSnapshot.HasPlannedBlockingBarrier, Is.False);
+                Assert.That(presenter.ActionAudioExecutionPipelineBlockingSnapshot.HasActiveBlockingPresentation, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudio_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues()
+        {
+            var rootObject = new GameObject(nameof(ActionAudio_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues));
+            using var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new ActionAudioViewFactory(rootObject.transform));
+                var bridgePort = new RecordingGameplayActionAudioPlaybackPort();
+
+                presenter.ConfigureActionAudioExecution(ActionAudioExecutionMode.OrchestrationActionAudioBridge, bridgePort);
+                presenter.AttachGameplayAudioRuntime(new RecordingGameplayAudioPlaybackPort(), mapBundle.Map);
+                presenter.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePresentationData(
+                    new[]
+                    {
+                        new TickPlayerActionPresentationSignal(
+                            entityId: 10,
+                            activeActionKind: PlayerActionKind.Push,
+                            activeActionSequence: 11,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false,
+                            targetEntityId: 20,
+                            direction: Direction.Right,
+                            actionPlanId: 101),
+                    },
+                    new[]
+                    {
+                        new TickPlayerActionAttemptPresentationSignal(
+                            12,
+                            PlayerActionKind.Flip,
+                            Direction.Down,
+                            PlayerActionAttemptFeedbackKind.AssistOutOfRange,
+                            targetEntityId: 30,
+                            hasTarget: true),
+                    }),
+                    tickIndex: 24));
+
+                var telemetry = presenter.ActionAudioProductionTelemetrySnapshot;
+                Assert.That(telemetry.CurrentMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
+                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
+                Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
+                Assert.That(telemetry.RollbackMode, Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
+                Assert.That(telemetry.LastTickIndex, Is.EqualTo(24));
+                Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationActionAudioCueKey.PlayerFlipAssistOutOfRange));
+                Assert.That(telemetry.LastOwnerEntityId, Is.EqualTo(12));
+                Assert.That(telemetry.LastAction, Is.EqualTo(GameplayActionKind.Flip));
+                Assert.That(telemetry.LastMoment, Is.EqualTo(GameplayActionAudioMoment.AssistOutOfRange));
+                Assert.That(telemetry.LastOutcome, Is.EqualTo(PresentationActionAudioOutcomeKind.AttemptFeedback));
+                Assert.That(telemetry.LastFailureReason, Is.EqualTo(ActionAudioTelemetryFailureReason.None));
+                Assert.That(telemetry.LegacyOwnerAttemptCount, Is.EqualTo(2));
+                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(2));
+                Assert.That(telemetry.ExecutorOwnerAttemptCount, Is.EqualTo(2));
+                Assert.That(telemetry.ExecutorOwnerExecutedCount, Is.EqualTo(2));
+                Assert.That(telemetry.ObservedCueCount, Is.EqualTo(2));
+                Assert.That(telemetry.RequestPlannedCount, Is.EqualTo(2));
+                Assert.That(telemetry.PlaybackRequestedCount, Is.EqualTo(2));
+                Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(2));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudio_OrchestrationBridgeMode_DefaultAdapterUsesControllerProfileResolution()
+        {
+            var rootObject = new GameObject(nameof(ActionAudio_OrchestrationBridgeMode_DefaultAdapterUsesControllerProfileResolution));
+            using var mapBundle = CreateGameplayAudioMap();
+            using var profileBundle = CreateActionAudioProfile(
+                new ActionAudioEntrySpec(
+                    GameplayActionKind.Push,
+                    GameplayActionAudioMoment.Windup,
+                    CreateDefinitionSpec()));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new ActionAudioViewFactory(rootObject.transform, profileBundle.Profile));
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var player = CreateUnit(10, UnitRole.Player);
+
+                presenter.ConfigureActionAudioExecution(ActionAudioExecutionMode.OrchestrationActionAudioBridge);
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { player }, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePresentationData(
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 1,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false)),
+                    new[] { player }));
+
+                Assert.That(playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(), Is.EqualTo(new[]
+                {
+                    "Action:Push:Windup",
+                }));
+                Assert.That(presenter.ActionAudioExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(1));
+                Assert.That(presenter.ActionAudioExecutorDiagnostics.OwnerViewMissingCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudio_LegacyAndBridgeRequests_AreSemanticallyEquivalent()
+        {
+            var result = CreateTickResult(CreatePresentationData(
+                new[]
+                {
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 4,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        targetEntityId: 20,
+                        direction: Direction.Right,
+                        actionPlanId: 40),
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 20,
+                        activeActionKind: PlayerActionKind.Flip,
+                        activeActionSequence: 5,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false,
+                        targetEntityId: 30,
+                        direction: Direction.Left,
+                        actionPlanId: 50),
+                },
+                new[]
+                {
+                    new TickPlayerActionAttemptPresentationSignal(
+                        10,
+                        PlayerActionKind.Push,
+                        Direction.Up,
+                        PlayerActionAttemptFeedbackKind.AssistOutOfRange),
+                    new TickPlayerActionAttemptPresentationSignal(
+                        20,
+                        PlayerActionKind.Flip,
+                        Direction.Down,
+                        PlayerActionAttemptFeedbackKind.Invalid,
+                        targetEntityId: 30,
+                        hasTarget: true),
+                }),
+                tickIndex: 31);
+            var legacyRequests = new GameplayActionAudioRequestPlanner().BuildRequests(result);
+            var factFrame = new TickPresentationFactExtractor().Extract(result);
+            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new ActionAudioCuePlanner(),
+            }).Plan(factFrame);
+            var playbackPlan = new PresentationPlaybackPlanner().Plan(cueFrame);
+            var bridgePort = new RecordingGameplayActionAudioPlaybackPort();
+            var executor = new GameplayActionAudioPresentationExecutor(
+                bridgePort,
+                ActionAudioExecutionMode.OrchestrationActionAudioBridge,
+                new ActionAudioExecutionGuard(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
+
+            executor.Play(playbackPlan);
+
+            Assert.That(bridgePort.Requests, Has.Count.EqualTo(legacyRequests.Count));
+            for (var i = 0; i < legacyRequests.Count; i++)
+            {
+                Assert.That(bridgePort.Requests[i].Action, Is.EqualTo(legacyRequests[i].Action));
+                Assert.That(bridgePort.Requests[i].Moment, Is.EqualTo(legacyRequests[i].Moment));
+                Assert.That(bridgePort.Requests[i].OwnerEntityId, Is.EqualTo(legacyRequests[i].OwnerEntityId));
+                Assert.That(bridgePort.Requests[i].Context.DebugTag, Is.EqualTo(legacyRequests[i].Context.DebugTag));
+                Assert.That(bridgePort.Requests[i].TickIndex, Is.EqualTo(result.TickIndex));
+                Assert.That(playbackPlan.Cues[i].Policy.UnitKind, Is.EqualTo(PresentationPlaybackUnitKind.OneShot));
+                Assert.That(playbackPlan.Cues[i].Policy.Blocking, Is.False);
+                Assert.That(bridgePort.Requests[i].Anchor.Kind, Is.EqualTo(PresentationAnchorKind.EntityVisualRoot));
+                Assert.That(bridgePort.Requests[i].OwnershipKey.SourceSequenceId, Is.EqualTo(cueFrame.Cues[i].ActionAudioPayload.SourceSequenceId));
+                Assert.That(bridgePort.Requests[i].OwnershipKey.SourceActionPlanId, Is.EqualTo(cueFrame.Cues[i].ActionAudioPayload.SourceActionPlanId));
+                Assert.That(bridgePort.Requests[i].OwnershipKey.TargetEntityId, Is.EqualTo(cueFrame.Cues[i].ActionAudioPayload.TargetEntityId));
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudio_OrchestrationMode_ForcedDuplicateExecutorAttemptBlocksSecondPlayback()
+        {
+            var rootObject = new GameObject(nameof(ActionAudio_OrchestrationMode_ForcedDuplicateExecutorAttemptBlocksSecondPlayback));
+            try
+            {
+                var bridgePort = new RecordingGameplayActionAudioPlaybackPort();
+                var coordinator = CreateInitializedActionAudioCoordinator(
+                    rootObject,
+                    ActionAudioExecutionMode.OrchestrationActionAudioBridge,
+                    bridgePort,
+                    duplicateExecutors: true);
+
+                coordinator.Present(CreateTickResult(CreatePresentationData(
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 1,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false)),
+                    tickIndex: 41));
+
+                Assert.That(bridgePort.Requests, Has.Count.EqualTo(1));
+                Assert.That(coordinator.ActionAudioOwnershipDiagnostics.ExecutorAttemptCount, Is.EqualTo(2));
+                Assert.That(coordinator.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(coordinator.ActionAudioOwnershipDiagnostics.DuplicateAttemptCount, Is.EqualTo(1));
+                Assert.That(coordinator.ActionAudioExecutorDiagnostics.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(coordinator.ActionAudioProductionTelemetrySnapshot.DuplicateOwnerAttemptCount, Is.EqualTo(1));
+                Assert.That(coordinator.ActionAudioProductionTelemetrySnapshot.DuplicateSuppressedCount, Is.EqualTo(1));
+                Assert.That(coordinator.ActionAudioProductionTelemetrySnapshot.LastFailureReason, Is.EqualTo(ActionAudioTelemetryFailureReason.DuplicateSuppressed));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudio_OrchestrationMode_DistinguishesMissingDiagnostics()
+        {
+            AssertActionAudioExecutorDiagnostic(
+                new[] { CreateUnsupportedActionAudioCue() },
+                new RecordingGameplayActionAudioPlaybackPort(),
+                diagnostics => diagnostics.UnsupportedMomentCount,
+                expectedCount: 1);
+            AssertActionAudioExecutorDiagnostic(
+                CreateActionAudioCueFrame().Cues,
+                playbackPort: null,
+                diagnostics => diagnostics.PortMissingCount,
+                expectedCount: 1,
+                ActionAudioTelemetryFailureReason.PortMissing);
+            AssertActionAudioExecutorDiagnostic(
+                CreateActionAudioCueFrame().Cues,
+                new RecordingGameplayActionAudioPlaybackPort(GameplayActionAudioPlaybackResultKind.OwnerViewMissing),
+                diagnostics => diagnostics.OwnerViewMissingCount,
+                expectedCount: 1,
+                ActionAudioTelemetryFailureReason.OwnerViewMissing);
+            AssertActionAudioExecutorDiagnostic(
+                CreateActionAudioCueFrame().Cues,
+                new RecordingGameplayActionAudioPlaybackPort(GameplayActionAudioPlaybackResultKind.AuthoringMissing),
+                diagnostics => diagnostics.AuthoringMissingCount,
+                expectedCount: 1,
+                ActionAudioTelemetryFailureReason.AuthoringMissing);
+            AssertActionAudioExecutorDiagnostic(
+                CreateActionAudioCueFrame().Cues,
+                new RecordingGameplayActionAudioPlaybackPort(GameplayActionAudioPlaybackResultKind.ProfileMissing),
+                diagnostics => diagnostics.ProfileMissingCount,
+                expectedCount: 1,
+                ActionAudioTelemetryFailureReason.ProfileMissing);
+            AssertActionAudioExecutorDiagnostic(
+                CreateActionAudioCueFrame().Cues,
+                new RecordingGameplayActionAudioPlaybackPort(GameplayActionAudioPlaybackResultKind.BindingMissing),
+                diagnostics => diagnostics.BindingMissingCount,
+                expectedCount: 1,
+                ActionAudioTelemetryFailureReason.BindingMissing);
+            AssertActionAudioExecutorDiagnostic(
+                CreateActionAudioCueFrame().Cues,
+                new RecordingGameplayActionAudioPlaybackPort(GameplayActionAudioPlaybackResultKind.OptionalProfileEntryMissing),
+                diagnostics => diagnostics.OptionalProfileEntryMissingNoOpCount,
+                expectedCount: 1,
+                ActionAudioTelemetryFailureReason.OptionalProfileEntryMissing);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudio_OrchestrationMode_AdapterSeparatesOwnerAuthoringProfileBindingAndOptionalEntryNoOps()
+        {
+            using var mapBundle = CreateGameplayAudioMap();
+            AssertActionAudioAdapterDiagnostic(
+                new ActionAudioViewFactory(new GameObject("ActionAudioMissingOwnerRoot").transform),
+                Array.Empty<EntityState>(),
+                diagnostics => diagnostics.OwnerViewMissingCount,
+                expectedCount: 1,
+                mapBundle.Map);
+            AssertActionAudioAdapterDiagnostic(
+                new ActionAudioViewFactory(new GameObject("ActionAudioMissingAuthoringRoot").transform),
+                new[] { CreateUnit(10, UnitRole.Player) },
+                diagnostics => diagnostics.AuthoringMissingCount,
+                expectedCount: 1,
+                mapBundle.Map);
+            AssertActionAudioAdapterDiagnostic(
+                new ActionAudioViewFactory(
+                    new GameObject("ActionAudioProfileMissingRoot").transform,
+                    addAuthoringWithMissingProfile: true),
+                new[] { CreateUnit(10, UnitRole.Player) },
+                diagnostics => diagnostics.ProfileMissingCount,
+                expectedCount: 1,
+                mapBundle.Map);
+
+            using var profileBundle = CreateActionAudioProfile(
+                new ActionAudioEntrySpec(
+                    GameplayActionKind.Push,
+                    GameplayActionAudioMoment.AssistOutOfRange,
+                    CreateDefinitionSpec()));
+            AssertActionAudioAdapterDiagnostic(
+                new ActionAudioViewFactory(new GameObject("ActionAudioOptionalEntryRoot").transform, profileBundle.Profile),
+                new[] { CreateUnit(10, UnitRole.Player) },
+                diagnostics => diagnostics.OptionalProfileEntryMissingNoOpCount,
+                expectedCount: 1,
+                mapBundle.Map);
+
+            using var optionalNullProfile = CreateActionAudioProfile(
+                new ActionAudioEntrySpec(
+                    GameplayActionKind.Push,
+                    GameplayActionAudioMoment.Windup,
+                    definitionSpec: null,
+                    isOptional: true));
+            AssertActionAudioAdapterDiagnostic(
+                new ActionAudioViewFactory(new GameObject("ActionAudioBindingMissingRoot").transform, optionalNullProfile.Profile),
+                new[] { CreateUnit(10, UnitRole.Player) },
+                diagnostics => diagnostics.BindingMissingCount,
+                expectedCount: 1,
+                mapBundle.Map);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudio_ResetSessionHardCleanupAndPresentInitial_ClearExecutorPortAndGuardState()
+        {
+            var rootObject = new GameObject(nameof(ActionAudio_ResetSessionHardCleanupAndPresentInitial_ClearExecutorPortAndGuardState));
+            try
+            {
+                var bridgePort = new RecordingGameplayActionAudioPlaybackPort();
+                var coordinator = CreateInitializedActionAudioCoordinator(
+                    rootObject,
+                    ActionAudioExecutionMode.OrchestrationActionAudioBridge,
+                    bridgePort);
+
+                coordinator.Present(CreateTickResult(CreatePresentationData(
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 1,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false)),
+                    tickIndex: 61));
+                Assert.That(bridgePort.Requests, Has.Count.EqualTo(1));
+                Assert.That(coordinator.ActionAudioExecutorDiagnostics.ObservedCueCount, Is.EqualTo(1));
+
+                coordinator.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
+                Assert.That(coordinator.ActionAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
+                Assert.That(coordinator.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(bridgePort.ResetSessionCallCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(coordinator.ActionAudioProductionTelemetrySnapshot.LastCleanupReason, Is.EqualTo(ActionAudioTelemetryCleanupReason.ResetSession));
+
+                coordinator.Present(CreateTickResult(CreatePresentationData(
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 1,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false)),
+                    tickIndex: 62));
+                coordinator.HardCleanupPresentationExtensions();
+                Assert.That(coordinator.ActionAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
+                Assert.That(coordinator.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(bridgePort.HardCleanupCallCount, Is.EqualTo(1));
+                Assert.That(coordinator.ActionAudioProductionTelemetrySnapshot.LastCleanupReason, Is.EqualTo(ActionAudioTelemetryCleanupReason.HardCleanupPresentationExtensions));
+                Assert.That(
+                    typeof(PresentationCue).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                        .Select(field => field.FieldType),
+                    Has.No.Member(typeof(AudioPlaybackHandle)));
+                Assert.That(
+                    typeof(PresentationPlaybackPlan).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                        .Select(field => field.FieldType),
+                    Has.No.Member(typeof(AudioPlaybackHandle)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ActionAudio_OrchestrationRoute_IsNonBlockingAndDoesNotMutateAuthoritativeTickResult()
+        {
+            var rootObject = new GameObject(nameof(ActionAudio_OrchestrationRoute_IsNonBlockingAndDoesNotMutateAuthoritativeTickResult));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, new ActionAudioViewFactory(rootObject.transform));
+                var result = CreateTickResult(
+                    CreatePresentationData(
+                        new TickPlayerActionPresentationSignal(
+                            entityId: 10,
+                            activeActionKind: PlayerActionKind.Push,
+                            activeActionSequence: 1,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false)),
+                    finalEntities: new[] { CreateUnit(10, UnitRole.Player) },
+                    tickIndex: 71,
+                    eventLog: new[] { "BeforePresentation" },
+                    determinismHash: "hash-before");
+                var finalEntities = result.FinalEntities.ToArray();
+                var eventLog = result.EventLog.ToArray();
+                var objectiveResult = result.ObjectiveResult;
+
+                presenter.ConfigureActionAudioExecution(
+                    ActionAudioExecutionMode.OrchestrationActionAudioBridge,
+                    new RecordingGameplayActionAudioPlaybackPort());
+                presenter.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
+                presenter.Present(result);
+
+                Assert.That(presenter.ActionAudioExecutionPipelineBlockingSnapshot.HasPlannedBlockingBarrier, Is.False);
+                Assert.That(presenter.ActionAudioExecutionPipelineBlockingSnapshot.HasActiveBlockingPresentation, Is.False);
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
+                Assert.That(presenter.IsTopologyTransitionActive, Is.False);
+                Assert.That(result.DeterminismHash, Is.EqualTo("hash-before"));
+                Assert.That(result.FinalEntities, Is.EqualTo(finalEntities));
+                Assert.That(result.EventLog, Is.EqualTo(eventLog));
+                Assert.That(result.ObjectiveResult, Is.SameAs(objectiveResult));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void GameplayActionAudioPresentationController_RemainsOneShotOnly_WithoutPlaybackHandles()
         {
@@ -730,9 +1698,220 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(fieldTypes, Has.No.Member(typeof(AudioPlaybackHandle)));
         }
 
+        private static void AssertActionAudioPayload(
+            PresentationActionAudioPayload payload,
+            int ownerEntityId,
+            GameplayActionKind actionKind,
+            GameplayActionAudioMoment moment,
+            int sourceSequenceId,
+            int sourceActionPlanId,
+            int targetEntityId,
+            Direction direction,
+            PresentationActionAudioOutcomeKind outcomeKind)
+        {
+            Assert.That(payload.IsValid, Is.True);
+            Assert.That(payload.OwnerEntityId, Is.EqualTo(ownerEntityId));
+            Assert.That((GameplayActionKind)payload.ActionKind, Is.EqualTo(actionKind));
+            Assert.That((GameplayActionAudioMoment)payload.Moment, Is.EqualTo(moment));
+            Assert.That(payload.SourceTickIndex, Is.EqualTo(1));
+            Assert.That(payload.SourceSequenceId, Is.EqualTo(sourceSequenceId));
+            Assert.That(payload.SourceActionPlanId, Is.EqualTo(sourceActionPlanId));
+            Assert.That(payload.TargetEntityId, Is.EqualTo(targetEntityId));
+            Assert.That(payload.Direction, Is.EqualTo(direction));
+            Assert.That(payload.OutcomeKind, Is.EqualTo(outcomeKind));
+        }
+
+        private static void AssertActionAudioBridgeRequest(
+            in GameplayActionAudioPlaybackRequest request,
+            GameplayActionKind expectedAction,
+            GameplayActionAudioMoment expectedMoment,
+            int ownerEntityId,
+            int targetEntityId,
+            int sourceTick,
+            int sourceSequenceId,
+            int sourceActionPlanId,
+            Direction direction,
+            PresentationActionAudioOutcomeKind outcomeKind)
+        {
+            Assert.That(request.Action, Is.EqualTo(expectedAction));
+            Assert.That(request.Moment, Is.EqualTo(expectedMoment));
+            Assert.That(request.OwnerEntityId, Is.EqualTo(ownerEntityId));
+            Assert.That(request.TickIndex, Is.EqualTo(sourceTick));
+            Assert.That(request.Source.TickIndex, Is.EqualTo(sourceTick));
+            Assert.That(request.Target, Is.EqualTo(PresentationTarget.Entity(ownerEntityId)));
+            Assert.That(request.Anchor.Kind, Is.EqualTo(PresentationAnchorKind.EntityVisualRoot));
+            Assert.That(request.ActionAudioPayload.OwnerEntityId, Is.EqualTo(ownerEntityId));
+            Assert.That(request.ActionAudioPayload.TargetEntityId, Is.EqualTo(targetEntityId));
+            Assert.That(request.ActionAudioPayload.SourceSequenceId, Is.EqualTo(sourceSequenceId));
+            Assert.That(request.ActionAudioPayload.SourceActionPlanId, Is.EqualTo(sourceActionPlanId));
+            Assert.That(request.ActionAudioPayload.Direction, Is.EqualTo(direction));
+            Assert.That(request.ActionAudioPayload.OutcomeKind, Is.EqualTo(outcomeKind));
+            Assert.That(request.OwnershipKey.OwnerEntityId, Is.EqualTo(ownerEntityId));
+            Assert.That(request.OwnershipKey.SourceSequenceId, Is.EqualTo(sourceSequenceId));
+            Assert.That(request.OwnershipKey.SourceActionPlanId, Is.EqualTo(sourceActionPlanId));
+            Assert.That(request.OwnershipKey.TargetEntityId, Is.EqualTo(targetEntityId));
+            Assert.That(request.Context.DebugTag, Is.EqualTo($"Action:{expectedAction}:{expectedMoment}"));
+        }
+
+        private static GameplayTickPresentationCoordinator CreateInitializedActionAudioCoordinator(
+            GameObject rootObject,
+            ActionAudioExecutionMode mode,
+            IGameplayActionAudioPlaybackPort playbackPort,
+            bool duplicateExecutors = false)
+        {
+            var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator(
+                GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateEnemyPresentationExecutionPipeline,
+                GameplayHostPresentationPipelineFactory.CreateCoreGameplaySfxExecutionPipeline,
+                (requestedMode, requestedPort, executionGuard) => CreateActionAudioTestPipeline(
+                    requestedMode,
+                    requestedPort,
+                    executionGuard,
+                    duplicateExecutors));
+            var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+            var binder = new GameplayEntityViewBinder(registry, new ActionAudioViewFactory(rootObject.transform));
+
+            coordinator.ConfigureActionAudioExecution(mode, playbackPort);
+            coordinator.Initialize(
+                binder,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                new CubeTopologyState(FaceId.Floor),
+                1f,
+                CreateTimingProfile());
+            return coordinator;
+        }
+
+        private static GameplayPresentationPipeline CreateActionAudioTestPipeline(
+            ActionAudioExecutionMode mode,
+            IGameplayActionAudioPlaybackPort playbackPort,
+            ActionAudioExecutionGuard executionGuard,
+            bool duplicateExecutors)
+        {
+            if (mode != ActionAudioExecutionMode.OrchestrationActionAudioBridge)
+            {
+                return null;
+            }
+
+            var executors = duplicateExecutors
+                ? new IPresentationExecutor[]
+                {
+                    new GameplayActionAudioPresentationExecutor(playbackPort, mode, executionGuard),
+                    new GameplayActionAudioPresentationExecutor(playbackPort, mode, executionGuard),
+                }
+                : new IPresentationExecutor[]
+                {
+                    new GameplayActionAudioPresentationExecutor(playbackPort, mode, executionGuard),
+                };
+            return new GameplayPresentationPipeline(
+                new TickPresentationFactExtractor(),
+                new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+                {
+                    new ActionAudioCuePlanner(),
+                }),
+                new PresentationPlaybackPlanner(),
+                new PresentationPlaybackScheduler(),
+                executors);
+        }
+
+        private static void AssertActionAudioExecutorDiagnostic(
+            IReadOnlyList<PresentationCue> cues,
+            IGameplayActionAudioPlaybackPort playbackPort,
+            Func<GameplayActionAudioExecutorDiagnostics, int> selector,
+            int expectedCount,
+            ActionAudioTelemetryFailureReason expectedFailureReason =
+                ActionAudioTelemetryFailureReason.UnsupportedMoment)
+        {
+            var plan = new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
+                tickIndex: 51,
+                cues,
+                new PresentationCueFrameDiagnostics(cues.Count, cues.Count, 1)));
+            var executor = new GameplayActionAudioPresentationExecutor(
+                playbackPort,
+                ActionAudioExecutionMode.OrchestrationActionAudioBridge,
+                new ActionAudioExecutionGuard(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
+
+            executor.Play(plan);
+
+            Assert.That(selector(executor.Diagnostics), Is.EqualTo(expectedCount));
+            Assert.That(executor.Diagnostics.LastFailureReason, Is.EqualTo(expectedFailureReason));
+        }
+
+        private static void AssertActionAudioAdapterDiagnostic(
+            IGameplayEntityViewFactory viewFactory,
+            IReadOnlyList<EntityState> entities,
+            Func<GameplayActionAudioExecutorDiagnostics, int> selector,
+            int expectedCount,
+            GameplayAudioMap map)
+        {
+            var rootObject = new GameObject(nameof(AssertActionAudioAdapterDiagnostic));
+            try
+            {
+                var presenter = CreatePresenter(rootObject, viewFactory);
+                presenter.ConfigureActionAudioExecution(ActionAudioExecutionMode.OrchestrationActionAudioBridge);
+                presenter.AttachGameplayAudioRuntime(new RecordingGameplayAudioPlaybackPort(), map);
+                presenter.PresentInitial(entities, new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePresentationData(
+                    new TickPlayerActionPresentationSignal(
+                        entityId: 10,
+                        activeActionKind: PlayerActionKind.Push,
+                        activeActionSequence: 1,
+                        startedThisTick: true,
+                        completedThisTick: false,
+                        canceledThisTick: false)),
+                    entities));
+
+                Assert.That(selector(presenter.ActionAudioExecutorDiagnostics), Is.EqualTo(expectedCount));
+            }
+            finally
+            {
+                if (viewFactory is ActionAudioViewFactory actionAudioViewFactory)
+                {
+                    actionAudioViewFactory.DestroyParentIfOwned();
+                }
+
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        private static PresentationCueFrame CreateActionAudioCueFrame()
+        {
+            return new PresentationCuePlannerSet(new IPresentationCuePlanner[]
+            {
+                new ActionAudioCuePlanner(),
+            }).Plan(new TickPresentationFactExtractor().Extract(CreateTickResult(CreatePresentationData(
+                new TickPlayerActionPresentationSignal(
+                    entityId: 10,
+                    activeActionKind: PlayerActionKind.Push,
+                    activeActionSequence: 1,
+                    startedThisTick: true,
+                    completedThisTick: false,
+                    canceledThisTick: false)))));
+        }
+
+        private static PresentationCue CreateUnsupportedActionAudioCue()
+        {
+            return new PresentationCue(
+                PresentationDomain.ActionAudio,
+                new PresentationCueKey(PresentationDomain.ActionAudio, localKey: 999),
+                new PresentationSource(51, PresentationSemanticSource.PlayerActionAudio, 10),
+                PresentationTarget.Entity(10),
+                PresentationAnchor.ForEntityVisualRoot(10),
+                PresentationPlaybackPolicyHint.OneShot(1),
+                actionAudioPayload: new PresentationActionAudioPayload(
+                    10,
+                    (int)GameplayActionKind.Push,
+                    (int)GameplayActionAudioMoment.Windup,
+                    51,
+                    sourceSequenceId: 1));
+        }
+
         private static GameplayTickViewPresenter CreatePresenter(GameObject rootObject, IGameplayEntityViewFactory viewFactory)
         {
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(registry, viewFactory);
             presenter.Initialize(
@@ -766,19 +1945,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickResult CreateTickResult(
             TickPresentationData presentationData,
             IReadOnlyList<EntityState> finalEntities = null,
-            CubeTopologyState? finalTopology = null)
+            CubeTopologyState? finalTopology = null,
+            int tickIndex = 1,
+            IEnumerable<string> eventLog = null,
+            string determinismHash = "")
         {
             return new TickResult(
-                1,
+                tickIndex,
                 new[] { TickPhase.Plan },
                 Array.Empty<string>(),
                 MovementPhaseResult.Empty,
                 AttackPhaseResult.Empty,
                 finalEntities ?? Array.Empty<EntityState>(),
-                Array.Empty<string>(),
+                eventLog ?? Array.Empty<string>(),
                 finalTopology ?? new CubeTopologyState(FaceId.Floor),
                 presentationData,
-                string.Empty,
+                determinismHash,
                 TickTrace.Empty,
                 StageObjectiveTickResult.NoObjective);
         }
@@ -1036,6 +2218,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        private sealed class RecordingGameplayAnimationPlaybackPort : IGameplayAnimationPlaybackPort
+        {
+            public int TryPlayCallCount { get; private set; }
+
+            public bool TryPlayPlayerActionAnimation(
+                in GameplayAnimationPlaybackRequest request,
+                out GameplayAnimationPlaybackResult result)
+            {
+                TryPlayCallCount++;
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.Applied);
+                return true;
+            }
+
+            public void ResetSession()
+            {
+                TryPlayCallCount = 0;
+            }
+
+            public void HardCleanup()
+            {
+                TryPlayCallCount = 0;
+            }
+        }
+
         private sealed class RecordingGameplayAudioPlaybackPort : IGameplayAudioPlaybackPort
         {
             public readonly List<(AudioDefinition Definition, AudioPlaybackContext Context)> TwoDCalls = new();
@@ -1056,15 +2262,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        private sealed class RecordingGameplayActionAudioPlaybackPort : IGameplayActionAudioPlaybackPort
+        {
+            private readonly GameplayActionAudioPlaybackResultKind _resultKind;
+
+            public RecordingGameplayActionAudioPlaybackPort(
+                GameplayActionAudioPlaybackResultKind resultKind = GameplayActionAudioPlaybackResultKind.Succeeded)
+            {
+                _resultKind = resultKind;
+            }
+
+            public readonly List<GameplayActionAudioPlaybackRequest> Requests = new();
+
+            public int ResetSessionCallCount { get; private set; }
+
+            public int HardCleanupCallCount { get; private set; }
+
+            public bool TryPlayActionAudio(
+                in GameplayActionAudioPlaybackRequest request,
+                out GameplayActionAudioPlaybackResult result)
+            {
+                Requests.Add(request);
+                result = new GameplayActionAudioPlaybackResult(_resultKind);
+                return _resultKind == GameplayActionAudioPlaybackResultKind.Succeeded ||
+                       _resultKind == GameplayActionAudioPlaybackResultKind.Requested;
+            }
+
+            public void ResetSession()
+            {
+                ResetSessionCallCount++;
+                Requests.Clear();
+            }
+
+            public void HardCleanup()
+            {
+                HardCleanupCallCount++;
+                Requests.Clear();
+            }
+        }
+
         private sealed class ActionAudioViewFactory : IGameplayEntityViewFactory
         {
             private readonly GameplayActionAudioProfile _profile;
             private readonly Transform _parent;
+            private readonly bool _addAuthoringWithMissingProfile;
 
-            public ActionAudioViewFactory(Transform parent, GameplayActionAudioProfile profile = null)
+            public ActionAudioViewFactory(
+                Transform parent,
+                GameplayActionAudioProfile profile = null,
+                bool addAuthoringWithMissingProfile = false)
             {
                 _parent = parent;
                 _profile = profile;
+                _addAuthoringWithMissingProfile = addAuthoringWithMissingProfile;
             }
 
             public GameplayEntityView CreateView(in EntityState entity)
@@ -1074,7 +2324,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var view = viewObject.AddComponent<GameplayEntityView>();
                 view.Initialize(entity.entityId);
 
-                if (_profile != null &&
+                if ((_profile != null || _addAuthoringWithMissingProfile) &&
                     entity.unitRole == UnitRole.Player)
                 {
                     var authoring = viewObject.AddComponent<GameplayActionAudioAuthoring>();
@@ -1082,6 +2332,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
 
                 return view;
+            }
+
+            public void DestroyParentIfOwned()
+            {
+                if (_parent != null &&
+                    _parent.gameObject.name.StartsWith("ActionAudio", StringComparison.Ordinal))
+                {
+                    UnityEngine.Object.DestroyImmediate(_parent.gameObject);
+                }
             }
         }
     }

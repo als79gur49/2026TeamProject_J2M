@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplayAudioPlaybackGateState _gateState = GameplayAudioPlaybackGateState.Open;
         private IGameplayAudioPlaybackPort _playbackPort;
+        private GameplayTimingProfile _timingProfile = GameplayTimingProfile.CreateDefault();
 
         public EnemyAudioPresentationController(GameplayPresentationStateStore stateStore)
         {
@@ -34,6 +35,12 @@ namespace Game.Feature.Gameplay.Host
         {
             _moveCadenceGate.Configure(simulationTicksPerSecond);
             _stationaryActiveCadenceGate.Configure(simulationTicksPerSecond);
+        }
+
+        public void ConfigureTiming(GameplayTimingProfile timingProfile)
+        {
+            _timingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            ConfigureMoveCadence(_timingProfile.SimulationTicksPerSecond);
         }
 
         public void AttachRuntime(IGameplayAudioPlaybackPort playbackPort)
@@ -199,11 +206,182 @@ namespace Game.Feature.Gameplay.Host
 
             if (binding.HasAttachmentSlot)
             {
-                _playbackPort.PlayAttached(binding.Definition, ownerView, binding.AttachmentSlot, request.Context);
+                PlayResolvedBinding(binding, ownerView, request.Context);
+            }
+            else
+            {
+                PlayResolvedBinding(binding, ownerView, request.Context);
+            }
+        }
+
+        internal bool TryPlayBridgeRequest(
+            in GameplayEnemyAudioPlaybackRequest request,
+            out GameplayEnemyAudioPlaybackResult result)
+        {
+            if (_playbackPort == null)
+            {
+                result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.PortMissing);
+                return false;
+            }
+
+            if (request.Cue == EnemyAudioCue.ChargeActiveLoop)
+            {
+                result = new GameplayEnemyAudioPlaybackResult(
+                    GameplayEnemyAudioPlaybackResultKind.UnsupportedLoopSemantic);
+                return false;
+            }
+
+            if (!IsSupportedOneShotCue(request.Cue))
+            {
+                result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.UnsupportedSemantic);
+                return false;
+            }
+
+            var enemyRequest = CreateEnemyAudioRequest(request);
+            if (enemyRequest.DelaySeconds > 0f)
+            {
+                _pendingRequests.Add(new ScheduledEnemyAudioRequest(
+                    enemyRequest,
+                    enemyRequest.DelaySeconds,
+                    CreateRequestKey(enemyRequest, request.TickIndex, request.OwnershipKey.OrderIndex)));
+                result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.Requested);
+                return true;
+            }
+
+            var playbackDecision = EvaluatePlaybackPolicy(enemyRequest);
+            if (playbackDecision == GameplayAudioPlaybackDecision.DeferUntilUnlock)
+            {
+                DeferRequest(new ScheduledEnemyAudioRequest(
+                    enemyRequest,
+                    0f,
+                    CreateRequestKey(enemyRequest, request.TickIndex, request.OwnershipKey.OrderIndex)));
+                result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.Requested);
+                return true;
+            }
+
+            if (playbackDecision == GameplayAudioPlaybackDecision.Suppress)
+            {
+                result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.LegacyOwnerActive);
+                return false;
+            }
+
+            if (!TryResolveLiveOwner(request.OwnerEntityId, out var ownerView))
+            {
+                result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.OwnerViewMissing);
+                return false;
+            }
+
+            if (request.Cue == EnemyAudioCue.StationaryActive &&
+                ShouldSuppressStationaryActive(request.OwnerEntityId))
+            {
+                result = new GameplayEnemyAudioPlaybackResult(
+                    GameplayEnemyAudioPlaybackResultKind.OptionalProfileEntryMissing);
+                return false;
+            }
+
+            if (!ownerView.TryGetComponent<EnemyAudioAuthoring>(out var authoring) ||
+                authoring == null)
+            {
+                result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.AuthoringMissing);
+                return false;
+            }
+
+            if (authoring.Profile == null)
+            {
+                result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.ProfileMissing);
+                return false;
+            }
+
+            authoring.Profile.ValidateOrThrow();
+            var resolveStatus = authoring.Profile.ResolveEntryStatus(request.Cue, out var binding);
+            switch (resolveStatus)
+            {
+                case EnemyAudioProfileResolveStatus.Resolved:
+                    break;
+                case EnemyAudioProfileResolveStatus.EntryMissing:
+                case EnemyAudioProfileResolveStatus.OptionalBindingMissing:
+                    result = new GameplayEnemyAudioPlaybackResult(
+                        GameplayEnemyAudioPlaybackResultKind.OptionalProfileEntryMissing);
+                    return false;
+                case EnemyAudioProfileResolveStatus.BindingMissing:
+                case EnemyAudioProfileResolveStatus.None:
+                default:
+                    result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.BindingMissing);
+                    return false;
+            }
+
+            if (request.Cue == EnemyAudioCue.Move &&
+                !_moveCadenceGate.ShouldPlayMove(request.OwnerEntityId, request.TickIndex))
+            {
+                result = new GameplayEnemyAudioPlaybackResult(
+                    GameplayEnemyAudioPlaybackResultKind.OptionalProfileEntryMissing);
+                return false;
+            }
+
+            if (request.Cue == EnemyAudioCue.StationaryActive &&
+                !_stationaryActiveCadenceGate.ShouldPlayStationaryActive(request.OwnerEntityId, request.TickIndex))
+            {
+                result = new GameplayEnemyAudioPlaybackResult(
+                    GameplayEnemyAudioPlaybackResultKind.OptionalProfileEntryMissing);
+                return false;
+            }
+
+            PlayResolvedBinding(binding, ownerView, request.Context);
+            result = new GameplayEnemyAudioPlaybackResult(GameplayEnemyAudioPlaybackResultKind.Succeeded);
+            return true;
+        }
+
+        private EnemyAudioRequest CreateEnemyAudioRequest(in GameplayEnemyAudioPlaybackRequest request)
+        {
+            var resolvedDelaySeconds = request.DelaySeconds;
+            if (resolvedDelaySeconds <= 0f &&
+                request.EnemyAudioPayload.Timing == (int)EntityExitPresentationTiming.AtContactTime)
+            {
+                resolvedDelaySeconds =
+                    _timingProfile.FlipMotionDurationSeconds *
+                    request.EnemyAudioPayload.VisualContactNormalizedTime;
+            }
+
+            var baseRequest = request.ToEnemyAudioRequest();
+            return new EnemyAudioRequest(
+                baseRequest.OwnerEntityId,
+                baseRequest.Cue,
+                baseRequest.Context,
+                resolvedDelaySeconds,
+                baseRequest.Identity);
+        }
+
+        private void PlayResolvedBinding(
+            AudioBinding binding,
+            GameplayEntityView ownerView,
+            in AudioPlaybackContext context)
+        {
+            if (binding.HasAttachmentSlot)
+            {
+                _playbackPort.PlayAttached(binding.Definition, ownerView, binding.AttachmentSlot, context);
                 return;
             }
 
-            _playbackPort.Play2D(binding.Definition, request.Context);
+            _playbackPort.Play2D(binding.Definition, context);
+        }
+
+        private static bool IsSupportedOneShotCue(EnemyAudioCue cue)
+        {
+            switch (cue)
+            {
+                case EnemyAudioCue.Move:
+                case EnemyAudioCue.Death:
+                case EnemyAudioCue.Windup:
+                case EnemyAudioCue.Landing:
+                case EnemyAudioCue.Active:
+                case EnemyAudioCue.Recover:
+                case EnemyAudioCue.ForwardCellImpact:
+                case EnemyAudioCue.StationaryActive:
+                case EnemyAudioCue.PassiveContact:
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private void DrainDeferredRequests(int tickIndex)

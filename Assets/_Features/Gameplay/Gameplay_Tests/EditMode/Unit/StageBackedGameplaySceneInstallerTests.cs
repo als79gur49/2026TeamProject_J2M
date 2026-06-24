@@ -518,6 +518,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 showcaseEnemy.position = new SurfaceCell(FaceId.Floor, 4, 5);
 
                 var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = presenterObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, factory);
                 presenter.Initialize(

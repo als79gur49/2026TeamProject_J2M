@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.PresentationContracts;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -46,6 +47,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, EnemyViewPresentationState> _enemyViewPresentationStates = new();
         private readonly Dictionary<int, PlayerAnimatorDriver> _playerAnimatorDriversByEntityId = new();
         private readonly List<int> _playerFlipOutcomeStateUpdateEntityIds = new();
+        private readonly List<int> _playerActionSuppressionBuffer = new();
         private readonly Dictionary<int, PlayerVisualPresentationHoldState> _playerVisualHoldStates = new();
         private readonly PlayerViewPresentationMapper _playerViewPresentationMapper = new();
         private readonly Dictionary<int, PlayerViewPresentationState> _playerViewPresentationStates = new();
@@ -114,11 +116,15 @@ namespace Game.Feature.Gameplay.Host
             TickResult result,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
             IReadOnlyCollection<int> jumpLandingCompletionHoldEntityIds,
-            Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds)
+            Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds,
+            bool suppressPlayerActionAnimations = false,
+            EnemyPresentationLegacyOneShotSuppression enemyPresentationOneShotSuppression =
+                EnemyPresentationLegacyOneShotSuppression.None)
         {
             LastStageClearPlayerPresentationDelaySeconds = 0f;
             BuildContactDelayedEnemyDeathEntityIds(result?.PresentationData);
             _enemyViewPresentationMapper.Build(result, viewsByEntityId, _enemyViewPresentationStates);
+
             foreach (var pair in _enemyViewPresentationStates)
             {
                 var state = pair.Value;
@@ -134,7 +140,7 @@ namespace Game.Feature.Gameplay.Host
 
                 if (TryGetEnemyAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
                 {
-                    driver.Apply(state);
+                    driver.Apply(state, enemyPresentationOneShotSuppression);
                     RefreshEnemyUtilityAnimationTrack(pair.Key, state, driver);
                 }
 
@@ -145,6 +151,11 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _playerViewPresentationMapper.Build(result, viewsByEntityId, _playerViewPresentationStates);
+            if (suppressPlayerActionAnimations)
+            {
+                SuppressPlayerActionAnimationFields(_playerViewPresentationStates);
+            }
+
             PreservePlayerFlipOutcomeState();
             ReleasePlayerDeathOverridesForRespawnSpawns(result.PresentationData, viewsByEntityId);
             foreach (var pair in _playerViewPresentationStates)
@@ -159,6 +170,457 @@ namespace Game.Feature.Gameplay.Host
                     UpdatePlayerVisualHold(pair.Key, pair.Value, driver, resolvePlayerMotionDurationSeconds);
                     driver.Apply(pair.Value);
                 }
+            }
+        }
+
+        internal bool TryApplyPlayerActionAnimationPlayback(
+            in GameplayAnimationPlaybackRequest request,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
+            Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds,
+            out GameplayAnimationPlaybackResult result)
+        {
+            if (viewsByEntityId == null)
+            {
+                throw new ArgumentNullException(nameof(viewsByEntityId));
+            }
+
+            if (request.Target.Kind != PresentationTargetKind.Entity ||
+                request.Target.EntityId <= 0)
+            {
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.TargetMissing);
+                return false;
+            }
+
+            if (request.Anchor.Kind != PresentationAnchorKind.EntityVisualRoot &&
+                request.Anchor.Kind != PresentationAnchorKind.EntityCenter)
+            {
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.AnchorMissing);
+                return false;
+            }
+
+            if (!viewsByEntityId.TryGetValue(request.Target.EntityId, out var view) ||
+                view == null)
+            {
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.BindingMissing);
+                return false;
+            }
+
+            if (!TryGetPlayerAnimatorDriver(request.Target.EntityId, viewsByEntityId, out var driver) ||
+                driver == null)
+            {
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.DriverMissing);
+                return false;
+            }
+
+            if (!TryMapPlayerActionAnimationPlayback(
+                    request.AnimationPayload,
+                    out var animationState,
+                    out var phase,
+                    out var restart,
+                    out var executeCueMappedToLegacyCommand))
+            {
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.IgnoredByPolicy);
+                return false;
+            }
+
+            var presentationState = CreatePlayerActionAnimationPresentationState(request, phase, restart);
+            _playerViewPresentationStates[request.PlayerEntityId] = presentationState;
+            UpdatePlayerVisualHold(
+                request.PlayerEntityId,
+                presentationState,
+                driver,
+                resolvePlayerMotionDurationSeconds);
+            driver.Apply(presentationState);
+
+            if (!driver.CanDriveCurrentAnimator)
+            {
+                result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.AnimatorMissing);
+                return false;
+            }
+
+            SyncPlayerRuntimeState(
+                request.PlayerEntityId,
+                isVisible: true,
+                new PlayerAnimationPlaybackResolution(
+                    animationState,
+                    phase,
+                    restart,
+                    resolvedMotionDurationSeconds: 0f),
+                resolvedMotionDurationSeconds: 0f,
+                viewsByEntityId);
+
+            result = new GameplayAnimationPlaybackResult(
+                GameplayAnimationPlaybackResultKind.Applied,
+                executeCueMappedToLegacyCommand);
+            return true;
+        }
+
+        internal bool TryApplyEnemyPresentationPlayback(
+            in GameplayEnemyPresentationPlaybackRequest request,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
+            out GameplayEnemyPresentationPlaybackResult result)
+        {
+            if (viewsByEntityId == null)
+            {
+                throw new ArgumentNullException(nameof(viewsByEntityId));
+            }
+
+            if (request.Target.Kind != PresentationTargetKind.Entity ||
+                request.Target.EntityId <= 0 ||
+                request.EnemyEntityId <= 0)
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.TargetMissing);
+                return false;
+            }
+
+            if (request.Anchor.Kind != PresentationAnchorKind.EntityVisualRoot &&
+                request.Anchor.Kind != PresentationAnchorKind.EntityCenter)
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.AnchorMissing);
+                return false;
+            }
+
+            if (!request.EnemyPayload.IsValid)
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.BindingMissing);
+                return false;
+            }
+
+            if (!viewsByEntityId.TryGetValue(request.Target.EntityId, out var view) ||
+                view == null)
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.BindingMissing);
+                return false;
+            }
+
+            if (!TryGetEnemyAnimatorDriver(request.Target.EntityId, viewsByEntityId, out var driver) ||
+                driver == null)
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.DriverMissing);
+                return false;
+            }
+
+            if (!driver.CanDriveCurrentAnimator)
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.AnimatorMissing);
+                return false;
+            }
+
+            if (!TryCreateEnemyPresentationPlaybackState(
+                    request,
+                    driver.LastPresentationState,
+                    out var presentationState,
+                    out var useDeathCommand,
+                    out var legacyCommandMappingKind))
+            {
+                result = new GameplayEnemyPresentationPlaybackResult(
+                    GameplayEnemyPresentationPlaybackResultKind.IgnoredByPolicy);
+                return false;
+            }
+
+            _enemyViewPresentationStates[request.EnemyEntityId] = presentationState;
+            if (useDeathCommand)
+            {
+                _contactDelayedEnemyDeathEntityIds.Remove(request.EnemyEntityId);
+                _enemyUtilityAnimationTracks.Remove(request.EnemyEntityId);
+                driver.PlayDeathPresentation(request.EnemyEntityId);
+            }
+            else
+            {
+                driver.Apply(presentationState);
+                RefreshEnemyUtilityAnimationTrack(request.EnemyEntityId, presentationState, driver);
+            }
+
+            result = new GameplayEnemyPresentationPlaybackResult(
+                GameplayEnemyPresentationPlaybackResultKind.Applied,
+                legacyCommandMappingKind);
+            return true;
+        }
+
+        private void SuppressPlayerActionAnimationFields(
+            Dictionary<int, PlayerViewPresentationState> states)
+        {
+            _playerActionSuppressionBuffer.Clear();
+            foreach (var pair in states)
+            {
+                _playerActionSuppressionBuffer.Add(pair.Key);
+            }
+
+            for (var i = 0; i < _playerActionSuppressionBuffer.Count; i++)
+            {
+                var entityId = _playerActionSuppressionBuffer[i];
+                var state = states[entityId];
+                states[entityId] = new PlayerViewPresentationState(
+                    state.EntityId,
+                    state.TickIndex,
+                    PlayerActionKind.None,
+                    activeActionSequence: 0,
+                    startedThisTick: false,
+                    executedThisTick: false,
+                    completedThisTick: false,
+                    canceledThisTick: false,
+                    state.ShouldPlayWalkLoop,
+                    isRecoveryPhase: false,
+                    state.DidDie,
+                    state.DidDieThisTick,
+                    state.TookDamageThisTick,
+                    actionPlanId: 0,
+                    TickPlayerFlipOutcomeKind.None,
+                    hasFlipImpactContactTiming: false,
+                    flipTargetBoxEntityId: 0,
+                    state.DeathSourceEntityId,
+                    state.ResolvedDamageSourceAvailable,
+                    state.DamageAmountAtFatalHit,
+                    state.DeathDirectionHintKind,
+                    state.DeathFallbackFacing,
+                    hasActionAttempt: false,
+                    PlayerActionKind.None,
+                    Direction.None,
+                    PlayerActionAttemptFeedbackKind.None,
+                    state.HasPlayerOutcome,
+                    state.PlayerOutcomeKind);
+            }
+
+            _playerActionSuppressionBuffer.Clear();
+        }
+
+        private static bool TryCreateEnemyPresentationPlaybackState(
+            in GameplayEnemyPresentationPlaybackRequest request,
+            in EnemyViewPresentationState previousState,
+            out EnemyViewPresentationState state,
+            out bool useDeathCommand,
+            out GameplayEnemyPresentationLegacyCommandMappingKind legacyCommandMappingKind)
+        {
+            useDeathCommand = false;
+            legacyCommandMappingKind = GameplayEnemyPresentationLegacyCommandMappingKind.None;
+            state = default;
+
+            var entityId = request.EnemyEntityId;
+            var baseState = previousState.EntityId == entityId
+                ? previousState
+                : new EnemyViewPresentationState(
+                    entityId,
+                    request.TickIndex,
+                    EnemyAiMode.None,
+                    EnemyActionKind.None,
+                    EnemyJumpPhase.None,
+                    EnemyChargePhase.None,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    startedChargeWindupThisTick: false,
+                    startedChargeActiveThisTick: false,
+                    startedChargeRecoverThisTick: false,
+                    tookDamage: false,
+                    didDie: false);
+
+            var jumpPhase = EnemyJumpPhase.None;
+            var chargePhase = EnemyChargePhase.None;
+            var startedWindupThisTick = baseState.StartedWindupThisTick;
+            var startedRecoveryThisTick = baseState.StartedRecoveryThisTick;
+            var startedJumpWindupThisTick = false;
+            var startedJumpAirborneThisTick = false;
+            var landedFromJumpThisTick = false;
+            var retryingJumpAirborneThisTick = false;
+            var startedChargeWindupThisTick = false;
+            var startedChargeActiveThisTick = false;
+            var startedChargeRecoverThisTick = false;
+            var didDie = false;
+            var jumpOutcome = TickEnemyJumpPresentationOutcome.None;
+
+            switch (request.EnemyPayload.Kind)
+            {
+                case PresentationEnemyPresentationKind.Jump:
+                    legacyCommandMappingKind = GameplayEnemyPresentationLegacyCommandMappingKind.Jump;
+                    switch (request.EnemyPayload.Phase)
+                    {
+                        case PresentationEnemyPresentationPhase.Windup:
+                            jumpPhase = EnemyJumpPhase.Windup;
+                            startedJumpWindupThisTick = true;
+                            jumpOutcome = TickEnemyJumpPresentationOutcome.WindupStarted;
+                            break;
+                        case PresentationEnemyPresentationPhase.Airborne:
+                            jumpPhase = EnemyJumpPhase.Airborne;
+                            startedJumpAirborneThisTick = true;
+                            retryingJumpAirborneThisTick =
+                                request.EnemyPayload.Outcome == PresentationEnemyPresentationOutcome.Retried;
+                            jumpOutcome = retryingJumpAirborneThisTick
+                                ? TickEnemyJumpPresentationOutcome.Retried
+                                : TickEnemyJumpPresentationOutcome.AirborneStarted;
+                            break;
+                        case PresentationEnemyPresentationPhase.Land:
+                            landedFromJumpThisTick = true;
+                            jumpOutcome = TickEnemyJumpPresentationOutcome.Landed;
+                            break;
+                        default:
+                            return false;
+                    }
+
+                    break;
+                case PresentationEnemyPresentationKind.Charge:
+                    legacyCommandMappingKind = GameplayEnemyPresentationLegacyCommandMappingKind.Charge;
+                    switch (request.EnemyPayload.Phase)
+                    {
+                        case PresentationEnemyPresentationPhase.Windup:
+                            chargePhase = EnemyChargePhase.Windup;
+                            startedChargeWindupThisTick = true;
+                            startedWindupThisTick = true;
+                            break;
+                        case PresentationEnemyPresentationPhase.Active:
+                            chargePhase = EnemyChargePhase.Active;
+                            startedChargeActiveThisTick = true;
+                            break;
+                        case PresentationEnemyPresentationPhase.Recover:
+                            chargePhase = EnemyChargePhase.Recover;
+                            startedChargeRecoverThisTick = true;
+                            startedRecoveryThisTick = true;
+                            break;
+                        default:
+                            return false;
+                    }
+
+                    break;
+                case PresentationEnemyPresentationKind.Death:
+                    if (request.EnemyPayload.Phase != PresentationEnemyPresentationPhase.Death)
+                    {
+                        return false;
+                    }
+
+                    useDeathCommand = true;
+                    legacyCommandMappingKind = GameplayEnemyPresentationLegacyCommandMappingKind.Death;
+                    didDie = true;
+                    break;
+                default:
+                    return false;
+            }
+
+            state = new EnemyViewPresentationState(
+                entityId,
+                request.TickIndex,
+                didDie ? EnemyAiMode.Dead : baseState.AiMode,
+                baseState.ActiveActionKind,
+                jumpPhase,
+                chargePhase,
+                baseState.IsMoving,
+                startedWindupThisTick,
+                baseState.ExecutedThisTick,
+                startedRecoveryThisTick,
+                startedJumpWindupThisTick,
+                startedJumpAirborneThisTick,
+                landedFromJumpThisTick,
+                retryingJumpAirborneThisTick,
+                startedChargeWindupThisTick,
+                startedChargeActiveThisTick,
+                startedChargeRecoverThisTick,
+                baseState.TookDamage,
+                didDie,
+                jumpOutcome,
+                baseState.GlidePhase,
+                baseState.StartedGlideWindupThisTick,
+                baseState.StartedGlideActiveThisTick,
+                baseState.StartedGlideRecoverThisTick,
+                baseState.UtilityPresentationKind,
+                baseState.StartedUtilityWindupThisTick,
+                baseState.UtilityPhase,
+                baseState.StartedUtilityRecoverThisTick,
+                baseState.UtilityEffectIndex,
+                baseState.UtilityActivationSequence,
+                baseState.UtilityCanceledThisTick);
+            return true;
+        }
+
+        private static PlayerViewPresentationState CreatePlayerActionAnimationPresentationState(
+            in GameplayAnimationPlaybackRequest request,
+            PlayerPresentationPhase phase,
+            bool restart)
+        {
+            return new PlayerViewPresentationState(
+                request.PlayerEntityId,
+                request.TickIndex,
+                ToPlayerActionKind(request.AnimationPayload.ActionKind),
+                request.AnimationPayload.SourceSequenceId,
+                startedThisTick: restart && request.AnimationPayload.PhaseKind != PresentationAnimationPhaseKind.Failed,
+                executedThisTick: request.AnimationPayload.PhaseKind == PresentationAnimationPhaseKind.Execute,
+                completedThisTick: false,
+                canceledThisTick: request.AnimationPayload.PhaseKind == PresentationAnimationPhaseKind.Failed,
+                shouldPlayWalkLoop: false,
+                isRecoveryPhase: request.AnimationPayload.PhaseKind == PresentationAnimationPhaseKind.Recovery,
+                didDie: false,
+                didDieThisTick: false,
+                tookDamageThisTick: false,
+                actionPlanId: request.AnimationPayload.SourceActionPlanId);
+        }
+
+        private static bool TryMapPlayerActionAnimationPlayback(
+            PresentationAnimationPayload payload,
+            out PlayerViewAnimationState state,
+            out PlayerPresentationPhase phase,
+            out bool restart,
+            out bool executeCueMappedToLegacyCommand)
+        {
+            state = payload.ActionKind == PresentationAnimationActionKind.Push
+                ? PlayerViewAnimationState.Push
+                : payload.ActionKind == PresentationAnimationActionKind.Flip
+                    ? PlayerViewAnimationState.Flip
+                    : PlayerViewAnimationState.Idle;
+            phase = PlayerPresentationPhase.None;
+            restart = false;
+            executeCueMappedToLegacyCommand = false;
+
+            if (state == PlayerViewAnimationState.Idle)
+            {
+                return false;
+            }
+
+            switch (payload.PhaseKind)
+            {
+                case PresentationAnimationPhaseKind.Windup:
+                case PresentationAnimationPhaseKind.Failed:
+                    phase = payload.ActionKind == PresentationAnimationActionKind.Push
+                        ? PlayerPresentationPhase.PushWindup
+                        : PlayerPresentationPhase.FlipWindup;
+                    restart = true;
+                    return true;
+                case PresentationAnimationPhaseKind.Execute:
+                    // Current adapter contract: PlayerAnimatorDriver has no execute-specific state surface.
+                    // Preserve the typed execute cue, but lower it to the legacy recovery driver command.
+                    // TODO: Revisit if a future PR adds explicit PushExecute/FlipExecute driver phases.
+                    executeCueMappedToLegacyCommand = true;
+                    phase = payload.ActionKind == PresentationAnimationActionKind.Push
+                        ? PlayerPresentationPhase.PushRecovery
+                        : PlayerPresentationPhase.FlipRecovery;
+                    return true;
+                case PresentationAnimationPhaseKind.Recovery:
+                    phase = payload.ActionKind == PresentationAnimationActionKind.Push
+                        ? PlayerPresentationPhase.PushRecovery
+                        : PlayerPresentationPhase.FlipRecovery;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static PlayerActionKind ToPlayerActionKind(PresentationAnimationActionKind actionKind)
+        {
+            switch (actionKind)
+            {
+                case PresentationAnimationActionKind.Push:
+                    return PlayerActionKind.Push;
+                case PresentationAnimationActionKind.Flip:
+                    return PlayerActionKind.Flip;
+                default:
+                    return PlayerActionKind.None;
             }
         }
 
@@ -1065,13 +1527,14 @@ namespace Game.Feature.Gameplay.Host
             {
                 var change = visibilityChanges[i];
                 if (change.ChangeKind != TickVisibilityChangeKind.Spawn ||
-                    !TryGetPlayerAnimatorDriver(change.EntityId, viewsByEntityId, out _))
+                    !TryGetPlayerAnimatorDriver(change.EntityId, viewsByEntityId, out var driver))
                 {
                     continue;
                 }
 
                 _playerDeathVisualOverrideEntityIds.Remove(change.EntityId);
                 _playerVisualHoldStates.Remove(change.EntityId);
+                driver.ResetDeathPresentationForRespawn();
             }
         }
 

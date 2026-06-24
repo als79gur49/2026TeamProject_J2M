@@ -19,6 +19,16 @@ namespace Game.Feature.Gameplay.Host
         string DescribeReadiness();
     }
 
+    public readonly struct DamageDeathVfxExtensionPolicy
+    {
+        public DamageDeathVfxExtensionPolicy(bool suppressLegacyDamageDeathRequests)
+        {
+            SuppressLegacyDamageDeathRequests = suppressLegacyDamageDeathRequests;
+        }
+
+        public bool SuppressLegacyDamageDeathRequests { get; }
+    }
+
     public readonly struct GameplayTickPresentationExtensionContext
     {
         public GameplayTickPresentationExtensionContext(
@@ -31,7 +41,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayTimingProfile timingProfile = null,
             IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
             int topologyTransitionEpoch = 0,
-            bool isTopologyTransitionCompletionReconcile = false)
+            bool isTopologyTransitionCompletionReconcile = false,
+            DamageDeathVfxExtensionPolicy damageDeathVfxExtensionPolicy = default)
         {
             Result = result;
             Topology = topology;
@@ -43,6 +54,7 @@ namespace Game.Feature.Gameplay.Host
             TileFeatureVfxStyleBindings = tileFeatureVfxStyleBindings ?? System.Array.Empty<TileFeatureVfxStyleBinding>();
             TopologyTransitionEpoch = topologyTransitionEpoch;
             IsTopologyTransitionCompletionReconcile = isTopologyTransitionCompletionReconcile;
+            DamageDeathVfxExtensionPolicy = damageDeathVfxExtensionPolicy;
         }
 
         public TickResult Result { get; }
@@ -64,6 +76,8 @@ namespace Game.Feature.Gameplay.Host
         public int TopologyTransitionEpoch { get; }
 
         public bool IsTopologyTransitionCompletionReconcile { get; }
+
+        public DamageDeathVfxExtensionPolicy DamageDeathVfxExtensionPolicy { get; }
     }
 
     public interface IGameplayTickPresentationExtension

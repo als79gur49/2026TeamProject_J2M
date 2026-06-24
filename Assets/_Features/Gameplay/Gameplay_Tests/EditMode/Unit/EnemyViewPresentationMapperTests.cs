@@ -845,6 +845,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Core")]
+        public void EnemyAnimatorDriver_TypedLegacyOneShotSuppression_PreservesSustainedState()
+        {
+            var gameObject = new UnityEngine.GameObject("EnemyAnimatorDriver_TypedLegacyOneShotSuppression_PreservesSustainedState");
+            try
+            {
+                var driver = gameObject.AddComponent<EnemyAnimatorDriver>();
+
+                driver.Apply(
+                    CreateEnemyPresentationState(
+                        tickIndex: 1,
+                        jumpPhase: EnemyJumpPhase.Airborne,
+                        startedJumpAirborneThisTick: true),
+                    EnemyPresentationLegacyOneShotSuppression.JumpAirborneStartOrRetry);
+
+                Assert.That(driver.JumpAirborneSignalCount, Is.Zero);
+                Assert.That(driver.LastPresentationState.JumpPhase, Is.EqualTo(EnemyJumpPhase.Airborne));
+
+                driver.Apply(
+                    CreateEnemyPresentationState(
+                        tickIndex: 2,
+                        chargePhase: EnemyChargePhase.Active,
+                        startedChargeActiveThisTick: true),
+                    EnemyPresentationLegacyOneShotSuppression.ChargeActiveStart);
+
+                Assert.That(driver.ChargeActiveSignalCount, Is.Zero);
+                Assert.That(driver.LastPresentationState.ChargePhase, Is.EqualTo(EnemyChargePhase.Active));
+
+                driver.Apply(
+                    CreateEnemyPresentationState(
+                        tickIndex: 3,
+                        didDie: true),
+                    EnemyPresentationLegacyOneShotSuppression.DeathTrigger);
+
+                Assert.That(driver.DeathSignalCount, Is.Zero);
+                Assert.That(driver.LastPresentationState.DidDie, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameObject);
+            }
+        }
+
         private static TickResult CreateResult(
             int tickIndex,
             EntityState enemy,
@@ -1152,6 +1196,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static string ReadProjectText(string path)
         {
             return File.ReadAllText(Path.Combine(Directory.GetCurrentDirectory(), path));
+        }
+
+        private static EnemyViewPresentationState CreateEnemyPresentationState(
+            int tickIndex,
+            EnemyJumpPhase jumpPhase = EnemyJumpPhase.None,
+            EnemyChargePhase chargePhase = EnemyChargePhase.None,
+            bool startedJumpAirborneThisTick = false,
+            bool startedChargeActiveThisTick = false,
+            bool didDie = false)
+        {
+            return new EnemyViewPresentationState(
+                entityId: 40,
+                tickIndex: tickIndex,
+                aiMode: EnemyAiMode.Patrol,
+                activeActionKind: EnemyActionKind.None,
+                jumpPhase: jumpPhase,
+                chargePhase: chargePhase,
+                isMoving: false,
+                startedWindupThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: false,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: startedJumpAirborneThisTick,
+                landedFromJumpThisTick: false,
+                retryingJumpAirborneThisTick: false,
+                startedChargeWindupThisTick: false,
+                startedChargeActiveThisTick: startedChargeActiveThisTick,
+                startedChargeRecoverThisTick: false,
+                tookDamage: false,
+                didDie: didDie);
         }
     }
 }

@@ -5,6 +5,15 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.EnemyAudio
 {
+    public enum EnemyAudioProfileResolveStatus
+    {
+        None = 0,
+        EntryMissing = 1,
+        OptionalBindingMissing = 2,
+        BindingMissing = 3,
+        Resolved = 4,
+    }
+
     [Serializable]
     public struct EnemyAudioEntry
     {
@@ -41,8 +50,14 @@ namespace Game.Feature.Gameplay.EnemyAudio
 
         public bool TryResolve(EnemyAudioCue cue, out AudioBinding binding)
         {
+            return ResolveEntryStatus(cue, out binding) == EnemyAudioProfileResolveStatus.Resolved;
+        }
+
+        public EnemyAudioProfileResolveStatus ResolveEntryStatus(EnemyAudioCue cue, out AudioBinding binding)
+        {
             binding = null;
             var found = false;
+            var isOptional = false;
             for (var i = 0; i < entries.Length; i++)
             {
                 if (entries[i].Cue != cue)
@@ -58,20 +73,23 @@ namespace Game.Feature.Gameplay.EnemyAudio
 
                 found = true;
                 binding = entries[i].Binding;
+                isOptional = entries[i].IsOptional;
             }
 
             if (!found)
             {
-                return false;
+                return EnemyAudioProfileResolveStatus.EntryMissing;
             }
 
             if (binding != null)
             {
-                return true;
+                return EnemyAudioProfileResolveStatus.Resolved;
             }
 
             binding = null;
-            return false;
+            return isOptional
+                ? EnemyAudioProfileResolveStatus.OptionalBindingMissing
+                : EnemyAudioProfileResolveStatus.BindingMissing;
         }
 
         public void ValidateOrThrow()

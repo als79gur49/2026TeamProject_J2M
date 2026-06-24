@@ -345,8 +345,12 @@ namespace Game.Feature.UI.Composition
 
         private IAudioPlaybackPauseService CreateAudioPlaybackPauseService()
         {
-            var audioRuntimeInstaller =
-                UiSettingsBridgeAssembly.GetRequiredAudioRuntimeInstaller(gameObject, MissingAudioInstallerMessage);
+            var audioRuntimeInstaller = GetComponent<AudioRuntimeInstaller>();
+            if (audioRuntimeInstaller == null)
+            {
+                throw new InvalidOperationException(MissingAudioInstallerMessage);
+            }
+
             audioRuntimeInstaller.Install();
             if (audioRuntimeInstaller.AudioPlaybackPauseService == null)
             {

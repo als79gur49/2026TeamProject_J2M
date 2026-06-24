@@ -12,12 +12,182 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.PlayerLocomotionAudio;
+using Game.Feature.Gameplay.PresentationContracts;
+using Game.Feature.Gameplay.PresentationPlanning;
+using Game.Feature.Gameplay.PresentationPlayback;
+using Game.Feature.Gameplay.PresentationRuntime;
 using Game.Feature.Gameplay.TileFeatureAudio;
 using Game.Feature.Gameplay.TopologyAudio;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    internal readonly struct BoxMotionPresentationRuntimeDebugSnapshot
+    {
+        public BoxMotionPresentationRuntimeDebugSnapshot(
+            int activeLocalMotionTrackCount,
+            int activeOriginalViewMotionTrackCount,
+            int completedPresentationMotionKeyCount,
+            int completedMotionTrackCount,
+            int completedOriginalViewMotionTrackCount,
+            int motionVisualScaleEntityCount,
+            int flipInteractionTrackCount,
+            int flipInteractionResetRequestCount,
+            int completedFlipInteractionTrackCount,
+            GameplayMotionTrackPlannerPlaybackPortDiagnostics defaultAdapterDiagnostics)
+        {
+            ActiveLocalMotionTrackCount = Math.Max(0, activeLocalMotionTrackCount);
+            ActiveOriginalViewMotionTrackCount = Math.Max(0, activeOriginalViewMotionTrackCount);
+            CompletedPresentationMotionKeyCount = Math.Max(0, completedPresentationMotionKeyCount);
+            CompletedMotionTrackCount = Math.Max(0, completedMotionTrackCount);
+            CompletedOriginalViewMotionTrackCount = Math.Max(0, completedOriginalViewMotionTrackCount);
+            MotionVisualScaleEntityCount = Math.Max(0, motionVisualScaleEntityCount);
+            FlipInteractionTrackCount = Math.Max(0, flipInteractionTrackCount);
+            FlipInteractionResetRequestCount = Math.Max(0, flipInteractionResetRequestCount);
+            CompletedFlipInteractionTrackCount = Math.Max(0, completedFlipInteractionTrackCount);
+            DefaultAdapterDiagnostics = defaultAdapterDiagnostics;
+        }
+
+        public int ActiveLocalMotionTrackCount { get; }
+
+        public int ActiveOriginalViewMotionTrackCount { get; }
+
+        public int CompletedPresentationMotionKeyCount { get; }
+
+        public int CompletedMotionTrackCount { get; }
+
+        public int CompletedOriginalViewMotionTrackCount { get; }
+
+        public int MotionVisualScaleEntityCount { get; }
+
+        public int FlipInteractionTrackCount { get; }
+
+        public int FlipInteractionResetRequestCount { get; }
+
+        public int CompletedFlipInteractionTrackCount { get; }
+
+        public GameplayMotionTrackPlannerPlaybackPortDiagnostics DefaultAdapterDiagnostics { get; }
+    }
+
+    internal readonly struct BoxMotionProductionTelemetrySnapshot
+    {
+        public BoxMotionProductionTelemetrySnapshot(
+            BoxMotionPresentationExecutionMode currentMode,
+            bool isProductionDefaultOwner,
+            BoxMotionPresentationExecutionMode productionDefaultMode,
+            BoxMotionPresentationExecutionMode rollbackMode,
+            int lastTickIndex,
+            PresentationMotionCueKey lastCueKey,
+            int lastDedupeKey,
+            int lastTargetEntityId,
+            PresentationMotionFactKind lastMotionFactKind,
+            BoxMotionTelemetryFailureReason lastFailureReason,
+            BoxMotionTelemetryCleanupReason lastCleanupReason,
+            int legacyOwnerAttemptCount,
+            int legacyOwnerSkippedByPolicyCount,
+            int executorOwnerAttemptCount,
+            int executorOwnerExecutedCount,
+            int duplicateOwnerAttemptCount,
+            int duplicateSuppressedCount,
+            int playbackTrackPlannedCount,
+            int playbackTrackRequestedCount,
+            int playbackTrackStartedCount,
+            int playbackTrackCompletedCount,
+            int playbackTrackCanceledCount,
+            int playbackTrackIgnoredCount,
+            int activeTrackCount,
+            int pendingTrackCount,
+            int completedTrackKeyCount,
+            GameplayMotionTrackPlannerPlaybackPortDiagnostics adapterDiagnostics,
+            BoxMotionCleanupDiagnostics cleanupDiagnostics,
+            int targetMissingCount,
+            int anchorMissingCount,
+            int bindingMissingCount,
+            int driverMissingCount,
+            int portMissingCount,
+            int unsupportedSemanticCount,
+            int legacyBoxSourcePlanningSkippedCount,
+            int legacyUnrelatedMotionTrackRetainedCount,
+            IReadOnlyList<BoxMotionSemanticDiagnostics> semanticDiagnostics)
+        {
+            CurrentMode = currentMode;
+            IsProductionDefaultOwner = isProductionDefaultOwner;
+            ProductionDefaultMode = productionDefaultMode;
+            RollbackMode = rollbackMode;
+            LastTickIndex = Math.Max(0, lastTickIndex);
+            LastCueKey = lastCueKey;
+            LastDedupeKey = lastDedupeKey;
+            LastTargetEntityId = Math.Max(0, lastTargetEntityId);
+            LastMotionFactKind = lastMotionFactKind;
+            LastFailureReason = lastFailureReason;
+            LastCleanupReason = lastCleanupReason;
+            LegacyOwnerAttemptCount = Math.Max(0, legacyOwnerAttemptCount);
+            LegacyOwnerSkippedByPolicyCount = Math.Max(0, legacyOwnerSkippedByPolicyCount);
+            ExecutorOwnerAttemptCount = Math.Max(0, executorOwnerAttemptCount);
+            ExecutorOwnerExecutedCount = Math.Max(0, executorOwnerExecutedCount);
+            DuplicateOwnerAttemptCount = Math.Max(0, duplicateOwnerAttemptCount);
+            DuplicateSuppressedCount = Math.Max(0, duplicateSuppressedCount);
+            PlaybackTrackPlannedCount = Math.Max(0, playbackTrackPlannedCount);
+            PlaybackTrackRequestedCount = Math.Max(0, playbackTrackRequestedCount);
+            PlaybackTrackStartedCount = Math.Max(0, playbackTrackStartedCount);
+            PlaybackTrackCompletedCount = Math.Max(0, playbackTrackCompletedCount);
+            PlaybackTrackCanceledCount = Math.Max(0, playbackTrackCanceledCount);
+            PlaybackTrackIgnoredCount = Math.Max(0, playbackTrackIgnoredCount);
+            ActiveTrackCount = Math.Max(0, activeTrackCount);
+            PendingTrackCount = Math.Max(0, pendingTrackCount);
+            CompletedTrackKeyCount = Math.Max(0, completedTrackKeyCount);
+            AdapterDiagnostics = adapterDiagnostics;
+            CleanupDiagnostics = cleanupDiagnostics;
+            TargetMissingCount = Math.Max(0, targetMissingCount);
+            AnchorMissingCount = Math.Max(0, anchorMissingCount);
+            BindingMissingCount = Math.Max(0, bindingMissingCount);
+            DriverMissingCount = Math.Max(0, driverMissingCount);
+            PortMissingCount = Math.Max(0, portMissingCount);
+            UnsupportedSemanticCount = Math.Max(0, unsupportedSemanticCount);
+            LegacyBoxSourcePlanningSkippedCount = Math.Max(0, legacyBoxSourcePlanningSkippedCount);
+            LegacyUnrelatedMotionTrackRetainedCount = Math.Max(0, legacyUnrelatedMotionTrackRetainedCount);
+            SemanticDiagnostics = semanticDiagnostics ?? Array.Empty<BoxMotionSemanticDiagnostics>();
+        }
+
+        public BoxMotionPresentationExecutionMode CurrentMode { get; }
+        public bool IsProductionDefaultOwner { get; }
+        public BoxMotionPresentationExecutionMode ProductionDefaultMode { get; }
+        public BoxMotionPresentationExecutionMode RollbackMode { get; }
+        public int LastTickIndex { get; }
+        public PresentationMotionCueKey LastCueKey { get; }
+        public int LastDedupeKey { get; }
+        public int LastTargetEntityId { get; }
+        public PresentationMotionFactKind LastMotionFactKind { get; }
+        public BoxMotionTelemetryFailureReason LastFailureReason { get; }
+        public BoxMotionTelemetryCleanupReason LastCleanupReason { get; }
+        public int LegacyOwnerAttemptCount { get; }
+        public int LegacyOwnerSkippedByPolicyCount { get; }
+        public int ExecutorOwnerAttemptCount { get; }
+        public int ExecutorOwnerExecutedCount { get; }
+        public int DuplicateOwnerAttemptCount { get; }
+        public int DuplicateSuppressedCount { get; }
+        public int PlaybackTrackPlannedCount { get; }
+        public int PlaybackTrackRequestedCount { get; }
+        public int PlaybackTrackStartedCount { get; }
+        public int PlaybackTrackCompletedCount { get; }
+        public int PlaybackTrackCanceledCount { get; }
+        public int PlaybackTrackIgnoredCount { get; }
+        public int ActiveTrackCount { get; }
+        public int PendingTrackCount { get; }
+        public int CompletedTrackKeyCount { get; }
+        public GameplayMotionTrackPlannerPlaybackPortDiagnostics AdapterDiagnostics { get; }
+        public BoxMotionCleanupDiagnostics CleanupDiagnostics { get; }
+        public int TargetMissingCount { get; }
+        public int AnchorMissingCount { get; }
+        public int BindingMissingCount { get; }
+        public int DriverMissingCount { get; }
+        public int PortMissingCount { get; }
+        public int UnsupportedSemanticCount { get; }
+        public int LegacyBoxSourcePlanningSkippedCount { get; }
+        public int LegacyUnrelatedMotionTrackRetainedCount { get; }
+        public IReadOnlyList<BoxMotionSemanticDiagnostics> SemanticDiagnostics { get; }
+    }
+
     public sealed class GameplayTickPresentationCoordinator
     {
         private static readonly IReadOnlyList<TilePresentationRequest> EmptyTilePresentationRequests =
@@ -31,47 +201,53 @@ namespace Game.Feature.Gameplay.Host
         private static readonly IReadOnlyList<TileFeatureVisualState> EmptyTileFeatureVisualStates =
             Array.Empty<TileFeatureVisualState>();
 
-        private readonly GameplayAnimationSyncCoordinator _animationSync = new();
-        private readonly GameplayActionAudioRequestPlanner _actionAudioRequestPlanner = new();
-        private readonly GameplayActionAudioPresentationController _actionAudioPresentationController;
-        private readonly EnemyAudioRequestPlanner _enemyAudioRequestPlanner = new();
-        private readonly EnemyAudioPresentationController _enemyAudioPresentationController;
+        private readonly GameplayAnimationSyncCoordinator _animationSync;
+        private readonly GameplayActionAudioLaneRuntime _actionAudioLane;
+        private readonly EnemyOneShotAudioLaneRuntime _enemyOneShotAudioLane;
         private readonly EnemyChargeLoopAudioPresentationController _enemyChargeLoopAudioPresentationController;
-        private readonly BlockAudioRequestPlanner _blockAudioRequestPlanner = new();
+        private readonly BlockAudioRequestPlanner _blockAudioRequestPlanner;
         private readonly BlockAudioPresentationController _blockAudioPresentationController;
         private readonly PlayerLocomotionAudioPresentationController _playerLocomotionAudioPresentationController;
-        private readonly GameplayAudioRequestPlanner _audioRequestPlanner = new();
-        private readonly GameplayAudioPresentationController _audioPresentationController;
+        private readonly CoreGameplaySfxLaneRuntime _coreGameplaySfxLane;
         private readonly GameplayCommittedFrameBuilder _committedFrameBuilder;
         private readonly GameplayEntityPresentationApplier _entityPresentationApplier;
-        private readonly IEnemyVisualSemanticResolver _enemyVisualSemanticResolver = new DefaultEnemyVisualSemanticResolver();
+        private readonly IEnemyVisualSemanticResolver _enemyVisualSemanticResolver;
         private readonly GameplayExitPresentationController _exitPresentationController;
         private readonly MoonBlockDestructionPresentationController _moonBlockDestructionPresentationController;
         private readonly GameplayTrackPlanner _planner;
         private readonly GameplayPresentationActivityInspector _presentationActivityInspector;
-        private readonly GameplayPresentationStateStore _stateStore = new();
-        private readonly GravityFieldAudioRequestPlanner _gravityFieldAudioRequestPlanner = new();
+        private readonly GameplayPresentationStateStore _stateStore;
+        private readonly GravityFieldAudioRequestPlanner _gravityFieldAudioRequestPlanner;
         private readonly GravityFieldAudioPresentationController _gravityFieldAudioPresentationController;
-        private readonly GravityFieldPresentationRequestPlanner _gravityFieldPresentationRequestPlanner = new();
+        private readonly GravityFieldPresentationRequestPlanner _gravityFieldPresentationRequestPlanner;
         private readonly GravityFieldVisualPresentationController _gravityFieldVisualPresentationController;
-        private readonly SummonedEnemyPresentationResolver _summonedEnemyPresentationResolver = new();
-        private readonly TileFeatureAudioRequestPlanner _tileFeatureAudioRequestPlanner = new();
+        private readonly SummonedEnemyPresentationResolver _summonedEnemyPresentationResolver;
+        private readonly TileFeatureAudioRequestPlanner _tileFeatureAudioRequestPlanner;
         private readonly TileFeatureAudioPresentationController _tileFeatureAudioPresentationController;
-        private readonly TopologyAudioRequestPlanner _topologyAudioRequestPlanner = new();
-        private readonly TopologyAudioPresentationController _topologyAudioPresentationController = new();
-        private readonly GameplayPresentationTrackState _trackState = new();
-        private readonly TilePresentationRequestPlanner _tilePresentationRequestPlanner = new();
+        private readonly TopologyAudioRequestPlanner _topologyAudioRequestPlanner;
+        private readonly TopologyAudioPresentationController _topologyAudioPresentationController;
+        private readonly GameplayPresentationTrackState _trackState;
+        private readonly TilePresentationRequestPlanner _tilePresentationRequestPlanner;
         private readonly GameplayTopologyTransitionController _topologyTransitionController;
-        private readonly GameplayPresentationPauseRegistry _presentationPauseRegistry = new();
-        private readonly GameplayUtilityWindupVfxPresenter _utilityWindupVfxPresenter = new();
-        private readonly TileFeatureVisualPresentationController _tileFeatureVisualPresentationController = new();
-        private readonly MoonBlockEmergencePresentationController _moonBlockEmergencePresentationController = new();
+        private readonly GameplayPresentationPauseRegistry _presentationPauseRegistry;
+        private readonly GameplayUtilityWindupVfxPresenter _utilityWindupVfxPresenter;
+        private readonly TileFeatureVisualPresentationController _tileFeatureVisualPresentationController;
+        private readonly MoonBlockEmergencePresentationController _moonBlockEmergencePresentationController;
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
         private readonly GameplayPoseResolver _poseResolver;
-        private readonly GameplaySfxArbiter _gameplaySfxArbiter = new();
+        private readonly GameplaySfxArbiter _gameplaySfxArbiter;
+        private readonly GameplayDestroyShrinkVfxSequenceStateResolver _destroyShrinkVfxSequenceStateResolver;
+        private readonly GameplayPlayerActionAnimationTimingProfileSource _playerActionAnimationTimingProfileSource;
         private readonly List<IGameplayTickPresentationExtension> _presentationExtensions = new();
+        private readonly TopologyPresentationLaneRuntime _topologyLane;
+        private readonly DamageDeathVfxPresentationLaneRuntime _damageDeathVfxLane;
+        private readonly PlayerActionAnimationLaneRuntime _playerActionAnimationLane;
+        private readonly EnemyPresentationLaneRuntime _enemyPresentationLane;
+        private readonly BoxMotionPresentationLaneRuntime _boxMotionLane;
 
+        private GameplayPresentationPipeline _presentationPipeline;
         private bool _isInitialized;
+        private bool _presentationPipelineDiagnosticsEnabled;
         private GameplayCubeProjector _projector;
         private EnemyPresentationBinding[] _enemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         private EnemyPresentationCatalog _enemyPresentationCatalog;
@@ -97,57 +273,60 @@ namespace Game.Feature.Gameplay.Host
         private TickResult _lastPresentedResult;
         private int _topologyTransitionEpoch;
         private bool _isPresentationPaused;
+        private bool _hasTornDownPresentationRuntime;
 
-        public GameplayTickPresentationCoordinator()
+        internal GameplayTickPresentationCoordinator(GameplayPresentationRuntimeComposition composition)
         {
-            _audioPresentationController = new GameplayAudioPresentationController(_stateStore);
-            _actionAudioPresentationController = new GameplayActionAudioPresentationController(_stateStore);
-            _enemyAudioPresentationController = new EnemyAudioPresentationController(_stateStore);
-            _enemyChargeLoopAudioPresentationController = new EnemyChargeLoopAudioPresentationController(_stateStore);
-            _blockAudioPresentationController = new BlockAudioPresentationController(_stateStore);
-            _playerLocomotionAudioPresentationController = new PlayerLocomotionAudioPresentationController(_stateStore);
-            _tileFeatureAudioPresentationController = new TileFeatureAudioPresentationController(_stateStore);
-            _gravityFieldAudioPresentationController = new GravityFieldAudioPresentationController(_stateStore);
-            _gravityFieldVisualPresentationController = new GravityFieldVisualPresentationController(_stateStore);
-            _presentationActivityInspector = new GameplayPresentationActivityInspector(_trackState);
-            _motionTimingResolver = new GameplayMotionTimingResolver(_stateStore, _trackState);
-            _topologyTransitionController = new GameplayTopologyTransitionController(_motionTimingResolver);
-            _poseResolver = new GameplayPoseResolver(
-                _stateStore,
-                _trackState);
-            _committedFrameBuilder = new GameplayCommittedFrameBuilder(
-                _stateStore,
-                _poseResolver,
-                _animationSync);
-            _entityPresentationApplier = new GameplayEntityPresentationApplier(
-                _stateStore,
-                _trackState,
-                _poseResolver,
-                _animationSync,
-                _motionTimingResolver,
-                _enemyVisualSemanticResolver,
-                _committedFrameBuilder);
-            _exitPresentationController = new GameplayExitPresentationController(
-                _animationSync,
-                _stateStore,
-                _trackState);
-            _moonBlockDestructionPresentationController = new MoonBlockDestructionPresentationController(
-                _stateStore,
-                _trackState,
-                _exitPresentationController,
-                ResolveDestroyShrinkVfxSequenceState);
-            _exitPresentationController.SetDeferredExitCleanupHoldPredicate(
-                _moonBlockDestructionPresentationController.ShouldHoldDeferredExitCleanup);
-            _exitPresentationController.SetLiveExitOwnershipBypassPredicate(
-                _moonBlockDestructionPresentationController.ShouldBypassLiveExitOwnership);
-            _planner = new GameplayTrackPlanner(
-                _stateStore,
-                _trackState,
-                _motionTimingResolver,
-                _poseResolver,
-                _exitPresentationController,
-                _moonBlockDestructionPresentationController,
-                _entityPresentationApplier);
+            if (composition == null)
+            {
+                throw new ArgumentNullException(nameof(composition));
+            }
+
+            _stateStore = composition.StateStore;
+            _trackState = composition.TrackState;
+            _animationSync = composition.AnimationSync;
+            _motionTimingResolver = composition.MotionTimingResolver;
+            _poseResolver = composition.PoseResolver;
+            _committedFrameBuilder = composition.CommittedFrameBuilder;
+            _entityPresentationApplier = composition.EntityPresentationApplier;
+            _enemyVisualSemanticResolver = composition.EnemyVisualSemanticResolver;
+            _exitPresentationController = composition.ExitPresentationController;
+            _moonBlockDestructionPresentationController = composition.MoonBlockDestructionPresentationController;
+            _moonBlockEmergencePresentationController = composition.MoonBlockEmergencePresentationController;
+            _planner = composition.TrackPlanner;
+            _topologyTransitionController = composition.TopologyTransitionController;
+            _presentationActivityInspector = composition.PresentationActivityInspector;
+            _presentationPauseRegistry = composition.PresentationPauseRegistry;
+            _destroyShrinkVfxSequenceStateResolver = composition.DestroyShrinkVfxSequenceStateResolver;
+            _playerActionAnimationTimingProfileSource = composition.PlayerActionAnimationTimingProfileSource;
+            _blockAudioRequestPlanner = composition.BlockAudioRequestPlanner;
+            _blockAudioPresentationController = composition.BlockAudioPresentationController;
+            _playerLocomotionAudioPresentationController =
+                composition.PlayerLocomotionAudioPresentationController;
+            _gravityFieldAudioRequestPlanner = composition.GravityFieldAudioRequestPlanner;
+            _gravityFieldAudioPresentationController = composition.GravityFieldAudioPresentationController;
+            _gravityFieldPresentationRequestPlanner = composition.GravityFieldPresentationRequestPlanner;
+            _gravityFieldVisualPresentationController = composition.GravityFieldVisualPresentationController;
+            _summonedEnemyPresentationResolver = composition.SummonedEnemyPresentationResolver;
+            _tileFeatureAudioRequestPlanner = composition.TileFeatureAudioRequestPlanner;
+            _tileFeatureAudioPresentationController = composition.TileFeatureAudioPresentationController;
+            _topologyAudioRequestPlanner = composition.TopologyAudioRequestPlanner;
+            _topologyAudioPresentationController = composition.TopologyAudioPresentationController;
+            _tilePresentationRequestPlanner = composition.TilePresentationRequestPlanner;
+            _utilityWindupVfxPresenter = composition.UtilityWindupVfxPresenter;
+            _tileFeatureVisualPresentationController = composition.TileFeatureVisualPresentationController;
+            _gameplaySfxArbiter = composition.GameplaySfxArbiter;
+            _enemyChargeLoopAudioPresentationController =
+                composition.EnemyChargeLoopAudioPresentationController;
+            _enemyOneShotAudioLane = composition.EnemyOneShotAudioLane;
+            _actionAudioLane = composition.GameplayActionAudioLane;
+            _coreGameplaySfxLane = composition.CoreGameplaySfxLane;
+            _playerActionAnimationLane = composition.PlayerActionAnimationLane;
+            _enemyPresentationLane = composition.EnemyPresentationLane;
+            _boxMotionLane = composition.BoxMotionLane;
+            _topologyLane = composition.TopologyLane;
+            _damageDeathVfxLane = composition.DamageDeathVfxLane;
+            _destroyShrinkVfxSequenceStateResolver.BindExtensions(_presentationExtensions);
             _topologyTransitionController.TopologyPresentationCompleted += HandleTopologyPresentationCompleted;
             _topologyTransitionController.TopologyTransitionPresentationCompleted +=
                 HandleTopologyTransitionPresentationCompleted;
@@ -195,12 +374,12 @@ namespace Game.Feature.Gameplay.Host
         public IReadOnlyList<TileFeatureVisualState> CurrentTileFeatureVisualStates =>
             _currentTileFeatureVisualStates;
 
-        internal int PendingGameplayAudioRequestCount => _audioPresentationController.PendingRequestCount;
+        internal int PendingGameplayAudioRequestCount => _coreGameplaySfxLane.PendingRequestCount;
 
         internal int DeferredGameplayAudioRequestCount =>
-            _audioPresentationController.DeferredRequestCount +
-            _actionAudioPresentationController.DeferredRequestCount +
-            _enemyAudioPresentationController.DeferredRequestCount;
+            _coreGameplaySfxLane.DeferredRequestCount +
+            _actionAudioLane.DeferredRequestCount +
+            _enemyOneShotAudioLane.DeferredRequestCount;
 
         internal int PendingMoonBlockEmergenceRequestCount =>
             _moonBlockEmergencePresentationController.PendingRequestCount;
@@ -210,6 +389,197 @@ namespace Game.Feature.Gameplay.Host
 
         internal EntityPresentationApplyDiagnostics DebugLastEntityPresentationApplyDiagnostics =>
             _stateStore.LastEntityPresentationApplyDiagnostics;
+
+        internal bool IsPresentationPipelineDiagnosticsEnabled => _presentationPipelineDiagnosticsEnabled;
+
+        internal int PresentationPipelineNoOpSchedulerAcceptCount =>
+            _presentationPipeline?.NoOpSchedulerAcceptCount ?? 0;
+
+        internal PresentationBlockingSnapshot PresentationPipelineBlockingSnapshot =>
+            _presentationPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
+
+        internal PresentationBlockingSnapshot TopologyExecutionPipelineBlockingSnapshot =>
+            _topologyLane.BlockingSnapshot;
+
+        internal TopologyPresentationExecutionMode TopologyPresentationExecutionMode =>
+            _topologyLane.ExecutionMode;
+
+        internal TopologyPresentationOwnershipDiagnostics TopologyPresentationOwnershipDiagnostics =>
+            _topologyLane.OwnershipDiagnostics;
+
+        internal TopologyExecutorDiagnostics TopologyExecutorDiagnostics =>
+            _topologyLane.ExecutorDiagnostics;
+
+        internal TopologyProductionTelemetrySnapshot TopologyProductionTelemetrySnapshot =>
+            _topologyLane.BuildProductionTelemetrySnapshot(
+                HasBlockingPresentation,
+                IsTopologyTransitionActive,
+                PresentationPipelineBlockingSnapshot);
+
+        internal DamageDeathVfxExecutionMode DamageDeathVfxExecutionMode =>
+            _damageDeathVfxLane.ExecutionMode;
+
+        internal DamageDeathVfxOwnershipDiagnostics DamageDeathVfxOwnershipDiagnostics =>
+            _damageDeathVfxLane.OwnershipDiagnostics;
+
+        internal BoxMotionPresentationExecutionMode BoxMotionPresentationExecutionMode =>
+            _boxMotionLane.ExecutionMode;
+
+        internal BoxMotionOwnershipDiagnostics BoxMotionOwnershipDiagnostics =>
+            _boxMotionLane.OwnershipDiagnostics;
+
+        internal PlayerActionAnimationExecutionMode PlayerActionAnimationExecutionMode =>
+            _playerActionAnimationLane.ExecutionMode;
+
+        internal PlayerActionAnimationOwnershipDiagnostics PlayerActionAnimationOwnershipDiagnostics =>
+            _playerActionAnimationLane.OwnershipDiagnostics;
+
+        internal EnemyPresentationExecutionMode EnemyPresentationExecutionMode =>
+            _enemyPresentationLane.ExecutionMode;
+
+        internal EnemyPresentationOwnershipDiagnostics EnemyPresentationOwnershipDiagnostics =>
+            _enemyPresentationLane.OwnershipDiagnostics;
+
+        internal CoreGameplaySfxExecutionMode CoreGameplaySfxExecutionMode =>
+            _coreGameplaySfxLane.ExecutionMode;
+
+        internal CoreGameplaySfxOwnershipDiagnostics CoreGameplaySfxOwnershipDiagnostics =>
+            _coreGameplaySfxLane.OwnershipDiagnostics;
+
+        internal ActionAudioExecutionMode ActionAudioExecutionMode =>
+            _actionAudioLane.ExecutionMode;
+
+        internal ActionAudioOwnershipDiagnostics ActionAudioOwnershipDiagnostics =>
+            _actionAudioLane.OwnershipDiagnostics;
+
+        internal EnemyAudioExecutionMode EnemyAudioExecutionMode =>
+            _enemyOneShotAudioLane.ExecutionMode;
+
+        internal EnemyAudioOwnershipDiagnostics EnemyAudioOwnershipDiagnostics =>
+            _enemyOneShotAudioLane.OwnershipDiagnostics;
+
+        internal PresentationBlockingSnapshot DamageDeathVfxExecutionPipelineBlockingSnapshot =>
+            _damageDeathVfxLane.BlockingSnapshot;
+
+        internal PresentationBlockingSnapshot BoxMotionExecutionPipelineBlockingSnapshot =>
+            _boxMotionLane.BlockingSnapshot;
+
+        internal PresentationBlockingSnapshot PlayerActionAnimationExecutionPipelineBlockingSnapshot =>
+            _playerActionAnimationLane.BlockingSnapshot;
+
+        internal PresentationBlockingSnapshot EnemyPresentationExecutionPipelineBlockingSnapshot =>
+            _enemyPresentationLane.BlockingSnapshot;
+
+        internal PresentationBlockingSnapshot CoreGameplaySfxExecutionPipelineBlockingSnapshot =>
+            _coreGameplaySfxLane.BlockingSnapshot;
+
+        internal PresentationBlockingSnapshot ActionAudioExecutionPipelineBlockingSnapshot =>
+            _actionAudioLane.BlockingSnapshot;
+
+        internal PresentationBlockingSnapshot EnemyAudioExecutionPipelineBlockingSnapshot =>
+            _enemyOneShotAudioLane.BlockingSnapshot;
+
+        internal DamageDeathVfxExecutorDiagnostics DamageDeathVfxExecutorDiagnostics =>
+            _damageDeathVfxLane.ExecutorDiagnostics;
+
+        internal GameplayMotionExecutorDiagnostics BoxMotionExecutorDiagnostics =>
+            _boxMotionLane.ExecutorDiagnostics;
+
+        internal BoxMotionPresentationRuntimeDebugSnapshot BoxMotionRuntimeDebugSnapshot =>
+            _boxMotionLane.RuntimeDebugSnapshot;
+
+        internal BoxMotionProductionTelemetrySnapshot BoxMotionProductionTelemetrySnapshot =>
+            _boxMotionLane.ProductionTelemetrySnapshot;
+
+        internal GameplayAnimationExecutorDiagnostics PlayerActionAnimationExecutorDiagnostics =>
+            _playerActionAnimationLane.ExecutorDiagnostics;
+
+        internal PlayerActionAnimationProductionTelemetrySnapshot PlayerActionAnimationProductionTelemetrySnapshot =>
+            _playerActionAnimationLane.ProductionTelemetrySnapshot;
+
+        internal GameplayEnemyPresentationExecutorDiagnostics EnemyPresentationExecutorDiagnostics =>
+            _enemyPresentationLane.ExecutorDiagnostics;
+
+        internal EnemyPresentationProductionTelemetrySnapshot EnemyPresentationProductionTelemetrySnapshot =>
+            _enemyPresentationLane.ProductionTelemetrySnapshot;
+
+        internal GameplaySfxExecutorDiagnostics CoreGameplaySfxExecutorDiagnostics =>
+            _coreGameplaySfxLane.ExecutorDiagnostics;
+
+        internal GameplayActionAudioExecutorDiagnostics ActionAudioExecutorDiagnostics =>
+            _actionAudioLane.ExecutorDiagnostics;
+
+        internal ActionAudioProductionTelemetrySnapshot ActionAudioProductionTelemetrySnapshot =>
+            _actionAudioLane.ProductionTelemetrySnapshot;
+
+        internal GameplayEnemyAudioExecutorDiagnostics EnemyAudioExecutorDiagnostics =>
+            _enemyOneShotAudioLane.ExecutorDiagnostics;
+
+        internal EnemyAudioProductionTelemetrySnapshot EnemyAudioProductionTelemetrySnapshot =>
+            _enemyOneShotAudioLane.ProductionTelemetrySnapshot;
+
+        internal void ConfigureDamageDeathVfxExecution(
+            DamageDeathVfxExecutionMode mode,
+            IDamageDeathVfxPlaybackPort playbackPort = null)
+        {
+            _damageDeathVfxLane.ConfigureExecution(mode, playbackPort);
+        }
+
+        internal void ConfigureBoxMotionPresentationExecution(
+            BoxMotionPresentationExecutionMode mode,
+            IGameplayMotionPlaybackPort playbackPort = null,
+            bool useDefaultPlaybackPort = true)
+        {
+            _boxMotionLane.ConfigureExecution(mode, playbackPort, useDefaultPlaybackPort);
+        }
+
+        internal void ConfigurePlayerActionAnimationExecution(
+            PlayerActionAnimationExecutionMode mode,
+            IGameplayAnimationPlaybackPort playbackPort = null)
+        {
+            _playerActionAnimationLane.ConfigureExecution(mode, playbackPort);
+        }
+
+        internal void ConfigureEnemyPresentationExecution(
+            EnemyPresentationExecutionMode mode,
+            IGameplayEnemyPresentationPlaybackPort playbackPort = null)
+        {
+            _enemyPresentationLane.ConfigureExecution(mode, playbackPort);
+        }
+
+        internal void ConfigureCoreGameplaySfxExecution(
+            CoreGameplaySfxExecutionMode mode,
+            IGameplaySfxPlaybackPort playbackPort = null)
+        {
+            _coreGameplaySfxLane.ConfigureExecution(mode, playbackPort);
+        }
+
+        internal void ConfigureActionAudioExecution(
+            ActionAudioExecutionMode mode,
+            IGameplayActionAudioPlaybackPort playbackPort = null)
+        {
+            _actionAudioLane.ConfigureExecution(mode, playbackPort);
+        }
+
+        internal void ConfigureEnemyAudioExecution(
+            EnemyAudioExecutionMode mode,
+            IGameplayEnemyAudioPlaybackPort playbackPort = null)
+        {
+            _enemyOneShotAudioLane.ConfigureExecution(mode, playbackPort);
+        }
+
+        internal void EnablePresentationPipelineDiagnostics(GameplayPresentationPipeline pipeline = null)
+        {
+            _presentationPipeline = pipeline ?? GameplayPresentationPipelineInstaller.CreateDiagnosticsOnly();
+            _presentationPipeline.ResetSession();
+            _presentationPipelineDiagnosticsEnabled = true;
+        }
+
+        internal void DisablePresentationPipelineDiagnostics()
+        {
+            _presentationPipelineDiagnosticsEnabled = false;
+            _presentationPipeline?.ResetSession();
+        }
 
         internal GameplayEntityPresentationLifecycleDebugSnapshot DebugCaptureEntityPresentationLifecycle(
             int entityId,
@@ -315,13 +685,16 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationCatalog enemyPresentationCatalog = null,
             EnemyPresentationBinding[] enemyPresentationBindings = null,
             IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
-            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null,
+            TopologyPresentationExecutionMode topologyPresentationExecutionMode =
+                TopologyPresentationExecutionPolicy.ProductionDefault)
         {
             if (viewBinder == null)
             {
                 throw new ArgumentNullException(nameof(viewBinder));
             }
 
+            _topologyLane.ConfigureExecution(topologyPresentationExecutionMode);
             _viewBinder = viewBinder;
             _gravityFieldVisualPresentationController.AttachTargetViewRegistry(_viewBinder.ViewRegistry);
             _moonBlockEmergencePresentationController.Configure(_viewBinder.ViewRegistry, timingProfile);
@@ -331,7 +704,8 @@ namespace Game.Feature.Gameplay.Host
             var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
-            _enemyAudioPresentationController.ConfigureMoveCadence(_timingProfile.SimulationTicksPerSecond);
+            _playerActionAnimationTimingProfileSource.TimingProfile = _timingProfile;
+            _enemyOneShotAudioLane.ConfigureTiming(_timingProfile);
             _topologyTransitionController.Configure(
                 boardRoot,
                 boardSurfaceRenderer,
@@ -339,14 +713,10 @@ namespace Game.Feature.Gameplay.Host
                 topologyRotationVisualMapping,
                 topologyRotationTweenSettings,
                 () => CubeCenter);
-            _topologyTransitionController.Reset();
             _exitPresentationController.Configure(_projector, _timingProfile);
             _exitPresentationController.Reset();
             _moonBlockDestructionPresentationController.ConfigureViewRegistry(viewBinder.ViewRegistry);
             _moonBlockDestructionPresentationController.ResetSession();
-            _audioPresentationController.ResetSession();
-            _actionAudioPresentationController.ResetSession();
-            _enemyAudioPresentationController.ResetSession();
             SetGameplayAudioPlaybackGate(GameplayAudioPlaybackGateState.Open);
             _enemyChargeLoopAudioPresentationController.ResetSession();
             _blockAudioPresentationController.ResetSession();
@@ -356,6 +726,7 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
+            _boxMotionLane.ResetSession(BoxMotionTelemetryCleanupReason.ResetSession);
             _trackState.ResetSession();
             _utilityWindupVfxPresenter.Initialize(viewBinder.SearchRoot);
             _animationSync.Reset();
@@ -376,6 +747,9 @@ namespace Game.Feature.Gameplay.Host
             _moonBlockEmergencePresentationController.ResetSession();
 
             _isInitialized = true;
+            ResetTypedPresentationLanesExceptBox();
+            ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
+            ResetPresentationPipelineDiagnosticsIfEnabled();
         }
 
         public void AttachCameraRig(GameplayCameraRig viewCameraRig)
@@ -509,24 +883,30 @@ namespace Game.Feature.Gameplay.Host
             _playerLocomotionAudioPresentationController.RefreshSignals(
                 result,
                 _timingProfile.MoveMotionDurationSeconds);
-            _topologyTransitionController.RefreshTopologyTrack(
-                result.PresentationData,
-                _stateStore.CommittedTopology);
-            _topologyTransitionController.RefreshBoardSurfaceTransition(
-                result.PresentationData,
-                _stateStore.CommittedTopology);
+            _topologyLane.Present(result);
+            ObserveTopologyActiveStateForPresentationPipelines(result.TickIndex);
             RefreshGameplayAudioPlaybackGate();
             _topologyAudioPresentationController.ReplacePendingPlan(
                 _topologyAudioRequestPlanner.BuildRequests(result));
-            _planner.RefreshTracks(
+            var boxMotionPreparation = _boxMotionLane.Prepare(
                 result,
                 previousCommittedLocalTargetPoses,
                 previousCommittedTopology,
                 _projector,
                 _timingProfile);
+            _planner.RefreshTracks(
+                result,
+                previousCommittedLocalTargetPoses,
+                previousCommittedTopology,
+                _projector,
+                _timingProfile,
+                boxMotionPreparation.LegacySuppression);
+            _boxMotionLane.PresentPrepared(result, boxMotionPreparation, 0f);
             RetainTopologyMoonBlockGeneratedPoses(result.PresentationData);
             _lastPresentedTickIndex = result.TickIndex;
             RefreshPresentationMotionVfx(result.TickIndex);
+            var playerActionAnimationPreparation = _playerActionAnimationLane.Prepare(result);
+            var enemyPresentationPreparation = _enemyPresentationLane.Prepare(result);
             _animationSync.ApplyTickPresentation(
                 result,
                 _stateStore.ViewsByEntityId,
@@ -534,7 +914,12 @@ namespace Game.Feature.Gameplay.Host
                 (entityId, actionKind) => _motionTimingResolver.ResolvePlayerMotionDurationSeconds(
                     entityId,
                     actionKind,
-                    _timingProfile));
+                    _timingProfile),
+                playerActionAnimationPreparation.SuppressLegacyActionFields,
+                enemyPresentationPreparation.LegacyOneShotSuppression);
+            _enemyPresentationLane.PresentPrepared(result, enemyPresentationPreparation);
+            _playerActionAnimationLane.PresentPrepared(result, playerActionAnimationPreparation);
+            _damageDeathVfxLane.Present(result);
             PresentExtensions(result);
             TraceStep("PlayPlannedAudio");
             _arbitratingGameplayAudioPlaybackPort?.BeginBatch(
@@ -542,9 +927,12 @@ namespace Game.Feature.Gameplay.Host
                 _timingProfile.SimulationTicksPerSecond);
             try
             {
-                _audioPresentationController.PlayPlannedAudio();
-                _actionAudioPresentationController.PlayPlannedAudio(result.TickIndex);
-                _enemyAudioPresentationController.PlayPlannedAudio(result.TickIndex);
+                _coreGameplaySfxLane.PresentPrepared(result);
+                _actionAudioLane.PresentPrepared(result);
+                _enemyOneShotAudioLane.PresentPrepared(result);
+                _coreGameplaySfxLane.CompletePrepared();
+                _actionAudioLane.CompletePrepared();
+                _enemyOneShotAudioLane.CompletePrepared();
                 _blockAudioPresentationController.PlayPlannedAudio();
                 _playerLocomotionAudioPresentationController.PlayPlannedAudio();
                 _tileFeatureAudioPresentationController.PlayPlannedAudio();
@@ -563,6 +951,7 @@ namespace Game.Feature.Gameplay.Host
             _summonedEnemyPresentationResolver.CleanupOwnedViews(result.FinalEntities);
             UpdatePresentation(0f);
             _moonBlockEmergencePresentationController.StartReadyRequests(result.TickIndex);
+            PresentDiagnosticsPipelineIfEnabled(result);
         }
 
         private void RetainTopologyMoonBlockGeneratedPoses(TickPresentationData presentationData)
@@ -624,9 +1013,6 @@ namespace Game.Feature.Gameplay.Host
             EnsureInitialized();
 
             _gravityFieldVisualPresentationController.ClearTrackedContinuousStates();
-            _audioPresentationController.ResetSession();
-            _actionAudioPresentationController.ResetSession();
-            _enemyAudioPresentationController.ResetSession();
             SetGameplayAudioPlaybackGate(GameplayAudioPlaybackGateState.Open);
             _enemyChargeLoopAudioPresentationController.ResetSession();
             _blockAudioPresentationController.ResetSession();
@@ -636,6 +1022,7 @@ namespace Game.Feature.Gameplay.Host
             _gravityFieldAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
+            _boxMotionLane.ResetSession(BoxMotionTelemetryCleanupReason.PresentInitial);
             _trackState.ResetSession();
             _exitPresentationController.Reset();
             _moonBlockDestructionPresentationController.ResetSession();
@@ -650,9 +1037,11 @@ namespace Game.Feature.Gameplay.Host
             _currentGravityFieldVisualStates = EmptyGravityFieldVisualStates;
             _currentEnemyGravityFieldAuraVisualStates = EmptyEnemyGravityFieldAuraVisualStates;
             _currentTileFeatureVisualStates = EmptyTileFeatureVisualStates;
-            _topologyTransitionController.Reset();
+            ResetTypedPresentationLanesExceptBox();
+            ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             _lastPresentedResult = null;
             _topologyTransitionEpoch = 0;
+            ResetPresentationPipelineDiagnosticsIfEnabled();
 
             _committedFrameBuilder.StoreCommittedFrame(
                 entities,
@@ -692,14 +1081,11 @@ namespace Game.Feature.Gameplay.Host
 
             var hadActiveBoardRotationTween = _topologyTransitionController.HasActiveBoardRotationTween;
             _topologyTransitionController.UpdatePresentation(deltaTime, _stateStore.CommittedTopology);
+            ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
             RefreshGameplayAudioPlaybackGate();
-            var gameplayAudioDeltaTime =
-                hadActiveBoardRotationTween || _topologyTransitionController.HasActiveBoardRotationTween
-                    ? 0f
-                    : deltaTime;
-            _audioPresentationController.Update(gameplayAudioDeltaTime);
-            _actionAudioPresentationController.Update();
-            _enemyAudioPresentationController.Update(_lastPresentedTickIndex, gameplayAudioDeltaTime);
+            _coreGameplaySfxLane.Update(deltaTime);
+            _actionAudioLane.Update(deltaTime);
+            _enemyOneShotAudioLane.Update(_lastPresentedTickIndex, deltaTime);
             _blockAudioPresentationController.Update(deltaTime);
             _playerLocomotionAudioPresentationController.Update(deltaTime);
             _tileFeatureAudioPresentationController.Update(deltaTime);
@@ -728,6 +1114,11 @@ namespace Game.Feature.Gameplay.Host
                 _moonBlockEmergencePresentationController,
                 _lastPresentedTickIndex);
             _moonBlockEmergencePresentationController.StartReadyRequests(_lastPresentedTickIndex);
+            _damageDeathVfxLane.Update(deltaTime);
+            _boxMotionLane.Update(deltaTime);
+            _playerActionAnimationLane.Update(deltaTime);
+            _enemyPresentationLane.Update(deltaTime);
+            UpdatePresentationPipelineDiagnosticsIfEnabled(deltaTime);
         }
 
         public void SetPresentationPaused(bool paused)
@@ -747,9 +1138,9 @@ namespace Game.Feature.Gameplay.Host
             GameplayAudioMap gameplayAudioMap)
         {
             var arbitratingPort = GetOrCreateArbitratingPlaybackPort(playbackPort);
-            _audioPresentationController.AttachRuntime(arbitratingPort, gameplayAudioMap);
-            _actionAudioPresentationController.AttachRuntime(arbitratingPort);
-            _enemyAudioPresentationController.AttachRuntime(arbitratingPort);
+            _coreGameplaySfxLane.AttachRuntime(arbitratingPort, gameplayAudioMap);
+            _actionAudioLane.AttachRuntime(arbitratingPort);
+            _enemyOneShotAudioLane.AttachRuntime(arbitratingPort);
             if (playbackPort is IGameplayAudioLoopPlaybackPort loopPlaybackPort)
             {
                 _enemyChargeLoopAudioPresentationController.AttachRuntime(loopPlaybackPort);
@@ -825,10 +1216,10 @@ namespace Game.Feature.Gameplay.Host
 
         internal void DetachGameplayAudioRuntime()
         {
-            _actionAudioPresentationController.DetachRuntime();
-            _enemyAudioPresentationController.DetachRuntime();
+            _actionAudioLane.DetachRuntime();
+            _enemyOneShotAudioLane.DetachRuntime();
             _enemyChargeLoopAudioPresentationController.DetachRuntime();
-            _audioPresentationController.DetachRuntime();
+            _coreGameplaySfxLane.DetachRuntime();
         }
 
         internal void DetachTileFeatureAudioRuntime()
@@ -889,18 +1280,15 @@ namespace Game.Feature.Gameplay.Host
 
         private void RefreshGameplayAudioPlan(TickResult result)
         {
-            var gameplayAudioRequests = _audioRequestPlanner.BuildRequests(result, _timingProfile);
-            var enemyAudioRequests = _enemyAudioRequestPlanner.BuildRequests(result, _timingProfile);
-            var filteredGameplayAudioRequests = SuppressLethalEnemyDamageRequests(
-                result.PresentationData,
-                gameplayAudioRequests,
-                enemyAudioRequests);
+            var coreGameplaySfxCandidatePlan = _coreGameplaySfxLane.BuildCandidatePlan(result, _timingProfile);
+            var enemyOneShotPlan = _enemyOneShotAudioLane.RefreshPlan(result, _timingProfile);
+            _coreGameplaySfxLane.FinalizePlan(
+                coreGameplaySfxCandidatePlan,
+                _topologyTransitionController.HasActiveBoardRotationTween,
+                enemyOneShotPlan.PlayableDeathCueEntityIds);
 
-            _audioPresentationController.ReplacePendingPlan(filteredGameplayAudioRequests, result.TickIndex);
-            _actionAudioPresentationController.ReplacePendingPlan(
-                _actionAudioRequestPlanner.BuildRequests(result),
-                result.TickIndex);
-            _enemyAudioPresentationController.ReplacePendingPlan(enemyAudioRequests, result.TickIndex);
+            _actionAudioLane.RefreshPlan(result);
+
         }
 
         private void RefreshGameplayAudioPlaybackGate()
@@ -913,132 +1301,9 @@ namespace Game.Feature.Gameplay.Host
 
         private void SetGameplayAudioPlaybackGate(GameplayAudioPlaybackGateState gateState)
         {
-            _audioPresentationController.SetPlaybackGateState(gateState);
-            _actionAudioPresentationController.SetPlaybackGateState(gateState);
-            _enemyAudioPresentationController.SetPlaybackGateState(gateState);
-        }
-
-        private IReadOnlyList<GameplayAudioRequest> SuppressLethalEnemyDamageRequests(
-            TickPresentationData presentationData,
-            IReadOnlyList<GameplayAudioRequest> gameplayAudioRequests,
-            IReadOnlyList<EnemyAudioRequest> enemyAudioRequests)
-        {
-            if (gameplayAudioRequests.Count == 0 || enemyAudioRequests.Count == 0)
-            {
-                return gameplayAudioRequests;
-            }
-
-            var playableDeathCueEntityIds = BuildPlayableEnemyDeathCueEntityIds(
-                presentationData,
-                enemyAudioRequests);
-            if (playableDeathCueEntityIds.Count == 0)
-            {
-                return gameplayAudioRequests;
-            }
-
-            List<GameplayAudioRequest> filteredRequests = null;
-            for (var i = 0; i < gameplayAudioRequests.Count; i++)
-            {
-                var request = gameplayAudioRequests[i];
-                if (ShouldSuppressLethalEnemyDamageRequest(request, playableDeathCueEntityIds))
-                {
-                    if (filteredRequests == null)
-                    {
-                        filteredRequests = new List<GameplayAudioRequest>(gameplayAudioRequests.Count);
-                        for (var copyIndex = 0; copyIndex < i; copyIndex++)
-                        {
-                            filteredRequests.Add(gameplayAudioRequests[copyIndex]);
-                        }
-                    }
-
-                    continue;
-                }
-
-                filteredRequests?.Add(request);
-            }
-
-            return filteredRequests ?? gameplayAudioRequests;
-        }
-
-        private HashSet<int> BuildPlayableEnemyDeathCueEntityIds(
-            TickPresentationData presentationData,
-            IReadOnlyList<EnemyAudioRequest> enemyAudioRequests)
-        {
-            var deathExitEntityIds = BuildEnemyDeathExitEntityIds(presentationData);
-            if (deathExitEntityIds.Count == 0)
-            {
-                return deathExitEntityIds;
-            }
-
-            var playableDeathCueEntityIds = new HashSet<int>();
-            for (var i = 0; i < enemyAudioRequests.Count; i++)
-            {
-                var request = enemyAudioRequests[i];
-                if (request.Cue != EnemyAudioCue.Death ||
-                    !deathExitEntityIds.Contains(request.OwnerEntityId) ||
-                    !HasPlayableEnemyDeathCue(request.OwnerEntityId))
-                {
-                    continue;
-                }
-
-                playableDeathCueEntityIds.Add(request.OwnerEntityId);
-            }
-
-            return playableDeathCueEntityIds;
-        }
-
-        private static HashSet<int> BuildEnemyDeathExitEntityIds(TickPresentationData presentationData)
-        {
-            var entityIds = new HashSet<int>();
-            var exitSignals = presentationData.EntityExitSignals;
-            for (var i = 0; i < exitSignals.Count; i++)
-            {
-                var signal = exitSignals[i];
-                if (signal.ExitCause != TickEntityExitCause.EnemyDeath &&
-                    signal.ExitCause != TickEntityExitCause.Killed)
-                {
-                    continue;
-                }
-
-                entityIds.Add(signal.ExitedEntityId);
-            }
-
-            return entityIds;
-        }
-
-        private bool HasPlayableEnemyDeathCue(int ownerEntityId)
-        {
-            if (!TryResolveActiveOwner(ownerEntityId, out var owner))
-            {
-                return false;
-            }
-
-            var authoring = EnemyAudioAuthoring.GetOptionalValidatedAuthoring(owner);
-            return authoring != null &&
-                   authoring.Profile.HasCue(EnemyAudioCue.Death);
-        }
-
-        private static bool ShouldSuppressLethalEnemyDamageRequest(
-            in GameplayAudioRequest request,
-            ISet<int> playableDeathCueEntityIds)
-        {
-            return request.SemanticId == GameplayAudioSemanticId.EnemyDamage &&
-                   request.OwnerEntityId.HasValue &&
-                   playableDeathCueEntityIds.Contains(request.OwnerEntityId.Value);
-        }
-
-        private bool TryResolveActiveOwner(int ownerEntityId, out GameplayEntityView owner)
-        {
-            owner = null;
-            if (!_stateStore.ViewsByEntityId.TryGetValue(ownerEntityId, out owner) ||
-                owner == null ||
-                !owner.gameObject.activeInHierarchy)
-            {
-                owner = null;
-                return false;
-            }
-
-            return true;
+            _coreGameplaySfxLane.SetTopologyTransitionActive(gateState.IsBlocked);
+            _actionAudioLane.SetPlaybackGateState(gateState);
+            _enemyOneShotAudioLane.SetPlaybackGateState(gateState);
         }
 
         internal void SetTraceSink(Action<string> traceSink)
@@ -1117,10 +1382,98 @@ namespace Game.Feature.Gameplay.Host
         {
             _moonBlockDestructionPresentationController.Dispose();
             _moonBlockEmergencePresentationController.Dispose();
+            HardCleanupTypedPresentationLanes();
+            _enemyChargeLoopAudioPresentationController.ResetSession();
+            _presentationPipeline?.HardCleanup();
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.HardCleanup();
             }
+        }
+
+        private void ResetTypedPresentationLanesExceptBox()
+        {
+            _topologyLane.ResetSession();
+            _damageDeathVfxLane.ResetSession();
+            _playerActionAnimationLane.ResetSession();
+            _enemyPresentationLane.ResetSession();
+            _coreGameplaySfxLane.ResetSession();
+            _actionAudioLane.ResetSession();
+            _enemyOneShotAudioLane.ResetSession();
+        }
+
+        private void HardCleanupTypedPresentationLanes()
+        {
+            _topologyLane.HardCleanup();
+            _damageDeathVfxLane.HardCleanup();
+            _boxMotionLane.HardCleanup(BoxMotionTelemetryCleanupReason.HardCleanupPresentationExtensions);
+            _playerActionAnimationLane.HardCleanup();
+            _enemyPresentationLane.HardCleanup();
+            _coreGameplaySfxLane.HardCleanup();
+            _actionAudioLane.HardCleanup();
+            _enemyOneShotAudioLane.HardCleanup();
+        }
+
+        internal void TeardownPresentationRuntime()
+        {
+            if (_hasTornDownPresentationRuntime)
+            {
+                return;
+            }
+
+            _hasTornDownPresentationRuntime = true;
+            HardCleanupPresentationExtensions();
+            DetachBlockAudioRuntime();
+            DetachGravityFieldAudioRuntime();
+            DetachTileFeatureAudioRuntime();
+            DetachTopologyAudioRuntime();
+            DetachGameplayAudioRuntime();
+        }
+
+        private void PresentDiagnosticsPipelineIfEnabled(TickResult result)
+        {
+            if (!_presentationPipelineDiagnosticsEnabled)
+            {
+                return;
+            }
+
+            _presentationPipeline ??= GameplayPresentationPipelineInstaller.CreateDiagnosticsOnly();
+            _presentationPipeline.Present(result);
+            ObserveTopologyActiveStateForPresentationPipelines(result.TickIndex);
+        }
+
+        private void UpdatePresentationPipelineDiagnosticsIfEnabled(float deltaTime)
+        {
+            if (!_presentationPipelineDiagnosticsEnabled)
+            {
+                return;
+            }
+
+            _presentationPipeline?.Update(deltaTime);
+            ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
+        }
+
+        private void ResetPresentationPipelineDiagnosticsIfEnabled()
+        {
+            if (!_presentationPipelineDiagnosticsEnabled)
+            {
+                return;
+            }
+
+            _presentationPipeline?.ResetSession();
+            ObserveTopologyActiveStateForPresentationPipelines(_lastPresentedTickIndex);
+        }
+
+        private void ObserveTopologyActiveStateForPresentationPipelines(int tickIndex)
+        {
+            var isTopologyActive = _topologyTransitionController.HasActiveBoardRotationTween;
+            if (_presentationPipelineDiagnosticsEnabled)
+            {
+                _presentationPipeline?.ObserveTopologyActiveState(isTopologyActive, tickIndex);
+            }
+
+            _topologyLane.ObserveControllerActivity(isTopologyActive, tickIndex);
+            _actionAudioLane.ObserveTopologyActiveState(isTopologyActive, tickIndex);
         }
 
         private void PresentExtensions(TickResult result)
@@ -1140,7 +1493,8 @@ namespace Game.Feature.Gameplay.Host
                 _timingProfile,
                 _tileFeatureVfxStyleBindings,
                 _topologyTransitionEpoch,
-                isTopologyTransitionCompletionReconcile: false);
+                isTopologyTransitionCompletionReconcile: false,
+                damageDeathVfxExtensionPolicy: _damageDeathVfxLane.ExtensionPolicy);
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.Present(context);
@@ -1252,7 +1606,8 @@ namespace Game.Feature.Gameplay.Host
                 _timingProfile,
                 _tileFeatureVfxStyleBindings,
                 _topologyTransitionEpoch,
-                isTopologyTransitionCompletionReconcile: true);
+                isTopologyTransitionCompletionReconcile: true,
+                damageDeathVfxExtensionPolicy: _damageDeathVfxLane.ExtensionPolicy);
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 if (_presentationExtensions[i] is IGameplayTopologyTransitionCompletionPresentationExtension extension)
@@ -1288,25 +1643,6 @@ namespace Game.Feature.Gameplay.Host
                     motionVfxExtension.RefreshPresentationMotionVfx(context);
                 }
             }
-        }
-
-        private DestroyShrinkVfxSequenceState ResolveDestroyShrinkVfxSequenceState(
-            int sourceEntityId,
-            int sequenceId)
-        {
-            for (var i = 0; i < _presentationExtensions.Count; i++)
-            {
-                if (_presentationExtensions[i] is IGameplayDestroyShrinkVfxSequenceStateProvider provider)
-                {
-                    var state = provider.GetDestroyShrinkState(sourceEntityId, sequenceId);
-                    if (state != DestroyShrinkVfxSequenceState.None)
-                    {
-                        return state;
-                    }
-                }
-            }
-
-            return DestroyShrinkVfxSequenceState.None;
         }
 
         private void EnsureInitialized()
@@ -1434,4 +1770,5 @@ namespace Game.Feature.Gameplay.Host
 
         public int DeathTriggerCount { get; }
     }
+
 }
