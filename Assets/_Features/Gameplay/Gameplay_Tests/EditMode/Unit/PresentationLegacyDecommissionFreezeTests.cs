@@ -115,6 +115,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var sourceResult = PresentationLegacyFreezeAnalyzer.AnalyzeSerializedSourceFields(
                 ReadProductionSources(),
                 LoadSerializedFieldManifest());
+            var reflectionResult = PresentationLegacyFreezeAnalyzer.AnalyzeSerializedRuntimeFields(
+                LoadSerializedReflectionTargets(),
+                LoadSerializedFieldManifest());
             var yamlResult = PresentationLegacyFreezeAnalyzer.AnalyzeYamlExecutionReferences(
                 ReadUnityYamlAssets(),
                 YamlExecutionReferenceTokens,
@@ -122,6 +125,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(sourceResult.UnknownHits, Is.Empty, FormatViolations(sourceResult.UnknownHits));
             Assert.That(sourceResult.CountViolations, Is.Empty, FormatViolations(sourceResult.CountViolations));
+            Assert.That(reflectionResult.UnknownHits, Is.Empty, FormatViolations(reflectionResult.UnknownHits));
+            Assert.That(reflectionResult.CountViolations, Is.Empty, FormatViolations(reflectionResult.CountViolations));
             Assert.That(yamlResult.UnknownHits, Is.Empty, FormatViolations(yamlResult.UnknownHits));
             Assert.That(yamlResult.CountViolations, Is.Empty, FormatViolations(yamlResult.CountViolations));
         }
@@ -290,6 +295,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     pendingManifest).HasViolations,
                 Is.False);
             Assert.That(
+                PresentationLegacyFreezeAnalyzer.AnalyzePendingPlanCalls(
+                    new Dictionary<string, string>
+                    {
+                        ["Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs"] =
+                            "internal sealed class GameplayTickPresentationCoordinator { " +
+                            "private readonly BlockAudioPresentationController _blockAudioPresentationController; " +
+                            "public void Present() { _blockAudioPresentationController.ReplacePendingPlan(null); } }",
+                    },
+                    new[]
+                    {
+                        new PendingPlanCallBudget(
+                            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs",
+                            "GameplayTickPresentationCoordinator",
+                            "Present",
+                            "_blockAudioPresentationController",
+                            "BlockAudioPresentationController",
+                            "ReplacePendingPlan",
+                            "RETAINED_ADJUNCT_PRESENTATION_CONTROLLER",
+                            2),
+                    }).HasViolations,
+                Is.False);
+            Assert.That(
                 PresentationLegacyFreezeAnalyzer.AnalyzeSerializedSourceFields(
                     new Dictionary<string, string>
                     {
@@ -297,6 +324,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             "public TopologyPresentationExecutionMode TopologyPresentationExecutionMode = " +
                             "TopologyPresentationExecutionDefaults.ProductionDefault;",
                         ["Assets/_Features/Gameplay/Gameplay_Host/Runtime/ReadonlyProperties.cs"] =
+                            "// public EnemyAudioExecutionMode CommentedMode; " +
+                            "private const string Fake = \"public EnemyAudioExecutionMode StringMode;\"; " +
+                            "private const char Separator = ';'; " +
                             "public BoxMotionPresentationExecutionMode ExecutionMode => _guard.Diagnostics.Mode; " +
                             "public EnemyAudioExecutionMode EnemyMode { get; } " +
                             "public CoreGameplaySfxExecutionMode SfxMode { get { return _mode; } } " +
@@ -442,6 +472,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PresentationLegacyFreezeAnalyzer.AnalyzePendingPlanCalls(
                     new Dictionary<string, string>
                     {
+                        ["Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs"] =
+                            "internal sealed class GameplayHostRuntimeFactory { " +
+                            "private readonly BlockAudioPresentationController _blockAudioPresentationController; " +
+                            "public void Create() { _blockAudioPresentationController.ReplacePendingPlan(null); } }",
+                    },
+                    pendingManifest).HasViolations,
+                Is.True);
+            Assert.That(
+                PresentationLegacyFreezeAnalyzer.AnalyzePendingPlanCalls(
+                    new Dictionary<string, string>
+                    {
+                        ["Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs"] =
+                            "internal sealed class GameplayTickPresentationCoordinator { " +
+                            "private readonly GameplayAudioPresentationController _blockAudioPresentationController; " +
+                            "public void Present() { _blockAudioPresentationController.ReplacePendingPlan(null); } }",
+                    },
+                    pendingManifest).HasViolations,
+                Is.True);
+            Assert.That(
+                PresentationLegacyFreezeAnalyzer.AnalyzePendingPlanCalls(
+                    new Dictionary<string, string>
+                    {
+                        ["Assets/_Features/Gameplay/Gameplay_Host/Runtime/MovedCoordinator.cs"] =
+                            "internal sealed class GameplayTickPresentationCoordinator { " +
+                            "private readonly BlockAudioPresentationController _blockAudioPresentationController; " +
+                            "public void Present() { _blockAudioPresentationController.ReplacePendingPlan(null); } }",
+                    },
+                    pendingManifest).HasViolations,
+                Is.True);
+            Assert.That(
+                PresentationLegacyFreezeAnalyzer.AnalyzePendingPlanCalls(
+                    new Dictionary<string, string>
+                    {
                         ["Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs"] =
                             "internal sealed class GameplayTickPresentationCoordinator { " +
                             "private readonly BlockAudioPresentationController _blockAudioPresentationController; " +
@@ -455,6 +518,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         ["Assets/_Features/Gameplay/Gameplay_Host/Runtime/NewSerialized.cs"] =
                             "public EnemyAudioExecutionMode EnemyAudioExecutionMode; " +
+                            "[Obsolete] [SerializeField] private TopologyPresentationExecutionMode _topologyMode = TopologyPresentationExecutionMode.ExecutorBridge; " +
                             "[SerializeField] private CoreGameplaySfxExecutionMode _coreMode; " +
                             "[SerializeReference] private ActionAudioExecutionMode _actionMode; " +
                             "[field: SerializeField] public PlayerActionAnimationExecutionMode PlayerMode { get; private set; } " +
@@ -589,6 +653,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs",
                     "public TopologyPresentationExecutionMode TopologyPresentationExecutionMode",
                     1),
+            };
+        }
+
+        private static SerializedReflectionTarget[] LoadSerializedReflectionTargets()
+        {
+            return new[]
+            {
+                new SerializedReflectionTarget(
+                    "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs",
+                    typeof(GameplaySceneHostConfiguration)),
             };
         }
 
@@ -996,6 +1070,18 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
             public int MaximumAllowed { get; }
         }
 
+        private readonly struct SerializedReflectionTarget
+        {
+            public SerializedReflectionTarget(string relativePath, Type targetType)
+            {
+                RelativePath = relativePath;
+                TargetType = targetType;
+            }
+
+            public string RelativePath { get; }
+            public Type TargetType { get; }
+        }
+
         private readonly struct PendingPlanCallHit
         {
             public PendingPlanCallHit(
@@ -1081,12 +1167,8 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
                 new Regex(@"\b(?:public|private|internal|protected)\s+(?:readonly\s+|static\s+|volatile\s+)*(?<type>[A-Za-z_][A-Za-z0-9_<>,\.]*)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:=(?!>)|;)",
                     RegexOptions.Compiled);
 
-            private static readonly Regex SerializedFieldDeclarationRegex =
-                new Regex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)*)\b(?<visibility>public|private|internal|protected)\s+(?:readonly\s+|static\s+|volatile\s+)*(?<type>[A-Za-z_][A-Za-z0-9_]*ExecutionMode)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:=(?!>)|;)",
-                    RegexOptions.Compiled | RegexOptions.Singleline);
-
-            private static readonly Regex SerializedPropertyDeclarationRegex =
-                new Regex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)*)\b(?<visibility>public|private|internal|protected)\s+(?<type>[A-Za-z_][A-Za-z0-9_]*ExecutionMode)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*\{",
+            private static readonly Regex ExecutionModeDeclarationRegex =
+                new Regex(@"(?<attributes>(?:\s*\[[^\]]+\]\s*)*)\b(?<visibility>public|private|internal|protected)\s+(?:readonly\s+|static\s+|volatile\s+)*(?<type>[A-Za-z_][A-Za-z0-9_\.]*ExecutionMode)\s+(?<declarators>[A-Za-z_][A-Za-z0-9_]*(?:\s*=(?!>)\s*[^,;{}]+)?(?:\s*,\s*[A-Za-z_][A-Za-z0-9_]*(?:\s*=(?!>)\s*[^,;{}]+)?)*)\s*(?<terminator>=(?!>)|;|\{)",
                     RegexOptions.Compiled | RegexOptions.Singleline);
 
             public static FreezeAnalysisResult Analyze(
@@ -1195,7 +1277,8 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
                         row.ContainingMember,
                         row.Receiver,
                         row.ReceiverType,
-                        row.Method))
+                        row.Method,
+                        row.Classification))
                     .ToDictionary(group => group.Key, group => group.Sum(row => row.MaximumAllowed));
                 var approvedPaths = new HashSet<string>(manifest.Select(row => row.RelativePath), StringComparer.Ordinal);
                 var approvedReceiverTypes = new HashSet<string>(
@@ -1215,7 +1298,8 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
                     string ContainingMember,
                     string Receiver,
                     string ReceiverType,
-                    string Method), int>();
+                    string Method,
+                    string Classification), int>();
                 var unknownHits = new List<string>();
                 var movedFiles = new List<string>();
 
@@ -1227,7 +1311,8 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
                         hit.ContainingMember,
                         hit.Receiver,
                         hit.ReceiverType,
-                        hit.Method);
+                        hit.Method,
+                        hit.Classification);
                     actual[key] = actual.TryGetValue(key, out var count) ? count + 1 : 1;
 
                     if (!approved.ContainsKey(key))
@@ -1266,7 +1351,8 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
                             item.ContainingMember == row.Key.ContainingMember &&
                             item.Receiver == row.Key.Receiver &&
                             item.ReceiverType == row.Key.ReceiverType &&
-                            item.Method == row.Key.Method);
+                            item.Method == row.Key.Method &&
+                            item.Classification == row.Key.Classification);
                         return "PENDING_PLAN_CALL_GROWTH " +
                                $"Path={row.Key.RelativePath} ContainingType={row.Key.ContainingType} " +
                                $"ContainingMember={row.Key.ContainingMember} Receiver={row.Key.Receiver} " +
@@ -1302,6 +1388,47 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
                         if (matchedManifest.Symbol == null)
                         {
                             unknownHits.Add($"SERIALIZED_EXECUTION_MODE_FIELD_ADDED {source.Key} {symbol}");
+                            continue;
+                        }
+
+                        var key = (matchedManifest.RelativePath, matchedManifest.Symbol);
+                        actual[key] = actual.TryGetValue(key, out var count) ? count + 1 : 1;
+                    }
+                }
+
+                var countViolations = approved
+                    .Select(row =>
+                    {
+                        actual.TryGetValue(row.Key, out var actualCount);
+                        return (row.Key.RelativePath, row.Key.Symbol, Actual: actualCount, Maximum: row.Value);
+                    })
+                    .Where(row => row.Actual > row.Maximum)
+                    .Select(row => $"SERIALIZED_EXECUTION_MODE_FIELD_GROWTH {row.RelativePath} {row.Symbol} actual={row.Actual} maximum={row.Maximum}")
+                    .ToArray();
+
+                return new FreezeAnalysisResult(actual.Values.Sum(), unknownHits, countViolations, Array.Empty<string>());
+            }
+
+            public static FreezeAnalysisResult AnalyzeSerializedRuntimeFields(
+                IReadOnlyCollection<SerializedReflectionTarget> targets,
+                IReadOnlyCollection<SerializedFieldBudget> manifest)
+            {
+                var approved = manifest
+                    .GroupBy(row => (row.RelativePath, row.Symbol))
+                    .ToDictionary(group => group.Key, group => group.Sum(row => row.MaximumAllowed));
+                var actual = new Dictionary<(string RelativePath, string Symbol), int>();
+                var unknownHits = new List<string>();
+
+                foreach (var target in targets)
+                {
+                    foreach (var symbol in FindSerializedExecutionModeRuntimeFields(target.TargetType))
+                    {
+                        var matchedManifest = manifest.FirstOrDefault(row =>
+                            row.RelativePath == target.RelativePath &&
+                            symbol.StartsWith(row.Symbol, StringComparison.Ordinal));
+                        if (matchedManifest.Symbol == null)
+                        {
+                            unknownHits.Add($"SERIALIZED_EXECUTION_MODE_FIELD_ADDED {target.RelativePath} {symbol}");
                             continue;
                         }
 
@@ -1388,47 +1515,29 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
                 {
                     var clean = StripCommentsAndStrings(source.Value);
                     var fieldTypes = ExtractFieldTypes(clean);
-                    var containingType = "<unknown>";
-                    var containingMember = "<unknown>";
-                    var lines = clean.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
 
-                    foreach (var line in lines)
+                    foreach (Match callMatch in PendingPlanCallRegex.Matches(clean))
                     {
-                        var typeMatch = TypeDeclarationRegex.Match(line);
-                        if (typeMatch.Success)
+                        var receiver = callMatch.Groups["receiver"].Value;
+                        var method = callMatch.Groups["method"].Value;
+                        fieldTypes.TryGetValue(receiver, out var receiverType);
+                        if (string.IsNullOrEmpty(receiverType))
                         {
-                            containingType = typeMatch.Groups["type"].Value;
+                            receiverType = "<unknown>";
                         }
 
-                        var memberMatch = MemberDeclarationRegex.Match(line);
-                        if (memberMatch.Success)
-                        {
-                            containingMember = memberMatch.Groups["member"].Value;
-                        }
-
-                        foreach (Match callMatch in PendingPlanCallRegex.Matches(line))
-                        {
-                            var receiver = callMatch.Groups["receiver"].Value;
-                            var method = callMatch.Groups["method"].Value;
-                            fieldTypes.TryGetValue(receiver, out var receiverType);
-                            if (string.IsNullOrEmpty(receiverType))
-                            {
-                                receiverType = "<unknown>";
-                            }
-
-                            var classification = ClassifyPendingPlanReceiver(
-                                receiverType,
-                                approvedReceiverTypes,
-                                targetDomainLegacyReceiverTypes);
-                            yield return new PendingPlanCallHit(
-                                source.Key,
-                                containingType,
-                                containingMember,
-                                receiver,
-                                receiverType,
-                                method,
-                                classification);
-                        }
+                        var classification = ClassifyPendingPlanReceiver(
+                            receiverType,
+                            approvedReceiverTypes,
+                            targetDomainLegacyReceiverTypes);
+                        yield return new PendingPlanCallHit(
+                            source.Key,
+                            FindContainingDeclarationName(clean, TypeDeclarationRegex, "type", callMatch.Index),
+                            FindContainingDeclarationName(clean, MemberDeclarationRegex, "member", callMatch.Index),
+                            receiver,
+                            receiverType,
+                            method,
+                            classification);
                     }
                 }
             }
@@ -1465,36 +1574,138 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
             private static IEnumerable<string> FindSerializedExecutionModeDeclarations(string source)
             {
                 var clean = StripCommentsAndStrings(source);
-                foreach (Match match in SerializedFieldDeclarationRegex.Matches(clean))
+                foreach (Match match in ExecutionModeDeclarationRegex.Matches(clean))
                 {
                     var attributes = match.Groups["attributes"].Value;
                     var visibility = match.Groups["visibility"].Value;
-                    var isPublicField = visibility == "public";
+                    var type = match.Groups["type"].Value;
+                    var terminator = match.Groups["terminator"].Value;
+                    var isProperty = terminator == "{";
+                    var isField = !isProperty;
                     var hasUnityFieldAttribute =
                         attributes.IndexOf("SerializeField", StringComparison.Ordinal) >= 0 ||
                         attributes.IndexOf("SerializeReference", StringComparison.Ordinal) >= 0;
-                    if (!isPublicField && !hasUnityFieldAttribute)
-                    {
-                        continue;
-                    }
-
-                    yield return $"{visibility} {match.Groups["type"].Value} {match.Groups["name"].Value}";
-                }
-
-                foreach (Match match in SerializedPropertyDeclarationRegex.Matches(clean))
-                {
-                    var attributes = match.Groups["attributes"].Value;
                     var hasFieldTargetAttribute =
                         attributes.IndexOf("field:", StringComparison.Ordinal) >= 0 &&
-                        (attributes.IndexOf("SerializeField", StringComparison.Ordinal) >= 0 ||
-                         attributes.IndexOf("SerializeReference", StringComparison.Ordinal) >= 0);
-                    if (!hasFieldTargetAttribute)
+                        hasUnityFieldAttribute;
+
+                    if (isProperty)
+                    {
+                        if (!hasFieldTargetAttribute)
+                        {
+                            continue;
+                        }
+
+                        yield return $"{visibility} {type} {ExtractFirstDeclaratorName(match.Groups["declarators"].Value)}";
+                        continue;
+                    }
+
+                    if (isField && visibility != "public" && !hasUnityFieldAttribute)
                     {
                         continue;
                     }
 
-                    yield return $"{match.Groups["visibility"].Value} {match.Groups["type"].Value} {match.Groups["name"].Value}";
+                    foreach (var name in ExtractDeclaratorNames(match.Groups["declarators"].Value))
+                    {
+                        yield return $"{visibility} {type} {name}";
+                    }
                 }
+            }
+
+            private static IEnumerable<string> FindSerializedExecutionModeRuntimeFields(Type type)
+            {
+                foreach (var field in type.GetFields(
+                             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly))
+                {
+                    if (!field.FieldType.Name.EndsWith("ExecutionMode", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    var isUnitySerialized =
+                        field.IsPublic ||
+                        field.GetCustomAttributes(typeof(SerializeField), inherit: false).Length > 0 ||
+                        field.GetCustomAttributes(typeof(SerializeReference), inherit: false).Length > 0;
+                    if (!isUnitySerialized)
+                    {
+                        continue;
+                    }
+
+                    yield return $"{(field.IsPublic ? "public" : "private")} {field.FieldType.Name} {field.Name}";
+                }
+            }
+
+            private static string FindContainingDeclarationName(
+                string source,
+                Regex declarationRegex,
+                string groupName,
+                int targetIndex)
+            {
+                var result = "<unknown>";
+                var resultOpenBrace = -1;
+                foreach (Match match in declarationRegex.Matches(source))
+                {
+                    if (match.Index > targetIndex)
+                    {
+                        break;
+                    }
+
+                    var openBrace = source.IndexOf('{', match.Index + match.Length);
+                    if (openBrace < 0 || openBrace > targetIndex || openBrace < resultOpenBrace)
+                    {
+                        continue;
+                    }
+
+                    var closeBrace = FindMatchingBrace(source, openBrace);
+                    if (closeBrace >= targetIndex)
+                    {
+                        result = match.Groups[groupName].Value;
+                        resultOpenBrace = openBrace;
+                    }
+                }
+
+                return result;
+            }
+
+            private static int FindMatchingBrace(string source, int openBraceIndex)
+            {
+                var depth = 0;
+                for (var index = openBraceIndex; index < source.Length; index++)
+                {
+                    if (source[index] == '{')
+                    {
+                        depth++;
+                    }
+                    else if (source[index] == '}')
+                    {
+                        depth--;
+                        if (depth == 0)
+                        {
+                            return index;
+                        }
+                    }
+                }
+
+                return source.Length - 1;
+            }
+
+            private static IEnumerable<string> ExtractDeclaratorNames(string declarators)
+            {
+                foreach (var declarator in declarators.Split(','))
+                {
+                    var name = ExtractFirstDeclaratorName(declarator);
+                    if (!string.IsNullOrEmpty(name))
+                    {
+                        yield return name;
+                    }
+                }
+            }
+
+            private static string ExtractFirstDeclaratorName(string declarator)
+            {
+                var namePart = declarator.Split('=')[0].Trim();
+                var match = Regex.Match(namePart, @"^[A-Za-z_][A-Za-z0-9_]*$");
+                return match.Success ? match.Value : string.Empty;
             }
 
             private static string StripCommentsAndStrings(string source)
@@ -1587,6 +1798,34 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
 
                             index++;
                             if (current == '"' && !escaped)
+                            {
+                                break;
+                            }
+
+                            escaped = current == '\\' && !escaped;
+                            if (current != '\\')
+                            {
+                                escaped = false;
+                            }
+                        }
+
+                        continue;
+                    }
+
+                    if (chars[index] == '\'')
+                    {
+                        chars[index++] = ' ';
+                        var escaped = false;
+                        while (index < chars.Length)
+                        {
+                            var current = source[index];
+                            if (chars[index] != '\n' && chars[index] != '\r')
+                            {
+                                chars[index] = ' ';
+                            }
+
+                            index++;
+                            if (current == '\'' && !escaped)
                             {
                                 break;
                             }
