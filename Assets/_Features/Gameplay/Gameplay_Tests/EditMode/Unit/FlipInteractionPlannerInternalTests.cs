@@ -646,7 +646,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var entityApplier = new GameplayEntityPresentationApplier(
                 stateStore,
                 trackState,
-                poseResolver,
                 animationSync,
                 motionTimingResolver,
                 new DefaultEnemyVisualSemanticResolver(),

@@ -85,7 +85,6 @@ namespace Game.Feature.Gameplay.Host
             var entityPresentationApplier = new GameplayEntityPresentationApplier(
                 stateStore,
                 trackState,
-                poseResolver,
                 animationSync,
                 motionTimingResolver,
                 enemyVisualSemanticResolver,
@@ -104,7 +103,10 @@ namespace Game.Feature.Gameplay.Host
             exitPresentationController.SetDeferredExitCleanupHoldPredicate(
                 moonBlockDestructionPresentationController.ShouldHoldDeferredExitCleanup);
             exitPresentationController.SetLiveExitOwnershipBypassPredicate(
-                moonBlockDestructionPresentationController.ShouldBypassLiveExitOwnership);
+                entityId =>
+                    moonBlockDestructionPresentationController.ShouldBypassLiveExitOwnership(entityId) ||
+                    trackState.PlayerDeathHoldSignalEntityIds.Contains(entityId) ||
+                    trackState.PlayerDeathHoldPoses.ContainsKey(entityId));
             var trackPlanner = new GameplayTrackPlanner(
                 stateStore,
                 trackState,

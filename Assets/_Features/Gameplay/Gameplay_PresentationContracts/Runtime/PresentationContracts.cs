@@ -1268,6 +1268,144 @@ namespace Game.Feature.Gameplay.PresentationContracts
         public int EnemyAudioFactCount { get; }
     }
 
+    public readonly struct PresentationEntityKey : IEquatable<PresentationEntityKey>
+    {
+        public PresentationEntityKey(int entityId)
+        {
+            EntityId = entityId;
+        }
+
+        public int EntityId { get; }
+
+        public bool IsValid => EntityId > 0;
+
+        public bool Equals(PresentationEntityKey other)
+        {
+            return EntityId == other.EntityId;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationEntityKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return EntityId;
+        }
+
+        public static bool operator ==(PresentationEntityKey left, PresentationEntityKey right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(PresentationEntityKey left, PresentationEntityKey right)
+        {
+            return !left.Equals(right);
+        }
+    }
+
+    public enum PresentationOwnerRole
+    {
+        Unknown = 0,
+        Player = 1,
+        Enemy = 2,
+        NeutralUnit = 3,
+        Box = 4,
+        Projectile = 5,
+        Static = 6,
+    }
+
+    public enum PresentationPoseSourceKind
+    {
+        None = 0,
+        PlayerContinuousLocomotion = 1,
+        EnemyKinematicMotion = 2,
+        PlayerDeathHold = 3,
+        EnemyDeathHold = 4,
+        CommittedPose = 5,
+        RetainedPose = 6,
+        PresentedPose = 7,
+        TransitionVisibilityPose = 8,
+        JumpDetachedPose = 9,
+        FlipResultTurn = 20,
+        Jump = 21,
+        GlideOffset = 22,
+        Knockback = 23,
+        Teleport = 24,
+        Respawn = 25,
+        Cutscene = 26,
+        NetworkCorrection = 27,
+    }
+
+    public enum PresentationPoseChannel
+    {
+        None = 0,
+        BasePose = 1,
+        TerminalHold = 2,
+        AdditiveLocalOffset = 3,
+        AdditiveRotation = 4,
+        Visibility = 5,
+    }
+
+    public enum PresentationPoseRejectionReason
+    {
+        None = 0,
+        OwnerRoleMismatch = 1,
+        UnsupportedChannel = 2,
+        MissingRoleMetadata = 3,
+        StaleEntityKey = 4,
+        TerminalSourceConflict = 5,
+    }
+
+    public readonly struct PresentationPoseProvenance : IEquatable<PresentationPoseProvenance>
+    {
+        public PresentationPoseProvenance(
+            PresentationOwnerRole ownerRole,
+            PresentationPoseSourceKind baseSource,
+            PresentationPoseSourceKind terminalSource,
+            int sourceTick)
+        {
+            OwnerRole = ownerRole;
+            BaseSource = baseSource;
+            TerminalSource = terminalSource;
+            SourceTick = sourceTick;
+        }
+
+        public PresentationOwnerRole OwnerRole { get; }
+
+        public PresentationPoseSourceKind BaseSource { get; }
+
+        public PresentationPoseSourceKind TerminalSource { get; }
+
+        public int SourceTick { get; }
+
+        public bool Equals(PresentationPoseProvenance other)
+        {
+            return OwnerRole == other.OwnerRole &&
+                   BaseSource == other.BaseSource &&
+                   TerminalSource == other.TerminalSource &&
+                   SourceTick == other.SourceTick;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationPoseProvenance other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = (int)OwnerRole;
+                hash = (hash * 397) ^ (int)BaseSource;
+                hash = (hash * 397) ^ (int)TerminalSource;
+                hash = (hash * 397) ^ SourceTick;
+                return hash;
+            }
+        }
+    }
+
     public sealed class PresentationFactFrame
     {
         private static readonly IReadOnlyList<PresentationFact> EmptyFacts =

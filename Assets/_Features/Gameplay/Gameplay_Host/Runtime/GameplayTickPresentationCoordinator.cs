@@ -227,6 +227,9 @@ namespace Game.Feature.Gameplay.Host
         private readonly TopologyAudioRequestPlanner _topologyAudioRequestPlanner;
         private readonly TopologyAudioPresentationController _topologyAudioPresentationController;
         private readonly GameplayPresentationTrackState _trackState;
+        private readonly PresentationPoseCandidateCollector _presentationPoseCandidateCollector;
+        private readonly PresentationBasePoseFrameResolver _basePoseFrameResolver;
+        private readonly ResolvedPresentationFrameSet _resolvedPresentationFrames = new();
         private readonly TilePresentationRequestPlanner _tilePresentationRequestPlanner;
         private readonly GameplayTopologyTransitionController _topologyTransitionController;
         private readonly GameplayPresentationPauseRegistry _presentationPauseRegistry;
@@ -284,6 +287,8 @@ namespace Game.Feature.Gameplay.Host
 
             _stateStore = composition.StateStore;
             _trackState = composition.TrackState;
+            _presentationPoseCandidateCollector = new PresentationPoseCandidateCollector(_stateStore, _trackState);
+            _basePoseFrameResolver = new PresentationBasePoseFrameResolver(_presentationPoseCandidateCollector);
             _animationSync = composition.AnimationSync;
             _motionTimingResolver = composition.MotionTimingResolver;
             _poseResolver = composition.PoseResolver;
@@ -728,6 +733,7 @@ namespace Game.Feature.Gameplay.Host
             _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
             _boxMotionLane.ResetSession(BoxMotionTelemetryCleanupReason.ResetSession);
             _trackState.ResetSession();
+            _resolvedPresentationFrames.Clear();
             _utilityWindupVfxPresenter.Initialize(viewBinder.SearchRoot);
             _animationSync.Reset();
             _stateStore.ResetSession(initialTopology);
@@ -1024,6 +1030,7 @@ namespace Game.Feature.Gameplay.Host
             _entityPresentationApplier.ResetEnemySemanticPresentationDriverCache();
             _boxMotionLane.ResetSession(BoxMotionTelemetryCleanupReason.PresentInitial);
             _trackState.ResetSession();
+            _resolvedPresentationFrames.Clear();
             _exitPresentationController.Reset();
             _moonBlockDestructionPresentationController.ResetSession();
             _utilityWindupVfxPresenter.Clear();
@@ -1097,9 +1104,11 @@ namespace Game.Feature.Gameplay.Host
                 _moonBlockEmergencePresentationController,
                 _lastPresentedTickIndex,
                 deltaTime);
+            _basePoseFrameResolver.Resolve(_lastPresentedTickIndex, _resolvedPresentationFrames);
             _entityPresentationApplier.Apply(
                 deltaTime,
                 hadActiveBoardRotationTween || _topologyTransitionController.HasActiveBoardRotationTween,
+                _resolvedPresentationFrames,
                 _viewBinder,
                 _timingProfile);
             _exitPresentationController.CompleteDeferredEntityExits();

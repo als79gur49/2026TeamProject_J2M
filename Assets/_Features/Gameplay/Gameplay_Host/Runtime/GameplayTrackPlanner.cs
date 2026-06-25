@@ -115,7 +115,7 @@ namespace Game.Feature.Gameplay.Host
             var kinematicEntityIds = CollectKinematicEntityIds(presentationData);
             var flipImpactTimingSettings = _motionTimingResolver.ResolveFlipImpactTimingSettings(timingProfile);
             RefreshKinematicTracks(presentationData, projector);
-            RefreshPlayerDeathHoldTracks(presentationData);
+            RefreshPlayerDeathHoldTracks(presentationData, previousCommittedLocalTargetPoses);
             RefreshMotionClips(
                 presentationData,
                 previousCommittedLocalTargetPoses,
@@ -853,11 +853,18 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void RefreshPlayerDeathHoldTracks(TickPresentationData presentationData)
+        private void RefreshPlayerDeathHoldTracks(
+            TickPresentationData presentationData,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses)
         {
             if (presentationData == null)
             {
                 throw new ArgumentNullException(nameof(presentationData));
+            }
+
+            if (previousCommittedLocalTargetPoses == null)
+            {
+                throw new ArgumentNullException(nameof(previousCommittedLocalTargetPoses));
             }
 
             _trackState.PlayerDeathHoldSignalEntityIds.Clear();
@@ -894,6 +901,12 @@ namespace Game.Feature.Gameplay.Host
                 if (_stateStore.CommittedLocalTargetPoses.TryGetValue(signal.EntityId, out var committedPose))
                 {
                     _trackState.PlayerDeathHoldPoses[signal.EntityId] = committedPose;
+                    continue;
+                }
+
+                if (previousCommittedLocalTargetPoses.TryGetValue(signal.EntityId, out var previousCommittedPose))
+                {
+                    _trackState.PlayerDeathHoldPoses[signal.EntityId] = previousCommittedPose;
                 }
             }
 

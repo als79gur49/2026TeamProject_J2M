@@ -5257,7 +5257,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.PresentInitial(
                     new[]
                     {
-                        CreatePlayerUnit(10, sourceCell),
+                        CreateEnemyUnit(10, sourceCell),
                     },
                     topology);
 
@@ -5273,7 +5273,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         tickIndex: 1,
                         new[]
                         {
-                            CreatePlayerUnit(10, sourceCell),
+                            CreateEnemyUnit(10, sourceCell),
                         },
                         topology,
                         CreateKinematicPresentationData(
@@ -5698,7 +5698,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.PresentInitial(
                     new[]
                     {
-                        CreatePlayerUnit(10, sourceCell),
+                        CreateEnemyUnit(10, sourceCell),
                     },
                     topology);
 
@@ -5723,7 +5723,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         tickIndex: 2,
                         new[]
                         {
-                            CreatePlayerUnit(10, destinationCell),
+                            CreateEnemyUnit(10, destinationCell),
                         },
                         topology,
                         CreateKinematicPresentationData(
@@ -5762,7 +5762,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.PresentInitial(
                     new[]
                     {
-                        CreatePlayerUnit(10, sourceCell),
+                        CreateEnemyUnit(10, sourceCell),
                     },
                     topology);
 
@@ -6097,6 +6097,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(registry, new MotionOverrideViewFactory(registry.transform));
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
@@ -16399,6 +16400,214 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ApplyCount++;
                 LastState = state;
             }
+        }
+    }
+
+    public sealed class PresentationPoseArbitrationTests
+    {
+        private const string ApplierPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayEntityPresentationApplier.cs";
+
+        [Test]
+        [Category("Core")]
+        public void CompatibilityPolicy_RejectsCrossOwnerRoleSpecificSourcesBeforePriority()
+        {
+            AssertCompatible(PresentationOwnerRole.Player, PresentationPoseSourceKind.PlayerContinuousLocomotion);
+            AssertCompatible(PresentationOwnerRole.Player, PresentationPoseSourceKind.PlayerDeathHold, PresentationPoseChannel.TerminalHold);
+            AssertRejected(
+                PresentationOwnerRole.Player,
+                PresentationPoseSourceKind.EnemyKinematicMotion,
+                PresentationPoseChannel.BasePose,
+                PresentationPoseRejectionReason.OwnerRoleMismatch);
+
+            AssertCompatible(PresentationOwnerRole.Enemy, PresentationPoseSourceKind.EnemyKinematicMotion);
+            AssertCompatible(PresentationOwnerRole.Enemy, PresentationPoseSourceKind.EnemyDeathHold, PresentationPoseChannel.TerminalHold);
+            AssertRejected(
+                PresentationOwnerRole.Enemy,
+                PresentationPoseSourceKind.PlayerContinuousLocomotion,
+                PresentationPoseChannel.BasePose,
+                PresentationPoseRejectionReason.OwnerRoleMismatch);
+
+            AssertRejected(
+                PresentationOwnerRole.Unknown,
+                PresentationPoseSourceKind.PlayerContinuousLocomotion,
+                PresentationPoseChannel.BasePose,
+                PresentationPoseRejectionReason.MissingRoleMetadata);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BasePoseArbitration_PlayerDeathHold_RejectsSameIdEnemyKinematicCandidate()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkPlayer(stateStore, 10);
+
+            var playerPose = PoseAt(1f);
+            var enemyPose = PoseAt(9f);
+            stateStore.CommittedLocalTargetPoses[10] = playerPose;
+            trackState.PlayerDeathHoldPoses[10] = playerPose;
+            trackState.EnemyKinematicPresentationPoseOverrides[10] = new KinematicPresentationPose(
+                enemyPose,
+                MotionMode.Voluntary,
+                TickKinematicMotionTerminalKind.None);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 42);
+
+            Assert.That(frames.TryGetFrame(10, out var frame), Is.True);
+            Assert.That(frame.BasePose.Position, Is.EqualTo(playerPose.Position));
+            Assert.That(frame.BasePose.Position, Is.Not.EqualTo(enemyPose.Position));
+            Assert.That(frame.OwnerRole, Is.EqualTo(PresentationOwnerRole.Player));
+            Assert.That(frame.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.PlayerDeathHold));
+            Assert.That(frame.Provenance.TerminalSource, Is.EqualTo(PresentationPoseSourceKind.PlayerDeathHold));
+            Assert.That(
+                frames.Rejections.Any(rejection =>
+                    rejection.Entity.EntityId == 10 &&
+                    rejection.SourceKind == PresentationPoseSourceKind.EnemyKinematicMotion &&
+                    rejection.Reason == PresentationPoseRejectionReason.OwnerRoleMismatch),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BasePoseArbitration_PlayerContinuous_BeatsCommittedFallback()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkPlayer(stateStore, 10);
+
+            var committedPose = PoseAt(1f);
+            var continuousPose = PoseAt(2f);
+            stateStore.CommittedLocalTargetPoses[10] = committedPose;
+            trackState.PlayerContinuousLocomotionPresentationPoseOverrides[10] =
+                new PlayerContinuousLocomotionPresentationPose(
+                    continuousPose,
+                    ContinuousLocomotionMode.Moving,
+                    TickKinematicMotionTerminalKind.None);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 7);
+
+            Assert.That(frames.TryGetFrame(10, out var frame), Is.True);
+            Assert.That(frame.BasePose.Position, Is.EqualTo(continuousPose.Position));
+            Assert.That(frame.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.PlayerContinuousLocomotion));
+            Assert.That(frame.IsActiveLocomotion, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BasePoseArbitration_EnemyKinematic_BeatsCommittedFallback()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var committedPose = PoseAt(1f);
+            var kinematicPose = PoseAt(3f);
+            stateStore.CommittedLocalTargetPoses[40] = committedPose;
+            trackState.EnemyKinematicPresentationPoseOverrides[40] = new KinematicPresentationPose(
+                kinematicPose,
+                MotionMode.Voluntary,
+                TickKinematicMotionTerminalKind.None);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 7);
+
+            Assert.That(frames.TryGetFrame(40, out var frame), Is.True);
+            Assert.That(frame.BasePose.Position, Is.EqualTo(kinematicPose.Position));
+            Assert.That(frame.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.EnemyKinematicMotion));
+            Assert.That(frame.IsActiveLocomotion, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void BasePoseArbitration_CommittedFallback_BeatsRetainedFallback()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkPlayer(stateStore, 10);
+
+            var committedPose = PoseAt(1f);
+            var retainedPose = PoseAt(4f);
+            stateStore.CommittedLocalTargetPoses[10] = committedPose;
+            stateStore.RetainedLocalTargetPoses[10] = retainedPose;
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 7);
+
+            Assert.That(frames.TryGetFrame(10, out var frame), Is.True);
+            Assert.That(frame.BasePose.Position, Is.EqualTo(committedPose.Position));
+            Assert.That(frame.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.CommittedPose));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_DoesNotOwnBasePoseStoreSelection()
+        {
+            var source = File.ReadAllText(Path.Combine(Application.dataPath, "..", ApplierPath));
+
+            Assert.That(source, Does.Not.Contain("TryGetPresentationPoseOverride"));
+            Assert.That(source, Does.Not.Contain("PlayerContinuousLocomotionPresentationPoseOverrides"));
+            Assert.That(source, Does.Not.Contain("EnemyKinematicPresentationPoseOverrides"));
+            Assert.That(source, Does.Not.Contain("PlayerDeathHoldPoses"));
+            Assert.That(source, Does.Contain("ResolvedPresentationFrameSet"));
+        }
+
+        private static void AssertCompatible(
+            PresentationOwnerRole ownerRole,
+            PresentationPoseSourceKind sourceKind,
+            PresentationPoseChannel channel = PresentationPoseChannel.BasePose)
+        {
+            Assert.That(
+                PresentationPoseCompatibilityPolicy.IsCompatible(
+                    ownerRole,
+                    sourceKind,
+                    channel,
+                    out var rejectionReason),
+                Is.True);
+            Assert.That(rejectionReason, Is.EqualTo(PresentationPoseRejectionReason.None));
+        }
+
+        private static void AssertRejected(
+            PresentationOwnerRole ownerRole,
+            PresentationPoseSourceKind sourceKind,
+            PresentationPoseChannel channel,
+            PresentationPoseRejectionReason expectedReason)
+        {
+            Assert.That(
+                PresentationPoseCompatibilityPolicy.IsCompatible(
+                    ownerRole,
+                    sourceKind,
+                    channel,
+                    out var rejectionReason),
+                Is.False);
+            Assert.That(rejectionReason, Is.EqualTo(expectedReason));
+        }
+
+        private static ResolvedPresentationFrameSet Resolve(
+            GameplayPresentationStateStore stateStore,
+            GameplayPresentationTrackState trackState,
+            int sourceTick)
+        {
+            var collector = new PresentationPoseCandidateCollector(stateStore, trackState);
+            var resolver = new PresentationBasePoseFrameResolver(collector);
+            var frames = new ResolvedPresentationFrameSet();
+            resolver.Resolve(sourceTick, frames);
+            return frames;
+        }
+
+        private static void MarkPlayer(GameplayPresentationStateStore stateStore, int entityId)
+        {
+            stateStore.EntityTypesByEntityId[entityId] = EntityType.Unit;
+            stateStore.UnitRolesByEntityId[entityId] = UnitRole.Player;
+        }
+
+        private static void MarkEnemy(GameplayPresentationStateStore stateStore, int entityId)
+        {
+            stateStore.EntityTypesByEntityId[entityId] = EntityType.Unit;
+            stateStore.UnitRolesByEntityId[entityId] = UnitRole.Enemy;
+        }
+
+        private static GameplayEntityPose PoseAt(float x)
+        {
+            return new GameplayEntityPose(new Vector3(x, 0f, 0f), Quaternion.identity);
         }
     }
 }

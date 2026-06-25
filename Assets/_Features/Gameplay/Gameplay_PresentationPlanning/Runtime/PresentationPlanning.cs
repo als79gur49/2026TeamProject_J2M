@@ -1504,6 +1504,117 @@ namespace Game.Feature.Gameplay.PresentationPlanning
         }
     }
 
+    public static class PresentationPoseCompatibilityPolicy
+    {
+        public static bool IsCompatible(
+            PresentationOwnerRole ownerRole,
+            PresentationPoseSourceKind sourceKind,
+            PresentationPoseChannel channel,
+            out PresentationPoseRejectionReason rejectionReason)
+        {
+            if (sourceKind == PresentationPoseSourceKind.None ||
+                channel == PresentationPoseChannel.None)
+            {
+                rejectionReason = PresentationPoseRejectionReason.UnsupportedChannel;
+                return false;
+            }
+
+            if (channel != PresentationPoseChannel.BasePose &&
+                channel != PresentationPoseChannel.TerminalHold)
+            {
+                rejectionReason = PresentationPoseRejectionReason.UnsupportedChannel;
+                return false;
+            }
+
+            if (ownerRole == PresentationOwnerRole.Unknown)
+            {
+                rejectionReason = PresentationPoseRejectionReason.MissingRoleMetadata;
+                return false;
+            }
+
+            if (!IsChannelSupportedForSource(sourceKind, channel))
+            {
+                rejectionReason = PresentationPoseRejectionReason.UnsupportedChannel;
+                return false;
+            }
+
+            if (IsPlayerOwnedSource(sourceKind))
+            {
+                if (ownerRole == PresentationOwnerRole.Player)
+                {
+                    rejectionReason = PresentationPoseRejectionReason.None;
+                    return true;
+                }
+
+                rejectionReason = PresentationPoseRejectionReason.OwnerRoleMismatch;
+                return false;
+            }
+
+            if (IsEnemyOwnedSource(sourceKind))
+            {
+                if (ownerRole == PresentationOwnerRole.Enemy)
+                {
+                    rejectionReason = PresentationPoseRejectionReason.None;
+                    return true;
+                }
+
+                rejectionReason = PresentationPoseRejectionReason.OwnerRoleMismatch;
+                return false;
+            }
+
+            if (IsNeutralFallbackSource(sourceKind))
+            {
+                rejectionReason = PresentationPoseRejectionReason.None;
+                return true;
+            }
+
+            rejectionReason = PresentationPoseRejectionReason.UnsupportedChannel;
+            return false;
+        }
+
+        public static bool IsPlayerOwnedSource(PresentationPoseSourceKind sourceKind)
+        {
+            return sourceKind == PresentationPoseSourceKind.PlayerContinuousLocomotion ||
+                   sourceKind == PresentationPoseSourceKind.PlayerDeathHold;
+        }
+
+        public static bool IsEnemyOwnedSource(PresentationPoseSourceKind sourceKind)
+        {
+            return sourceKind == PresentationPoseSourceKind.EnemyKinematicMotion ||
+                   sourceKind == PresentationPoseSourceKind.EnemyDeathHold;
+        }
+
+        public static bool IsTerminalSource(PresentationPoseSourceKind sourceKind)
+        {
+            return sourceKind == PresentationPoseSourceKind.PlayerDeathHold ||
+                   sourceKind == PresentationPoseSourceKind.EnemyDeathHold ||
+                   sourceKind == PresentationPoseSourceKind.PresentedPose;
+        }
+
+        public static bool IsNeutralFallbackSource(PresentationPoseSourceKind sourceKind)
+        {
+            return sourceKind == PresentationPoseSourceKind.CommittedPose ||
+                   sourceKind == PresentationPoseSourceKind.RetainedPose ||
+                   sourceKind == PresentationPoseSourceKind.TransitionVisibilityPose ||
+                   sourceKind == PresentationPoseSourceKind.JumpDetachedPose ||
+                   sourceKind == PresentationPoseSourceKind.PresentedPose;
+        }
+
+        private static bool IsChannelSupportedForSource(
+            PresentationPoseSourceKind sourceKind,
+            PresentationPoseChannel channel)
+        {
+            if (sourceKind == PresentationPoseSourceKind.PlayerDeathHold ||
+                sourceKind == PresentationPoseSourceKind.EnemyDeathHold ||
+                sourceKind == PresentationPoseSourceKind.PresentedPose)
+            {
+                return channel == PresentationPoseChannel.TerminalHold;
+            }
+
+            return channel == PresentationPoseChannel.BasePose;
+        }
+    }
+
     public sealed class PresentationCuePlannerSet
     {
         private static readonly IReadOnlyList<IPresentationCuePlanner> EmptyPlanners =

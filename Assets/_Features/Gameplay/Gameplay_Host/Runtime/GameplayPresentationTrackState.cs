@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PresentationContracts;
+using Game.Feature.Gameplay.PresentationPlanning;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -155,6 +157,516 @@ namespace Game.Feature.Gameplay.Host
         public RotationTrack Track { get; }
     }
 
+    internal readonly struct PresentationPoseCandidate
+    {
+        public PresentationPoseCandidate(
+            PresentationEntityKey entity,
+            PresentationOwnerRole ownerRole,
+            PresentationPoseSourceKind sourceKind,
+            PresentationPoseChannel channel,
+            GameplayEntityPose pose,
+            int sourceTick,
+            bool isTerminal,
+            bool isActiveLocomotion)
+        {
+            Entity = entity;
+            OwnerRole = ownerRole;
+            SourceKind = sourceKind;
+            Channel = channel;
+            Pose = pose;
+            SourceTick = sourceTick;
+            IsTerminal = isTerminal;
+            IsActiveLocomotion = isActiveLocomotion;
+        }
+
+        public PresentationEntityKey Entity { get; }
+
+        public PresentationOwnerRole OwnerRole { get; }
+
+        public PresentationPoseSourceKind SourceKind { get; }
+
+        public PresentationPoseChannel Channel { get; }
+
+        public GameplayEntityPose Pose { get; }
+
+        public int SourceTick { get; }
+
+        public bool IsTerminal { get; }
+
+        public bool IsActiveLocomotion { get; }
+    }
+
+    internal readonly struct PresentationPoseRejection
+    {
+        public PresentationPoseRejection(
+            PresentationEntityKey entity,
+            PresentationOwnerRole ownerRole,
+            PresentationPoseSourceKind sourceKind,
+            PresentationPoseChannel channel,
+            PresentationPoseRejectionReason reason)
+        {
+            Entity = entity;
+            OwnerRole = ownerRole;
+            SourceKind = sourceKind;
+            Channel = channel;
+            Reason = reason;
+        }
+
+        public PresentationEntityKey Entity { get; }
+
+        public PresentationOwnerRole OwnerRole { get; }
+
+        public PresentationPoseSourceKind SourceKind { get; }
+
+        public PresentationPoseChannel Channel { get; }
+
+        public PresentationPoseRejectionReason Reason { get; }
+    }
+
+    internal readonly struct ResolvedEntityPresentationFrame
+    {
+        public ResolvedEntityPresentationFrame(
+            PresentationEntityKey entity,
+            PresentationOwnerRole ownerRole,
+            GameplayEntityPose basePose,
+            PresentationPoseProvenance provenance,
+            bool isActiveLocomotion)
+        {
+            Entity = entity;
+            OwnerRole = ownerRole;
+            BasePose = basePose;
+            Provenance = provenance;
+            IsActiveLocomotion = isActiveLocomotion;
+        }
+
+        public PresentationEntityKey Entity { get; }
+
+        public PresentationOwnerRole OwnerRole { get; }
+
+        public GameplayEntityPose BasePose { get; }
+
+        public PresentationPoseProvenance Provenance { get; }
+
+        public bool IsActiveLocomotion { get; }
+    }
+
+    internal sealed class ResolvedPresentationFrameSet
+    {
+        private readonly Dictionary<PresentationEntityKey, ResolvedEntityPresentationFrame> _framesByEntity = new();
+        private readonly List<int> _entityIds = new();
+        private readonly List<PresentationPoseRejection> _rejections = new();
+
+        public IReadOnlyList<int> EntityIds => _entityIds;
+
+        public IReadOnlyList<PresentationPoseRejection> Rejections => _rejections;
+
+        public void Clear()
+        {
+            _framesByEntity.Clear();
+            _entityIds.Clear();
+            _rejections.Clear();
+        }
+
+        public bool TryGetFrame(int entityId, out ResolvedEntityPresentationFrame frame)
+        {
+            return _framesByEntity.TryGetValue(new PresentationEntityKey(entityId), out frame);
+        }
+
+        public void SetFrame(in ResolvedEntityPresentationFrame frame)
+        {
+            if (!_framesByEntity.ContainsKey(frame.Entity))
+            {
+                _entityIds.Add(frame.Entity.EntityId);
+            }
+
+            _framesByEntity[frame.Entity] = frame;
+        }
+
+        public void AddRejection(in PresentationPoseRejection rejection)
+        {
+            _rejections.Add(rejection);
+        }
+    }
+
+    internal sealed class PresentationPoseCandidateCollector
+    {
+        private readonly GameplayPresentationStateStore _stateStore;
+        private readonly GameplayPresentationTrackState _trackState;
+        private readonly HashSet<int> _candidateEntityIds = new();
+        private readonly List<int> _candidateEntityIdBuffer = new();
+
+        public PresentationPoseCandidateCollector(
+            GameplayPresentationStateStore stateStore,
+            GameplayPresentationTrackState trackState)
+        {
+            _stateStore = stateStore ?? throw new System.ArgumentNullException(nameof(stateStore));
+            _trackState = trackState ?? throw new System.ArgumentNullException(nameof(trackState));
+        }
+
+        public IReadOnlyList<int> CollectEntityIds()
+        {
+            _candidateEntityIds.Clear();
+            _candidateEntityIdBuffer.Clear();
+
+            AddEntityIds(_stateStore.CommittedLocalTargetPoses);
+            AddEntityIds(_stateStore.TransitionVisibilityStates);
+            AddEntityIds(_stateStore.JumpDetachedVisibilityStates);
+            AddEntityIds(_stateStore.RetainedLocalTargetPoses);
+            AddEntityIds(_trackState.PlayerContinuousLocomotionPresentationPoseOverrides);
+            AddEntityIds(_trackState.EnemyKinematicPresentationPoseOverrides);
+            AddEntityIds(_trackState.PlayerDeathHoldPoses);
+
+            _candidateEntityIdBuffer.Sort();
+            return _candidateEntityIdBuffer;
+        }
+
+        public void CollectCandidatesForEntity(
+            int entityId,
+            int sourceTick,
+            List<PresentationPoseCandidate> candidates)
+        {
+            candidates.Clear();
+            var key = new PresentationEntityKey(entityId);
+            var ownerRole = ResolveOwnerRole(entityId);
+
+            if (_trackState.PlayerContinuousLocomotionPresentationPoseOverrides.TryGetValue(
+                    entityId,
+                    out var continuousPose))
+            {
+                candidates.Add(new PresentationPoseCandidate(
+                    key,
+                    ownerRole,
+                    PresentationPoseSourceKind.PlayerContinuousLocomotion,
+                    PresentationPoseChannel.BasePose,
+                    continuousPose.LocalPose,
+                    sourceTick,
+                    isTerminal: false,
+                    continuousPose.IsActiveLocomotion));
+            }
+
+            if (_trackState.EnemyKinematicPresentationPoseOverrides.TryGetValue(entityId, out var kinematicPose))
+            {
+                candidates.Add(new PresentationPoseCandidate(
+                    key,
+                    ownerRole,
+                    PresentationPoseSourceKind.EnemyKinematicMotion,
+                    PresentationPoseChannel.BasePose,
+                    kinematicPose.LocalPose,
+                    sourceTick,
+                    isTerminal: false,
+                    kinematicPose.IsActiveLocomotion));
+            }
+
+            if (_stateStore.CommittedLocalTargetPoses.TryGetValue(entityId, out var committedPose))
+            {
+                candidates.Add(new PresentationPoseCandidate(
+                    key,
+                    ownerRole,
+                    PresentationPoseSourceKind.CommittedPose,
+                    PresentationPoseChannel.BasePose,
+                    committedPose,
+                    sourceTick,
+                    isTerminal: false,
+                    isActiveLocomotion: false));
+            }
+
+            if (_stateStore.TransitionVisibilityStates.TryGetValue(entityId, out var transitionVisibilityState))
+            {
+                candidates.Add(new PresentationPoseCandidate(
+                    key,
+                    ownerRole,
+                    PresentationPoseSourceKind.TransitionVisibilityPose,
+                    PresentationPoseChannel.BasePose,
+                    transitionVisibilityState.LocalPose,
+                    sourceTick,
+                    isTerminal: false,
+                    isActiveLocomotion: false));
+            }
+
+            if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var jumpDetachedVisibilityState))
+            {
+                candidates.Add(new PresentationPoseCandidate(
+                    key,
+                    ownerRole,
+                    PresentationPoseSourceKind.JumpDetachedPose,
+                    PresentationPoseChannel.BasePose,
+                    jumpDetachedVisibilityState.LocalPose,
+                    sourceTick,
+                    isTerminal: false,
+                    isActiveLocomotion: false));
+            }
+
+            if (_stateStore.RetainedLocalTargetPoses.TryGetValue(entityId, out var retainedPose))
+            {
+                candidates.Add(new PresentationPoseCandidate(
+                    key,
+                    ownerRole,
+                    PresentationPoseSourceKind.RetainedPose,
+                    PresentationPoseChannel.BasePose,
+                    retainedPose,
+                    sourceTick,
+                    isTerminal: false,
+                    isActiveLocomotion: false));
+            }
+
+            if (_trackState.PlayerDeathHoldPoses.TryGetValue(entityId, out var playerDeathHoldPose))
+            {
+                candidates.Add(new PresentationPoseCandidate(
+                    key,
+                    ownerRole,
+                    PresentationPoseSourceKind.PlayerDeathHold,
+                    PresentationPoseChannel.TerminalHold,
+                    playerDeathHoldPose,
+                    sourceTick,
+                    isTerminal: true,
+                    isActiveLocomotion: false));
+            }
+        }
+
+        private PresentationOwnerRole ResolveOwnerRole(int entityId)
+        {
+            if (_stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType))
+            {
+                if (entityType == EntityType.Box)
+                {
+                    return PresentationOwnerRole.Box;
+                }
+
+                if (entityType == EntityType.Unit &&
+                    _stateStore.UnitRolesByEntityId.TryGetValue(entityId, out var unitRole))
+                {
+                    if (EntityRolePolicy.IsPlayerUnit(entityType, unitRole))
+                    {
+                        return PresentationOwnerRole.Player;
+                    }
+
+                    if (EntityRolePolicy.IsEnemyUnit(entityType, unitRole))
+                    {
+                        return PresentationOwnerRole.Enemy;
+                    }
+
+                    if (TryResolveRoleSpecificLaneOwner(entityId, out var laneOwnerRole))
+                    {
+                        return laneOwnerRole;
+                    }
+
+                    return PresentationOwnerRole.NeutralUnit;
+                }
+            }
+
+            if (TryResolveRoleSpecificLaneOwner(entityId, out var roleSpecificLaneOwner))
+            {
+                return roleSpecificLaneOwner;
+            }
+
+            return PresentationOwnerRole.Unknown;
+        }
+
+        private bool TryResolveRoleSpecificLaneOwner(int entityId, out PresentationOwnerRole ownerRole)
+        {
+            if (_trackState.PlayerDeathHoldSignalEntityIds.Contains(entityId) ||
+                _trackState.PlayerDeathHoldPoses.ContainsKey(entityId) ||
+                _trackState.PlayerContinuousLocomotionPresentationPoseOverrides.ContainsKey(entityId))
+            {
+                ownerRole = PresentationOwnerRole.Player;
+                return true;
+            }
+
+            if (_trackState.EnemyKinematicPresentationPoseOverrides.ContainsKey(entityId))
+            {
+                ownerRole = PresentationOwnerRole.Enemy;
+                return true;
+            }
+
+            ownerRole = PresentationOwnerRole.Unknown;
+            return false;
+        }
+
+        private void AddEntityId(int entityId)
+        {
+            if (_candidateEntityIds.Add(entityId))
+            {
+                _candidateEntityIdBuffer.Add(entityId);
+            }
+        }
+
+        private void AddEntityIds<TValue>(Dictionary<int, TValue> source)
+        {
+            foreach (var pair in source)
+            {
+                AddEntityId(pair.Key);
+            }
+        }
+    }
+
+    internal sealed class PresentationBasePoseFrameResolver
+    {
+        private readonly PresentationPoseCandidateCollector _collector;
+        private readonly List<PresentationPoseCandidate> _candidateBuffer = new();
+
+        public PresentationBasePoseFrameResolver(PresentationPoseCandidateCollector collector)
+        {
+            _collector = collector ?? throw new System.ArgumentNullException(nameof(collector));
+        }
+
+        public void Resolve(int sourceTick, ResolvedPresentationFrameSet frameSet)
+        {
+            if (frameSet == null)
+            {
+                throw new System.ArgumentNullException(nameof(frameSet));
+            }
+
+            frameSet.Clear();
+            var entityIds = _collector.CollectEntityIds();
+            for (var i = 0; i < entityIds.Count; i++)
+            {
+                var entityId = entityIds[i];
+                _collector.CollectCandidatesForEntity(entityId, sourceTick, _candidateBuffer);
+                if (TryResolveFrame(_candidateBuffer, frameSet, out var frame))
+                {
+                    frameSet.SetFrame(frame);
+                }
+            }
+        }
+
+        private static bool TryResolveFrame(
+            List<PresentationPoseCandidate> candidates,
+            ResolvedPresentationFrameSet frameSet,
+            out ResolvedEntityPresentationFrame frame)
+        {
+            frame = default;
+            if (candidates.Count == 0)
+            {
+                return false;
+            }
+
+            PresentationPoseCandidate? terminalCandidate = null;
+            PresentationPoseCandidate? liveCandidate = null;
+            for (var i = 0; i < candidates.Count; i++)
+            {
+                var candidate = candidates[i];
+                if (!PresentationPoseCompatibilityPolicy.IsCompatible(
+                        candidate.OwnerRole,
+                        candidate.SourceKind,
+                        candidate.Channel,
+                        out var rejectionReason))
+                {
+                    frameSet.AddRejection(new PresentationPoseRejection(
+                        candidate.Entity,
+                        candidate.OwnerRole,
+                        candidate.SourceKind,
+                        candidate.Channel,
+                        rejectionReason));
+                    continue;
+                }
+
+                if (candidate.IsTerminal)
+                {
+                    terminalCandidate = SelectTerminalCandidate(terminalCandidate, candidate);
+                    continue;
+                }
+
+                liveCandidate = SelectLiveCandidate(liveCandidate, candidate);
+            }
+
+            var selected = terminalCandidate ?? liveCandidate;
+            if (!selected.HasValue)
+            {
+                return false;
+            }
+
+            var selectedCandidate = selected.Value;
+            var terminalSource = terminalCandidate.HasValue
+                ? selectedCandidate.SourceKind
+                : PresentationPoseSourceKind.None;
+            frame = new ResolvedEntityPresentationFrame(
+                selectedCandidate.Entity,
+                selectedCandidate.OwnerRole,
+                selectedCandidate.Pose,
+                new PresentationPoseProvenance(
+                    selectedCandidate.OwnerRole,
+                    selectedCandidate.SourceKind,
+                    terminalSource,
+                    selectedCandidate.SourceTick),
+                selectedCandidate.IsActiveLocomotion);
+            return true;
+        }
+
+        private static PresentationPoseCandidate SelectTerminalCandidate(
+            PresentationPoseCandidate? current,
+            PresentationPoseCandidate candidate)
+        {
+            if (!current.HasValue)
+            {
+                return candidate;
+            }
+
+            return ResolveTerminalPriority(candidate.SourceKind) < ResolveTerminalPriority(current.Value.SourceKind)
+                ? candidate
+                : current.Value;
+        }
+
+        private static PresentationPoseCandidate SelectLiveCandidate(
+            PresentationPoseCandidate? current,
+            PresentationPoseCandidate candidate)
+        {
+            if (!current.HasValue)
+            {
+                return candidate;
+            }
+
+            return ResolveLivePriority(candidate.OwnerRole, candidate.SourceKind) <
+                   ResolveLivePriority(current.Value.OwnerRole, current.Value.SourceKind)
+                ? candidate
+                : current.Value;
+        }
+
+        private static int ResolveTerminalPriority(PresentationPoseSourceKind sourceKind)
+        {
+            switch (sourceKind)
+            {
+                case PresentationPoseSourceKind.PlayerDeathHold:
+                case PresentationPoseSourceKind.EnemyDeathHold:
+                    return 0;
+                case PresentationPoseSourceKind.PresentedPose:
+                    return 1;
+                default:
+                    return 10;
+            }
+        }
+
+        private static int ResolveLivePriority(
+            PresentationOwnerRole ownerRole,
+            PresentationPoseSourceKind sourceKind)
+        {
+            if (ownerRole == PresentationOwnerRole.Player &&
+                sourceKind == PresentationPoseSourceKind.PlayerContinuousLocomotion)
+            {
+                return 0;
+            }
+
+            if (ownerRole == PresentationOwnerRole.Enemy &&
+                sourceKind == PresentationPoseSourceKind.EnemyKinematicMotion)
+            {
+                return 0;
+            }
+
+            switch (sourceKind)
+            {
+                case PresentationPoseSourceKind.CommittedPose:
+                    return 10;
+                case PresentationPoseSourceKind.TransitionVisibilityPose:
+                    return 11;
+                case PresentationPoseSourceKind.JumpDetachedPose:
+                    return 12;
+                case PresentationPoseSourceKind.RetainedPose:
+                    return 13;
+                default:
+                    return 100;
+            }
+        }
+    }
+
     internal sealed class GameplayPresentationTrackState
     {
         private readonly List<int> _completedFlipInteractionTrackIds = new();
@@ -278,6 +790,12 @@ namespace Game.Feature.Gameplay.Host
         {
             _activeAirborneJumpTrackKeys.Remove(entityId);
             _completedAirborneJumpTrackKeys.RemoveWhere(key => key.EntityId == entityId);
+        }
+
+        public void ClearPlayerTerminalHold(int entityId)
+        {
+            _playerDeathHoldPoses.Remove(entityId);
+            _playerDeathHoldSignalEntityIds.Remove(entityId);
         }
 
         public void ResetSession()

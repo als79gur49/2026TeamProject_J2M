@@ -225,7 +225,6 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayCommittedFrameBuilder _committedFrameBuilder;
         private readonly IEnemyVisualSemanticResolver _enemyVisualSemanticResolver;
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
-        private readonly GameplayPoseResolver _poseResolver;
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
         private readonly HashSet<int> _processingEntityIds = new();
@@ -235,7 +234,6 @@ namespace Game.Feature.Gameplay.Host
         public GameplayEntityPresentationApplier(
             GameplayPresentationStateStore stateStore,
             GameplayPresentationTrackState trackState,
-            GameplayPoseResolver poseResolver,
             GameplayAnimationSyncCoordinator animationSync,
             GameplayMotionTimingResolver motionTimingResolver,
             IEnemyVisualSemanticResolver enemyVisualSemanticResolver,
@@ -243,7 +241,6 @@ namespace Game.Feature.Gameplay.Host
         {
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
             _trackState = trackState ?? throw new ArgumentNullException(nameof(trackState));
-            _poseResolver = poseResolver ?? throw new ArgumentNullException(nameof(poseResolver));
             _animationSync = animationSync ?? throw new ArgumentNullException(nameof(animationSync));
             _motionTimingResolver = motionTimingResolver ?? throw new ArgumentNullException(nameof(motionTimingResolver));
             _enemyVisualSemanticResolver =
@@ -254,9 +251,15 @@ namespace Game.Feature.Gameplay.Host
         public void Apply(
             float deltaTime,
             bool hasActiveBoardRotationTween,
+            ResolvedPresentationFrameSet resolvedFrames,
             GameplayEntityViewBinder viewBinder,
             GameplayTimingProfile timingProfile)
         {
+            if (resolvedFrames == null)
+            {
+                throw new ArgumentNullException(nameof(resolvedFrames));
+            }
+
             if (viewBinder == null)
             {
                 throw new ArgumentNullException(nameof(viewBinder));
@@ -291,7 +294,7 @@ namespace Game.Feature.Gameplay.Host
             var playerExecutedCount = 0;
             var signatureChangedCount = 0;
             var signatureUnchangedCount = 0;
-            var processingEntityIds = BuildProcessingEntityIds();
+            var processingEntityIds = BuildProcessingEntityIds(resolvedFrames);
             for (var i = 0; i < processingEntityIds.Count; i++)
             {
                 var entityId = processingEntityIds[i];
@@ -300,39 +303,25 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                var hasPresentationPoseOverride = TryGetPresentationPoseOverride(
-                    entityId,
-                    out var presentationPoseOverride,
-                    out var isActivePresentationPoseLocomotion);
-                var hasPlayerDeathHoldPose = _trackState.PlayerDeathHoldPoses.TryGetValue(
-                    entityId,
-                    out var playerDeathHoldPose);
-                if (!_poseResolver.TryResolveFallbackLocalPose(entityId, out var localPose))
+                var hasResolvedFrame = resolvedFrames.TryGetFrame(entityId, out var resolvedFrame);
+                var hasPresentationPoseOverride = hasResolvedFrame &&
+                                                  IsLivePresentationPoseOverride(
+                                                      resolvedFrame.Provenance.BaseSource);
+                var isActivePresentationPoseLocomotion =
+                    hasPresentationPoseOverride && resolvedFrame.IsActiveLocomotion;
+                var hasPlayerDeathHoldPose = hasResolvedFrame &&
+                                             resolvedFrame.Provenance.TerminalSource ==
+                                             PresentationPoseSourceKind.PlayerDeathHold;
+                if (!hasResolvedFrame)
                 {
-                    if (hasPresentationPoseOverride)
-                    {
-                        localPose = presentationPoseOverride;
-                    }
-                    else if (hasPlayerDeathHoldPose)
-                    {
-                        localPose = playerDeathHoldPose;
-                    }
-                    else
-                    {
-                        continue;
-                    }
+                    continue;
                 }
 
+                var localPose = resolvedFrame.BasePose;
                 var motionVisualScaleMultiplier = Vector3.one;
-                if (hasPresentationPoseOverride)
-                {
-                    localPose = presentationPoseOverride;
-                }
-                else if (hasPlayerDeathHoldPose)
-                {
-                    localPose = playerDeathHoldPose;
-                }
-                else if (_trackState.OriginalViewMotionTracks.TryGetValue(entityId, out var originalViewMotionTrack))
+                if (!hasPresentationPoseOverride &&
+                    !hasPlayerDeathHoldPose &&
+                    _trackState.OriginalViewMotionTracks.TryGetValue(entityId, out var originalViewMotionTrack))
                 {
                     var sample = originalViewMotionTrack.Sample();
                     localPose = sample.LocalPose;
@@ -351,7 +340,9 @@ namespace Game.Feature.Gameplay.Host
                             originalViewMotionTrack.InstanceKey.GetHashCode());
                     }
                 }
-                else if (_trackState.LocalMotionTracks.TryGetValue(entityId, out var motionTrack))
+                else if (!hasPresentationPoseOverride &&
+                         !hasPlayerDeathHoldPose &&
+                         _trackState.LocalMotionTracks.TryGetValue(entityId, out var motionTrack))
                 {
                     localPose = motionTrack.SampleAndAdvance(
                         deltaTime,
@@ -556,7 +547,7 @@ namespace Game.Feature.Gameplay.Host
                     playerAnimationPlayback = _animationSync.ResolvePlayerAnimationPlayback(
                         entityId,
                         ShouldPlayPlayerWalkLoop(entityId),
-                        HasActivePlayerWalkMotion(entityId));
+                        HasActivePlayerWalkMotion(entityId, isActivePresentationPoseLocomotion));
                     playerAnimationMotionDurationSeconds =
                         _motionTimingResolver.ResolvePlayerAnimationStateMotionDurationSeconds(
                             entityId,
@@ -695,30 +686,21 @@ namespace Game.Feature.Gameplay.Host
             return result;
         }
 
-        private IReadOnlyList<int> BuildProcessingEntityIds()
+        private IReadOnlyList<int> BuildProcessingEntityIds(ResolvedPresentationFrameSet resolvedFrames)
         {
             _processingEntityIds.Clear();
             _processingEntityIdBuffer.Clear();
+
+            var resolvedEntityIds = resolvedFrames.EntityIds;
+            for (var i = 0; i < resolvedEntityIds.Count; i++)
+            {
+                AddProcessingEntityId(resolvedEntityIds[i]);
+            }
 
             var stateStoreEntityIds = _stateStore.BuildProcessingEntityIds();
             for (var i = 0; i < stateStoreEntityIds.Count; i++)
             {
                 AddProcessingEntityId(stateStoreEntityIds[i]);
-            }
-
-            foreach (var pair in _trackState.EnemyKinematicPresentationPoseOverrides)
-            {
-                AddProcessingEntityId(pair.Key);
-            }
-
-            foreach (var pair in _trackState.PlayerContinuousLocomotionPresentationPoseOverrides)
-            {
-                AddProcessingEntityId(pair.Key);
-            }
-
-            foreach (var pair in _trackState.PlayerDeathHoldPoses)
-            {
-                AddProcessingEntityId(pair.Key);
             }
 
             foreach (var pair in _trackState.PlayerFlipResultTurnTracks)
@@ -738,30 +720,10 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private bool TryGetPresentationPoseOverride(
-            int entityId,
-            out GameplayEntityPose localPose,
-            out bool isActiveLocomotion)
+        private static bool IsLivePresentationPoseOverride(PresentationPoseSourceKind sourceKind)
         {
-            if (_trackState.PlayerContinuousLocomotionPresentationPoseOverrides.TryGetValue(
-                    entityId,
-                    out var continuousLocomotionPose))
-            {
-                localPose = continuousLocomotionPose.LocalPose;
-                isActiveLocomotion = continuousLocomotionPose.IsActiveLocomotion;
-                return true;
-            }
-
-            if (_trackState.EnemyKinematicPresentationPoseOverrides.TryGetValue(entityId, out var kinematicPose))
-            {
-                localPose = kinematicPose.LocalPose;
-                isActiveLocomotion = kinematicPose.IsActiveLocomotion;
-                return true;
-            }
-
-            localPose = default;
-            isActiveLocomotion = false;
-            return false;
+            return sourceKind == PresentationPoseSourceKind.PlayerContinuousLocomotion ||
+                   sourceKind == PresentationPoseSourceKind.EnemyKinematicMotion;
         }
 
         private bool HasJumpAirborneVisualState(int entityId)
@@ -1136,6 +1098,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void ClearEntityPresentationMetadataIfFullyHidden(int entityId)
         {
+            _trackState.ClearPlayerTerminalHold(entityId);
             _stateStore.CommittedProjectedSlotsByEntityId.Remove(entityId);
             _stateStore.CommittedFacesByEntityId.Remove(entityId);
             _stateStore.EnemyAiModesByEntityId.Remove(entityId);
@@ -1200,12 +1163,9 @@ namespace Game.Feature.Gameplay.Host
                 : new Pose(Vector3.zero, Quaternion.identity);
         }
 
-        private bool HasActivePlayerWalkMotion(int entityId)
+        private bool HasActivePlayerWalkMotion(int entityId, bool isActivePresentationPoseLocomotion)
         {
-            if (_trackState.PlayerContinuousLocomotionPresentationPoseOverrides.TryGetValue(
-                    entityId,
-                    out var continuousLocomotionPose) &&
-                continuousLocomotionPose.IsActiveLocomotion)
+            if (isActivePresentationPoseLocomotion)
             {
                 return true;
             }
