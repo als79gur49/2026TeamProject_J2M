@@ -1076,7 +1076,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 legacyPresenter.AttachGameplayAudioRuntime(legacyAudioPort, mapBundle.Map);
                 executorPresenter.AttachGameplayAudioRuntime(executorAudioPort, mapBundle.Map);
                 legacyPresenter.ConfigurePlayerActionAnimationExecution(
-                    PlayerActionAnimationExecutionMode.LegacyAnimationSync,
+                    PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
                     legacyAnimationPort);
                 executorPresenter.ConfigurePlayerActionAnimationExecution(
                     PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,

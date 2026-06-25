@@ -1267,9 +1267,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void PlayerActionAnimation_DefaultLegacyMode_DoesNotCallExecutorPortAndKeepsLegacyOwner()
+        public void PlayerActionAnimation_InvalidMode_NormalizesToExecutorAndCallsPlaybackPort()
         {
-            var rootObject = new GameObject(nameof(PlayerActionAnimation_DefaultLegacyMode_DoesNotCallExecutorPortAndKeepsLegacyOwner));
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_InvalidMode_NormalizesToExecutorAndCallsPlaybackPort));
             var port = new RecordingGameplayAnimationPlaybackPort();
 
             try
@@ -1286,13 +1286,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 coordinator.Present(result);
 
                 var ownership = coordinator.PlayerActionAnimationOwnershipDiagnostics;
-                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
-                Assert.That(port.TryPlayCallCount, Is.Zero);
-                Assert.That(ownership.Mode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(expectedCueCount));
-                Assert.That(ownership.ExecutorAttemptCount, Is.Zero);
-                Assert.That(ownership.ExecutedByLegacyCount, Is.EqualTo(expectedCueCount));
-                Assert.That(ownership.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(expectedCueCount));
+                Assert.That(ownership.Mode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
+                Assert.That(ownership.PlannedCueCount, Is.EqualTo(expectedCueCount));
+                Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(expectedCueCount));
+                Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(expectedCueCount));
                 Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
                 AssertBlockingSnapshotCleared(coordinator.PlayerActionAnimationExecutionPipelineBlockingSnapshot);
             }
@@ -1399,14 +1398,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var ownership = coordinator.PlayerActionAnimationOwnershipDiagnostics;
                 Assert.That(ownership.Mode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(9));
+                Assert.That(ownership.PlannedCueCount, Is.EqualTo(9));
                 Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(9));
-                Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(9));
-                Assert.That(ownership.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(9));
                 Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
                 Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.CommandRequestedCount, Is.EqualTo(9));
                 Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.CommandAppliedCount, Is.EqualTo(9));
+                Assert.That(coordinator.PlayerActionAnimationExecutorDiagnostics.OwnerPolicyIgnoredCount, Is.Zero);
             }
             finally
             {
@@ -1416,9 +1414,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void PlayerActionAnimation_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues()
+        public void PlayerActionAnimation_ProductionTelemetry_CoversOwnerAndSemanticValues()
         {
-            var rootObject = new GameObject(nameof(PlayerActionAnimation_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues));
+            var rootObject = new GameObject(nameof(PlayerActionAnimation_ProductionTelemetry_CoversOwnerAndSemanticValues));
             var port = new RecordingGameplayAnimationPlaybackPort();
 
             try
@@ -1437,12 +1435,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(telemetry.CurrentMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
                 Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
-                Assert.That(telemetry.RollbackMode, Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
                 Assert.That(telemetry.ObservedCueCount, Is.EqualTo(9));
                 Assert.That(telemetry.PlaybackCommandRequestedCount, Is.EqualTo(9));
                 Assert.That(telemetry.PlaybackCommandAppliedCount, Is.EqualTo(9));
-                Assert.That(telemetry.LegacyOwnerAttemptCount, Is.EqualTo(9));
-                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(9));
+                Assert.That(telemetry.PlannedCueCount, Is.EqualTo(9));
                 Assert.That(telemetry.ExecutorOwnerAttemptCount, Is.EqualTo(9));
                 Assert.That(telemetry.ExecutorOwnerExecutedCount, Is.EqualTo(9));
                 Assert.That(telemetry.DuplicateOwnerAttemptCount, Is.Zero);
@@ -1625,21 +1621,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests()
+        public void PlayerActionAnimation_HostPath_PreservesSemanticRequests()
         {
-            var legacyRoot = new GameObject(nameof(PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests) + "_Legacy");
-            var executorRoot = new GameObject(nameof(PlayerActionAnimation_LegacyAndOrchestrationHostPath_ProduceEquivalentSemanticRequests) + "_Executor");
+            var executorRoot = new GameObject(nameof(PlayerActionAnimation_HostPath_PreservesSemanticRequests));
             var port = new RecordingGameplayAnimationPlaybackPort();
 
             try
             {
                 var topology = new CubeTopologyState(FaceId.Floor);
-                var legacyCoordinator = CreateInitializedPlayerActionAnimationCoordinator(
-                    legacyRoot,
-                    PlayerActionAnimationExecutionMode.LegacyAnimationSync,
-                    playbackPort: null,
-                    initialTopology: topology,
-                    viewFactory: new DefaultGameplayEntityViewFactory(legacyRoot.transform, 1f, playerEntityId: 10));
                 var executorCoordinator = CreateInitializedPlayerActionAnimationCoordinator(
                     executorRoot,
                     PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor,
@@ -1721,18 +1710,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         semanticCase.RecoveryPhase,
                         semanticCase.ResolutionKind);
 
-                    legacyCoordinator.Present(result);
                     executorCoordinator.Present(result);
 
-                    var legacyState = GetPlayerAnimatorDriver(legacyRoot).LastPresentationState;
                     var request = port.Requests.Last();
-                    Assert.That(legacyState.EntityId, Is.EqualTo(request.PlayerEntityId));
-                    Assert.That(legacyState.ActiveActionKind, Is.EqualTo(semanticCase.ActionKind));
-                    Assert.That(legacyState.ActiveActionSequence, Is.EqualTo(request.AnimationPayload.SourceSequenceId));
-                    Assert.That(legacyState.ActionPlanId, Is.EqualTo(request.AnimationPayload.SourceActionPlanId));
-                    Assert.That(legacyState.StartedThisTick, Is.EqualTo(semanticCase.StartedThisTick));
-                    Assert.That(legacyState.ExecutedThisTick, Is.EqualTo(semanticCase.ExecutedThisTick));
-                    Assert.That(legacyState.IsRecoveryPhase, Is.EqualTo(semanticCase.RecoveryPhase));
+                    Assert.That(request.PlayerEntityId, Is.EqualTo(10));
+                    Assert.That(request.AnimationPayload.ActionKind, Is.EqualTo(semanticCase.ActionKind));
+                    Assert.That(request.AnimationPayload.SourceSequenceId, Is.EqualTo(semanticCase.SequenceId));
                     Assert.That(request.CueKey, Is.EqualTo(semanticCase.CueKey));
                     Assert.That(request.AnimationPayload.PhaseKind, Is.EqualTo(semanticCase.PhaseKind));
                     Assert.That(request.AnimationPayload.OutcomeKind, Is.EqualTo(semanticCase.OutcomeKind));
@@ -1741,12 +1724,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Assert.That(request.OwnershipKey.CueKey, Is.EqualTo(semanticCase.CueKey));
                 }
 
-                Assert.That(legacyCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
                 Assert.That(executorCoordinator.PlayerActionAnimationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(legacyRoot);
                 UnityEngine.Object.DestroyImmediate(executorRoot);
             }
         }
@@ -1778,7 +1759,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var ownership = coordinator.PlayerActionAnimationOwnershipDiagnostics;
                 Assert.That(port.TryPlayCallCount, Is.EqualTo(1));
-                Assert.That(ownership.LegacyAttemptCount, Is.EqualTo(1));
+                Assert.That(ownership.PlannedCueCount, Is.EqualTo(1));
                 Assert.That(ownership.ExecutorAttemptCount, Is.EqualTo(2));
                 Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(ownership.DuplicateAttemptCount, Is.EqualTo(1));
@@ -2058,7 +2039,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(2));
                 Assert.That(executor.Diagnostics.CommandAppliedCount, Is.EqualTo(2));
-                Assert.That(executor.Diagnostics.ExecuteCueMappedToLegacyCommandCount, Is.EqualTo(2));
+                Assert.That(executor.Diagnostics.ExecuteCueMappedToRecoveryCommandCount, Is.EqualTo(2));
                 AssertPlayerActionAnimationSemanticDiagnostics(
                     executor.Diagnostics,
                     PresentationAnimationCueKey.PlayerPushExecute,
@@ -2139,7 +2120,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(1));
                 Assert.That(executor.Diagnostics.CommandAppliedCount, Is.EqualTo(1));
-                Assert.That(executor.Diagnostics.ExecuteCueMappedToLegacyCommandCount, Is.Zero);
+                Assert.That(executor.Diagnostics.ExecuteCueMappedToRecoveryCommandCount, Is.Zero);
                 AssertPlayerActionAnimationSemanticDiagnostics(
                     executor.Diagnostics,
                     PresentationAnimationCueKey.PlayerPushRecovery,

@@ -722,7 +722,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new EnumBudget(typeof(TopologyPresentationExecutionMode), "LegacyCoordinator", "ExecutorBridge"),
                 new EnumBudget(typeof(DamageDeathVfxExecutionMode), "LegacyExtension", "OrchestrationExecutor"),
                 new EnumBudget(typeof(BoxMotionPresentationExecutionMode), "LegacyTrackPlanner", "OrchestrationMotionExecutor"),
-                new EnumBudget(typeof(PlayerActionAnimationExecutionMode), "LegacyAnimationSync", "OrchestrationAnimationExecutor"),
                 new EnumBudget(typeof(EnemyPresentationExecutionMode), "LegacyEnemyPresentationMapper", "OrchestrationEnemyPresentationExecutor"),
                 new EnumBudget(typeof(CoreGameplaySfxExecutionMode), "LegacyGameplayAudioController", "OrchestrationSfxBridgeExecutor"),
                 new EnumBudget(typeof(ActionAudioExecutionMode), "LegacyActionAudioController", "OrchestrationActionAudioBridge"),

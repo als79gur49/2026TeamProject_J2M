@@ -117,7 +117,7 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
             IReadOnlyCollection<int> jumpLandingCompletionHoldEntityIds,
             Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds,
-            bool suppressPlayerActionAnimations = false,
+            bool suppressPlayerActionFieldsInSharedSync = false,
             EnemyPresentationLegacyOneShotSuppression enemyPresentationOneShotSuppression =
                 EnemyPresentationLegacyOneShotSuppression.None)
         {
@@ -151,7 +151,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _playerViewPresentationMapper.Build(result, viewsByEntityId, _playerViewPresentationStates);
-            if (suppressPlayerActionAnimations)
+            if (suppressPlayerActionFieldsInSharedSync)
             {
                 SuppressPlayerActionAnimationFields(_playerViewPresentationStates);
             }
@@ -217,7 +217,7 @@ namespace Game.Feature.Gameplay.Host
                     out var animationState,
                     out var phase,
                     out var restart,
-                    out var executeCueMappedToLegacyCommand))
+                    out var executeCueMappedToRecoveryCommand))
             {
                 result = new GameplayAnimationPlaybackResult(GameplayAnimationPlaybackResultKind.IgnoredByPolicy);
                 return false;
@@ -251,7 +251,7 @@ namespace Game.Feature.Gameplay.Host
 
             result = new GameplayAnimationPlaybackResult(
                 GameplayAnimationPlaybackResultKind.Applied,
-                executeCueMappedToLegacyCommand);
+                executeCueMappedToRecoveryCommand);
             return true;
         }
 
@@ -567,7 +567,7 @@ namespace Game.Feature.Gameplay.Host
             out PlayerViewAnimationState state,
             out PlayerPresentationPhase phase,
             out bool restart,
-            out bool executeCueMappedToLegacyCommand)
+            out bool executeCueMappedToRecoveryCommand)
         {
             state = payload.ActionKind == PresentationAnimationActionKind.Push
                 ? PlayerViewAnimationState.Push
@@ -576,7 +576,7 @@ namespace Game.Feature.Gameplay.Host
                     : PlayerViewAnimationState.Idle;
             phase = PlayerPresentationPhase.None;
             restart = false;
-            executeCueMappedToLegacyCommand = false;
+            executeCueMappedToRecoveryCommand = false;
 
             if (state == PlayerViewAnimationState.Idle)
             {
@@ -594,9 +594,9 @@ namespace Game.Feature.Gameplay.Host
                     return true;
                 case PresentationAnimationPhaseKind.Execute:
                     // Current adapter contract: PlayerAnimatorDriver has no execute-specific state surface.
-                    // Preserve the typed execute cue, but lower it to the legacy recovery driver command.
+                    // Preserve the typed execute cue, but lower it to the current recovery driver command.
                     // TODO: Revisit if a future PR adds explicit PushExecute/FlipExecute driver phases.
-                    executeCueMappedToLegacyCommand = true;
+                    executeCueMappedToRecoveryCommand = true;
                     phase = payload.ActionKind == PresentationAnimationActionKind.Push
                         ? PlayerPresentationPhase.PushRecovery
                         : PlayerPresentationPhase.FlipRecovery;

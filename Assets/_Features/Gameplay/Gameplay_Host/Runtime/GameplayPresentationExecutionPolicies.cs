@@ -51,14 +51,12 @@ namespace Game.Feature.Gameplay.Host
     {
         public const PlayerActionAnimationExecutionMode ProductionDefault =
             PlayerActionAnimationExecutionDefaults.ProductionDefault;
-        public const PlayerActionAnimationExecutionMode LegacyFallback =
-            PlayerActionAnimationExecutionDefaults.LegacyFallback;
 
         public static PlayerActionAnimationExecutionMode Normalize(PlayerActionAnimationExecutionMode mode)
         {
             return Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), mode)
                 ? mode
-                : LegacyFallback;
+                : ProductionDefault;
         }
     }
 

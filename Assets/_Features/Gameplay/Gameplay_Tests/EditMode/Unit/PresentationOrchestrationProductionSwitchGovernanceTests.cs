@@ -83,7 +83,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             new(
                 "Player action animation",
                 typeof(PlayerActionAnimationExecutionMode),
-                "LegacyAnimationSync",
+                "Removed",
                 "OrchestrationAnimationExecutor",
                 "OrchestrationAnimationExecutor",
                 "OrchestrationAnimationExecutor",
@@ -95,7 +95,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "ArchitectureBoundary_AfterPlayerAnimationSwitch_RemainsSeparated",
                 "Medium: action holds can affect input feel.",
                 "Low",
-                "Set PlayerActionAnimationExecutionMode.LegacyAnimationSync.",
+                "Invalid PlayerActionAnimationExecutionMode values normalize to OrchestrationAnimationExecutor.",
                 ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened),
             new(
                 "Enemy presentation",
@@ -251,7 +251,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
             Assert.That(
                 PlayerActionAnimationExecutionPolicy.Normalize((PlayerActionAnimationExecutionMode)999),
-                Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
             Assert.That(
                 EnemyPresentationExecutionPolicy.Normalize((EnemyPresentationExecutionMode)999),
                 Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
@@ -268,7 +268,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(default(TopologyPresentationExecutionMode), Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
             Assert.That(default(DamageDeathVfxExecutionMode), Is.EqualTo(DamageDeathVfxExecutionMode.LegacyExtension));
             Assert.That(default(BoxMotionPresentationExecutionMode), Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
-            Assert.That(default(PlayerActionAnimationExecutionMode), Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+            Assert.That(Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), default(PlayerActionAnimationExecutionMode)), Is.False);
             Assert.That(default(EnemyPresentationExecutionMode), Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
             Assert.That(default(CoreGameplaySfxExecutionMode), Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
             Assert.That(default(ActionAudioExecutionMode), Is.EqualTo(ActionAudioExecutionMode.LegacyActionAudioController));
