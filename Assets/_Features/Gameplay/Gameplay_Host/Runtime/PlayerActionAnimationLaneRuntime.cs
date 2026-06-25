@@ -12,14 +12,14 @@ namespace Game.Feature.Gameplay.Host
     internal readonly struct PlayerActionAnimationPreparation
     {
         public PlayerActionAnimationPreparation(
-            bool suppressLegacyActionFields,
+            bool suppressPlayerActionFieldsInSharedSync,
             int token)
         {
-            SuppressLegacyActionFields = suppressLegacyActionFields;
+            SuppressPlayerActionFieldsInSharedSync = suppressPlayerActionFieldsInSharedSync;
             Token = Math.Max(0, token);
         }
 
-        public bool SuppressLegacyActionFields { get; }
+        public bool SuppressPlayerActionFieldsInSharedSync { get; }
 
         internal int Token { get; }
     }
@@ -104,27 +104,10 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var keys = BuildPlayerActionAnimationPlaybackKeys(result);
-            var useProductionExecutor = UseProductionExecutor();
-            if (useProductionExecutor)
-            {
-                for (var i = 0; i < keys.Count; i++)
-                {
-                    _executionGuard.RecordSkippedByPolicy(
-                        PlayerActionAnimationExecutionOwner.LegacyAnimationSync);
-                }
-            }
-            else
-            {
-                for (var i = 0; i < keys.Count; i++)
-                {
-                    _executionGuard.TryBeginExecution(
-                        PlayerActionAnimationExecutionOwner.LegacyAnimationSync,
-                        keys[i]);
-                }
-            }
+            _executionGuard.RecordPlanned(keys.Count);
 
             _lastPreparationToken = ++_nextPreparationToken;
-            return new PlayerActionAnimationPreparation(useProductionExecutor, _lastPreparationToken);
+            return new PlayerActionAnimationPreparation(true, _lastPreparationToken);
         }
 
         public void PresentPrepared(
@@ -132,8 +115,7 @@ namespace Game.Feature.Gameplay.Host
             PlayerActionAnimationPreparation preparation)
         {
             if (result == null ||
-                !preparation.SuppressLegacyActionFields ||
-                !UseProductionExecutor() ||
+                !preparation.SuppressPlayerActionFieldsInSharedSync ||
                 preparation.Token == 0 ||
                 preparation.Token != _lastPreparationToken ||
                 preparation.Token == _lastConsumedPreparationToken)
@@ -181,11 +163,6 @@ namespace Game.Feature.Gameplay.Host
         private IGameplayAnimationPlaybackPort ResolvePlaybackPort()
         {
             return _playbackPort ?? _defaultPlaybackPort;
-        }
-
-        private bool UseProductionExecutor()
-        {
-            return ExecutionMode == PlayerActionAnimationExecutionDefaults.ProductionDefault;
         }
 
         private static IReadOnlyList<PlayerActionAnimationPlaybackKey> BuildPlayerActionAnimationPlaybackKeys(

@@ -37,12 +37,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
                 GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
 
-                Assert.That(default(PlayerActionAnimationExecutionMode), Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                Assert.That(Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), default(PlayerActionAnimationExecutionMode)), Is.False);
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(
                     PlayerActionAnimationExecutionPolicy.Normalize((PlayerActionAnimationExecutionMode)999),
-                    Is.EqualTo(PlayerActionAnimationExecutionMode.LegacyAnimationSync));
+                    Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(
                     typeof(GameplaySceneHostConfiguration).GetField(nameof(PlayerActionAnimationExecutionMode)),
                     Is.Null,
@@ -118,10 +118,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 tickIndex: 32,
                 sequenceId: 302));
 
-            Assert.That(push.Diagnostics.ExecuteCueMappedToLegacyCommandCount, Is.EqualTo(1));
+            Assert.That(push.Diagnostics.ExecuteCueMappedToRecoveryCommandCount, Is.EqualTo(1));
             Assert.That(push.DriverPhase, Is.EqualTo(PlayerPresentationPhase.PushRecovery));
             Assert.That(push.LastCrossFadedStateName, Is.EqualTo("Push_Recovery"));
-            Assert.That(flip.Diagnostics.ExecuteCueMappedToLegacyCommandCount, Is.EqualTo(1));
+            Assert.That(flip.Diagnostics.ExecuteCueMappedToRecoveryCommandCount, Is.EqualTo(1));
             Assert.That(flip.DriverPhase, Is.EqualTo(PlayerPresentationPhase.FlipRecovery));
             Assert.That(flip.LastCrossFadedStateName, Is.EqualTo("Flip_Recovery"));
         }
@@ -160,7 +160,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 executor.Play(CreatePlan(new[] { execute, recovery }));
 
                 Assert.That(executor.Diagnostics.CommandAppliedCount, Is.EqualTo(2));
-                Assert.That(executor.Diagnostics.ExecuteCueMappedToLegacyCommandCount, Is.EqualTo(1));
+                Assert.That(executor.Diagnostics.ExecuteCueMappedToRecoveryCommandCount, Is.EqualTo(1));
                 Assert.That(driver.ActionExecuteSignalCount, Is.EqualTo(1));
                 Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushRecovery));
                 Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Recovery"));
@@ -425,7 +425,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(document, Does.Contain("Phase 9M"));
             Assert.That(document, Does.Contain("Phase 9N"));
             Assert.That(document, Does.Contain("Player action animation"));
-            Assert.That(document, Does.Contain("LegacyAnimationSync"));
             Assert.That(document, Does.Contain("AcceptedTemporaryAdapterContract"));
             Assert.That(document, Does.Contain("ProductionDefaultOnTelemetryHardened"));
             Assert.That(document, Does.Contain("PlayerPushExecute -> PlayerPresentationPhase.PushRecovery"));

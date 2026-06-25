@@ -931,7 +931,7 @@ namespace Game.Feature.Gameplay.Host
                     entityId,
                     actionKind,
                     _timingProfile),
-                playerActionAnimationPreparation.SuppressLegacyActionFields,
+                playerActionAnimationPreparation.SuppressPlayerActionFieldsInSharedSync,
                 enemyPresentationPreparation.LegacyOneShotSuppression);
             _enemyPresentationLane.PresentPrepared(result, enemyPresentationPreparation);
             _playerActionAnimationLane.PresentPrepared(result, playerActionAnimationPreparation);

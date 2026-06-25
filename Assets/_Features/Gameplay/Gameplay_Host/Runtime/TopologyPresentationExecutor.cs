@@ -894,11 +894,6 @@ namespace Game.Feature.Gameplay.Host
             IGameplayAnimationPlaybackPort playbackPort,
             PlayerActionAnimationExecutionGuard executionGuard)
         {
-            if (mode != PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor)
-            {
-                return null;
-            }
-
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]

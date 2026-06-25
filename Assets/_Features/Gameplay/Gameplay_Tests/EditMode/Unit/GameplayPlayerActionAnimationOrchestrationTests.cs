@@ -112,7 +112,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void AnimationExecutor_DefaultLegacyMode_DoesNotCallPlaybackPort()
+        public void AnimationExecutor_DefaultMode_RoutesPlayerActionCuesToPlaybackPort()
         {
             var plan = new PresentationPlaybackPlanner().Plan(
                 CreateAnimationCueFrame(CreatePlayerActionAnimationTickResult()));
@@ -121,10 +121,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             executor.Play(plan);
 
-            Assert.That(port.TryPlayCallCount, Is.Zero);
+            Assert.That(port.TryPlayCallCount, Is.EqualTo(8));
             Assert.That(executor.Diagnostics.ObservedCueCount, Is.EqualTo(8));
-            Assert.That(executor.Diagnostics.LegacyOwnerNoOpCount, Is.EqualTo(8));
-            Assert.That(executor.Diagnostics.CommandRequestedCount, Is.Zero);
+            Assert.That(executor.Diagnostics.OwnerPolicyIgnoredCount, Is.Zero);
+            Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(8));
             Assert.That(executor.Diagnostics.DuplicateSuppressedCount, Is.Zero);
         }
 
@@ -224,12 +224,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 guard.TryBeginExecution(PlayerActionAnimationExecutionOwner.OrchestrationAnimationExecutor, key),
                 Is.True);
             Assert.That(
-                guard.TryBeginExecution(PlayerActionAnimationExecutionOwner.LegacyAnimationSync, key),
+                guard.TryBeginExecution(PlayerActionAnimationExecutionOwner.OrchestrationAnimationExecutor, key),
                 Is.False);
 
             Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
             Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
-            Assert.That(guard.Diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutorAttemptCount, Is.EqualTo(2));
         }
 
         [Test]
