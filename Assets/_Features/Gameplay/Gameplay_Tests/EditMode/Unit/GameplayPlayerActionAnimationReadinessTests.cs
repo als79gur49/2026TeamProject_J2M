@@ -452,7 +452,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     coordinator.TopologyPresentationExecutionMode,
                     Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge),
                     "Topology production default migrated before player action animation decommission and must remain stable.");
-                Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
+                Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
                 Assert.That(coordinator.EnemyAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
                 Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
             }
