@@ -9,40 +9,23 @@ using Game.Feature.Gameplay.PresentationRuntime;
 
 namespace Game.Feature.Gameplay.Host
 {
-    [Flags]
-    internal enum BoxMotionLegacySuppression
-    {
-        None = 0,
-        BoxSlide = 1 << 0,
-        BoxFlip = 1 << 1,
-        BoxFlipImpact = 1 << 2,
-    }
-
     internal readonly struct BoxMotionPreparation
     {
         private readonly IReadOnlyList<BoxMotionPlaybackKey> _playbackKeys;
 
         public BoxMotionPreparation(
-            BoxMotionLegacySuppression legacySuppression,
             int tickIndex,
             int token,
-            BoxMotionPresentationExecutionMode normalizedMode,
             IReadOnlyList<BoxMotionPlaybackKey> playbackKeys)
         {
-            LegacySuppression = legacySuppression;
             TickIndex = Math.Max(0, tickIndex);
             Token = Math.Max(0, token);
-            NormalizedMode = normalizedMode;
             _playbackKeys = playbackKeys ?? Array.Empty<BoxMotionPlaybackKey>();
         }
-
-        public BoxMotionLegacySuppression LegacySuppression { get; }
 
         internal int TickIndex { get; }
 
         internal int Token { get; }
-
-        internal BoxMotionPresentationExecutionMode NormalizedMode { get; }
 
         internal IReadOnlyList<BoxMotionPlaybackKey> PlaybackKeys => _playbackKeys;
     }
@@ -87,9 +70,6 @@ namespace Game.Feature.Gameplay.Host
             _executionGuard = executionGuard ?? new BoxMotionExecutionGuard();
         }
 
-        public BoxMotionPresentationExecutionMode ExecutionMode =>
-            _executionGuard.Diagnostics.Mode;
-
         public BoxMotionOwnershipDiagnostics OwnershipDiagnostics =>
             _executionGuard.Diagnostics;
 
@@ -115,14 +95,12 @@ namespace Game.Feature.Gameplay.Host
         public BoxMotionProductionTelemetrySnapshot ProductionTelemetrySnapshot =>
             BuildProductionTelemetrySnapshot();
 
-        public void ConfigureExecution(
-            BoxMotionPresentationExecutionMode mode,
-            IGameplayMotionPlaybackPort playbackPort = null,
+        public void ConfigurePlaybackPort(
+            IGameplayMotionPlaybackPort playbackPort,
             bool useDefaultPlaybackPort = true)
         {
             _playbackPort = playbackPort;
             _useDefaultPlaybackPort = useDefaultPlaybackPort;
-            _executionGuard.Configure(BoxMotionExecutionPolicy.Normalize(mode));
             ResetExecutionSession();
             _executionPipeline = CreateExecutionPipeline();
             _executionPipeline?.ResetSession();
@@ -141,32 +119,21 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var playbackKeys = BuildBoxMotionPlaybackKeys(result);
-            var useProductionExecutor = UseProductionExecutor();
-            if (useProductionExecutor)
+            if (ResolvePlaybackPort() is GameplayMotionTrackPlannerPlaybackPort adapter)
             {
-                RecordBoxMotionLegacySkippedByPolicy(playbackKeys);
-                if (ResolvePlaybackPort() is GameplayMotionTrackPlannerPlaybackPort adapter)
-                {
-                    adapter.BeginTickContext(
-                        result,
-                        previousCommittedLocalTargetPoses,
-                        previousCommittedTopology,
-                        projector,
-                        timingProfile);
-                }
-            }
-            else
-            {
-                RecordBoxMotionLegacyOwnership(playbackKeys);
+                adapter.BeginTickContext(
+                    result,
+                    previousCommittedLocalTargetPoses,
+                    previousCommittedTopology,
+                    projector,
+                    timingProfile);
             }
 
             var token = ++_nextPreparationToken;
             _lastPreparationToken = token;
             return new BoxMotionPreparation(
-                useProductionExecutor ? BuildProductionLegacySuppression() : BoxMotionLegacySuppression.None,
                 result.TickIndex,
                 token,
-                ExecutionMode,
                 playbackKeys);
         }
 
@@ -179,9 +146,7 @@ namespace Game.Feature.Gameplay.Host
                 preparation.Token == 0 ||
                 preparation.Token != _lastPreparationToken ||
                 preparation.Token == _lastConsumedPreparationToken ||
-                preparation.TickIndex != result.TickIndex ||
-                preparation.NormalizedMode != ExecutionMode ||
-                !UseProductionExecutor())
+                preparation.TickIndex != result.TickIndex)
             {
                 return;
             }
@@ -219,7 +184,6 @@ namespace Game.Feature.Gameplay.Host
         private GameplayPresentationPipeline CreateExecutionPipeline()
         {
             return _executionPipelineFactory(
-                ExecutionMode,
                 ResolvePlaybackPort(),
                 _executionGuard);
         }
@@ -235,37 +199,6 @@ namespace Game.Feature.Gameplay.Host
             _executionGuard.ResetSession();
             _lastPreparationToken = 0;
             _lastConsumedPreparationToken = 0;
-        }
-
-        private bool UseProductionExecutor()
-        {
-            return ExecutionMode == BoxMotionPresentationExecutionDefaults.ProductionDefault;
-        }
-
-        private static BoxMotionLegacySuppression BuildProductionLegacySuppression()
-        {
-            return BoxMotionLegacySuppression.BoxSlide |
-                   BoxMotionLegacySuppression.BoxFlip |
-                   BoxMotionLegacySuppression.BoxFlipImpact;
-        }
-
-        private void RecordBoxMotionLegacyOwnership(IReadOnlyList<BoxMotionPlaybackKey> playbackKeys)
-        {
-            for (var i = 0; i < playbackKeys.Count; i++)
-            {
-                _executionGuard.TryBeginExecution(
-                    BoxMotionPresentationExecutionOwner.LegacyTrackPlanner,
-                    playbackKeys[i]);
-            }
-        }
-
-        private void RecordBoxMotionLegacySkippedByPolicy(IReadOnlyList<BoxMotionPlaybackKey> playbackKeys)
-        {
-            for (var i = 0; i < playbackKeys.Count; i++)
-            {
-                _executionGuard.RecordSkippedByPolicy(
-                    BoxMotionPresentationExecutionOwner.LegacyTrackPlanner);
-            }
         }
 
         private static IReadOnlyList<BoxMotionPlaybackKey> BuildBoxMotionPlaybackKeys(TickResult result)
@@ -363,10 +296,6 @@ namespace Game.Feature.Gameplay.Host
             var pendingTrackCount = Math.Max(0, requestedCount - startedCount);
 
             return new BoxMotionProductionTelemetrySnapshot(
-                ExecutionMode,
-                ExecutionMode == BoxMotionPresentationExecutionDefaults.ProductionDefault,
-                BoxMotionPresentationExecutionDefaults.ProductionDefault,
-                BoxMotionPresentationExecutionDefaults.LegacyFallback,
                 executor.LastTickIndex,
                 executor.LastCueKey,
                 executor.LastDedupeKey,
@@ -374,12 +303,10 @@ namespace Game.Feature.Gameplay.Host
                 executor.LastMotionFactKind,
                 executor.LastFailureReason,
                 cleanup.LastCleanupReason,
-                ownership.LegacyAttemptCount,
-                ownership.SkippedLegacyBecauseExecutorOwnerCount,
                 ownership.ExecutorAttemptCount,
                 ownership.ExecutedByExecutorCount,
                 ownership.DuplicateAttemptCount,
-                Math.Max(executor.DuplicateSuppressedCount, ownership.DuplicateAttemptCount),
+                Math.Max(executor.DuplicateRejectedCount, ownership.DuplicateAttemptCount),
                 plannedCount,
                 requestedCount,
                 startedCount,
@@ -397,8 +324,6 @@ namespace Game.Feature.Gameplay.Host
                 executor.DriverMissingCount,
                 executor.MissingPortCount,
                 executor.UnsupportedSemanticCount,
-                telemetry.LegacyBoxSourcePlanningSkippedCount,
-                telemetry.LegacyUnrelatedMotionTrackRetainedCount,
                 MergeBoxMotionSemanticDiagnostics(executor.SemanticDiagnostics, telemetry.SemanticDiagnostics));
         }
 
@@ -444,7 +369,7 @@ namespace Game.Feature.Gameplay.Host
                 executor.RequestedCount,
                 executor.StartedCount,
                 runtime.CompletedCount,
-                executor.DuplicateSuppressedCount,
+                executor.DuplicateRejectedCount,
                 executor.MissingDependencyCount + runtime.MissingDependencyCount,
                 runtime.CleanupCount,
                 lastTickIndex,

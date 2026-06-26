@@ -230,15 +230,11 @@ namespace Game.Feature.Gameplay.Host
             PresentationCoordinator.ConfigureDamageDeathVfxPlaybackPort(playbackPort);
         }
 
-        internal void ConfigureBoxMotionPresentationExecution(
-            BoxMotionPresentationExecutionMode mode,
-            IGameplayMotionPlaybackPort playbackPort = null,
+        internal void ConfigureBoxMotionPlaybackPort(
+            IGameplayMotionPlaybackPort playbackPort,
             bool useDefaultPlaybackPort = true)
         {
-            PresentationCoordinator.ConfigureBoxMotionPresentationExecution(
-                mode,
-                playbackPort,
-                useDefaultPlaybackPort);
+            PresentationCoordinator.ConfigureBoxMotionPlaybackPort(playbackPort, useDefaultPlaybackPort);
         }
 
         internal void ConfigurePlayerActionAnimationExecution(
@@ -331,9 +327,6 @@ namespace Game.Feature.Gameplay.Host
 
         internal DamageDeathVfxExecutorDiagnostics DamageDeathVfxExecutorDiagnostics =>
             PresentationCoordinator.DamageDeathVfxExecutorDiagnostics;
-
-        internal BoxMotionPresentationExecutionMode BoxMotionPresentationExecutionMode =>
-            PresentationCoordinator.BoxMotionPresentationExecutionMode;
 
         internal BoxMotionOwnershipDiagnostics BoxMotionOwnershipDiagnostics =>
             PresentationCoordinator.BoxMotionOwnershipDiagnostics;

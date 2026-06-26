@@ -394,8 +394,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static void AssertPresentationDefaultBootstrap(string scenePath, GameplaySceneHost host)
         {
             Assert.That(
-                host.Presenter.BoxMotionPresentationExecutionMode,
-                Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor),
+                host.Presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner,
+                Is.True,
                 $"{scenePath} must boot Box motion with the production orchestration owner.");
             Assert.That(
                 host.Presenter.TopologyPresentationExecutionMode,

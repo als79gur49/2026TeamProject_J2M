@@ -181,7 +181,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                          "TopologyExecutionPipelineFactory ",
                          "DamageDeathVfxExecutionPipelineFactory ",
                          "BoxMotionExecutionPipelineFactory ",
-                         "IDamageDeathVfxPlaybackPort playbackPort)",
+                         "public GameplayTickPresentationCoordinator(IDamageDeathVfxPlaybackPort",
                          "TopologyPresentationExecutionMode topologyPresentationExecutionMode)",
                          "GameplayPresentationRuntimeCompositionFactory.Create",
                          "public GameplayTickPresentationCoordinator()",
@@ -207,7 +207,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(compositionFactorySource, Does.Contain("options.DamageDeathVfxPlaybackPort"));
             Assert.That(compositionFactorySource, Does.Not.Contain("damageDeathVfxLane.ConfigureExecution("));
             Assert.That(compositionFactorySource, Does.Not.Contain("DamageDeathVfxExecutionPolicy.ProductionDefault,"));
-            Assert.That(compositionFactorySource, Does.Contain("damageDeathVfxPlaybackPort"));
+            Assert.That(compositionFactorySource, Does.Contain("options.DamageDeathVfxPlaybackPort"));
             Assert.That(compositionSource, Does.Not.Contain("GameplayVfxProductionRuntime"));
             Assert.That(compositionSource, Does.Not.Contain("GameplayVfxGameObjectPool"));
             Assert.That(compositionSource, Does.Not.Contain("GameplayVfxPresentationController"));
@@ -284,7 +284,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             foreach (var forbiddenModeType in new[]
                      {
                          typeof(TopologyPresentationExecutionMode),
-                         typeof(BoxMotionPresentationExecutionMode),
                          typeof(PlayerActionAnimationExecutionMode),
                          typeof(EnemyPresentationExecutionMode),
                          typeof(CoreGameplaySfxExecutionMode),
@@ -329,7 +328,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(composition.TopologyLane.ExecutionMode, Is.EqualTo(TopologyPresentationExecutionDefaults.ProductionDefault));
             Assert.That(composition.DamageDeathVfxLane, Is.Not.Null);
             Assert.That(composition.DamageDeathVfxLane.ExecutorDiagnostics.IsProductionDefaultOwner, Is.False);
-            Assert.That(composition.BoxMotionLane.ExecutionMode, Is.EqualTo(BoxMotionExecutionPolicy.ProductionDefault));
+            Assert.That(composition.BoxMotionLane, Is.Not.Null);
+            Assert.That(composition.BoxMotionLane.ExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
             Assert.That(composition.PlayerActionAnimationLane.ExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionPolicy.ProductionDefault));
             Assert.That(composition.EnemyPresentationLane.ExecutionMode, Is.EqualTo(EnemyPresentationExecutionPolicy.ProductionDefault));
             Assert.That(composition.CoreGameplaySfxLane.ExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionPolicy.ProductionDefault));
@@ -1986,7 +1986,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var boxMotionLaneSource = ReadRepoFile(BoxMotionLaneRuntimePath);
             var boxMotionCleanupAdapterSource = ReadRepoFile(BoxMotionRuntimeCleanupAdapterPath);
             var coordinatorSource = ReadRepoFile(CoordinatorPath);
-            var suppressionNames = Enum.GetNames(typeof(BoxMotionLegacySuppression));
 
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("GameplayTrackPlanner"));
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("PresentationMotionTrack"));
@@ -2005,7 +2004,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Contain("_boxMotionLane.Update"));
             Assert.That(coordinatorSource, Does.Contain("_boxMotionLane.ResetSession"));
             Assert.That(coordinatorSource, Does.Contain("_boxMotionLane.HardCleanup"));
-            Assert.That(coordinatorSource, Does.Contain("boxMotionPreparation.LegacySuppression"));
+            Assert.That(coordinatorSource, Does.Not.Contain("boxMotionPreparation.LegacySuppression"));
             Assert.That(coordinatorSource, Does.Not.Contain("_boxMotionExecutionGuard"));
             Assert.That(coordinatorSource, Does.Not.Contain("_boxMotionExecutionPipelineFactory"));
             Assert.That(coordinatorSource, Does.Not.Contain("_boxMotionExecutionPipeline"));
@@ -2022,14 +2021,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(hostRuntimeSource, Does.Contain("GameplayMotionPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("IGameplayMotionPlaybackPort"));
             Assert.That(hostRuntimeSource, Does.Contain("BoxMotionExecutionGuard"));
-            Assert.That(hostRuntimeSource, Does.Contain("BoxMotionPresentationExecutionMode"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("BoxMotionPresentationExecutionMode"));
             Assert.That(boxMotionLaneSource, Does.Contain("internal sealed class BoxMotionPresentationLaneRuntime"));
-            Assert.That(boxMotionLaneSource, Does.Contain("BoxMotionLegacySuppression"));
+            Assert.That(boxMotionLaneSource, Does.Not.Contain("BoxMotionLegacySuppression"));
             Assert.That(boxMotionLaneSource, Does.Contain("BoxMotionExecutionGuard"));
-            Assert.That(boxMotionLaneSource, Does.Contain("BoxMotionExecutionPolicy.Normalize"));
+            Assert.That(boxMotionLaneSource, Does.Not.Contain("BoxMotionExecutionPolicy.Normalize"));
             Assert.That(boxMotionLaneSource, Does.Contain("BuildBoxMotionPlaybackKeys"));
-            Assert.That(boxMotionLaneSource, Does.Contain("RecordSkippedByPolicy"));
-            Assert.That(boxMotionLaneSource, Does.Contain("BoxMotionPresentationExecutionOwner.LegacyTrackPlanner"));
+            Assert.That(boxMotionLaneSource, Does.Not.Contain("RecordSkippedByPolicy"));
+            Assert.That(boxMotionLaneSource, Does.Not.Contain("BoxMotionPresentationExecutionOwner.LegacyTrackPlanner"));
             Assert.That(boxMotionLaneSource, Does.Contain("CreateBoxMotionExecutionPipeline"));
             Assert.That(boxMotionLaneSource, Does.Contain("IGameplayMotionPlaybackPort"));
             Assert.That(boxMotionLaneSource, Does.Contain("IBoxMotionRuntimeCleanupPort"));
@@ -2047,10 +2046,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(boxMotionCleanupAdapterSource, Does.Not.Contain("GameObject.Find"));
             Assert.That(boxMotionCleanupAdapterSource, Does.Not.Contain("FindObjectOfType"));
             Assert.That(boxMotionCleanupAdapterSource, Does.Not.Contain("FindObjectsByType"));
-            Assert.That(typeof(BoxMotionLegacySuppression).GetCustomAttribute<FlagsAttribute>(), Is.Not.Null);
-            CollectionAssert.AreEquivalent(
-                new[] { "None", "BoxSlide", "BoxFlip", "BoxFlipImpact" },
-                suppressionNames);
             foreach (var forbiddenSuppression in new[]
                      {
                          "SuppressAllMotion",
@@ -2065,7 +2060,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                          "SuppressVfx",
                      })
             {
-                Assert.That(suppressionNames, Does.Not.Contain(forbiddenSuppression), forbiddenSuppression);
+                Assert.That(boxMotionLaneSource, Does.Not.Contain(forbiddenSuppression), forbiddenSuppression);
+                Assert.That(boxMotionExecutorSource, Does.Not.Contain(forbiddenSuppression), forbiddenSuppression);
             }
 
             Assert.That(boxMotionExecutorSource, Does.Contain("GameplayTrackPlanner trackPlanner"));
@@ -2170,9 +2166,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(playerActionAnimationLaneSource, Does.Contain("PlayerActionAnimationExecutionGuard"));
             Assert.That(playerActionAnimationLaneSource, Does.Contain("PlayerActionAnimationExecutionPolicy.Normalize"));
             Assert.That(playerActionAnimationLaneSource, Does.Contain("BuildPlayerActionAnimationPlaybackKeys"));
-            Assert.That(playerActionAnimationLaneSource, Does.Contain("RecordSkippedByPolicy"));
             Assert.That(playerActionAnimationLaneSource, Does.Not.Contain("PlayerActionAnimationExecutionOwner.LegacyAnimationSync"));
-            Assert.That(playerActionAnimationLaneSource, Does.Contain("PlayerActionAnimationExecutionDefaults.ProductionDefault"));
+            Assert.That(hostRuntimeSource, Does.Contain("PlayerActionAnimationExecutionPolicy.ProductionDefault"));
             Assert.That(playerActionAnimationLaneSource, Does.Contain("CreatePlayerActionAnimationExecutionPipeline"));
             Assert.That(playerActionAnimationLaneSource, Does.Contain("IGameplayAnimationPlaybackPort"));
             Assert.That(playerActionAnimationLaneSource, Does.Not.Contain("PlayerAnimatorDriver"));
