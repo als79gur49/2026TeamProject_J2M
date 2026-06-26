@@ -374,28 +374,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var enemyProfileBundle = CreateEnemyDeathAudioProfile();
             try
             {
+                var enemyBridgePort = new RecordingEnemyAudioPlaybackPort(trace.Add);
                 var presenter = CreatePresenter(
                     rootObject,
                     new MixedAudioViewFactory(
                         rootObject.transform,
                         actionProfileBundle.Profile,
-                        enemyProfileBundle.Profile));
+                        enemyProfileBundle.Profile),
+                    _ => GameplayHostPresentationPipelineFactory.CreateEnemyAudioExecutionPipeline(enemyBridgePort));
                 var legacyPort = new RecordingGameplayAudioPlaybackPort(trace.Add, traceDebugTag: true);
                 var coreBridgePort = new RecordingGameplaySfxPlaybackPort(trace.Add);
-                var actionBridgePort = new RecordingGameplayActionAudioPlaybackPort(trace.Add);
-                var enemyBridgePort = new RecordingEnemyAudioPlaybackPort(trace.Add);
                 var player = CreateUnit(10, UnitRole.Player, new SurfaceCell(FaceId.Floor, 0, 0));
                 var enemy = CreateUnit(20, UnitRole.Enemy, new SurfaceCell(FaceId.Floor, 0, 0));
 
                 presenter.ConfigureCoreGameplaySfxExecution(
                     CoreGameplaySfxExecutionMode.LegacyGameplayAudioController,
                     coreBridgePort);
-                presenter.ConfigureActionAudioExecution(
-                    ActionAudioExecutionMode.OrchestrationActionAudioBridge,
-                    actionBridgePort);
-                presenter.ConfigureEnemyAudioExecution(
-                    EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge,
-                    enemyBridgePort);
                 presenter.AttachGameplayAudioRuntime(legacyPort, mapBundle.Map);
                 presenter.PresentInitial(new[] { player, enemy }, new CubeTopologyState(FaceId.Floor));
 
@@ -406,12 +400,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(trace, Is.EqualTo(new[]
                 {
-                    "ActionProduction:PlayerPushWindup",
+                    "Legacy:PlayerPushWindup",
                     "EnemyProduction:Death",
                     "Legacy:PlayerDamage",
                 }));
                 Assert.That(coreBridgePort.Requests, Is.Empty);
-                Assert.That(actionBridgePort.Requests, Has.Count.EqualTo(1));
+                Assert.That(presenter.ActionAudioExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(1));
                 Assert.That(enemyBridgePort.Requests, Has.Count.EqualTo(1));
             }
             finally
@@ -1684,10 +1678,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayTickViewPresenter CreatePresenter(
             GameObject rootObject,
-            IGameplayEntityViewFactory viewFactory)
+            IGameplayEntityViewFactory viewFactory,
+            EnemyAudioExecutionPipelineFactory enemyAudioExecutionPipelineFactory = null)
         {
             var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
-            GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
+            presenter.BindCoordinator(GameplayPresentationTestCompositionBuilder.CreateCoordinator(
+                enemyAudioExecutionPipelineFactory: enemyAudioExecutionPipelineFactory));
             var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
             var binder = new GameplayEntityViewBinder(
                 registry,
@@ -2550,38 +2546,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public void HardCleanup()
             {
                 HardCleanupCallCount++;
-                Requests.Clear();
-            }
-        }
-
-        private sealed class RecordingGameplayActionAudioPlaybackPort : IGameplayActionAudioPlaybackPort
-        {
-            private readonly Action<string> _traceSink;
-
-            public RecordingGameplayActionAudioPlaybackPort(Action<string> traceSink)
-            {
-                _traceSink = traceSink;
-            }
-
-            public readonly List<GameplayActionAudioPlaybackRequest> Requests = new();
-
-            public bool TryPlayActionAudio(
-                in GameplayActionAudioPlaybackRequest request,
-                out GameplayActionAudioPlaybackResult result)
-            {
-                _traceSink?.Invoke($"ActionProduction:{request.CueKey}");
-                Requests.Add(request);
-                result = new GameplayActionAudioPlaybackResult(GameplayActionAudioPlaybackResultKind.Succeeded);
-                return true;
-            }
-
-            public void ResetSession()
-            {
-                Requests.Clear();
-            }
-
-            public void HardCleanup()
-            {
                 Requests.Clear();
             }
         }

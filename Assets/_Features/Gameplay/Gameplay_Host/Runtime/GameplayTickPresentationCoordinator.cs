@@ -392,7 +392,6 @@ namespace Game.Feature.Gameplay.Host
 
         internal int DeferredGameplayAudioRequestCount =>
             _coreGameplaySfxLane.DeferredRequestCount +
-            _actionAudioLane.DeferredRequestCount +
             _enemyOneShotAudioLane.DeferredRequestCount;
 
         internal int PendingMoonBlockEmergenceRequestCount =>
@@ -459,18 +458,6 @@ namespace Game.Feature.Gameplay.Host
 
         internal CoreGameplaySfxOwnershipDiagnostics CoreGameplaySfxOwnershipDiagnostics =>
             _coreGameplaySfxLane.OwnershipDiagnostics;
-
-        internal ActionAudioExecutionMode ActionAudioExecutionMode =>
-            _actionAudioLane.ExecutionMode;
-
-        internal ActionAudioOwnershipDiagnostics ActionAudioOwnershipDiagnostics =>
-            _actionAudioLane.OwnershipDiagnostics;
-
-        internal EnemyAudioExecutionMode EnemyAudioExecutionMode =>
-            _enemyOneShotAudioLane.ExecutionMode;
-
-        internal EnemyAudioOwnershipDiagnostics EnemyAudioOwnershipDiagnostics =>
-            _enemyOneShotAudioLane.OwnershipDiagnostics;
 
         internal PresentationBlockingSnapshot DamageDeathVfxExecutionPipelineBlockingSnapshot =>
             _damageDeathVfxLane.BlockingSnapshot;
@@ -566,20 +553,6 @@ namespace Game.Feature.Gameplay.Host
             IGameplaySfxPlaybackPort playbackPort = null)
         {
             _coreGameplaySfxLane.ConfigureExecution(mode, playbackPort);
-        }
-
-        internal void ConfigureActionAudioExecution(
-            ActionAudioExecutionMode mode,
-            IGameplayActionAudioPlaybackPort playbackPort = null)
-        {
-            _actionAudioLane.ConfigureExecution(mode, playbackPort);
-        }
-
-        internal void ConfigureEnemyAudioExecution(
-            EnemyAudioExecutionMode mode,
-            IGameplayEnemyAudioPlaybackPort playbackPort = null)
-        {
-            _enemyOneShotAudioLane.ConfigureExecution(mode, playbackPort);
         }
 
         internal void EnablePresentationPipelineDiagnostics(GameplayPresentationPipeline pipeline = null)
@@ -1374,7 +1347,6 @@ namespace Game.Feature.Gameplay.Host
         private void SetGameplayAudioPlaybackGate(GameplayAudioPlaybackGateState gateState)
         {
             _coreGameplaySfxLane.SetTopologyTransitionActive(gateState.IsBlocked);
-            _actionAudioLane.SetPlaybackGateState(gateState);
             _enemyOneShotAudioLane.SetPlaybackGateState(gateState);
         }
 

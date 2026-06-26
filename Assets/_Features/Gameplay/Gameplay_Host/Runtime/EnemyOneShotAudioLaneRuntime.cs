@@ -8,7 +8,6 @@ using Game.Feature.Gameplay.PresentationContracts;
 using Game.Feature.Gameplay.PresentationPlanning;
 using Game.Feature.Gameplay.PresentationPlayback;
 using Game.Feature.Gameplay.PresentationRuntime;
-using Game.Shared.Audio;
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -36,22 +35,14 @@ namespace Game.Feature.Gameplay.Host
     internal readonly struct EnemyOneShotAudioLaneDiagnostics
     {
         public EnemyOneShotAudioLaneDiagnostics(
-            EnemyAudioExecutionMode executionMode,
-            EnemyAudioOwnershipDiagnostics ownership,
             GameplayEnemyAudioExecutorDiagnostics executor,
             PresentationBlockingSnapshot blockingSnapshot,
             EnemyAudioProductionTelemetrySnapshot productionTelemetry)
         {
-            ExecutionMode = executionMode;
-            Ownership = ownership;
             Executor = executor;
             BlockingSnapshot = blockingSnapshot;
             ProductionTelemetry = productionTelemetry;
         }
-
-        public EnemyAudioExecutionMode ExecutionMode { get; }
-
-        public EnemyAudioOwnershipDiagnostics Ownership { get; }
 
         public GameplayEnemyAudioExecutorDiagnostics Executor { get; }
 
@@ -65,15 +56,12 @@ namespace Game.Feature.Gameplay.Host
         private static readonly IReadOnlyCollection<int> EmptyPlayableDeathCueEntityIds = Array.Empty<int>();
 
         private readonly EnemyAudioRequestPlanner _requestPlanner;
-        private readonly EnemyAudioPresentationController _legacyController;
-        private readonly EnemyAudioExecutionGuard _executionGuard;
+        private readonly EnemyAudioPresentationController _playbackController;
         private readonly EnemyAudioExecutionPipelineFactory _pipelineFactory;
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayEnemyAudioPlaybackPortAdapter _playbackPortAdapter;
 
         private GameplayPresentationPipeline _executionPipeline;
-        private IGameplayEnemyAudioPlaybackPort _playbackPort;
-        private int _preparedTickIndex;
         private bool _previousPlaybackGateBlocked;
         private bool _currentPlaybackGateBlocked;
 
@@ -81,21 +69,16 @@ namespace Game.Feature.Gameplay.Host
             GameplayPresentationStateStore stateStore,
             EnemyAudioExecutionPipelineFactory pipelineFactory = null,
             EnemyAudioRequestPlanner requestPlanner = null,
-            EnemyAudioPresentationController legacyController = null,
-            EnemyAudioExecutionGuard executionGuard = null)
+            EnemyAudioPresentationController playbackController = null)
         {
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
             _pipelineFactory = pipelineFactory ??
                                GameplayHostPresentationPipelineFactory.CreateEnemyAudioExecutionPipeline;
             _requestPlanner = requestPlanner ?? new EnemyAudioRequestPlanner();
-            _legacyController = legacyController ?? new EnemyAudioPresentationController(_stateStore);
-            _executionGuard = executionGuard ?? new EnemyAudioExecutionGuard();
-            _playbackPortAdapter = new GameplayEnemyAudioPlaybackPortAdapter(_legacyController);
+            _playbackController = playbackController ?? new EnemyAudioPresentationController(_stateStore);
+            _playbackPortAdapter = new GameplayEnemyAudioPlaybackPortAdapter(_playbackController);
+            _executionPipeline = CreateExecutionPipeline();
         }
-
-        public EnemyAudioExecutionMode ExecutionMode => _executionGuard.Diagnostics.Mode;
-
-        public EnemyAudioOwnershipDiagnostics OwnershipDiagnostics => _executionGuard.Diagnostics;
 
         public GameplayEnemyAudioExecutorDiagnostics ExecutorDiagnostics =>
             EnemyAudioProductionTelemetryBuilder.ResolveExecutorDiagnostics(_executionPipeline);
@@ -104,35 +87,19 @@ namespace Game.Feature.Gameplay.Host
             _executionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
         public EnemyAudioProductionTelemetrySnapshot ProductionTelemetrySnapshot =>
-            EnemyAudioProductionTelemetryBuilder.Build(
-                ExecutionMode,
-                _executionGuard.Diagnostics,
-                _executionPipeline);
+            EnemyAudioProductionTelemetryBuilder.Build(_executionPipeline);
 
         public EnemyOneShotAudioLaneDiagnostics Diagnostics =>
             new(
-                ExecutionMode,
-                OwnershipDiagnostics,
                 ExecutorDiagnostics,
                 BlockingSnapshot,
                 ProductionTelemetrySnapshot);
 
-        public int DeferredRequestCount => _legacyController.DeferredRequestCount;
-
-        public void ConfigureExecution(
-            EnemyAudioExecutionMode mode,
-            IGameplayEnemyAudioPlaybackPort playbackPort = null)
-        {
-            _playbackPort = playbackPort;
-            _executionGuard.Configure(EnemyAudioExecutionPolicy.Normalize(mode));
-            ResetExecutionSession();
-            _executionPipeline = CreateExecutionPipeline();
-            _executionPipeline?.ResetSession();
-        }
+        public int DeferredRequestCount => _playbackController.DeferredRequestCount;
 
         public void ConfigureTiming(GameplayTimingProfile timingProfile)
         {
-            _legacyController.ConfigureTiming(timingProfile);
+            _playbackController.ConfigureTiming(timingProfile);
         }
 
         public EnemyOneShotAudioPlanSnapshot RefreshPlan(
@@ -149,27 +116,6 @@ namespace Game.Feature.Gameplay.Host
                 result.PresentationData,
                 enemyAudioRequests);
             var enemyAudioKeys = BuildEnemyAudioPlaybackKeys(result);
-            _preparedTickIndex = result.TickIndex;
-            if (UseProductionExecutor())
-            {
-                for (var i = 0; i < enemyAudioKeys.Count; i++)
-                {
-                    _executionGuard.RecordSkippedByPolicy(
-                        EnemyAudioExecutionOwner.LegacyEnemyAudioController);
-                }
-
-                _legacyController.ReplacePendingPlan(Array.Empty<EnemyAudioRequest>(), result.TickIndex);
-            }
-            else
-            {
-                _legacyController.ReplacePendingPlan(enemyAudioRequests, result.TickIndex);
-                for (var i = 0; i < enemyAudioKeys.Count; i++)
-                {
-                    _executionGuard.TryBeginExecution(
-                        EnemyAudioExecutionOwner.LegacyEnemyAudioController,
-                        enemyAudioKeys[i]);
-                }
-            }
 
             return new EnemyOneShotAudioPlanSnapshot(
                 playableDeathCueEntityIds,
@@ -179,8 +125,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void PresentPrepared(TickResult result)
         {
-            if (result == null ||
-                !UseProductionExecutor())
+            if (result == null)
             {
                 return;
             }
@@ -191,7 +136,6 @@ namespace Game.Feature.Gameplay.Host
 
         public void CompletePrepared()
         {
-            _legacyController.PlayPlannedAudio(_preparedTickIndex);
         }
 
         public void Update(
@@ -201,7 +145,7 @@ namespace Game.Feature.Gameplay.Host
             var gameplayAudioDeltaTime = _previousPlaybackGateBlocked || _currentPlaybackGateBlocked
                 ? 0f
                 : deltaTime;
-            _legacyController.Update(tickIndex, gameplayAudioDeltaTime);
+            _playbackController.Update(tickIndex, gameplayAudioDeltaTime);
             _executionPipeline?.Update(deltaTime);
         }
 
@@ -209,55 +153,39 @@ namespace Game.Feature.Gameplay.Host
         {
             _previousPlaybackGateBlocked = _currentPlaybackGateBlocked;
             _currentPlaybackGateBlocked = gateState.IsBlocked;
-            _legacyController.SetPlaybackGateState(gateState);
+            _playbackController.SetPlaybackGateState(gateState);
         }
 
         public void AttachRuntime(IGameplayAudioPlaybackPort playbackPort)
         {
-            _legacyController.AttachRuntime(playbackPort);
+            _playbackController.AttachRuntime(playbackPort);
         }
 
         public void DetachRuntime()
         {
-            _legacyController.DetachRuntime();
-            _playbackPort?.HardCleanup();
+            _playbackController.DetachRuntime();
         }
 
         public void ResetSession()
         {
-            _legacyController.ResetSession();
-            ResetExecutionSession();
+            _playbackController.ResetSession();
             _executionPipeline?.ResetSession();
         }
 
         public void HardCleanup()
         {
-            _legacyController.ResetSession();
+            _playbackController.ResetSession();
             _executionPipeline?.HardCleanup();
-            ResetExecutionSession();
-        }
-
-        private void ResetExecutionSession()
-        {
-            _executionGuard.ResetSession();
         }
 
         private GameplayPresentationPipeline CreateExecutionPipeline()
         {
-            return _pipelineFactory(
-                ExecutionMode,
-                ResolvePlaybackPort(),
-                _executionGuard);
+            return _pipelineFactory(ResolvePlaybackPort());
         }
 
         private IGameplayEnemyAudioPlaybackPort ResolvePlaybackPort()
         {
-            return _playbackPort ?? _playbackPortAdapter;
-        }
-
-        private bool UseProductionExecutor()
-        {
-            return ExecutionMode == EnemyAudioExecutionPolicy.ProductionDefault;
+            return _playbackPortAdapter;
         }
 
         private static IReadOnlyList<EnemyAudioPlaybackKey> BuildEnemyAudioPlaybackKeys(TickResult result)

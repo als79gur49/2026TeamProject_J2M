@@ -289,8 +289,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                          typeof(PlayerActionAnimationExecutionMode),
                          typeof(EnemyPresentationExecutionMode),
                          typeof(CoreGameplaySfxExecutionMode),
-                         typeof(ActionAudioExecutionMode),
-                         typeof(EnemyAudioExecutionMode),
                      })
             {
                 Assert.That(coordinatorFieldTypes, Has.No.Member(forbiddenModeType), forbiddenModeType.Name);
@@ -335,8 +333,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(composition.PlayerActionAnimationLane.ExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionPolicy.ProductionDefault));
             Assert.That(composition.EnemyPresentationLane.ExecutionMode, Is.EqualTo(EnemyPresentationExecutionPolicy.ProductionDefault));
             Assert.That(composition.CoreGameplaySfxLane.ExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionPolicy.ProductionDefault));
-            Assert.That(composition.GameplayActionAudioLane.ExecutionMode, Is.EqualTo(ActionAudioExecutionPolicy.ProductionDefault));
-            Assert.That(composition.EnemyOneShotAudioLane.ExecutionMode, Is.EqualTo(EnemyAudioExecutionPolicy.ProductionDefault));
+            Assert.That(composition.GameplayActionAudioLane, Is.Not.Null);
+            Assert.That(composition.GameplayActionAudioLane.ExecutorDiagnostics.ObservedCueCount, Is.Zero);
+            Assert.That(composition.EnemyOneShotAudioLane, Is.Not.Null);
+            Assert.That(composition.EnemyOneShotAudioLane.ExecutorDiagnostics.ObservedCueCount, Is.Zero);
 
             foreach (var forbiddenCoordinatorToken in new[]
                      {
@@ -2260,7 +2260,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("AudioSource"));
             Assert.That(runtimeSource, Does.Not.Contain("GameplayActionAudioPresentationController"));
             Assert.That(runtimeSource, Does.Not.Contain("GameplayActionAudioPresentationExecutor"));
-            Assert.That(hostRuntimeSource, Does.Contain("ActionAudioExecutionMode.LegacyActionAudioController"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("ActionAudioExecutionMode"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("ActionAudioExecutionPolicy"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("ActionAudioExecutionGuard"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("ActionAudioExecutionOwner"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("LegacyActionAudioController"));
             Assert.That(coordinatorSource, Does.Contain("GameplayActionAudioLaneRuntime"));
             Assert.That(coordinatorSource, Does.Contain("_actionAudioLane.RefreshPlan"));
             Assert.That(coordinatorSource, Does.Contain("_actionAudioLane.PresentPrepared"));
@@ -2284,17 +2288,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Not.Contain("RefreshActionAudioExecution"));
             Assert.That(typeof(GameplayActionAudioLaneRuntime).IsSealed, Is.True);
             Assert.That(typeof(GameplayActionAudioLaneRuntime).IsSubclassOf(typeof(MonoBehaviour)), Is.False);
-            Assert.That(actionAudioLaneSource, Does.Contain("GameplayActionAudioRequestPlanner"));
             Assert.That(actionAudioLaneSource, Does.Contain("GameplayActionAudioPresentationController"));
-            Assert.That(actionAudioLaneSource, Does.Contain("ActionAudioExecutionGuard"));
             Assert.That(actionAudioLaneSource, Does.Contain("GameplayActionAudioPlaybackPortAdapter"));
             Assert.That(actionAudioLaneSource, Does.Contain("GameplayHostPresentationPipelineFactory.CreateActionAudioExecutionPipeline"));
-            Assert.That(actionAudioLaneSource, Does.Contain("BuildActionAudioPlaybackKeys"));
-            Assert.That(actionAudioLaneSource, Does.Contain("ActionAudioExecutionOwner.LegacyActionAudioController"));
-            Assert.That(actionAudioLaneSource, Does.Contain("ActionAudioExecutionDefaults.ProductionDefault"));
+            Assert.That(actionAudioLaneSource, Does.Not.Contain("GameplayActionAudioRequestPlanner"));
+            Assert.That(actionAudioLaneSource, Does.Not.Contain("BuildActionAudioPlaybackKeys"));
+            Assert.That(actionAudioLaneSource, Does.Not.Contain("ActionAudioExecutionOwner"));
+            Assert.That(actionAudioLaneSource, Does.Not.Contain("ActionAudioExecutionDefaults"));
             Assert.That(hostRuntimeSource, Does.Contain("GameplayActionAudioPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("IGameplayActionAudioPlaybackPort"));
-            Assert.That(hostRuntimeSource, Does.Contain("ActionAudioExecutionGuard"));
             Assert.That(hostRuntimeSource, Does.Contain("ActionAudioProductionTelemetrySnapshot"));
             Assert.That(actionAudioExecutorSource, Does.Contain("GameplayActionAudioPlaybackPortAdapter"));
             Assert.That(actionAudioExecutorSource, Does.Contain("GameplayActionAudioPresentationController controller"));
@@ -3335,9 +3337,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeSource, Does.Not.Contain("EnemyAudioProfile"));
             Assert.That(runtimeSource, Does.Not.Contain("AudioManager"));
 
-            Assert.That(hostRuntimeSource, Does.Contain("EnemyAudioExecutionMode.LegacyEnemyAudioController"));
-            Assert.That(enemyOneShotLaneSource, Does.Contain("EnemyAudioExecutionPolicy.ProductionDefault"));
-            Assert.That(coordinatorSource, Does.Contain("ConfigureEnemyAudioExecution"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("EnemyAudioExecutionMode"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("EnemyAudioExecutionPolicy"));
+            Assert.That(enemyOneShotLaneSource, Does.Not.Contain("EnemyAudioExecutionPolicy"));
+            Assert.That(coordinatorSource, Does.Not.Contain("ConfigureEnemyAudioExecution"));
             Assert.That(coordinatorSource, Does.Contain("EnemyOneShotAudioLaneRuntime"));
             Assert.That(coordinatorSource, Does.Not.Contain("GameplayPresentationExecutionRouter.UseEnemyAudioExecutor"));
             Assert.That(coordinatorSource, Does.Not.Contain("BuildEnemyAudioPlaybackKeys"));
@@ -3354,14 +3357,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Contain("_enemyOneShotAudioLane.PresentPrepared"));
             Assert.That(coordinatorSource, Does.Contain("_enemyOneShotAudioLane.CompletePrepared"));
             Assert.That(enemyOneShotLaneSource, Does.Contain("BuildEnemyAudioPlaybackKeys"));
-            Assert.That(enemyOneShotLaneSource, Does.Contain("EnemyAudioExecutionGuard"));
+            Assert.That(enemyOneShotLaneSource, Does.Not.Contain("EnemyAudioExecutionGuard"));
             Assert.That(enemyOneShotLaneSource, Does.Contain("GameplayEnemyAudioPlaybackPortAdapter"));
             Assert.That(enemyOneShotLaneSource, Does.Contain("GameplayHostPresentationPipelineFactory.CreateEnemyAudioExecutionPipeline"));
             Assert.That(typeof(EnemyOneShotAudioLaneRuntime).IsSealed, Is.True);
             Assert.That(typeof(MonoBehaviour).IsAssignableFrom(typeof(EnemyOneShotAudioLaneRuntime)), Is.False);
             Assert.That(hostRuntimeSource, Does.Contain("GameplayEnemyAudioPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("IGameplayEnemyAudioPlaybackPort"));
-            Assert.That(hostRuntimeSource, Does.Contain("EnemyAudioExecutionGuard"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("EnemyAudioExecutionGuard"));
             Assert.That(enemyAudioExecutorSource, Does.Contain("GameplayEnemyAudioPlaybackPortAdapter"));
             Assert.That(enemyAudioExecutorSource, Does.Contain("EnemyAudioPresentationController controller"));
             Assert.That(enemyAudioExecutorSource, Does.Not.Contain("AudioManager"));

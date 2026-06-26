@@ -90,33 +90,4 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
-    internal static class ActionAudioExecutionPolicy
-    {
-        public const ActionAudioExecutionMode ProductionDefault =
-            ActionAudioExecutionDefaults.ProductionDefault;
-        public const ActionAudioExecutionMode LegacyFallback =
-            ActionAudioExecutionDefaults.LegacyFallback;
-
-        public static ActionAudioExecutionMode Normalize(ActionAudioExecutionMode mode)
-        {
-            return Enum.IsDefined(typeof(ActionAudioExecutionMode), mode)
-                ? mode
-                : LegacyFallback;
-        }
-    }
-
-    internal static class EnemyAudioExecutionPolicy
-    {
-        public const EnemyAudioExecutionMode ProductionDefault =
-            EnemyAudioExecutionDefaults.ProductionDefault;
-        public const EnemyAudioExecutionMode LegacyFallback =
-            EnemyAudioExecutionDefaults.LegacyFallback;
-
-        public static EnemyAudioExecutionMode Normalize(EnemyAudioExecutionMode mode)
-        {
-            return Enum.IsDefined(typeof(EnemyAudioExecutionMode), mode)
-                ? mode
-                : LegacyFallback;
-        }
-    }
 }

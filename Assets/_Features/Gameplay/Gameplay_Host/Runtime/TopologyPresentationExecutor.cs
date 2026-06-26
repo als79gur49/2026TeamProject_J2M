@@ -966,15 +966,8 @@ namespace Game.Feature.Gameplay.Host
         }
 
         public static GameplayPresentationPipeline CreateActionAudioExecutionPipeline(
-            ActionAudioExecutionMode mode,
-            IGameplayActionAudioPlaybackPort playbackPort,
-            ActionAudioExecutionGuard executionGuard)
+            IGameplayActionAudioPlaybackPort playbackPort)
         {
-            if (mode != ActionAudioExecutionMode.OrchestrationActionAudioBridge)
-            {
-                return null;
-            }
-
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
@@ -985,23 +978,13 @@ namespace Game.Feature.Gameplay.Host
                 new PresentationPlaybackScheduler(),
                 new IPresentationExecutor[]
                 {
-                    new GameplayActionAudioPresentationExecutor(
-                        playbackPort,
-                        mode,
-                        executionGuard),
+                    new GameplayActionAudioPresentationExecutor(playbackPort),
                 });
         }
 
         public static GameplayPresentationPipeline CreateEnemyAudioExecutionPipeline(
-            EnemyAudioExecutionMode mode,
-            IGameplayEnemyAudioPlaybackPort playbackPort,
-            EnemyAudioExecutionGuard executionGuard)
+            IGameplayEnemyAudioPlaybackPort playbackPort)
         {
-            if (mode != EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge)
-            {
-                return null;
-            }
-
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
@@ -1012,10 +995,7 @@ namespace Game.Feature.Gameplay.Host
                 new PresentationPlaybackScheduler(),
                 new IPresentationExecutor[]
                 {
-                    new GameplayEnemyAudioPresentationExecutor(
-                        playbackPort,
-                        mode,
-                        executionGuard),
+                    new GameplayEnemyAudioPresentationExecutor(playbackPort),
                 });
         }
     }
