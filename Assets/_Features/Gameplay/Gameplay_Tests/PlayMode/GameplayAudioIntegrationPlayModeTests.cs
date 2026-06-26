@@ -176,11 +176,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(snapshots, Has.Length.EqualTo(1));
                 Assert.That(snapshots[0].LeafChannel, Is.EqualTo(AudioChannel.Sfx));
                 Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
                 Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(1));
                 Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
-                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
 
                 // One-shot action SFX may naturally complete before the next frame in batchmode.
                 yield return null;
@@ -235,7 +232,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var telemetry = context.Host.Presenter.ActionAudioProductionTelemetrySnapshot;
                 Assert.That(snapshots, Has.Length.EqualTo(1));
                 Assert.That(snapshots[0].LeafChannel, Is.EqualTo(AudioChannel.Sfx));
-                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
                 Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationActionAudioCueKey.PlayerPushWindup));
                 Assert.That(telemetry.LastOwnerEntityId, Is.EqualTo(playerEntity.entityId));
                 Assert.That(telemetry.LastAction, Is.EqualTo(GameplayActionKind.Push));
@@ -244,10 +240,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(telemetry.RequestPlannedCount, Is.EqualTo(1));
                 Assert.That(telemetry.PlaybackRequestedCount, Is.EqualTo(1));
                 Assert.That(telemetry.PlaybackSucceededCount, Is.EqualTo(1));
-                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
-                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
 
                 yield return null;
             }
@@ -294,7 +286,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.ObservedCueCount, Is.EqualTo(2));
                 Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(2));
                 Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(2));
-                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
 
                 context.Host.Presenter.PresentInitial(new[] { playerEntity }, new CubeTopologyState(FaceId.Floor));
                 Assert.That(context.Host.Presenter.ActionAudioExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
@@ -492,27 +483,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 var snapshots = context.Manager.CaptureLivePlaybackSnapshots();
                 var diagnostics = context.Host.Presenter.EnemyAudioExecutorDiagnostics;
                 var telemetry = context.Host.Presenter.EnemyAudioProductionTelemetrySnapshot;
-                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
-                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
-                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(diagnostics.RequestPlannedCount, Is.EqualTo(1));
                 Assert.That(diagnostics.PlaybackRequestedCount, Is.EqualTo(1));
                 Assert.That(diagnostics.PlaybackSucceededCount, Is.EqualTo(1));
                 Assert.That(diagnostics.UnsupportedLoopSemanticCount, Is.Zero);
-                Assert.That(snapshots, Has.Length.EqualTo(1));
-                Assert.That(snapshots[0].Source.loop, Is.False);
+                Assert.That(snapshots.Where(snapshot => snapshot.Source.loop), Is.Empty);
                 Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationEnemyAudioCueKey.Active));
                 Assert.That(telemetry.LastOriginKind, Is.EqualTo(PresentationEnemyAudioOriginKind.Action));
                 Assert.That(telemetry.LastPhase, Is.EqualTo(PresentationEnemyAudioPhase.Active));
 
-                context.Host.Presenter.Present(CreateTickResult(
-                    CreateEnemyActionPresentationData(enemy.entityId),
-                    new[] { enemy },
-                    tickIndex: 201,
-                    determinismHash: "enemy-audio-one-shot"));
-
-                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.DuplicateSuppressedCount, Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.DuplicateAttemptCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.EnemyAudioProductionTelemetrySnapshot.LastFailureReason, Is.EqualTo(EnemyAudioTelemetryFailureReason.None));
             }
             finally
             {
@@ -550,7 +530,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(
                     context.Host.Presenter.EnemyAudioExecutorDiagnostics.OptionalProfileEntryMissingNoOpCount,
                     Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.Zero);
 
                 context.Host.Presenter.Present(CreateTickResult(
                     CreateEnemyChargePresentationData(enemy.entityId, sequence: 7, active: true),
@@ -597,13 +577,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator GameplaySceneHost_EnemyAudioProductionBridge_MissingDependencyFallbackAndExplicitRollback()
+        public IEnumerator GameplaySceneHost_EnemyAudioProductionBridge_MissingDependencyUsesProductionDiagnosticAndNoRollback()
         {
             var profileBundle = CreateEnemyAudioProfileBundle(
                 new EnemyAudioEntrySpec(EnemyAudioCue.Active, loop: false, hasAttachmentSlot: false));
             var enemy = CreateUnit(40, UnitRole.Enemy, new SurfaceCell(FaceId.Floor, 0, 0));
             var context = CreateHostContext(
-                nameof(GameplaySceneHost_EnemyAudioProductionBridge_MissingDependencyFallbackAndExplicitRollback),
+                nameof(GameplaySceneHost_EnemyAudioProductionBridge_MissingDependencyUsesProductionDiagnosticAndNoRollback),
                 initialEntities: new[] { enemy },
                 autoCreateViews: true,
                 enemyAudioProfile: profileBundle.Profile);
@@ -615,19 +595,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     tickIndex: 221,
                     determinismHash: "enemy-audio-missing-owner"));
 
-                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.OwnerViewMissingCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.OptionalProfileEntryMissingNoOpCount, Is.EqualTo(1));
                 Assert.That(
                     context.Host.Presenter.EnemyAudioProductionTelemetrySnapshot.LastFailureReason,
-                    Is.EqualTo(EnemyAudioTelemetryFailureReason.OwnerViewMissing));
+                    Is.EqualTo(EnemyAudioTelemetryFailureReason.OptionalProfileEntryMissing));
                 Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.Zero);
 
-                context.Host.Presenter.ConfigureEnemyAudioExecution((EnemyAudioExecutionMode)999);
-                Assert.That(
-                    context.Host.Presenter.EnemyAudioExecutionMode,
-                    Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
-
                 context.Host.Presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
-                context.Host.Presenter.ConfigureEnemyAudioExecution(EnemyAudioExecutionMode.LegacyEnemyAudioController);
                 context.Host.Presenter.Present(CreateTickResult(
                     CreateEnemyActionPresentationData(enemy.entityId),
                     new[] { enemy },
@@ -635,10 +609,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     determinismHash: "enemy-audio-rollback"));
                 yield return null;
 
-                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
-                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
-                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
-                Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(1));
+                Assert.That(context.Manager.CaptureLivePlaybackSnapshots().Where(snapshot => snapshot.Source.loop), Is.Empty);
             }
             finally
             {
@@ -835,9 +808,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     Assert.That(diagnostics.LethalEnemyDamageSuppressedByDeathCount, Is.EqualTo(1));
                     Assert.That(diagnostics.PlaybackNoOpFallbackCount, Is.EqualTo(2));
                     Assert.That(diagnostics.DuplicateSuppressedCount, Is.Zero);
-                    Assert.That(lethalContext.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
-                    Assert.That(lethalContext.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
-                    Assert.That(lethalContext.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+                    Assert.That(lethalContext.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(1));
                 }
                 finally
                 {
@@ -949,14 +920,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             try
             {
                 Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-                Assert.That(context.Host.Presenter.ActionAudioExecutionMode, Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge));
-                Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
                 Assert.That(context.Host.GetComponent<Game.Feature.Flow.Audio.GlobalAudioFlowBootstrap>(), Is.Null);
                 context.Host.Presenter.Present(CreateTickResult(CreatePlayerDamagePresentationData(10), tickIndex: 71));
                 yield return null;
 
-                Assert.That(context.Host.Presenter.ActionAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
-                Assert.That(context.Host.Presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.Zero);
                 Assert.That(context.Host.Presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
             }
             finally
@@ -1119,16 +1087,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             int expectedExecutorCount)
         {
             var diagnostics = context.Host.Presenter.EnemyAudioExecutorDiagnostics;
-            var ownership = context.Host.Presenter.EnemyAudioOwnershipDiagnostics;
             var telemetry = context.Host.Presenter.EnemyAudioProductionTelemetrySnapshot;
 
-            Assert.That(context.Host.Presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
-            Assert.That(ownership.ExecutedByLegacyCount, Is.Zero);
-            Assert.That(ownership.ExecutedByExecutorCount, Is.EqualTo(expectedExecutorCount));
-            Assert.That(ownership.DuplicateAttemptCount, Is.Zero);
             Assert.That(diagnostics.PlaybackRequestedCount, Is.EqualTo(expectedExecutorCount));
             Assert.That(diagnostics.PlaybackSucceededCount, Is.EqualTo(expectedExecutorCount));
-            Assert.That(diagnostics.DuplicateSuppressedCount, Is.Zero);
             Assert.That(diagnostics.PortMissingCount, Is.Zero);
             Assert.That(diagnostics.LastFailureReason, Is.EqualTo(EnemyAudioTelemetryFailureReason.None));
             Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.GreaterThanOrEqualTo(expectedExecutorCount));

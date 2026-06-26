@@ -146,9 +146,7 @@ namespace Game.Feature.Gameplay.Host
                 boxMotionLane,
                 playerActionAnimationLane,
                 enemyPresentationLane,
-                coreGameplaySfxLane,
-                gameplayActionAudioLane,
-                enemyOneShotAudioLane);
+                coreGameplaySfxLane);
 
             return new GameplayPresentationRuntimeComposition(
                 stateStore,
@@ -202,9 +200,7 @@ namespace Game.Feature.Gameplay.Host
             BoxMotionPresentationLaneRuntime boxMotionLane,
             PlayerActionAnimationLaneRuntime playerActionAnimationLane,
             EnemyPresentationLaneRuntime enemyPresentationLane,
-            CoreGameplaySfxLaneRuntime coreGameplaySfxLane,
-            GameplayActionAudioLaneRuntime gameplayActionAudioLane,
-            EnemyOneShotAudioLaneRuntime enemyOneShotAudioLane)
+            CoreGameplaySfxLaneRuntime coreGameplaySfxLane)
         {
             topologyLane.ConfigureExecution(TopologyPresentationExecutionPolicy.ProductionDefault);
             damageDeathVfxLane.ConfigureExecution(
@@ -214,8 +210,6 @@ namespace Game.Feature.Gameplay.Host
             playerActionAnimationLane.ConfigureExecution(PlayerActionAnimationExecutionPolicy.ProductionDefault);
             enemyPresentationLane.ConfigureExecution(EnemyPresentationExecutionPolicy.ProductionDefault);
             coreGameplaySfxLane.ConfigureExecution(CoreGameplaySfxExecutionPolicy.ProductionDefault);
-            gameplayActionAudioLane.ConfigureExecution(ActionAudioExecutionPolicy.ProductionDefault);
-            enemyOneShotAudioLane.ConfigureExecution(EnemyAudioExecutionPolicy.ProductionDefault);
         }
     }
 

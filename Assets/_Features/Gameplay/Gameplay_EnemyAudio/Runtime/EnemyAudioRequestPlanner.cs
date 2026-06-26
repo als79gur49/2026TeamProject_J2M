@@ -18,7 +18,6 @@ namespace Game.Feature.Gameplay.EnemyAudio
 
             timingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             var requests = new List<EnemyAudioRequest>();
-            BuildLegacySummonWindupRequests(result.PresentationData ?? TickPresentationData.Empty, requests);
             var semanticEvents = EnemyAudioSemanticProjector.Project(result);
             for (var i = 0; i < semanticEvents.Count; i++)
             {
@@ -26,23 +25,6 @@ namespace Game.Feature.Gameplay.EnemyAudio
             }
 
             return requests;
-        }
-
-        private static void BuildLegacySummonWindupRequests(
-            TickPresentationData presentationData,
-            ICollection<EnemyAudioRequest> requests)
-        {
-            var signals = presentationData.SummonWindupWarnings;
-            for (var i = 0; i < signals.Count; i++)
-            {
-                var signal = signals[i];
-                AddRequestIf(
-                    signal.SourceEntityId,
-                    EnemyAudioCue.Windup,
-                    signal.SourceEntityId > 0 &&
-                    signal.TickIndex == signal.WindupStartTick,
-                    requests);
-            }
         }
 
         private static void AddRequest(
@@ -131,35 +113,5 @@ namespace Game.Feature.Gameplay.EnemyAudio
             }
         }
 
-        private static void AddRequestIf(
-            int ownerEntityId,
-            EnemyAudioCue cue,
-            bool shouldEmit,
-            ICollection<EnemyAudioRequest> requests)
-        {
-            if (!shouldEmit)
-            {
-                return;
-            }
-
-            AddRequest(ownerEntityId, cue, requests);
-        }
-
-        private static void AddRequest(
-            int ownerEntityId,
-            EnemyAudioCue cue,
-            ICollection<EnemyAudioRequest> requests,
-            float delaySeconds = 0f,
-            EnemyAudioRequestIdentity identity = default)
-        {
-            requests.Add(new EnemyAudioRequest(
-                ownerEntityId,
-                cue,
-                new AudioPlaybackContext(
-                    ownerEntityId: ownerEntityId,
-                    debugTag: EnemyAudioCueCatalog.Format(cue)),
-                delaySeconds,
-                identity));
-        }
     }
 }

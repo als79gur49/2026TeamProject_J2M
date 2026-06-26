@@ -9,27 +9,6 @@ using Game.Shared.Audio;
 
 namespace Game.Feature.Gameplay.Host
 {
-    public enum ActionAudioExecutionMode
-    {
-        LegacyActionAudioController = 0,
-        OrchestrationActionAudioBridge = 1,
-    }
-
-    internal static class ActionAudioExecutionDefaults
-    {
-        public const ActionAudioExecutionMode LegacyFallback =
-            ActionAudioExecutionMode.LegacyActionAudioController;
-        public const ActionAudioExecutionMode ProductionDefault =
-            ActionAudioExecutionMode.OrchestrationActionAudioBridge;
-    }
-
-    internal enum ActionAudioExecutionOwner
-    {
-        None = 0,
-        LegacyActionAudioController = 1,
-        OrchestrationActionAudioBridge = 2,
-    }
-
     internal enum GameplayActionAudioPlaybackResultKind
     {
         None = 0,
@@ -42,7 +21,6 @@ namespace Game.Feature.Gameplay.Host
         Requested = 7,
         Succeeded = 8,
         OptionalProfileEntryMissing = 9,
-        LegacyOwnerActive = 10,
     }
 
     internal enum ActionAudioTelemetryFailureReason
@@ -54,8 +32,6 @@ namespace Game.Feature.Gameplay.Host
         BindingMissing = 4,
         UnsupportedMoment = 5,
         PortMissing = 6,
-        DuplicateSuppressed = 7,
-        LegacyOwnerActive = 8,
         OptionalProfileEntryMissing = 9,
     }
 
@@ -69,10 +45,6 @@ namespace Game.Feature.Gameplay.Host
     internal readonly struct ActionAudioProductionTelemetrySnapshot
     {
         public ActionAudioProductionTelemetrySnapshot(
-            ActionAudioExecutionMode currentMode,
-            bool isProductionDefaultOwner,
-            ActionAudioExecutionMode productionDefaultMode,
-            ActionAudioExecutionMode rollbackMode,
             int lastTickIndex,
             PresentationActionAudioCueKey lastCueKey,
             int lastDedupeKey,
@@ -82,12 +54,6 @@ namespace Game.Feature.Gameplay.Host
             PresentationActionAudioOutcomeKind lastOutcome,
             ActionAudioTelemetryFailureReason lastFailureReason,
             ActionAudioTelemetryCleanupReason lastCleanupReason,
-            int legacyOwnerAttemptCount,
-            int legacyOwnerSkippedByPolicyCount,
-            int executorOwnerAttemptCount,
-            int executorOwnerExecutedCount,
-            int duplicateOwnerAttemptCount,
-            int duplicateSuppressedCount,
             int observedCueCount,
             int requestPlannedCount,
             int playbackRequestedCount,
@@ -100,10 +66,6 @@ namespace Game.Feature.Gameplay.Host
             int unsupportedMomentCount,
             int portMissingCount)
         {
-            CurrentMode = currentMode;
-            IsProductionDefaultOwner = isProductionDefaultOwner;
-            ProductionDefaultMode = productionDefaultMode;
-            RollbackMode = rollbackMode;
             LastTickIndex = Math.Max(0, lastTickIndex);
             LastCueKey = lastCueKey;
             LastDedupeKey = lastDedupeKey;
@@ -113,12 +75,6 @@ namespace Game.Feature.Gameplay.Host
             LastOutcome = lastOutcome;
             LastFailureReason = lastFailureReason;
             LastCleanupReason = lastCleanupReason;
-            LegacyOwnerAttemptCount = Math.Max(0, legacyOwnerAttemptCount);
-            LegacyOwnerSkippedByPolicyCount = Math.Max(0, legacyOwnerSkippedByPolicyCount);
-            ExecutorOwnerAttemptCount = Math.Max(0, executorOwnerAttemptCount);
-            ExecutorOwnerExecutedCount = Math.Max(0, executorOwnerExecutedCount);
-            DuplicateOwnerAttemptCount = Math.Max(0, duplicateOwnerAttemptCount);
-            DuplicateSuppressedCount = Math.Max(0, duplicateSuppressedCount);
             ObservedCueCount = Math.Max(0, observedCueCount);
             RequestPlannedCount = Math.Max(0, requestPlannedCount);
             PlaybackRequestedCount = Math.Max(0, playbackRequestedCount);
@@ -132,10 +88,6 @@ namespace Game.Feature.Gameplay.Host
             PortMissingCount = Math.Max(0, portMissingCount);
         }
 
-        public ActionAudioExecutionMode CurrentMode { get; }
-        public bool IsProductionDefaultOwner { get; }
-        public ActionAudioExecutionMode ProductionDefaultMode { get; }
-        public ActionAudioExecutionMode RollbackMode { get; }
         public int LastTickIndex { get; }
         public PresentationActionAudioCueKey LastCueKey { get; }
         public int LastDedupeKey { get; }
@@ -145,12 +97,6 @@ namespace Game.Feature.Gameplay.Host
         public PresentationActionAudioOutcomeKind LastOutcome { get; }
         public ActionAudioTelemetryFailureReason LastFailureReason { get; }
         public ActionAudioTelemetryCleanupReason LastCleanupReason { get; }
-        public int LegacyOwnerAttemptCount { get; }
-        public int LegacyOwnerSkippedByPolicyCount { get; }
-        public int ExecutorOwnerAttemptCount { get; }
-        public int ExecutorOwnerExecutedCount { get; }
-        public int DuplicateOwnerAttemptCount { get; }
-        public int DuplicateSuppressedCount { get; }
         public int ObservedCueCount { get; }
         public int RequestPlannedCount { get; }
         public int PlaybackRequestedCount { get; }
@@ -185,26 +131,11 @@ namespace Game.Feature.Gameplay.Host
             return default;
         }
 
-        public static ActionAudioProductionTelemetrySnapshot Build(
-            ActionAudioExecutionMode mode,
-            ActionAudioOwnershipDiagnostics ownership,
-            GameplayPresentationPipeline pipeline)
+        public static ActionAudioProductionTelemetrySnapshot Build(GameplayPresentationPipeline pipeline)
         {
             var executor = ResolveExecutorDiagnostics(pipeline);
-            var duplicateSuppressedCount = Math.Max(
-                executor.DuplicateSuppressedCount,
-                ownership.DuplicateAttemptCount);
-            var lastFailureReason =
-                duplicateSuppressedCount > executor.DuplicateSuppressedCount &&
-                executor.LastFailureReason == ActionAudioTelemetryFailureReason.None
-                    ? ActionAudioTelemetryFailureReason.DuplicateSuppressed
-                    : executor.LastFailureReason;
 
             return new ActionAudioProductionTelemetrySnapshot(
-                mode,
-                mode == ActionAudioExecutionDefaults.ProductionDefault,
-                ActionAudioExecutionDefaults.ProductionDefault,
-                ActionAudioExecutionDefaults.LegacyFallback,
                 executor.LastTickIndex,
                 executor.LastCueKey,
                 executor.LastDedupeKey,
@@ -212,14 +143,8 @@ namespace Game.Feature.Gameplay.Host
                 executor.LastAction,
                 executor.LastMoment,
                 executor.LastOutcome,
-                lastFailureReason,
+                executor.LastFailureReason,
                 executor.LastCleanupReason,
-                ownership.LegacyAttemptCount,
-                ownership.SkippedLegacyBecauseExecutorOwnerCount,
-                ownership.ExecutorAttemptCount,
-                ownership.ExecutedByExecutorCount,
-                ownership.DuplicateAttemptCount,
-                duplicateSuppressedCount,
                 executor.ObservedCueCount,
                 executor.RequestPlannedCount,
                 executor.PlaybackRequestedCount,
@@ -312,186 +237,6 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
-    internal readonly struct ActionAudioOwnershipDiagnostics
-    {
-        public ActionAudioOwnershipDiagnostics(
-            ActionAudioExecutionMode mode,
-            int legacyAttemptCount,
-            int executorAttemptCount,
-            int executedByLegacyCount,
-            int executedByExecutorCount,
-            int skippedLegacyBecauseExecutorOwnerCount,
-            int skippedExecutorBecauseLegacyOwnerCount,
-            int duplicateAttemptCount,
-            ActionAudioExecutionOwner lastExecutionOwner)
-        {
-            Mode = mode;
-            LegacyAttemptCount = Math.Max(0, legacyAttemptCount);
-            ExecutorAttemptCount = Math.Max(0, executorAttemptCount);
-            ExecutedByLegacyCount = Math.Max(0, executedByLegacyCount);
-            ExecutedByExecutorCount = Math.Max(0, executedByExecutorCount);
-            SkippedLegacyBecauseExecutorOwnerCount = Math.Max(0, skippedLegacyBecauseExecutorOwnerCount);
-            SkippedExecutorBecauseLegacyOwnerCount = Math.Max(0, skippedExecutorBecauseLegacyOwnerCount);
-            DuplicateAttemptCount = Math.Max(0, duplicateAttemptCount);
-            LastExecutionOwner = lastExecutionOwner;
-        }
-
-        public ActionAudioExecutionMode Mode { get; }
-
-        public int LegacyAttemptCount { get; }
-
-        public int ExecutorAttemptCount { get; }
-
-        public int ExecutedByLegacyCount { get; }
-
-        public int ExecutedByExecutorCount { get; }
-
-        public int SkippedLegacyBecauseExecutorOwnerCount { get; }
-
-        public int SkippedExecutorBecauseLegacyOwnerCount { get; }
-
-        public int DuplicateAttemptCount { get; }
-
-        public ActionAudioExecutionOwner LastExecutionOwner { get; }
-    }
-
-    internal sealed class ActionAudioExecutionGuard
-    {
-        private readonly HashSet<ActionAudioPlaybackKey> _claimedKeys = new();
-        private ActionAudioExecutionMode _mode;
-        private int _legacyAttemptCount;
-        private int _executorAttemptCount;
-        private int _executedByLegacyCount;
-        private int _executedByExecutorCount;
-        private int _skippedLegacyBecauseExecutorOwnerCount;
-        private int _skippedExecutorBecauseLegacyOwnerCount;
-        private int _duplicateAttemptCount;
-        private ActionAudioExecutionOwner _lastExecutionOwner;
-
-        public ActionAudioExecutionGuard(
-            ActionAudioExecutionMode mode = ActionAudioExecutionMode.LegacyActionAudioController)
-        {
-            _mode = NormalizeMode(mode);
-        }
-
-        public ActionAudioOwnershipDiagnostics Diagnostics =>
-            new(
-                _mode,
-                _legacyAttemptCount,
-                _executorAttemptCount,
-                _executedByLegacyCount,
-                _executedByExecutorCount,
-                _skippedLegacyBecauseExecutorOwnerCount,
-                _skippedExecutorBecauseLegacyOwnerCount,
-                _duplicateAttemptCount,
-                _lastExecutionOwner);
-
-        public void Configure(ActionAudioExecutionMode mode)
-        {
-            _mode = NormalizeMode(mode);
-        }
-
-        public void ResetSession()
-        {
-            _claimedKeys.Clear();
-            _legacyAttemptCount = 0;
-            _executorAttemptCount = 0;
-            _executedByLegacyCount = 0;
-            _executedByExecutorCount = 0;
-            _skippedLegacyBecauseExecutorOwnerCount = 0;
-            _skippedExecutorBecauseLegacyOwnerCount = 0;
-            _duplicateAttemptCount = 0;
-            _lastExecutionOwner = ActionAudioExecutionOwner.None;
-        }
-
-        public void RecordSkippedByPolicy(ActionAudioExecutionOwner skippedOwner)
-        {
-            if (skippedOwner == ActionAudioExecutionOwner.None)
-            {
-                throw new ArgumentOutOfRangeException(nameof(skippedOwner), "Action audio owner must be explicit.");
-            }
-
-            RecordAttempt(skippedOwner);
-            RecordPolicySkip(skippedOwner);
-        }
-
-        public bool TryBeginExecution(
-            ActionAudioExecutionOwner owner,
-            in ActionAudioPlaybackKey key)
-        {
-            if (owner == ActionAudioExecutionOwner.None)
-            {
-                throw new ArgumentOutOfRangeException(nameof(owner), "Action audio owner must be explicit.");
-            }
-
-            RecordAttempt(owner);
-            if (_claimedKeys.Contains(key))
-            {
-                _duplicateAttemptCount++;
-                RecordPolicySkip(owner);
-                return false;
-            }
-
-            if (!IsOwnerAllowed(owner))
-            {
-                RecordPolicySkip(owner);
-                return false;
-            }
-
-            _claimedKeys.Add(key);
-            _lastExecutionOwner = owner;
-            if (owner == ActionAudioExecutionOwner.LegacyActionAudioController)
-            {
-                _executedByLegacyCount++;
-            }
-            else
-            {
-                _executedByExecutorCount++;
-            }
-
-            return true;
-        }
-
-        private static ActionAudioExecutionMode NormalizeMode(ActionAudioExecutionMode mode)
-        {
-            return Enum.IsDefined(typeof(ActionAudioExecutionMode), mode)
-                ? mode
-                : ActionAudioExecutionMode.LegacyActionAudioController;
-        }
-
-        private bool IsOwnerAllowed(ActionAudioExecutionOwner owner)
-        {
-            return (_mode == ActionAudioExecutionMode.LegacyActionAudioController &&
-                    owner == ActionAudioExecutionOwner.LegacyActionAudioController) ||
-                   (_mode == ActionAudioExecutionMode.OrchestrationActionAudioBridge &&
-                    owner == ActionAudioExecutionOwner.OrchestrationActionAudioBridge);
-        }
-
-        private void RecordAttempt(ActionAudioExecutionOwner owner)
-        {
-            if (owner == ActionAudioExecutionOwner.LegacyActionAudioController)
-            {
-                _legacyAttemptCount++;
-            }
-            else if (owner == ActionAudioExecutionOwner.OrchestrationActionAudioBridge)
-            {
-                _executorAttemptCount++;
-            }
-        }
-
-        private void RecordPolicySkip(ActionAudioExecutionOwner owner)
-        {
-            if (owner == ActionAudioExecutionOwner.LegacyActionAudioController)
-            {
-                _skippedLegacyBecauseExecutorOwnerCount++;
-            }
-            else if (owner == ActionAudioExecutionOwner.OrchestrationActionAudioBridge)
-            {
-                _skippedExecutorBecauseLegacyOwnerCount++;
-            }
-        }
-    }
-
     internal readonly struct GameplayActionAudioPlaybackRequest
     {
         public GameplayActionAudioPlaybackRequest(
@@ -559,8 +304,6 @@ namespace Game.Feature.Gameplay.Host
             int bindingMissingCount,
             int unsupportedMomentCount,
             int portMissingCount,
-            int duplicateSuppressedCount,
-            int legacyOwnerNoOpCount,
             int requestPlannedCount,
             int playbackRequestedCount,
             int playbackSucceededCount,
@@ -584,8 +327,6 @@ namespace Game.Feature.Gameplay.Host
             BindingMissingCount = Math.Max(0, bindingMissingCount);
             UnsupportedMomentCount = Math.Max(0, unsupportedMomentCount);
             PortMissingCount = Math.Max(0, portMissingCount);
-            DuplicateSuppressedCount = Math.Max(0, duplicateSuppressedCount);
-            LegacyOwnerNoOpCount = Math.Max(0, legacyOwnerNoOpCount);
             RequestPlannedCount = Math.Max(0, requestPlannedCount);
             PlaybackRequestedCount = Math.Max(0, playbackRequestedCount);
             PlaybackSucceededCount = Math.Max(0, playbackSucceededCount);
@@ -614,10 +355,6 @@ namespace Game.Feature.Gameplay.Host
         public int UnsupportedMomentCount { get; }
 
         public int PortMissingCount { get; }
-
-        public int DuplicateSuppressedCount { get; }
-
-        public int LegacyOwnerNoOpCount { get; }
 
         public int RequestPlannedCount { get; }
 
@@ -658,9 +395,7 @@ namespace Game.Feature.Gameplay.Host
     }
 
     internal delegate GameplayPresentationPipeline ActionAudioExecutionPipelineFactory(
-        ActionAudioExecutionMode mode,
-        IGameplayActionAudioPlaybackPort playbackPort,
-        ActionAudioExecutionGuard executionGuard);
+        IGameplayActionAudioPlaybackPort playbackPort);
 
     internal sealed class GameplayActionAudioPlaybackPortAdapter : IGameplayActionAudioPlaybackPort
     {
@@ -690,17 +425,10 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class GameplayActionAudioPresentationExecutor : IPresentationExecutor
     {
         private readonly IGameplayActionAudioPlaybackPort _playbackPort;
-        private readonly ActionAudioExecutionMode _mode;
-        private readonly ActionAudioExecutionGuard _executionGuard;
 
-        public GameplayActionAudioPresentationExecutor(
-            IGameplayActionAudioPlaybackPort playbackPort = null,
-            ActionAudioExecutionMode mode = ActionAudioExecutionMode.LegacyActionAudioController,
-            ActionAudioExecutionGuard executionGuard = null)
+        public GameplayActionAudioPresentationExecutor(IGameplayActionAudioPlaybackPort playbackPort = null)
         {
             _playbackPort = playbackPort;
-            _mode = NormalizeMode(mode);
-            _executionGuard = executionGuard;
         }
 
         public GameplayActionAudioExecutorDiagnostics Diagnostics { get; private set; }
@@ -727,8 +455,6 @@ namespace Game.Feature.Gameplay.Host
             var bindingMissingCount = 0;
             var unsupportedMomentCount = 0;
             var portMissingCount = 0;
-            var duplicateSuppressedCount = 0;
-            var legacyOwnerNoOpCount = 0;
             var requestPlannedCount = 0;
             var playbackRequestedCount = 0;
             var playbackSucceededCount = 0;
@@ -761,12 +487,6 @@ namespace Game.Feature.Gameplay.Host
                     ref lastAction,
                     ref lastMoment,
                     ref lastOutcome);
-                if (_mode != ActionAudioExecutionMode.OrchestrationActionAudioBridge)
-                {
-                    legacyOwnerNoOpCount++;
-                    lastFailureReason = ActionAudioTelemetryFailureReason.LegacyOwnerActive;
-                    continue;
-                }
 
                 if (!TryCreateRequest(cue, i, out var request, out var missingKind))
                 {
@@ -778,7 +498,6 @@ namespace Game.Feature.Gameplay.Host
                         ref bindingMissingCount,
                         ref unsupportedMomentCount,
                         ref portMissingCount,
-                        ref legacyOwnerNoOpCount,
                         ref playbackSucceededCount,
                         ref optionalProfileEntryMissingNoOpCount);
                     lastFailureReason = ToTelemetryFailureReason(missingKind);
@@ -786,24 +505,6 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 requestPlannedCount++;
-                var duplicateBefore = _executionGuard?.Diagnostics.DuplicateAttemptCount ?? 0;
-                if (!TryClaimExecution(request.OwnershipKey))
-                {
-                    var duplicateAfter = _executionGuard?.Diagnostics.DuplicateAttemptCount ?? duplicateBefore;
-                    if (duplicateAfter > duplicateBefore)
-                    {
-                        duplicateSuppressedCount++;
-                        lastFailureReason = ActionAudioTelemetryFailureReason.DuplicateSuppressed;
-                    }
-                    else
-                    {
-                        legacyOwnerNoOpCount++;
-                        lastFailureReason = ActionAudioTelemetryFailureReason.LegacyOwnerActive;
-                    }
-
-                    continue;
-                }
-
                 if (_playbackPort == null)
                 {
                     portMissingCount++;
@@ -821,7 +522,6 @@ namespace Game.Feature.Gameplay.Host
                     ref bindingMissingCount,
                     ref unsupportedMomentCount,
                     ref portMissingCount,
-                    ref legacyOwnerNoOpCount,
                     ref playbackSucceededCount,
                     ref optionalProfileEntryMissingNoOpCount);
                 lastFailureReason = ToTelemetryFailureReason(result.Kind);
@@ -835,8 +535,6 @@ namespace Game.Feature.Gameplay.Host
                 bindingMissingCount,
                 unsupportedMomentCount,
                 portMissingCount,
-                duplicateSuppressedCount,
-                legacyOwnerNoOpCount,
                 requestPlannedCount,
                 playbackRequestedCount,
                 playbackSucceededCount,
@@ -873,10 +571,7 @@ namespace Game.Feature.Gameplay.Host
                 0,
                 0,
                 0,
-                0,
-                0,
                 lastCleanupReason: ActionAudioTelemetryCleanupReason.ResetSession);
-            _executionGuard?.ResetSession();
             _playbackPort?.ResetSession();
         }
 
@@ -894,23 +589,8 @@ namespace Game.Feature.Gameplay.Host
                 0,
                 0,
                 0,
-                0,
-                0,
                 lastCleanupReason: ActionAudioTelemetryCleanupReason.HardCleanupPresentationExtensions);
-            _executionGuard?.ResetSession();
             _playbackPort?.HardCleanup();
-        }
-
-        private bool TryClaimExecution(in ActionAudioPlaybackKey key)
-        {
-            if (_executionGuard != null)
-            {
-                return _executionGuard.TryBeginExecution(
-                    ActionAudioExecutionOwner.OrchestrationActionAudioBridge,
-                    key);
-            }
-
-            return _mode == ActionAudioExecutionMode.OrchestrationActionAudioBridge;
         }
 
         private static bool IsActionAudioCue(PresentationCue cue)
@@ -1036,7 +716,6 @@ namespace Game.Feature.Gameplay.Host
             ref int bindingMissingCount,
             ref int unsupportedMomentCount,
             ref int portMissingCount,
-            ref int legacyOwnerNoOpCount,
             ref int playbackSucceededCount,
             ref int optionalProfileEntryMissingNoOpCount)
         {
@@ -1067,9 +746,6 @@ namespace Game.Feature.Gameplay.Host
                 case GameplayActionAudioPlaybackResultKind.Requested:
                     playbackSucceededCount++;
                     break;
-                case GameplayActionAudioPlaybackResultKind.LegacyOwnerActive:
-                    legacyOwnerNoOpCount++;
-                    break;
             }
         }
 
@@ -1092,18 +768,9 @@ namespace Game.Feature.Gameplay.Host
                     return ActionAudioTelemetryFailureReason.PortMissing;
                 case GameplayActionAudioPlaybackResultKind.OptionalProfileEntryMissing:
                     return ActionAudioTelemetryFailureReason.OptionalProfileEntryMissing;
-                case GameplayActionAudioPlaybackResultKind.LegacyOwnerActive:
-                    return ActionAudioTelemetryFailureReason.LegacyOwnerActive;
                 default:
                     return ActionAudioTelemetryFailureReason.None;
             }
-        }
-
-        private static ActionAudioExecutionMode NormalizeMode(ActionAudioExecutionMode mode)
-        {
-            return Enum.IsDefined(typeof(ActionAudioExecutionMode), mode)
-                ? mode
-                : ActionAudioExecutionMode.LegacyActionAudioController;
         }
     }
 }

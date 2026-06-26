@@ -247,10 +247,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }).Plan(factFrame);
             var playbackPlan = new PresentationPlaybackPlanner().Plan(cueFrame);
             var bridgePort = new RecordingEnemyAudioPlaybackPort();
-            var executor = new GameplayEnemyAudioPresentationExecutor(
-                bridgePort,
-                EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge,
-                new EnemyAudioExecutionGuard(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
+            var executor = new GameplayEnemyAudioPresentationExecutor(bridgePort);
 
             executor.Play(playbackPlan);
 
@@ -336,9 +333,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAudio_DefaultMode_UsesLegacyControllerAndDoesNotCallBridgePort()
+        public void EnemyAudio_DefaultRoute_UsesProductionControllerAndHasNoLegacySwitch()
         {
-            var rootObject = new GameObject(nameof(EnemyAudio_DefaultMode_UsesLegacyControllerAndDoesNotCallBridgePort));
+            var rootObject = new GameObject(nameof(EnemyAudio_DefaultRoute_UsesProductionControllerAndHasNoLegacySwitch));
             using var mapBundle = CreateGameplayAudioMap();
             using var profileBundle = CreateEnemyAudioProfile(
                 new EnemyAudioEntrySpec(EnemyAudioCue.Active, CreateDefinitionSpec()));
@@ -346,12 +343,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
                 var playbackPort = new RecordingGameplayAudioPlaybackPort();
-                var bridgePort = new RecordingEnemyAudioPlaybackPort();
                 var enemy = CreateUnit(60, UnitRole.Enemy);
 
-                presenter.ConfigureEnemyAudioExecution(
-                    EnemyAudioExecutionMode.LegacyEnemyAudioController,
-                    bridgePort);
                 presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
                 presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
                 presenter.Present(CreateTickResult(
@@ -365,13 +358,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[] { enemy },
                     tickIndex: 7));
 
-                Assert.That(presenter.EnemyAudioExecutionMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
-                Assert.That(bridgePort.Requests, Is.Empty);
                 Assert.That(playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(), Is.EqualTo(new[] { "Active" }));
-                Assert.That(presenter.EnemyAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
-                Assert.That(presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
-                Assert.That(presenter.EnemyAudioOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
-                Assert.That(presenter.EnemyAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
+                Assert.That(presenter.EnemyAudioExecutorDiagnostics.ObservedCueCount, Is.EqualTo(1));
+                Assert.That(presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(1));
             }
             finally
             {
@@ -381,25 +370,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAudio_OrchestrationBridgeMode_RoutesOneShotCueToBridgePortOnly()
+        public void EnemyAudio_ProductionExecutor_RoutesOneShotCueToBridgePort()
         {
-            var rootObject = new GameObject(nameof(EnemyAudio_OrchestrationBridgeMode_RoutesOneShotCueToBridgePortOnly));
+            var rootObject = new GameObject(nameof(EnemyAudio_ProductionExecutor_RoutesOneShotCueToBridgePort));
             using var mapBundle = CreateGameplayAudioMap();
             using var profileBundle = CreateEnemyAudioProfile(
                 new EnemyAudioEntrySpec(EnemyAudioCue.Active, CreateDefinitionSpec()));
             try
             {
-                var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
-                var playbackPort = new RecordingGameplayAudioPlaybackPort();
                 var bridgePort = new RecordingEnemyAudioPlaybackPort();
                 var enemy = CreateUnit(60, UnitRole.Enemy);
+                var executor = new GameplayEnemyAudioPresentationExecutor(bridgePort);
 
-                presenter.ConfigureEnemyAudioExecution(
-                    EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge,
-                    bridgePort);
-                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
-                presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
-                presenter.Present(CreateTickResult(
+                executor.Play(CreateEnemyAudioPlaybackPlan(CreateTickResult(
                     CreatePresentationData(enemyActionSignals: new[]
                     {
                         CreateEnemyActionExecutedSignal(
@@ -408,9 +391,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             EnemyActionPresentationOutcome.Executed),
                     }),
                     new[] { enemy },
-                    tickIndex: 7));
+                    tickIndex: 7)));
 
-                Assert.That(playbackPort.TwoDCalls, Is.Empty);
                 Assert.That(bridgePort.Requests, Has.Count.EqualTo(1));
                 var request = bridgePort.Requests[0];
                 Assert.That(request.CueKey, Is.EqualTo(PresentationEnemyAudioCueKey.Active));
@@ -421,13 +403,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(request.EnemyAudioPayload.Phase, Is.EqualTo(PresentationEnemyAudioPhase.Active));
                 Assert.That(request.Target, Is.EqualTo(PresentationTarget.Entity(enemy.entityId)));
                 Assert.That(request.Anchor.Kind, Is.EqualTo(PresentationAnchorKind.EntityVisualRoot));
-                Assert.That(presenter.EnemyAudioOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
-                Assert.That(presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
-                Assert.That(presenter.EnemyAudioOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
-                Assert.That(presenter.EnemyAudioExecutorDiagnostics.PlaybackRequestedCount, Is.EqualTo(1));
-                Assert.That(presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(1));
-                Assert.That(presenter.EnemyAudioExecutionPipelineBlockingSnapshot.HasPlannedBlockingBarrier, Is.False);
-                Assert.That(presenter.HasBlockingPresentation, Is.False);
+                Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.EqualTo(1));
+                Assert.That(executor.Diagnostics.PlaybackSucceededCount, Is.EqualTo(1));
             }
             finally
             {
@@ -437,9 +414,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAudio_ProductionTelemetry_CoversOneShotOwnerSemanticLoopAndRollbackValues()
+        public void EnemyAudio_ProductionTelemetry_CoversOneShotOwnerSemanticValues()
         {
-            var rootObject = new GameObject(nameof(EnemyAudio_ProductionTelemetry_CoversOneShotOwnerSemanticLoopAndRollbackValues));
+            var rootObject = new GameObject(nameof(EnemyAudio_ProductionTelemetry_CoversOneShotOwnerSemanticValues));
             using var mapBundle = CreateGameplayAudioMap();
             using var profileBundle = CreateEnemyAudioProfile(
                 new EnemyAudioEntrySpec(EnemyAudioCue.Active, CreateDefinitionSpec()));
@@ -447,12 +424,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
                 var playbackPort = new RecordingGameplayAudioPlaybackPort();
-                var bridgePort = new RecordingEnemyAudioPlaybackPort();
                 var enemy = CreateUnit(60, UnitRole.Enemy);
 
-                presenter.ConfigureEnemyAudioExecution(
-                    EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge,
-                    bridgePort);
                 presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
                 presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
                 presenter.Present(CreateTickResult(
@@ -467,20 +440,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     tickIndex: 8));
 
                 var telemetry = presenter.EnemyAudioProductionTelemetrySnapshot;
-                Assert.That(telemetry.CurrentMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
-                Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
-                Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
-                Assert.That(telemetry.RollbackMode, Is.EqualTo(EnemyAudioExecutionMode.LegacyEnemyAudioController));
                 Assert.That(telemetry.LastTickIndex, Is.EqualTo(8));
                 Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationEnemyAudioCueKey.Active));
                 Assert.That(telemetry.LastOwnerEntityId, Is.EqualTo(enemy.entityId));
                 Assert.That(telemetry.LastOriginKind, Is.EqualTo(PresentationEnemyAudioOriginKind.Action));
                 Assert.That(telemetry.LastPhase, Is.EqualTo(PresentationEnemyAudioPhase.Active));
                 Assert.That(telemetry.LastFailureReason, Is.EqualTo(EnemyAudioTelemetryFailureReason.None));
-                Assert.That(telemetry.LegacyOwnerAttemptCount, Is.EqualTo(1));
-                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
-                Assert.That(telemetry.ExecutorOwnerAttemptCount, Is.EqualTo(1));
-                Assert.That(telemetry.ExecutorOwnerExecutedCount, Is.EqualTo(1));
                 Assert.That(telemetry.ObservedCueCount, Is.EqualTo(1));
                 Assert.That(telemetry.RequestPlannedCount, Is.EqualTo(1));
                 Assert.That(telemetry.PlaybackRequestedCount, Is.EqualTo(1));
@@ -494,9 +459,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAudio_OrchestrationBridgeMode_DefaultAdapterUsesExistingControllerBoundary()
+        public void EnemyAudio_DefaultAdapterUsesExistingControllerBoundary()
         {
-            var rootObject = new GameObject(nameof(EnemyAudio_OrchestrationBridgeMode_DefaultAdapterUsesExistingControllerBoundary));
+            var rootObject = new GameObject(nameof(EnemyAudio_DefaultAdapterUsesExistingControllerBoundary));
             using var mapBundle = CreateGameplayAudioMap();
             using var profileBundle = CreateEnemyAudioProfile(
                 new EnemyAudioEntrySpec(EnemyAudioCue.Active, CreateDefinitionSpec()));
@@ -506,7 +471,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var playbackPort = new RecordingGameplayAudioPlaybackPort();
                 var enemy = CreateUnit(60, UnitRole.Enemy);
 
-                presenter.ConfigureEnemyAudioExecution(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge);
                 presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
                 presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
                 presenter.Present(CreateTickResult(
@@ -521,8 +485,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     tickIndex: 7));
 
                 Assert.That(playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(), Is.EqualTo(new[] { "Active" }));
-                Assert.That(presenter.EnemyAudioOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
-                Assert.That(presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(1));
             }
             finally
@@ -533,7 +495,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAudio_OrchestrationBridgeMode_DuplicateGuardBlocksForcedSecondAttempt()
+        public void EnemyAudio_ProductionExecutor_PreservesSameTickLayeringAcrossEntities()
         {
             var result = CreateTickResult(CreatePresentationData(enemyActionSignals: new[]
             {
@@ -542,25 +504,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     EnemyActionPresentationSource.Combat,
                     EnemyActionPresentationOutcome.Executed),
                 CreateEnemyActionExecutedSignal(
-                    60,
+                    61,
                     EnemyActionPresentationSource.Combat,
                     EnemyActionPresentationOutcome.Executed),
             }));
             var playbackPlan = CreateEnemyAudioPlaybackPlan(result);
             var bridgePort = new RecordingEnemyAudioPlaybackPort();
-            var guard = new EnemyAudioExecutionGuard(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge);
-            var executor = new GameplayEnemyAudioPresentationExecutor(
-                bridgePort,
-                EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge,
-                guard);
+            var executor = new GameplayEnemyAudioPresentationExecutor(bridgePort);
 
             executor.Play(playbackPlan);
 
             Assert.That(playbackPlan.Cues.Count(cue => cue.Cue.Domain == PresentationDomain.EnemyAudio), Is.EqualTo(2));
-            Assert.That(bridgePort.Requests, Has.Count.EqualTo(1));
-            Assert.That(executor.Diagnostics.DuplicateSuppressedCount, Is.EqualTo(1));
-            Assert.That(executor.Diagnostics.LastFailureReason, Is.EqualTo(EnemyAudioTelemetryFailureReason.DuplicateSuppressed));
-            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
+            Assert.That(bridgePort.Requests.Select(request => request.OwnerEntityId).ToArray(), Is.EqualTo(new[] { 60, 61 }));
+            Assert.That(executor.Diagnostics.PlaybackSucceededCount, Is.EqualTo(2));
+            Assert.That(executor.Diagnostics.LastFailureReason, Is.EqualTo(EnemyAudioTelemetryFailureReason.None));
         }
 
         [Test]
@@ -586,10 +543,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 finalEntities: new[] { CreateUnit(60, UnitRole.Enemy) },
                 expected: diagnostics => diagnostics.OptionalProfileEntryMissingNoOpCount);
 
-            var portMissingExecutor = new GameplayEnemyAudioPresentationExecutor(
-                playbackPort: null,
-                EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge,
-                new EnemyAudioExecutionGuard(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
+            var portMissingExecutor = new GameplayEnemyAudioPresentationExecutor(playbackPort: null);
             portMissingExecutor.Play(CreateEnemyAudioPlaybackPlan(CreateTickResult(
                 CreatePresentationData(enemyActionSignals: new[]
                 {
@@ -613,7 +567,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAudio_OrchestrationBridgeMode_IgnoresChargeActiveLoopAndKeepsLegacyLoopOwner()
+        public void EnemyAudio_ProductionExecutor_IgnoresChargeActiveLoopAndKeepsLoopOwnerSeparate()
         {
             var playbackPlan = CreateEnemyAudioPlaybackPlan(CreateTickResult(CreatePresentationData(
                 enemyChargeSignals: new[]
@@ -621,10 +575,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateChargeSignal(60, sequence: 4, EnemyChargePhase.Active, startedActiveThisTick: true),
                 })));
             var bridgePort = new RecordingEnemyAudioPlaybackPort();
-            var executor = new GameplayEnemyAudioPresentationExecutor(
-                bridgePort,
-                EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge,
-                new EnemyAudioExecutionGuard(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
+            var executor = new GameplayEnemyAudioPresentationExecutor(bridgePort);
 
             executor.Play(playbackPlan);
 
@@ -648,9 +599,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAudio_OrchestrationBridgeMode_LifecycleClearsDiagnosticsPortAndGuard()
+        public void EnemyAudio_ProductionRoute_LifecycleClearsDiagnosticsAndPlaybackPort()
         {
-            var rootObject = new GameObject(nameof(EnemyAudio_OrchestrationBridgeMode_LifecycleClearsDiagnosticsPortAndGuard));
+            var rootObject = new GameObject(nameof(EnemyAudio_ProductionRoute_LifecycleClearsDiagnosticsAndPlaybackPort));
             using var mapBundle = CreateGameplayAudioMap();
             using var profileBundle = CreateEnemyAudioProfile(
                 new EnemyAudioEntrySpec(EnemyAudioCue.Active, CreateDefinitionSpec()));
@@ -658,12 +609,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, profileBundle.Profile));
                 var playbackPort = new RecordingGameplayAudioPlaybackPort();
-                var bridgePort = new RecordingEnemyAudioPlaybackPort();
                 var enemy = CreateUnit(60, UnitRole.Enemy);
 
-                presenter.ConfigureEnemyAudioExecution(
-                    EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge,
-                    bridgePort);
                 presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
                 presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
                 presenter.Present(CreateTickResult(
@@ -677,21 +624,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new[] { enemy },
                     tickIndex: 11));
 
-                Assert.That(presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
                 Assert.That(presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(1));
 
                 presenter.PresentInitial(new[] { enemy }, new CubeTopologyState(FaceId.Floor));
 
-                Assert.That(presenter.EnemyAudioOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
                 Assert.That(presenter.EnemyAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
                 Assert.That(presenter.EnemyAudioProductionTelemetrySnapshot.LastCleanupReason, Is.EqualTo(EnemyAudioTelemetryCleanupReason.ResetSession));
-                Assert.That(bridgePort.ResetCount, Is.GreaterThanOrEqualTo(1));
 
                 var cleanupPort = new RecordingEnemyAudioPlaybackPort();
-                var cleanupExecutor = new GameplayEnemyAudioPresentationExecutor(
-                    cleanupPort,
-                    EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge,
-                    new EnemyAudioExecutionGuard(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
+                var cleanupExecutor = new GameplayEnemyAudioPresentationExecutor(cleanupPort);
                 cleanupExecutor.Play(CreateEnemyAudioPlaybackPlan(CreateTickResult(
                     CreatePresentationData(enemyActionSignals: new[]
                     {
@@ -722,15 +663,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAudio_OrchestrationBridgeMode_DoesNotMutateTickResultOrBlockingState()
+        public void EnemyAudio_ProductionRoute_DoesNotMutateTickResultOrBlockingState()
         {
-            var rootObject = new GameObject(nameof(EnemyAudio_OrchestrationBridgeMode_DoesNotMutateTickResultOrBlockingState));
+            var rootObject = new GameObject(nameof(EnemyAudio_ProductionRoute_DoesNotMutateTickResultOrBlockingState));
             using var mapBundle = CreateGameplayAudioMap();
             try
             {
                 var presenter = CreatePresenter(rootObject, new EnemyAudioViewFactory(rootObject.transform, null));
                 var playbackPort = new RecordingGameplayAudioPlaybackPort();
-                var bridgePort = new RecordingEnemyAudioPlaybackPort();
                 var enemy = CreateUnit(60, UnitRole.Enemy);
                 var finalEntities = new[] { enemy };
                 var eventLog = Array.Empty<string>();
@@ -745,9 +685,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     finalEntities,
                     tickIndex: 17);
 
-                presenter.ConfigureEnemyAudioExecution(
-                    EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge,
-                    bridgePort);
                 presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
                 presenter.PresentInitial(finalEntities, new CubeTopologyState(FaceId.Floor));
                 presenter.Present(result);
@@ -2444,7 +2381,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(plannerSource, Does.Contain("EnemyAudioSemanticProjector.Project(result)"));
             Assert.That(factExtractorSource, Does.Contain("EnemyAudioSemanticProjector.Project(result)"));
-            Assert.That(plannerSource, Does.Contain("BuildLegacySummonWindupRequests"));
+            Assert.That(plannerSource, Does.Not.Contain("BuildLegacySummonWindupRequests"));
             Assert.That(plannerSource, Does.Not.Contain("BuildMoveRequests"));
             Assert.That(plannerSource, Does.Not.Contain("BuildUtilityRequests"));
             Assert.That(plannerSource, Does.Not.Contain("BuildSummonRequests"));
@@ -4351,7 +4288,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var presenter = CreatePresenter(rootObject, viewFactoryFactory(rootObject.transform));
                 var playbackPort = new RecordingGameplayAudioPlaybackPort();
 
-                presenter.ConfigureEnemyAudioExecution(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge);
                 presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
                 presenter.PresentInitial(finalEntities, new CubeTopologyState(FaceId.Floor));
                 presenter.Present(CreateTickResult(
@@ -4388,10 +4324,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         EnemyActionPresentationSource.Combat,
                         EnemyActionPresentationOutcome.Executed),
                 })));
-            var executor = new GameplayEnemyAudioPresentationExecutor(
-                new RecordingEnemyAudioPlaybackPort(resultKind),
-                EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge,
-                new EnemyAudioExecutionGuard(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge));
+            var executor = new GameplayEnemyAudioPresentationExecutor(new RecordingEnemyAudioPlaybackPort(resultKind));
 
             executor.Play(playbackPlan);
 

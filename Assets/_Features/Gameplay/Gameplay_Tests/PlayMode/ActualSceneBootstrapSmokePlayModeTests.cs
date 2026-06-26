@@ -374,14 +374,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 host.Presenter.CoreGameplaySfxExecutorDiagnostics.IsProductionDefaultOwner,
                 Is.True,
                 $"{scenePath} must report Core SFX production default owner telemetry at bootstrap.");
-            Assert.That(
-                host.Presenter.ActionAudioExecutionMode,
-                Is.EqualTo(ActionAudioExecutionMode.OrchestrationActionAudioBridge),
-                $"{scenePath} must boot action audio with the production orchestration owner.");
-            Assert.That(
-                host.Presenter.EnemyAudioExecutionMode,
-                Is.EqualTo(EnemyAudioExecutionMode.OrchestrationEnemyAudioBridge),
-                $"{scenePath} must boot enemy audio one-shot playback with the production orchestration owner.");
         }
 
         private static void AssertUiBootstrap(string scenePath)

@@ -264,20 +264,6 @@ namespace Game.Feature.Gameplay.Host
             PresentationCoordinator.ConfigureCoreGameplaySfxExecution(mode, playbackPort);
         }
 
-        internal void ConfigureActionAudioExecution(
-            ActionAudioExecutionMode mode,
-            IGameplayActionAudioPlaybackPort playbackPort = null)
-        {
-            PresentationCoordinator.ConfigureActionAudioExecution(mode, playbackPort);
-        }
-
-        internal void ConfigureEnemyAudioExecution(
-            EnemyAudioExecutionMode mode,
-            IGameplayEnemyAudioPlaybackPort playbackPort = null)
-        {
-            PresentationCoordinator.ConfigureEnemyAudioExecution(mode, playbackPort);
-        }
-
         public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)
         {
             PresentationCoordinator.DetachPresentationExtension(extension);
@@ -416,12 +402,6 @@ namespace Game.Feature.Gameplay.Host
         internal GameplaySfxExecutorDiagnostics CoreGameplaySfxExecutorDiagnostics =>
             PresentationCoordinator.CoreGameplaySfxExecutorDiagnostics;
 
-        internal ActionAudioExecutionMode ActionAudioExecutionMode =>
-            PresentationCoordinator.ActionAudioExecutionMode;
-
-        internal ActionAudioOwnershipDiagnostics ActionAudioOwnershipDiagnostics =>
-            PresentationCoordinator.ActionAudioOwnershipDiagnostics;
-
         internal PresentationBlockingSnapshot ActionAudioExecutionPipelineBlockingSnapshot =>
             PresentationCoordinator.ActionAudioExecutionPipelineBlockingSnapshot;
 
@@ -430,12 +410,6 @@ namespace Game.Feature.Gameplay.Host
 
         internal ActionAudioProductionTelemetrySnapshot ActionAudioProductionTelemetrySnapshot =>
             PresentationCoordinator.ActionAudioProductionTelemetrySnapshot;
-
-        internal EnemyAudioExecutionMode EnemyAudioExecutionMode =>
-            PresentationCoordinator.EnemyAudioExecutionMode;
-
-        internal EnemyAudioOwnershipDiagnostics EnemyAudioOwnershipDiagnostics =>
-            PresentationCoordinator.EnemyAudioOwnershipDiagnostics;
 
         internal PresentationBlockingSnapshot EnemyAudioExecutionPipelineBlockingSnapshot =>
             PresentationCoordinator.EnemyAudioExecutionPipelineBlockingSnapshot;
