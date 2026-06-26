@@ -225,11 +225,9 @@ namespace Game.Feature.Gameplay.Host
             PresentationCoordinator.AttachPresentationExtension(extension);
         }
 
-        internal void ConfigureDamageDeathVfxExecution(
-            DamageDeathVfxExecutionMode mode,
-            IDamageDeathVfxPlaybackPort playbackPort = null)
+        internal void ConfigureDamageDeathVfxPlaybackPort(IDamageDeathVfxPlaybackPort playbackPort)
         {
-            PresentationCoordinator.ConfigureDamageDeathVfxExecution(mode, playbackPort);
+            PresentationCoordinator.ConfigureDamageDeathVfxPlaybackPort(playbackPort);
         }
 
         internal void ConfigureBoxMotionPresentationExecution(
@@ -324,9 +322,6 @@ namespace Game.Feature.Gameplay.Host
 
         internal TopologyProductionTelemetrySnapshot TopologyProductionTelemetrySnapshot =>
             PresentationCoordinator.TopologyProductionTelemetrySnapshot;
-
-        internal DamageDeathVfxExecutionMode DamageDeathVfxExecutionMode =>
-            PresentationCoordinator.DamageDeathVfxExecutionMode;
 
         internal DamageDeathVfxOwnershipDiagnostics DamageDeathVfxOwnershipDiagnostics =>
             PresentationCoordinator.DamageDeathVfxOwnershipDiagnostics;

@@ -475,30 +475,6 @@ namespace Game.Feature.Gameplay.Vfx
                 return;
             }
 
-            var damageSignals = presentationData.EnemyDamageSignals;
-            for (var i = 0; i < damageSignals.Count; i++)
-            {
-                var signal = damageSignals[i];
-                if (!signal.TookDamageThisTick ||
-                    signal.EntityId <= 0 ||
-                    DidEnemyExitThisTick(presentationData, signal.EntityId))
-                {
-                    continue;
-                }
-
-                builder.Add(
-                    new GameplayVfxRequest(
-                        tickIndex: context.TickIndex,
-                        sequenceId: signal.EntityId,
-                        presentationSeed: signal.EntityId,
-                        sourceEntityId: signal.EntityId,
-                        cueId: GameplayVfxCueId.From(EnemyVfxCue.Damage),
-                        anchor: VfxAnchor.ForEntity(
-                            signal.EntityId,
-                            VfxAnchorSlot.EntityCenter),
-                        timing: VfxTimingKind.ImmediateOnTickPresentation));
-            }
-
             var exitSignals = presentationData.EntityExitSignals;
             for (var i = 0; i < exitSignals.Count; i++)
             {
@@ -529,27 +505,6 @@ namespace Game.Feature.Gameplay.Vfx
 
                     continue;
                 }
-
-                var delaySeconds = signal.Timing == EntityExitPresentationTiming.AtContactTime
-                    ? context.TimingProfile.FlipMotionDurationSeconds * signal.VisualContactNormalizedTime
-                    : 0f;
-                builder.Add(
-                    new GameplayVfxRequest(
-                        tickIndex: context.TickIndex,
-                        sequenceId: signal.ExitedEntityId,
-                        presentationSeed: signal.PresentationSeed != 0 ? signal.PresentationSeed : signal.ExitedEntityId,
-                        sourceEntityId: signal.ExitedEntityId,
-                        cueId: GameplayVfxCueId.From(EnemyVfxCue.Death),
-                        anchor: VfxAnchor.ForCell(
-                            signal.SourceCell,
-                            signal.Topology,
-                            VfxAnchorSlot.CellCenter),
-                        timing: delaySeconds > 0f
-                            ? VfxTimingKind.Delayed
-                            : VfxTimingKind.ImmediateOnTickPresentation,
-                        isPersistent: false,
-                        persistentKey: VfxPersistentKey.None,
-                        delaySeconds: delaySeconds));
             }
 
             var summonWindupWarnings = presentationData.SummonWindupWarnings;

@@ -31,21 +31,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void EnemyPlanner_DamageSignal_EmitsEnemyDamageRequest()
+        public void EnemyPlanner_DamageSignal_DoesNotEmitExecutorOwnedDamageRequest()
         {
-            var request = PlanSingleRequest(CreateEnemyDamageSignal());
-
-            Assert.That(request.TickIndex, Is.EqualTo(12));
-            Assert.That(request.SequenceId, Is.EqualTo(40));
-            Assert.That(request.PresentationSeed, Is.EqualTo(40));
-            Assert.That(request.SourceEntityId, Is.EqualTo(40));
-            Assert.That(request.CueId, Is.EqualTo(GameplayVfxCueId.From(EnemyVfxCue.Damage)));
-            Assert.That(request.Timing, Is.EqualTo(VfxTimingKind.ImmediateOnTickPresentation));
-            Assert.That(request.IsPersistent, Is.False);
-            Assert.That(request.PersistentKey, Is.EqualTo(default(VfxPersistentKey)));
-            Assert.That(request.Anchor.Kind, Is.EqualTo(VfxAnchorKind.Entity));
-            Assert.That(request.Anchor.EntityId, Is.EqualTo(40));
-            Assert.That(request.Anchor.Slot, Is.EqualTo(VfxAnchorSlot.EntityCenter));
+            AssertNoEnemyDamageRequests(CreateEnemyDamageSignal());
         }
 
         [Test]
@@ -109,8 +97,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 runtime.Present(CreateExtensionContext(enemyView: enemyView));
 
                 Assert.That(runtime.IsRuntimeInitialized, Is.True);
-                Assert.That(runtime.LastPlannedRequestCount, Is.EqualTo(1));
-                Assert.That(runtime.MissingBindingCount, Is.EqualTo(1));
+                Assert.That(runtime.LastPlannedRequestCount, Is.Zero);
+                Assert.That(runtime.MissingBindingCount, Is.Zero);
                 Assert.That(runtime.ActiveVfxInstanceCount, Is.Zero);
             }
             finally
@@ -124,8 +112,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void ProductionRuntime_PlayerAndEnemyDamageFlags_AreIndependent()
         {
             AssertFlagCombinationPlans(playerDamageEnabled: true, enemyDamageEnabled: false, expectedRequests: 1);
-            AssertFlagCombinationPlans(playerDamageEnabled: false, enemyDamageEnabled: true, expectedRequests: 1);
-            AssertFlagCombinationPlans(playerDamageEnabled: true, enemyDamageEnabled: true, expectedRequests: 2);
+            AssertFlagCombinationPlans(playerDamageEnabled: false, enemyDamageEnabled: true, expectedRequests: 0);
+            AssertFlagCombinationPlans(playerDamageEnabled: true, enemyDamageEnabled: true, expectedRequests: 1);
             AssertFlagCombinationPlans(playerDamageEnabled: false, enemyDamageEnabled: false, expectedRequests: 0);
         }
 
@@ -263,23 +251,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 Assert.That(File.ReadAllText(path), Does.Not.Contain("EnemyVfxCue.Damage"), path);
             }
-        }
-
-        private static GameplayVfxRequest PlanSingleRequest(TickEnemyDamagePresentationSignal damageSignal)
-        {
-            var planner = new EnemyVfxRequestPlanner();
-            var builder = new GameplayVfxRequestPlanBuilder();
-
-            planner.Plan(
-                new GameplayVfxPlanningContext(
-                    12,
-                    CreatePresentationData(enemyDamageSignals: new[] { damageSignal }),
-                    new CubeTopologyState(FaceId.Floor)),
-                builder);
-
-            var plan = builder.Build();
-            Assert.That(plan.Requests, Has.Count.EqualTo(1));
-            return plan.Requests[0];
         }
 
         private static void AssertNoEnemyDamageRequests(params TickEnemyDamagePresentationSignal[] damageSignals)

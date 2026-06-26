@@ -74,7 +74,8 @@ namespace Game.Feature.Gameplay.Host
                 new GameplayTopologyLegacyTransitionPort(topologyTransitionController),
                 new GameplayTopologyTransitionCleanupPort(topologyTransitionController));
             var damageDeathVfxLane = new DamageDeathVfxPresentationLaneRuntime(
-                options.DamageDeathVfxExecutionPipelineFactory);
+                options.DamageDeathVfxExecutionPipelineFactory,
+                options.DamageDeathVfxPlaybackPort);
             var poseResolver = new GameplayPoseResolver(
                 stateStore,
                 trackState);
@@ -141,8 +142,6 @@ namespace Game.Feature.Gameplay.Host
 
             ConfigureProductionDefaultExecutionGuards(
                 topologyLane,
-                damageDeathVfxLane,
-                options.DamageDeathVfxPlaybackPort,
                 boxMotionLane,
                 playerActionAnimationLane,
                 enemyPresentationLane,
@@ -195,17 +194,12 @@ namespace Game.Feature.Gameplay.Host
 
         private static void ConfigureProductionDefaultExecutionGuards(
             TopologyPresentationLaneRuntime topologyLane,
-            DamageDeathVfxPresentationLaneRuntime damageDeathVfxLane,
-            IDamageDeathVfxPlaybackPort damageDeathVfxPlaybackPort,
             BoxMotionPresentationLaneRuntime boxMotionLane,
             PlayerActionAnimationLaneRuntime playerActionAnimationLane,
             EnemyPresentationLaneRuntime enemyPresentationLane,
             CoreGameplaySfxLaneRuntime coreGameplaySfxLane)
         {
             topologyLane.ConfigureExecution(TopologyPresentationExecutionPolicy.ProductionDefault);
-            damageDeathVfxLane.ConfigureExecution(
-                DamageDeathVfxExecutionPolicy.ProductionDefault,
-                damageDeathVfxPlaybackPort);
             boxMotionLane.ConfigureExecution(BoxMotionExecutionPolicy.ProductionDefault);
             playerActionAnimationLane.ConfigureExecution(PlayerActionAnimationExecutionPolicy.ProductionDefault);
             enemyPresentationLane.ConfigureExecution(EnemyPresentationExecutionPolicy.ProductionDefault);

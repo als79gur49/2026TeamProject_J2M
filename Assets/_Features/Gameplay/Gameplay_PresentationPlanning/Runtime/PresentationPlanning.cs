@@ -481,8 +481,8 @@ namespace Game.Feature.Gameplay.PresentationPlanning
             SourceFactCount = Math.Max(0, sourceFactCount);
             PlannedCueCount = Math.Max(0, plannedCueCount);
             PlannerCount = Math.Max(0, plannerCount);
-            SuppressedCueCount = Math.Max(0, suppressedCueCount);
-            DamageHitSuppressedByEnemyDeathCount = Math.Max(0, damageHitSuppressedByEnemyDeathCount);
+            OmittedCueCount = Math.Max(0, suppressedCueCount);
+            DamageHitOmittedByEnemyDeathCount = Math.Max(0, damageHitSuppressedByEnemyDeathCount);
             PlayerActionAnimationPlannedCounts = playerActionAnimationPlannedCounts ??
                                                  Array.Empty<PresentationAnimationCuePlanningCount>();
         }
@@ -493,9 +493,13 @@ namespace Game.Feature.Gameplay.PresentationPlanning
 
         public int PlannerCount { get; }
 
-        public int SuppressedCueCount { get; }
+        public int SuppressedCueCount => OmittedCueCount;
 
-        public int DamageHitSuppressedByEnemyDeathCount { get; }
+        public int OmittedCueCount { get; }
+
+        public int DamageHitSuppressedByEnemyDeathCount => DamageHitOmittedByEnemyDeathCount;
+
+        public int DamageHitOmittedByEnemyDeathCount { get; }
 
         public IReadOnlyList<PresentationAnimationCuePlanningCount> PlayerActionAnimationPlannedCounts { get; }
     }
