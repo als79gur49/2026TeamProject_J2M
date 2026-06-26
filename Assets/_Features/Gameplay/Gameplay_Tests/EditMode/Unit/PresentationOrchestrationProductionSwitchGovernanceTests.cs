@@ -133,6 +133,130 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered),
         };
 
+        private static readonly PresentationDomainLifecycleRow[] LifecycleMatrix =
+        {
+            new(
+                "Topology transition",
+                PresentationDomainLifecycleState.SerializedCompatibility,
+                true,
+                false,
+                true,
+                nameof(GameplaySceneHostConfiguration.TopologyPresentationExecutionMode),
+                "ExecutorBridge",
+                "LegacyCoordinator",
+                "Topology keeps the serialized execution-mode field for compatibility while production defaults to the executor bridge."),
+            new(
+                "Damage/death VFX",
+                PresentationDomainLifecycleState.NotYetDecommissioned,
+                true,
+                true,
+                false,
+                "DamageDeathVfxExecutionMode",
+                "OrchestrationExecutor",
+                "LegacyExtension",
+                "Legacy/current route remains available until the domain is explicitly decommissioned."),
+            new(
+                "Box motion",
+                PresentationDomainLifecycleState.NotYetDecommissioned,
+                true,
+                true,
+                false,
+                "BoxMotionPresentationExecutionMode",
+                "OrchestrationMotionExecutor",
+                "LegacyTrackPlanner",
+                "Legacy/current route remains available until the domain is explicitly decommissioned."),
+            new(
+                "Player action animation",
+                PresentationDomainLifecycleState.CurrentOnlyDecommissioned,
+                false,
+                true,
+                false,
+                "PlayerActionAnimationExecutionMode",
+                "OrchestrationAnimationExecutor",
+                "Removed",
+                "PR1 removed the legacy player action animation owner; invalid values normalize to the production executor."),
+            new(
+                "Enemy presentation",
+                PresentationDomainLifecycleState.NotYetDecommissioned,
+                true,
+                true,
+                false,
+                "EnemyPresentationExecutionMode",
+                "OrchestrationEnemyPresentationExecutor",
+                "LegacyEnemyPresentationMapper",
+                "Enemy presentation still exposes a legacy/current route."),
+            new(
+                "Core gameplay SFX",
+                PresentationDomainLifecycleState.NotYetDecommissioned,
+                true,
+                true,
+                false,
+                "CoreGameplaySfxExecutionMode",
+                "OrchestrationSfxBridgeExecutor",
+                "LegacyGameplayAudioController",
+                "Core SFX still exposes a legacy/current route while retained audio adjuncts remain separate."),
+            new(
+                "Enemy One-shot Audio",
+                PresentationDomainLifecycleState.CurrentOnlyDecommissioned,
+                false,
+                true,
+                false,
+                "EnemyAudioExecutionMode",
+                "EnemyAudioSemanticProjector",
+                "Removed",
+                "PR2 removed enemy one-shot legacy execution ownership on this branch."),
+            new(
+                "Gameplay Action Audio",
+                PresentationDomainLifecycleState.CurrentOnlyDecommissioned,
+                false,
+                true,
+                false,
+                "ActionAudioExecutionMode",
+                "GameplayActionAudioPresentationExecutor",
+                "Removed",
+                "Current branch state has already removed gameplay action audio legacy execution residue; report this as a PR2 scope broadening."),
+            new(
+                "Block audio",
+                PresentationDomainLifecycleState.RetainedAdjunct,
+                false,
+                true,
+                false,
+                null,
+                "BlockAudioPresentationController",
+                "Removed",
+                "Retained audio adjunct controller; not a target legacy rollback route."),
+            new(
+                "Tile feature audio",
+                PresentationDomainLifecycleState.RetainedAdjunct,
+                false,
+                true,
+                false,
+                null,
+                "TileFeatureAudioPresentationController",
+                "Removed",
+                "Retained audio adjunct controller; not a target legacy rollback route."),
+            new(
+                "Gravity field audio",
+                PresentationDomainLifecycleState.RetainedAdjunct,
+                false,
+                true,
+                false,
+                null,
+                "GravityFieldAudioPresentationController",
+                "Removed",
+                "Retained audio adjunct controller; not a target legacy rollback route."),
+            new(
+                "Topology audio",
+                PresentationDomainLifecycleState.RetainedAdjunct,
+                false,
+                true,
+                false,
+                null,
+                "TopologyAudioPresentationController",
+                "Removed",
+                "Retained audio adjunct controller; not a target legacy rollback route."),
+        };
+
         [Test]
         [Category("Core")]
         public void ProductionSwitchReadinessMatrix_IncludesAllKnownExecutionModes()
@@ -235,28 +359,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void ProductionConfig_DoesNotSerializeRollbackOwnersForPhase9ProductionDomains()
         {
             var productionPaths = EnumerateProductionConfigFiles().ToArray();
-            var allowedTokens = ReadinessMatrix
-                .Select(row => row.OrchestrationOwner)
-                .Distinct()
-                .ToArray();
-            var forbiddenTokens = ReadinessMatrix
-                .Select(row => row.LegacyOwner)
-                .Distinct()
-                .ToArray();
 
             Assert.That(productionPaths, Is.Not.Empty);
-            foreach (var allowedToken in allowedTokens)
-            {
-                Assert.That(forbiddenTokens, Does.Not.Contain(allowedToken));
-            }
+            AssertFieldAwareProductionConfigScannerContract();
 
             foreach (var path in productionPaths)
             {
                 var source = ReadRepoFile(path);
-                foreach (var token in forbiddenTokens)
-                {
-                    Assert.That(source, Does.Not.Contain(token), $"{path} must not serialize rollback owner {token}.");
-                }
+                var violations = FindSerializedRollbackOwnerViolations(source, LifecycleMatrix);
+                Assert.That(violations, Is.Empty, $"{path} must not serialize rollback owners:{Environment.NewLine}{string.Join(Environment.NewLine, violations)}");
             }
         }
 
@@ -264,12 +375,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void RollbackSwitches_RemainAvailable()
         {
-            foreach (var row in ReadinessMatrix)
+            var readinessByDomain = ReadinessMatrix.ToDictionary(row => row.Domain, StringComparer.Ordinal);
+
+            foreach (var lifecycle in LifecycleMatrix)
             {
-                Assert.That(row.RollbackPath, Is.Not.Empty, row.Domain);
-                Assert.That(row.RollbackPath, Does.Contain(row.LegacyOwner), row.Domain);
-                Assert.That(row.DuplicateGuardEvidence, Is.Not.Empty, row.Domain);
-                Assert.That(row.LifecycleCleanupEvidence, Is.Not.Empty, row.Domain);
+                if (!readinessByDomain.TryGetValue(lifecycle.Domain, out var readiness))
+                {
+                    Assert.That(
+                        lifecycle.State,
+                        Is.EqualTo(PresentationDomainLifecycleState.CurrentOnlyDecommissioned)
+                            .Or.EqualTo(PresentationDomainLifecycleState.RetainedAdjunct),
+                        lifecycle.Domain);
+                    continue;
+                }
+
+                Assert.That(readiness.DuplicateGuardEvidence, Is.Not.Empty, readiness.Domain);
+                Assert.That(readiness.LifecycleCleanupEvidence, Is.Not.Empty, readiness.Domain);
+
+                switch (lifecycle.State)
+                {
+                    case PresentationDomainLifecycleState.NotYetDecommissioned:
+                    case PresentationDomainLifecycleState.SerializedCompatibility:
+                        Assert.That(lifecycle.RequiresRollbackSwitch, Is.True, lifecycle.Domain);
+                        Assert.That(readiness.RollbackPath, Is.Not.Empty, readiness.Domain);
+                        Assert.That(readiness.RollbackPath, Does.Contain(lifecycle.LegacyOwner), readiness.Domain);
+                        Assert.That(readiness.CurrentDefault, Is.EqualTo(lifecycle.CurrentProductionOwner), readiness.Domain);
+                        break;
+                    case PresentationDomainLifecycleState.CurrentOnlyDecommissioned:
+                        Assert.That(lifecycle.RequiresRollbackSwitch, Is.False, lifecycle.Domain);
+                        Assert.That(readiness.RollbackPath, Does.Not.Contain(lifecycle.LegacyOwner), readiness.Domain);
+                        Assert.That(readiness.CurrentDefault, Is.EqualTo(lifecycle.CurrentProductionOwner), readiness.Domain);
+                        Assert.That(readiness.LegacyOwner, Is.EqualTo("Removed"), readiness.Domain);
+                        break;
+                    case PresentationDomainLifecycleState.RetainedAdjunct:
+                        Assert.That(lifecycle.RequiresRollbackSwitch, Is.False, lifecycle.Domain);
+                        break;
+                    case PresentationDomainLifecycleState.TestGovernanceOnly:
+                        Assert.That(lifecycle.RequiresRollbackSwitch, Is.False, lifecycle.Domain);
+                        break;
+                    default:
+                        Assert.Fail($"Unhandled lifecycle state {lifecycle.State} for {lifecycle.Domain}.");
+                        break;
+                }
             }
 
             var guard = new CoreGameplaySfxExecutionGuard(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController);
@@ -286,6 +433,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.Zero);
             Assert.That(guard.Diagnostics.SkippedExecutorBecauseLegacyOwnerCount, Is.EqualTo(1));
             Assert.That(guard.Diagnostics.Mode, Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
+
+            Assert.That(Enum.GetNames(typeof(PlayerActionAnimationExecutionMode)), Is.EqualTo(new[] { "OrchestrationAnimationExecutor" }));
+            Assert.That(
+                PlayerActionAnimationExecutionPolicy.Normalize((PlayerActionAnimationExecutionMode)999),
+                Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
         }
 
         [Test]
@@ -580,6 +732,113 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        private static void AssertFieldAwareProductionConfigScannerContract()
+        {
+            var playerActionField = LifecycleMatrix.Single(row => row.Domain == "Player action animation").SerializedOwnerFieldName;
+            var topologyField = LifecycleMatrix.Single(row => row.Domain == "Topology transition").SerializedOwnerFieldName;
+
+            Assert.That(
+                FindSerializedRollbackOwnerViolations("m_RemovedComponents: []", LifecycleMatrix),
+                Is.Empty);
+            Assert.That(
+                FindSerializedRollbackOwnerViolations("m_RemovedGameObjects: []", LifecycleMatrix),
+                Is.Empty);
+            Assert.That(
+                FindSerializedRollbackOwnerViolations("someComment: \"Removed\"", LifecycleMatrix),
+                Is.Empty);
+            Assert.That(
+                FindSerializedRollbackOwnerViolations("unrelatedField: Removed", LifecycleMatrix),
+                Is.Empty);
+            Assert.That(
+                FindSerializedRollbackOwnerViolations($"{playerActionField}: Removed", LifecycleMatrix),
+                Is.Not.Empty);
+            Assert.That(
+                FindSerializedRollbackOwnerViolations($"{topologyField}: LegacyCoordinator", LifecycleMatrix),
+                Is.Empty);
+            Assert.That(
+                FindSerializedRollbackOwnerViolations($"{topologyField}: LegacyEnemyPresentationMapper", LifecycleMatrix),
+                Is.Not.Empty);
+        }
+
+        private static IReadOnlyList<string> FindSerializedRollbackOwnerViolations(
+            string source,
+            IEnumerable<PresentationDomainLifecycleRow> lifecycleRows)
+        {
+            var violations = new List<string>();
+            foreach (var row in lifecycleRows.Where(row => !string.IsNullOrEmpty(row.SerializedOwnerFieldName)))
+            {
+                var values = FindYamlFieldValues(source, row.SerializedOwnerFieldName).ToArray();
+                foreach (var value in values)
+                {
+                    if (row.AllowsSerializedRollbackOwner)
+                    {
+                        if (!SerializedValueEquals(value, row.CurrentProductionOwner) &&
+                            !SerializedValueEquals(value, row.LegacyOwner))
+                        {
+                            violations.Add(
+                                $"{row.Domain}: {row.SerializedOwnerFieldName} serialized unsupported owner '{value}' ({row.Reason})");
+                        }
+
+                        continue;
+                    }
+
+                    if (row.ForbidsSerializedRollbackOwner &&
+                        SerializedValueEquals(value, row.LegacyOwner))
+                    {
+                        violations.Add(
+                            $"{row.Domain}: {row.SerializedOwnerFieldName} serialized forbidden rollback owner '{value}' ({row.Reason})");
+                    }
+                }
+            }
+
+            return violations;
+        }
+
+        private static IEnumerable<string> FindYamlFieldValues(string source, string fieldName)
+        {
+            var prefix = fieldName + ":";
+            var lines = source.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            foreach (var line in lines)
+            {
+                var trimmed = line.TrimStart();
+                if (trimmed.Length == 0 || trimmed[0] == '#')
+                {
+                    continue;
+                }
+
+                if (!trimmed.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var value = trimmed.Substring(prefix.Length).Trim();
+                if (value.Length == 0)
+                {
+                    continue;
+                }
+
+                yield return TrimSerializedScalar(value);
+            }
+        }
+
+        private static bool SerializedValueEquals(string value, string expected)
+        {
+            return string.Equals(TrimSerializedScalar(value), expected, StringComparison.Ordinal);
+        }
+
+        private static string TrimSerializedScalar(string value)
+        {
+            var trimmed = value.Trim();
+            if (trimmed.Length >= 2 &&
+                ((trimmed[0] == '"' && trimmed[trimmed.Length - 1] == '"') ||
+                 (trimmed[0] == '\'' && trimmed[trimmed.Length - 1] == '\'')))
+            {
+                return trimmed.Substring(1, trimmed.Length - 2);
+            }
+
+            return trimmed;
+        }
+
         private static string ReadDirectorySource(string relativeDirectory)
         {
             var absoluteDirectory = ToAbsolutePath(relativeDirectory);
@@ -625,6 +884,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
             NeedsExecuteDriverSurface = 9,
             NeedsMorePlayModeEvidence = 10,
             CandidateForPlayModeSmoke = 11,
+        }
+
+        private enum PresentationDomainLifecycleState
+        {
+            NotYetDecommissioned,
+            CurrentOnlyDecommissioned,
+            RetainedAdjunct,
+            SerializedCompatibility,
+            TestGovernanceOnly,
+        }
+
+        private sealed class PresentationDomainLifecycleRow
+        {
+            public PresentationDomainLifecycleRow(
+                string domain,
+                PresentationDomainLifecycleState state,
+                bool requiresRollbackSwitch,
+                bool forbidsSerializedRollbackOwner,
+                bool allowsSerializedRollbackOwner,
+                string serializedOwnerFieldName,
+                string currentProductionOwner,
+                string legacyOwner,
+                string reason)
+            {
+                Domain = domain;
+                State = state;
+                RequiresRollbackSwitch = requiresRollbackSwitch;
+                ForbidsSerializedRollbackOwner = forbidsSerializedRollbackOwner;
+                AllowsSerializedRollbackOwner = allowsSerializedRollbackOwner;
+                SerializedOwnerFieldName = serializedOwnerFieldName;
+                CurrentProductionOwner = currentProductionOwner;
+                LegacyOwner = legacyOwner;
+                Reason = reason;
+            }
+
+            public string Domain { get; }
+            public PresentationDomainLifecycleState State { get; }
+            public bool RequiresRollbackSwitch { get; }
+            public bool ForbidsSerializedRollbackOwner { get; }
+            public bool AllowsSerializedRollbackOwner { get; }
+            public string SerializedOwnerFieldName { get; }
+            public string CurrentProductionOwner { get; }
+            public string LegacyOwner { get; }
+            public string Reason { get; }
         }
 
         private sealed class ProductionSwitchReadinessRow
