@@ -113,10 +113,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 diagnosticsBefore.TargetMissingCount +
                 diagnosticsBefore.AnchorMissingCount;
             var runtimeRequestBefore = runtime.DamageDeathPlaybackRequestCount;
-            var legacyDamageSuppressedBefore = runtime.LegacyDamageCueSuppressedCount;
-            var legacyDeathSuppressedBefore = runtime.LegacyDeathCueSuppressedCount;
-            var unrelatedRetainedBefore = runtime.LegacyDamageDeathUnrelatedCueRetainedCount;
-            var filteredBefore = runtime.LastDamageDeathExecutorOwnedFilteredRequestCount;
+            var plannedBefore = runtime.LastPlannedRequestCount;
             var result = CreateDamageDeathVfxTickResult(
                 tickIndex: 803,
                 topology: host.Presenter.CurrentTopology,
@@ -128,7 +125,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return null;
 
             var diagnosticsAfter = host.Presenter.DamageDeathVfxExecutorDiagnostics;
-            Assert.That(host.Presenter.DamageDeathVfxExecutionMode, Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor));
             Assert.That(diagnosticsAfter.IsProductionDefaultOwner, Is.True);
             Assert.That(
                 diagnosticsAfter.PlaybackRequestedCount - diagnosticsBefore.PlaybackRequestedCount,
@@ -147,17 +143,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 runtime.DamageDeathPlaybackRequestCount - runtimeRequestBefore,
                 Is.EqualTo(1));
             Assert.That(
-                runtime.LegacyDamageCueSuppressedCount - legacyDamageSuppressedBefore,
-                Is.EqualTo(1));
-            Assert.That(
-                runtime.LegacyDeathCueSuppressedCount - legacyDeathSuppressedBefore,
-                Is.Zero);
-            Assert.That(
-                runtime.LegacyDamageDeathUnrelatedCueRetainedCount - unrelatedRetainedBefore,
-                Is.EqualTo(1));
-            Assert.That(
-                runtime.LastDamageDeathExecutorOwnedFilteredRequestCount,
-                Is.GreaterThanOrEqualTo(filteredBefore));
+                runtime.LastPlannedRequestCount,
+                Is.GreaterThanOrEqualTo(plannedBefore));
         }
 
         [UnityTest]
@@ -398,10 +385,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         private static void AssertDamageDeathVfxBootstrap(string scenePath, GameplaySceneHost host)
         {
-            Assert.That(
-                host.Presenter.DamageDeathVfxExecutionMode,
-                Is.EqualTo(DamageDeathVfxExecutionMode.OrchestrationExecutor),
-                $"{scenePath} must boot Damage/death VFX with the production orchestration owner.");
             Assert.That(
                 host.GetComponent<GameplayVfxProductionRuntime>(),
                 Is.Not.Null,

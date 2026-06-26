@@ -17,21 +17,6 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
-    internal static class DamageDeathVfxExecutionPolicy
-    {
-        public const DamageDeathVfxExecutionMode ProductionDefault =
-            DamageDeathVfxExecutionMode.OrchestrationExecutor;
-        public const DamageDeathVfxExecutionMode LegacyFallback =
-            DamageDeathVfxExecutionMode.LegacyExtension;
-
-        public static DamageDeathVfxExecutionMode Normalize(DamageDeathVfxExecutionMode mode)
-        {
-            return Enum.IsDefined(typeof(DamageDeathVfxExecutionMode), mode)
-                ? mode
-                : LegacyFallback;
-        }
-    }
-
     internal static class BoxMotionExecutionPolicy
     {
         public const BoxMotionPresentationExecutionMode ProductionDefault =

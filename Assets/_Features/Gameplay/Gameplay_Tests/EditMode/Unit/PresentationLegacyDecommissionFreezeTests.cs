@@ -29,7 +29,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             "ExecutionMode",
             "TopologyPresentationExecutionMode",
-            "DamageDeathVfxExecutionMode",
             "BoxMotionPresentationExecutionMode",
             "PlayerActionAnimationExecutionMode",
             "EnemyPresentationExecutionMode",
@@ -42,7 +41,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             "ConfigureExecution",
             "ConfigureTopologyExecution",
-            "ConfigureDamageDeathVfxExecution",
             "ConfigureBoxMotionPresentationExecution",
             "ConfigurePlayerActionAnimationExecution",
             "ConfigureEnemyPresentationExecution",
@@ -356,7 +354,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var configureManifest = new[]
             {
                 new ConfigureBudget(
-                    "ConfigureDamageDeathVfxExecution",
+                    "ConfigureBoxMotionPresentationExecution",
                     "Assets/_Features/Gameplay/Gameplay_Host/Runtime/Allowed.cs",
                     1,
                     "test synthetic baseline"),
@@ -405,9 +403,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new Dictionary<string, string>
                     {
                         ["Assets/_Features/Gameplay/Gameplay_Host/Runtime/Allowed.cs"] =
-                            "ConfigureDamageDeathVfxExecution(",
+                            "ConfigureBoxMotionPresentationExecution(",
                         ["Assets/_Features/Gameplay/Gameplay_Host/Runtime/NewCaller.cs"] =
-                            "ConfigureDamageDeathVfxExecution(",
+                            "ConfigureBoxMotionPresentationExecution(",
                     },
                     configureManifest).HasViolations,
                 Is.True);
@@ -618,17 +616,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs", 1, "box motion lane configuration facade"),
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs", 1, "core SFX lane configuration facade"),
-                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationLaneRuntime.cs", 1, "damage/death VFX lane configuration facade"),
                 new ConfigureBudget("ConfigureExecution", string.Empty, 0, "Enemy one-shot audio lane configuration facade removed in PR2."),
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyPresentationLaneRuntime.cs", 1, "enemy presentation lane configuration facade"),
                 new ConfigureBudget("ConfigureExecution", string.Empty, 0, "Gameplay action audio lane configuration facade removed in PR1."),
-                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeCompositionFactory.cs", 6, "production default lane configuration call sites"),
-                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 6, "coordinator test facade forwarding calls"),
+                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeCompositionFactory.cs", 5, "production default lane configuration call sites"),
+                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 5, "coordinator test facade forwarding calls"),
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationLaneRuntime.cs", 1, "player action animation lane configuration facade"),
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs", 1, "topology lane configuration facade"),
                 new ConfigureBudget("ConfigureTopologyExecution", string.Empty, 0, "No production facade exists in PR0 baseline."),
-                new ConfigureBudget("ConfigureDamageDeathVfxExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 1, "coordinator test facade definition"),
-                new ConfigureBudget("ConfigureDamageDeathVfxExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs", 2, "presenter test facade definition and forwarding call"),
                 new ConfigureBudget("ConfigureBoxMotionPresentationExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 1, "coordinator test facade definition"),
                 new ConfigureBudget("ConfigureBoxMotionPresentationExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs", 2, "presenter test facade definition and forwarding call"),
                 new ConfigureBudget("ConfigurePlayerActionAnimationExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 1, "coordinator test facade definition"),
@@ -718,7 +713,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new[]
             {
                 new EnumBudget(typeof(TopologyPresentationExecutionMode), "LegacyCoordinator", "ExecutorBridge"),
-                new EnumBudget(typeof(DamageDeathVfxExecutionMode), "LegacyExtension", "OrchestrationExecutor"),
                 new EnumBudget(typeof(BoxMotionPresentationExecutionMode), "LegacyTrackPlanner", "OrchestrationMotionExecutor"),
                 new EnumBudget(typeof(EnemyPresentationExecutionMode), "LegacyEnemyPresentationMapper", "OrchestrationEnemyPresentationExecutor"),
                 new EnumBudget(typeof(CoreGameplaySfxExecutionMode), "LegacyGameplayAudioController", "OrchestrationSfxBridgeExecutor"),
@@ -793,18 +787,6 @@ Core Gameplay SFX	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/R
 Core Gameplay SFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Legacy policy telemetry	SkippedLegacy	2	Current skipped legacy counter	Core Gameplay SFX Legacy Decommission
 Core Gameplay SFX	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Legacy suppression	Suppressed	10	Current production owner suppression	Core Gameplay SFX Legacy Decommission
 Core Gameplay SFX	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Legacy pending plan	PendingPlan	2	Current legacy controller pending plan route	Core Gameplay SFX Legacy Decommission
-Damage/Death VFX	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationExecutor.cs	DamageDeathVfxPresentationExecutor	Mode and diagnostics	ExecutionMode	32	Current damage/death VFX execution-mode residue	Damage/Death VFX Legacy Decommission
-Damage/Death VFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationExecutor.cs	DamageDeathVfxPresentationExecutor	Legacy telemetry	Legacy	50	Current legacy owner diagnostics residue	Damage/Death VFX Legacy Decommission
-Damage/Death VFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationExecutor.cs	DamageDeathVfxPresentationExecutor	Legacy telemetry	ExecutedByLegacy	2	Current legacy execution counter	Damage/Death VFX Legacy Decommission
-Damage/Death VFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationExecutor.cs	DamageDeathVfxPresentationExecutor	Legacy telemetry	SkippedLegacy	3	Current skipped legacy counter	Damage/Death VFX Legacy Decommission
-Damage/Death VFX	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationExecutor.cs	DamageDeathVfxPresentationExecutor	Suppression telemetry	Suppressed	36	Current death-over-damage suppression diagnostics	Damage/Death VFX Legacy Decommission
-Damage/Death VFX	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationLaneRuntime.cs	DamageDeathVfxPresentationLaneRuntime	Execution guard	ExecutionMode	10	Current lane execution-mode facade	Damage/Death VFX Legacy Decommission
-Damage/Death VFX	EXECUTION_POLICY	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationLaneRuntime.cs	DamageDeathVfxPresentationLaneRuntime	ConfigureExecution	ExecutionPolicy	2	Current lane policy normalization	Damage/Death VFX Legacy Decommission
-Damage/Death VFX	NORMALIZATION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationLaneRuntime.cs	DamageDeathVfxPresentationLaneRuntime	ConfigureExecution	Normalize(	1	Current invalid-mode compatibility	Damage/Death VFX Legacy Decommission
-Damage/Death VFX	ROUTE_BRANCH	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationLaneRuntime.cs	DamageDeathVfxPresentationLaneRuntime	UseProductionExecutor	UseProduction	3	Current production/legacy branch	Damage/Death VFX Legacy Decommission
-Damage/Death VFX	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationLaneRuntime.cs	DamageDeathVfxPresentationLaneRuntime	ConfigureExecution	ConfigureExecution	1	Current lane configuration facade	Damage/Death VFX Legacy Decommission
-Damage/Death VFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationLaneRuntime.cs	DamageDeathVfxPresentationLaneRuntime	Legacy policy telemetry	Legacy	6	Current lane legacy telemetry	Damage/Death VFX Legacy Decommission
-Damage/Death VFX	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DamageDeathVfxPresentationLaneRuntime.cs	DamageDeathVfxPresentationLaneRuntime	Legacy suppression	Suppressed	2	Current production owner suppression	Damage/Death VFX Legacy Decommission
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs	DefaultGameplayEntityViewFactory	Inactive visual setup	Legacy	1	Enemy inactive color fallback compatibility	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs	DefaultGameplayEntityViewFactory	Inactive visual setup	Fallback	1	Enemy inactive color fallback compatibility	Out of scope
 Enemy One-shot Audio	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAudioPresentationController.cs	EnemyAudioPresentationController	Legacy pending plan	PendingPlan	8	Current legacy controller pending plan route	Enemy One-shot Audio Legacy Decommission
@@ -890,7 +872,6 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
 Retained Owner / Unrelated	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Read-only diagnostics facade	ExecutionMode	40	Retained read-only diagnostics and test facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	EXECUTION_POLICY	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Initialize topology mode	ExecutionPolicy	1	Existing topology initialization default	Topology Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureExecution	6	Current test-only forwarding facade to lanes	Presentation Legacy Decommission
-Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureDamageDeathVfxExecution	1	Current test-only forwarding facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureBoxMotionPresentationExecution	1	Current test-only forwarding facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigurePlayerActionAnimationExecution	1	Current test-only forwarding facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureEnemyPresentationExecution	1	Current test-only forwarding facade	Presentation Legacy Decommission
@@ -903,7 +884,6 @@ Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gamep
 Retained Owner / Unrelated	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Read-only diagnostics aggregation	PendingPlan	4	Retained read-only diagnostics aggregation	Out of scope
 Retained Owner / Unrelated	LEGACY_PORT_OR_ADAPTER	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationExtension.cs	GameplayTickPresentationExtension	Legacy extension surface	Legacy	4	Current extension compatibility surface	Damage/Death VFX Legacy Decommission
 Retained Owner / Unrelated	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test facade diagnostics	ExecutionMode	34	Retained read-only diagnostics and test facade	Presentation Legacy Decommission
-Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureDamageDeathVfxExecution	2	Current test-only forwarding facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureBoxMotionPresentationExecution	2	Current test-only forwarding facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigurePlayerActionAnimationExecution	2	Current test-only forwarding facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureEnemyPresentationExecution	2	Current test-only forwarding facade	Presentation Legacy Decommission
@@ -962,8 +942,7 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
 Damage/Death VFX	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/EnemyDeathMotionVfxCommandBuilder.cs	EnemyDeathMotionVfxCommandBuilder	Legacy death motion compatibility	Legacy	2	Current death motion compatibility vocabulary	Damage/Death VFX Legacy Decommission
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/EnemyForwardCellProjectileVfxAuthoring.cs	EnemyForwardCellProjectileVfxAuthoring	Authoring normalization	Normalize(	5	Non-route authoring normalization	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayForwardCellProjectileVfxController.cs	GameplayForwardCellProjectileVfxController	Target fallback	Fallback	8	VFX target fallback, not legacy route	Out of scope
-Damage/Death VFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs	GameplayVfxProductionRuntime	Damage/death suppression diagnostics	Legacy	4	Current damage/death legacy cue suppression diagnostics	Damage/Death VFX Legacy Decommission
-Damage/Death VFX	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs	GameplayVfxProductionRuntime	Damage/death suppression diagnostics	Suppressed	39	Current damage/death suppression diagnostics	Damage/Death VFX Legacy Decommission
+Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs	GameplayVfxProductionRuntime	Topology/stage terminal VFX suppression	Suppressed	27	VFX topology/stage terminal suppression vocabulary, not Damage/Death legacy bridge	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/GameplayVfxProductionRuntime.cs	GameplayVfxProductionRuntime	VFX fallback	Fallback	21	VFX visibility/correlation fallback, not legacy route	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/ParameterizedMotion/ParameterizedMotionVfxCommand.cs	ParameterizedMotionVfxCommand	Command fallback	Fallback	1	VFX command fallback, not legacy route	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/PresentationMotionFollowingVfxController.cs	PresentationMotionFollowingVfxController	Visibility fallback	Fallback	4	VFX visibility fallback, not legacy route	Out of scope";

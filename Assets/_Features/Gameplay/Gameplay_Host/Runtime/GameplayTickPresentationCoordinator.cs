@@ -429,9 +429,6 @@ namespace Game.Feature.Gameplay.Host
                 IsTopologyTransitionActive,
                 PresentationPipelineBlockingSnapshot);
 
-        internal DamageDeathVfxExecutionMode DamageDeathVfxExecutionMode =>
-            _damageDeathVfxLane.ExecutionMode;
-
         internal DamageDeathVfxOwnershipDiagnostics DamageDeathVfxOwnershipDiagnostics =>
             _damageDeathVfxLane.OwnershipDiagnostics;
 
@@ -519,11 +516,9 @@ namespace Game.Feature.Gameplay.Host
         internal EnemyAudioProductionTelemetrySnapshot EnemyAudioProductionTelemetrySnapshot =>
             _enemyOneShotAudioLane.ProductionTelemetrySnapshot;
 
-        internal void ConfigureDamageDeathVfxExecution(
-            DamageDeathVfxExecutionMode mode,
-            IDamageDeathVfxPlaybackPort playbackPort = null)
+        internal void ConfigureDamageDeathVfxPlaybackPort(IDamageDeathVfxPlaybackPort playbackPort)
         {
-            _damageDeathVfxLane.ConfigureExecution(mode, playbackPort);
+            _damageDeathVfxLane.ConfigurePlaybackPort(playbackPort);
         }
 
         internal void ConfigureBoxMotionPresentationExecution(
@@ -1537,8 +1532,7 @@ namespace Game.Feature.Gameplay.Host
                 _timingProfile,
                 _tileFeatureVfxStyleBindings,
                 _topologyTransitionEpoch,
-                isTopologyTransitionCompletionReconcile: false,
-                damageDeathVfxExtensionPolicy: _damageDeathVfxLane.ExtensionPolicy);
+                isTopologyTransitionCompletionReconcile: false);
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 _presentationExtensions[i]?.Present(context);
@@ -1650,8 +1644,7 @@ namespace Game.Feature.Gameplay.Host
                 _timingProfile,
                 _tileFeatureVfxStyleBindings,
                 _topologyTransitionEpoch,
-                isTopologyTransitionCompletionReconcile: true,
-                damageDeathVfxExtensionPolicy: _damageDeathVfxLane.ExtensionPolicy);
+                isTopologyTransitionCompletionReconcile: true);
             for (var i = 0; i < _presentationExtensions.Count; i++)
             {
                 if (_presentationExtensions[i] is IGameplayTopologyTransitionCompletionPresentationExtension extension)

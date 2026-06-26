@@ -205,8 +205,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(CountOccurrences(hostFactorySource, "GetComponents<MonoBehaviour>()"), Is.EqualTo(1));
             Assert.That(compositionFactorySource, Does.Contain("public IDamageDeathVfxPlaybackPort DamageDeathVfxPlaybackPort { get; set; }"));
             Assert.That(compositionFactorySource, Does.Contain("options.DamageDeathVfxPlaybackPort"));
-            Assert.That(compositionFactorySource, Does.Contain("damageDeathVfxLane.ConfigureExecution("));
-            Assert.That(compositionFactorySource, Does.Contain("DamageDeathVfxExecutionPolicy.ProductionDefault,"));
+            Assert.That(compositionFactorySource, Does.Not.Contain("damageDeathVfxLane.ConfigureExecution("));
+            Assert.That(compositionFactorySource, Does.Not.Contain("DamageDeathVfxExecutionPolicy.ProductionDefault,"));
             Assert.That(compositionFactorySource, Does.Contain("damageDeathVfxPlaybackPort"));
             Assert.That(compositionSource, Does.Not.Contain("GameplayVfxProductionRuntime"));
             Assert.That(compositionSource, Does.Not.Contain("GameplayVfxGameObjectPool"));
@@ -224,7 +224,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                          "Update(",
                          "ResetSession(",
                          "HardCleanup(",
-                         "DamageHitSuppressedByEnemyDeathCount",
+                         "DamageHitOmittedByEnemyDeathCount",
                      })
             {
                 Assert.That(compositionFactorySource, Does.Not.Contain(forbiddenFactoryPolicyToken), forbiddenFactoryPolicyToken);
@@ -284,7 +284,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             foreach (var forbiddenModeType in new[]
                      {
                          typeof(TopologyPresentationExecutionMode),
-                         typeof(DamageDeathVfxExecutionMode),
                          typeof(BoxMotionPresentationExecutionMode),
                          typeof(PlayerActionAnimationExecutionMode),
                          typeof(EnemyPresentationExecutionMode),
@@ -328,7 +327,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var composition = GameplayPresentationRuntimeCompositionFactory.Create();
             Assert.That(composition.TopologyLane.ExecutionMode, Is.EqualTo(TopologyPresentationExecutionDefaults.ProductionDefault));
-            Assert.That(composition.DamageDeathVfxLane.ExecutionMode, Is.EqualTo(DamageDeathVfxExecutionPolicy.ProductionDefault));
+            Assert.That(composition.DamageDeathVfxLane, Is.Not.Null);
+            Assert.That(composition.DamageDeathVfxLane.ExecutorDiagnostics.IsProductionDefaultOwner, Is.False);
             Assert.That(composition.BoxMotionLane.ExecutionMode, Is.EqualTo(BoxMotionExecutionPolicy.ProductionDefault));
             Assert.That(composition.PlayerActionAnimationLane.ExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionPolicy.ProductionDefault));
             Assert.That(composition.EnemyPresentationLane.ExecutionMode, Is.EqualTo(EnemyPresentationExecutionPolicy.ProductionDefault));
@@ -358,7 +358,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                          "BuildEnemyAudioPlaybackKeys",
                          "RecordSkippedByPolicy(",
                          "TryBeginExecution(",
-                         "RecordSameTickDamageHitSuppressedByDeath",
+                         "RecordSameTickDamageHitOmittedByDeath",
                          "SuppressLethalEnemyDamageRequests",
                          "ConfigureEnemyDeathCueSuppression",
                          "DamageDeathGameplayVfxPlaybackPortAdapter",
@@ -385,7 +385,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presenterSource, Does.Not.Contain("new GameplayTickPresentationCoordinator"));
             Assert.That(compositionSource, Does.Not.Contain("IDamageDeathVfxPlaybackPort"));
             Assert.That(compositionFactorySource, Does.Contain("ConfigureProductionDefaultExecutionGuards("));
-            Assert.That(compositionFactorySource, Does.Contain("damageDeathVfxLane.ConfigureExecution("));
+            Assert.That(compositionFactorySource, Does.Contain("new DamageDeathVfxPresentationLaneRuntime("));
+            Assert.That(compositionFactorySource, Does.Not.Contain("damageDeathVfxLane.ConfigureExecution("));
             Assert.That(compositionFactorySource, Does.Not.Contain("TryBeginExecution("));
             Assert.That(compositionFactorySource, Does.Not.Contain("RecordSkippedByPolicy("));
             Assert.That(compositionFactorySource, Does.Not.Contain("ShouldSuppress"));
@@ -1850,11 +1851,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.Update(deltaTime)"));
             Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.ResetSession()"));
             Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.HardCleanup()"));
-            Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.ConfigureExecution(mode, playbackPort)"));
+            Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.ConfigurePlaybackPort(playbackPort)"));
             Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.ExecutorDiagnostics"));
             Assert.That(coordinatorSource, Does.Contain("_damageDeathVfxLane.BlockingSnapshot"));
             Assert.That(coordinatorSource, Does.Contain("PresentExtensions(result)"));
-            Assert.That(coordinatorSource, Does.Contain("damageDeathVfxExtensionPolicy: _damageDeathVfxLane.ExtensionPolicy"));
+            Assert.That(coordinatorSource, Does.Not.Contain("damageDeathVfxExtensionPolicy:"));
             Assert.That(coordinatorSource, Does.Not.Contain("damageDeathVfxExecutionMode:"));
 
             foreach (var forbiddenCoordinatorToken in new[]
@@ -1865,13 +1866,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                          "_damageDeathVfxPlaybackPort",
                          "BuildDamageDeathVfxPlaybackKeys",
                          "RefreshDamageDeathVfxExecution",
-                         "ApplyDamageDeathVfxPlannerSuppressionDiagnostics",
+                         "ApplyDamageDeathVfxPlannerOmissionDiagnostics",
                          "GameplayPresentationExecutionRouter.UseDamageDeathVfxExecutor",
                          "new VfxCuePlanner()",
                          "DamageDeathVfxExecutionPolicy.Normalize",
                          "RecordSkippedByPolicy",
-                         "DamageHitSuppressedByEnemyDeathCount",
-                         "RecordSameTickDamageHitSuppressedByDeath",
+                         "DamageHitOmittedByEnemyDeathCount",
+                         "RecordSameTickDamageHitOmittedByDeath",
                          "DamageDeathVfxExecutionMode.OrchestrationExecutor",
                          "DamageDeathGameplayVfxPlaybackPortAdapter",
                          "IDamageDeathGameplayVfxPlaybackRuntime",
@@ -1882,14 +1883,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(laneSource, Does.Contain("internal sealed class DamageDeathVfxPresentationLaneRuntime"));
             Assert.That(laneSource, Does.Contain("DamageDeathVfxExecutionGuard"));
-            Assert.That(laneSource, Does.Contain("DamageDeathVfxExecutionPolicy.Normalize"));
             Assert.That(laneSource, Does.Contain("BuildDamageDeathVfxPlaybackKeys"));
-            Assert.That(laneSource, Does.Contain("DamageDeathVfxExecutionOwner.LegacyExtension"));
-            Assert.That(laneSource, Does.Contain("RecordSkippedByPolicy"));
             Assert.That(laneSource, Does.Contain("new VfxCuePlanner()"));
-            Assert.That(laneSource, Does.Contain("DamageHitSuppressedByEnemyDeathCount"));
-            Assert.That(laneSource, Does.Contain("RecordSameTickDamageHitSuppressedByDeath"));
+            Assert.That(laneSource, Does.Contain("DamageHitOmittedByEnemyDeathCount"));
+            Assert.That(laneSource, Does.Not.Contain("DamageHitSuppressedByEnemyDeathCount"));
+            Assert.That(laneSource, Does.Contain("RecordSameTickDamageHitOmittedByDeath"));
             Assert.That(laneSource, Does.Contain("IDamageDeathVfxPlaybackPort"));
+            Assert.That(laneSource, Does.Not.Contain("DamageDeathVfxExecutionPolicy.Normalize"));
+            Assert.That(laneSource, Does.Not.Contain("DamageDeathVfxExecutionOwner.LegacyExtension"));
+            Assert.That(laneSource, Does.Not.Contain("RecordSkippedByPolicy"));
             Assert.That(hostRuntimeSource, Does.Contain("GameplayVfxPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("DamageDeathVfxPresentationLaneRuntime"));
 
@@ -1924,10 +1926,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(laneSource, Does.Not.Contain(forbiddenSuppressionToken), forbiddenSuppressionToken);
             }
 
-            Assert.That(vfxRuntimeSource, Does.Contain("ShouldFilterDamageDeathExecutorOwnedRequests"));
             Assert.That(vfxRuntimeSource, Does.Contain("EnemyVfxCue.Damage"));
             Assert.That(vfxRuntimeSource, Does.Contain("EnemyVfxCue.Death"));
-            Assert.That(vfxRuntimeSource, Does.Contain("LegacyDamageDeathUnrelatedCueRetainedCount"));
+            Assert.That(vfxRuntimeSource, Does.Not.Contain("ShouldFilterDamageDeathExecutorOwnedRequests"));
+            Assert.That(vfxRuntimeSource, Does.Not.Contain("LegacyDamageDeathUnrelatedCueRetainedCount"));
             Assert.That(vfxRuntimeSource, Does.Contain("IDamageDeathGameplayVfxPlaybackRuntime"));
             Assert.That(vfxRuntimeSource, Does.Contain("TryPlayDamageDeathVfx"));
             Assert.That(hostFactorySource, Does.Contain("new DamageDeathGameplayVfxPlaybackPortAdapter(damageDeathVfxRuntime)"));
@@ -2936,7 +2938,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void VfxExecutor_DefaultLegacyMode_DoesNotCallPlaybackPort()
+        public void VfxExecutor_DefaultRoute_RoutesDamageDeathCuesToPlaybackPort()
         {
             var plan = new PresentationPlaybackPlanner().Plan(CreateVfxCueFrame(includeEnemyDeathExit: true));
             var port = new RecordingGameplayVfxPlaybackPort();
@@ -2944,11 +2946,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             executor.Play(plan);
 
-            Assert.That(port.TryPlayCallCount, Is.Zero);
+            Assert.That(port.TryPlayCallCount, Is.EqualTo(2));
             Assert.That(executor.Diagnostics.ObservedCueCount, Is.EqualTo(2));
-            Assert.That(executor.Diagnostics.LegacyOwnerNoOpCount, Is.EqualTo(2));
-            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.Zero);
-            Assert.That(executor.Diagnostics.DuplicateSuppressedCount, Is.Zero);
+            Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.EqualTo(2));
+            Assert.That(executor.Diagnostics.DuplicateOmittedCount, Is.Zero);
         }
 
         [Test]
@@ -2957,10 +2958,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var plan = new PresentationPlaybackPlanner().Plan(CreateVfxCueFrame(includeEnemyDeathExit: false));
             var port = new RecordingGameplayVfxPlaybackPort();
-            var guard = new DamageDeathVfxExecutionGuard(DamageDeathVfxExecutionMode.OrchestrationExecutor);
+            var guard = new DamageDeathVfxExecutionGuard();
             var executor = new GameplayVfxPresentationExecutor(
                 port,
-                DamageDeathVfxExecutionMode.OrchestrationExecutor,
                 guard);
 
             executor.Play(plan);
@@ -2979,7 +2979,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void VfxExecutionGuard_BlocksDuplicateOwnerAttemptForSameDamageDeathKey()
+        public void VfxExecutionGuard_BlocksDuplicateExecutorAttemptForSameDamageDeathKey()
         {
             var key = new DamageDeathVfxPlaybackKey(
                 7,
@@ -2987,18 +2987,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 20,
                 20,
                 PresentationVfxCueKey.DamageHit);
-            var guard = new DamageDeathVfxExecutionGuard(DamageDeathVfxExecutionMode.OrchestrationExecutor);
+            var guard = new DamageDeathVfxExecutionGuard();
 
             Assert.That(
                 guard.TryBeginExecution(DamageDeathVfxExecutionOwner.OrchestrationExecutor, key),
                 Is.True);
             Assert.That(
-                guard.TryBeginExecution(DamageDeathVfxExecutionOwner.LegacyExtension, key),
+                guard.TryBeginExecution(DamageDeathVfxExecutionOwner.OrchestrationExecutor, key),
                 Is.False);
 
             Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
             Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
-            Assert.That(guard.Diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -3028,8 +3027,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var port = new RecordingGameplayVfxPlaybackPort(GameplayVfxPlaybackResultKind.BindingMissing);
             var executor = new GameplayVfxPresentationExecutor(
                 port,
-                DamageDeathVfxExecutionMode.OrchestrationExecutor,
-                new DamageDeathVfxExecutionGuard(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                new DamageDeathVfxExecutionGuard());
 
             executor.Play(plan);
 
@@ -3048,8 +3046,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var port = new RecordingGameplayVfxPlaybackPort();
             var executor = new GameplayVfxPresentationExecutor(
                 port,
-                DamageDeathVfxExecutionMode.OrchestrationExecutor,
-                new DamageDeathVfxExecutionGuard(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                new DamageDeathVfxExecutionGuard());
 
             executor.Play(plan);
             Assert.That(executor.Diagnostics.PlaybackRequestedCount, Is.EqualTo(1));
@@ -3081,8 +3078,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var playbackPlan = new PresentationPlaybackPlanner().Plan(cueFrame);
             var executor = new GameplayVfxPresentationExecutor(
                 new RecordingGameplayVfxPlaybackPort(),
-                DamageDeathVfxExecutionMode.OrchestrationExecutor,
-                new DamageDeathVfxExecutionGuard(DamageDeathVfxExecutionMode.OrchestrationExecutor));
+                new DamageDeathVfxExecutionGuard());
 
             executor.Play(playbackPlan);
 
@@ -3626,7 +3622,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(uiSource, Does.Not.Contain("PresentationVfxCueKey"));
             Assert.That(uiSource, Does.Not.Contain("DamageDeathVfxExecutorDiagnostics"));
             Assert.That(uiSource, Does.Not.Contain("DamageDeathVfxSemanticDiagnostics"));
-            Assert.That(uiSource, Does.Not.Contain("DamageDeathVfxSuppressionReason"));
+            Assert.That(uiSource, Does.Not.Contain("DamageDeathVfxOmissionReason"));
             Assert.That(uiSource, Does.Not.Contain("DamageHitSuppressedByEnemyDeathCount"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("GameplayVfxPresentationExecutor executor"));
             Assert.That(topologyExecutorSource, Does.Not.Contain("IsTopologyTransitionActive = DamageDeath"));

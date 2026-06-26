@@ -836,15 +836,9 @@ namespace Game.Feature.Gameplay.Host
         }
 
         public static GameplayPresentationPipeline CreateDamageDeathVfxExecutionPipeline(
-            DamageDeathVfxExecutionMode mode,
             IDamageDeathVfxPlaybackPort playbackPort,
             DamageDeathVfxExecutionGuard executionGuard)
         {
-            if (mode != DamageDeathVfxExecutionMode.OrchestrationExecutor)
-            {
-                return null;
-            }
-
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
@@ -857,7 +851,6 @@ namespace Game.Feature.Gameplay.Host
                 {
                     new GameplayVfxPresentationExecutor(
                         playbackPort,
-                        mode,
                         executionGuard),
                 });
         }
