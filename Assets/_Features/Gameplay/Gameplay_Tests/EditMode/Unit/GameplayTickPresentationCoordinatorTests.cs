@@ -16464,8 +16464,90 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 frames.Rejections.Any(rejection =>
                     rejection.Entity.EntityId == 10 &&
                     rejection.SourceKind == PresentationPoseSourceKind.EnemyKinematicMotion &&
+                    rejection.Channel == PresentationPoseChannel.BasePose &&
                     rejection.Reason == PresentationPoseRejectionReason.OwnerRoleMismatch),
                 Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationPoseCandidateCollector_PlayerDeathHoldPoses_EmitsTypedTerminalHoldCandidate()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkPlayer(stateStore, 10);
+
+            var playerPose = PoseAt(1f);
+            trackState.PlayerDeathHoldPoses[10] = playerPose;
+
+            var collector = new PresentationPoseCandidateCollector(stateStore, trackState);
+            var candidates = new List<PresentationPoseCandidate>();
+            collector.CollectCandidatesForEntity(10, sourceTick: 42, candidates);
+
+            Assert.That(candidates, Has.Count.EqualTo(1));
+            var candidate = candidates[0];
+            Assert.That(candidate.Entity.EntityId, Is.EqualTo(10));
+            Assert.That(candidate.OwnerRole, Is.EqualTo(PresentationOwnerRole.Player));
+            Assert.That(candidate.SourceKind, Is.EqualTo(PresentationPoseSourceKind.PlayerDeathHold));
+            Assert.That(candidate.Channel, Is.EqualTo(PresentationPoseChannel.TerminalHold));
+            Assert.That(candidate.Pose.Position, Is.EqualTo(playerPose.Position));
+            Assert.That(candidate.SourceTick, Is.EqualTo(42));
+            Assert.That(candidate.IsTerminal, Is.True);
+            Assert.That(candidate.IsActiveLocomotion, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationBasePoseFrameResolver_ChecksCompatibilityBeforePrioritySelection()
+        {
+            var resolverSource = File.ReadAllText(
+                Path.Combine(
+                    Application.dataPath,
+                    "..",
+                    "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationTrackState.cs"));
+
+            var compatibilityIndex = resolverSource.IndexOf(
+                "PresentationPoseCompatibilityPolicy.IsCompatible",
+                StringComparison.Ordinal);
+            var terminalSelectionIndex = resolverSource.IndexOf(
+                "terminalCandidate = SelectTerminalCandidate",
+                StringComparison.Ordinal);
+            var liveSelectionIndex = resolverSource.IndexOf(
+                "liveCandidate = SelectLiveCandidate",
+                StringComparison.Ordinal);
+
+            Assert.That(compatibilityIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(terminalSelectionIndex, Is.GreaterThan(compatibilityIndex));
+            Assert.That(liveSelectionIndex, Is.GreaterThan(compatibilityIndex));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationBasePoseFrameResolver_TerminalHoldBeatsLiveLocomotionAfterCompatibility()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkPlayer(stateStore, 10);
+
+            var terminalPose = PoseAt(1f);
+            var livePose = PoseAt(2f);
+            trackState.PlayerDeathHoldPoses[10] = terminalPose;
+            trackState.PlayerContinuousLocomotionPresentationPoseOverrides[10] =
+                new PlayerContinuousLocomotionPresentationPose(
+                    livePose,
+                    ContinuousLocomotionMode.Moving,
+                    TickKinematicMotionTerminalKind.None);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 42);
+
+            Assert.That(frames.TryGetFrame(10, out var frame), Is.True);
+            Assert.That(frame.BasePose.Position, Is.EqualTo(terminalPose.Position));
+            Assert.That(frame.BasePose.Position, Is.Not.EqualTo(livePose.Position));
+            Assert.That(frame.OwnerRole, Is.EqualTo(PresentationOwnerRole.Player));
+            Assert.That(frame.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.PlayerDeathHold));
+            Assert.That(frame.Provenance.TerminalSource, Is.EqualTo(PresentationPoseSourceKind.PlayerDeathHold));
+            Assert.That(frame.IsActiveLocomotion, Is.False);
+            Assert.That(frames.Rejections, Is.Empty);
         }
 
         [Test]
@@ -16548,6 +16630,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Not.Contain("EnemyKinematicPresentationPoseOverrides"));
             Assert.That(source, Does.Not.Contain("PlayerDeathHoldPoses"));
             Assert.That(source, Does.Contain("ResolvedPresentationFrameSet"));
+            Assert.That(source, Does.Contain("resolvedFrame.BasePose"));
         }
 
         private static void AssertCompatible(
