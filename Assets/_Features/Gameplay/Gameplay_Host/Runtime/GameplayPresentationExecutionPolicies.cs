@@ -17,21 +17,6 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
-    internal static class BoxMotionExecutionPolicy
-    {
-        public const BoxMotionPresentationExecutionMode ProductionDefault =
-            BoxMotionPresentationExecutionDefaults.ProductionDefault;
-        public const BoxMotionPresentationExecutionMode LegacyFallback =
-            BoxMotionPresentationExecutionDefaults.LegacyFallback;
-
-        public static BoxMotionPresentationExecutionMode Normalize(BoxMotionPresentationExecutionMode mode)
-        {
-            return Enum.IsDefined(typeof(BoxMotionPresentationExecutionMode), mode)
-                ? mode
-                : LegacyFallback;
-        }
-    }
-
     internal static class PlayerActionAnimationExecutionPolicy
     {
         public const PlayerActionAnimationExecutionMode ProductionDefault =

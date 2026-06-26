@@ -29,7 +29,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             "ExecutionMode",
             "TopologyPresentationExecutionMode",
-            "BoxMotionPresentationExecutionMode",
             "PlayerActionAnimationExecutionMode",
             "EnemyPresentationExecutionMode",
             "CoreGameplaySfxExecutionMode",
@@ -41,7 +40,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             "ConfigureExecution",
             "ConfigureTopologyExecution",
-            "ConfigureBoxMotionPresentationExecution",
             "ConfigurePlayerActionAnimationExecution",
             "ConfigureEnemyPresentationExecution",
             "ConfigureCoreGameplaySfxExecution",
@@ -614,18 +612,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return new[]
             {
-                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs", 1, "box motion lane configuration facade"),
+                new ConfigureBudget("ConfigureExecution", string.Empty, 0, "Box Motion lane execution configuration facade removed in PR4."),
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs", 1, "core SFX lane configuration facade"),
                 new ConfigureBudget("ConfigureExecution", string.Empty, 0, "Enemy one-shot audio lane configuration facade removed in PR2."),
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyPresentationLaneRuntime.cs", 1, "enemy presentation lane configuration facade"),
                 new ConfigureBudget("ConfigureExecution", string.Empty, 0, "Gameplay action audio lane configuration facade removed in PR1."),
-                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeCompositionFactory.cs", 5, "production default lane configuration call sites"),
+                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeCompositionFactory.cs", 4, "production default lane configuration call sites"),
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 5, "coordinator test facade forwarding calls"),
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationLaneRuntime.cs", 1, "player action animation lane configuration facade"),
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs", 1, "topology lane configuration facade"),
                 new ConfigureBudget("ConfigureTopologyExecution", string.Empty, 0, "No production facade exists in PR0 baseline."),
-                new ConfigureBudget("ConfigureBoxMotionPresentationExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 1, "coordinator test facade definition"),
-                new ConfigureBudget("ConfigureBoxMotionPresentationExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs", 2, "presenter test facade definition and forwarding call"),
                 new ConfigureBudget("ConfigurePlayerActionAnimationExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 1, "coordinator test facade definition"),
                 new ConfigureBudget("ConfigurePlayerActionAnimationExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs", 2, "presenter test facade definition and forwarding call"),
                 new ConfigureBudget("ConfigureEnemyPresentationExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 1, "coordinator test facade definition"),
@@ -713,7 +709,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new[]
             {
                 new EnumBudget(typeof(TopologyPresentationExecutionMode), "LegacyCoordinator", "ExecutorBridge"),
-                new EnumBudget(typeof(BoxMotionPresentationExecutionMode), "LegacyTrackPlanner", "OrchestrationMotionExecutor"),
                 new EnumBudget(typeof(EnemyPresentationExecutionMode), "LegacyEnemyPresentationMapper", "OrchestrationEnemyPresentationExecutor"),
                 new EnumBudget(typeof(CoreGameplaySfxExecutionMode), "LegacyGameplayAudioController", "OrchestrationSfxBridgeExecutor"),
             };
@@ -761,22 +756,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string ResidueManifestTsv =
 @"Domain	Category	RelativePath	ContainingType	ContainingMember	Symbol	MaximumAllowed	AllowedRole	PlannedRemovalPhase
 Retained Owner / Unrelated	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BlockAudioPresentationController.cs	BlockAudioPresentationController	Audio plan lifecycle	PendingPlan	6	Unrelated block-audio pending plan vocabulary	Out of scope
-Box Motion	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Mode and diagnostics	ExecutionMode	33	Current box motion execution-mode residue	Box Motion Legacy Decommission
-Box Motion	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Rollback diagnostics	Rollback	2	Current rollback-mode diagnostics residue	Box Motion Legacy Decommission
-Box Motion	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Fallback constants	Fallback	4	Current fallback compatibility residue	Box Motion Legacy Decommission
-Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Legacy telemetry	Legacy	57	Current legacy owner diagnostics residue	Box Motion Legacy Decommission
-Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Legacy telemetry	ExecutedByLegacy	2	Current legacy execution counter	Box Motion Legacy Decommission
-Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Legacy telemetry	SkippedLegacy	2	Current skipped legacy counter	Box Motion Legacy Decommission
-Box Motion	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Suppression telemetry	Suppressed	17	Current migration suppression diagnostics	Box Motion Legacy Decommission
-Box Motion	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	Execution guard	ExecutionMode	11	Current lane execution-mode facade	Box Motion Legacy Decommission
-Box Motion	EXECUTION_POLICY	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	ConfigureExecution	ExecutionPolicy	1	Current lane policy normalization	Box Motion Legacy Decommission
-Box Motion	NORMALIZATION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	ConfigureExecution	Normalize(	1	Current invalid-mode compatibility	Box Motion Legacy Decommission
-Box Motion	ROUTE_BRANCH	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	UseProductionExecutor	UseProduction	3	Current production/legacy branch	Box Motion Legacy Decommission
-Box Motion	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	ConfigureExecution	ConfigureExecution	1	Current lane configuration facade	Box Motion Legacy Decommission
-Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	Legacy policy telemetry	Legacy	23	Current lane legacy telemetry	Box Motion Legacy Decommission
-Box Motion	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	Legacy fallback	Fallback	1	Current fallback compatibility residue	Box Motion Legacy Decommission
-Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	Legacy policy telemetry	SkippedLegacy	1	Current skipped legacy counter	Box Motion Legacy Decommission
-Box Motion	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	Legacy suppression	Suppressed	2	Current production owner suppression	Box Motion Legacy Decommission
+Box Motion	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Mode and diagnostics	ExecutionMode	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Rollback diagnostics	Rollback	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Fallback constants	Fallback	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Legacy telemetry	Legacy	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Legacy telemetry	ExecutedByLegacy	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Legacy telemetry	SkippedLegacy	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationExecutor.cs	BoxMotionPresentationExecutor	Suppression telemetry	Suppressed	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	Execution guard	ExecutionMode	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	EXECUTION_POLICY	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	ConfigureExecution	ExecutionPolicy	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	NORMALIZATION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	ConfigureExecution	Normalize(	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	ROUTE_BRANCH	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	UseProductionExecutor	UseProduction	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	ConfigureExecution	ConfigureExecution	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	Legacy policy telemetry	Legacy	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	Legacy fallback	Fallback	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	Legacy policy telemetry	SkippedLegacy	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
+Box Motion	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	Legacy suppression	Suppressed	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
 Core Gameplay SFX	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Execution guard	ExecutionMode	12	Current lane execution-mode facade	Core Gameplay SFX Legacy Decommission
 Core Gameplay SFX	EXECUTION_POLICY	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	ConfigureExecution	ExecutionPolicy	2	Current lane policy normalization	Core Gameplay SFX Legacy Decommission
 Core Gameplay SFX	NORMALIZATION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	ConfigureExecution	Normalize(	1	Current invalid-mode compatibility	Core Gameplay SFX Legacy Decommission
@@ -872,7 +867,7 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
 Retained Owner / Unrelated	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Read-only diagnostics facade	ExecutionMode	40	Retained read-only diagnostics and test facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	EXECUTION_POLICY	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Initialize topology mode	ExecutionPolicy	1	Existing topology initialization default	Topology Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureExecution	6	Current test-only forwarding facade to lanes	Presentation Legacy Decommission
-Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureBoxMotionPresentationExecution	1	Current test-only forwarding facade	Presentation Legacy Decommission
+Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureBoxMotionPresentationExecution	0	Removed in Box Motion current-only decommission PR4	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigurePlayerActionAnimationExecution	1	Current test-only forwarding facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureEnemyPresentationExecution	1	Current test-only forwarding facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureCoreGameplaySfxExecution	1	Current test-only forwarding facade	Presentation Legacy Decommission
@@ -884,13 +879,13 @@ Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gamep
 Retained Owner / Unrelated	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Read-only diagnostics aggregation	PendingPlan	4	Retained read-only diagnostics aggregation	Out of scope
 Retained Owner / Unrelated	LEGACY_PORT_OR_ADAPTER	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationExtension.cs	GameplayTickPresentationExtension	Legacy extension surface	Legacy	4	Current extension compatibility surface	Damage/Death VFX Legacy Decommission
 Retained Owner / Unrelated	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test facade diagnostics	ExecutionMode	34	Retained read-only diagnostics and test facade	Presentation Legacy Decommission
-Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureBoxMotionPresentationExecution	2	Current test-only forwarding facade	Presentation Legacy Decommission
+Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureBoxMotionPresentationExecution	0	Removed in Box Motion current-only decommission PR4	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigurePlayerActionAnimationExecution	2	Current test-only forwarding facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureEnemyPresentationExecution	2	Current test-only forwarding facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureCoreGameplaySfxExecution	2	Current test-only forwarding facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureActionAudioExecution	0	Removed for Gameplay Action Audio Legacy Decommission PR1	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureEnemyAudioExecution	0	Enemy one-shot configure facade removed in PR2	Presentation Legacy Decommission
-Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTrackPlanner.cs	GameplayTrackPlanner	Box legacy track suppression	Legacy	14	Retained planner with current box legacy suppression residue	Box Motion Legacy Decommission
+Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTrackPlanner.cs	GameplayTrackPlanner	Box legacy track suppression	Legacy	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
 Box Motion	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTrackPlanner.cs	GameplayTrackPlanner	Pose fallback	Fallback	3	Retained planner pose fallback	Out of scope
 Core Gameplay SFX	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GravityFieldAudioPresentationController.cs	GravityFieldAudioPresentationController	Audio plan lifecycle	PendingPlan	8	Unrelated gravity-field pending plan vocabulary	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/MoonBlockEmergencePresentationController.cs	MoonBlockEmergencePresentationController	Visual normalization	Normalize(	3	Non-route visual normalization	Out of scope

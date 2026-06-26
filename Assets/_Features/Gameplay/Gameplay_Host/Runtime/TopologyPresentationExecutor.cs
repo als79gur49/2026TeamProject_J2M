@@ -856,15 +856,9 @@ namespace Game.Feature.Gameplay.Host
         }
 
         public static GameplayPresentationPipeline CreateBoxMotionExecutionPipeline(
-            BoxMotionPresentationExecutionMode mode,
             IGameplayMotionPlaybackPort playbackPort,
             BoxMotionExecutionGuard executionGuard)
         {
-            if (mode != BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor)
-            {
-                return null;
-            }
-
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
@@ -877,7 +871,6 @@ namespace Game.Feature.Gameplay.Host
                 {
                     new GameplayMotionPresentationExecutor(
                         playbackPort,
-                        mode,
                         executionGuard),
                 });
         }

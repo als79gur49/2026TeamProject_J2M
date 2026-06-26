@@ -142,7 +142,6 @@ namespace Game.Feature.Gameplay.Host
 
             ConfigureProductionDefaultExecutionGuards(
                 topologyLane,
-                boxMotionLane,
                 playerActionAnimationLane,
                 enemyPresentationLane,
                 coreGameplaySfxLane);
@@ -194,13 +193,11 @@ namespace Game.Feature.Gameplay.Host
 
         private static void ConfigureProductionDefaultExecutionGuards(
             TopologyPresentationLaneRuntime topologyLane,
-            BoxMotionPresentationLaneRuntime boxMotionLane,
             PlayerActionAnimationLaneRuntime playerActionAnimationLane,
             EnemyPresentationLaneRuntime enemyPresentationLane,
             CoreGameplaySfxLaneRuntime coreGameplaySfxLane)
         {
             topologyLane.ConfigureExecution(TopologyPresentationExecutionPolicy.ProductionDefault);
-            boxMotionLane.ConfigureExecution(BoxMotionExecutionPolicy.ProductionDefault);
             playerActionAnimationLane.ConfigureExecution(PlayerActionAnimationExecutionPolicy.ProductionDefault);
             enemyPresentationLane.ConfigureExecution(EnemyPresentationExecutionPolicy.ProductionDefault);
             coreGameplaySfxLane.ConfigureExecution(CoreGameplaySfxExecutionPolicy.ProductionDefault);

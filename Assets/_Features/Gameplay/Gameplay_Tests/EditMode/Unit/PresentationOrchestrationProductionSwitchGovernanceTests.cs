@@ -65,20 +65,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered),
             new(
                 "Box motion",
-                typeof(BoxMotionPresentationExecutionMode),
-                "LegacyTrackPlanner",
-                "OrchestrationMotionExecutor",
-                "OrchestrationMotionExecutor",
-                "OrchestrationMotionExecutor",
+                null,
+                "Removed",
+                "GameplayMotionPresentationExecutor",
+                "GameplayMotionPresentationExecutor",
+                "GameplayMotionPresentationExecutor",
                 false,
-                true,
-                "BoxMotionProductionDefault_PlayMode_DuplicateGuardNormalAndForced",
-                "BoxMotionProductionDefault_PlayMode_IsNonAuthoritative",
-                "BoxMotionProductionDefault_PlayMode_LifecycleCleanupClearsTrackAndPose",
+                false,
+                "BoxMotion_DuplicateRequest_DedupesOrLayersByContract",
+                "BoxMotion_SameTickPushAndSlide_FollowsPolicy",
+                "BoxMotion_HiddenOrRemovedEntity_NoLegacyFallback",
                 "BoxMotionExecutionSwitch_DoesNotLeakIntoInputOrVfxContracts",
                 "Medium: motion can affect perceived input timing.",
                 "Low",
-                "Set BoxMotionPresentationExecutionMode.LegacyTrackPlanner.",
+                "Removed; Box Motion is current-only and has no rollback mode.",
                 ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened),
             new(
                 "Player action animation",
@@ -157,14 +157,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Damage/death VFX is current-only; rollback mode and serialized rollback owner are removed."),
             new(
                 "Box motion",
-                PresentationDomainLifecycleState.NotYetDecommissioned,
-                true,
+                PresentationDomainLifecycleState.CurrentOnlyDecommissioned,
+                false,
                 true,
                 false,
-                "BoxMotionPresentationExecutionMode",
-                "OrchestrationMotionExecutor",
-                "LegacyTrackPlanner",
-                "Legacy/current route remains available until the domain is explicitly decommissioned."),
+                null,
+                "GameplayMotionPresentationExecutor",
+                "Removed",
+                "Box Motion is current-only; rollback mode and serialized rollback owner are removed."),
             new(
                 "Player action animation",
                 PresentationDomainLifecycleState.CurrentOnlyDecommissioned,
@@ -264,7 +264,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var knownTypes = new[]
             {
                 typeof(TopologyPresentationExecutionMode),
-                typeof(BoxMotionPresentationExecutionMode),
                 typeof(PlayerActionAnimationExecutionMode),
                 typeof(EnemyPresentationExecutionMode),
                 typeof(CoreGameplaySfxExecutionMode),
@@ -298,14 +297,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(config.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
                 Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
                 Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
-                Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
                 Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
 
                 Assert.That(presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
                 Assert.That(presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
-                Assert.That(presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+                Assert.That(presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
                 Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(presenter.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
                 Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
@@ -330,9 +329,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 TopologyPresentationExecutionPolicy.Normalize((TopologyPresentationExecutionMode)999),
                 Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
             Assert.That(
-                BoxMotionExecutionPolicy.Normalize((BoxMotionPresentationExecutionMode)999),
-                Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
-            Assert.That(
                 PlayerActionAnimationExecutionPolicy.Normalize((PlayerActionAnimationExecutionMode)999),
                 Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
             Assert.That(
@@ -342,7 +338,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CoreGameplaySfxExecutionPolicy.Normalize((CoreGameplaySfxExecutionMode)999),
                 Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
             Assert.That(default(TopologyPresentationExecutionMode), Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
-            Assert.That(default(BoxMotionPresentationExecutionMode), Is.EqualTo(BoxMotionPresentationExecutionMode.LegacyTrackPlanner));
             Assert.That(Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), default(PlayerActionAnimationExecutionMode)), Is.False);
             Assert.That(default(EnemyPresentationExecutionMode), Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
             Assert.That(default(CoreGameplaySfxExecutionMode), Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
@@ -534,7 +529,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var coreSfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode));
             var damageDeathVfx = ReadinessMatrix.Single(row => row.Domain == "Damage/death VFX");
-            var boxMotion = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(BoxMotionPresentationExecutionMode));
+            var boxMotion = ReadinessMatrix.Single(row => row.Domain == "Box motion");
             var playerActionAnimation = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(PlayerActionAnimationExecutionMode));
             var readinessDocument = ReadRepoFile(ReadinessDocumentPath);
 
@@ -559,7 +554,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(boxMotion.CurrentDefault, Is.EqualTo(boxMotion.OrchestrationOwner));
             Assert.That(boxMotion.DefaultIsLegacy, Is.False);
-            Assert.That(boxMotion.InvalidModeNormalizesToLegacy, Is.True);
+            Assert.That(boxMotion.InvalidModeNormalizesToLegacy, Is.False);
             Assert.That(boxMotion.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened));
             Assert.That(readinessDocument, Does.Contain("Phase 9H"));
             Assert.That(readinessDocument, Does.Contain("Phase 9J"));
@@ -646,8 +641,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
                 Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
-                Assert.That(coordinator.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
-                Assert.That(presenter.BoxMotionPresentationExecutionMode, Is.EqualTo(BoxMotionPresentationExecutionMode.OrchestrationMotionExecutor));
+                Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
+                Assert.That(presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
                 Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));

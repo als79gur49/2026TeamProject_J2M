@@ -72,10 +72,6 @@ namespace Game.Feature.Gameplay.Host
     internal readonly struct BoxMotionProductionTelemetrySnapshot
     {
         public BoxMotionProductionTelemetrySnapshot(
-            BoxMotionPresentationExecutionMode currentMode,
-            bool isProductionDefaultOwner,
-            BoxMotionPresentationExecutionMode productionDefaultMode,
-            BoxMotionPresentationExecutionMode rollbackMode,
             int lastTickIndex,
             PresentationMotionCueKey lastCueKey,
             int lastDedupeKey,
@@ -83,12 +79,10 @@ namespace Game.Feature.Gameplay.Host
             PresentationMotionFactKind lastMotionFactKind,
             BoxMotionTelemetryFailureReason lastFailureReason,
             BoxMotionTelemetryCleanupReason lastCleanupReason,
-            int legacyOwnerAttemptCount,
-            int legacyOwnerSkippedByPolicyCount,
             int executorOwnerAttemptCount,
             int executorOwnerExecutedCount,
             int duplicateOwnerAttemptCount,
-            int duplicateSuppressedCount,
+            int duplicateRejectedCount,
             int playbackTrackPlannedCount,
             int playbackTrackRequestedCount,
             int playbackTrackStartedCount,
@@ -106,14 +100,9 @@ namespace Game.Feature.Gameplay.Host
             int driverMissingCount,
             int portMissingCount,
             int unsupportedSemanticCount,
-            int legacyBoxSourcePlanningSkippedCount,
-            int legacyUnrelatedMotionTrackRetainedCount,
             IReadOnlyList<BoxMotionSemanticDiagnostics> semanticDiagnostics)
         {
-            CurrentMode = currentMode;
-            IsProductionDefaultOwner = isProductionDefaultOwner;
-            ProductionDefaultMode = productionDefaultMode;
-            RollbackMode = rollbackMode;
+            IsCurrentProductionOwner = true;
             LastTickIndex = Math.Max(0, lastTickIndex);
             LastCueKey = lastCueKey;
             LastDedupeKey = lastDedupeKey;
@@ -121,12 +110,10 @@ namespace Game.Feature.Gameplay.Host
             LastMotionFactKind = lastMotionFactKind;
             LastFailureReason = lastFailureReason;
             LastCleanupReason = lastCleanupReason;
-            LegacyOwnerAttemptCount = Math.Max(0, legacyOwnerAttemptCount);
-            LegacyOwnerSkippedByPolicyCount = Math.Max(0, legacyOwnerSkippedByPolicyCount);
             ExecutorOwnerAttemptCount = Math.Max(0, executorOwnerAttemptCount);
             ExecutorOwnerExecutedCount = Math.Max(0, executorOwnerExecutedCount);
             DuplicateOwnerAttemptCount = Math.Max(0, duplicateOwnerAttemptCount);
-            DuplicateSuppressedCount = Math.Max(0, duplicateSuppressedCount);
+            DuplicateRejectedCount = Math.Max(0, duplicateRejectedCount);
             PlaybackTrackPlannedCount = Math.Max(0, playbackTrackPlannedCount);
             PlaybackTrackRequestedCount = Math.Max(0, playbackTrackRequestedCount);
             PlaybackTrackStartedCount = Math.Max(0, playbackTrackStartedCount);
@@ -144,15 +131,10 @@ namespace Game.Feature.Gameplay.Host
             DriverMissingCount = Math.Max(0, driverMissingCount);
             PortMissingCount = Math.Max(0, portMissingCount);
             UnsupportedSemanticCount = Math.Max(0, unsupportedSemanticCount);
-            LegacyBoxSourcePlanningSkippedCount = Math.Max(0, legacyBoxSourcePlanningSkippedCount);
-            LegacyUnrelatedMotionTrackRetainedCount = Math.Max(0, legacyUnrelatedMotionTrackRetainedCount);
             SemanticDiagnostics = semanticDiagnostics ?? Array.Empty<BoxMotionSemanticDiagnostics>();
         }
 
-        public BoxMotionPresentationExecutionMode CurrentMode { get; }
-        public bool IsProductionDefaultOwner { get; }
-        public BoxMotionPresentationExecutionMode ProductionDefaultMode { get; }
-        public BoxMotionPresentationExecutionMode RollbackMode { get; }
+        public bool IsCurrentProductionOwner { get; }
         public int LastTickIndex { get; }
         public PresentationMotionCueKey LastCueKey { get; }
         public int LastDedupeKey { get; }
@@ -160,12 +142,10 @@ namespace Game.Feature.Gameplay.Host
         public PresentationMotionFactKind LastMotionFactKind { get; }
         public BoxMotionTelemetryFailureReason LastFailureReason { get; }
         public BoxMotionTelemetryCleanupReason LastCleanupReason { get; }
-        public int LegacyOwnerAttemptCount { get; }
-        public int LegacyOwnerSkippedByPolicyCount { get; }
         public int ExecutorOwnerAttemptCount { get; }
         public int ExecutorOwnerExecutedCount { get; }
         public int DuplicateOwnerAttemptCount { get; }
-        public int DuplicateSuppressedCount { get; }
+        public int DuplicateRejectedCount { get; }
         public int PlaybackTrackPlannedCount { get; }
         public int PlaybackTrackRequestedCount { get; }
         public int PlaybackTrackStartedCount { get; }
@@ -183,8 +163,6 @@ namespace Game.Feature.Gameplay.Host
         public int DriverMissingCount { get; }
         public int PortMissingCount { get; }
         public int UnsupportedSemanticCount { get; }
-        public int LegacyBoxSourcePlanningSkippedCount { get; }
-        public int LegacyUnrelatedMotionTrackRetainedCount { get; }
         public IReadOnlyList<BoxMotionSemanticDiagnostics> SemanticDiagnostics { get; }
     }
 
@@ -418,9 +396,6 @@ namespace Game.Feature.Gameplay.Host
         internal DamageDeathVfxOwnershipDiagnostics DamageDeathVfxOwnershipDiagnostics =>
             _damageDeathVfxLane.OwnershipDiagnostics;
 
-        internal BoxMotionPresentationExecutionMode BoxMotionPresentationExecutionMode =>
-            _boxMotionLane.ExecutionMode;
-
         internal BoxMotionOwnershipDiagnostics BoxMotionOwnershipDiagnostics =>
             _boxMotionLane.OwnershipDiagnostics;
 
@@ -507,12 +482,11 @@ namespace Game.Feature.Gameplay.Host
             _damageDeathVfxLane.ConfigurePlaybackPort(playbackPort);
         }
 
-        internal void ConfigureBoxMotionPresentationExecution(
-            BoxMotionPresentationExecutionMode mode,
-            IGameplayMotionPlaybackPort playbackPort = null,
+        internal void ConfigureBoxMotionPlaybackPort(
+            IGameplayMotionPlaybackPort playbackPort,
             bool useDefaultPlaybackPort = true)
         {
-            _boxMotionLane.ConfigureExecution(mode, playbackPort, useDefaultPlaybackPort);
+            _boxMotionLane.ConfigurePlaybackPort(playbackPort, useDefaultPlaybackPort);
         }
 
         internal void ConfigurePlayerActionAnimationExecution(
@@ -867,8 +841,7 @@ namespace Game.Feature.Gameplay.Host
                 previousCommittedLocalTargetPoses,
                 previousCommittedTopology,
                 _projector,
-                _timingProfile,
-                boxMotionPreparation.LegacySuppression);
+                _timingProfile);
             _boxMotionLane.PresentPrepared(result, boxMotionPreparation, 0f);
             RetainTopologyMoonBlockGeneratedPoses(result.PresentationData);
             _lastPresentedTickIndex = result.TickIndex;
