@@ -2,9 +2,12 @@ using System;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Objectives;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -118,8 +121,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 InvokePrivate(controller, "LateUpdate");
                 Assert.That(controller.DebugSetActiveApplyCount, Is.EqualTo(1));
 
-                host.InputHost.SetRawMoveInput(Vector2.up);
-                host.InputHost.RunSingleTick();
+                host.Presenter.Present(CreateTopologyTransitionResult(
+                    tickIndex: 1,
+                    sourceTopology: new CubeTopologyState(FaceId.Floor),
+                    destinationTopology: new CubeTopologyState(FaceId.Front),
+                    finalEntities: new[]
+                    {
+                        CreateSurfaceUnit(10, new SurfaceCell(FaceId.Front, 0, 1)),
+                    }));
                 Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
 
                 InvokePrivate(controller, "LateUpdate");
@@ -411,6 +420,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 state = EntityPhaseState.Idle,
                 facing = Direction.Up,
             };
+        }
+
+        private static TickResult CreateTopologyTransitionResult(
+            int tickIndex,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            EntityState[] finalEntities)
+        {
+            return new TickResult(
+                tickIndex,
+                new[] { TickPhase.Plan },
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                finalEntities,
+                Array.Empty<string>(),
+                destinationTopology,
+                CreateTopologyTransitionPresentationData(sourceTopology, destinationTopology),
+                string.Empty,
+                TickTrace.Empty,
+                StageObjectiveTickResult.NoObjective);
+        }
+
+        private static TickPresentationData CreateTopologyTransitionPresentationData(
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                new TickTopologyMotion(
+                    sourceTopology,
+                    destinationTopology,
+                    CubeRotationKind.Forward),
+                Array.Empty<TickVisibilityChange>());
         }
 
         private static void InvokePrivate(object target, string methodName, params object[] args)
