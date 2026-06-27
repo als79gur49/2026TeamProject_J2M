@@ -16818,6 +16818,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void TerminalHold_BeatsJumpDetachedPoseCompatibilityBridge()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkPlayer(stateStore, 10);
+
+            var terminalPose = PoseAt(1f);
+            var detachedPose = PoseAt(9f);
+            trackState.PlayerDeathHoldPoses[10] = terminalPose;
+            stateStore.JumpDetachedVisibilityStates[10] =
+                new JumpDetachedVisibilityState(
+                    EnemyJumpPhase.Airborne,
+                    detachedPose,
+                    new SurfaceCell(FaceId.Floor, 0, 0));
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 42);
+
+            Assert.That(frames.TryGetFrame(10, out var frame), Is.True);
+            Assert.That(frame.BasePose.Position, Is.EqualTo(terminalPose.Position));
+            Assert.That(frame.BasePose.Position, Is.Not.EqualTo(detachedPose.Position));
+            Assert.That(frame.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.PlayerDeathHold));
+            Assert.That(frame.Provenance.TerminalSource, Is.EqualTo(PresentationPoseSourceKind.PlayerDeathHold));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_DoesNotUseJumpDetachedVisibilityForBasePoseSelection()
+        {
+            var source = File.ReadAllText(Path.Combine(Application.dataPath, "..", ApplierPath));
+
+            var resolvedBasePoseIndex = source.IndexOf(
+                "var localPose = resolvedFrame.BasePose;",
+                StringComparison.Ordinal);
+            var visibilityDecisionIndex = source.IndexOf(
+                "var isVisible =",
+                StringComparison.Ordinal);
+            var jumpDetachedLookupIndex = source.IndexOf(
+                "_stateStore.JumpDetachedVisibilityStates",
+                StringComparison.Ordinal);
+
+            Assert.That(resolvedBasePoseIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(visibilityDecisionIndex, Is.GreaterThan(resolvedBasePoseIndex));
+            Assert.That(jumpDetachedLookupIndex, Is.GreaterThan(resolvedBasePoseIndex));
+            Assert.That(source, Does.Not.Contain("PresentationPoseSourceKind.JumpDetachedPose,\n                    PresentationPoseChannel.TerminalHold"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void JumpPresentationChannels_AreTypedBeforeApplication()
         {
             var coordinatorSource = File.ReadAllText(Path.Combine(Application.dataPath, "..", CoordinatorPath));
