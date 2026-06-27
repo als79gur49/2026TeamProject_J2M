@@ -847,9 +847,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAnimatorDriver_TypedLegacyOneShotSuppression_PreservesSustainedState()
+        public void EnemyAnimatorDriver_TypedOneShotBlockMask_PreservesSustainedState()
         {
-            var gameObject = new UnityEngine.GameObject("EnemyAnimatorDriver_TypedLegacyOneShotSuppression_PreservesSustainedState");
+            var gameObject = new UnityEngine.GameObject("EnemyAnimatorDriver_TypedOneShotBlockMask_PreservesSustainedState");
             try
             {
                 var driver = gameObject.AddComponent<EnemyAnimatorDriver>();
@@ -859,7 +859,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         tickIndex: 1,
                         jumpPhase: EnemyJumpPhase.Airborne,
                         startedJumpAirborneThisTick: true),
-                    EnemyPresentationLegacyOneShotSuppression.JumpAirborneStartOrRetry);
+                    EnemyPresentationOneShotBlockMask.JumpAirborneStartOrRetry);
 
                 Assert.That(driver.JumpAirborneSignalCount, Is.Zero);
                 Assert.That(driver.LastPresentationState.JumpPhase, Is.EqualTo(EnemyJumpPhase.Airborne));
@@ -869,7 +869,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         tickIndex: 2,
                         chargePhase: EnemyChargePhase.Active,
                         startedChargeActiveThisTick: true),
-                    EnemyPresentationLegacyOneShotSuppression.ChargeActiveStart);
+                    EnemyPresentationOneShotBlockMask.ChargeActiveStart);
 
                 Assert.That(driver.ChargeActiveSignalCount, Is.Zero);
                 Assert.That(driver.LastPresentationState.ChargePhase, Is.EqualTo(EnemyChargePhase.Active));
@@ -878,7 +878,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateEnemyPresentationState(
                         tickIndex: 3,
                         didDie: true),
-                    EnemyPresentationLegacyOneShotSuppression.DeathTrigger);
+                    EnemyPresentationOneShotBlockMask.DeathTrigger);
 
                 Assert.That(driver.DeathSignalCount, Is.Zero);
                 Assert.That(driver.LastPresentationState.DidDie, Is.True);

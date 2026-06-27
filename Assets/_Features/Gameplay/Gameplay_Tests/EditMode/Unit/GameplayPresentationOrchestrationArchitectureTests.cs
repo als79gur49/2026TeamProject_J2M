@@ -285,7 +285,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                      {
                          typeof(TopologyPresentationExecutionMode),
                          typeof(PlayerActionAnimationExecutionMode),
-                         typeof(EnemyPresentationExecutionMode),
                          typeof(CoreGameplaySfxRoute),
                      })
             {
@@ -331,7 +330,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(composition.BoxMotionLane, Is.Not.Null);
             Assert.That(composition.BoxMotionLane.ExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
             Assert.That(composition.PlayerActionAnimationLane.ExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionPolicy.ProductionDefault));
-            Assert.That(composition.EnemyPresentationLane.ExecutionMode, Is.EqualTo(EnemyPresentationExecutionPolicy.ProductionDefault));
+            Assert.That(composition.EnemyPresentationLane, Is.Not.Null);
             Assert.That(composition.CoreGameplaySfxLane, Is.Not.Null);
             Assert.That(composition.CoreGameplaySfxLane.ExecutorDiagnostics.IsProductionDefaultOwner, Is.True);
             Assert.That(composition.GameplayActionAudioLane, Is.Not.Null);
@@ -2405,14 +2404,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(contractsPlanningPlaybackSource, Does.Not.Contain("MonoBehaviour"));
             Assert.That(runtimeSource, Does.Not.Contain("EnemyViewPresentationMapper"));
             Assert.That(runtimeSource, Does.Not.Contain("EnemyAnimatorDriver"));
-            Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("EnemyPresentationExecutionMode"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("LegacyEnemyPresentationMapper"));
             Assert.That(coordinatorSource, Does.Contain("EnemyPresentationLaneRuntime _enemyPresentationLane"));
             Assert.That(coordinatorSource, Does.Contain("_enemyPresentationLane.Prepare"));
             Assert.That(coordinatorSource, Does.Contain("_enemyPresentationLane.PresentPrepared"));
             Assert.That(coordinatorSource, Does.Contain("_enemyPresentationLane.Update"));
             Assert.That(coordinatorSource, Does.Contain("_enemyPresentationLane.ResetSession"));
             Assert.That(coordinatorSource, Does.Contain("_enemyPresentationLane.HardCleanup"));
-            Assert.That(coordinatorSource, Does.Contain("enemyPresentationPreparation.LegacyOneShotSuppression"));
+            Assert.That(coordinatorSource, Does.Contain("enemyPresentationPreparation.OneShotBlockMask"));
             Assert.That(coordinatorSource, Does.Not.Contain("GameplayPresentationExecutionRouter.UseEnemyPresentationExecutor"));
             Assert.That(coordinatorSource, Does.Not.Contain("_enemyPresentationExecutionGuard"));
             Assert.That(coordinatorSource, Does.Not.Contain("_enemyPresentationExecutionPipelineFactory"));
@@ -2424,20 +2424,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(hostRuntimeSource, Does.Contain("GameplayEnemyPresentationExecutor"));
             Assert.That(hostRuntimeSource, Does.Contain("IGameplayEnemyPresentationPlaybackPort"));
             Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationExecutionGuard"));
-            Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationExecutionMode"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("EnemyPresentationExecutionPolicy"));
             Assert.That(hostRuntimeSource, Does.Contain("EnemyPresentationProductionTelemetrySnapshot"));
-            Assert.That(enemyLaneSource, Does.Contain("EnemyPresentationExecutionPolicy.Normalize"));
+            Assert.That(enemyLaneSource, Does.Not.Contain("EnemyPresentationExecutionPolicy.Normalize"));
             Assert.That(enemyLaneSource, Does.Contain("EnemyPresentationExecutionGuard"));
             Assert.That(enemyLaneSource, Does.Contain("EnemyPresentationExecutionPipelineFactory"));
-            Assert.That(enemyLaneSource, Does.Contain("BuildEnemyPresentationPlaybackKeys"));
-            Assert.That(enemyLaneSource, Does.Contain("BuildLegacyOneShotSuppression"));
+            Assert.That(enemyLaneSource, Does.Contain("BuildOneShotBlockMask"));
             Assert.That(enemyLaneSource, Does.Not.Contain("EnemyAnimatorDriver"));
             Assert.That(enemyLaneSource, Does.Not.Contain("Animator"));
             Assert.That(enemyLaneSource, Does.Not.Contain("GameObject"));
             Assert.That(enemyLaneSource, Does.Not.Contain("Transform"));
             Assert.That(enemyLaneSource, Does.Not.Contain("EnemyAi"));
             Assert.That(enemyLaneSource, Does.Not.Contain("WorldState"));
-            Assert.That(enemyDriverSource, Does.Contain("enum EnemyPresentationLegacyOneShotSuppression"));
+            Assert.That(enemyDriverSource, Does.Contain("enum EnemyPresentationOneShotBlockMask"));
             Assert.That(enemyDriverSource, Does.Contain("JumpWindup"));
             Assert.That(enemyDriverSource, Does.Contain("JumpAirborneStartOrRetry"));
             Assert.That(enemyDriverSource, Does.Contain("ChargeActiveStart"));
@@ -2732,8 +2731,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinator.TopologyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
             Assert.That(coordinator.TopologyProductionTelemetrySnapshot.CurrentMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
             Assert.That(coordinator.TopologyProductionTelemetrySnapshot.RollbackMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
-            Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
-            Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
             Assert.That(coordinator.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
             Assert.That(coordinator.CoreGameplaySfxOwnershipDiagnostics.LastExecutionOwner, Is.EqualTo(CoreGameplaySfxExecutionOwner.None));
             Assert.That(new GameplaySceneHostConfiguration().TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
@@ -3415,7 +3412,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyPresentationExecutor_DefaultLegacyMode_DoesNotCallPlaybackPort()
+        public void EnemyPresentationExecutor_DefaultCurrentRoute_CallsPlaybackPort()
         {
             var plan = CreateEnemyPresentationPlaybackPlan();
             var port = new RecordingEnemyPresentationPlaybackPort();
@@ -3423,11 +3420,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             executor.Play(plan);
 
-            Assert.That(port.TryPlayCallCount, Is.Zero);
+            Assert.That(port.TryPlayCallCount, Is.EqualTo(3));
             Assert.That(executor.Diagnostics.ObservedCueCount, Is.EqualTo(3));
-            Assert.That(executor.Diagnostics.LegacyOwnerNoOpCount, Is.EqualTo(3));
-            Assert.That(executor.Diagnostics.CommandRequestedCount, Is.Zero);
-            Assert.That(executor.Diagnostics.DuplicateSuppressedCount, Is.Zero);
+            Assert.That(executor.Diagnostics.CommandRequestedCount, Is.EqualTo(3));
+            Assert.That(executor.Diagnostics.DuplicateRejectedCount, Is.Zero);
         }
 
         [Test]
@@ -3436,10 +3432,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var plan = CreateEnemyPresentationPlaybackPlan();
             var port = new RecordingEnemyPresentationPlaybackPort(GameplayEnemyPresentationPlaybackResultKind.Applied);
-            var guard = new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor);
+            var guard = new EnemyPresentationExecutionGuard();
             var executor = new GameplayEnemyPresentationExecutor(
                 port,
-                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
                 guard);
 
             executor.Play(plan);
@@ -3471,18 +3466,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PresentationEnemyPresentationKind.Jump,
                 PresentationEnemyPresentationPhase.Windup,
                 11);
-            var guard = new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor);
+            var guard = new EnemyPresentationExecutionGuard();
 
             Assert.That(
-                guard.TryBeginExecution(EnemyPresentationExecutionOwner.OrchestrationEnemyPresentationExecutor, key),
+                guard.TryBeginExecution(EnemyPresentationExecutionOwner.CurrentExecutor, key),
                 Is.True);
             Assert.That(
-                guard.TryBeginExecution(EnemyPresentationExecutionOwner.LegacyEnemyPresentationMapper, key),
+                guard.TryBeginExecution(EnemyPresentationExecutionOwner.CurrentExecutor, key),
                 Is.False);
 
             Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
             Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
-            Assert.That(guard.Diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -3513,8 +3507,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var port = new RecordingEnemyPresentationPlaybackPort(GameplayEnemyPresentationPlaybackResultKind.MapperMissing);
             var executor = new GameplayEnemyPresentationExecutor(
                 port,
-                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
-                new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
+                new EnemyPresentationExecutionGuard());
 
             executor.Play(plan);
 
@@ -3529,8 +3522,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var missingPortExecutor = new GameplayEnemyPresentationExecutor(
                 null,
-                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
-                new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
+                new EnemyPresentationExecutionGuard());
             missingPortExecutor.Play(new PresentationPlaybackPlanner().Plan(new PresentationCueFrame(
                 7,
                 new[] { validCue },
@@ -3544,10 +3536,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var plan = CreateEnemyPresentationPlaybackPlan();
             var port = new RecordingEnemyPresentationPlaybackPort();
-            var guard = new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor);
+            var guard = new EnemyPresentationExecutionGuard();
             var executor = new GameplayEnemyPresentationExecutor(
                 port,
-                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
                 guard);
 
             executor.Play(plan);
@@ -3580,8 +3571,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var playbackPlan = new PresentationPlaybackPlanner().Plan(CreateEnemyPresentationCueFrame(result));
             var executor = new GameplayEnemyPresentationExecutor(
                 new RecordingEnemyPresentationPlaybackPort(),
-                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
-                new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
+                new EnemyPresentationExecutionGuard());
 
             executor.Play(playbackPlan);
 
@@ -4177,8 +4167,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var plan = CreateEnemyPresentationPlaybackPlan();
             var executor = new GameplayEnemyPresentationExecutor(
                 new RecordingEnemyPresentationPlaybackPort(resultKind),
-                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
-                new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
+                new EnemyPresentationExecutionGuard());
 
             executor.Play(plan);
 

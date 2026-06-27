@@ -36,28 +36,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyPresentation_DefaultLegacyMapperMode_DoesNotCallExecutorPortAndKeepsLegacyOwner()
+        public void EnemyPresentation_CurrentRoute_IsProductionDefault()
         {
-            var rootObject = new GameObject(nameof(EnemyPresentation_DefaultLegacyMapperMode_DoesNotCallExecutorPortAndKeepsLegacyOwner));
+            var rootObject = new GameObject(nameof(EnemyPresentation_CurrentRoute_IsProductionDefault));
             var port = new RecordingEnemyPresentationPlaybackPort();
 
             try
             {
                 var coordinator = CreateInitializedCoordinator(
                     rootObject,
-                    EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper,
                     port,
                     new EnemyPresentationViewFactory(rootObject.transform, addDriver: true));
 
                 coordinator.Present(CreateEnemyPresentationTickResult());
 
-                Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
-                Assert.That(port.TryPlayCallCount, Is.Zero);
-                Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
-                Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(7));
-                Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(port.TryPlayCallCount, Is.EqualTo(7));
+                Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(7));
                 Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
-                Assert.That(coordinator.EnemyPresentationExecutorDiagnostics.ObservedCueCount, Is.Zero);
+                Assert.That(coordinator.EnemyPresentationExecutorDiagnostics.ObservedCueCount, Is.EqualTo(7));
             }
             finally
             {
@@ -67,30 +63,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyPresentation_InvalidMode_NormalizesToLegacyMapper()
+        public void EnemyPresentation_LegacyRoute_NotReachable()
         {
-            var rootObject = new GameObject(nameof(EnemyPresentation_InvalidMode_NormalizesToLegacyMapper));
-            var port = new RecordingEnemyPresentationPlaybackPort();
-
-            try
-            {
-                var coordinator = CreateInitializedCoordinator(
-                    rootObject,
-                    (EnemyPresentationExecutionMode)999,
-                    port,
-                    new EnemyPresentationViewFactory(rootObject.transform, addDriver: true));
-
-                coordinator.Present(CreateEnemyPresentationTickResult());
-
-                Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
-                Assert.That(port.TryPlayCallCount, Is.Zero);
-                Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(7));
-                Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
+            Assert.That(ResolveType("Game.Feature.Gameplay.Host.EnemyPresentationExecutionMode"), Is.Null);
+            Assert.That(ResolveType("Game.Feature.Gameplay.Host.EnemyPresentationExecutionPolicy"), Is.Null);
+            Assert.That(ResolveType("Game.Feature.Gameplay.Host.LegacyEnemyPresentationMapper"), Is.Null);
         }
 
         [Test]
@@ -104,7 +81,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var coordinator = CreateInitializedCoordinator(
                     rootObject,
-                    EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
                     port,
                     new EnemyPresentationViewFactory(rootObject.transform, addDriver: true));
 
@@ -119,7 +95,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AssertEnemyRequest(port.Requests, PresentationAnimationCueKey.EnemyChargeRecover, ChargeRecoverEnemyId, PresentationEnemyPresentationKind.Charge, PresentationEnemyPresentationPhase.Recover, PresentationEnemyPresentationOutcome.Started, 203);
                 AssertEnemyRequest(port.Requests, PresentationAnimationCueKey.EnemyDeath, DeathEnemyId, PresentationEnemyPresentationKind.Death, PresentationEnemyPresentationPhase.Death, PresentationEnemyPresentationOutcome.Death, 301);
                 Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(7));
-                Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(7));
                 Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
                 AssertBlockingSnapshotCleared(coordinator.EnemyPresentationExecutionPipelineBlockingSnapshot);
             }
@@ -131,26 +106,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyPresentation_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues()
+        public void EnemyPresentation_ProductionTelemetry_CoversCurrentOwnerSemantic()
         {
-            var rootObject = new GameObject(nameof(EnemyPresentation_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues));
+            var rootObject = new GameObject(nameof(EnemyPresentation_ProductionTelemetry_CoversCurrentOwnerSemantic));
             var port = new RecordingEnemyPresentationPlaybackPort();
 
             try
             {
                 var coordinator = CreateInitializedCoordinator(
                     rootObject,
-                    EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
                     port,
                     new EnemyPresentationViewFactory(rootObject.transform, addDriver: true));
 
                 coordinator.Present(CreateEnemyPresentationTickResult());
 
                 var telemetry = coordinator.EnemyPresentationProductionTelemetrySnapshot;
-                Assert.That(telemetry.CurrentMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
                 Assert.That(telemetry.IsProductionDefaultOwner, Is.True);
-                Assert.That(telemetry.ProductionDefaultMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
-                Assert.That(telemetry.RollbackMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
                 Assert.That(telemetry.LastTickIndex, Is.EqualTo(TickIndex));
                 Assert.That(telemetry.LastCueKey, Is.EqualTo(PresentationAnimationCueKey.EnemyDeath));
                 Assert.That(telemetry.LastEnemyEntityId, Is.EqualTo(DeathEnemyId));
@@ -158,12 +129,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(telemetry.LastPresentationPhase, Is.EqualTo(PresentationEnemyPresentationPhase.Death));
                 Assert.That(telemetry.LastPresentationOutcome, Is.EqualTo(PresentationEnemyPresentationOutcome.Death));
                 Assert.That(telemetry.LastFailureReason, Is.EqualTo(EnemyPresentationTelemetryFailureReason.None));
-                Assert.That(telemetry.LegacyOwnerAttemptCount, Is.EqualTo(7));
-                Assert.That(telemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(7));
                 Assert.That(telemetry.ExecutorOwnerAttemptCount, Is.EqualTo(7));
                 Assert.That(telemetry.ExecutorOwnerExecutedCount, Is.EqualTo(7));
                 Assert.That(telemetry.DuplicateOwnerAttemptCount, Is.Zero);
-                Assert.That(telemetry.DuplicateSuppressedCount, Is.Zero);
+                Assert.That(telemetry.DuplicateRejectedCount, Is.Zero);
                 Assert.That(telemetry.ObservedCueCount, Is.EqualTo(7));
                 Assert.That(telemetry.PlaybackCommandRequestedCount, Is.EqualTo(7));
                 Assert.That(telemetry.PlaybackCommandAppliedCount, Is.EqualTo(7));
@@ -188,8 +157,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var port = new RecordingEnemyPresentationPlaybackPort();
             var executor = new GameplayEnemyPresentationExecutor(
                 port,
-                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
-                new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
+                new EnemyPresentationExecutionGuard());
 
             executor.Play(CreatePlaybackPlan(result));
 
@@ -207,15 +175,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyPresentation_ControlledSyncPort_MapsTypedCuesToCurrentLegacyDriverCommands()
+        public void EnemyPresentation_ControlledSyncPort_MapsTypedCuesToCurrentDriverCommands()
         {
-            var rootObject = new GameObject(nameof(EnemyPresentation_ControlledSyncPort_MapsTypedCuesToCurrentLegacyDriverCommands));
+            var rootObject = new GameObject(nameof(EnemyPresentation_ControlledSyncPort_MapsTypedCuesToCurrentDriverCommands));
 
             try
             {
                 var coordinator = CreateInitializedCoordinator(
                     rootObject,
-                    EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
                     playbackPort: null,
                     new EnemyPresentationViewFactory(rootObject.transform, addDriver: true, addAnimator: true));
 
@@ -223,9 +190,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(coordinator.EnemyPresentationExecutorDiagnostics.CommandRequestedCount, Is.EqualTo(7));
                 Assert.That(coordinator.EnemyPresentationExecutorDiagnostics.CommandAppliedCount, Is.EqualTo(7));
-                Assert.That(coordinator.EnemyPresentationExecutorDiagnostics.EnemyJumpCueMappedToLegacyCommandCount, Is.EqualTo(3));
-                Assert.That(coordinator.EnemyPresentationExecutorDiagnostics.EnemyChargeCueMappedToLegacyCommandCount, Is.EqualTo(3));
-                Assert.That(coordinator.EnemyPresentationExecutorDiagnostics.EnemyDeathCueMappedToLegacyCommandCount, Is.EqualTo(1));
+                Assert.That(coordinator.EnemyPresentationExecutorDiagnostics.EnemyJumpCueMappedToDriverCommandCount, Is.EqualTo(3));
+                Assert.That(coordinator.EnemyPresentationExecutorDiagnostics.EnemyChargeCueMappedToDriverCommandCount, Is.EqualTo(3));
+                Assert.That(coordinator.EnemyPresentationExecutorDiagnostics.EnemyDeathCueMappedToDriverCommandCount, Is.EqualTo(1));
                 Assert.That(GetEnemyDriver(rootObject, JumpWindupEnemyId).JumpWindupSignalCount, Is.EqualTo(1));
                 Assert.That(GetEnemyDriver(rootObject, JumpAirborneEnemyId).JumpAirborneSignalCount, Is.EqualTo(1));
                 Assert.That(GetEnemyDriver(rootObject, JumpLandEnemyId).LastCrossFadedStateName, Is.EqualTo("Move"));
@@ -252,7 +219,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var normalPort = new RecordingEnemyPresentationPlaybackPort();
                 var normalCoordinator = CreateInitializedCoordinator(
                     normalRoot,
-                    EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
                     normalPort,
                     new EnemyPresentationViewFactory(normalRoot.transform, addDriver: true));
                 normalCoordinator.Present(CreateEnemyPresentationTickResult());
@@ -260,7 +226,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var duplicatePort = new RecordingEnemyPresentationPlaybackPort();
                 var duplicateCoordinator = CreateInitializedCoordinator(
                     duplicateRoot,
-                    EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
                     duplicatePort,
                     new EnemyPresentationViewFactory(duplicateRoot.transform, addDriver: true),
                     duplicateExecutors: true);
@@ -272,8 +237,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(duplicateCoordinator.EnemyPresentationOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(7));
                 Assert.That(duplicateCoordinator.EnemyPresentationOwnershipDiagnostics.DuplicateAttemptCount, Is.EqualTo(7));
                 Assert.That(duplicateCoordinator.EnemyPresentationProductionTelemetrySnapshot.DuplicateOwnerAttemptCount, Is.EqualTo(7));
-                Assert.That(duplicateCoordinator.EnemyPresentationProductionTelemetrySnapshot.DuplicateSuppressedCount, Is.EqualTo(7));
-                Assert.That(duplicateCoordinator.EnemyPresentationProductionTelemetrySnapshot.LastFailureReason, Is.EqualTo(EnemyPresentationTelemetryFailureReason.DuplicateSuppressed));
+                Assert.That(duplicateCoordinator.EnemyPresentationProductionTelemetrySnapshot.DuplicateRejectedCount, Is.EqualTo(7));
+                Assert.That(duplicateCoordinator.EnemyPresentationProductionTelemetrySnapshot.LastFailureReason, Is.EqualTo(EnemyPresentationTelemetryFailureReason.DuplicateRejected));
             }
             finally
             {
@@ -294,7 +259,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var anchorMissingCue = CreateMutatedCue(PresentationAnimationCueKey.EnemyJumpAirborne, PresentationTarget.Entity(JumpAirborneEnemyId), PresentationAnchor.None());
                 var targetAnchorCoordinator = CreateInitializedCoordinator(
                     rootObject,
-                    EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
                     new RecordingEnemyPresentationPlaybackPort(),
                     new EnemyPresentationViewFactory(rootObject.transform, addDriver: true),
                     overrideCues: new[] { malformedCue, anchorMissingCue });
@@ -329,7 +293,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var coordinator = CreateInitializedCoordinator(
                     rootObject,
-                    EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
                     port,
                     new EnemyPresentationViewFactory(rootObject.transform, addDriver: true, addAnimator: true));
 
@@ -374,7 +337,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var coordinator = CreateInitializedCoordinator(
                     rootObject,
-                    EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
                     new RecordingEnemyPresentationPlaybackPort(),
                     new EnemyPresentationViewFactory(rootObject.transform, addDriver: true));
 
@@ -412,7 +374,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var coordinator = CreateInitializedCoordinator(
                     rootObject,
-                    EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
                     new RecordingEnemyPresentationPlaybackPort(),
                     new EnemyPresentationViewFactory(rootObject.transform, addDriver: true));
 
@@ -434,7 +395,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayTickPresentationCoordinator CreateInitializedCoordinator(
             GameObject rootObject,
-            EnemyPresentationExecutionMode mode,
             IGameplayEnemyPresentationPlaybackPort playbackPort,
             IGameplayEntityViewFactory viewFactory,
             bool duplicateExecutors = false,
@@ -449,14 +409,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayHostPresentationPipelineFactory.CreateDamageDeathVfxExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreateBoxMotionExecutionPipeline,
                 GameplayHostPresentationPipelineFactory.CreatePlayerActionAnimationExecutionPipeline,
-                (pipelineMode, port, guard) => CreateEnemyPresentationExecutionPipeline(
-                    pipelineMode,
+                (port, guard) => CreateEnemyPresentationExecutionPipeline(
                     forceNullExecutorPort ? null : port,
                     guard,
                     duplicateExecutors,
                     overrideCues));
 
-            coordinator.ConfigureEnemyPresentationExecution(mode, playbackPort);
+            coordinator.ConfigureEnemyPresentationPlaybackPort(
+                playbackPort,
+                useDefaultPlaybackPort: !forceNullExecutorPort);
             coordinator.Initialize(
                 binder,
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
@@ -468,26 +429,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static GameplayPresentationPipeline CreateEnemyPresentationExecutionPipeline(
-            EnemyPresentationExecutionMode mode,
             IGameplayEnemyPresentationPlaybackPort playbackPort,
             EnemyPresentationExecutionGuard guard,
             bool duplicateExecutors,
             IReadOnlyList<PresentationCue> overrideCues)
         {
-            if (mode != EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor)
-            {
-                return null;
-            }
-
             var executors = duplicateExecutors
                 ? new IPresentationExecutor[]
                 {
-                    new GameplayEnemyPresentationExecutor(playbackPort, mode, guard),
-                    new GameplayEnemyPresentationExecutor(playbackPort, mode, guard),
+                    new GameplayEnemyPresentationExecutor(playbackPort, guard),
+                    new GameplayEnemyPresentationExecutor(playbackPort, guard),
                 }
                 : new IPresentationExecutor[]
                 {
-                    new GameplayEnemyPresentationExecutor(playbackPort, mode, guard),
+                    new GameplayEnemyPresentationExecutor(playbackPort, guard),
                 };
             var cuePlanner = overrideCues == null
                 ? (IPresentationCuePlanner)new EnemyPresentationCuePlanner()
@@ -816,8 +771,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var executor = new GameplayEnemyPresentationExecutor(
                 new RecordingEnemyPresentationPlaybackPort(resultKind),
-                EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
-                new EnemyPresentationExecutionGuard(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
+                new EnemyPresentationExecutionGuard());
 
             executor.Play(CreatePlaybackPlan(CreateEnemyPresentationTickResult()));
 
@@ -833,7 +787,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var coordinator = CreateInitializedCoordinator(
                     rootObject,
-                    EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor,
                     playbackPort: null,
                     new EnemyPresentationViewFactory(rootObject.transform, addDriver: true),
                     forceNullExecutorPort: true);
@@ -848,6 +801,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
+        }
+
+        private static Type ResolveType(string fullName)
+        {
+            return typeof(GameplayTickPresentationCoordinator).Assembly.GetType(fullName);
         }
 
         private static EnemyAnimatorDriver GetEnemyDriver(GameObject rootObject, int entityId)

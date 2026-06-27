@@ -244,11 +244,11 @@ namespace Game.Feature.Gameplay.Host
             PresentationCoordinator.ConfigurePlayerActionAnimationExecution(mode, playbackPort);
         }
 
-        internal void ConfigureEnemyPresentationExecution(
-            EnemyPresentationExecutionMode mode,
-            IGameplayEnemyPresentationPlaybackPort playbackPort = null)
+        internal void ConfigureEnemyPresentationPlaybackPort(
+            IGameplayEnemyPresentationPlaybackPort playbackPort,
+            bool useDefaultPlaybackPort = true)
         {
-            PresentationCoordinator.ConfigureEnemyPresentationExecution(mode, playbackPort);
+            PresentationCoordinator.ConfigureEnemyPresentationPlaybackPort(playbackPort, useDefaultPlaybackPort);
         }
 
         internal void ConfigureCoreGameplaySfxPlaybackPort(
@@ -362,9 +362,6 @@ namespace Game.Feature.Gameplay.Host
 
         internal PlayerActionAnimationProductionTelemetrySnapshot PlayerActionAnimationProductionTelemetrySnapshot =>
             PresentationCoordinator.PlayerActionAnimationProductionTelemetrySnapshot;
-
-        internal EnemyPresentationExecutionMode EnemyPresentationExecutionMode =>
-            PresentationCoordinator.EnemyPresentationExecutionMode;
 
         internal EnemyPresentationOwnershipDiagnostics EnemyPresentationOwnershipDiagnostics =>
             PresentationCoordinator.EnemyPresentationOwnershipDiagnostics;

@@ -11,16 +11,16 @@ namespace Game.Feature.Gameplay.Host
     internal readonly struct EnemyPresentationPreparation
     {
         public EnemyPresentationPreparation(
-            EnemyPresentationLegacyOneShotSuppression legacyOneShotSuppression,
+            EnemyPresentationOneShotBlockMask oneShotBlockMask,
             int tickIndex,
             int token)
         {
-            LegacyOneShotSuppression = legacyOneShotSuppression;
+            OneShotBlockMask = oneShotBlockMask;
             TickIndex = Math.Max(0, tickIndex);
             Token = Math.Max(0, token);
         }
 
-        public EnemyPresentationLegacyOneShotSuppression LegacyOneShotSuppression { get; }
+        public EnemyPresentationOneShotBlockMask OneShotBlockMask { get; }
 
         internal int TickIndex { get; }
 
@@ -63,8 +63,6 @@ namespace Game.Feature.Gameplay.Host
                                    new GameplayEnemyPresentationSyncPlaybackPort(animationSync, stateStore);
         }
 
-        public EnemyPresentationExecutionMode ExecutionMode => _executionGuard.Diagnostics.Mode;
-
         public EnemyPresentationOwnershipDiagnostics OwnershipDiagnostics => _executionGuard.Diagnostics;
 
         public PresentationBlockingSnapshot BlockingSnapshot =>
@@ -75,16 +73,19 @@ namespace Game.Feature.Gameplay.Host
 
         public EnemyPresentationProductionTelemetrySnapshot ProductionTelemetrySnapshot =>
             EnemyPresentationProductionTelemetryBuilder.Build(
-                ExecutionMode,
                 _executionGuard.Diagnostics,
                 _executionPipeline);
 
-        public void ConfigureExecution(
-            EnemyPresentationExecutionMode mode,
-            IGameplayEnemyPresentationPlaybackPort playbackPort = null)
+        public void ConfigurePlaybackPort(
+            IGameplayEnemyPresentationPlaybackPort playbackPort,
+            bool useDefaultPlaybackPort = true)
         {
             _playbackPort = playbackPort;
-            _executionGuard.Configure(EnemyPresentationExecutionPolicy.Normalize(mode));
+            if (playbackPort == null && useDefaultPlaybackPort)
+            {
+                _playbackPort = _defaultPlaybackPort;
+            }
+
             ResetExecutionSession();
             _executionPipeline = CreateExecutionPipeline();
             _executionPipeline?.ResetSession();
@@ -97,31 +98,9 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(result));
             }
 
-            var keys = BuildEnemyPresentationPlaybackKeys(result);
-            var useProductionExecutor = UseProductionExecutor();
-            if (useProductionExecutor)
-            {
-                for (var i = 0; i < keys.Count; i++)
-                {
-                    _executionGuard.RecordSkippedByPolicy(
-                        EnemyPresentationExecutionOwner.LegacyEnemyPresentationMapper);
-                }
-            }
-            else
-            {
-                for (var i = 0; i < keys.Count; i++)
-                {
-                    _executionGuard.TryBeginExecution(
-                        EnemyPresentationExecutionOwner.LegacyEnemyPresentationMapper,
-                        keys[i]);
-                }
-            }
-
             _lastPreparationToken = ++_nextPreparationToken;
             return new EnemyPresentationPreparation(
-                useProductionExecutor
-                    ? BuildLegacyOneShotSuppression(result)
-                    : EnemyPresentationLegacyOneShotSuppression.None,
+                BuildOneShotBlockMask(result),
                 result.TickIndex,
                 _lastPreparationToken);
         }
@@ -131,7 +110,6 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationPreparation preparation)
         {
             if (result == null ||
-                !UseProductionExecutor() ||
                 preparation.Token == 0 ||
                 preparation.Token != _lastPreparationToken ||
                 preparation.Token == _lastConsumedPreparationToken ||
@@ -172,7 +150,6 @@ namespace Game.Feature.Gameplay.Host
         private GameplayPresentationPipeline CreateExecutionPipeline()
         {
             return _pipelineFactory(
-                ExecutionMode,
                 ResolvePlaybackPort(),
                 _executionGuard);
         }
@@ -180,11 +157,6 @@ namespace Game.Feature.Gameplay.Host
         private IGameplayEnemyPresentationPlaybackPort ResolvePlaybackPort()
         {
             return _playbackPort ?? _defaultPlaybackPort;
-        }
-
-        private bool UseProductionExecutor()
-        {
-            return ExecutionMode == EnemyPresentationExecutionDefaults.ProductionDefault;
         }
 
         private static IReadOnlyList<EnemyPresentationPlaybackKey> BuildEnemyPresentationPlaybackKeys(
@@ -228,9 +200,9 @@ namespace Game.Feature.Gameplay.Host
                 : keys;
         }
 
-        private static EnemyPresentationLegacyOneShotSuppression BuildLegacyOneShotSuppression(TickResult result)
+        private static EnemyPresentationOneShotBlockMask BuildOneShotBlockMask(TickResult result)
         {
-            var suppression = EnemyPresentationLegacyOneShotSuppression.None;
+            var suppression = EnemyPresentationOneShotBlockMask.None;
             var presentationData = result.PresentationData;
 
             var jumpSignals = presentationData.EnemyJumpSignals;
@@ -239,17 +211,17 @@ namespace Game.Feature.Gameplay.Host
                 var signal = jumpSignals[i];
                 if (signal.StartedWindupThisTick)
                 {
-                    suppression |= EnemyPresentationLegacyOneShotSuppression.JumpWindup;
+                    suppression |= EnemyPresentationOneShotBlockMask.JumpWindup;
                 }
 
                 if (signal.StartedAirborneThisTick || signal.RetryThisTick)
                 {
-                    suppression |= EnemyPresentationLegacyOneShotSuppression.JumpAirborneStartOrRetry;
+                    suppression |= EnemyPresentationOneShotBlockMask.JumpAirborneStartOrRetry;
                 }
 
                 if (signal.LandedThisTick)
                 {
-                    suppression |= EnemyPresentationLegacyOneShotSuppression.JumpLand;
+                    suppression |= EnemyPresentationOneShotBlockMask.JumpLand;
                 }
             }
 
@@ -259,17 +231,17 @@ namespace Game.Feature.Gameplay.Host
                 var signal = chargeSignals[i];
                 if (signal.StartedWindupThisTick)
                 {
-                    suppression |= EnemyPresentationLegacyOneShotSuppression.ChargeWindup;
+                    suppression |= EnemyPresentationOneShotBlockMask.ChargeWindup;
                 }
 
                 if (signal.StartedActiveThisTick)
                 {
-                    suppression |= EnemyPresentationLegacyOneShotSuppression.ChargeActiveStart;
+                    suppression |= EnemyPresentationOneShotBlockMask.ChargeActiveStart;
                 }
 
                 if (signal.StartedRecoverThisTick)
                 {
-                    suppression |= EnemyPresentationLegacyOneShotSuppression.ChargeRecover;
+                    suppression |= EnemyPresentationOneShotBlockMask.ChargeRecover;
                 }
             }
 
@@ -278,7 +250,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (exitSignals[i].ExitCause == TickEntityExitCause.EnemyDeath)
                 {
-                    suppression |= EnemyPresentationLegacyOneShotSuppression.DeathTrigger;
+                    suppression |= EnemyPresentationOneShotBlockMask.DeathTrigger;
                 }
             }
 

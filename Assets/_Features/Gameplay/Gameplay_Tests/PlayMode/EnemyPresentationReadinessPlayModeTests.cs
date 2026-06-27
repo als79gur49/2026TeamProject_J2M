@@ -54,19 +54,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 context.Host.Presenter.Present(result);
                 yield return null;
 
-                Assert.That(context.Host.Presenter.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
-                Assert.That(context.Host.Presenter.EnemyPresentationOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(context.Host.Presenter.EnemyPresentationOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(7));
-                Assert.That(context.Host.Presenter.EnemyPresentationOwnershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(7));
                 Assert.That(context.Host.Presenter.EnemyPresentationOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
 
                 var diagnostics = context.Host.Presenter.EnemyPresentationExecutorDiagnostics;
                 Assert.That(diagnostics.ObservedCueCount, Is.EqualTo(7));
                 Assert.That(diagnostics.CommandRequestedCount, Is.EqualTo(7));
                 Assert.That(diagnostics.CommandAppliedCount, Is.EqualTo(7));
-                Assert.That(diagnostics.EnemyJumpCueMappedToLegacyCommandCount, Is.EqualTo(3));
-                Assert.That(diagnostics.EnemyChargeCueMappedToLegacyCommandCount, Is.EqualTo(3));
-                Assert.That(diagnostics.EnemyDeathCueMappedToLegacyCommandCount, Is.EqualTo(1));
+                Assert.That(diagnostics.EnemyJumpCueMappedToDriverCommandCount, Is.EqualTo(3));
+                Assert.That(diagnostics.EnemyChargeCueMappedToDriverCommandCount, Is.EqualTo(3));
+                Assert.That(diagnostics.EnemyDeathCueMappedToDriverCommandCount, Is.EqualTo(1));
 
                 Assert.That(GetDriver(context, JumpWindupEnemyId).JumpWindupSignalCount, Is.EqualTo(1));
                 Assert.That(GetDriver(context, JumpAirborneEnemyId).JumpAirborneSignalCount, Is.EqualTo(1));
@@ -107,25 +104,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator EnemyPresentationReadiness_PlayMode_ExplicitLegacyRollbackBypassesExecutor()
+        public IEnumerator EnemyPresentationReadiness_PlayMode_LegacyRouteNotReachable()
         {
-            var context = CreateHostContext(nameof(EnemyPresentationReadiness_PlayMode_ExplicitLegacyRollbackBypassesExecutor));
-            try
-            {
-                context.Host.Presenter.ConfigureEnemyPresentationExecution(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper);
-                context.Host.Presenter.Present(CreateEnemyPresentationTickResult(41));
-                yield return null;
-
-                Assert.That(context.Host.Presenter.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
-                Assert.That(context.Host.Presenter.EnemyPresentationOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(7));
-                Assert.That(context.Host.Presenter.EnemyPresentationOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
-                Assert.That(context.Host.Presenter.EnemyPresentationExecutorDiagnostics.CommandAppliedCount, Is.Zero);
-                Assert.That(GetDriver(context, DeathEnemyId).DeathSignalCount, Is.EqualTo(1));
-            }
-            finally
-            {
-                context.Dispose();
-            }
+            Assert.That(
+                typeof(GameplaySceneHost).Assembly.GetType("Game.Feature.Gameplay.Host.EnemyPresentationExecutionMode"),
+                Is.Null);
+            Assert.That(
+                typeof(GameplaySceneHost).Assembly.GetType("Game.Feature.Gameplay.Host.EnemyPresentationExecutionPolicy"),
+                Is.Null);
+            yield return null;
         }
 
         private static EnemyPresentationSmokeContext CreateHostContext(string rootName)
