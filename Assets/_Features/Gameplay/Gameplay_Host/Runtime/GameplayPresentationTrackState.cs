@@ -507,6 +507,64 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
+    internal sealed class PresentationResolvedVisibilityResolver
+    {
+        private readonly GameplayPresentationStateStore _stateStore;
+        private readonly GameplayPresentationTrackState _trackState;
+
+        public PresentationResolvedVisibilityResolver(
+            GameplayPresentationStateStore stateStore,
+            GameplayPresentationTrackState trackState)
+        {
+            _stateStore = stateStore ?? throw new System.ArgumentNullException(nameof(stateStore));
+            _trackState = trackState ?? throw new System.ArgumentNullException(nameof(trackState));
+        }
+
+        public void ResolveJumpDetachedVisibility(
+            CubeTopologyState topology,
+            int sourceTick,
+            ResolvedPresentationFrameSet resolvedFrames,
+            ResolvedPresentationVisibilitySet visibilitySet)
+        {
+            if (resolvedFrames == null)
+            {
+                throw new System.ArgumentNullException(nameof(resolvedFrames));
+            }
+
+            if (visibilitySet == null)
+            {
+                throw new System.ArgumentNullException(nameof(visibilitySet));
+            }
+
+            foreach (var pair in _stateStore.JumpDetachedVisibilityStates)
+            {
+                var entityId = pair.Key;
+                var state = pair.Value;
+                if (!resolvedFrames.TryGetFrame(entityId, out var resolvedFrame) ||
+                    resolvedFrame.Provenance.TerminalSource != PresentationPoseSourceKind.None ||
+                    resolvedFrame.OwnerRole != PresentationOwnerRole.Enemy ||
+                    _trackState.DeferredExitRetainedEntityIds.Contains(entityId) ||
+                    _trackState.ContactDelayedRetainedEntityIds.Contains(entityId) ||
+                    _trackState.DeathPresentationPlayingEntityIds.Contains(entityId))
+                {
+                    continue;
+                }
+
+                var provenance = new PresentationVisibilityProvenance(
+                    PresentationVisibilitySourceKind.JumpDetached,
+                    PresentationOwnerRole.Enemy,
+                    state.AuthoritativeCell,
+                    state.AuthoritativeFace,
+                    sourceTick);
+                visibilitySet.SetVisibility(new ResolvedEntityPresentationVisibility(
+                    new PresentationEntityKey(entityId),
+                    state.JumpPhase == EnemyJumpPhase.Airborne &&
+                    topology.IsFaceActive(state.AuthoritativeFace),
+                    provenance));
+            }
+        }
+    }
+
     internal sealed class PresentationPoseCandidateCollector
     {
         private readonly GameplayPresentationStateStore _stateStore;

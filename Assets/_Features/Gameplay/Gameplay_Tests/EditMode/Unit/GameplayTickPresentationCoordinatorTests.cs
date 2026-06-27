@@ -16844,6 +16844,67 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void JumpDetachedVisibility_IsResolvedBeforeApplication()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, 3);
+            stateStore.JumpDetachedVisibilityStates[40] =
+                new JumpDetachedVisibilityState(
+                    EnemyJumpPhase.Airborne,
+                    PoseAt(3f),
+                    sourceCell);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 77);
+            var visibility = ResolveVisibility(
+                stateStore,
+                trackState,
+                frames,
+                new CubeTopologyState(FaceId.Floor),
+                sourceTick: 77);
+
+            Assert.That(visibility.TryGetVisibility(40, out var resolved), Is.True);
+            Assert.That(resolved.EntityKey.EntityId, Is.EqualTo(40));
+            Assert.That(resolved.IsVisible, Is.True);
+            Assert.That(resolved.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.JumpDetached));
+            Assert.That(resolved.Provenance.OwnerRole, Is.EqualTo(PresentationOwnerRole.Enemy));
+            Assert.That(resolved.Provenance.Cell, Is.EqualTo(sourceCell));
+            Assert.That(resolved.Provenance.Face, Is.EqualTo(FaceId.Floor));
+            Assert.That(resolved.Provenance.LifetimeToken, Is.EqualTo(77));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DeathOrExitRetainedVisibility_SuppressesJumpDetachedVisibility()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            stateStore.JumpDetachedVisibilityStates[40] =
+                new JumpDetachedVisibilityState(
+                    EnemyJumpPhase.Airborne,
+                    PoseAt(3f),
+                    new SurfaceCell(FaceId.Floor, 2, 3));
+            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
+            trackState.DeathPresentationPlayingEntityIds.Add(40);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 77);
+            var visibility = ResolveVisibility(
+                stateStore,
+                trackState,
+                frames,
+                new CubeTopologyState(FaceId.Floor),
+                sourceTick: 77);
+
+            Assert.That(visibility.TryGetVisibility(40, out _), Is.False);
+            Assert.That(visibility.Count, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
         public void GameplayEntityPresentationApplier_DoesNotUseJumpDetachedVisibilityForBasePoseSelection()
         {
             var source = File.ReadAllText(Path.Combine(Application.dataPath, "..", ApplierPath));
@@ -16852,7 +16913,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "var localPose = resolvedFrame.BasePose;",
                 StringComparison.Ordinal);
             var visibilityDecisionIndex = source.IndexOf(
-                "var isVisible =",
+                "var hasResolvedVisibility =",
                 StringComparison.Ordinal);
             var jumpDetachedLookupIndex = source.IndexOf(
                 "_stateStore.JumpDetachedVisibilityStates",
@@ -16862,6 +16923,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(visibilityDecisionIndex, Is.GreaterThan(resolvedBasePoseIndex));
             Assert.That(jumpDetachedLookupIndex, Is.GreaterThan(resolvedBasePoseIndex));
             Assert.That(source, Does.Not.Contain("PresentationPoseSourceKind.JumpDetachedPose,\n                    PresentationPoseChannel.TerminalHold"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_DoesNotReadJumpDetachedVisibilityStatesForFinalVisibilityAfterMigration()
+        {
+            var source = File.ReadAllText(Path.Combine(Application.dataPath, "..", ApplierPath));
+            var visibilityDecisionIndex = source.IndexOf(
+                "var hasResolvedVisibility =",
+                StringComparison.Ordinal);
+            var visibilityTrackIndex = source.IndexOf(
+                "if (!hasPlayerDeathHoldPose &&",
+                visibilityDecisionIndex,
+                StringComparison.Ordinal);
+            var finalVisibilityBlock = source.Substring(
+                visibilityDecisionIndex,
+                visibilityTrackIndex - visibilityDecisionIndex);
+
+            Assert.That(source, Does.Contain("ResolvedPresentationVisibilitySet"));
+            Assert.That(finalVisibilityBlock, Does.Contain("TryGetVisibility"));
+            Assert.That(finalVisibilityBlock, Does.Contain("resolvedEntityVisibility.IsVisible"));
+            Assert.That(finalVisibilityBlock, Does.Not.Contain("_stateStore.JumpDetachedVisibilityStates"));
+            Assert.That(finalVisibilityBlock, Does.Not.Contain("IsJumpDetachedVisibleForTopology"));
         }
 
         [Test]
@@ -16969,6 +17053,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var channels = new ResolvedPresentationChannelSet();
             resolver.ResolveJumpAdditiveChannels(deltaTime, hasActiveBoardRotationTween, sourceTick, frames, channels);
             return channels;
+        }
+
+        private static ResolvedPresentationVisibilitySet ResolveVisibility(
+            GameplayPresentationStateStore stateStore,
+            GameplayPresentationTrackState trackState,
+            ResolvedPresentationFrameSet frames,
+            CubeTopologyState topology,
+            int sourceTick)
+        {
+            var resolver = new PresentationResolvedVisibilityResolver(stateStore, trackState);
+            var visibility = new ResolvedPresentationVisibilitySet();
+            resolver.ResolveJumpDetachedVisibility(topology, sourceTick, frames, visibility);
+            return visibility;
         }
 
         private static void MarkPlayer(GameplayPresentationStateStore stateStore, int entityId)

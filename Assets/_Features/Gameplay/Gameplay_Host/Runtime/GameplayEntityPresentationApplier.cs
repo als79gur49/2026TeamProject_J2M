@@ -253,6 +253,7 @@ namespace Game.Feature.Gameplay.Host
             bool hasActiveBoardRotationTween,
             ResolvedPresentationFrameSet resolvedFrames,
             ResolvedPresentationChannelSet resolvedChannels,
+            ResolvedPresentationVisibilitySet resolvedVisibility,
             GameplayEntityViewBinder viewBinder,
             GameplayTimingProfile timingProfile)
         {
@@ -264,6 +265,11 @@ namespace Game.Feature.Gameplay.Host
             if (resolvedChannels == null)
             {
                 throw new ArgumentNullException(nameof(resolvedChannels));
+            }
+
+            if (resolvedVisibility == null)
+            {
+                throw new ArgumentNullException(nameof(resolvedVisibility));
             }
 
             if (viewBinder == null)
@@ -298,7 +304,7 @@ namespace Game.Feature.Gameplay.Host
             var playerExecutedCount = 0;
             var signatureChangedCount = 0;
             var signatureUnchangedCount = 0;
-            var processingEntityIds = BuildProcessingEntityIds(resolvedFrames, resolvedChannels);
+            var processingEntityIds = BuildProcessingEntityIds(resolvedFrames, resolvedChannels, resolvedVisibility);
             for (var i = 0; i < processingEntityIds.Count; i++)
             {
                 var entityId = processingEntityIds[i];
@@ -414,6 +420,8 @@ namespace Game.Feature.Gameplay.Host
                 var isDeathPresentationPlaying =
                     _trackState.DeathPresentationPlayingEntityIds.Contains(entityId) &&
                     _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
+                var hasResolvedVisibility =
+                    resolvedVisibility.TryGetVisibility(entityId, out var resolvedEntityVisibility);
                 var isVisible = hasPresentationPoseOverride ||
                                 hasPlayerDeathHoldPose ||
                                 _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId) ||
@@ -422,7 +430,7 @@ namespace Game.Feature.Gameplay.Host
                                 isDeferredExitRetained ||
                                 isContactDelayedRetained ||
                                 isDeathPresentationPlaying ||
-                                IsJumpDetachedVisibleForTopology(entityId, _stateStore.CommittedTopology) ||
+                                (hasResolvedVisibility && resolvedEntityVisibility.IsVisible) ||
                                 _stateStore.TransitionVisibilityStates.ContainsKey(entityId);
                 if (!hasPlayerDeathHoldPose &&
                     _trackState.VisibilityTracks.TryGetValue(entityId, out var visibilityTrack))
@@ -674,7 +682,8 @@ namespace Game.Feature.Gameplay.Host
 
         private IReadOnlyList<int> BuildProcessingEntityIds(
             ResolvedPresentationFrameSet resolvedFrames,
-            ResolvedPresentationChannelSet resolvedChannels)
+            ResolvedPresentationChannelSet resolvedChannels,
+            ResolvedPresentationVisibilitySet resolvedVisibility)
         {
             _processingEntityIds.Clear();
             _processingEntityIdBuffer.Clear();
@@ -695,6 +704,12 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < resolvedChannelEntityIds.Count; i++)
             {
                 AddProcessingEntityId(resolvedChannelEntityIds[i]);
+            }
+
+            var resolvedVisibilityEntityIds = resolvedVisibility.EntityIds;
+            for (var i = 0; i < resolvedVisibilityEntityIds.Count; i++)
+            {
+                AddProcessingEntityId(resolvedVisibilityEntityIds[i]);
             }
 
             foreach (var pair in _trackState.PlayerFlipResultTurnTracks)
@@ -729,12 +744,6 @@ namespace Game.Feature.Gameplay.Host
 
             return _stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var detachedState) &&
                    detachedState.JumpPhase == EnemyJumpPhase.Airborne;
-        }
-
-        private bool IsJumpDetachedVisibleForTopology(int entityId, CubeTopologyState topology)
-        {
-            return _stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var detachedState) &&
-                   IsJumpDetachedVisibleForTopology(detachedState, topology);
         }
 
         private static bool IsJumpDetachedVisibleForTopology(
