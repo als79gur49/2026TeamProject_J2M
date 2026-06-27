@@ -26,6 +26,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string ContractsDirectory =
             "Assets/_Features/Gameplay/Gameplay_PresentationContracts/Runtime";
+        private const string ContractsPath =
+            "Assets/_Features/Gameplay/Gameplay_PresentationContracts/Runtime/PresentationContracts.cs";
         private const string PlanningDirectory =
             "Assets/_Features/Gameplay/Gameplay_PresentationPlanning/Runtime";
         private const string PlaybackDirectory =
@@ -50,6 +52,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeCompositionFactory.cs.meta";
         private const string TopologyExecutorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs";
+        private const string TopologyBridgeVisibilityControllerPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyVisualBridgeVisibilityController.cs";
         private const string TopologyLaneRuntimePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs";
         private const string DamageDeathVfxLaneRuntimePath =
@@ -404,6 +408,115 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeReferences, Does.Not.Contain("Game.Feature.Gameplay.Host"));
 
             Assert.That(hostReferences, Does.Contain("Game.Feature.Gameplay.PresentationRuntime"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ResolvedVisibility_UsesPresentationVisibilitySourceKind_NotPoseSourceKind()
+        {
+            var visibilityBlock = ExtractSourceBetween(
+                ReadRepoFile(ContractsPath),
+                "public enum PresentationVisibilitySourceKind",
+                "public sealed class PresentationFactFrame");
+            var provenancePropertyTypes = typeof(PresentationVisibilityProvenance)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(property => Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType)
+                .ToArray();
+            var visibilityPropertyTypes = typeof(ResolvedEntityPresentationVisibility)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(property => Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType)
+                .ToArray();
+
+            Assert.That(typeof(PresentationVisibilitySourceKind).IsEnum, Is.True);
+            Assert.That(
+                typeof(PresentationVisibilityProvenance)
+                    .GetProperty(nameof(PresentationVisibilityProvenance.SourceKind))
+                    ?.PropertyType,
+                Is.EqualTo(typeof(PresentationVisibilitySourceKind)));
+            Assert.That(provenancePropertyTypes, Has.Member(typeof(PresentationVisibilitySourceKind)));
+            Assert.That(provenancePropertyTypes, Has.No.Member(typeof(PresentationPoseSourceKind)));
+            Assert.That(visibilityPropertyTypes, Has.No.Member(typeof(PresentationPoseSourceKind)));
+            Assert.That(visibilityBlock, Does.Contain("PresentationVisibilitySourceKind"));
+            Assert.That(visibilityBlock, Does.Not.Contain("PresentationPoseSourceKind"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ResolvedVisibility_DoesNotIncludeTopologyBridgeBinding()
+        {
+            var visibilityBlock = ExtractSourceBetween(
+                ReadRepoFile(ContractsPath),
+                "public enum PresentationVisibilitySourceKind",
+                "public sealed class PresentationFactFrame");
+
+            Assert.That(visibilityBlock, Does.Not.Contain("TopologyVisualBridgeBinding"));
+            Assert.That(visibilityBlock, Does.Not.Contain("TopologyVisualBridgeVisibilityController"));
+            Assert.That(
+                typeof(ResolvedEntityPresentationVisibility).Assembly,
+                Is.Not.EqualTo(typeof(TopologyVisualBridgeVisibilityController).Assembly));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EntityVisibilityResolver_DoesNotReadTopologyVisualBridgeController()
+        {
+            var hostRuntimeFullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", HostRuntimeDirectory));
+            var offenders = Directory.GetFiles(hostRuntimeFullPath, "*.cs", SearchOption.AllDirectories)
+                .Where(path => Path.GetFileName(path) != "TopologyVisualBridgeVisibilityController.cs")
+                .Where(path =>
+                {
+                    var source = File.ReadAllText(path);
+                    return (source.Contains("ResolvedEntityPresentationVisibility") ||
+                            source.Contains("ResolvedPresentationVisibilitySet")) &&
+                           source.Contains("TopologyVisualBridgeVisibilityController");
+                })
+                .Select(path => Path.GetRelativePath(Path.GetFullPath(Path.Combine(Application.dataPath, "..")), path))
+                .ToArray();
+
+            Assert.That(offenders, Is.Empty);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyBridgeVisibility_DoesNotConsumeResolvedEntityPresentationVisibility()
+        {
+            var source = ReadRepoFile(TopologyBridgeVisibilityControllerPath);
+
+            Assert.That(source, Does.Not.Contain("ResolvedEntityPresentationVisibility"));
+            Assert.That(source, Does.Not.Contain("ResolvedPresentationVisibilitySet"));
+            Assert.That(source, Does.Not.Contain("PresentationVisibilitySourceKind"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ResolvedVisibilityPayload_CarriesLifetimeOrCleanupSignature()
+        {
+            var provenance = new PresentationVisibilityProvenance(
+                PresentationVisibilitySourceKind.JumpDetached,
+                PresentationOwnerRole.Enemy,
+                new SurfaceCell(FaceId.Floor, 1, 2),
+                FaceId.Floor,
+                lifetimeToken: 77);
+            var visibility = new ResolvedEntityPresentationVisibility(
+                new PresentationEntityKey(12),
+                isVisible: false,
+                provenance);
+            var visibilitySet = new ResolvedPresentationVisibilitySet();
+
+            visibilitySet.SetVisibility(visibility);
+
+            Assert.That(
+                typeof(PresentationVisibilityProvenance)
+                    .GetProperty(nameof(PresentationVisibilityProvenance.LifetimeToken))
+                    ?.PropertyType,
+                Is.EqualTo(typeof(int)));
+            Assert.That(provenance.LifetimeToken, Is.EqualTo(77));
+            Assert.That(visibility.EntityKey.EntityId, Is.EqualTo(12));
+            Assert.That(visibility.IsVisible, Is.False);
+            Assert.That(visibility.IsValid, Is.True);
+            Assert.That(visibilitySet.EntityIds, Is.EqualTo(new[] { 12 }));
+            Assert.That(visibilitySet.TryGetVisibility(12, out var resolved), Is.True);
+            Assert.That(resolved, Is.EqualTo(visibility));
         }
 
         [Test]

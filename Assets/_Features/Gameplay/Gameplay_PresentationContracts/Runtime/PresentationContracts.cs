@@ -1407,6 +1407,145 @@ namespace Game.Feature.Gameplay.PresentationContracts
         }
     }
 
+    public enum PresentationVisibilitySourceKind
+    {
+        None = 0,
+        GenericVisibility = 10,
+        JumpDetached = 20,
+        RetainedDeathOrExit = 30,
+        TransitionEntityVisibility = 40,
+    }
+
+    public readonly struct PresentationVisibilityProvenance : IEquatable<PresentationVisibilityProvenance>
+    {
+        public PresentationVisibilityProvenance(
+            PresentationVisibilitySourceKind sourceKind,
+            PresentationOwnerRole ownerRole,
+            SurfaceCell? cell,
+            FaceId? face,
+            int lifetimeToken)
+        {
+            SourceKind = sourceKind;
+            OwnerRole = ownerRole;
+            Cell = cell;
+            Face = face;
+            LifetimeToken = lifetimeToken;
+        }
+
+        public PresentationVisibilitySourceKind SourceKind { get; }
+
+        public PresentationOwnerRole OwnerRole { get; }
+
+        public SurfaceCell? Cell { get; }
+
+        public FaceId? Face { get; }
+
+        public int LifetimeToken { get; }
+
+        public bool Equals(PresentationVisibilityProvenance other)
+        {
+            return SourceKind == other.SourceKind &&
+                   OwnerRole == other.OwnerRole &&
+                   Nullable.Equals(Cell, other.Cell) &&
+                   Face == other.Face &&
+                   LifetimeToken == other.LifetimeToken;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationVisibilityProvenance other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = (int)SourceKind;
+                hash = (hash * 397) ^ (int)OwnerRole;
+                hash = (hash * 397) ^ Cell.GetHashCode();
+                hash = (hash * 397) ^ Face.GetHashCode();
+                hash = (hash * 397) ^ LifetimeToken;
+                return hash;
+            }
+        }
+    }
+
+    public readonly struct ResolvedEntityPresentationVisibility : IEquatable<ResolvedEntityPresentationVisibility>
+    {
+        public ResolvedEntityPresentationVisibility(
+            PresentationEntityKey entityKey,
+            bool isVisible,
+            PresentationVisibilityProvenance provenance)
+        {
+            EntityKey = entityKey;
+            IsVisible = isVisible;
+            Provenance = provenance;
+        }
+
+        public PresentationEntityKey EntityKey { get; }
+
+        public bool IsVisible { get; }
+
+        public PresentationVisibilityProvenance Provenance { get; }
+
+        public bool IsValid => EntityKey.IsValid;
+
+        public bool Equals(ResolvedEntityPresentationVisibility other)
+        {
+            return EntityKey.Equals(other.EntityKey) &&
+                   IsVisible == other.IsVisible &&
+                   Provenance.Equals(other.Provenance);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is ResolvedEntityPresentationVisibility other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = EntityKey.GetHashCode();
+                hash = (hash * 397) ^ IsVisible.GetHashCode();
+                hash = (hash * 397) ^ Provenance.GetHashCode();
+                return hash;
+            }
+        }
+    }
+
+    public sealed class ResolvedPresentationVisibilitySet
+    {
+        private readonly Dictionary<PresentationEntityKey, ResolvedEntityPresentationVisibility> _visibilityByEntity =
+            new Dictionary<PresentationEntityKey, ResolvedEntityPresentationVisibility>();
+        private readonly List<int> _entityIds = new List<int>();
+
+        public IReadOnlyList<int> EntityIds => _entityIds;
+
+        public int Count => _visibilityByEntity.Count;
+
+        public void Clear()
+        {
+            _visibilityByEntity.Clear();
+            _entityIds.Clear();
+        }
+
+        public bool TryGetVisibility(int entityId, out ResolvedEntityPresentationVisibility visibility)
+        {
+            return _visibilityByEntity.TryGetValue(new PresentationEntityKey(entityId), out visibility);
+        }
+
+        public void SetVisibility(in ResolvedEntityPresentationVisibility visibility)
+        {
+            if (!_visibilityByEntity.ContainsKey(visibility.EntityKey))
+            {
+                _entityIds.Add(visibility.EntityKey.EntityId);
+            }
+
+            _visibilityByEntity[visibility.EntityKey] = visibility;
+        }
+    }
+
     public sealed class PresentationFactFrame
     {
         private static readonly IReadOnlyList<PresentationFact> EmptyFacts =
