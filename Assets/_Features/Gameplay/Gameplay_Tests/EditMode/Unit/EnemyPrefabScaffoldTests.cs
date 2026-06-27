@@ -94,8 +94,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.Contains("EnemyView_Astreton", prefabText);
             StringAssert.Contains("guid: 9870afb7c6d615c458c88e0e341207e3", prefabText);
             StringAssert.Contains("guid: 6be19350b5cac6763aebb3b88b54c091", prefabText);
-            StringAssert.Contains("jumpWindupAnimatorDurationSeconds: 0.35", prefabText);
-            StringAssert.Contains("jumpAirborneAnimatorDurationSeconds: 1", prefabText);
+            StringAssert.Contains("jumpWindupAnimatorDurationSeconds: 0.5", prefabText);
+            StringAssert.Contains("jumpAirborneAnimatorDurationSeconds: 1.35", prefabText);
             StringAssert.Contains("jumpWindupReferenceClip: {fileID: 9067093048684652814", prefabText);
             StringAssert.Contains("jumpAirborneReferenceClip: {fileID: -5560811472042823391", prefabText);
             StringAssert.Contains("m_ApplyRootMotion: 0", prefabText);
