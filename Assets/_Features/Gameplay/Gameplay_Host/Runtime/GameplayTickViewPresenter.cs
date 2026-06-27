@@ -251,11 +251,11 @@ namespace Game.Feature.Gameplay.Host
             PresentationCoordinator.ConfigureEnemyPresentationExecution(mode, playbackPort);
         }
 
-        internal void ConfigureCoreGameplaySfxExecution(
-            CoreGameplaySfxExecutionMode mode,
-            IGameplaySfxPlaybackPort playbackPort = null)
+        internal void ConfigureCoreGameplaySfxPlaybackPort(
+            IGameplaySfxPlaybackPort playbackPort,
+            bool useDefaultPlaybackPort = true)
         {
-            PresentationCoordinator.ConfigureCoreGameplaySfxExecution(mode, playbackPort);
+            PresentationCoordinator.ConfigureCoreGameplaySfxPlaybackPort(playbackPort, useDefaultPlaybackPort);
         }
 
         public void DetachPresentationExtension(IGameplayTickPresentationExtension extension)
@@ -378,8 +378,8 @@ namespace Game.Feature.Gameplay.Host
         internal EnemyPresentationProductionTelemetrySnapshot EnemyPresentationProductionTelemetrySnapshot =>
             PresentationCoordinator.EnemyPresentationProductionTelemetrySnapshot;
 
-        internal CoreGameplaySfxExecutionMode CoreGameplaySfxExecutionMode =>
-            PresentationCoordinator.CoreGameplaySfxExecutionMode;
+        internal CoreGameplaySfxRoute CoreGameplaySfxRoute =>
+            PresentationCoordinator.CoreGameplaySfxRoute;
 
         internal CoreGameplaySfxOwnershipDiagnostics CoreGameplaySfxOwnershipDiagnostics =>
             PresentationCoordinator.CoreGameplaySfxOwnershipDiagnostics;

@@ -116,20 +116,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened),
             new(
                 "Core gameplay SFX",
-                typeof(CoreGameplaySfxExecutionMode),
-                "LegacyGameplayAudioController",
-                "OrchestrationSfxBridgeExecutor",
-                "OrchestrationSfxBridgeExecutor",
-                "OrchestrationSfxBridgeExecutor",
+                null,
+                "Removed",
+                "CurrentExecutor",
+                "CurrentExecutor",
+                "CurrentExecutor",
                 false,
-                true,
+                false,
                 "CoreSfxProductionDefault_PlayMode_TelemetryHasNoDuplicatePlayback",
                 "CoreSfx_PlayModeSmoke_IsNonAuthoritative",
                 "CoreGameplaySfx_ResetSessionHardCleanupAndPresentInitial_ClearExecutorPortAndGuardState",
                 "AudioOwnership_AfterCoreSfxPlayModeSmoke_RemainsSeparated",
                 "Low: non-blocking one-shot.",
                 "Medium: audio ownership must stay separated.",
-                "Set CoreGameplaySfxExecutionMode.LegacyGameplayAudioController.",
+                "Removed; Core gameplay SFX is current-only and has no rollback mode.",
                 ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered),
         };
 
@@ -187,14 +187,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "Enemy presentation still exposes a legacy/current route."),
             new(
                 "Core gameplay SFX",
-                PresentationDomainLifecycleState.NotYetDecommissioned,
-                true,
-                true,
+                PresentationDomainLifecycleState.CurrentOnlyDecommissioned,
                 false,
-                "CoreGameplaySfxExecutionMode",
-                "OrchestrationSfxBridgeExecutor",
-                "LegacyGameplayAudioController",
-                "Core SFX still exposes a legacy/current route while retained audio adjuncts remain separate."),
+                false,
+                false,
+                "CoreGameplaySfxRoute",
+                "CurrentExecutor",
+                "Removed",
+                "PR5 removed the Core SFX rollback route; retained audio adjuncts remain separate."),
             new(
                 "Enemy One-shot Audio",
                 PresentationDomainLifecycleState.CurrentOnlyDecommissioned,
@@ -266,7 +266,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 typeof(TopologyPresentationExecutionMode),
                 typeof(PlayerActionAnimationExecutionMode),
                 typeof(EnemyPresentationExecutionMode),
-                typeof(CoreGameplaySfxExecutionMode),
             };
             var matrixTypes = ReadinessMatrix
                 .Where(row => row.ExecutionModeType != null)
@@ -300,14 +299,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
-                Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
+                Assert.That(coordinator.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
 
                 Assert.That(presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
                 Assert.That(presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
                 Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(presenter.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
-                Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
+                Assert.That(presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
 
                 foreach (var row in ReadinessMatrix)
                 {
@@ -323,7 +322,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void InvalidPresentationExecutionModes_NormalizeToLegacy()
+        public void InvalidPresentationExecutionModes_NormalizeToRetainedPolicyOwners()
         {
             Assert.That(
                 TopologyPresentationExecutionPolicy.Normalize((TopologyPresentationExecutionMode)999),
@@ -334,13 +333,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 EnemyPresentationExecutionPolicy.Normalize((EnemyPresentationExecutionMode)999),
                 Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
-            Assert.That(
-                CoreGameplaySfxExecutionPolicy.Normalize((CoreGameplaySfxExecutionMode)999),
-                Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
             Assert.That(default(TopologyPresentationExecutionMode), Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
             Assert.That(Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), default(PlayerActionAnimationExecutionMode)), Is.False);
             Assert.That(default(EnemyPresentationExecutionMode), Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
-            Assert.That(default(CoreGameplaySfxExecutionMode), Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
+            Assert.That(Enum.GetNames(typeof(CoreGameplaySfxRoute)), Is.EqualTo(new[] { "CurrentExecutor" }));
+            Assert.That(default(CoreGameplaySfxRoute), Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
             foreach (var row in ReadinessMatrix)
             {
                 Assert.That(row.InvalidModeNormalizesToLegacy, Is.EqualTo(row.ExecutionModeType != null), row.Domain);
@@ -416,7 +413,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
             }
 
-            var guard = new CoreGameplaySfxExecutionGuard(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController);
+            var guard = new CoreGameplaySfxExecutionGuard();
             var key = new CoreGameplaySfxPlaybackKey(
                 tickIndex: 1,
                 PresentationSemanticSource.PlayerDamage,
@@ -425,11 +422,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PresentationSfxCueKey.PlayerDamage);
 
             Assert.That(
-                guard.TryBeginExecution(CoreGameplaySfxExecutionOwner.OrchestrationSfxBridgeExecutor, key),
+                guard.TryBeginExecution(CoreGameplaySfxExecutionOwner.CurrentExecutor, key),
+                Is.True);
+            Assert.That(
+                guard.TryBeginExecution(CoreGameplaySfxExecutionOwner.CurrentExecutor, key),
                 Is.False);
-            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.Zero);
-            Assert.That(guard.Diagnostics.SkippedExecutorBecauseLegacyOwnerCount, Is.EqualTo(1));
-            Assert.That(guard.Diagnostics.Mode, Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.LastExecutionOwner, Is.EqualTo(CoreGameplaySfxExecutionOwner.CurrentExecutor));
 
             Assert.That(Enum.GetNames(typeof(PlayerActionAnimationExecutionMode)), Is.EqualTo(new[] { "OrchestrationAnimationExecutor" }));
             Assert.That(
@@ -455,12 +455,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coreSfxExecutor, Does.Not.Contain("IGameplayActionAudioPlaybackPort"));
             Assert.That(coreSfxExecutor, Does.Not.Contain("IGameplayEnemyAudioPlaybackPort"));
 
-            Assert.That(actionAudioExecutor, Does.Not.Contain("CoreGameplaySfxExecutionMode"));
+            Assert.That(actionAudioExecutor, Does.Not.Contain("CoreGameplaySfxRoute"));
             Assert.That(actionAudioExecutor, Does.Not.Contain("EnemyAudioExecutionMode"));
             Assert.That(actionAudioExecutor, Does.Not.Contain("PresentationSfxCueKey"));
             Assert.That(actionAudioExecutor, Does.Not.Contain("IGameplaySfxPlaybackPort"));
 
-            Assert.That(enemyAudioExecutor, Does.Not.Contain("CoreGameplaySfxExecutionMode"));
+            Assert.That(enemyAudioExecutor, Does.Not.Contain("CoreGameplaySfxRoute"));
             Assert.That(enemyAudioExecutor, Does.Not.Contain("ActionAudioExecutionMode"));
             Assert.That(enemyAudioExecutor, Does.Not.Contain("PresentationSfxCueKey"));
             Assert.That(enemyAudioExecutor, Does.Not.Contain("PresentationActionAudioCueKey"));
@@ -500,7 +500,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "GameplaySfxExecutorDiagnostics",
                 "GameplaySfxSemanticDiagnostics",
                 "GameplaySfxPlaybackAdapterDiagnostics",
-                "GameplaySfxFallbackReason",
+                "GameplaySfxDiagnosticReason",
                 "GameplayActionAudioExecutorDiagnostics",
                 "ActionAudioProductionTelemetrySnapshot",
                 "GameplayEnemyAudioExecutorDiagnostics",
@@ -510,7 +510,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "BoxMotionPresentationExecutionMode",
                 "PlayerActionAnimationExecutionMode",
                 "EnemyPresentationExecutionMode",
-                "CoreGameplaySfxExecutionMode",
+                "CoreGameplaySfxRoute",
                 "ActionAudioExecutionMode",
                 "EnemyAudioExecutionMode",
             };
@@ -527,7 +527,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void ProductionSwitchReadiness_ReflectsPlayerActionAnimationSwitch()
         {
-            var coreSfx = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(CoreGameplaySfxExecutionMode));
+            var coreSfx = ReadinessMatrix.Single(row => row.Domain == "Core gameplay SFX");
             var damageDeathVfx = ReadinessMatrix.Single(row => row.Domain == "Damage/death VFX");
             var boxMotion = ReadinessMatrix.Single(row => row.Domain == "Box motion");
             var playerActionAnimation = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(PlayerActionAnimationExecutionMode));
@@ -535,7 +535,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(coreSfx.CurrentDefault, Is.EqualTo(coreSfx.OrchestrationOwner));
             Assert.That(coreSfx.DefaultIsLegacy, Is.False);
-            Assert.That(coreSfx.InvalidModeNormalizesToLegacy, Is.True);
+            Assert.That(coreSfx.InvalidModeNormalizesToLegacy, Is.False);
             Assert.That(coreSfx.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered));
             Assert.That(readinessDocument, Does.Contain("Phase 9D"));
             Assert.That(readinessDocument, Does.Contain("ProductionDefaultOnTelemetryHardenedAndPlayModeSmokeCovered"));
@@ -613,11 +613,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
                 GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
 
-                Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-                Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-                Assert.That(
-                    CoreGameplaySfxExecutionPolicy.Normalize((CoreGameplaySfxExecutionMode)999),
-                    Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
+                Assert.That(coordinator.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
+                Assert.That(presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
+                Assert.That(Enum.GetNames(typeof(CoreGameplaySfxRoute)), Is.EqualTo(new[] { "CurrentExecutor" }));
             }
             finally
             {
@@ -637,8 +635,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
                 GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
 
-                Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-                Assert.That(presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
+                Assert.That(coordinator.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
+                Assert.That(presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
                 Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);

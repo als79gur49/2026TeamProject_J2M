@@ -425,8 +425,8 @@ namespace Game.Feature.Gameplay.Host
         internal EnemyPresentationOwnershipDiagnostics EnemyPresentationOwnershipDiagnostics =>
             _enemyPresentationLane.OwnershipDiagnostics;
 
-        internal CoreGameplaySfxExecutionMode CoreGameplaySfxExecutionMode =>
-            _coreGameplaySfxLane.ExecutionMode;
+        internal CoreGameplaySfxRoute CoreGameplaySfxRoute =>
+            CoreGameplaySfxRoute.CurrentExecutor;
 
         internal CoreGameplaySfxOwnershipDiagnostics CoreGameplaySfxOwnershipDiagnostics =>
             _coreGameplaySfxLane.OwnershipDiagnostics;
@@ -517,11 +517,11 @@ namespace Game.Feature.Gameplay.Host
             _enemyPresentationLane.ConfigureExecution(mode, playbackPort);
         }
 
-        internal void ConfigureCoreGameplaySfxExecution(
-            CoreGameplaySfxExecutionMode mode,
-            IGameplaySfxPlaybackPort playbackPort = null)
+        internal void ConfigureCoreGameplaySfxPlaybackPort(
+            IGameplaySfxPlaybackPort playbackPort,
+            bool useDefaultPlaybackPort = true)
         {
-            _coreGameplaySfxLane.ConfigureExecution(mode, playbackPort);
+            _coreGameplaySfxLane.ConfigurePlaybackPort(playbackPort, useDefaultPlaybackPort);
         }
 
         internal void EnablePresentationPipelineDiagnostics(GameplayPresentationPipeline pipeline = null)
@@ -1293,10 +1293,9 @@ namespace Game.Feature.Gameplay.Host
 
         private void RefreshGameplayAudioPlan(TickResult result)
         {
-            var coreGameplaySfxCandidatePlan = _coreGameplaySfxLane.BuildCandidatePlan(result, _timingProfile);
             var enemyOneShotPlan = _enemyOneShotAudioLane.RefreshPlan(result, _timingProfile);
-            _coreGameplaySfxLane.FinalizePlan(
-                coreGameplaySfxCandidatePlan,
+            _coreGameplaySfxLane.PrepareCurrentRoute(
+                result,
                 _topologyTransitionController.HasActiveBoardRotationTween,
                 enemyOneShotPlan.PlayableDeathCueEntityIds);
 

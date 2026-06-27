@@ -10,48 +10,21 @@ using Game.Shared.Audio;
 
 namespace Game.Feature.Gameplay.Host
 {
-    internal readonly struct CoreGameplaySfxCandidatePlan
-    {
-        private static readonly IReadOnlyList<GameplayAudioRequest> EmptyRequests = Array.Empty<GameplayAudioRequest>();
-        private static readonly IReadOnlyList<CoreGameplaySfxPlaybackKey> EmptyPlaybackKeys =
-            Array.Empty<CoreGameplaySfxPlaybackKey>();
-
-        public CoreGameplaySfxCandidatePlan(
-            IReadOnlyList<GameplayAudioRequest> requests,
-            IReadOnlyList<CoreGameplaySfxPlaybackKey> playbackKeys,
-            int tickIndex)
-        {
-            Requests = requests ?? EmptyRequests;
-            PlaybackKeys = playbackKeys ?? EmptyPlaybackKeys;
-            TickIndex = Math.Max(0, tickIndex);
-        }
-
-        public IReadOnlyList<GameplayAudioRequest> Requests { get; }
-
-        public IReadOnlyList<CoreGameplaySfxPlaybackKey> PlaybackKeys { get; }
-
-        public int TickIndex { get; }
-    }
-
     internal readonly struct CoreGameplaySfxLaneDiagnostics
     {
         public CoreGameplaySfxLaneDiagnostics(
-            CoreGameplaySfxExecutionMode executionMode,
             CoreGameplaySfxOwnershipDiagnostics ownership,
             GameplaySfxExecutorDiagnostics executor,
             PresentationBlockingSnapshot blockingSnapshot,
             int pendingRequestCount,
             int deferredRequestCount)
         {
-            ExecutionMode = executionMode;
             Ownership = ownership;
             Executor = executor;
             BlockingSnapshot = blockingSnapshot;
             PendingRequestCount = Math.Max(0, pendingRequestCount);
             DeferredRequestCount = Math.Max(0, deferredRequestCount);
         }
-
-        public CoreGameplaySfxExecutionMode ExecutionMode { get; }
 
         public CoreGameplaySfxOwnershipDiagnostics Ownership { get; }
 
@@ -66,13 +39,6 @@ namespace Game.Feature.Gameplay.Host
 
     internal sealed class CoreGameplaySfxLaneRuntime
     {
-        private static readonly IReadOnlyList<GameplayAudioRequest> EmptyGameplayAudioRequests =
-            Array.Empty<GameplayAudioRequest>();
-        private static readonly IReadOnlyList<CoreGameplaySfxPlaybackKey> EmptyPlaybackKeys =
-            Array.Empty<CoreGameplaySfxPlaybackKey>();
-
-        private readonly GameplayAudioRequestPlanner _requestPlanner;
-        private readonly GameplayAudioPresentationController _legacyController;
         private readonly CoreGameplaySfxExecutionGuard _executionGuard;
         private readonly CoreGameplaySfxExecutionPipelineFactory _pipelineFactory;
         private readonly GameplaySfxPlaybackPortAdapter _playbackPortAdapter;
@@ -86,8 +52,6 @@ namespace Game.Feature.Gameplay.Host
         public CoreGameplaySfxLaneRuntime(
             GameplayPresentationStateStore stateStore,
             CoreGameplaySfxExecutionPipelineFactory pipelineFactory = null,
-            GameplayAudioRequestPlanner requestPlanner = null,
-            GameplayAudioPresentationController legacyController = null,
             CoreGameplaySfxExecutionGuard executionGuard = null,
             GameplaySfxPlaybackPortAdapter playbackPortAdapter = null)
         {
@@ -98,97 +62,61 @@ namespace Game.Feature.Gameplay.Host
 
             _pipelineFactory = pipelineFactory ??
                                GameplayHostPresentationPipelineFactory.CreateCoreGameplaySfxExecutionPipeline;
-            _requestPlanner = requestPlanner ?? new GameplayAudioRequestPlanner();
-            _legacyController = legacyController ?? new GameplayAudioPresentationController(stateStore);
             _executionGuard = executionGuard ?? new CoreGameplaySfxExecutionGuard();
             _playbackPortAdapter = playbackPortAdapter ?? new GameplaySfxPlaybackPortAdapter(stateStore);
+            _executionPipeline = CreateExecutionPipeline();
         }
-
-        public CoreGameplaySfxExecutionMode ExecutionMode => _executionGuard.Diagnostics.Mode;
 
         public CoreGameplaySfxOwnershipDiagnostics OwnershipDiagnostics => _executionGuard.Diagnostics;
 
         public PresentationBlockingSnapshot BlockingSnapshot =>
             _executionPipeline?.BlockingSnapshot ?? PresentationBlockingSnapshot.Empty;
 
-        public int PendingRequestCount => _legacyController.PendingRequestCount;
+        public int PendingRequestCount => 0;
 
-        public int DeferredRequestCount =>
-            _legacyController.DeferredRequestCount + _playbackPortAdapter.DeferredRequestCount;
+        public int DeferredRequestCount => _playbackPortAdapter.DeferredRequestCount;
 
         public GameplaySfxExecutorDiagnostics ExecutorDiagnostics => ResolveExecutorDiagnostics();
 
         public CoreGameplaySfxLaneDiagnostics Diagnostics =>
             new(
-                ExecutionMode,
                 OwnershipDiagnostics,
                 ExecutorDiagnostics,
                 BlockingSnapshot,
                 PendingRequestCount,
                 DeferredRequestCount);
 
-        public void ConfigureExecution(
-            CoreGameplaySfxExecutionMode mode,
-            IGameplaySfxPlaybackPort playbackPort = null)
+        public void ConfigurePlaybackPort(IGameplaySfxPlaybackPort playbackPort, bool useDefaultPlaybackPort = true)
         {
             _playbackPort = playbackPort;
-            _executionGuard.Configure(CoreGameplaySfxExecutionPolicy.Normalize(mode));
+            if (playbackPort == null && useDefaultPlaybackPort)
+            {
+                _playbackPort = _playbackPortAdapter;
+            }
+
             ResetExecutionSession();
             _executionPipeline = CreateExecutionPipeline();
             _executionPipeline?.ResetSession();
         }
 
-        public CoreGameplaySfxCandidatePlan BuildCandidatePlan(
+        public void PrepareCurrentRoute(
             TickResult result,
-            GameplayTimingProfile timingProfile)
+            bool isTopologyTransitionActive,
+            IReadOnlyCollection<int> playableEnemyDeathCueEntityIds)
         {
             if (result == null)
             {
                 throw new ArgumentNullException(nameof(result));
             }
 
-            var requests = CopyRequests(_requestPlanner.BuildRequests(result, timingProfile));
-            var playbackKeys = CopyPlaybackKeys(BuildCoreGameplaySfxPlaybackKeys(result));
-            return new CoreGameplaySfxCandidatePlan(requests, playbackKeys, result.TickIndex);
-        }
-
-        public void FinalizePlan(
-            in CoreGameplaySfxCandidatePlan candidatePlan,
-            bool isTopologyTransitionActive,
-            IReadOnlyCollection<int> playableEnemyDeathCueEntityIds)
-        {
             SetTopologyTransitionActive(isTopologyTransitionActive);
             CopyPlayableEnemyDeathCueEntityIds(playableEnemyDeathCueEntityIds);
             _playbackPortAdapter.ConfigureEnemyDeathCueSuppression(_playableEnemyDeathCueEntityIds);
-            var filteredRequests = SuppressLethalEnemyDamageRequests(
-                candidatePlan.Requests,
-                _playableEnemyDeathCueEntityIds);
-
-            if (UseProductionExecutor())
-            {
-                for (var i = 0; i < candidatePlan.PlaybackKeys.Count; i++)
-                {
-                    _executionGuard.RecordSkippedByPolicy(
-                        CoreGameplaySfxExecutionOwner.LegacyGameplayAudioController);
-                }
-
-                _legacyController.ReplacePendingPlan(EmptyGameplayAudioRequests, candidatePlan.TickIndex);
-                return;
-            }
-
-            _legacyController.ReplacePendingPlan(filteredRequests, candidatePlan.TickIndex);
-            for (var i = 0; i < candidatePlan.PlaybackKeys.Count; i++)
-            {
-                _executionGuard.TryBeginExecution(
-                    CoreGameplaySfxExecutionOwner.LegacyGameplayAudioController,
-                    candidatePlan.PlaybackKeys[i]);
-            }
         }
 
         public void PresentPrepared(TickResult result)
         {
-            if (result == null ||
-                !UseProductionExecutor())
+            if (result == null)
             {
                 return;
             }
@@ -199,7 +127,6 @@ namespace Game.Feature.Gameplay.Host
 
         public void CompletePrepared()
         {
-            _legacyController.PlayPlannedAudio();
         }
 
         public void SetTopologyTransitionActive(bool isActive)
@@ -209,16 +136,11 @@ namespace Game.Feature.Gameplay.Host
             var gateState = isActive
                 ? GameplayAudioPlaybackGateState.TopologyLocked
                 : GameplayAudioPlaybackGateState.Open;
-            _legacyController.SetPlaybackGateState(gateState);
             _playbackPortAdapter.SetPlaybackGateState(gateState);
         }
 
         public void Update(float deltaTime)
         {
-            var gameplayAudioDeltaTime = _previousPlaybackGateBlocked || _currentPlaybackGateBlocked
-                ? 0f
-                : deltaTime;
-            _legacyController.Update(gameplayAudioDeltaTime);
             _playbackPortAdapter.Update();
             _executionPipeline?.Update(deltaTime);
         }
@@ -227,19 +149,21 @@ namespace Game.Feature.Gameplay.Host
             IGameplayAudioPlaybackPort playbackPort,
             GameplayAudioMap gameplayAudioMap)
         {
-            _legacyController.AttachRuntime(playbackPort, gameplayAudioMap);
             _playbackPortAdapter.AttachRuntime(playbackPort, gameplayAudioMap);
+            if (_playbackPort == null)
+            {
+                _playbackPort = _playbackPortAdapter;
+                _executionPipeline = CreateExecutionPipeline();
+            }
         }
 
         public void DetachRuntime()
         {
             _playbackPortAdapter.DetachRuntime();
-            _legacyController.DetachRuntime();
         }
 
         public void ResetSession()
         {
-            _legacyController.ResetSession();
             _playbackPortAdapter.ResetSession();
             ResetExecutionSession();
             _executionPipeline?.ResetSession();
@@ -247,7 +171,6 @@ namespace Game.Feature.Gameplay.Host
 
         public void HardCleanup()
         {
-            _legacyController.ResetSession();
             _playbackPortAdapter.HardCleanup();
             _executionPipeline?.HardCleanup();
             ResetExecutionSession();
@@ -262,7 +185,6 @@ namespace Game.Feature.Gameplay.Host
         private GameplayPresentationPipeline CreateExecutionPipeline()
         {
             return _pipelineFactory(
-                ExecutionMode,
                 ResolvePlaybackPort(),
                 _executionGuard);
         }
@@ -270,11 +192,6 @@ namespace Game.Feature.Gameplay.Host
         private IGameplaySfxPlaybackPort ResolvePlaybackPort()
         {
             return _playbackPort ?? _playbackPortAdapter;
-        }
-
-        private bool UseProductionExecutor()
-        {
-            return ExecutionMode == CoreGameplaySfxExecutionPolicy.ProductionDefault;
         }
 
         private GameplaySfxExecutorDiagnostics ResolveExecutorDiagnostics()
@@ -306,9 +223,7 @@ namespace Game.Feature.Gameplay.Host
             GameplaySfxPlaybackAdapterDiagnostics adapterDiagnostics)
         {
             return new GameplaySfxExecutorDiagnostics(
-                ownershipDiagnostics.Mode,
-                ownershipDiagnostics.Mode == CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor,
-                ownershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount,
+                isProductionDefaultOwner: true,
                 observedCueCount: 0,
                 semanticUnsupportedCount: 0,
                 mapMissingCount: 0,
@@ -317,21 +232,20 @@ namespace Game.Feature.Gameplay.Host
                 ownerViewMissingCount: 0,
                 portMissingCount: 0,
                 duplicateSuppressedCount: ownershipDiagnostics.DuplicateAttemptCount,
-                legacyOwnerNoOpCount: ownershipDiagnostics.SkippedExecutorBecauseLegacyOwnerCount,
                 requestPlannedCount: 0,
                 playbackRequestedCount: 0,
                 playbackSucceededCount: 0,
-                playbackNoOpFallbackCount: 0,
-                fallbackCount: 0,
+                playbackNoOpSuppressedCount: 0,
+                diagnosticCount: 0,
                 attachedLikePlaybackCount: adapterDiagnostics.AttachedLikePlaybackCount,
-                twoDFallbackPlaybackCount: adapterDiagnostics.TwoDFallbackPlaybackCount,
+                ownerMissingTwoDPlaybackCount: adapterDiagnostics.OwnerMissingTwoDPlaybackCount,
                 deferredDuringTopologyLockCount: adapterDiagnostics.DeferredDuringTopologyLockCount,
                 deferredDrainCount: adapterDiagnostics.DeferredDrainCount,
                 enemyDeathGenericCoreSfxSuppressedCount: adapterDiagnostics.EnemyDeathGenericCoreSfxSuppressedCount,
                 lethalEnemyDamageSuppressedByDeathCount: adapterDiagnostics.LethalEnemyDamageSuppressedByDeathCount,
                 lastTickIndex: adapterDiagnostics.LastTickIndex,
                 lastSemanticKey: adapterDiagnostics.LastSemanticKey,
-                lastFallbackReason: adapterDiagnostics.LastFallbackReason,
+                lastDiagnosticReason: adapterDiagnostics.LastDiagnosticReason,
                 semanticDiagnostics: Array.Empty<GameplaySfxSemanticDiagnostics>());
         }
 
@@ -340,13 +254,13 @@ namespace Game.Feature.Gameplay.Host
             CoreGameplaySfxOwnershipDiagnostics ownershipDiagnostics,
             GameplaySfxPlaybackAdapterDiagnostics adapterDiagnostics)
         {
-            var adapterFallbackCount =
-                adapterDiagnostics.TwoDFallbackPlaybackCount +
+            var adapterDiagnosticCount =
+                adapterDiagnostics.OwnerMissingTwoDPlaybackCount +
                 adapterDiagnostics.EnemyDeathGenericCoreSfxSuppressedCount +
                 adapterDiagnostics.LethalEnemyDamageSuppressedByDeathCount;
-            var lastFallbackReason = adapterDiagnostics.LastFallbackReason != GameplaySfxFallbackReason.None
-                ? adapterDiagnostics.LastFallbackReason
-                : executorDiagnostics.LastFallbackReason;
+            var lastDiagnosticReason = adapterDiagnostics.LastDiagnosticReason != GameplaySfxDiagnosticReason.None
+                ? adapterDiagnostics.LastDiagnosticReason
+                : executorDiagnostics.LastDiagnosticReason;
             var lastSemanticKey = adapterDiagnostics.LastSemanticKey != PresentationSfxCueKey.None
                 ? adapterDiagnostics.LastSemanticKey
                 : executorDiagnostics.LastSemanticKey;
@@ -355,9 +269,7 @@ namespace Game.Feature.Gameplay.Host
                 : executorDiagnostics.LastTickIndex;
 
             return new GameplaySfxExecutorDiagnostics(
-                ownershipDiagnostics.Mode,
-                ownershipDiagnostics.Mode == CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor,
-                ownershipDiagnostics.SkippedLegacyBecauseExecutorOwnerCount,
+                isProductionDefaultOwner: true,
                 executorDiagnostics.ObservedCueCount,
                 executorDiagnostics.SemanticUnsupportedCount,
                 executorDiagnostics.MapMissingCount,
@@ -368,116 +280,21 @@ namespace Game.Feature.Gameplay.Host
                 Math.Max(
                     executorDiagnostics.DuplicateSuppressedCount,
                     ownershipDiagnostics.DuplicateAttemptCount),
-                executorDiagnostics.LegacyOwnerNoOpCount,
                 executorDiagnostics.RequestPlannedCount,
                 executorDiagnostics.PlaybackRequestedCount,
                 executorDiagnostics.PlaybackSucceededCount,
-                executorDiagnostics.PlaybackNoOpFallbackCount,
-                Math.Max(executorDiagnostics.FallbackCount, adapterFallbackCount),
+                executorDiagnostics.PlaybackNoOpSuppressedCount,
+                Math.Max(executorDiagnostics.DiagnosticCount, adapterDiagnosticCount),
                 adapterDiagnostics.AttachedLikePlaybackCount,
-                adapterDiagnostics.TwoDFallbackPlaybackCount,
+                adapterDiagnostics.OwnerMissingTwoDPlaybackCount,
                 adapterDiagnostics.DeferredDuringTopologyLockCount,
                 adapterDiagnostics.DeferredDrainCount,
                 adapterDiagnostics.EnemyDeathGenericCoreSfxSuppressedCount,
                 adapterDiagnostics.LethalEnemyDamageSuppressedByDeathCount,
                 lastTickIndex,
                 lastSemanticKey,
-                lastFallbackReason,
+                lastDiagnosticReason,
                 executorDiagnostics.SemanticDiagnostics);
-        }
-
-        private static IReadOnlyList<CoreGameplaySfxPlaybackKey> BuildCoreGameplaySfxPlaybackKeys(TickResult result)
-        {
-            var factFrame = new TickPresentationFactExtractor().Extract(result);
-            var cueFrame = new PresentationCuePlannerSet(new IPresentationCuePlanner[]
-            {
-                new SfxCuePlanner(),
-            }).Plan(factFrame);
-            if (cueFrame.Cues.Count == 0)
-            {
-                return EmptyPlaybackKeys;
-            }
-
-            var keys = new List<CoreGameplaySfxPlaybackKey>(cueFrame.Cues.Count);
-            for (var i = 0; i < cueFrame.Cues.Count; i++)
-            {
-                var cue = cueFrame.Cues[i];
-                if (cue.Domain != PresentationDomain.Sfx ||
-                    !cue.Key.TryGetSfxCueKey(out var cueKey) ||
-                    cue.Target.Kind != PresentationTargetKind.Entity ||
-                    cue.Target.EntityId <= 0)
-                {
-                    continue;
-                }
-
-                keys.Add(new CoreGameplaySfxPlaybackKey(
-                    cue.Source.TickIndex,
-                    cue.Source.SemanticSource,
-                    cue.Source.SourceEntityId,
-                    cue.Target.EntityId,
-                    cueKey));
-            }
-
-            return keys.Count == 0
-                ? EmptyPlaybackKeys
-                : keys;
-        }
-
-        private static IReadOnlyList<GameplayAudioRequest> SuppressLethalEnemyDamageRequests(
-            IReadOnlyList<GameplayAudioRequest> gameplayAudioRequests,
-            IReadOnlyCollection<int> playableDeathCueEntityIds)
-        {
-            if (gameplayAudioRequests.Count == 0 ||
-                playableDeathCueEntityIds == null ||
-                playableDeathCueEntityIds.Count == 0)
-            {
-                return gameplayAudioRequests;
-            }
-
-            List<GameplayAudioRequest> filteredRequests = null;
-            for (var i = 0; i < gameplayAudioRequests.Count; i++)
-            {
-                var request = gameplayAudioRequests[i];
-                if (ShouldSuppressLethalEnemyDamageRequest(request, playableDeathCueEntityIds))
-                {
-                    if (filteredRequests == null)
-                    {
-                        filteredRequests = new List<GameplayAudioRequest>(gameplayAudioRequests.Count);
-                        for (var copyIndex = 0; copyIndex < i; copyIndex++)
-                        {
-                            filteredRequests.Add(gameplayAudioRequests[copyIndex]);
-                        }
-                    }
-
-                    continue;
-                }
-
-                filteredRequests?.Add(request);
-            }
-
-            return filteredRequests ?? gameplayAudioRequests;
-        }
-
-        private static bool ShouldSuppressLethalEnemyDamageRequest(
-            in GameplayAudioRequest request,
-            IReadOnlyCollection<int> playableDeathCueEntityIds)
-        {
-            return request.SemanticId == GameplayAudioSemanticId.EnemyDamage &&
-                   request.OwnerEntityId.HasValue &&
-                   ContainsEntityId(playableDeathCueEntityIds, request.OwnerEntityId.Value);
-        }
-
-        private static bool ContainsEntityId(IReadOnlyCollection<int> entityIds, int entityId)
-        {
-            foreach (var candidate in entityIds)
-            {
-                if (candidate == entityId)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private void CopyPlayableEnemyDeathCueEntityIds(IReadOnlyCollection<int> entityIds)
@@ -498,39 +315,5 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private static IReadOnlyList<GameplayAudioRequest> CopyRequests(IReadOnlyList<GameplayAudioRequest> requests)
-        {
-            if (requests == null ||
-                requests.Count == 0)
-            {
-                return EmptyGameplayAudioRequests;
-            }
-
-            var copy = new GameplayAudioRequest[requests.Count];
-            for (var i = 0; i < requests.Count; i++)
-            {
-                copy[i] = requests[i];
-            }
-
-            return copy;
-        }
-
-        private static IReadOnlyList<CoreGameplaySfxPlaybackKey> CopyPlaybackKeys(
-            IReadOnlyList<CoreGameplaySfxPlaybackKey> playbackKeys)
-        {
-            if (playbackKeys == null ||
-                playbackKeys.Count == 0)
-            {
-                return EmptyPlaybackKeys;
-            }
-
-            var copy = new CoreGameplaySfxPlaybackKey[playbackKeys.Count];
-            for (var i = 0; i < playbackKeys.Count; i++)
-            {
-                copy[i] = playbackKeys[i];
-            }
-
-            return copy;
-        }
     }
 }

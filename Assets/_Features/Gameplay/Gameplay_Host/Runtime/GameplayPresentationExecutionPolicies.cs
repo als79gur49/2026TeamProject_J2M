@@ -45,19 +45,4 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
-    internal static class CoreGameplaySfxExecutionPolicy
-    {
-        public const CoreGameplaySfxExecutionMode ProductionDefault =
-            CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor;
-        public const CoreGameplaySfxExecutionMode LegacyFallback =
-            CoreGameplaySfxExecutionMode.LegacyGameplayAudioController;
-
-        public static CoreGameplaySfxExecutionMode Normalize(CoreGameplaySfxExecutionMode mode)
-        {
-            return Enum.IsDefined(typeof(CoreGameplaySfxExecutionMode), mode)
-                ? mode
-                : LegacyFallback;
-        }
-    }
-
 }

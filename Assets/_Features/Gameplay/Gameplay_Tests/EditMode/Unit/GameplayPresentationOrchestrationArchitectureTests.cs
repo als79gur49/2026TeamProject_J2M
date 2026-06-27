@@ -286,7 +286,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                          typeof(TopologyPresentationExecutionMode),
                          typeof(PlayerActionAnimationExecutionMode),
                          typeof(EnemyPresentationExecutionMode),
-                         typeof(CoreGameplaySfxExecutionMode),
+                         typeof(CoreGameplaySfxRoute),
                      })
             {
                 Assert.That(coordinatorFieldTypes, Has.No.Member(forbiddenModeType), forbiddenModeType.Name);
@@ -332,7 +332,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(composition.BoxMotionLane.ExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
             Assert.That(composition.PlayerActionAnimationLane.ExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionPolicy.ProductionDefault));
             Assert.That(composition.EnemyPresentationLane.ExecutionMode, Is.EqualTo(EnemyPresentationExecutionPolicy.ProductionDefault));
-            Assert.That(composition.CoreGameplaySfxLane.ExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionPolicy.ProductionDefault));
+            Assert.That(composition.CoreGameplaySfxLane, Is.Not.Null);
+            Assert.That(composition.CoreGameplaySfxLane.ExecutorDiagnostics.IsProductionDefaultOwner, Is.True);
             Assert.That(composition.GameplayActionAudioLane, Is.Not.Null);
             Assert.That(composition.GameplayActionAudioLane.ExecutorDiagnostics.ObservedCueCount, Is.Zero);
             Assert.That(composition.EnemyOneShotAudioLane, Is.Not.Null);
@@ -2330,13 +2331,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorFieldTypes, Has.Member(typeof(CoreGameplaySfxLaneRuntime)));
             Assert.That(coreGameplaySfxFieldTypes, Is.EqualTo(new[] { typeof(CoreGameplaySfxLaneRuntime) }));
             Assert.That(coordinatorFieldTypes, Has.No.Member(typeof(GameplayAudioRequestPlanner)));
-            Assert.That(coordinatorFieldTypes, Has.No.Member(typeof(GameplayAudioPresentationController)));
             Assert.That(coordinatorFieldTypes, Has.No.Member(typeof(CoreGameplaySfxExecutionGuard)));
             Assert.That(coordinatorFieldTypes, Has.No.Member(typeof(GameplaySfxPlaybackPortAdapter)));
 
             Assert.That(coordinatorSource, Does.Contain("CoreGameplaySfxLaneRuntime"));
-            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.BuildCandidatePlan"));
-            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.FinalizePlan"));
+            Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.PrepareCurrentRoute"));
             Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.PresentPrepared"));
             Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.CompletePrepared"));
             Assert.That(coordinatorSource, Does.Contain("_coreGameplaySfxLane.Update"));
@@ -2362,15 +2361,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Not.Contain("_coreGameplaySfxLane.PlayLegacyPending"));
             Assert.That(coordinatorSource, Does.Not.Contain("_coreGameplaySfxLane.UpdateProductionPipeline"));
 
-            Assert.That(coreLaneSource, Does.Contain("GameplayAudioRequestPlanner"));
-            Assert.That(coreLaneSource, Does.Contain("GameplayAudioPresentationController"));
+            Assert.That(coreLaneSource, Does.Not.Contain("GameplayAudioRequestPlanner"));
+            Assert.That(coreLaneSource, Does.Not.Contain("GameplayAudioPresentationController"));
             Assert.That(coreLaneSource, Does.Contain("CoreGameplaySfxExecutionGuard"));
             Assert.That(coreLaneSource, Does.Contain("CoreGameplaySfxExecutionPipelineFactory"));
             Assert.That(coreLaneSource, Does.Contain("GameplaySfxPlaybackPortAdapter"));
-            Assert.That(coreLaneSource, Does.Contain("BuildCoreGameplaySfxPlaybackKeys"));
-            Assert.That(coreLaneSource, Does.Contain("SuppressLethalEnemyDamageRequests"));
+            Assert.That(coreLaneSource, Does.Not.Contain("BuildCoreGameplaySfxPlaybackKeys"));
+            Assert.That(coreLaneSource, Does.Not.Contain("SuppressLethalEnemyDamageRequests"));
             Assert.That(coreLaneSource, Does.Contain("ConfigureEnemyDeathCueSuppression"));
-            Assert.That(coreLaneSource, Does.Contain("CoreGameplaySfxExecutionOwner.LegacyGameplayAudioController"));
+            Assert.That(coreLaneSource, Does.Not.Contain("CoreGameplaySfxExecutionOwner.LegacyGameplayAudioController"));
             Assert.That(coreLaneSource, Does.Contain("PresentPrepared"));
             Assert.That(coreLaneSource, Does.Contain("CompletePrepared"));
             Assert.That(coreLaneSource, Does.Contain("public void Update(float deltaTime)"));
@@ -2735,8 +2734,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinator.TopologyProductionTelemetrySnapshot.RollbackMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
             Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
             Assert.That(coordinator.EnemyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
-            Assert.That(coordinator.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-            Assert.That(coordinator.CoreGameplaySfxOwnershipDiagnostics.Mode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
+            Assert.That(coordinator.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
+            Assert.That(coordinator.CoreGameplaySfxOwnershipDiagnostics.LastExecutionOwner, Is.EqualTo(CoreGameplaySfxExecutionOwner.None));
             Assert.That(new GameplaySceneHostConfiguration().TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
         }
 
