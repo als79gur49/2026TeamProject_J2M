@@ -182,7 +182,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                          "DamageDeathVfxExecutionPipelineFactory ",
                          "BoxMotionExecutionPipelineFactory ",
                          "public GameplayTickPresentationCoordinator(IDamageDeathVfxPlaybackPort",
-                         "TopologyPresentationExecutionMode topologyPresentationExecutionMode)",
+                         "topologyPresentationExecutionMode",
                          "GameplayPresentationRuntimeCompositionFactory.Create",
                          "public GameplayTickPresentationCoordinator()",
                      })
@@ -283,7 +283,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             foreach (var forbiddenModeType in new[]
                      {
-                         typeof(TopologyPresentationExecutionMode),
                          typeof(PlayerActionAnimationExecutionMode),
                          typeof(CoreGameplaySfxRoute),
                      })
@@ -324,7 +323,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             var composition = GameplayPresentationRuntimeCompositionFactory.Create();
-            Assert.That(composition.TopologyLane.ExecutionMode, Is.EqualTo(TopologyPresentationExecutionDefaults.ProductionDefault));
+            Assert.That(composition.TopologyLane, Is.Not.Null);
+            Assert.That(
+                composition.TopologyLane.BuildProductionTelemetrySnapshot(
+                    hasBlockingPresentation: false,
+                    isTopologyTransitionActive: false,
+                    presentationBlockingSnapshot: PresentationBlockingSnapshot.Empty).IsProductionDefaultOwner,
+                Is.True);
             Assert.That(composition.DamageDeathVfxLane, Is.Not.Null);
             Assert.That(composition.DamageDeathVfxLane.ExecutorDiagnostics.IsProductionDefaultOwner, Is.False);
             Assert.That(composition.BoxMotionLane, Is.Not.Null);
@@ -1753,9 +1758,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Contain("_topologyLane.ObserveControllerActivity"));
             Assert.That(coordinatorSource, Does.Not.Contain("_topologyTransitionController.RefreshTopologyTrack"));
             Assert.That(coordinatorSource, Does.Not.Contain("_topologyTransitionController.RefreshBoardSurfaceTransition"));
-            Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutionMode.LegacyCoordinator"));
-            Assert.That(topologyLaneSource, Does.Contain("TopologyPresentationExecutionDefaults.ProductionDefault"));
-            Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutionMode.ExecutorBridge"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("TopologyPresentationExecutionMode"));
+            Assert.That(topologyLaneSource, Does.Not.Contain("TopologyPresentationExecutionDefaults"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("LegacyCoordinator"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("ExecutorBridge"));
             Assert.That(coordinatorSource, Does.Not.Contain("GameplayPresentationExecutionRouter.UseTopologyExecutor"));
             Assert.That(coordinatorSource, Does.Not.Contain("UseTopologyExecutor"));
             Assert.That(coordinatorSource, Does.Not.Contain("ExecuteLegacyTopologyPath"));
@@ -1768,7 +1774,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(coordinatorSource, Does.Not.Contain("ITopologyTransitionPlaybackPort"));
             Assert.That(topologyLaneSource, Does.Contain("TopologyPresentationExecutionGuard"));
             Assert.That(topologyLaneSource, Does.Contain("TopologyExecutionPipelineFactory"));
-            Assert.That(topologyLaneSource, Does.Contain("ITopologyLegacyTransitionPort"));
+            Assert.That(topologyLaneSource, Does.Not.Contain("ITopologyLegacyTransitionPort"));
             Assert.That(topologyLaneSource, Does.Contain("ITopologyTransitionCleanupPort"));
             Assert.That(topologyLaneSource, Does.Not.Contain("WorldState"));
             Assert.That(topologyLaneSource, Does.Not.Contain("TickPipeline"));
@@ -1812,10 +1818,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationLaneRuntime"));
             Assert.That(hostRuntimeSource, Does.Contain("ITopologyTransitionPlaybackPort"));
             Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutionGuard"));
-            Assert.That(hostRuntimeSource, Does.Contain("TopologyPresentationExecutionMode"));
+            Assert.That(hostRuntimeSource, Does.Not.Contain("TopologyPresentationExecutionMode"));
             Assert.That(hostRuntimeSource, Does.Contain("TopologyProductionTelemetrySnapshot"));
             Assert.That(topologyExecutorSource, Does.Contain("GameplayTopologyTransitionPlaybackPort"));
-            Assert.That(topologyExecutorSource, Does.Contain("GameplayTopologyLegacyTransitionPort"));
+            Assert.That(topologyExecutorSource, Does.Not.Contain("GameplayTopologyLegacyTransitionPort"));
             Assert.That(topologyExecutorSource, Does.Contain("GameplayTopologyTransitionCleanupPort"));
             Assert.That(topologyLaneSource, Does.Contain("Present(TickResult result)"));
             Assert.That(topologyLaneSource, Does.Not.Contain("UpdatePresentation(float"));
@@ -2700,11 +2706,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var initialObjective = result.ObjectiveResult;
             var pipeline = GameplayPresentationPipelineInstaller.CreateDiagnosticsOnly();
             var port = new RecordingTopologyTransitionPlaybackPort();
-            var guard = new TopologyPresentationExecutionGuard(TopologyPresentationExecutionMode.ExecutorBridge);
-            var executor = new TopologyPresentationExecutor(
-                port,
-                TopologyPresentationExecutionMode.ExecutorBridge,
-                guard);
+            var guard = new TopologyPresentationExecutionGuard();
+            var executor = new TopologyPresentationExecutor(port, guard);
 
             pipeline.Present(result);
             executor.Play(pipeline.LastPlaybackPlan);
@@ -2727,13 +2730,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(coordinator.IsPresentationPipelineDiagnosticsEnabled, Is.False);
             Assert.That(coordinator.PresentationPipelineNoOpSchedulerAcceptCount, Is.Zero);
-            Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
-            Assert.That(coordinator.TopologyPresentationOwnershipDiagnostics.Mode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
-            Assert.That(coordinator.TopologyProductionTelemetrySnapshot.CurrentMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
-            Assert.That(coordinator.TopologyProductionTelemetrySnapshot.RollbackMode, Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
+            Assert.That(coordinator.TopologyProductionTelemetrySnapshot.IsProductionDefaultOwner, Is.True);
+            Assert.That(coordinator.TopologyPresentationOwnershipDiagnostics.ExecutorAttemptCount, Is.Zero);
             Assert.That(coordinator.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
             Assert.That(coordinator.CoreGameplaySfxOwnershipDiagnostics.LastExecutionOwner, Is.EqualTo(CoreGameplaySfxExecutionOwner.None));
-            Assert.That(new GameplaySceneHostConfiguration().TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+            Assert.That(typeof(GameplaySceneHostConfiguration).GetField("TopologyPresentationExecutionMode"), Is.Null);
         }
 
         [Test]

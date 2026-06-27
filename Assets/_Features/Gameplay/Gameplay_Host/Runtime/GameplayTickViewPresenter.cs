@@ -112,9 +112,7 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationCatalog enemyPresentationCatalog = null,
             EnemyPresentationBinding[] enemyPresentationBindings = null,
             IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
-            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null,
-            TopologyPresentationExecutionMode topologyPresentationExecutionMode =
-                TopologyPresentationExecutionDefaults.ProductionDefault)
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
         {
             PresentationCoordinator.Initialize(
                 viewBinder,
@@ -131,8 +129,7 @@ namespace Game.Feature.Gameplay.Host
                 enemyPresentationCatalog,
                 enemyPresentationBindings,
                 tileFeatureVfxStyleBindings,
-                enemyInactiveVisualSettings,
-                topologyPresentationExecutionMode);
+                enemyInactiveVisualSettings);
             CapturePresentationState();
         }
 
@@ -309,9 +306,6 @@ namespace Game.Feature.Gameplay.Host
 
         internal EntityPresentationApplyDiagnostics DebugLastEntityPresentationApplyDiagnostics =>
             PresentationCoordinator.DebugLastEntityPresentationApplyDiagnostics;
-
-        internal TopologyPresentationExecutionMode TopologyPresentationExecutionMode =>
-            PresentationCoordinator.TopologyPresentationExecutionMode;
 
         internal TopologyPresentationOwnershipDiagnostics TopologyPresentationOwnershipDiagnostics =>
             PresentationCoordinator.TopologyPresentationOwnershipDiagnostics;

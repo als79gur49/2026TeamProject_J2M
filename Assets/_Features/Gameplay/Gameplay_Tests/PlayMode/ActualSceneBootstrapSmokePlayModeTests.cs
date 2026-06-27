@@ -191,10 +191,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return null;
 
             var startTelemetry = host.Presenter.TopologyProductionTelemetrySnapshot;
-            Assert.That(host.Presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
             Assert.That(startTelemetry.IsProductionDefaultOwner, Is.True);
-            Assert.That(startTelemetry.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
-            Assert.That(startTelemetry.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
             Assert.That(startTelemetry.ExecutorOwnerExecutedCount, Is.EqualTo(1));
             Assert.That(startTelemetry.ObservedTrackCount, Is.EqualTo(1));
             Assert.That(startTelemetry.RouteCount, Is.EqualTo(1));
@@ -398,9 +395,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Is.True,
                 $"{scenePath} must boot Box motion with the production orchestration owner.");
             Assert.That(
-                host.Presenter.TopologyPresentationExecutionMode,
-                Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge),
-                $"{scenePath} must boot topology visuals with the production executor bridge owner.");
+                host.Presenter.TopologyProductionTelemetrySnapshot.IsProductionDefaultOwner,
+                Is.True,
+                $"{scenePath} must boot topology visuals with the production playback port owner.");
             Assert.That(
                 host.Presenter.PlayerActionAnimationExecutionMode,
                 Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor),

@@ -31,20 +31,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             new(
                 "Topology transition",
-                typeof(TopologyPresentationExecutionMode),
-                "LegacyCoordinator",
-                "ExecutorBridge",
-                "ExecutorBridge",
-                "ExecutorBridge",
+                null,
+                "Removed",
+                "GameplayTopologyTransitionPlaybackPort",
+                "GameplayTopologyTransitionPlaybackPort",
+                "GameplayTopologyTransitionPlaybackPort",
                 false,
-                true,
-                "TopologyExecution_ProductionTelemetry_CoversRetainedLegacyOwnerSemanticAndRollbackValues",
-                "TopologyExecution_LegacyAndExecutorBridgePresenters_PreserveAuthoritativeTickResultOutputs",
-                "TopologyExecution_ExecutorBridgeMode_CleanupResetsPortAndDiagnostics",
+                false,
+                "TopologyPresentation_ProductionTelemetry_CoversCurrentPlaybackPortRoute",
+                "TopologyPresentation_CurrentRoute_PreservesAuthoritativeTickResultOutputs",
+                "TopologyPresentation_CurrentRoute_PreservesVisualStateAndInputLock",
                 "TopologyAndInputLockExistingPath_RemainsOwnedByCoordinator",
                 "High: input lock observes coordinator presentation phase.",
                 "Low",
-                "Set TopologyPresentationExecutionMode.LegacyCoordinator.",
+                "Removed; Topology transition is current-only and has no rollback mode.",
                 ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened),
             new(
                 "Damage/death VFX",
@@ -137,14 +137,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             new(
                 "Topology transition",
-                PresentationDomainLifecycleState.SerializedCompatibility,
-                true,
+                PresentationDomainLifecycleState.CurrentOnlyDecommissioned,
                 false,
                 true,
-                nameof(GameplaySceneHostConfiguration.TopologyPresentationExecutionMode),
-                "ExecutorBridge",
-                "LegacyCoordinator",
-                "Topology keeps the serialized execution-mode field for compatibility while production defaults to the executor bridge."),
+                false,
+                null,
+                "GameplayTopologyTransitionPlaybackPort",
+                "Removed",
+                "PR7B removed topology legacy execution ownership and serialized rollback mode."),
             new(
                 "Damage/death VFX",
                 PresentationDomainLifecycleState.CurrentOnlyDecommissioned,
@@ -263,7 +263,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var knownTypes = new[]
             {
-                typeof(TopologyPresentationExecutionMode),
                 typeof(PlayerActionAnimationExecutionMode),
             };
             var matrixTypes = ReadinessMatrix
@@ -283,7 +282,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void PresentationExecutionDefaults_AllPhase9DomainsUseProductionOrchestrationOwner()
         {
-            var config = new GameplaySceneHostConfiguration();
             var coordinator = GameplayPresentationTestCompositionBuilder.CreateCoordinator();
             var rootObject = new GameObject(nameof(PresentationExecutionDefaults_AllPhase9DomainsUseProductionOrchestrationOwner));
 
@@ -292,14 +290,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
                 GameplayPresentationTestCompositionBuilder.BindPresenter(presenter);
 
-                Assert.That(config.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
-                Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+                Assert.That(typeof(GameplaySceneHostConfiguration).GetField("TopologyPresentationExecutionMode"), Is.Null);
+                Assert.That(coordinator.TopologyProductionTelemetrySnapshot.IsProductionDefaultOwner, Is.True);
                 Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(coordinator.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
 
-                Assert.That(presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+                Assert.That(presenter.TopologyProductionTelemetrySnapshot.IsProductionDefaultOwner, Is.True);
                 Assert.That(presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
                 Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
@@ -322,12 +320,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void InvalidPresentationExecutionModes_NormalizeToRetainedPolicyOwners()
         {
             Assert.That(
-                TopologyPresentationExecutionPolicy.Normalize((TopologyPresentationExecutionMode)999),
-                Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
-            Assert.That(
                 PlayerActionAnimationExecutionPolicy.Normalize((PlayerActionAnimationExecutionMode)999),
                 Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
-            Assert.That(default(TopologyPresentationExecutionMode), Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
             Assert.That(Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), default(PlayerActionAnimationExecutionMode)), Is.False);
             Assert.That(Enum.GetNames(typeof(CoreGameplaySfxRoute)), Is.EqualTo(new[] { "CurrentExecutor" }));
             Assert.That(default(CoreGameplaySfxRoute), Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
@@ -572,10 +566,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(readinessDocument, Does.Contain("PlayerPushExecute -> PlayerPresentationPhase.PushRecovery"));
             Assert.That(readinessDocument, Does.Contain("PlayerFlipExecute -> PlayerPresentationPhase.FlipRecovery"));
 
-            var topology = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(TopologyPresentationExecutionMode));
+            var topology = ReadinessMatrix.Single(row => row.Domain == "Topology transition");
             Assert.That(topology.CurrentDefault, Is.EqualTo(topology.OrchestrationOwner));
             Assert.That(topology.DefaultIsLegacy, Is.False);
-            Assert.That(topology.InvalidModeNormalizesToLegacy, Is.True);
+            Assert.That(topology.InvalidModeNormalizesToLegacy, Is.False);
             Assert.That(topology.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened));
 
             var enemyPresentation = ReadinessMatrix.Single(row => row.Domain == "Enemy presentation");
@@ -633,7 +627,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
                 Assert.That(presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
-                Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
+                Assert.That(coordinator.TopologyProductionTelemetrySnapshot.IsProductionDefaultOwner, Is.True);
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
             }
             finally
@@ -742,12 +736,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 FindSerializedRollbackOwnerViolations($"{playerActionField}: Removed", LifecycleMatrix),
                 Is.Not.Empty);
-            Assert.That(
-                FindSerializedRollbackOwnerViolations($"{topologyField}: LegacyCoordinator", LifecycleMatrix),
-                Is.Empty);
-            Assert.That(
-                FindSerializedRollbackOwnerViolations($"{topologyField}: LegacyEnemyPresentationMapper", LifecycleMatrix),
-                Is.Not.Empty);
+            Assert.That(topologyField, Is.Null);
         }
 
         private static IReadOnlyList<string> FindSerializedRollbackOwnerViolations(

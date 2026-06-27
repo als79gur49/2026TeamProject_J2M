@@ -2,21 +2,6 @@ using System;
 
 namespace Game.Feature.Gameplay.Host
 {
-    internal static class TopologyPresentationExecutionPolicy
-    {
-        public const TopologyPresentationExecutionMode ProductionDefault =
-            TopologyPresentationExecutionDefaults.ProductionDefault;
-        public const TopologyPresentationExecutionMode LegacyFallback =
-            TopologyPresentationExecutionDefaults.LegacyFallback;
-
-        public static TopologyPresentationExecutionMode Normalize(TopologyPresentationExecutionMode mode)
-        {
-            return Enum.IsDefined(typeof(TopologyPresentationExecutionMode), mode)
-                ? mode
-                : LegacyFallback;
-        }
-    }
-
     internal static class PlayerActionAnimationExecutionPolicy
     {
         public const PlayerActionAnimationExecutionMode ProductionDefault =
