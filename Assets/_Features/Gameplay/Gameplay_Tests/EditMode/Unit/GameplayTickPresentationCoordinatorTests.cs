@@ -16407,6 +16407,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string ApplierPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayEntityPresentationApplier.cs";
+        private const string CoordinatorPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
+        private const string TrackStatePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationTrackState.cs";
 
         [Test]
         [Category("Core")]
@@ -16621,6 +16625,117 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void JumpAdditiveLocalOffset_DoesNotReplaceResolvedBasePose()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var basePose = PoseAt(1f);
+            var jumpEndPose = PoseAt(5f);
+            stateStore.CommittedLocalTargetPoses[40] = basePose;
+            var jumpTrack = new JumpTrack();
+            jumpTrack.Replace(JumpClip.Create(basePose, jumpEndPose, durationSeconds: 1f, arcHeightWorld: 0f));
+            trackState.JumpTracks[40] = jumpTrack;
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 7);
+            var channels = ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 7);
+
+            Assert.That(frames.TryGetFrame(40, out var frame), Is.True);
+            Assert.That(frame.BasePose.Position, Is.EqualTo(basePose.Position));
+            Assert.That(frame.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.CommittedPose));
+            Assert.That(channels.TryGetAdditiveLocalOffset(40, out var offset), Is.True);
+            Assert.That(offset.Channel, Is.EqualTo(PresentationPoseChannel.AdditiveLocalOffset));
+            Assert.That(offset.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.Jump));
+            Assert.That(offset.Provenance.TerminalSource, Is.EqualTo(PresentationPoseSourceKind.None));
+            Assert.That(offset.Offset.x, Is.EqualTo(2f).Within(0.0001f));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TerminalHold_SuppressesLiveJumpAdditive()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkPlayer(stateStore, 10);
+
+            var terminalPose = PoseAt(1f);
+            var jumpEndPose = PoseAt(5f);
+            trackState.PlayerDeathHoldPoses[10] = terminalPose;
+            var jumpTrack = new JumpTrack();
+            jumpTrack.Replace(JumpClip.Create(terminalPose, jumpEndPose, durationSeconds: 1f, arcHeightWorld: 0f));
+            trackState.JumpTracks[10] = jumpTrack;
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 42);
+            var channels = ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 42);
+
+            Assert.That(frames.TryGetFrame(10, out var frame), Is.True);
+            Assert.That(frame.Provenance.TerminalSource, Is.EqualTo(PresentationPoseSourceKind.PlayerDeathHold));
+            Assert.That(channels.TryGetAdditiveLocalOffset(10, out _), Is.False);
+            Assert.That(channels.TryGetAdditiveRotation(10, out _), Is.False);
+            Assert.That(jumpTrack.ElapsedSeconds, Is.Zero);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void JumpDetachedVisibility_DoesNotBecomeTerminalSelection()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var detachedPose = PoseAt(3f);
+            stateStore.JumpDetachedVisibilityStates[40] =
+                new JumpDetachedVisibilityState(
+                    EnemyJumpPhase.Airborne,
+                    detachedPose,
+                    new SurfaceCell(FaceId.Floor, 0, 0));
+
+            var collector = new PresentationPoseCandidateCollector(stateStore, trackState);
+            var candidates = new List<PresentationPoseCandidate>();
+            collector.CollectCandidatesForEntity(40, sourceTick: 9, candidates);
+
+            Assert.That(candidates, Has.Count.EqualTo(1));
+            var candidate = candidates[0];
+            Assert.That(candidate.SourceKind, Is.EqualTo(PresentationPoseSourceKind.JumpDetachedPose));
+            Assert.That(candidate.Channel, Is.EqualTo(PresentationPoseChannel.BasePose));
+            Assert.That(candidate.IsTerminal, Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void JumpPresentationChannels_AreTypedBeforeApplication()
+        {
+            var coordinatorSource = File.ReadAllText(Path.Combine(Application.dataPath, "..", CoordinatorPath));
+            var trackStateSource = File.ReadAllText(Path.Combine(Application.dataPath, "..", TrackStatePath));
+
+            var channelResolveIndex = coordinatorSource.IndexOf(
+                "_resolvedChannelResolver.ResolveJumpAdditiveChannels",
+                StringComparison.Ordinal);
+            var applierIndex = coordinatorSource.IndexOf(
+                "_entityPresentationApplier.Apply",
+                StringComparison.Ordinal);
+
+            Assert.That(channelResolveIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(applierIndex, Is.GreaterThan(channelResolveIndex));
+            Assert.That(trackStateSource, Does.Contain("PresentationPoseChannel.AdditiveLocalOffset"));
+            Assert.That(trackStateSource, Does.Contain("PresentationPoseSourceKind.Jump"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void GameplayEntityPresentationApplier_DoesNotOwnBasePoseStoreSelection()
         {
             var source = File.ReadAllText(Path.Combine(Application.dataPath, "..", ApplierPath));
@@ -16631,6 +16746,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Not.Contain("PlayerDeathHoldPoses"));
             Assert.That(source, Does.Contain("ResolvedPresentationFrameSet"));
             Assert.That(source, Does.Contain("resolvedFrame.BasePose"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_DoesNotReadJumpTracksForBasePose()
+        {
+            var source = File.ReadAllText(Path.Combine(Application.dataPath, "..", ApplierPath));
+
+            Assert.That(source, Does.Not.Contain("_trackState.JumpTracks.TryGetValue"));
+            Assert.That(source, Does.Contain("ResolvedPresentationChannelSet"));
+            Assert.That(source, Does.Contain("resolvedChannels.TryGetAdditiveLocalOffset"));
+            Assert.That(source, Does.Contain("resolvedChannels.TryGetAdditiveRotation"));
         }
 
         private static void AssertCompatible(
@@ -16674,6 +16801,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var frames = new ResolvedPresentationFrameSet();
             resolver.Resolve(sourceTick, frames);
             return frames;
+        }
+
+        private static ResolvedPresentationChannelSet ResolveChannels(
+            GameplayPresentationStateStore stateStore,
+            GameplayPresentationTrackState trackState,
+            ResolvedPresentationFrameSet frames,
+            float deltaTime,
+            bool hasActiveBoardRotationTween,
+            int sourceTick)
+        {
+            var resolver = new PresentationResolvedChannelResolver(stateStore, trackState);
+            var channels = new ResolvedPresentationChannelSet();
+            resolver.ResolveJumpAdditiveChannels(deltaTime, hasActiveBoardRotationTween, sourceTick, frames, channels);
+            return channels;
         }
 
         private static void MarkPlayer(GameplayPresentationStateStore stateStore, int entityId)

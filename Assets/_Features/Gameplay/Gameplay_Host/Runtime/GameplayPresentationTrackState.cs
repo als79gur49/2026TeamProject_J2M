@@ -250,6 +250,56 @@ namespace Game.Feature.Gameplay.Host
         public bool IsActiveLocomotion { get; }
     }
 
+    internal readonly struct ResolvedEntityPresentationAdditiveLocalOffset
+    {
+        public ResolvedEntityPresentationAdditiveLocalOffset(
+            PresentationEntityKey entity,
+            PresentationOwnerRole ownerRole,
+            Vector3 offset,
+            PresentationPoseProvenance provenance)
+        {
+            Entity = entity;
+            OwnerRole = ownerRole;
+            Offset = offset;
+            Provenance = provenance;
+        }
+
+        public PresentationEntityKey Entity { get; }
+
+        public PresentationOwnerRole OwnerRole { get; }
+
+        public PresentationPoseChannel Channel => PresentationPoseChannel.AdditiveLocalOffset;
+
+        public Vector3 Offset { get; }
+
+        public PresentationPoseProvenance Provenance { get; }
+    }
+
+    internal readonly struct ResolvedEntityPresentationAdditiveRotation
+    {
+        public ResolvedEntityPresentationAdditiveRotation(
+            PresentationEntityKey entity,
+            PresentationOwnerRole ownerRole,
+            Quaternion rotation,
+            PresentationPoseProvenance provenance)
+        {
+            Entity = entity;
+            OwnerRole = ownerRole;
+            Rotation = rotation;
+            Provenance = provenance;
+        }
+
+        public PresentationEntityKey Entity { get; }
+
+        public PresentationOwnerRole OwnerRole { get; }
+
+        public PresentationPoseChannel Channel => PresentationPoseChannel.AdditiveRotation;
+
+        public Quaternion Rotation { get; }
+
+        public PresentationPoseProvenance Provenance { get; }
+    }
+
     internal sealed class ResolvedPresentationFrameSet
     {
         private readonly Dictionary<PresentationEntityKey, ResolvedEntityPresentationFrame> _framesByEntity = new();
@@ -285,6 +335,142 @@ namespace Game.Feature.Gameplay.Host
         public void AddRejection(in PresentationPoseRejection rejection)
         {
             _rejections.Add(rejection);
+        }
+    }
+
+    internal sealed class ResolvedPresentationChannelSet
+    {
+        private readonly Dictionary<PresentationEntityKey, ResolvedEntityPresentationAdditiveLocalOffset>
+            _additiveLocalOffsetsByEntity = new();
+        private readonly Dictionary<PresentationEntityKey, ResolvedEntityPresentationAdditiveRotation>
+            _additiveRotationsByEntity = new();
+        private readonly List<int> _entityIds = new();
+
+        public IReadOnlyList<int> EntityIds => _entityIds;
+
+        public void Clear()
+        {
+            _additiveLocalOffsetsByEntity.Clear();
+            _additiveRotationsByEntity.Clear();
+            _entityIds.Clear();
+        }
+
+        public bool TryGetAdditiveLocalOffset(
+            int entityId,
+            out ResolvedEntityPresentationAdditiveLocalOffset channel)
+        {
+            return _additiveLocalOffsetsByEntity.TryGetValue(new PresentationEntityKey(entityId), out channel);
+        }
+
+        public bool TryGetAdditiveRotation(
+            int entityId,
+            out ResolvedEntityPresentationAdditiveRotation channel)
+        {
+            return _additiveRotationsByEntity.TryGetValue(new PresentationEntityKey(entityId), out channel);
+        }
+
+        public void SetAdditiveLocalOffset(in ResolvedEntityPresentationAdditiveLocalOffset channel)
+        {
+            AddEntityId(channel.Entity);
+            _additiveLocalOffsetsByEntity[channel.Entity] = channel;
+        }
+
+        public void SetAdditiveRotation(in ResolvedEntityPresentationAdditiveRotation channel)
+        {
+            AddEntityId(channel.Entity);
+            _additiveRotationsByEntity[channel.Entity] = channel;
+        }
+
+        private void AddEntityId(PresentationEntityKey entity)
+        {
+            if (!_additiveLocalOffsetsByEntity.ContainsKey(entity) &&
+                !_additiveRotationsByEntity.ContainsKey(entity))
+            {
+                _entityIds.Add(entity.EntityId);
+            }
+        }
+    }
+
+    internal sealed class PresentationResolvedChannelResolver
+    {
+        private readonly GameplayPresentationStateStore _stateStore;
+        private readonly GameplayPresentationTrackState _trackState;
+
+        public PresentationResolvedChannelResolver(
+            GameplayPresentationStateStore stateStore,
+            GameplayPresentationTrackState trackState)
+        {
+            _stateStore = stateStore ?? throw new System.ArgumentNullException(nameof(stateStore));
+            _trackState = trackState ?? throw new System.ArgumentNullException(nameof(trackState));
+        }
+
+        public void ResolveJumpAdditiveChannels(
+            float deltaTime,
+            bool hasActiveBoardRotationTween,
+            int sourceTick,
+            ResolvedPresentationFrameSet resolvedFrames,
+            ResolvedPresentationChannelSet channelSet)
+        {
+            if (resolvedFrames == null)
+            {
+                throw new System.ArgumentNullException(nameof(resolvedFrames));
+            }
+
+            if (channelSet == null)
+            {
+                throw new System.ArgumentNullException(nameof(channelSet));
+            }
+
+            foreach (var pair in _trackState.JumpTracks)
+            {
+                var entityId = pair.Key;
+                var jumpTrack = pair.Value;
+                if (jumpTrack == null ||
+                    !jumpTrack.HasClip ||
+                    !resolvedFrames.TryGetFrame(entityId, out var resolvedFrame) ||
+                    resolvedFrame.Provenance.TerminalSource != PresentationPoseSourceKind.None ||
+                    resolvedFrame.OwnerRole != PresentationOwnerRole.Enemy)
+                {
+                    continue;
+                }
+
+                var freezeJumpTrack =
+                    hasActiveBoardRotationTween ||
+                    _trackState.JumpTopologySuspendedEntityIds.Contains(entityId);
+                var sampledPose = freezeJumpTrack
+                    ? jumpTrack.CurrentPose
+                    : jumpTrack.SampleAndAdvance(deltaTime, resolvedFrame.BasePose);
+                if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var jumpDetachedState))
+                {
+                    _stateStore.JumpDetachedVisibilityStates[entityId] =
+                        new JumpDetachedVisibilityState(
+                            jumpDetachedState.JumpPhase,
+                            sampledPose,
+                            jumpDetachedState.AuthoritativeCell);
+                }
+
+                var entity = new PresentationEntityKey(entityId);
+                var provenance = new PresentationPoseProvenance(
+                    PresentationOwnerRole.Enemy,
+                    PresentationPoseSourceKind.Jump,
+                    PresentationPoseSourceKind.None,
+                    sourceTick);
+                channelSet.SetAdditiveLocalOffset(new ResolvedEntityPresentationAdditiveLocalOffset(
+                    entity,
+                    PresentationOwnerRole.Enemy,
+                    sampledPose.Position - resolvedFrame.BasePose.Position,
+                    provenance));
+                channelSet.SetAdditiveRotation(new ResolvedEntityPresentationAdditiveRotation(
+                    entity,
+                    PresentationOwnerRole.Enemy,
+                    sampledPose.Rotation,
+                    provenance));
+
+                if (!freezeJumpTrack && !jumpTrack.HasClip)
+                {
+                    _trackState.CompletedJumpTrackIds.Add(entityId);
+                }
+            }
         }
     }
 

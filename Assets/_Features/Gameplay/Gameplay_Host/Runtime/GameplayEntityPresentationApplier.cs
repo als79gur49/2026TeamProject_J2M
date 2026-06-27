@@ -252,12 +252,18 @@ namespace Game.Feature.Gameplay.Host
             float deltaTime,
             bool hasActiveBoardRotationTween,
             ResolvedPresentationFrameSet resolvedFrames,
+            ResolvedPresentationChannelSet resolvedChannels,
             GameplayEntityViewBinder viewBinder,
             GameplayTimingProfile timingProfile)
         {
             if (resolvedFrames == null)
             {
                 throw new ArgumentNullException(nameof(resolvedFrames));
+            }
+
+            if (resolvedChannels == null)
+            {
+                throw new ArgumentNullException(nameof(resolvedChannels));
             }
 
             if (viewBinder == null)
@@ -275,7 +281,6 @@ namespace Game.Feature.Gameplay.Host
 
             _trackState.CompletedMotionTrackIds.Clear();
             _trackState.CompletedMotionVisualScaleEntityIds.Clear();
-            _trackState.CompletedJumpTrackIds.Clear();
             _trackState.CompletedJumpWindupRotationTrackIds.Clear();
             _trackState.CompletedPlayerFlipResultTurnTrackIds.Clear();
             _trackState.CompletedVisibilityTrackIds.Clear();
@@ -294,7 +299,7 @@ namespace Game.Feature.Gameplay.Host
             var playerExecutedCount = 0;
             var signatureChangedCount = 0;
             var signatureUnchangedCount = 0;
-            var processingEntityIds = BuildProcessingEntityIds(resolvedFrames);
+            var processingEntityIds = BuildProcessingEntityIds(resolvedFrames, resolvedChannels);
             for (var i = 0; i < processingEntityIds.Count; i++)
             {
                 var entityId = processingEntityIds[i];
@@ -364,28 +369,20 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
 
-                if (_trackState.JumpTracks.TryGetValue(entityId, out var jumpTrack) &&
-                    jumpTrack.HasClip)
+                var hasResolvedAdditiveLocalOffset =
+                    resolvedChannels.TryGetAdditiveLocalOffset(entityId, out var additiveLocalOffset);
+                if (hasResolvedAdditiveLocalOffset)
                 {
-                    var freezeJumpTrack =
-                        hasActiveBoardRotationTween ||
-                        _trackState.JumpTopologySuspendedEntityIds.Contains(entityId);
-                    localPose = freezeJumpTrack
-                        ? jumpTrack.CurrentPose
-                        : jumpTrack.SampleAndAdvance(deltaTime, localPose);
-                    if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var jumpDetachedState))
-                    {
-                        _stateStore.JumpDetachedVisibilityStates[entityId] =
-                            new JumpDetachedVisibilityState(
-                                jumpDetachedState.JumpPhase,
-                                localPose,
-                                jumpDetachedState.AuthoritativeCell);
-                    }
+                    localPose = new GameplayEntityPose(
+                        resolvedFrame.BasePose.Position + additiveLocalOffset.Offset,
+                        localPose.Rotation);
+                }
 
-                    if (!freezeJumpTrack && !jumpTrack.HasClip)
-                    {
-                        _trackState.CompletedJumpTrackIds.Add(entityId);
-                    }
+                var hasResolvedAdditiveRotation =
+                    resolvedChannels.TryGetAdditiveRotation(entityId, out var additiveRotation);
+                if (hasResolvedAdditiveRotation)
+                {
+                    localPose = new GameplayEntityPose(localPose.Position, additiveRotation.Rotation);
                 }
 
                 if (_trackState.JumpWindupRotationTracks.TryGetValue(entityId, out var jumpWindupRotationTrack) &&
@@ -492,6 +489,7 @@ namespace Game.Feature.Gameplay.Host
                         hasPlayerDeathHoldPose,
                         hasActiveLocalMotion,
                         hasActiveOriginalViewMotion,
+                        hasResolvedAdditiveLocalOffset || hasResolvedAdditiveRotation,
                         isDeferredExitRetained,
                         isContactDelayedRetained,
                         isDeathPresentationPlaying);
@@ -686,7 +684,9 @@ namespace Game.Feature.Gameplay.Host
             return result;
         }
 
-        private IReadOnlyList<int> BuildProcessingEntityIds(ResolvedPresentationFrameSet resolvedFrames)
+        private IReadOnlyList<int> BuildProcessingEntityIds(
+            ResolvedPresentationFrameSet resolvedFrames,
+            ResolvedPresentationChannelSet resolvedChannels)
         {
             _processingEntityIds.Clear();
             _processingEntityIdBuffer.Clear();
@@ -701,6 +701,12 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < stateStoreEntityIds.Count; i++)
             {
                 AddProcessingEntityId(stateStoreEntityIds[i]);
+            }
+
+            var resolvedChannelEntityIds = resolvedChannels.EntityIds;
+            for (var i = 0; i < resolvedChannelEntityIds.Count; i++)
+            {
+                AddProcessingEntityId(resolvedChannelEntityIds[i]);
             }
 
             foreach (var pair in _trackState.PlayerFlipResultTurnTracks)
@@ -1227,6 +1233,7 @@ namespace Game.Feature.Gameplay.Host
             bool hasPlayerDeathHoldPose,
             bool hasActiveLocalMotion,
             bool hasActiveOriginalViewMotion,
+            bool hasResolvedJumpAdditiveChannel,
             bool isDeferredExitRetained,
             bool isContactDelayedRetained,
             bool isDeathPresentationPlaying)
@@ -1236,11 +1243,11 @@ namespace Game.Feature.Gameplay.Host
                    hasPlayerDeathHoldPose ||
                    hasActiveLocalMotion ||
                    hasActiveOriginalViewMotion ||
+                   hasResolvedJumpAdditiveChannel ||
                    isDeferredExitRetained ||
                    isContactDelayedRetained ||
                    isDeathPresentationPlaying ||
                    _trackState.PresentationEventTargetEntityIds.Contains(entityId) ||
-                   _trackState.JumpTracks.ContainsKey(entityId) ||
                    _trackState.JumpWindupRotationTracks.ContainsKey(entityId) ||
                    _trackState.PlayerFlipResultTurnTracks.ContainsKey(entityId) ||
                    _trackState.VisibilityTracks.ContainsKey(entityId) ||
