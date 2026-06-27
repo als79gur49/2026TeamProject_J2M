@@ -405,9 +405,6 @@ namespace Game.Feature.Gameplay.Host
         internal PlayerActionAnimationOwnershipDiagnostics PlayerActionAnimationOwnershipDiagnostics =>
             _playerActionAnimationLane.OwnershipDiagnostics;
 
-        internal EnemyPresentationExecutionMode EnemyPresentationExecutionMode =>
-            _enemyPresentationLane.ExecutionMode;
-
         internal EnemyPresentationOwnershipDiagnostics EnemyPresentationOwnershipDiagnostics =>
             _enemyPresentationLane.OwnershipDiagnostics;
 
@@ -496,11 +493,11 @@ namespace Game.Feature.Gameplay.Host
             _playerActionAnimationLane.ConfigureExecution(mode, playbackPort);
         }
 
-        internal void ConfigureEnemyPresentationExecution(
-            EnemyPresentationExecutionMode mode,
-            IGameplayEnemyPresentationPlaybackPort playbackPort = null)
+        internal void ConfigureEnemyPresentationPlaybackPort(
+            IGameplayEnemyPresentationPlaybackPort playbackPort,
+            bool useDefaultPlaybackPort = true)
         {
-            _enemyPresentationLane.ConfigureExecution(mode, playbackPort);
+            _enemyPresentationLane.ConfigurePlaybackPort(playbackPort, useDefaultPlaybackPort);
         }
 
         internal void ConfigureCoreGameplaySfxPlaybackPort(
@@ -857,7 +854,7 @@ namespace Game.Feature.Gameplay.Host
                     actionKind,
                     _timingProfile),
                 playerActionAnimationPreparation.SuppressPlayerActionFieldsInSharedSync,
-                enemyPresentationPreparation.LegacyOneShotSuppression);
+                enemyPresentationPreparation.OneShotBlockMask);
             _enemyPresentationLane.PresentPrepared(result, enemyPresentationPreparation);
             _playerActionAnimationLane.PresentPrepared(result, playerActionAnimationPreparation);
             _damageDeathVfxLane.Present(result);

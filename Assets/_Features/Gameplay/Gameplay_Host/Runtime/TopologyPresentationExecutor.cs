@@ -898,15 +898,9 @@ namespace Game.Feature.Gameplay.Host
         }
 
         public static GameplayPresentationPipeline CreateEnemyPresentationExecutionPipeline(
-            EnemyPresentationExecutionMode mode,
             IGameplayEnemyPresentationPlaybackPort playbackPort,
             EnemyPresentationExecutionGuard executionGuard)
         {
-            if (mode != EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor)
-            {
-                return null;
-            }
-
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
@@ -919,7 +913,6 @@ namespace Game.Feature.Gameplay.Host
                 {
                     new GameplayEnemyPresentationExecutor(
                         playbackPort,
-                        mode,
                         executionGuard),
                 });
         }

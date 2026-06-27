@@ -53,7 +53,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(context.Host.Presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(context.Host.Presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
                 Assert.That(context.Host.Presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
-                Assert.That(context.Host.Presenter.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
                 Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
                 Assert.That(
                     typeof(GameplaySceneHostConfiguration).GetField(nameof(PlayerActionAnimationExecutionMode)),

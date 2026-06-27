@@ -143,7 +143,6 @@ namespace Game.Feature.Gameplay.Host
             ConfigureProductionDefaultExecutionGuards(
                 topologyLane,
                 playerActionAnimationLane,
-                enemyPresentationLane,
                 coreGameplaySfxLane);
 
             return new GameplayPresentationRuntimeComposition(
@@ -194,12 +193,10 @@ namespace Game.Feature.Gameplay.Host
         private static void ConfigureProductionDefaultExecutionGuards(
             TopologyPresentationLaneRuntime topologyLane,
             PlayerActionAnimationLaneRuntime playerActionAnimationLane,
-            EnemyPresentationLaneRuntime enemyPresentationLane,
             CoreGameplaySfxLaneRuntime coreGameplaySfxLane)
         {
             topologyLane.ConfigureExecution(TopologyPresentationExecutionPolicy.ProductionDefault);
             playerActionAnimationLane.ConfigureExecution(PlayerActionAnimationExecutionPolicy.ProductionDefault);
-            enemyPresentationLane.ConfigureExecution(EnemyPresentationExecutionPolicy.ProductionDefault);
         }
     }
 

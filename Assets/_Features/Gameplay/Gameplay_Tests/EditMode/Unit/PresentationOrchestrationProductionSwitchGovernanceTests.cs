@@ -99,20 +99,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened),
             new(
                 "Enemy presentation",
-                typeof(EnemyPresentationExecutionMode),
-                "LegacyEnemyPresentationMapper",
-                "OrchestrationEnemyPresentationExecutor",
-                "OrchestrationEnemyPresentationExecutor",
-                "OrchestrationEnemyPresentationExecutor",
+                null,
+                "Removed",
+                "GameplayEnemyPresentationExecutor",
+                "GameplayEnemyPresentationExecutor",
+                "GameplayEnemyPresentationExecutor",
                 false,
-                true,
-                "EnemyPresentation_ProductionTelemetry_CoversOwnerSemanticAndRollbackValues",
+                false,
+                "EnemyPresentation_ProductionTelemetry_CoversCurrentOwnerSemantic",
                 "EnemyPresentation_OrchestrationRoute_DoesNotMutateAuthoritativeResultOrBlockingState",
                 "EnemyPresentation_LifecycleCleanup_ClearsGuardDiagnosticsPortAndStaleDriverState",
                 "EnemyPresentationPlanningBoundary_StaysPresentationOnly",
                 "Medium",
                 "Low",
-                "Set EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper.",
+                "Removed; Enemy Presentation is current-only and has no rollback mode.",
                 ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened),
             new(
                 "Core gameplay SFX",
@@ -177,14 +177,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "PR1 removed the legacy player action animation owner; invalid values normalize to the production executor."),
             new(
                 "Enemy presentation",
-                PresentationDomainLifecycleState.NotYetDecommissioned,
-                true,
+                PresentationDomainLifecycleState.CurrentOnlyDecommissioned,
+                false,
                 true,
                 false,
-                "EnemyPresentationExecutionMode",
-                "OrchestrationEnemyPresentationExecutor",
-                "LegacyEnemyPresentationMapper",
-                "Enemy presentation still exposes a legacy/current route."),
+                null,
+                "GameplayEnemyPresentationExecutor",
+                "Removed",
+                "PR6 removed Enemy Presentation legacy execution ownership and rollback mode."),
             new(
                 "Core gameplay SFX",
                 PresentationDomainLifecycleState.CurrentOnlyDecommissioned,
@@ -265,7 +265,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 typeof(TopologyPresentationExecutionMode),
                 typeof(PlayerActionAnimationExecutionMode),
-                typeof(EnemyPresentationExecutionMode),
             };
             var matrixTypes = ReadinessMatrix
                 .Where(row => row.ExecutionModeType != null)
@@ -298,14 +297,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
-                Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
                 Assert.That(coordinator.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
 
                 Assert.That(presenter.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
                 Assert.That(presenter.DamageDeathVfxExecutorDiagnostics.PlaybackRequestedCount, Is.Zero);
                 Assert.That(presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
                 Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
-                Assert.That(presenter.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
                 Assert.That(presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
 
                 foreach (var row in ReadinessMatrix)
@@ -330,12 +327,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 PlayerActionAnimationExecutionPolicy.Normalize((PlayerActionAnimationExecutionMode)999),
                 Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
-            Assert.That(
-                EnemyPresentationExecutionPolicy.Normalize((EnemyPresentationExecutionMode)999),
-                Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
             Assert.That(default(TopologyPresentationExecutionMode), Is.EqualTo(TopologyPresentationExecutionMode.LegacyCoordinator));
             Assert.That(Enum.IsDefined(typeof(PlayerActionAnimationExecutionMode), default(PlayerActionAnimationExecutionMode)), Is.False);
-            Assert.That(default(EnemyPresentationExecutionMode), Is.EqualTo(EnemyPresentationExecutionMode.LegacyEnemyPresentationMapper));
             Assert.That(Enum.GetNames(typeof(CoreGameplaySfxRoute)), Is.EqualTo(new[] { "CurrentExecutor" }));
             Assert.That(default(CoreGameplaySfxRoute), Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
             foreach (var row in ReadinessMatrix)
@@ -509,7 +502,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "DamageDeathVfxExecutionMode",
                 "BoxMotionPresentationExecutionMode",
                 "PlayerActionAnimationExecutionMode",
-                "EnemyPresentationExecutionMode",
                 "CoreGameplaySfxRoute",
                 "ActionAudioExecutionMode",
                 "EnemyAudioExecutionMode",
@@ -586,10 +578,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(topology.InvalidModeNormalizesToLegacy, Is.True);
             Assert.That(topology.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened));
 
-            var enemyPresentation = ReadinessMatrix.Single(row => row.ExecutionModeType == typeof(EnemyPresentationExecutionMode));
+            var enemyPresentation = ReadinessMatrix.Single(row => row.Domain == "Enemy presentation");
             Assert.That(enemyPresentation.CurrentDefault, Is.EqualTo(enemyPresentation.OrchestrationOwner));
             Assert.That(enemyPresentation.DefaultIsLegacy, Is.False);
-            Assert.That(enemyPresentation.InvalidModeNormalizesToLegacy, Is.True);
+            Assert.That(enemyPresentation.InvalidModeNormalizesToLegacy, Is.False);
             Assert.That(enemyPresentation.RecommendedStatus, Is.EqualTo(ProductionSwitchRecommendedStatus.ProductionDefaultOnTelemetryHardened));
 
             foreach (var row in ReadinessMatrix)
@@ -643,7 +635,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
                 Assert.That(coordinator.TopologyPresentationExecutionMode, Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge));
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
-                Assert.That(coordinator.EnemyPresentationExecutionMode, Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor));
             }
             finally
             {

@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Game.Feature.Gameplay.Host
 {
     [Flags]
-    public enum EnemyPresentationLegacyOneShotSuppression
+    public enum EnemyPresentationOneShotBlockMask
     {
         None = 0,
         JumpWindup = 1 << 0,
@@ -147,12 +147,12 @@ namespace Game.Feature.Gameplay.Host
 
         public void Apply(in EnemyViewPresentationState state)
         {
-            Apply(state, EnemyPresentationLegacyOneShotSuppression.None);
+            Apply(state, EnemyPresentationOneShotBlockMask.None);
         }
 
         public void Apply(
             in EnemyViewPresentationState state,
-            EnemyPresentationLegacyOneShotSuppression oneShotSuppression)
+            EnemyPresentationOneShotBlockMask oneShotSuppression)
         {
             var previousState = LastPresentationState;
             LastPresentationState = state;
@@ -177,7 +177,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             if (state.StartedJumpWindupThisTick &&
-                !IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.JumpWindup))
+                !IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.JumpWindup))
             {
                 JumpWindupSignalCount++;
                 if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.JumpWindup))
@@ -187,7 +187,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             if (state.StartedJumpAirborneThisTick &&
-                !IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.JumpAirborneStartOrRetry))
+                !IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.JumpAirborneStartOrRetry))
             {
                 _jumpAirborneTopologySuspendSnapshot = default;
                 JumpAirborneSignalCount++;
@@ -198,14 +198,14 @@ namespace Game.Feature.Gameplay.Host
             }
 
             if (state.LandedFromJumpThisTick &&
-                !IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.JumpLand))
+                !IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.JumpLand))
             {
                 TryApplyNamedStateCrossFade(targetAnimator, DefaultLocomotionStateName);
             }
 
             var suppressChargeActiveStart =
                 state.StartedChargeActiveThisTick &&
-                IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.ChargeActiveStart);
+                IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.ChargeActiveStart);
             if (!suppressChargeActiveStart &&
                 (state.StartedChargeActiveThisTick ||
                  (state.ChargePhase == EnemyChargePhase.Active && previousState.ChargePhase != EnemyChargePhase.Active)))
@@ -236,7 +236,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (state.StartedWindupThisTick &&
                 !(state.StartedChargeWindupThisTick &&
-                  IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.ChargeWindup)))
+                  IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.ChargeWindup)))
             {
                 WindupSignalCount++;
                 if (!handledGlideWindup &&
@@ -269,7 +269,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (state.StartedRecoveryThisTick &&
                 !(state.StartedChargeRecoverThisTick &&
-                  IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.ChargeRecover)))
+                  IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.ChargeRecover)))
             {
                 RecoverySignalCount++;
                 if (!handledGlideRecovery &&
@@ -286,7 +286,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             if (state.DidDie &&
-                !IsSuppressed(oneShotSuppression, EnemyPresentationLegacyOneShotSuppression.DeathTrigger))
+                !IsSuppressed(oneShotSuppression, EnemyPresentationOneShotBlockMask.DeathTrigger))
             {
                 DeathSignalCount++;
                 SetTrigger(targetAnimator, deathTriggerName);
@@ -301,8 +301,8 @@ namespace Game.Feature.Gameplay.Host
         }
 
         private static bool IsSuppressed(
-            EnemyPresentationLegacyOneShotSuppression suppression,
-            EnemyPresentationLegacyOneShotSuppression value)
+            EnemyPresentationOneShotBlockMask suppression,
+            EnemyPresentationOneShotBlockMask value)
         {
             return (suppression & value) == value;
         }

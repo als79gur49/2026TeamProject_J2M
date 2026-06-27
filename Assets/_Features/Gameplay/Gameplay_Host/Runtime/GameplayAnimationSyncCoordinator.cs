@@ -118,8 +118,8 @@ namespace Game.Feature.Gameplay.Host
             IReadOnlyCollection<int> jumpLandingCompletionHoldEntityIds,
             Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds,
             bool suppressPlayerActionFieldsInSharedSync = false,
-            EnemyPresentationLegacyOneShotSuppression enemyPresentationOneShotSuppression =
-                EnemyPresentationLegacyOneShotSuppression.None)
+            EnemyPresentationOneShotBlockMask enemyPresentationOneShotBlockMask =
+                EnemyPresentationOneShotBlockMask.None)
         {
             LastStageClearPlayerPresentationDelaySeconds = 0f;
             BuildContactDelayedEnemyDeathEntityIds(result?.PresentationData);
@@ -140,7 +140,7 @@ namespace Game.Feature.Gameplay.Host
 
                 if (TryGetEnemyAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
                 {
-                    driver.Apply(state, enemyPresentationOneShotSuppression);
+                    driver.Apply(state, enemyPresentationOneShotBlockMask);
                     RefreshEnemyUtilityAnimationTrack(pair.Key, state, driver);
                 }
 
@@ -317,7 +317,7 @@ namespace Game.Feature.Gameplay.Host
                     driver.LastPresentationState,
                     out var presentationState,
                     out var useDeathCommand,
-                    out var legacyCommandMappingKind))
+                    out var commandMappingKind))
             {
                 result = new GameplayEnemyPresentationPlaybackResult(
                     GameplayEnemyPresentationPlaybackResultKind.IgnoredByPolicy);
@@ -339,7 +339,7 @@ namespace Game.Feature.Gameplay.Host
 
             result = new GameplayEnemyPresentationPlaybackResult(
                 GameplayEnemyPresentationPlaybackResultKind.Applied,
-                legacyCommandMappingKind);
+                commandMappingKind);
             return true;
         }
 
@@ -395,10 +395,10 @@ namespace Game.Feature.Gameplay.Host
             in EnemyViewPresentationState previousState,
             out EnemyViewPresentationState state,
             out bool useDeathCommand,
-            out GameplayEnemyPresentationLegacyCommandMappingKind legacyCommandMappingKind)
+            out GameplayEnemyPresentationCommandMappingKind commandMappingKind)
         {
             useDeathCommand = false;
-            legacyCommandMappingKind = GameplayEnemyPresentationLegacyCommandMappingKind.None;
+            commandMappingKind = GameplayEnemyPresentationCommandMappingKind.None;
             state = default;
 
             var entityId = request.EnemyEntityId;
@@ -442,7 +442,7 @@ namespace Game.Feature.Gameplay.Host
             switch (request.EnemyPayload.Kind)
             {
                 case PresentationEnemyPresentationKind.Jump:
-                    legacyCommandMappingKind = GameplayEnemyPresentationLegacyCommandMappingKind.Jump;
+                    commandMappingKind = GameplayEnemyPresentationCommandMappingKind.Jump;
                     switch (request.EnemyPayload.Phase)
                     {
                         case PresentationEnemyPresentationPhase.Windup:
@@ -469,7 +469,7 @@ namespace Game.Feature.Gameplay.Host
 
                     break;
                 case PresentationEnemyPresentationKind.Charge:
-                    legacyCommandMappingKind = GameplayEnemyPresentationLegacyCommandMappingKind.Charge;
+                    commandMappingKind = GameplayEnemyPresentationCommandMappingKind.Charge;
                     switch (request.EnemyPayload.Phase)
                     {
                         case PresentationEnemyPresentationPhase.Windup:
@@ -498,7 +498,7 @@ namespace Game.Feature.Gameplay.Host
                     }
 
                     useDeathCommand = true;
-                    legacyCommandMappingKind = GameplayEnemyPresentationLegacyCommandMappingKind.Death;
+                    commandMappingKind = GameplayEnemyPresentationCommandMappingKind.Death;
                     didDie = true;
                     break;
                 default:

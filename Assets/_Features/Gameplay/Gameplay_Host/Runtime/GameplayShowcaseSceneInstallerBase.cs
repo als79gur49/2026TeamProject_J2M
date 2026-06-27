@@ -446,31 +446,31 @@ namespace Game.Feature.Gameplay.Host
             in InitialGameplayState initialState)
         {
             return initialState.EnemyUnitArchetypeCatalog ??
-                   (AllowsLegacySceneCatalogFallback(initialState) ? ResolveEnemyUnitArchetypeCatalog() : null);
+                   (AllowsSceneCatalogDefaultResolution(initialState) ? ResolveEnemyUnitArchetypeCatalog() : null);
         }
 
         private EnemyPresentationArchetypeCatalog ResolveConfiguredEnemyPresentationArchetypeCatalog(
             in InitialGameplayState initialState)
         {
             return initialState.EnemyPresentationArchetypeCatalog ??
-                   (AllowsLegacySceneCatalogFallback(initialState) ? ResolveEnemyPresentationArchetypeCatalog() : null);
+                   (AllowsSceneCatalogDefaultResolution(initialState) ? ResolveEnemyPresentationArchetypeCatalog() : null);
         }
 
         private EnemyPresentationCatalog ResolveConfiguredEnemyPresentationCatalog(
             in InitialGameplayState initialState)
         {
             return initialState.EnemyPresentationCatalog ??
-                   (AllowsLegacySceneCatalogFallback(initialState) ? ResolveEnemyPresentationCatalog() : null);
+                   (AllowsSceneCatalogDefaultResolution(initialState) ? ResolveEnemyPresentationCatalog() : null);
         }
 
         private StaticEntityPresentationCatalog ResolveConfiguredStaticEntityPresentationCatalog(
             in InitialGameplayState initialState)
         {
             return initialState.StaticEntityPresentationCatalog ??
-                   (AllowsLegacySceneCatalogFallback(initialState) ? ResolveStaticEntityPresentationCatalog() : null);
+                   (AllowsSceneCatalogDefaultResolution(initialState) ? ResolveStaticEntityPresentationCatalog() : null);
         }
 
-        private static bool AllowsLegacySceneCatalogFallback(in InitialGameplayState initialState)
+        private static bool AllowsSceneCatalogDefaultResolution(in InitialGameplayState initialState)
         {
             return initialState.StageContentEntry == null;
         }

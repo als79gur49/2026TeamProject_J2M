@@ -30,19 +30,4 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
-    internal static class EnemyPresentationExecutionPolicy
-    {
-        public const EnemyPresentationExecutionMode ProductionDefault =
-            EnemyPresentationExecutionDefaults.ProductionDefault;
-        public const EnemyPresentationExecutionMode LegacyFallback =
-            EnemyPresentationExecutionDefaults.LegacyFallback;
-
-        public static EnemyPresentationExecutionMode Normalize(EnemyPresentationExecutionMode mode)
-        {
-            return Enum.IsDefined(typeof(EnemyPresentationExecutionMode), mode)
-                ? mode
-                : LegacyFallback;
-        }
-    }
-
 }

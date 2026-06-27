@@ -405,10 +405,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 host.Presenter.PlayerActionAnimationExecutionMode,
                 Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor),
                 $"{scenePath} must boot player action animation with the production orchestration owner.");
-            Assert.That(
-                host.Presenter.EnemyPresentationExecutionMode,
-                Is.EqualTo(EnemyPresentationExecutionMode.OrchestrationEnemyPresentationExecutor),
-                $"{scenePath} must boot enemy presentation with the production orchestration owner.");
         }
 
         private static void AssertStage1_1DirectPlayEvidence(
