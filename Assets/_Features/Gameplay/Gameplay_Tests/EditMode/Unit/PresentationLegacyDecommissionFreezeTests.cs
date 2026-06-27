@@ -28,7 +28,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static readonly string[] YamlExecutionReferenceTokens =
         {
             "ExecutionMode",
-            "TopologyPresentationExecutionMode",
             "PlayerActionAnimationExecutionMode",
             "EnemyPresentationExecutionMode",
             "ActionAudioExecutionMode",
@@ -615,10 +614,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new ConfigureBudget("ConfigureExecution", string.Empty, 0, "Enemy one-shot audio lane configuration facade removed in PR2."),
                 new ConfigureBudget("ConfigureExecution", string.Empty, 0, "Enemy Presentation lane execution configuration facade removed in PR6."),
                 new ConfigureBudget("ConfigureExecution", string.Empty, 0, "Gameplay action audio lane configuration facade removed in PR1."),
-                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeCompositionFactory.cs", 3, "production default lane configuration call sites"),
-                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 3, "coordinator test facade forwarding calls"),
+                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeCompositionFactory.cs", 1, "player action animation production default lane configuration call site"),
+                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 1, "player action animation coordinator test facade forwarding call"),
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationLaneRuntime.cs", 1, "player action animation lane configuration facade"),
-                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs", 1, "topology lane configuration facade"),
+                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs", 0, "topology lane configuration facade removed in PR7B."),
                 new ConfigureBudget("ConfigureTopologyExecution", string.Empty, 0, "No production facade exists in PR0 baseline."),
                 new ConfigureBudget("ConfigurePlayerActionAnimationExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 1, "coordinator test facade definition"),
                 new ConfigureBudget("ConfigurePlayerActionAnimationExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs", 2, "presenter test facade definition and forwarding call"),
@@ -632,13 +631,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static SerializedFieldBudget[] LoadSerializedFieldManifest()
         {
-            return new[]
-            {
-                new SerializedFieldBudget(
-                    "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs",
-                    "public TopologyPresentationExecutionMode TopologyPresentationExecutionMode",
-                    1),
-            };
+            return Array.Empty<SerializedFieldBudget>();
         }
 
         private static SerializedReflectionTarget[] LoadSerializedReflectionTargets()
@@ -702,10 +695,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static EnumBudget[] LoadEnumManifest()
         {
-            return new[]
-            {
-                new EnumBudget(typeof(TopologyPresentationExecutionMode), "LegacyCoordinator", "ExecutorBridge"),
-            };
+            return Array.Empty<EnumBudget>();
         }
 
         private static ResidueBudget[] ParseResidueManifest(string tsv)
@@ -898,6 +888,7 @@ Player Action Animation	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Ho
 Player Action Animation	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationPresentationExecutor.cs	PlayerActionAnimationPresentationExecutor	Legacy telemetry	ExecutedByLegacy	2	Current legacy execution counter	Player Action Animation Legacy Decommission
 Player Action Animation	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationPresentationExecutor.cs	PlayerActionAnimationPresentationExecutor	Legacy telemetry	SkippedLegacy	3	Current skipped legacy counter	Player Action Animation Legacy Decommission
 Player Action Animation	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationPresentationExecutor.cs	PlayerActionAnimationPresentationExecutor	Suppression telemetry	Suppressed	14	Current one-shot suppression diagnostics	Player Action Animation Legacy Decommission
+Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	GameplayHostPresentationPipelineFactory	Shared factory player action mode parameter	ExecutionMode	1	Player action animation mode parameter in shared host pipeline factory, not topology execution residue	Out of scope
 Player Action Animation	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimationTimingAuthoring.cs	PlayerAnimationTimingAuthoring	Timing authoring compatibility	Legacy	7	Retained animator timing compatibility vocabulary	Out of scope
 Player Action Animation	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimatorDriver.cs	PlayerAnimatorDriver	Timing compatibility	Legacy	3	Retained animator driver compatibility vocabulary	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerDeathDisplacementPlanner.cs	PlayerDeathDisplacementPlanner	Death displacement fallback	Fallback	11	Non-route death displacement fallback	Out of scope
@@ -909,18 +900,18 @@ Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gamep
 Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs	StageBackedGameplaySceneInstallerBase	Installer suppression	Suppressed	2	Installer suppression vocabulary	Out of scope
 Retained Owner / Unrelated	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TileFeatureAudioPresentationController.cs	TileFeatureAudioPresentationController	Audio plan lifecycle	PendingPlan	6	Unrelated tile-feature audio pending plan vocabulary	Out of scope
 Retained Owner / Unrelated	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyAudioPresentationController.cs	TopologyAudioPresentationController	Audio plan lifecycle	PendingPlan	6	Unrelated topology audio pending plan vocabulary	Out of scope
-Topology	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Mode and diagnostics	ExecutionMode	49	Current topology execution-mode residue	Topology Legacy Decommission
-Topology	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Rollback diagnostics	Rollback	2	Current rollback-mode diagnostics residue	Topology Legacy Decommission
-Topology	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Fallback constants	Fallback	2	Current fallback compatibility residue	Topology Legacy Decommission
-Topology	LEGACY_PORT_OR_ADAPTER	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Legacy transition port	Legacy	55	Current topology legacy port and diagnostics residue	Topology Legacy Decommission
-Topology	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Legacy telemetry	ExecutedByLegacy	3	Current legacy execution counter	Topology Legacy Decommission
-Topology	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Legacy telemetry	SkippedLegacy	3	Current skipped legacy counter	Topology Legacy Decommission
-Topology	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs	TopologyPresentationLaneRuntime	Execution guard	ExecutionMode	11	Current lane execution-mode facade	Topology Legacy Decommission
-Topology	EXECUTION_POLICY	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs	TopologyPresentationLaneRuntime	ConfigureExecution	ExecutionPolicy	1	Current lane policy normalization	Topology Legacy Decommission
-Topology	NORMALIZATION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs	TopologyPresentationLaneRuntime	ConfigureExecution	Normalize(	1	Current invalid-mode compatibility	Topology Legacy Decommission
-Topology	ROUTE_BRANCH	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs	TopologyPresentationLaneRuntime	UseProductionExecutor	UseProduction	2	Current production/legacy branch	Topology Legacy Decommission
-Topology	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs	TopologyPresentationLaneRuntime	ConfigureExecution	ConfigureExecution	1	Current lane configuration facade	Topology Legacy Decommission
-Topology	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs	TopologyPresentationLaneRuntime	Legacy policy telemetry	Legacy	7	Current lane legacy telemetry	Topology Legacy Decommission
+Topology	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Mode and diagnostics	TopologyPresentationExecutionMode	0	Removed in PR7B topology current-only decommission	Topology Legacy Decommission
+Topology	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Rollback diagnostics	Rollback	0	Removed in PR7B topology current-only decommission	Topology Legacy Decommission
+Topology	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Fallback constants	Fallback	0	Removed in PR7B topology current-only decommission	Topology Legacy Decommission
+Topology	LEGACY_PORT_OR_ADAPTER	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Legacy transition port	Legacy	0	Removed in PR7B topology current-only decommission	Topology Legacy Decommission
+Topology	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Legacy telemetry	ExecutedByLegacy	0	Removed in PR7B topology current-only decommission	Topology Legacy Decommission
+Topology	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Legacy telemetry	SkippedLegacy	0	Removed in PR7B topology current-only decommission	Topology Legacy Decommission
+Topology	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs	TopologyPresentationLaneRuntime	Execution guard	ExecutionMode	0	Removed in PR7B topology current-only decommission	Topology Legacy Decommission
+Topology	EXECUTION_POLICY	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs	TopologyPresentationLaneRuntime	ConfigureExecution	ExecutionPolicy	0	Removed in PR7B topology current-only decommission	Topology Legacy Decommission
+Topology	NORMALIZATION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs	TopologyPresentationLaneRuntime	ConfigureExecution	Normalize(	0	Removed in PR7B topology current-only decommission	Topology Legacy Decommission
+Topology	ROUTE_BRANCH	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs	TopologyPresentationLaneRuntime	UseProductionExecutor	UseProduction	0	Removed in PR7B topology current-only decommission	Topology Legacy Decommission
+Topology	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs	TopologyPresentationLaneRuntime	ConfigureExecution	ConfigureExecution	0	Removed in PR7B topology current-only decommission	Topology Legacy Decommission
+Topology	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs	TopologyPresentationLaneRuntime	Legacy policy telemetry	Legacy	0	Removed in PR7B topology current-only decommission	Topology Legacy Decommission
 Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_PresentationPlanning/Runtime/PresentationPlanning.cs	PresentationPlanning	Plan status	Suppressed	11	Presentation semantic suppression state, not legacy route	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_PresentationPlayback/Runtime/PresentationPlayback.cs	PresentationPlayback	Compatibility vocabulary	Legacy	6	Playback semantic compatibility vocabulary	Out of scope
 Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_PresentationPlayback/Runtime/PresentationPlayback.cs	PresentationPlayback	Playback status	Suppressed	3	Playback status suppression vocabulary	Out of scope

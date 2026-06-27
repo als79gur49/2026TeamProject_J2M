@@ -378,9 +378,6 @@ namespace Game.Feature.Gameplay.Host
         internal PresentationBlockingSnapshot TopologyExecutionPipelineBlockingSnapshot =>
             _topologyLane.BlockingSnapshot;
 
-        internal TopologyPresentationExecutionMode TopologyPresentationExecutionMode =>
-            _topologyLane.ExecutionMode;
-
         internal TopologyPresentationOwnershipDiagnostics TopologyPresentationOwnershipDiagnostics =>
             _topologyLane.OwnershipDiagnostics;
 
@@ -624,16 +621,13 @@ namespace Game.Feature.Gameplay.Host
             EnemyPresentationCatalog enemyPresentationCatalog = null,
             EnemyPresentationBinding[] enemyPresentationBindings = null,
             IReadOnlyList<TileFeatureVfxStyleBinding> tileFeatureVfxStyleBindings = null,
-            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null,
-            TopologyPresentationExecutionMode topologyPresentationExecutionMode =
-                TopologyPresentationExecutionPolicy.ProductionDefault)
+            EnemyInactiveVisualSettings enemyInactiveVisualSettings = null)
         {
             if (viewBinder == null)
             {
                 throw new ArgumentNullException(nameof(viewBinder));
             }
 
-            _topologyLane.ConfigureExecution(topologyPresentationExecutionMode);
             _viewBinder = viewBinder;
             _gravityFieldVisualPresentationController.AttachTargetViewRegistry(_viewBinder.ViewRegistry);
             _moonBlockEmergencePresentationController.Configure(_viewBinder.ViewRegistry, timingProfile);

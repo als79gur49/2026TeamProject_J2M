@@ -449,9 +449,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(coordinator.BoxMotionExecutorDiagnostics.IsCurrentProductionOwner, Is.False);
                 Assert.That(coordinator.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
                 Assert.That(
-                    coordinator.TopologyPresentationExecutionMode,
-                    Is.EqualTo(TopologyPresentationExecutionMode.ExecutorBridge),
-                    "Topology production default migrated before player action animation decommission and must remain stable.");
+                    coordinator.TopologyProductionTelemetrySnapshot.IsProductionDefaultOwner,
+                    Is.True,
+                    "Topology remains on the current presentation route while player action animation decommission stays stable.");
                 Assert.That(coordinator.EnemyAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
                 Assert.That(presenter.PlayerActionAnimationExecutionMode, Is.EqualTo(PlayerActionAnimationExecutionMode.OrchestrationAnimationExecutor));
             }

@@ -184,8 +184,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.EnemyPresentationCatalog,
                 configuration.EnemyPresentationBindings,
                 BuildTileFeatureVfxStyleBindings(configuration.TileFeaturePresentationBindings),
-                configuration.EnemyInactiveVisualSettings,
-                configuration.TopologyPresentationExecutionMode);
+                configuration.EnemyInactiveVisualSettings);
             presenter.AttachTileFeatureVisualRegistry(tileFeatureVisualRegistry);
             presenter.AttachTileFeatureVisualPoseSynchronizer(tileFeatureVisualPoseSynchronizer);
             AttachPresentationExtensions(presenter, presentationDependencies.PresentationExtensions);

@@ -71,7 +71,6 @@ namespace Game.Feature.Gameplay.Host
                 options.TopologyExecutionPipelineFactory ??
                 GameplayHostPresentationPipelineFactory.CreateTopologyExecutionPipeline,
                 new GameplayTopologyTransitionPlaybackPort(topologyTransitionController),
-                new GameplayTopologyLegacyTransitionPort(topologyTransitionController),
                 new GameplayTopologyTransitionCleanupPort(topologyTransitionController));
             var damageDeathVfxLane = new DamageDeathVfxPresentationLaneRuntime(
                 options.DamageDeathVfxExecutionPipelineFactory,
@@ -141,7 +140,6 @@ namespace Game.Feature.Gameplay.Host
                 options.EnemyPresentationExecutionPipelineFactory);
 
             ConfigureProductionDefaultExecutionGuards(
-                topologyLane,
                 playerActionAnimationLane,
                 coreGameplaySfxLane);
 
@@ -191,11 +189,9 @@ namespace Game.Feature.Gameplay.Host
         }
 
         private static void ConfigureProductionDefaultExecutionGuards(
-            TopologyPresentationLaneRuntime topologyLane,
             PlayerActionAnimationLaneRuntime playerActionAnimationLane,
             CoreGameplaySfxLaneRuntime coreGameplaySfxLane)
         {
-            topologyLane.ConfigureExecution(TopologyPresentationExecutionPolicy.ProductionDefault);
             playerActionAnimationLane.ConfigureExecution(PlayerActionAnimationExecutionPolicy.ProductionDefault);
         }
     }

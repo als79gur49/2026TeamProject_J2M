@@ -12,45 +12,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Core")]
-        public void TopologyPresentationExecutor_LegacyCoordinatorMode_IgnoresTopologyTrackWithoutCallingPort()
-        {
-            var port = new RecordingTopologyTransitionPlaybackPort();
-            var guard = new TopologyPresentationExecutionGuard(TopologyPresentationExecutionMode.LegacyCoordinator);
-            var executor = new TopologyPresentationExecutor(
-                port,
-                TopologyPresentationExecutionMode.LegacyCoordinator,
-                guard);
-            var plan = CreateTopologyPlaybackPlan(
-                new CubeTopologyState(FaceId.Floor),
-                new CubeTopologyState(FaceId.Front),
-                CubeRotationKind.Forward);
-
-            executor.Play(plan);
-
-            Assert.That(port.BeginOrRefreshCallCount, Is.Zero);
-            Assert.That(port.IsTransitionActive, Is.False);
-            Assert.That(executor.Diagnostics.ObservedTrackCount, Is.EqualTo(1));
-            Assert.That(executor.Diagnostics.RouteCount, Is.Zero);
-            Assert.That(executor.Diagnostics.IgnoredCount, Is.EqualTo(1));
-            Assert.That(executor.Diagnostics.InvalidTrackCount, Is.Zero);
-            Assert.That(executor.Diagnostics.MissingPortCount, Is.Zero);
-            Assert.That(guard.Diagnostics.ExecutorAttemptCount, Is.EqualTo(1));
-            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.Zero);
-            Assert.That(guard.Diagnostics.SkippedExecutorBecauseLegacyOwnerCount, Is.EqualTo(1));
-            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.Zero);
-        }
-
-        [Test]
-        [Category("Core")]
-        public void TopologyPresentationExecutor_ExecutorBridgeMode_MapsOneTopologyTrackToOnePortCall()
+        public void TopologyPresentationExecutor_CurrentRoute_MapsOneTopologyTrackToOnePortCall()
         {
             var sourceTopology = new CubeTopologyState(FaceId.Floor);
             var destinationTopology = new CubeTopologyState(FaceId.Front);
             var port = new RecordingTopologyTransitionPlaybackPort();
-            var guard = new TopologyPresentationExecutionGuard(TopologyPresentationExecutionMode.ExecutorBridge);
+            var guard = new TopologyPresentationExecutionGuard();
             var executor = new TopologyPresentationExecutor(
                 port,
-                TopologyPresentationExecutionMode.ExecutorBridge,
                 guard);
             var plan = CreateTopologyPlaybackPlan(
                 sourceTopology,
@@ -74,21 +43,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(guard.Diagnostics.ExecutorAttemptCount, Is.EqualTo(1));
             Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
             Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.Zero);
-            Assert.That(guard.Diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.ExecutorBridge));
             Assert.That(guard.Diagnostics.LastExecutionTickIndex, Is.EqualTo(42));
         }
 
         [Test]
         [Category("Core")]
-        public void TopologyPresentationExecutor_ExecutorBridgeMode_PreservesSymbolicTopologyCueSemanticsInRequest()
+        public void TopologyPresentationExecutor_MissingPort_NoOpsWithoutFallback()
+        {
+            var guard = new TopologyPresentationExecutionGuard();
+            var executor = new TopologyPresentationExecutor(
+                playbackPort: null,
+                guard);
+            var plan = CreateTopologyPlaybackPlan(
+                new CubeTopologyState(FaceId.Floor),
+                new CubeTopologyState(FaceId.Front),
+                CubeRotationKind.Forward,
+                tickIndex: 42);
+
+            executor.Play(plan);
+
+            Assert.That(executor.Diagnostics.ObservedTrackCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.RouteCount, Is.Zero);
+            Assert.That(executor.Diagnostics.IgnoredCount, Is.EqualTo(1));
+            Assert.That(executor.Diagnostics.InvalidTrackCount, Is.Zero);
+            Assert.That(executor.Diagnostics.MissingPortCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutorAttemptCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.Zero);
+            Assert.That(guard.Diagnostics.LastExecutionTickIndex, Is.EqualTo(42));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TopologyPresentationExecutor_CurrentRoute_PreservesSymbolicTopologyCueSemanticsInRequest()
         {
             var sourceTopology = new CubeTopologyState(FaceId.Floor);
             var destinationTopology = new CubeTopologyState(FaceId.Front);
             var port = new RecordingTopologyTransitionPlaybackPort();
-            var guard = new TopologyPresentationExecutionGuard(TopologyPresentationExecutionMode.ExecutorBridge);
+            var guard = new TopologyPresentationExecutionGuard();
             var executor = new TopologyPresentationExecutor(
                 port,
-                TopologyPresentationExecutionMode.ExecutorBridge,
                 guard);
             var plan = CreateTopologyPlaybackPlan(
                 sourceTopology,
@@ -119,70 +113,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void TopologyPresentationExecutionGuard_ExecutorBridgeMode_SkipsLegacyAndAllowsExecutor()
+        public void TopologyPresentationExecutionGuard_CurrentRoute_AllowsFirstAttempt()
         {
-            var guard = new TopologyPresentationExecutionGuard(TopologyPresentationExecutionMode.ExecutorBridge);
+            var guard = new TopologyPresentationExecutionGuard();
 
-            guard.RecordSkippedByPolicy(TopologyPresentationExecutionOwner.LegacyCoordinator);
             var executorAllowed = guard.TryBeginExecution(
-                TopologyPresentationExecutionOwner.ExecutorBridge,
                 tickIndex: 9,
                 hasSourceMetadata: false,
                 sourceMetadataKey: 0);
 
             Assert.That(executorAllowed, Is.True);
-            Assert.That(guard.Diagnostics.LegacyAttemptCount, Is.EqualTo(1));
             Assert.That(guard.Diagnostics.ExecutorAttemptCount, Is.EqualTo(1));
-            Assert.That(guard.Diagnostics.ExecutedByLegacyCount, Is.Zero);
             Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
-            Assert.That(guard.Diagnostics.SkippedLegacyBecauseExecutorOwnerCount, Is.EqualTo(1));
             Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.Zero);
         }
 
         [Test]
         [Category("Core")]
-        public void TopologyPresentationExecutionGuard_DuplicateOwnerAttempt_IsRecordedAndBlocked()
+        public void TopologyPresentationExecutionGuard_DuplicateCurrentAttempt_IsRecordedAndBlocked()
         {
-            var guard = new TopologyPresentationExecutionGuard(TopologyPresentationExecutionMode.LegacyCoordinator);
-            var legacyAllowed = guard.TryBeginExecution(
-                TopologyPresentationExecutionOwner.LegacyCoordinator,
+            var guard = new TopologyPresentationExecutionGuard();
+            var firstAllowed = guard.TryBeginExecution(
                 tickIndex: 12,
                 hasSourceMetadata: false,
                 sourceMetadataKey: 0);
 
             var executorAllowed = guard.TryBeginExecution(
-                TopologyPresentationExecutionOwner.ExecutorBridge,
                 tickIndex: 12,
                 hasSourceMetadata: false,
                 sourceMetadataKey: 0);
 
-            Assert.That(legacyAllowed, Is.True);
+            Assert.That(firstAllowed, Is.True);
             Assert.That(executorAllowed, Is.False);
-            Assert.That(guard.Diagnostics.LegacyAttemptCount, Is.EqualTo(1));
-            Assert.That(guard.Diagnostics.ExecutorAttemptCount, Is.EqualTo(1));
-            Assert.That(guard.Diagnostics.ExecutedByLegacyCount, Is.EqualTo(1));
-            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.Zero);
-            Assert.That(guard.Diagnostics.SkippedExecutorBecauseLegacyOwnerCount, Is.EqualTo(1));
+            Assert.That(guard.Diagnostics.ExecutorAttemptCount, Is.EqualTo(2));
+            Assert.That(guard.Diagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
             Assert.That(guard.Diagnostics.DuplicateAttemptCount, Is.EqualTo(1));
-            Assert.That(guard.Diagnostics.LastExecutionOwner, Is.EqualTo(TopologyPresentationExecutionOwner.LegacyCoordinator));
         }
 
         [Test]
         [Category("Core")]
-        public void TopologyPresentationExecutionGuard_DuplicateOwnerAttempt_CanFailFastForTests()
+        public void TopologyPresentationExecutionGuard_DuplicateCurrentAttempt_CanFailFastForTests()
         {
-            var guard = new TopologyPresentationExecutionGuard(
-                TopologyPresentationExecutionMode.LegacyCoordinator,
-                throwOnDuplicate: true);
+            var guard = new TopologyPresentationExecutionGuard(throwOnDuplicate: true);
 
             guard.TryBeginExecution(
-                TopologyPresentationExecutionOwner.LegacyCoordinator,
                 tickIndex: 12,
                 hasSourceMetadata: false,
                 sourceMetadataKey: 0);
 
             Assert.Throws<InvalidOperationException>(() => guard.TryBeginExecution(
-                TopologyPresentationExecutionOwner.ExecutorBridge,
                 tickIndex: 12,
                 hasSourceMetadata: false,
                 sourceMetadataKey: 0));
