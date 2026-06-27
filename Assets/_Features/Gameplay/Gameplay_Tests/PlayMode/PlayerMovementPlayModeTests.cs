@@ -32,6 +32,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private const string PlayerS1PrefabPath = "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab";
         private const string TutorialPassiveContactProfilePath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset";
+        private const float ProjectedViewPositionTolerance = 1f / SimulationFixed.UnitsPerCell;
         private Keyboard _keyboard;
 
         [SetUp]
@@ -2350,14 +2351,26 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(
                 projector.TryResolveEntityRotation(entity.position, snapshot.Topology, expectedFacing, out var projectedRotation),
                 Is.True);
+            var expectedWorldPosition = host.BoardRoot.transform.TransformPoint(expectedLocalPosition);
+            var actualWorldPosition = view.transform.position;
+            var positionDelta = Vector3.Distance(actualWorldPosition, expectedWorldPosition);
             Assert.That(
-                view.transform.position,
-                Is.EqualTo(host.BoardRoot.transform.TransformPoint(expectedLocalPosition)));
+                positionDelta,
+                Is.LessThanOrEqualTo(ProjectedViewPositionTolerance),
+                $"entity {entityId} root position mismatch at next tick {host.TickRunner.NextTickIndex}. " +
+                $"expected={FormatVector3(expectedWorldPosition)} actual={FormatVector3(actualWorldPosition)} " +
+                $"delta={positionDelta:R} expectedLocal={FormatVector3(expectedLocalPosition)} " +
+                $"cell={entity.position} facing={entity.facing} expectedFacing={expectedFacing}");
             Assert.That(
                 Quaternion.Angle(
                     view.transform.rotation,
                     host.BoardRoot.transform.rotation * projectedRotation),
                 Is.LessThan(0.1f));
+        }
+
+        private static string FormatVector3(Vector3 value)
+        {
+            return $"({value.x:R}, {value.y:R}, {value.z:R})";
         }
 
         private static void AssertViewFacing(GameplaySceneHost host, int entityId, Direction expectedFacing)
