@@ -631,16 +631,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 yield return null;
 
                 var diagnostics = context.Host.Presenter.CoreGameplaySfxExecutorDiagnostics;
-                Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
-                Assert.That(diagnostics.CurrentMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
+                Assert.That(context.Host.Presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
                 Assert.That(diagnostics.IsProductionDefaultOwner, Is.True);
-                Assert.That(diagnostics.LegacyOwnerSkippedByPolicyCount, Is.EqualTo(1));
                 Assert.That(diagnostics.PlaybackRequestPlannedCount, Is.EqualTo(1));
                 Assert.That(diagnostics.PlaybackRequestedCount, Is.EqualTo(1));
                 Assert.That(diagnostics.PlaybackSucceededCount, Is.EqualTo(1));
                 Assert.That(diagnostics.DuplicateSuppressedCount, Is.Zero);
                 Assert.That(context.Host.Presenter.PendingGameplayAudioRequestCount, Is.Zero);
-                Assert.That(context.Host.Presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(context.Host.Presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(1));
             }
             finally
@@ -667,7 +664,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Assert.That(diagnostics.PlaybackSucceededCount, Is.EqualTo(2));
                 Assert.That(diagnostics.DuplicateSuppressedCount, Is.Zero);
                 Assert.That(context.Host.Presenter.CoreGameplaySfxOwnershipDiagnostics.DuplicateAttemptCount, Is.Zero);
-                Assert.That(context.Host.Presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByLegacyCount, Is.Zero);
                 Assert.That(context.Host.Presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(2));
             }
             finally
@@ -700,8 +696,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 var attachedDiagnostics = attachedContext.Host.Presenter.CoreGameplaySfxExecutorDiagnostics;
                 Assert.That(attachedDiagnostics.AttachedLikePlaybackCount, Is.EqualTo(1));
-                Assert.That(attachedDiagnostics.TwoDFallbackPlaybackCount, Is.Zero);
-                Assert.That(attachedDiagnostics.LastFallbackReason, Is.EqualTo(GameplaySfxFallbackReason.None));
+                Assert.That(attachedDiagnostics.OwnerMissingTwoDPlaybackCount, Is.Zero);
+                Assert.That(attachedDiagnostics.LastDiagnosticReason, Is.EqualTo(GameplaySfxDiagnosticReason.None));
             }
             finally
             {
@@ -720,10 +716,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 var fallbackDiagnostics = fallbackContext.Host.Presenter.CoreGameplaySfxExecutorDiagnostics;
                 Assert.That(fallbackDiagnostics.AttachedLikePlaybackCount, Is.Zero);
-                Assert.That(fallbackDiagnostics.TwoDFallbackPlaybackCount, Is.EqualTo(1));
+                Assert.That(fallbackDiagnostics.OwnerMissingTwoDPlaybackCount, Is.EqualTo(1));
                 Assert.That(fallbackDiagnostics.OwnerViewMissingCount, Is.EqualTo(1));
-                Assert.That(fallbackDiagnostics.FallbackCount, Is.EqualTo(1));
-                Assert.That(fallbackDiagnostics.LastFallbackReason, Is.EqualTo(GameplaySfxFallbackReason.OwnerViewMissingTwoDFallback));
+                Assert.That(fallbackDiagnostics.DiagnosticCount, Is.EqualTo(1));
+                Assert.That(fallbackDiagnostics.LastDiagnosticReason, Is.EqualTo(GameplaySfxDiagnosticReason.OwnerViewMissingPlay2D));
                 Assert.That(
                     typeof(PresentationCue).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                         .Select(field => field.FieldType),
@@ -806,7 +802,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     var diagnostics = lethalContext.Host.Presenter.CoreGameplaySfxExecutorDiagnostics;
                     Assert.That(diagnostics.EnemyDeathGenericCoreSfxSuppressedCount, Is.EqualTo(1));
                     Assert.That(diagnostics.LethalEnemyDamageSuppressedByDeathCount, Is.EqualTo(1));
-                    Assert.That(diagnostics.PlaybackNoOpFallbackCount, Is.EqualTo(2));
+                    Assert.That(diagnostics.PlaybackNoOpSuppressedCount, Is.EqualTo(2));
                     Assert.That(diagnostics.DuplicateSuppressedCount, Is.Zero);
                     Assert.That(lethalContext.Host.Presenter.EnemyAudioExecutorDiagnostics.PlaybackSucceededCount, Is.EqualTo(1));
                 }
@@ -848,24 +844,21 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator CoreSfx_ExplicitLegacyRollback_RemainsAvailableAfterPlayModeSmoke()
+        public IEnumerator CoreSfx_LegacyRoute_NotReachableAfterPlayModeSmoke()
         {
-            var context = CreateHostContext(
-                nameof(CoreSfx_ExplicitLegacyRollback_RemainsAvailableAfterPlayModeSmoke),
-                coreSfxExecutionMode: CoreGameplaySfxExecutionMode.LegacyGameplayAudioController);
+            var context = CreateHostContext(nameof(CoreSfx_LegacyRoute_NotReachableAfterPlayModeSmoke));
             try
             {
                 context.Host.Presenter.Present(CreateTickResult(CreateAllCoreSfxPresentationData(), tickIndex: 51));
                 yield return null;
 
                 var diagnostics = context.Host.Presenter.CoreGameplaySfxExecutorDiagnostics;
-                Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
-                Assert.That(diagnostics.CurrentMode, Is.EqualTo(CoreGameplaySfxExecutionMode.LegacyGameplayAudioController));
-                Assert.That(diagnostics.IsProductionDefaultOwner, Is.False);
-                Assert.That(diagnostics.PlaybackRequestedCount, Is.Zero);
+                Assert.That(context.Host.Presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
+                Assert.That(diagnostics.IsProductionDefaultOwner, Is.True);
+                Assert.That(diagnostics.PlaybackRequestedCount, Is.EqualTo(6));
+                Assert.That(diagnostics.PlaybackSucceededCount, Is.EqualTo(6));
                 Assert.That(diagnostics.DuplicateSuppressedCount, Is.Zero);
-                Assert.That(context.Host.Presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByLegacyCount, Is.EqualTo(6));
-                Assert.That(context.Host.Presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.Zero);
+                Assert.That(context.Host.Presenter.CoreGameplaySfxOwnershipDiagnostics.ExecutedByExecutorCount, Is.EqualTo(6));
                 Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.GreaterThanOrEqualTo(5));
             }
             finally
@@ -919,7 +912,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var context = CreateHostContext(nameof(AudioOwnership_AfterCoreSfxPlayModeSmoke_RemainsSeparated));
             try
             {
-                Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
+                Assert.That(context.Host.Presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
                 Assert.That(context.Host.GetComponent<Game.Feature.Flow.Audio.GlobalAudioFlowBootstrap>(), Is.Null);
                 context.Host.Presenter.Present(CreateTickResult(CreatePlayerDamagePresentationData(10), tickIndex: 71));
                 yield return null;
@@ -940,7 +933,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             bool autoCreateViews = false,
             IReadOnlyDictionary<GameplayAudioSemanticId, AudioAttachmentSlot> gameplayAudioAttachmentSlots = null,
             EnemyAudioProfile enemyAudioProfile = null,
-            CoreGameplaySfxExecutionMode? coreSfxExecutionMode = null,
             IGameplayEntityViewFactory viewFactoryOverride = null)
         {
             persistenceStore ??= new RecordingAudioSettingsPersistenceStore();
@@ -971,11 +963,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 initialEntities,
                 autoCreateViews,
                 viewFactory));
-            if (coreSfxExecutionMode.HasValue)
-            {
-                host.Presenter.ConfigureCoreGameplaySfxExecution(coreSfxExecutionMode.Value);
-            }
-
             Assert.That(installer.RuntimeRoot, Is.SameAs(runtimeRoot));
             Assert.That(installer.AudioService, Is.Not.Null);
             Assert.That(installer.AudioSettingsService, Is.Not.Null);

@@ -31,7 +31,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "TopologyPresentationExecutionMode",
             "PlayerActionAnimationExecutionMode",
             "EnemyPresentationExecutionMode",
-            "CoreGameplaySfxExecutionMode",
             "ActionAudioExecutionMode",
             "EnemyAudioExecutionMode",
         };
@@ -42,7 +41,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "ConfigureTopologyExecution",
             "ConfigurePlayerActionAnimationExecution",
             "ConfigureEnemyPresentationExecution",
-            "ConfigureCoreGameplaySfxExecution",
             "ConfigureActionAudioExecution",
             "ConfigureGameplayActionAudioExecution",
             "ConfigureEnemyAudioExecution",
@@ -325,7 +323,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             "private const char Separator = ';'; " +
                             "public BoxMotionPresentationExecutionMode ExecutionMode => _guard.Diagnostics.Mode; " +
                             "public EnemyAudioExecutionMode EnemyMode { get; } " +
-                            "public CoreGameplaySfxExecutionMode SfxMode { get { return _mode; } } " +
+                            "public CoreGameplaySfxRoute SfxMode { get { return _mode; } } " +
                             "public ActionAudioExecutionMode ActionMode { get; private set; }",
                     },
                     serializedManifest).HasViolations,
@@ -515,7 +513,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         ["Assets/_Features/Gameplay/Gameplay_Host/Runtime/NewSerialized.cs"] =
                             "public EnemyAudioExecutionMode EnemyAudioExecutionMode; " +
                             "[Obsolete] [SerializeField] private TopologyPresentationExecutionMode _topologyMode = TopologyPresentationExecutionMode.ExecutorBridge; " +
-                            "[SerializeField] private CoreGameplaySfxExecutionMode _coreMode; " +
+                            "[SerializeField] private CoreGameplaySfxRoute _coreMode; " +
                             "[SerializeReference] private ActionAudioExecutionMode _actionMode; " +
                             "[field: SerializeField] public PlayerActionAnimationExecutionMode PlayerMode { get; private set; } " +
                             "[field: SerializeReference] public EnemyPresentationExecutionMode EnemyMode { get; private set; }",
@@ -613,12 +611,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new[]
             {
                 new ConfigureBudget("ConfigureExecution", string.Empty, 0, "Box Motion lane execution configuration facade removed in PR4."),
-                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs", 1, "core SFX lane configuration facade"),
+                new ConfigureBudget("ConfigureExecution", string.Empty, 0, "Core SFX lane execution configuration facade removed in PR5."),
                 new ConfigureBudget("ConfigureExecution", string.Empty, 0, "Enemy one-shot audio lane configuration facade removed in PR2."),
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyPresentationLaneRuntime.cs", 1, "enemy presentation lane configuration facade"),
                 new ConfigureBudget("ConfigureExecution", string.Empty, 0, "Gameplay action audio lane configuration facade removed in PR1."),
-                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeCompositionFactory.cs", 4, "production default lane configuration call sites"),
-                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 5, "coordinator test facade forwarding calls"),
+                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeCompositionFactory.cs", 3, "production default lane configuration call sites"),
+                new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 3, "coordinator test facade forwarding calls"),
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionAnimationLaneRuntime.cs", 1, "player action animation lane configuration facade"),
                 new ConfigureBudget("ConfigureExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationLaneRuntime.cs", 1, "topology lane configuration facade"),
                 new ConfigureBudget("ConfigureTopologyExecution", string.Empty, 0, "No production facade exists in PR0 baseline."),
@@ -626,8 +624,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new ConfigureBudget("ConfigurePlayerActionAnimationExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs", 2, "presenter test facade definition and forwarding call"),
                 new ConfigureBudget("ConfigureEnemyPresentationExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 1, "coordinator test facade definition"),
                 new ConfigureBudget("ConfigureEnemyPresentationExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs", 2, "presenter test facade definition and forwarding call"),
-                new ConfigureBudget("ConfigureCoreGameplaySfxExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs", 1, "coordinator test facade definition"),
-                new ConfigureBudget("ConfigureCoreGameplaySfxExecution", "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs", 2, "presenter test facade definition and forwarding call"),
+                new ConfigureBudget("ConfigureCoreGameplaySfxExecution", string.Empty, 0, "Core SFX rollback configure facade removed in PR5."),
                 new ConfigureBudget("ConfigureActionAudioExecution", string.Empty, 0, "Gameplay action audio configure facade removed in PR1."),
                 new ConfigureBudget("ConfigureGameplayActionAudioExecution", string.Empty, 0, "No production facade exists in PR0 baseline."),
                 new ConfigureBudget("ConfigureEnemyAudioExecution", string.Empty, 0, "Enemy one-shot audio configure facade removed in PR2."),
@@ -710,7 +707,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 new EnumBudget(typeof(TopologyPresentationExecutionMode), "LegacyCoordinator", "ExecutorBridge"),
                 new EnumBudget(typeof(EnemyPresentationExecutionMode), "LegacyEnemyPresentationMapper", "OrchestrationEnemyPresentationExecutor"),
-                new EnumBudget(typeof(CoreGameplaySfxExecutionMode), "LegacyGameplayAudioController", "OrchestrationSfxBridgeExecutor"),
             };
         }
 
@@ -772,16 +768,16 @@ Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/Bo
 Box Motion	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	Legacy fallback	Fallback	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
 Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	Legacy policy telemetry	SkippedLegacy	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
 Box Motion	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxMotionPresentationLaneRuntime.cs	BoxMotionPresentationLaneRuntime	Legacy suppression	Suppressed	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
-Core Gameplay SFX	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Execution guard	ExecutionMode	12	Current lane execution-mode facade	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	EXECUTION_POLICY	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	ConfigureExecution	ExecutionPolicy	2	Current lane policy normalization	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	NORMALIZATION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	ConfigureExecution	Normalize(	1	Current invalid-mode compatibility	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	ROUTE_BRANCH	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	UseProductionExecutor	UseProduction	3	Current production/legacy branch	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	ConfigureExecution	ConfigureExecution	1	Current lane configuration facade	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Legacy policy telemetry	Legacy	6	Current lane legacy telemetry	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Playback fallback	Fallback	17	Current SFX playback fallback diagnostics	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Legacy policy telemetry	SkippedLegacy	2	Current skipped legacy counter	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Legacy suppression	Suppressed	10	Current production owner suppression	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Legacy pending plan	PendingPlan	2	Current legacy controller pending plan route	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Execution guard	ExecutionMode	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	EXECUTION_POLICY	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	ConfigureExecution	ExecutionPolicy	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	NORMALIZATION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	ConfigureExecution	Normalize(	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	ROUTE_BRANCH	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	UseProductionExecutor	UseProduction	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	ConfigureExecution	ConfigureExecution	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Legacy policy telemetry	Legacy	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Playback fallback	Fallback	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Legacy policy telemetry	SkippedLegacy	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
+Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Current suppression diagnostics	Suppressed	12	Current duplicate/no-op suppression diagnostics retained, not a legacy route	Out of scope
+Core Gameplay SFX	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/CoreGameplaySfxLaneRuntime.cs	CoreGameplaySfxLaneRuntime	Legacy pending plan	PendingPlan	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs	DefaultGameplayEntityViewFactory	Inactive visual setup	Legacy	1	Enemy inactive color fallback compatibility	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs	DefaultGameplayEntityViewFactory	Inactive visual setup	Fallback	1	Enemy inactive color fallback compatibility	Out of scope
 Enemy One-shot Audio	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAudioPresentationController.cs	EnemyAudioPresentationController	Legacy pending plan	PendingPlan	8	Current legacy controller pending plan route	Enemy One-shot Audio Legacy Decommission
@@ -827,7 +823,7 @@ Gameplay Action Audio	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_H
 Player Action Animation	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayAnimationSyncCoordinator.cs	GameplayAnimationSyncCoordinator	Retained owner mapping	Legacy	12	Retained animation sync owner mapping	Out of scope
 Player Action Animation	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayAnimationSyncCoordinator.cs	GameplayAnimationSyncCoordinator	Death fallback	Fallback	2	Retained death-facing fallback	Out of scope
 Player Action Animation	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayAnimationSyncCoordinator.cs	GameplayAnimationSyncCoordinator	One-shot suppression	Suppressed	4	Retained enemy one-shot suppression forwarding	Out of scope
-Core Gameplay SFX	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayAudioPresentationController.cs	GameplayAudioPresentationController	Legacy pending plan	PendingPlan	8	Current legacy controller pending plan route	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayAudioPresentationController.cs	GameplayAudioPresentationController	Legacy pending plan	PendingPlan	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayBoardSurfaceRenderer.cs	GameplayBoardSurfaceRenderer	Visual fallback	Fallback	18	Board renderer visual fallback, not legacy route	Out of scope
 Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayBoardSurfaceRenderer.cs	GameplayBoardSurfaceRenderer	Visual suppression	Suppressed	7	Renderer visual suppression, not migration route	Out of scope
 Enemy One-shot Audio	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayEnemyAudioPresentationExecutor.cs	GameplayEnemyAudioPresentationExecutor	Mode and diagnostics	ExecutionMode	34	Current enemy audio execution-mode residue	Enemy One-shot Audio Legacy Decommission
@@ -854,12 +850,12 @@ Retained Owner / Unrelated	CONFIGURE_FACADE_CALL	Assets/_Features/Gameplay/Gamep
 Retained Owner / Unrelated	LEGACY_PORT_OR_ADAPTER	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationRuntimeCompositionFactory.cs	GameplayPresentationRuntimeCompositionFactory	Topology legacy port binding	Legacy	1	Current topology legacy port construction	Topology Legacy Decommission
 Retained Owner / Unrelated	SERIALIZED_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs	GameplaySceneHostConfiguration	Topology execution field	ExecutionMode	2	Existing serialized topology execution-mode field	PR0 or later serialized cleanup
 Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs	GameplaySceneHostConfiguration	Damage/death suppression field	Suppressed	1	Existing damage/death suppression field	PR0 or later serialized cleanup
-Core Gameplay SFX	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySfxPresentationExecutor.cs	GameplaySfxPresentationExecutor	Mode and diagnostics	ExecutionMode	29	Current core SFX execution-mode residue	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySfxPresentationExecutor.cs	GameplaySfxPresentationExecutor	Fallback diagnostics	Fallback	93	Current SFX fallback diagnostics	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySfxPresentationExecutor.cs	GameplaySfxPresentationExecutor	Legacy telemetry	Legacy	43	Current legacy owner diagnostics residue	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySfxPresentationExecutor.cs	GameplaySfxPresentationExecutor	Legacy telemetry	ExecutedByLegacy	2	Current legacy execution counter	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySfxPresentationExecutor.cs	GameplaySfxPresentationExecutor	Legacy telemetry	SkippedLegacy	2	Current skipped legacy counter	Core Gameplay SFX Legacy Decommission
-Core Gameplay SFX	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySfxPresentationExecutor.cs	GameplaySfxPresentationExecutor	Suppression telemetry	Suppressed	50	Current suppression diagnostics	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySfxPresentationExecutor.cs	GameplaySfxPresentationExecutor	Mode and diagnostics	ExecutionMode	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySfxPresentationExecutor.cs	GameplaySfxPresentationExecutor	Fallback diagnostics	Fallback	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySfxPresentationExecutor.cs	GameplaySfxPresentationExecutor	Legacy telemetry	Legacy	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySfxPresentationExecutor.cs	GameplaySfxPresentationExecutor	Legacy telemetry	ExecutedByLegacy	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySfxPresentationExecutor.cs	GameplaySfxPresentationExecutor	Legacy telemetry	SkippedLegacy	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
+Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySfxPresentationExecutor.cs	GameplaySfxPresentationExecutor	Current suppression diagnostics	Suppressed	68	Current duplicate/no-op suppression diagnostics retained, not a legacy route	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs	GameplayShowcaseSceneInstallerBase	Showcase compatibility	Legacy	5	Showcase installer compatibility vocabulary	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs	GameplayShowcaseSceneInstallerBase	Showcase fallback	Fallback	5	Showcase installer fallback vocabulary	Out of scope
 Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs	GameplayShowcaseSceneInstallerBase	Showcase suppression	Suppressed	4	Showcase installer suppression vocabulary	Out of scope
@@ -870,7 +866,7 @@ Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureBoxMotionPresentationExecution	0	Removed in Box Motion current-only decommission PR4	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigurePlayerActionAnimationExecution	1	Current test-only forwarding facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureEnemyPresentationExecution	1	Current test-only forwarding facade	Presentation Legacy Decommission
-Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureCoreGameplaySfxExecution	1	Current test-only forwarding facade	Presentation Legacy Decommission
+Core Gameplay SFX	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureCoreGameplaySfxExecution	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureActionAudioExecution	0	Removed for Gameplay Action Audio Legacy Decommission PR1	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Test configuration facades	ConfigureEnemyAudioExecution	0	Enemy one-shot configure facade removed in PR2	Presentation Legacy Decommission
 Retained Owner / Unrelated	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs	GameplayTickPresentationCoordinator	Read-only diagnostics aggregation	Legacy	11	Retained read-only diagnostics aggregation	Out of scope
@@ -882,12 +878,12 @@ Retained Owner / Unrelated	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Hos
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureBoxMotionPresentationExecution	0	Removed in Box Motion current-only decommission PR4	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigurePlayerActionAnimationExecution	2	Current test-only forwarding facade	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureEnemyPresentationExecution	2	Current test-only forwarding facade	Presentation Legacy Decommission
-Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureCoreGameplaySfxExecution	2	Current test-only forwarding facade	Presentation Legacy Decommission
+Core Gameplay SFX	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureCoreGameplaySfxExecution	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureActionAudioExecution	0	Removed for Gameplay Action Audio Legacy Decommission PR1	Presentation Legacy Decommission
 Retained Owner / Unrelated	CONFIGURE_FACADE_DEFINITION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs	GameplayTickViewPresenter	Test configuration facades	ConfigureEnemyAudioExecution	0	Enemy one-shot configure facade removed in PR2	Presentation Legacy Decommission
 Box Motion	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTrackPlanner.cs	GameplayTrackPlanner	Box legacy track suppression	Legacy	0	Removed in Box Motion current-only decommission PR4	Box Motion Legacy Decommission
 Box Motion	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTrackPlanner.cs	GameplayTrackPlanner	Pose fallback	Fallback	3	Retained planner pose fallback	Out of scope
-Core Gameplay SFX	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GravityFieldAudioPresentationController.cs	GravityFieldAudioPresentationController	Audio plan lifecycle	PendingPlan	8	Unrelated gravity-field pending plan vocabulary	Out of scope
+Retained Owner / Unrelated	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/GravityFieldAudioPresentationController.cs	GravityFieldAudioPresentationController	Audio plan lifecycle	PendingPlan	8	Unrelated gravity-field pending plan vocabulary	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/MoonBlockEmergencePresentationController.cs	MoonBlockEmergencePresentationController	Visual normalization	Normalize(	3	Non-route visual normalization	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/MotionTrack.cs	MotionTrack	Track fallback	Fallback	2	Non-route motion sampling fallback	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/MotionTrack.cs	MotionTrack	Track normalization	Normalize(	1	Non-route vector normalization	Out of scope
@@ -908,13 +904,13 @@ Player Action Animation	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay
 Player Action Animation	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimatorDriver.cs	PlayerAnimatorDriver	Timing compatibility	Legacy	3	Retained animator driver compatibility vocabulary	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerDeathDisplacementPlanner.cs	PlayerDeathDisplacementPlanner	Death displacement fallback	Fallback	11	Non-route death displacement fallback	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerDeathDisplacementPlanner.cs	PlayerDeathDisplacementPlanner	Vector normalization	Normalize(	7	Non-route vector normalization	Out of scope
-Core Gameplay SFX	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerLocomotionAudioPresentationController.cs	PlayerLocomotionAudioPresentationController	Audio plan lifecycle	PendingPlan	7	Unrelated locomotion audio pending plan vocabulary	Out of scope
-Core Gameplay SFX	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerLocomotionAudioPresentationController.cs	PlayerLocomotionAudioPresentationController	Audio suppression	Suppressed	8	Unrelated locomotion audio suppression vocabulary	Out of scope
+Retained Owner / Unrelated	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerLocomotionAudioPresentationController.cs	PlayerLocomotionAudioPresentationController	Audio plan lifecycle	PendingPlan	7	Unrelated locomotion audio pending plan vocabulary	Out of scope
+Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerLocomotionAudioPresentationController.cs	PlayerLocomotionAudioPresentationController	Audio suppression	Suppressed	8	Unrelated locomotion audio suppression vocabulary	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerViewPresentationMapper.cs	PlayerViewPresentationMapper	Death fallback	Fallback	9	Retained death-facing fallback	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_Host/Runtime/PresentationMotionTrack.cs	PresentationMotionTrack	Correlation fallback	Fallback	9	Non-route correlation fallback	Out of scope
 Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_Host/Runtime/StageBackedGameplaySceneInstallerBase.cs	StageBackedGameplaySceneInstallerBase	Installer suppression	Suppressed	2	Installer suppression vocabulary	Out of scope
-Core Gameplay SFX	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TileFeatureAudioPresentationController.cs	TileFeatureAudioPresentationController	Audio plan lifecycle	PendingPlan	6	Unrelated tile-feature audio pending plan vocabulary	Out of scope
-Core Gameplay SFX	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyAudioPresentationController.cs	TopologyAudioPresentationController	Audio plan lifecycle	PendingPlan	6	Unrelated topology audio pending plan vocabulary	Out of scope
+Retained Owner / Unrelated	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TileFeatureAudioPresentationController.cs	TileFeatureAudioPresentationController	Audio plan lifecycle	PendingPlan	6	Unrelated tile-feature audio pending plan vocabulary	Out of scope
+Retained Owner / Unrelated	PENDING_PLAN	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyAudioPresentationController.cs	TopologyAudioPresentationController	Audio plan lifecycle	PendingPlan	6	Unrelated topology audio pending plan vocabulary	Out of scope
 Topology	EXECUTION_MODE	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Mode and diagnostics	ExecutionMode	49	Current topology execution-mode residue	Topology Legacy Decommission
 Topology	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Rollback diagnostics	Rollback	2	Current rollback-mode diagnostics residue	Topology Legacy Decommission
 Topology	ROLLBACK_OR_FALLBACK	Assets/_Features/Gameplay/Gameplay_Host/Runtime/TopologyPresentationExecutor.cs	TopologyPresentationExecutor	Fallback constants	Fallback	2	Current fallback compatibility residue	Topology Legacy Decommission
@@ -930,7 +926,7 @@ Topology	LEGACY_DIAGNOSTICS	Assets/_Features/Gameplay/Gameplay_Host/Runtime/Topo
 Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_PresentationPlanning/Runtime/PresentationPlanning.cs	PresentationPlanning	Plan status	Suppressed	11	Presentation semantic suppression state, not legacy route	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_PresentationPlayback/Runtime/PresentationPlayback.cs	PresentationPlayback	Compatibility vocabulary	Legacy	6	Playback semantic compatibility vocabulary	Out of scope
 Retained Owner / Unrelated	MIGRATION_SUPPRESSION	Assets/_Features/Gameplay/Gameplay_PresentationPlayback/Runtime/PresentationPlayback.cs	PresentationPlayback	Playback status	Suppressed	3	Playback status suppression vocabulary	Out of scope
-Core Gameplay SFX	LEGACY_ONLY_SEMANTIC	Assets/_Features/Gameplay/Gameplay_Audio/Runtime/GameplayAudioRequestPlanner.cs	GameplayAudioRequestPlanner	Legacy motion timing	Legacy	2	Current legacy motion duration semantic	Core Gameplay SFX Legacy Decommission
+Core Gameplay SFX	LEGACY_ONLY_SEMANTIC	Assets/_Features/Gameplay/Gameplay_Audio/Runtime/GameplayAudioRequestPlanner.cs	GameplayAudioRequestPlanner	Legacy motion timing	Legacy	0	Removed in Core Gameplay SFX current-only decommission PR5	Core Gameplay SFX Legacy Decommission
 Enemy One-shot Audio	LEGACY_ONLY_SEMANTIC	Assets/_Features/Gameplay/Gameplay_EnemyAudio/Runtime/EnemyAudioRequestPlanner.cs	EnemyAudioRequestPlanner	Legacy summon windup	Legacy	2	Current legacy-only summon windup semantic	Enemy One-shot Audio Legacy Decommission
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/GameplayVfxHostAnchorResolver.cs	GameplayVfxHostAnchorResolver	Anchor fallback	Fallback	11	VFX anchor fallback, not legacy route	Out of scope
 Retained Owner / Unrelated	UNRELATED_LEGACY_TERM	Assets/_Features/Gameplay/Gameplay_VfxHost/Runtime/Production/BoxSlideSolidStopVfxCommandBuilder.cs	BoxSlideSolidStopVfxCommandBuilder	Command fallback	Fallback	1	VFX command fallback, not legacy route	Out of scope

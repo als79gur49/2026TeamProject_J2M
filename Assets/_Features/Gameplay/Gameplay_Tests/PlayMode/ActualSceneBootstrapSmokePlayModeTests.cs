@@ -354,8 +354,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Is.EqualTo(1),
                 $"{scenePath} must not create duplicate persistent BGM roots.");
             Assert.That(
-                host.Presenter.CoreGameplaySfxExecutionMode,
-                Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor),
+                host.Presenter.CoreGameplaySfxRoute,
+                Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor),
                 $"{scenePath} must boot Core SFX with the production orchestration owner.");
             Assert.That(
                 host.Presenter.CoreGameplaySfxExecutorDiagnostics.IsProductionDefaultOwner,

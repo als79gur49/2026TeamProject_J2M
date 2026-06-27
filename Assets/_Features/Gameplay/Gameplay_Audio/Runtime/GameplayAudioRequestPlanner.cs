@@ -143,13 +143,13 @@ namespace Game.Feature.Gameplay.Audio
                     continue;
                 }
 
-                return ResolveLegacyMotionDurationSeconds(motion.MotionKind, timingProfile);
+                return ResolveRetainedMotionDurationSeconds(motion.MotionKind, timingProfile);
             }
 
             return 0f;
         }
 
-        private static float ResolveLegacyMotionDurationSeconds(
+        private static float ResolveRetainedMotionDurationSeconds(
             TickEntityMotionKind motionKind,
             GameplayTimingProfile timingProfile)
         {

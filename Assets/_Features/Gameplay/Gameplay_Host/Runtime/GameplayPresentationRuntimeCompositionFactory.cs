@@ -200,7 +200,6 @@ namespace Game.Feature.Gameplay.Host
             topologyLane.ConfigureExecution(TopologyPresentationExecutionPolicy.ProductionDefault);
             playerActionAnimationLane.ConfigureExecution(PlayerActionAnimationExecutionPolicy.ProductionDefault);
             enemyPresentationLane.ConfigureExecution(EnemyPresentationExecutionPolicy.ProductionDefault);
-            coreGameplaySfxLane.ConfigureExecution(CoreGameplaySfxExecutionPolicy.ProductionDefault);
         }
     }
 

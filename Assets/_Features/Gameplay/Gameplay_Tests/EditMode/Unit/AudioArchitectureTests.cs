@@ -933,7 +933,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
             var offendingFiles = searchRoots
                 .SelectMany(root => Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
-                .Where(path => File.ReadAllText(path).Contains(nameof(GameplayAudioPresentationController), StringComparison.Ordinal))
+                .Where(path => File.ReadAllText(path).Contains("GameplayAudioPresentationController", StringComparison.Ordinal))
                 .Select(Path.GetFileName)
                 .OrderBy(name => name)
                 .ToArray();

@@ -925,15 +925,9 @@ namespace Game.Feature.Gameplay.Host
         }
 
         public static GameplayPresentationPipeline CreateCoreGameplaySfxExecutionPipeline(
-            CoreGameplaySfxExecutionMode mode,
             IGameplaySfxPlaybackPort playbackPort,
             CoreGameplaySfxExecutionGuard executionGuard)
         {
-            if (mode != CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor)
-            {
-                return null;
-            }
-
             return new GameplayPresentationPipeline(
                 new TickPresentationFactExtractor(),
                 new PresentationCuePlannerSet(new IPresentationCuePlanner[]
@@ -946,7 +940,6 @@ namespace Game.Feature.Gameplay.Host
                 {
                     new GameplaySfxPresentationExecutor(
                         playbackPort,
-                        mode,
                         executionGuard),
                 });
         }

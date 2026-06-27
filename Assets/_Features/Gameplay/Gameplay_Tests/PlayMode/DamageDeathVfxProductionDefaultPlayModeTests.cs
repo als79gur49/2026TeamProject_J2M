@@ -428,7 +428,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 port);
             try
             {
-                Assert.That(context.Host.Presenter.CoreGameplaySfxExecutionMode, Is.EqualTo(CoreGameplaySfxExecutionMode.OrchestrationSfxBridgeExecutor));
+                Assert.That(context.Host.Presenter.CoreGameplaySfxRoute, Is.EqualTo(CoreGameplaySfxRoute.CurrentExecutor));
                 Assert.That(context.Host.Presenter.EnemyAudioExecutorDiagnostics.ObservedCueCount, Is.Zero);
 
                 context.Host.Presenter.Present(CreateDamageDeathVfxResult(
