@@ -75,6 +75,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
                 host.Initialize(CreateHostConfiguration(playerViewPrefab));
+                SetPlayerForwardTopologyOvershootPose(host, entityId: 10);
 
                 outgoingBridge.SetActive(false);
                 incomingBridge.SetActive(false);
@@ -411,6 +412,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 state = EntityPhaseState.Idle,
                 facing = Direction.Up,
             };
+        }
+
+        private static void SetPlayerForwardTopologyOvershootPose(GameplaySceneHost host, int entityId)
+        {
+            var speed = PlayerContinuousLocomotionSettings.CreateDefault()
+                .CreateAuthoritativeSnapshot(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+                .SpeedUnitsPerTick;
+            host.WorldState.CreateWriteContext().SetUnitContinuousLocomotionState(
+                entityId,
+                new UnitContinuousLocomotionState
+                {
+                    localOffset = new SimulationOffset2(
+                        SimulationFixed.Zero,
+                        SimulationFixed.FromRaw(SimulationFixed.MaxPositiveLocalOffset)),
+                    velocity = SimulationVelocity2.Zero,
+                    facing = Direction.Up,
+                    lastMoveDirection = Direction.Up,
+                    speedUnitsPerTick = speed,
+                    mode = ContinuousLocomotionMode.Idle,
+                    sequenceId = 1,
+                }.NormalizedForStorage());
         }
 
         private static void InvokePrivate(object target, string methodName, params object[] args)
