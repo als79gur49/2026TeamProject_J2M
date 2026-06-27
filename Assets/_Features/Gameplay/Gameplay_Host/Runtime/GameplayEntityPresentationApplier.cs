@@ -281,7 +281,6 @@ namespace Game.Feature.Gameplay.Host
 
             _trackState.CompletedMotionTrackIds.Clear();
             _trackState.CompletedMotionVisualScaleEntityIds.Clear();
-            _trackState.CompletedJumpWindupRotationTrackIds.Clear();
             _trackState.CompletedPlayerFlipResultTurnTrackIds.Clear();
             _trackState.CompletedVisibilityTrackIds.Clear();
             _trackState.VisibleEntityIds.Clear();
@@ -383,17 +382,6 @@ namespace Game.Feature.Gameplay.Host
                 if (hasResolvedAdditiveRotation)
                 {
                     localPose = new GameplayEntityPose(localPose.Position, additiveRotation.Rotation);
-                }
-
-                if (_trackState.JumpWindupRotationTracks.TryGetValue(entityId, out var jumpWindupRotationTrack) &&
-                    jumpWindupRotationTrack.HasClips)
-                {
-                    var rotation = jumpWindupRotationTrack.SampleAndAdvance(deltaTime, localPose.Rotation);
-                    localPose = new GameplayEntityPose(localPose.Position, rotation);
-                    if (!jumpWindupRotationTrack.HasClips)
-                    {
-                        _trackState.CompletedJumpWindupRotationTrackIds.Add(entityId);
-                    }
                 }
 
                 if (_trackState.PlayerFlipResultTurnTracks.TryGetValue(entityId, out var playerFlipResultTurnTrack) &&

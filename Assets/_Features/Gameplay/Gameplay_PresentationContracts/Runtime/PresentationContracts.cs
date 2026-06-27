@@ -1336,6 +1336,7 @@ namespace Game.Feature.Gameplay.PresentationContracts
         Respawn = 25,
         Cutscene = 26,
         NetworkCorrection = 27,
+        EnemyJumpWindup = 28,
     }
 
     public enum PresentationPoseChannel

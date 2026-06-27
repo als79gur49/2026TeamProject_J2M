@@ -16690,6 +16690,108 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void JumpWindupRotation_IsResolvedBeforeApplication()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var basePose = PoseAt(1f);
+            stateStore.CommittedLocalTargetPoses[40] = basePose;
+            var windupTrack = CreateRotationTrack(
+                Quaternion.identity,
+                Quaternion.Euler(0f, 90f, 0f),
+                durationSeconds: 1f);
+            trackState.JumpWindupRotationTracks[40] = windupTrack;
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 7);
+            var channels = ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 7);
+
+            Assert.That(frames.TryGetFrame(40, out var frame), Is.True);
+            Assert.That(frame.BasePose.Position, Is.EqualTo(basePose.Position));
+            Assert.That(frame.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.CommittedPose));
+            Assert.That(channels.TryGetAdditiveRotation(40, out var rotation), Is.True);
+            Assert.That(rotation.Channel, Is.EqualTo(PresentationPoseChannel.AdditiveRotation));
+            Assert.That(rotation.OwnerRole, Is.EqualTo(PresentationOwnerRole.Enemy));
+            Assert.That(rotation.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.EnemyJumpWindup));
+            Assert.That(rotation.Provenance.TerminalSource, Is.EqualTo(PresentationPoseSourceKind.None));
+            Assert.That(Quaternion.Angle(Quaternion.identity, rotation.Rotation), Is.GreaterThan(0f));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TerminalHold_SuppressesLiveJumpWindupRotation()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkPlayer(stateStore, 10);
+
+            var terminalPose = PoseAt(1f);
+            trackState.PlayerDeathHoldPoses[10] = terminalPose;
+            var windupTrack = CreateRotationTrack(
+                Quaternion.identity,
+                Quaternion.Euler(0f, 90f, 0f),
+                durationSeconds: 1f);
+            trackState.JumpWindupRotationTracks[10] = windupTrack;
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 42);
+            var channels = ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 42);
+
+            Assert.That(frames.TryGetFrame(10, out var frame), Is.True);
+            Assert.That(frame.Provenance.TerminalSource, Is.EqualTo(PresentationPoseSourceKind.PlayerDeathHold));
+            Assert.That(channels.TryGetAdditiveRotation(10, out _), Is.False);
+            Assert.That(windupTrack.HasClips, Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void JumpWindupRotation_AndJumpTrackRotation_HaveDeterministicOrder()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var basePose = PoseAt(1f);
+            var jumpEndPose = new GameplayEntityPose(
+                new Vector3(5f, 0f, 0f),
+                Quaternion.Euler(0f, 45f, 0f));
+            stateStore.CommittedLocalTargetPoses[40] = basePose;
+            var jumpTrack = new JumpTrack();
+            jumpTrack.Replace(JumpClip.Create(basePose, jumpEndPose, durationSeconds: 1f, arcHeightWorld: 0f));
+            trackState.JumpTracks[40] = jumpTrack;
+            trackState.JumpWindupRotationTracks[40] = CreateRotationTrack(
+                Quaternion.identity,
+                Quaternion.Euler(0f, 90f, 0f),
+                durationSeconds: 1f);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 7);
+            var channels = ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 7);
+
+            Assert.That(channels.TryGetAdditiveRotation(40, out var rotation), Is.True);
+            Assert.That(rotation.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.Jump));
+            Assert.That(Quaternion.Angle(Quaternion.identity, rotation.Rotation), Is.EqualTo(22.5f).Within(0.001f));
+        }
+
+        [Test]
+        [Category("Core")]
         public void JumpDetachedVisibility_DoesNotBecomeTerminalSelection()
         {
             var stateStore = new GameplayPresentationStateStore();
@@ -16720,6 +16822,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var coordinatorSource = File.ReadAllText(Path.Combine(Application.dataPath, "..", CoordinatorPath));
             var trackStateSource = File.ReadAllText(Path.Combine(Application.dataPath, "..", TrackStatePath));
+            var applierSource = File.ReadAllText(Path.Combine(Application.dataPath, "..", ApplierPath));
 
             var channelResolveIndex = coordinatorSource.IndexOf(
                 "_resolvedChannelResolver.ResolveJumpAdditiveChannels",
@@ -16732,6 +16835,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(applierIndex, Is.GreaterThan(channelResolveIndex));
             Assert.That(trackStateSource, Does.Contain("PresentationPoseChannel.AdditiveLocalOffset"));
             Assert.That(trackStateSource, Does.Contain("PresentationPoseSourceKind.Jump"));
+            Assert.That(trackStateSource, Does.Contain("PresentationPoseSourceKind.EnemyJumpWindup"));
+            Assert.That(applierSource, Does.Not.Contain("_trackState.JumpWindupRotationTracks.TryGetValue"));
         }
 
         [Test]
@@ -16755,6 +16860,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = File.ReadAllText(Path.Combine(Application.dataPath, "..", ApplierPath));
 
             Assert.That(source, Does.Not.Contain("_trackState.JumpTracks.TryGetValue"));
+            Assert.That(source, Does.Not.Contain("_trackState.JumpWindupRotationTracks.TryGetValue"));
             Assert.That(source, Does.Contain("ResolvedPresentationChannelSet"));
             Assert.That(source, Does.Contain("resolvedChannels.TryGetAdditiveLocalOffset"));
             Assert.That(source, Does.Contain("resolvedChannels.TryGetAdditiveRotation"));
@@ -16832,6 +16938,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static GameplayEntityPose PoseAt(float x)
         {
             return new GameplayEntityPose(new Vector3(x, 0f, 0f), Quaternion.identity);
+        }
+
+        private static RotationTrack CreateRotationTrack(
+            Quaternion startRotation,
+            Quaternion endRotation,
+            float durationSeconds)
+        {
+            var track = new RotationTrack();
+            track.Append(RotationClip.Create(startRotation, endRotation, durationSeconds));
+            return track;
         }
     }
 }

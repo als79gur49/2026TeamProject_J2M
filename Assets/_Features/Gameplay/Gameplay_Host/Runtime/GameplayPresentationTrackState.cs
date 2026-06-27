@@ -471,6 +471,39 @@ namespace Game.Feature.Gameplay.Host
                     _trackState.CompletedJumpTrackIds.Add(entityId);
                 }
             }
+
+            foreach (var pair in _trackState.JumpWindupRotationTracks)
+            {
+                var entityId = pair.Key;
+                var jumpWindupRotationTrack = pair.Value;
+                if (jumpWindupRotationTrack == null ||
+                    !jumpWindupRotationTrack.HasClips ||
+                    !resolvedFrames.TryGetFrame(entityId, out var resolvedFrame) ||
+                    resolvedFrame.Provenance.TerminalSource != PresentationPoseSourceKind.None ||
+                    resolvedFrame.OwnerRole != PresentationOwnerRole.Enemy ||
+                    channelSet.TryGetAdditiveRotation(entityId, out _))
+                {
+                    continue;
+                }
+
+                var rotation = jumpWindupRotationTrack.SampleAndAdvance(deltaTime, resolvedFrame.BasePose.Rotation);
+                var entity = new PresentationEntityKey(entityId);
+                var provenance = new PresentationPoseProvenance(
+                    PresentationOwnerRole.Enemy,
+                    PresentationPoseSourceKind.EnemyJumpWindup,
+                    PresentationPoseSourceKind.None,
+                    sourceTick);
+                channelSet.SetAdditiveRotation(new ResolvedEntityPresentationAdditiveRotation(
+                    entity,
+                    PresentationOwnerRole.Enemy,
+                    rotation,
+                    provenance));
+
+                if (!jumpWindupRotationTrack.HasClips)
+                {
+                    _trackState.CompletedJumpWindupRotationTrackIds.Add(entityId);
+                }
+            }
         }
     }
 
