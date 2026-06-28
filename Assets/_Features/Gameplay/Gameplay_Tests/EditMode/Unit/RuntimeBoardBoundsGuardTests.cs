@@ -5270,8 +5270,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                     1f).GetCubeCenter();
 
-                host.InputHost.SetRawMoveInput(Vector2.up);
-                host.InputHost.RunSingleTick();
+                PresentDirectTopologyTransition(host);
                 host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.5f);
 
                 Assert.That(initialTarget, Is.EqualTo(expectedCenter));
@@ -7328,6 +7327,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationData ?? TickPresentationData.Empty,
                 string.Empty,
                 TickTrace.Empty);
+        }
+
+        private static void PresentDirectTopologyTransition(GameplaySceneHost host)
+        {
+            var sourceTopology = new CubeTopologyState(FaceId.Floor);
+            var destinationTopology = new CubeTopologyState(FaceId.Front);
+            host.Presenter.Present(
+                CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                    },
+                    destinationTopology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        new TickTopologyMotion(sourceTopology, destinationTopology, CubeRotationKind.Forward),
+                        Array.Empty<TickVisibilityChange>())));
         }
 
         private static TickPlayerLocomotionPresentationSignal CreatePlayerLocomotionSignal(
