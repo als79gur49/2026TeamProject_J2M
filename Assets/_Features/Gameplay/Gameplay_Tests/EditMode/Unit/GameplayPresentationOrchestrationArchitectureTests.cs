@@ -36,6 +36,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_PresentationRuntime/Runtime";
         private const string HostRuntimeDirectory =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime";
+        private const string ApplierPath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayEntityPresentationApplier.cs";
         private const string CoordinatorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
         private const string PresenterPath =
@@ -484,6 +486,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(source, Does.Not.Contain("ResolvedEntityPresentationVisibility"));
             Assert.That(source, Does.Not.Contain("ResolvedPresentationVisibilitySet"));
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidate"));
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidateSet"));
             Assert.That(source, Does.Not.Contain("PresentationVisibilitySourceKind"));
         }
 
@@ -517,6 +521,175 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(visibilitySet.EntityIds, Is.EqualTo(new[] { 12 }));
             Assert.That(visibilitySet.TryGetVisibility(12, out var resolved), Is.True);
             Assert.That(resolved, Is.EqualTo(visibility));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateSet_PreservesSourcePriorityFallbackAndTrackMetadata()
+        {
+            var entityKey = new PresentationEntityKey(12);
+            var trackProvenance = new PresentationVisibilityProvenance(
+                PresentationVisibilitySourceKind.VisibilityTrackSample,
+                PresentationOwnerRole.Enemy,
+                new SurfaceCell(FaceId.Floor, 1, 2),
+                FaceId.Floor,
+                lifetimeToken: 77);
+            var fallbackProvenance = new PresentationVisibilityProvenance(
+                PresentationVisibilitySourceKind.CommittedMotionFallback,
+                PresentationOwnerRole.Enemy,
+                null,
+                null,
+                lifetimeToken: 77);
+            var suppressionProvenance = new PresentationVisibilityProvenance(
+                PresentationVisibilitySourceKind.TerminalDeathOrExitSuppression,
+                PresentationOwnerRole.Enemy,
+                null,
+                FaceId.Floor,
+                lifetimeToken: 77);
+            var set = new PresentationVisibilityCandidateSet();
+
+            set.AddCandidate(new PresentationVisibilityCandidate(
+                entityKey,
+                isVisible: true,
+                trackProvenance,
+                priority: 500,
+                isFallback: false,
+                isStatefulTrackSample: true,
+                isHighPrioritySuppressionSource: false));
+            set.AddCandidate(new PresentationVisibilityCandidate(
+                entityKey,
+                isVisible: true,
+                fallbackProvenance,
+                priority: 0,
+                isFallback: true,
+                isStatefulTrackSample: false,
+                isHighPrioritySuppressionSource: false));
+            set.AddCandidate(new PresentationVisibilityCandidate(
+                entityKey,
+                isVisible: false,
+                suppressionProvenance,
+                priority: 900,
+                isFallback: false,
+                isStatefulTrackSample: false,
+                isHighPrioritySuppressionSource: true));
+
+            Assert.That(set.Count, Is.EqualTo(1));
+            Assert.That(set.CandidateCount, Is.EqualTo(3));
+            Assert.That(set.EntityIds, Is.EqualTo(new[] { 12 }));
+            Assert.That(set.TryGetCandidates(12, out var candidates), Is.True);
+            Assert.That(candidates, Has.Count.EqualTo(3));
+            Assert.That(candidates[0].Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
+            Assert.That(candidates[0].IsStatefulTrackSample, Is.True);
+            Assert.That(candidates[1].Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.CommittedMotionFallback));
+            Assert.That(candidates[1].IsFallback, Is.True);
+            Assert.That(candidates[2].Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.TerminalDeathOrExitSuppression));
+            Assert.That(candidates[2].IsHighPrioritySuppressionSource, Is.True);
+            Assert.That(candidates[2].Priority, Is.GreaterThan(candidates[0].Priority));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateSet_CanRepresentGenericRemoveDetachSpawnPriority()
+        {
+            var sourceKinds = Enum.GetValues(typeof(PresentationVisibilitySourceKind))
+                .Cast<PresentationVisibilitySourceKind>()
+                .ToArray();
+
+            Assert.That(sourceKinds, Has.Member(PresentationVisibilitySourceKind.GenericVisibilityRemove));
+            Assert.That(sourceKinds, Has.Member(PresentationVisibilitySourceKind.GenericVisibilityDetach));
+            Assert.That(sourceKinds, Has.Member(PresentationVisibilitySourceKind.GenericVisibilitySpawn));
+
+            var set = new PresentationVisibilityCandidateSet();
+            set.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.GenericVisibilitySpawn,
+                priority: 100));
+            set.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.GenericVisibilityDetach,
+                priority: 200));
+            set.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.GenericVisibilityRemove,
+                priority: 300));
+
+            Assert.That(set.TryGetCandidates(31, out var candidates), Is.True);
+            Assert.That(candidates.Select(candidate => candidate.Provenance.SourceKind), Is.EqualTo(new[]
+            {
+                PresentationVisibilitySourceKind.GenericVisibilitySpawn,
+                PresentationVisibilitySourceKind.GenericVisibilityDetach,
+                PresentationVisibilitySourceKind.GenericVisibilityRemove,
+            }));
+            Assert.That(
+                candidates.Single(candidate =>
+                    candidate.Provenance.SourceKind == PresentationVisibilitySourceKind.GenericVisibilityRemove)
+                    .Priority,
+                Is.GreaterThan(candidates.Single(candidate =>
+                    candidate.Provenance.SourceKind == PresentationVisibilitySourceKind.GenericVisibilityDetach)
+                    .Priority));
+            Assert.That(
+                candidates.Single(candidate =>
+                    candidate.Provenance.SourceKind == PresentationVisibilitySourceKind.GenericVisibilityDetach)
+                    .Priority,
+                Is.GreaterThan(candidates.Single(candidate =>
+                    candidate.Provenance.SourceKind == PresentationVisibilitySourceKind.GenericVisibilitySpawn)
+                    .Priority));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void ResolvedVisibilityFinalSet_RemainsSingleWinnerContract()
+        {
+            var visibilitySet = new ResolvedPresentationVisibilitySet();
+            var entityKey = new PresentationEntityKey(12);
+            var fallback = new ResolvedEntityPresentationVisibility(
+                entityKey,
+                isVisible: true,
+                new PresentationVisibilityProvenance(
+                    PresentationVisibilitySourceKind.CommittedMotionFallback,
+                    PresentationOwnerRole.Enemy,
+                    null,
+                    null,
+                    lifetimeToken: 77));
+            var winner = new ResolvedEntityPresentationVisibility(
+                entityKey,
+                isVisible: false,
+                new PresentationVisibilityProvenance(
+                    PresentationVisibilitySourceKind.GenericVisibilityRemove,
+                    PresentationOwnerRole.Enemy,
+                    null,
+                    null,
+                    lifetimeToken: 77));
+
+            visibilitySet.SetVisibility(fallback);
+            visibilitySet.SetVisibility(winner);
+
+            Assert.That(visibilitySet.Count, Is.EqualTo(1));
+            Assert.That(visibilitySet.EntityIds, Is.EqualTo(new[] { 12 }));
+            Assert.That(visibilitySet.TryGetVisibility(12, out var resolved), Is.True);
+            Assert.That(resolved, Is.EqualTo(winner));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_DoesNotConsumeVisibilityCandidateSet()
+        {
+            var source = ReadRepoFile(ApplierPath);
+
+            Assert.That(source, Does.Contain("ResolvedPresentationVisibilitySet"));
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidate"));
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidateSet"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateSet_DoesNotIncludeTopologyBridgeBindings()
+        {
+            var visibilityBlock = ExtractSourceBetween(
+                ReadRepoFile(ContractsPath),
+                "public enum PresentationVisibilitySourceKind",
+                "public sealed class PresentationFactFrame");
+
+            Assert.That(visibilityBlock, Does.Contain("PresentationVisibilityCandidate"));
+            Assert.That(visibilityBlock, Does.Not.Contain("TopologyVisualBridgeBinding"));
+            Assert.That(visibilityBlock, Does.Not.Contain("TopologyVisualBridgeVisibilityController"));
         }
 
         [Test]
@@ -3321,6 +3494,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             return type;
+        }
+
+        private static PresentationVisibilityCandidate CreateVisibilityCandidate(
+            PresentationVisibilitySourceKind sourceKind,
+            int priority)
+        {
+            return new PresentationVisibilityCandidate(
+                new PresentationEntityKey(31),
+                isVisible: sourceKind == PresentationVisibilitySourceKind.GenericVisibilitySpawn,
+                new PresentationVisibilityProvenance(
+                    sourceKind,
+                    PresentationOwnerRole.Enemy,
+                    null,
+                    null,
+                    lifetimeToken: 77),
+                priority,
+                isFallback: false,
+                isStatefulTrackSample: false,
+                isHighPrioritySuppressionSource: false);
         }
 
         private static string ReadDirectorySource(string relativeDirectory)

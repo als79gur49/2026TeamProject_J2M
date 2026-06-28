@@ -1410,7 +1410,13 @@ namespace Game.Feature.Gameplay.PresentationContracts
     public enum PresentationVisibilitySourceKind
     {
         None = 0,
+        TerminalDeathOrExitSuppression = 5,
+        CommittedMotionFallback = 8,
         GenericVisibility = 10,
+        GenericVisibilitySpawn = 11,
+        GenericVisibilityDetach = 12,
+        GenericVisibilityRemove = 13,
+        VisibilityTrackSample = 14,
         JumpDetached = 20,
         RetainedDeathOrExit = 30,
         TransitionEntityVisibility = 40,
@@ -1467,6 +1473,125 @@ namespace Game.Feature.Gameplay.PresentationContracts
                 hash = (hash * 397) ^ LifetimeToken;
                 return hash;
             }
+        }
+    }
+
+    public readonly struct PresentationVisibilityCandidate : IEquatable<PresentationVisibilityCandidate>
+    {
+        public PresentationVisibilityCandidate(
+            PresentationEntityKey entityKey,
+            bool isVisible,
+            PresentationVisibilityProvenance provenance,
+            int priority,
+            bool isFallback,
+            bool isStatefulTrackSample,
+            bool isHighPrioritySuppressionSource)
+        {
+            EntityKey = entityKey;
+            IsVisible = isVisible;
+            Provenance = provenance;
+            Priority = priority;
+            IsFallback = isFallback;
+            IsStatefulTrackSample = isStatefulTrackSample;
+            IsHighPrioritySuppressionSource = isHighPrioritySuppressionSource;
+        }
+
+        public PresentationEntityKey EntityKey { get; }
+
+        public bool IsVisible { get; }
+
+        public PresentationVisibilityProvenance Provenance { get; }
+
+        public int Priority { get; }
+
+        public bool IsFallback { get; }
+
+        public bool IsStatefulTrackSample { get; }
+
+        public bool IsHighPrioritySuppressionSource { get; }
+
+        public bool IsValid => EntityKey.IsValid;
+
+        public bool Equals(PresentationVisibilityCandidate other)
+        {
+            return EntityKey.Equals(other.EntityKey) &&
+                   IsVisible == other.IsVisible &&
+                   Provenance.Equals(other.Provenance) &&
+                   Priority == other.Priority &&
+                   IsFallback == other.IsFallback &&
+                   IsStatefulTrackSample == other.IsStatefulTrackSample &&
+                   IsHighPrioritySuppressionSource == other.IsHighPrioritySuppressionSource;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PresentationVisibilityCandidate other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                var hash = EntityKey.GetHashCode();
+                hash = (hash * 397) ^ IsVisible.GetHashCode();
+                hash = (hash * 397) ^ Provenance.GetHashCode();
+                hash = (hash * 397) ^ Priority;
+                hash = (hash * 397) ^ IsFallback.GetHashCode();
+                hash = (hash * 397) ^ IsStatefulTrackSample.GetHashCode();
+                hash = (hash * 397) ^ IsHighPrioritySuppressionSource.GetHashCode();
+                return hash;
+            }
+        }
+    }
+
+    public sealed class PresentationVisibilityCandidateSet
+    {
+        private static readonly IReadOnlyList<PresentationVisibilityCandidate> EmptyCandidates =
+            new ReadOnlyCollection<PresentationVisibilityCandidate>(
+                new List<PresentationVisibilityCandidate>());
+
+        private readonly Dictionary<PresentationEntityKey, List<PresentationVisibilityCandidate>> _candidatesByEntity =
+            new Dictionary<PresentationEntityKey, List<PresentationVisibilityCandidate>>();
+        private readonly List<int> _entityIds = new List<int>();
+
+        public IReadOnlyList<int> EntityIds => _entityIds;
+
+        public int Count => _candidatesByEntity.Count;
+
+        public int CandidateCount { get; private set; }
+
+        public void Clear()
+        {
+            _candidatesByEntity.Clear();
+            _entityIds.Clear();
+            CandidateCount = 0;
+        }
+
+        public void AddCandidate(in PresentationVisibilityCandidate candidate)
+        {
+            if (!_candidatesByEntity.TryGetValue(candidate.EntityKey, out var candidates))
+            {
+                candidates = new List<PresentationVisibilityCandidate>();
+                _candidatesByEntity.Add(candidate.EntityKey, candidates);
+                _entityIds.Add(candidate.EntityKey.EntityId);
+            }
+
+            candidates.Add(candidate);
+            CandidateCount++;
+        }
+
+        public bool TryGetCandidates(
+            int entityId,
+            out IReadOnlyList<PresentationVisibilityCandidate> candidates)
+        {
+            if (_candidatesByEntity.TryGetValue(new PresentationEntityKey(entityId), out var entityCandidates))
+            {
+                candidates = entityCandidates;
+                return true;
+            }
+
+            candidates = EmptyCandidates;
+            return false;
         }
     }
 
