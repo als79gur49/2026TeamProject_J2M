@@ -17031,6 +17031,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void JumpDetachedVisibility_CandidateIntegrationPreservesResolvedOutput()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, 3);
+            stateStore.JumpDetachedVisibilityStates[40] =
+                new JumpDetachedVisibilityState(
+                    EnemyJumpPhase.Airborne,
+                    PoseAt(3f),
+                    sourceCell);
+
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var frames = Resolve(stateStore, trackState, sourceTick: 77);
+            var candidates = CollectVisibilityCandidates(
+                stateStore,
+                trackState,
+                frames,
+                topology,
+                sourceTick: 77);
+            var visibility = ResolveVisibility(
+                stateStore,
+                trackState,
+                frames,
+                topology,
+                sourceTick: 77);
+
+            Assert.That(candidates.Count, Is.EqualTo(1));
+            Assert.That(candidates.CandidateCount, Is.EqualTo(1));
+            Assert.That(candidates.TryGetCandidates(40, out var entityCandidates), Is.True);
+            Assert.That(entityCandidates, Has.Count.EqualTo(1));
+            var candidate = entityCandidates[0];
+            Assert.That(candidate.EntityKey.EntityId, Is.EqualTo(40));
+            Assert.That(candidate.IsVisible, Is.True);
+            Assert.That(candidate.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.JumpDetached));
+            Assert.That(candidate.Provenance.OwnerRole, Is.EqualTo(PresentationOwnerRole.Enemy));
+            Assert.That(candidate.Provenance.Cell, Is.EqualTo(sourceCell));
+            Assert.That(candidate.Provenance.Face, Is.EqualTo(FaceId.Floor));
+            Assert.That(candidate.Provenance.LifetimeToken, Is.EqualTo(77));
+            Assert.That(candidate.Priority, Is.EqualTo(200));
+            Assert.That(candidate.IsFallback, Is.False);
+            Assert.That(candidate.IsStatefulTrackSample, Is.False);
+            Assert.That(candidate.IsHighPrioritySuppressionSource, Is.False);
+
+            Assert.That(visibility.TryGetVisibility(40, out var resolved), Is.True);
+            Assert.That(resolved.EntityKey, Is.EqualTo(candidate.EntityKey));
+            Assert.That(resolved.IsVisible, Is.EqualTo(candidate.IsVisible));
+            Assert.That(resolved.Provenance, Is.EqualTo(candidate.Provenance));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DeathOrExitRetainedVisibility_SuppressesJumpDetachedVisibility()
         {
             var stateStore = new GameplayPresentationStateStore();
@@ -17262,10 +17315,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CubeTopologyState topology,
             int sourceTick)
         {
-            var resolver = new PresentationResolvedVisibilityResolver(stateStore, trackState);
+            var candidates = CollectVisibilityCandidates(stateStore, trackState, frames, topology, sourceTick);
+            var resolver = new PresentationResolvedVisibilityResolver();
             var visibility = new ResolvedPresentationVisibilitySet();
-            resolver.ResolveJumpDetachedVisibility(topology, sourceTick, frames, visibility);
+            resolver.ResolveCandidates(candidates, visibility);
             return visibility;
+        }
+
+        private static PresentationVisibilityCandidateSet CollectVisibilityCandidates(
+            GameplayPresentationStateStore stateStore,
+            GameplayPresentationTrackState trackState,
+            ResolvedPresentationFrameSet frames,
+            CubeTopologyState topology,
+            int sourceTick)
+        {
+            var collector = new PresentationVisibilityCandidateCollector(stateStore, trackState);
+            var candidates = new PresentationVisibilityCandidateSet();
+            collector.CollectJumpDetachedVisibility(topology, sourceTick, frames, candidates);
+            return candidates;
         }
 
         private static void MarkPlayer(GameplayPresentationStateStore stateStore, int entityId)

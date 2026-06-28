@@ -230,9 +230,11 @@ namespace Game.Feature.Gameplay.Host
         private readonly PresentationPoseCandidateCollector _presentationPoseCandidateCollector;
         private readonly PresentationBasePoseFrameResolver _basePoseFrameResolver;
         private readonly PresentationResolvedChannelResolver _resolvedChannelResolver;
+        private readonly PresentationVisibilityCandidateCollector _visibilityCandidateCollector;
         private readonly PresentationResolvedVisibilityResolver _resolvedVisibilityResolver;
         private readonly ResolvedPresentationFrameSet _resolvedPresentationFrames = new();
         private readonly ResolvedPresentationChannelSet _resolvedPresentationChannels = new();
+        private readonly PresentationVisibilityCandidateSet _presentationVisibilityCandidates = new();
         private readonly ResolvedPresentationVisibilitySet _resolvedPresentationVisibility = new();
         private readonly TilePresentationRequestPlanner _tilePresentationRequestPlanner;
         private readonly GameplayTopologyTransitionController _topologyTransitionController;
@@ -294,7 +296,8 @@ namespace Game.Feature.Gameplay.Host
             _presentationPoseCandidateCollector = new PresentationPoseCandidateCollector(_stateStore, _trackState);
             _basePoseFrameResolver = new PresentationBasePoseFrameResolver(_presentationPoseCandidateCollector);
             _resolvedChannelResolver = new PresentationResolvedChannelResolver(_stateStore, _trackState);
-            _resolvedVisibilityResolver = new PresentationResolvedVisibilityResolver(_stateStore, _trackState);
+            _visibilityCandidateCollector = new PresentationVisibilityCandidateCollector(_stateStore, _trackState);
+            _resolvedVisibilityResolver = new PresentationResolvedVisibilityResolver();
             _animationSync = composition.AnimationSync;
             _motionTimingResolver = composition.MotionTimingResolver;
             _poseResolver = composition.PoseResolver;
@@ -1114,6 +1117,7 @@ namespace Game.Feature.Gameplay.Host
                 deltaTime);
             _basePoseFrameResolver.Resolve(_lastPresentedTickIndex, _resolvedPresentationFrames);
             _resolvedPresentationChannels.Clear();
+            _presentationVisibilityCandidates.Clear();
             _resolvedPresentationVisibility.Clear();
             _trackState.CompletedJumpTrackIds.Clear();
             _trackState.CompletedJumpWindupRotationTrackIds.Clear();
@@ -1123,10 +1127,13 @@ namespace Game.Feature.Gameplay.Host
                 _lastPresentedTickIndex,
                 _resolvedPresentationFrames,
                 _resolvedPresentationChannels);
-            _resolvedVisibilityResolver.ResolveJumpDetachedVisibility(
+            _visibilityCandidateCollector.CollectJumpDetachedVisibility(
                 _stateStore.CommittedTopology,
                 _lastPresentedTickIndex,
                 _resolvedPresentationFrames,
+                _presentationVisibilityCandidates);
+            _resolvedVisibilityResolver.ResolveCandidates(
+                _presentationVisibilityCandidates,
                 _resolvedPresentationVisibility);
             _entityPresentationApplier.Apply(
                 deltaTime,

@@ -40,6 +40,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayEntityPresentationApplier.cs";
         private const string CoordinatorPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs";
+        private const string TrackStatePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayPresentationTrackState.cs";
         private const string PresenterPath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs";
         private const string HostFactoryPath =
@@ -676,6 +678,81 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Contain("ResolvedPresentationVisibilitySet"));
             Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidate"));
             Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidateSet"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateSet_ClearsEveryPresentationUpdate()
+        {
+            var source = ReadRepoFile(CoordinatorPath);
+
+            var candidateClearIndex = source.IndexOf(
+                "_presentationVisibilityCandidates.Clear();",
+                StringComparison.Ordinal);
+            var finalClearIndex = source.IndexOf(
+                "_resolvedPresentationVisibility.Clear();",
+                StringComparison.Ordinal);
+            var collectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectJumpDetachedVisibility",
+                StringComparison.Ordinal);
+            var resolveIndex = source.IndexOf(
+                "_resolvedVisibilityResolver.ResolveCandidates",
+                StringComparison.Ordinal);
+            var applyIndex = source.IndexOf(
+                "_entityPresentationApplier.Apply",
+                StringComparison.Ordinal);
+
+            Assert.That(source, Does.Contain("PresentationVisibilityCandidateSet _presentationVisibilityCandidates"));
+            Assert.That(candidateClearIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(finalClearIndex, Is.GreaterThan(candidateClearIndex));
+            Assert.That(collectIndex, Is.GreaterThan(finalClearIndex));
+            Assert.That(resolveIndex, Is.GreaterThan(collectIndex));
+            Assert.That(applyIndex, Is.GreaterThan(resolveIndex));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void PresentationResolvedVisibilityResolver_UsesCandidateSetBeforeFinalSet()
+        {
+            var source = ReadRepoFile(TrackStatePath);
+            var resolverBlock = ExtractSourceBetween(
+                source,
+                "internal sealed class PresentationResolvedVisibilityResolver",
+                "internal sealed class PresentationPoseCandidateCollector");
+
+            Assert.That(resolverBlock, Does.Contain("ResolveCandidates("));
+            Assert.That(resolverBlock, Does.Contain("PresentationVisibilityCandidateSet candidateSet"));
+            Assert.That(resolverBlock, Does.Contain("ResolvedPresentationVisibilitySet visibilitySet"));
+            Assert.That(resolverBlock, Does.Contain("SelectWinner(candidates)"));
+            Assert.That(resolverBlock, Does.Contain("visibilitySet.SetVisibility"));
+            Assert.That(resolverBlock, Does.Not.Contain("JumpDetachedVisibilityStates"));
+            Assert.That(resolverBlock, Does.Not.Contain("VisibilityTracks"));
+            Assert.That(resolverBlock, Does.Not.Contain("CompletedVisibilityTrackIds"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateSet_DoesNotOwnCleanupLifecycle()
+        {
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var collectorBlock = ExtractSourceBetween(
+                trackStateSource,
+                "internal sealed class PresentationVisibilityCandidateCollector",
+                "internal sealed class PresentationResolvedVisibilityResolver");
+            var resolverBlock = ExtractSourceBetween(
+                trackStateSource,
+                "internal sealed class PresentationResolvedVisibilityResolver",
+                "internal sealed class PresentationPoseCandidateCollector");
+            var candidateLifecycleSource = collectorBlock + "\n" + resolverBlock;
+
+            Assert.That(candidateLifecycleSource, Does.Not.Contain("CompletedVisibilityTrackIds"));
+            Assert.That(candidateLifecycleSource, Does.Not.Contain("ClearEntityPresentationMetadataIfFullyHidden"));
+            Assert.That(candidateLifecycleSource, Does.Not.Contain("RetainedLocalTargetPoses.Remove"));
+            Assert.That(candidateLifecycleSource, Does.Not.Contain("TickVisibilityChange"));
+            Assert.That(candidateLifecycleSource, Does.Not.Contain("EntityExitSignals"));
+            Assert.That(candidateLifecycleSource, Does.Not.Contain("Audio"));
+            Assert.That(candidateLifecycleSource, Does.Not.Contain("VFX"));
+            Assert.That(candidateLifecycleSource, Does.Not.Contain("Mapper"));
         }
 
         [Test]

@@ -540,12 +540,12 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
-    internal sealed class PresentationResolvedVisibilityResolver
+    internal sealed class PresentationVisibilityCandidateCollector
     {
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
 
-        public PresentationResolvedVisibilityResolver(
+        public PresentationVisibilityCandidateCollector(
             GameplayPresentationStateStore stateStore,
             GameplayPresentationTrackState trackState)
         {
@@ -553,20 +553,20 @@ namespace Game.Feature.Gameplay.Host
             _trackState = trackState ?? throw new System.ArgumentNullException(nameof(trackState));
         }
 
-        public void ResolveJumpDetachedVisibility(
+        public void CollectJumpDetachedVisibility(
             CubeTopologyState topology,
             int sourceTick,
             ResolvedPresentationFrameSet resolvedFrames,
-            ResolvedPresentationVisibilitySet visibilitySet)
+            PresentationVisibilityCandidateSet candidateSet)
         {
             if (resolvedFrames == null)
             {
                 throw new System.ArgumentNullException(nameof(resolvedFrames));
             }
 
-            if (visibilitySet == null)
+            if (candidateSet == null)
             {
-                throw new System.ArgumentNullException(nameof(visibilitySet));
+                throw new System.ArgumentNullException(nameof(candidateSet));
             }
 
             foreach (var pair in _stateStore.JumpDetachedVisibilityStates)
@@ -589,12 +589,66 @@ namespace Game.Feature.Gameplay.Host
                     state.AuthoritativeCell,
                     state.AuthoritativeFace,
                     sourceTick);
-                visibilitySet.SetVisibility(new ResolvedEntityPresentationVisibility(
+                candidateSet.AddCandidate(new PresentationVisibilityCandidate(
                     new PresentationEntityKey(entityId),
                     state.JumpPhase == EnemyJumpPhase.Airborne &&
                     topology.IsFaceActive(state.AuthoritativeFace),
-                    provenance));
+                    provenance,
+                    priority: 200,
+                    isFallback: false,
+                    isStatefulTrackSample: false,
+                    isHighPrioritySuppressionSource: false));
             }
+        }
+    }
+
+    internal sealed class PresentationResolvedVisibilityResolver
+    {
+        public void ResolveCandidates(
+            PresentationVisibilityCandidateSet candidateSet,
+            ResolvedPresentationVisibilitySet visibilitySet)
+        {
+            if (candidateSet == null)
+            {
+                throw new System.ArgumentNullException(nameof(candidateSet));
+            }
+
+            if (visibilitySet == null)
+            {
+                throw new System.ArgumentNullException(nameof(visibilitySet));
+            }
+
+            for (var i = 0; i < candidateSet.EntityIds.Count; i++)
+            {
+                var entityId = candidateSet.EntityIds[i];
+                if (!candidateSet.TryGetCandidates(entityId, out var candidates) ||
+                    candidates.Count == 0)
+                {
+                    continue;
+                }
+
+                var winner = SelectWinner(candidates);
+                visibilitySet.SetVisibility(new ResolvedEntityPresentationVisibility(
+                    winner.EntityKey,
+                    winner.IsVisible,
+                    winner.Provenance));
+            }
+        }
+
+        private static PresentationVisibilityCandidate SelectWinner(
+            IReadOnlyList<PresentationVisibilityCandidate> candidates)
+        {
+            var winner = candidates[0];
+            for (var i = 1; i < candidates.Count; i++)
+            {
+                var candidate = candidates[i];
+                if (candidate.Priority >= winner.Priority)
+                {
+                    winner = candidate;
+                }
+            }
+
+            return winner;
         }
     }
 
