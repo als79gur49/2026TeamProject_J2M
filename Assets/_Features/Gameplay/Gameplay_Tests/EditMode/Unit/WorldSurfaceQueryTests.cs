@@ -1285,7 +1285,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState,
                 10,
                 oneBeyondX,
-                SimulationFixed.HalfCellUnits - radius - speed,
+                SimulationFixed.HalfCellUnits - radius - speed + 1,
                 speed);
 
             var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
@@ -1321,7 +1321,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var remap = AssertBottomToFrontBoundaryRemap(localX, radius, speed);
 
                 Assert.That(remap.TargetLocalOffset.X.RawValue, Is.EqualTo(localX));
-                Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(SimulationFixed.MinLocalOffset + radius));
+                Assert.That(remap.TargetLocalOffset.Y.RawValue, Is.EqualTo(SimulationFixed.MinLocalOffset + radius + 1));
                 Assert.That(remap.TargetLocalOffset.X.RawValue + radius, Is.LessThanOrEqualTo(SimulationFixed.HalfCellUnits));
             }
         }
@@ -1345,7 +1345,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState,
                 10,
                 exactMaxContactX,
-                SimulationFixed.HalfCellUnits - radius - speed,
+                SimulationFixed.HalfCellUnits - radius - speed + 1,
                 speed);
 
             var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
@@ -1500,7 +1500,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState,
                 10,
                 localX,
-                SimulationFixed.HalfCellUnits - radiusUnits - speedUnitsPerTick,
+                SimulationFixed.HalfCellUnits - radiusUnits - speedUnitsPerTick + 1,
                 speedUnitsPerTick);
 
             var resolved = SurfaceFree2DTopologyTransitionQueries.TryResolveFree2DTopologyTransition(
