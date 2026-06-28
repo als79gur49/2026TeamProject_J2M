@@ -102,6 +102,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 boardBounds,
                 timingProfile);
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var pipeline = CreatePlayerControlPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -734,6 +735,30 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WorldSnapshot CreateSnapshot(WorldState worldState)
         {
             return worldState.CreateSnapshot();
+        }
+
+        private static void SetPlayerFree2DSeamOffset(
+            WorldState worldState,
+            int entityId,
+            int x,
+            int y,
+            Direction direction)
+        {
+            worldState.CreateWriteContext().SetUnitContinuousLocomotionState(
+                entityId,
+                new UnitContinuousLocomotionState
+                {
+                    localOffset = new SimulationOffset2(
+                        SimulationFixed.FromRaw(x),
+                        SimulationFixed.FromRaw(y)),
+                    velocity = SimulationVelocity2.Zero,
+                    facing = direction,
+                    lastMoveDirection = direction,
+                    speedUnitsPerTick = SimulationFixed.DefaultReferenceUnitsPerTick,
+                    mode = ContinuousLocomotionMode.Moving,
+                    sequenceId = 1,
+                }.NormalizedForStorage());
+            worldState.CreateWriteContext().SetPlayerControlState(entityId, default);
         }
 
         private static TickPipeline CreatePlayerControlPipeline(
