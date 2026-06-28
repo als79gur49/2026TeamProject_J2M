@@ -371,6 +371,13 @@ namespace Game.Feature.Gameplay.Host
 
         public void SetAdditiveLocalOffset(in ResolvedEntityPresentationAdditiveLocalOffset channel)
         {
+            if (_additiveLocalOffsetsByEntity.TryGetValue(channel.Entity, out var existing) &&
+                existing.Provenance.BaseSource != channel.Provenance.BaseSource)
+            {
+                throw new System.InvalidOperationException(
+                    $"Additive local offset for entity {channel.Entity.EntityId} is already resolved from {existing.Provenance.BaseSource}; cannot also resolve {channel.Provenance.BaseSource}.");
+            }
+
             AddEntityId(channel.Entity);
             _additiveLocalOffsetsByEntity[channel.Entity] = channel;
         }
@@ -404,7 +411,7 @@ namespace Game.Feature.Gameplay.Host
             _trackState = trackState ?? throw new System.ArgumentNullException(nameof(trackState));
         }
 
-        public void ResolveJumpAdditiveChannels(
+        public void ResolveAdditiveChannels(
             float deltaTime,
             bool hasActiveBoardRotationTween,
             int sourceTick,
@@ -503,6 +510,32 @@ namespace Game.Feature.Gameplay.Host
                 {
                     _trackState.CompletedJumpWindupRotationTrackIds.Add(entityId);
                 }
+            }
+
+            foreach (var pair in _trackState.GlidePresentationOffsetsByEntityId)
+            {
+                var entityId = pair.Key;
+                if (!resolvedFrames.TryGetFrame(entityId, out var resolvedFrame) ||
+                    resolvedFrame.Provenance.TerminalSource != PresentationPoseSourceKind.None ||
+                    resolvedFrame.OwnerRole != PresentationOwnerRole.Enemy ||
+                    _trackState.DeferredExitRetainedEntityIds.Contains(entityId) ||
+                    _trackState.ContactDelayedRetainedEntityIds.Contains(entityId) ||
+                    _trackState.DeathPresentationPlayingEntityIds.Contains(entityId))
+                {
+                    continue;
+                }
+
+                var entity = new PresentationEntityKey(entityId);
+                var provenance = new PresentationPoseProvenance(
+                    PresentationOwnerRole.Enemy,
+                    PresentationPoseSourceKind.GlideOffset,
+                    PresentationPoseSourceKind.None,
+                    sourceTick);
+                channelSet.SetAdditiveLocalOffset(new ResolvedEntityPresentationAdditiveLocalOffset(
+                    entity,
+                    PresentationOwnerRole.Enemy,
+                    pair.Value,
+                    provenance));
             }
         }
     }

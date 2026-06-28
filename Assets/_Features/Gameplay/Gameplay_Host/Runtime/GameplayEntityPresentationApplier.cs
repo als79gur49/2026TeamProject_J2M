@@ -568,11 +568,6 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                if (_trackState.GlidePresentationOffsetsByEntityId.TryGetValue(entityId, out var glideOffset))
-                {
-                    localPose = new GameplayEntityPose(localPose.Position + glideOffset, localPose.Rotation);
-                }
-
                 view.SetVisible(true);
                 if (!wasViewActiveInHierarchy && view.gameObject.activeInHierarchy)
                 {
@@ -1230,7 +1225,7 @@ namespace Game.Feature.Gameplay.Host
             bool hasPlayerDeathHoldPose,
             bool hasActiveLocalMotion,
             bool hasActiveOriginalViewMotion,
-            bool hasResolvedJumpAdditiveChannel,
+            bool hasResolvedAdditiveChannel,
             bool isDeferredExitRetained,
             bool isContactDelayedRetained,
             bool isDeathPresentationPlaying)
@@ -1240,7 +1235,7 @@ namespace Game.Feature.Gameplay.Host
                    hasPlayerDeathHoldPose ||
                    hasActiveLocalMotion ||
                    hasActiveOriginalViewMotion ||
-                   hasResolvedJumpAdditiveChannel ||
+                   hasResolvedAdditiveChannel ||
                    isDeferredExitRetained ||
                    isContactDelayedRetained ||
                    isDeathPresentationPlaying ||
@@ -1248,7 +1243,6 @@ namespace Game.Feature.Gameplay.Host
                    _trackState.JumpWindupRotationTracks.ContainsKey(entityId) ||
                    _trackState.PlayerFlipResultTurnTracks.ContainsKey(entityId) ||
                    _trackState.VisibilityTracks.ContainsKey(entityId) ||
-                   _trackState.GlidePresentationOffsetsByEntityId.ContainsKey(entityId) ||
                    _trackState.JumpLandingCompletionHoldEntityIds.Contains(entityId) ||
                    _trackState.PlayerDeathDisplacementTracks.ContainsKey(entityId) ||
                    _trackState.MotionVisualScaleEntityIds.Contains(entityId) ||

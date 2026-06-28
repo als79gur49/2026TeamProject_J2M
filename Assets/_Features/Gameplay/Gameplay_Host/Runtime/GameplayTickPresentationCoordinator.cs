@@ -1117,7 +1117,7 @@ namespace Game.Feature.Gameplay.Host
             _resolvedPresentationVisibility.Clear();
             _trackState.CompletedJumpTrackIds.Clear();
             _trackState.CompletedJumpWindupRotationTrackIds.Clear();
-            _resolvedChannelResolver.ResolveJumpAdditiveChannels(
+            _resolvedChannelResolver.ResolveAdditiveChannels(
                 deltaTime,
                 hadActiveBoardRotationTween || _topologyTransitionController.HasActiveBoardRotationTween,
                 _lastPresentedTickIndex,

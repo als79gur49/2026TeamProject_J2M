@@ -16690,6 +16690,160 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void GlideAdditiveOffset_IsResolvedBeforeApplication()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var basePose = PoseAt(1f);
+            var glideOffset = new Vector3(0f, 2f, 0f);
+            stateStore.CommittedLocalTargetPoses[40] = basePose;
+            trackState.GlidePresentationOffsetsByEntityId[40] = glideOffset;
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 7);
+            var channels = ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 7);
+
+            Assert.That(channels.TryGetAdditiveLocalOffset(40, out var offset), Is.True);
+            Assert.That(offset.Channel, Is.EqualTo(PresentationPoseChannel.AdditiveLocalOffset));
+            Assert.That(offset.OwnerRole, Is.EqualTo(PresentationOwnerRole.Enemy));
+            Assert.That(offset.Offset, Is.EqualTo(glideOffset));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GlideAdditiveOffset_DoesNotReplaceResolvedBasePose()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var basePose = PoseAt(1f);
+            stateStore.CommittedLocalTargetPoses[40] = basePose;
+            trackState.GlidePresentationOffsetsByEntityId[40] = new Vector3(0f, 2f, 0f);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 7);
+            var channels = ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 7);
+
+            Assert.That(frames.TryGetFrame(40, out var frame), Is.True);
+            Assert.That(frame.BasePose.Position, Is.EqualTo(basePose.Position));
+            Assert.That(frame.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.CommittedPose));
+            Assert.That(channels.TryGetAdditiveLocalOffset(40, out var offset), Is.True);
+            Assert.That(offset.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.GlideOffset));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void TerminalHold_SuppressesLiveGlideAdditiveOffset()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var frames = new ResolvedPresentationFrameSet();
+            frames.SetFrame(new ResolvedEntityPresentationFrame(
+                new PresentationEntityKey(40),
+                PresentationOwnerRole.Enemy,
+                PoseAt(1f),
+                new PresentationPoseProvenance(
+                    PresentationOwnerRole.Enemy,
+                    PresentationPoseSourceKind.EnemyDeathHold,
+                    PresentationPoseSourceKind.EnemyDeathHold,
+                    sourceTick: 42),
+                isActiveLocomotion: false));
+            trackState.GlidePresentationOffsetsByEntityId[40] = new Vector3(0f, 2f, 0f);
+
+            var channels = ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 42);
+
+            Assert.That(channels.TryGetAdditiveLocalOffset(40, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DeathOrExitRetained_SuppressesLiveGlideAdditiveOffset()
+        {
+            AssertGlideSuppressedByRetainedState(trackState => trackState.DeferredExitRetainedEntityIds.Add(40));
+            AssertGlideSuppressedByRetainedState(trackState => trackState.ContactDelayedRetainedEntityIds.Add(40));
+            AssertGlideSuppressedByRetainedState(trackState => trackState.DeathPresentationPlayingEntityIds.Add(40));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GlideAdditiveOffset_PreservesSourceKindOwnerAndOffset()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var glideOffset = new Vector3(0f, 2.5f, 0f);
+            stateStore.CommittedLocalTargetPoses[40] = PoseAt(1f);
+            trackState.GlidePresentationOffsetsByEntityId[40] = glideOffset;
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 77);
+            var channels = ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 77);
+
+            Assert.That(channels.TryGetAdditiveLocalOffset(40, out var offset), Is.True);
+            Assert.That(offset.Entity.EntityId, Is.EqualTo(40));
+            Assert.That(offset.OwnerRole, Is.EqualTo(PresentationOwnerRole.Enemy));
+            Assert.That(offset.Provenance.BaseSource, Is.EqualTo(PresentationPoseSourceKind.GlideOffset));
+            Assert.That(offset.Provenance.TerminalSource, Is.EqualTo(PresentationPoseSourceKind.None));
+            Assert.That(offset.Provenance.SourceTick, Is.EqualTo(77));
+            Assert.That(offset.Offset, Is.EqualTo(glideOffset));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GlideAdditiveOffset_DoesNotSilentlyOverwriteJumpAdditiveOffset_WhenInvalidCoexistence()
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            var basePose = PoseAt(1f);
+            var jumpEndPose = PoseAt(5f);
+            stateStore.CommittedLocalTargetPoses[40] = basePose;
+            var jumpTrack = new JumpTrack();
+            jumpTrack.Replace(JumpClip.Create(basePose, jumpEndPose, durationSeconds: 1f, arcHeightWorld: 0f));
+            trackState.JumpTracks[40] = jumpTrack;
+            trackState.GlidePresentationOffsetsByEntityId[40] = new Vector3(0f, 2f, 0f);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 7);
+
+            Assert.Throws<System.InvalidOperationException>(() => ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 7));
+        }
+
+        [Test]
+        [Category("Core")]
         public void JumpWindupRotation_IsResolvedBeforeApplication()
         {
             var stateStore = new GameplayPresentationStateStore();
@@ -16957,7 +17111,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var applierSource = File.ReadAllText(Path.Combine(Application.dataPath, "..", ApplierPath));
 
             var channelResolveIndex = coordinatorSource.IndexOf(
-                "_resolvedChannelResolver.ResolveJumpAdditiveChannels",
+                "_resolvedChannelResolver.ResolveAdditiveChannels",
                 StringComparison.Ordinal);
             var applierIndex = coordinatorSource.IndexOf(
                 "_entityPresentationApplier.Apply",
@@ -16968,7 +17122,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(trackStateSource, Does.Contain("PresentationPoseChannel.AdditiveLocalOffset"));
             Assert.That(trackStateSource, Does.Contain("PresentationPoseSourceKind.Jump"));
             Assert.That(trackStateSource, Does.Contain("PresentationPoseSourceKind.EnemyJumpWindup"));
+            Assert.That(trackStateSource, Does.Contain("PresentationPoseSourceKind.GlideOffset"));
             Assert.That(applierSource, Does.Not.Contain("_trackState.JumpWindupRotationTracks.TryGetValue"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_DoesNotReadGlidePresentationOffsetsForFinalPositionAfterMigration()
+        {
+            var source = File.ReadAllText(Path.Combine(Application.dataPath, "..", ApplierPath));
+
+            Assert.That(source, Does.Contain("resolvedChannels.TryGetAdditiveLocalOffset"));
+            Assert.That(source, Does.Not.Contain("_trackState.GlidePresentationOffsetsByEntityId"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_DoesNotUseGlideOffsetForBasePoseSelection()
+        {
+            var applierSource = File.ReadAllText(Path.Combine(Application.dataPath, "..", ApplierPath));
+            var trackStateSource = File.ReadAllText(Path.Combine(Application.dataPath, "..", TrackStatePath));
+
+            Assert.That(applierSource, Does.Not.Contain("GlidePresentationOffsetsByEntityId.TryGetValue"));
+            Assert.That(trackStateSource, Does.Not.Contain("PresentationPoseSourceKind.GlideOffset,\n                    PresentationPoseChannel.BasePose"));
+            Assert.That(trackStateSource, Does.Contain("PresentationPoseChannel.AdditiveLocalOffset"));
         }
 
         [Test]
@@ -17051,8 +17228,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var resolver = new PresentationResolvedChannelResolver(stateStore, trackState);
             var channels = new ResolvedPresentationChannelSet();
-            resolver.ResolveJumpAdditiveChannels(deltaTime, hasActiveBoardRotationTween, sourceTick, frames, channels);
+            resolver.ResolveAdditiveChannels(deltaTime, hasActiveBoardRotationTween, sourceTick, frames, channels);
             return channels;
+        }
+
+        private static void AssertGlideSuppressedByRetainedState(Action<GameplayPresentationTrackState> configureRetainedState)
+        {
+            var stateStore = new GameplayPresentationStateStore();
+            var trackState = new GameplayPresentationTrackState();
+            MarkEnemy(stateStore, 40);
+
+            stateStore.CommittedLocalTargetPoses[40] = PoseAt(1f);
+            stateStore.RetainedLocalTargetPoses[40] = PoseAt(9f);
+            trackState.GlidePresentationOffsetsByEntityId[40] = new Vector3(0f, 2f, 0f);
+            configureRetainedState(trackState);
+
+            var frames = Resolve(stateStore, trackState, sourceTick: 77);
+            var channels = ResolveChannels(
+                stateStore,
+                trackState,
+                frames,
+                deltaTime: 0.5f,
+                hasActiveBoardRotationTween: false,
+                sourceTick: 77);
+
+            Assert.That(channels.TryGetAdditiveLocalOffset(40, out _), Is.False);
         }
 
         private static ResolvedPresentationVisibilitySet ResolveVisibility(
