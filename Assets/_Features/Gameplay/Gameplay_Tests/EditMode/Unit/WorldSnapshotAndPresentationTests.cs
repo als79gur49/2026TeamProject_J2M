@@ -4652,8 +4652,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AddCellIndexValue(tileFeatureIdsByCell, tileFeature.Cell, tileFeature.TileId);
             }
 
-            var args = new object[]
-            {
+            return new WorldSnapshot(
                 entitiesById,
                 stackedUnitsByCell,
                 solidOccupancy,
@@ -4668,6 +4667,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new Dictionary<int, EnemyJumpRuntimeState>(),
                 new Dictionary<int, EnemyGlideRuntimeState>(),
                 new Dictionary<int, EnemyUtilityRuntimeState>(),
+                new Dictionary<int, EnemySummonBehaviorRuntimeState>(),
                 new Dictionary<int, BoxInteractionLockState>(),
                 new Dictionary<int, EnemyGravityFieldAuraFieldState>(),
                 new Dictionary<int, PhasedRuntimeState>(),
@@ -4679,15 +4679,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new Dictionary<int, UnitContinuousLocomotionState>(),
                 new CubeTopologyState(FaceId.Floor),
                 0,
-                TestBounds,
-            };
-
-            return (WorldSnapshot)Activator.CreateInstance(
-                typeof(WorldSnapshot),
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                binder: null,
-                args: args,
-                culture: null);
+                TestBounds);
         }
 
         private static IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> GetCellIndex(
