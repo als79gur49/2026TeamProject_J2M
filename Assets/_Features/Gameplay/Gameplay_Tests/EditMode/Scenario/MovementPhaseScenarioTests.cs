@@ -480,6 +480,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateDestroyTile(100, new SurfaceCell(FaceId.Front, 1, 0)),
                     CreateBarricade(101, new SurfaceCell(FaceId.Back, 0, 0)),
                 });
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var pipeline = CreatePlayerTileFeaturePipeline(
                 worldState,
                 new[]
@@ -491,13 +492,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "TopologyCommitted|G=1|I=1|Rotation=Forward|Bottom=Front|Front=Ceiling",
-                    "MoveCommitted|G=1|I=1|E=10|To=Front(0,0)|Facing=Up",
-                },
-                result.MovementPhaseResult.CommitEvents);
+            AssertFree2DNativeTopologyTransition(result, 10, CubeRotationKind.Forward);
             Assert.That(result.MovementPhaseResult.RejectedReasons.Any(reason =>
                 reason.Contains("Reason=BlockedDestination", StringComparison.Ordinal) &&
                 reason.Contains("LegalityBlockerKinds=TileFeature", StringComparison.Ordinal)), Is.False);
@@ -520,6 +515,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new[] { createTileFeature(100, resolvedDestination) });
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var pipeline = CreatePlayerTileFeaturePipeline(
                 worldState,
                 new[] { CreateTileFeatureDefinition(100, activationRule) });
@@ -531,14 +527,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 SemanticEventAssertions.ContainsEvent(
                     result.MovementPhaseResult.RejectedReasons,
                     "MovementRejected",
+                    "Stage=Plan",
+                    "Source=10",
+                    "I=1",
+                    "Reason=Free2DTopologyNativeRejected",
+                    "RejectedBy=TargetFaceBlockedByTileFeature",
+                    "Anchor=(0,1)"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
                     "Stage=Expand",
                     "Source=10",
                     "Reason=BlockedDestination",
                     "Cell=Front(0,0)",
                     "LegalityBlockerKinds=TileFeature"),
-                Is.True);
-            Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("TopologyCommitted", StringComparison.Ordinal)), Is.False);
-            Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("MoveCommitted", StringComparison.Ordinal)), Is.False);
+                Is.False);
+            Assert.That(result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition), Is.False);
             Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
             Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals[0].PrimaryBlockerKind, Is.EqualTo(TickTraversalBlockerKind.TileFeature));
             Assert.That(result.PresentationData.TileEvents, Is.Empty);
@@ -3326,6 +3333,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreatePlayerUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3336,16 +3344,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "TopologyCommitted|G=1|I=1|Rotation=Forward|Bottom=Front|Front=Ceiling",
-                    "MoveCommitted|G=1|I=1|E=10|To=Front(0,0)|Facing=Up",
-                },
-                result.MovementPhaseResult.CommitEvents);
+            AssertFree2DNativeTopologyTransition(result, 10, CubeRotationKind.Forward);
             Assert.That(snapshotAfter.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(result.PresentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(result.PresentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
             Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Is.Empty);
         }
 
@@ -3362,6 +3365,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new[] { CreateDestroyTile(100, destroyCell) });
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var pipeline = CreatePlayerTileFeaturePipeline(
                 worldState,
                 new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
@@ -3390,6 +3394,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new[] { CreateDestroyTile(100, destroyCell) });
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var pipeline = CreatePlayerTileFeaturePipeline(
                 worldState,
                 new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
@@ -3416,6 +3421,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new[] { CreateDestroyTile(100, destroyCell) });
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var pipeline = CreatePlayerTileFeaturePipeline(
                 worldState,
                 new[] { CreateTileFeatureDefinition(100, TileFeatureActivationRule.FrontFaceOnly) });
@@ -3544,7 +3550,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Movement_TopologyChangingTick_RejectsOrdinaryCandidateInSameTick()
+        public void Movement_TopologyChangingTick_RejectsOrdinaryCandidateAfterFree2DNativeMaterialization()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
@@ -3553,6 +3559,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Floor, 2, 0), teamId: 2, facing: Direction.Left),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3563,26 +3570,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=20|Reason=TopologyExclusive|BlockedBy=1|BlockingKind=Move|BlockingTopologyChange=True",
-                },
-                result.MovementPhaseResult.RejectedReasons);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "TopologyCommitted|G=1|I=1|Rotation=Forward|Bottom=Front|Front=Ceiling",
-                    "MoveCommitted|G=1|I=1|E=10|To=Front(0,0)|Facing=Up",
-                },
-                result.MovementPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "Free2DTopologyNativeTransition",
+                    "Stage=Plan",
+                    "E=10",
+                    "I=1",
+                    "Rot=Forward"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=20",
+                    "I=2",
+                    "Reason=TraversalRejected",
+                    "Origin=(2,0)"),
+                Is.True);
+            AssertFree2DNativeTopologyTransition(result, 10, CubeRotationKind.Forward);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
             Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
         }
 
         [Test]
         [Category("Extended")]
-        public void Movement_OrdinarySelection_RejectsLaterTopologyChangingCandidate()
+        public void Movement_Free2DNativeSelection_RejectsLaterOffTopologyOrdinaryCandidate()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
@@ -3591,6 +3605,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Floor, 2, 0), teamId: 2, facing: Direction.Left),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3601,20 +3616,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=10|Reason=TopologyExclusive|BlockedBy=1|BlockingKind=Move|BlockingTopologyChange=False",
-                },
-                result.MovementPhaseResult.RejectedReasons);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MoveCommitted|G=1|I=1|E=20|To=(1,0)|Facing=Left",
-                },
-                result.MovementPhaseResult.CommitEvents);
-            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
-            Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "Free2DTopologyNativeTransition",
+                    "Stage=Plan",
+                    "E=10",
+                    "I=2",
+                    "Rot=Forward"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=20",
+                    "I=1",
+                    "Reason=TraversalRejected",
+                    "Origin=(2,0)"),
+                Is.True);
+            AssertFree2DNativeTopologyTransition(result, 10, CubeRotationKind.Forward);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
         }
 
         [Test]
@@ -3628,6 +3651,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateNonUnitBlocker(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3642,12 +3666,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 SemanticEventAssertions.ContainsEvent(
                     result.MovementPhaseResult.RejectedReasons,
                     "MovementRejected",
-                    "Stage=Expand",
+                    "Stage=Plan",
                     "Source=10",
                     "I=1",
-                    "Reason=BlockedDestination",
-                    "Cell=Front(0,0)"),
+                    "Reason=Free2DTopologyNativeRejected",
+                    "RejectedBy=TargetFaceBlockedBySolid",
+                    "Anchor=(0,1)"),
                 Is.True);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals[0].PrimaryBlockerKind, Is.EqualTo(TickTraversalBlockerKind.Solid));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
             Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
         }
@@ -3663,6 +3690,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3677,11 +3705,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 SemanticEventAssertions.ContainsEvent(
                     result.MovementPhaseResult.RejectedReasons,
                     "MovementRejected",
-                    "Stage=Expand",
+                    "Stage=Plan",
                     "Source=10",
                     "I=1",
-                    "Reason=BlockedDestination",
-                    "Cell=Front(0,0)"),
+                    "Reason=Free2DTopologyNativeRejected",
+                    "RejectedBy=TargetFaceBlockedBySolid",
+                    "Anchor=(0,1)"),
                 Is.True);
             Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
             var signal = result.PresentationData.PlayerTopologyTransitionBlockedSignals[0];
@@ -3707,6 +3736,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Back, 0, 1), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MinLocalOffset, Direction.Down);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3721,11 +3751,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 SemanticEventAssertions.ContainsEvent(
                     result.MovementPhaseResult.RejectedReasons,
                     "MovementRejected",
-                    "Stage=Expand",
+                    "Stage=Plan",
                     "Source=10",
                     "I=1",
-                    "Reason=BlockedDestination",
-                    "Cell=Back(0,1)"),
+                    "Reason=Free2DTopologyNativeRejected",
+                    "RejectedBy=TargetFaceBlockedBySolid",
+                    "Anchor=(0,0)"),
                 Is.True);
             Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
             var signal = result.PresentationData.PlayerTopologyTransitionBlockedSignals[0];
@@ -3799,6 +3830,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MinLocalOffset, Direction.Down);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3809,13 +3841,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "TopologyCommitted|G=1|I=1|Rotation=Backward|Bottom=Back|Front=Floor",
-                    "MoveCommitted|G=1|I=1|E=10|To=Back(0,1)|Facing=Down",
-                },
-                result.MovementPhaseResult.CommitEvents);
+            AssertFree2DNativeTopologyTransition(result, 10, CubeRotationKind.Backward);
             Assert.That(snapshotAfter.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Back)));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Back, 0, 1)));
         }
@@ -3850,7 +3876,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Movement_MoveIntoItemBoxAcrossBottomFrontSharedEdge_IsRejectedAsCrossFaceInteraction()
+        public void Movement_MoveIntoItemBoxAcrossBottomFrontSharedEdge_IsRejectedAsFree2DTopologyTargetSolid()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
@@ -3859,6 +3885,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Item),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)));
+            SetPlayerFree2DSeamOffset(worldState, 10, x: 0, y: SimulationFixed.MaxPositiveLocalOffset, Direction.Up);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -3873,15 +3900,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 SemanticEventAssertions.ContainsEvent(
                     result.MovementPhaseResult.RejectedReasons,
                     "MovementRejected",
-                    "Stage=Expand",
+                    "Stage=Plan",
                     "Source=10",
                     "I=1",
-                    "Reason=InteractionCrossesFaceBoundary",
-                    "Command=Move",
-                    "From=(0,1)",
-                    "Cell=Front(0,0)",
-                    "Target=20"),
+                    "Reason=Free2DTopologyNativeRejected",
+                    "RejectedBy=TargetFaceBlockedBySolid",
+                    "Anchor=(0,1)"),
                 Is.True);
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals, Has.Count.EqualTo(1));
+            Assert.That(result.PresentationData.PlayerTopologyTransitionBlockedSignals[0].PrimaryBlockerKind, Is.EqualTo(TickTraversalBlockerKind.Solid));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
             Assert.That(CreateSnapshot(worldState).TryGetEntity(20, out var itemBox), Is.True);
             Assert.That(itemBox.markedForDeath, Is.False);
@@ -4756,6 +4783,36 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static bool IsSetTopologyOperation(FinalizationOperation operation)
         {
             return operation.Kind == FinalizationOperationKind.SetTopology;
+        }
+
+        private static void AssertFree2DNativeTopologyTransition(
+            TickResult result,
+            int entityId,
+            CubeRotationKind rotationKind)
+        {
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.SetTopology &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition &&
+                    operation.Metadata.RotationKind == rotationKind),
+                Is.True);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.EntityId == entityId &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition &&
+                    operation.Metadata.BoundaryReason == "Free2DTopologyNativeTransition" &&
+                    operation.Metadata.RotationKind == rotationKind),
+                Is.True);
+            Assert.That(
+                result.MovementPhaseResult.ResolvedOperations.Any(operation =>
+                    operation.Kind == FinalizationOperationKind.SetUnitContinuousLocomotionState &&
+                    operation.EntityId == entityId &&
+                    operation.Metadata.MovementExecutionBoundaryKind == MovementExecutionBoundaryKind.Free2DTopologyTransition &&
+                    operation.Metadata.RotationKind == rotationKind),
+                Is.True);
+            Assert.That(result.PresentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(result.PresentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(rotationKind));
         }
 
         private static TileFeatureState GetTileFeature(WorldSnapshot snapshot, int tileId)
