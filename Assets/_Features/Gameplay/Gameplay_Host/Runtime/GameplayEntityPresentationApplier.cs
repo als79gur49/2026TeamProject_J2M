@@ -422,16 +422,19 @@ namespace Game.Feature.Gameplay.Host
                     _stateStore.RetainedLocalTargetPoses.ContainsKey(entityId);
                 var hasResolvedVisibility =
                     resolvedVisibility.TryGetVisibility(entityId, out var resolvedEntityVisibility);
-                var isVisible = hasPresentationPoseOverride ||
-                                hasPlayerDeathHoldPose ||
-                                _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId) ||
-                                hasActiveLocalMotion ||
-                                hasActiveOriginalViewMotion ||
-                                isDeferredExitRetained ||
-                                isContactDelayedRetained ||
-                                isDeathPresentationPlaying ||
-                                (hasResolvedVisibility && resolvedEntityVisibility.IsVisible) ||
-                                _stateStore.TransitionVisibilityStates.ContainsKey(entityId);
+                var isVisible = PresentationVisibilityFallbackResolver.Resolve(
+                    new PresentationVisibilityFallbackInputs(
+                        hasPresentationPoseOverride,
+                        hasPlayerDeathHoldPose,
+                        _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId),
+                        hasActiveLocalMotion,
+                        hasActiveOriginalViewMotion,
+                        isDeferredExitRetained,
+                        isContactDelayedRetained,
+                        isDeathPresentationPlaying,
+                        hasResolvedVisibility,
+                        hasResolvedVisibility && resolvedEntityVisibility.IsVisible,
+                        _stateStore.TransitionVisibilityStates.ContainsKey(entityId)));
                 if (!hasPlayerDeathHoldPose &&
                     _trackState.VisibilityTracks.TryGetValue(entityId, out var visibilityTrack))
                 {

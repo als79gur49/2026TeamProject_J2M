@@ -540,6 +540,74 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
+    internal readonly struct PresentationVisibilityFallbackInputs
+    {
+        public PresentationVisibilityFallbackInputs(
+            bool hasPresentationPoseOverride,
+            bool hasPlayerDeathHoldPose,
+            bool hasCommittedLocalTargetPose,
+            bool hasActiveLocalMotion,
+            bool hasActiveOriginalViewMotion,
+            bool isDeferredExitRetained,
+            bool isContactDelayedRetained,
+            bool isDeathPresentationPlaying,
+            bool hasResolvedVisibility,
+            bool isResolvedVisible,
+            bool hasTransitionVisibility)
+        {
+            HasPresentationPoseOverride = hasPresentationPoseOverride;
+            HasPlayerDeathHoldPose = hasPlayerDeathHoldPose;
+            HasCommittedLocalTargetPose = hasCommittedLocalTargetPose;
+            HasActiveLocalMotion = hasActiveLocalMotion;
+            HasActiveOriginalViewMotion = hasActiveOriginalViewMotion;
+            IsDeferredExitRetained = isDeferredExitRetained;
+            IsContactDelayedRetained = isContactDelayedRetained;
+            IsDeathPresentationPlaying = isDeathPresentationPlaying;
+            HasResolvedVisibility = hasResolvedVisibility;
+            IsResolvedVisible = isResolvedVisible;
+            HasTransitionVisibility = hasTransitionVisibility;
+        }
+
+        public bool HasPresentationPoseOverride { get; }
+
+        public bool HasPlayerDeathHoldPose { get; }
+
+        public bool HasCommittedLocalTargetPose { get; }
+
+        public bool HasActiveLocalMotion { get; }
+
+        public bool HasActiveOriginalViewMotion { get; }
+
+        public bool IsDeferredExitRetained { get; }
+
+        public bool IsContactDelayedRetained { get; }
+
+        public bool IsDeathPresentationPlaying { get; }
+
+        public bool HasResolvedVisibility { get; }
+
+        public bool IsResolvedVisible { get; }
+
+        public bool HasTransitionVisibility { get; }
+    }
+
+    internal static class PresentationVisibilityFallbackResolver
+    {
+        public static bool Resolve(in PresentationVisibilityFallbackInputs inputs)
+        {
+            return inputs.HasPresentationPoseOverride ||
+                   inputs.HasPlayerDeathHoldPose ||
+                   inputs.HasCommittedLocalTargetPose ||
+                   inputs.HasActiveLocalMotion ||
+                   inputs.HasActiveOriginalViewMotion ||
+                   inputs.IsDeferredExitRetained ||
+                   inputs.IsContactDelayedRetained ||
+                   inputs.IsDeathPresentationPlaying ||
+                   (inputs.HasResolvedVisibility && inputs.IsResolvedVisible) ||
+                   inputs.HasTransitionVisibility;
+        }
+    }
+
     internal sealed class PresentationVisibilityCandidateCollector
     {
         private readonly GameplayPresentationStateStore _stateStore;

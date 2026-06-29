@@ -671,6 +671,133 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void VisibilityFallbackHelper_MatchesExistingApplierFallback_ForCommittedPose()
+        {
+            var inputs = CreateVisibilityFallbackInputs(hasCommittedLocalTargetPose: true);
+
+            Assert.That(PresentationVisibilityFallbackResolver.Resolve(inputs), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityFallbackHelper_MatchesExistingApplierFallback_ForResolvedJumpDetached()
+        {
+            var visibleInputs = CreateVisibilityFallbackInputs(
+                hasResolvedVisibility: true,
+                isResolvedVisible: true);
+            var hiddenInputs = CreateVisibilityFallbackInputs(
+                hasResolvedVisibility: true,
+                isResolvedVisible: false);
+
+            Assert.That(PresentationVisibilityFallbackResolver.Resolve(visibleInputs), Is.True);
+            Assert.That(PresentationVisibilityFallbackResolver.Resolve(hiddenInputs), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityFallbackHelper_MatchesExistingApplierFallback_ForTransitionVisibility()
+        {
+            var inputs = CreateVisibilityFallbackInputs(hasTransitionVisibility: true);
+
+            Assert.That(PresentationVisibilityFallbackResolver.Resolve(inputs), Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityFallbackHelper_MatchesExistingApplierFallback_ForRetainedDeathExit()
+        {
+            Assert.That(
+                PresentationVisibilityFallbackResolver.Resolve(
+                    CreateVisibilityFallbackInputs(isDeferredExitRetained: true)),
+                Is.True);
+            Assert.That(
+                PresentationVisibilityFallbackResolver.Resolve(
+                    CreateVisibilityFallbackInputs(isContactDelayedRetained: true)),
+                Is.True);
+            Assert.That(
+                PresentationVisibilityFallbackResolver.Resolve(
+                    CreateVisibilityFallbackInputs(isDeathPresentationPlaying: true)),
+                Is.True);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityFallbackHelper_DoesNotSampleOrAdvanceVisibilityTrack()
+        {
+            var source = ReadRepoFile(TrackStatePath);
+            var helperBlock = ExtractSourceBetween(
+                source,
+                "internal static class PresentationVisibilityFallbackResolver",
+                "internal sealed class PresentationVisibilityCandidateCollector");
+
+            Assert.That(helperBlock, Does.Not.Contain("VisibilityTracks"));
+            Assert.That(helperBlock, Does.Not.Contain("SampleAndAdvance"));
+            Assert.That(helperBlock, Does.Not.Contain("SampleWithoutAdvance"));
+            Assert.That(helperBlock, Does.Not.Contain("CompletedVisibilityTrackIds"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityFallbackHelper_DoesNotConsumePresentationVisibilityCandidateSet()
+        {
+            var source = ReadRepoFile(TrackStatePath);
+            var helperBlock = ExtractSourceBetween(
+                source,
+                "internal readonly struct PresentationVisibilityFallbackInputs",
+                "internal sealed class PresentationVisibilityCandidateCollector");
+
+            Assert.That(helperBlock, Does.Not.Contain("PresentationVisibilityCandidate"));
+            Assert.That(helperBlock, Does.Not.Contain("PresentationVisibilityCandidateSet"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityFallbackHelper_DoesNotReadTopologyBridgeBindings()
+        {
+            var source = ReadRepoFile(TrackStatePath);
+            var helperBlock = ExtractSourceBetween(
+                source,
+                "internal readonly struct PresentationVisibilityFallbackInputs",
+                "internal sealed class PresentationVisibilityCandidateCollector");
+
+            Assert.That(helperBlock, Does.Not.Contain("TopologyVisualBridgeBinding"));
+            Assert.That(helperBlock, Does.Not.Contain("TopologyVisualBridgeVisibilityController"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityFallbackHelper_DoesNotOwnCleanupLifecycle()
+        {
+            var source = ReadRepoFile(TrackStatePath);
+            var helperBlock = ExtractSourceBetween(
+                source,
+                "internal readonly struct PresentationVisibilityFallbackInputs",
+                "internal sealed class PresentationVisibilityCandidateCollector");
+
+            Assert.That(helperBlock, Does.Not.Contain("ClearEntityPresentationMetadataIfFullyHidden"));
+            Assert.That(helperBlock, Does.Not.Contain("RetainedLocalTargetPoses.Remove"));
+            Assert.That(helperBlock, Does.Not.Contain("TickVisibilityChange"));
+            Assert.That(helperBlock, Does.Not.Contain("EntityExitSignals"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_UsesVisibilityFallbackHelperBeforeVisibilityTrackSampling()
+        {
+            var source = ReadRepoFile(ApplierPath);
+            var helperIndex = source.IndexOf(
+                "PresentationVisibilityFallbackResolver.Resolve",
+                StringComparison.Ordinal);
+            var sampleIndex = source.IndexOf(
+                "visibilityTrack.SampleAndAdvance(deltaTime, isVisible)",
+                StringComparison.Ordinal);
+
+            Assert.That(helperIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(sampleIndex, Is.GreaterThan(helperIndex));
+        }
+
+        [Test]
+        [Category("Core")]
         public void GameplayEntityPresentationApplier_DoesNotConsumeVisibilityCandidateSet()
         {
             var source = ReadRepoFile(ApplierPath);
@@ -3623,6 +3750,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 isFallback: false,
                 isStatefulTrackSample: false,
                 isHighPrioritySuppressionSource: false);
+        }
+
+        private static PresentationVisibilityFallbackInputs CreateVisibilityFallbackInputs(
+            bool hasPresentationPoseOverride = false,
+            bool hasPlayerDeathHoldPose = false,
+            bool hasCommittedLocalTargetPose = false,
+            bool hasActiveLocalMotion = false,
+            bool hasActiveOriginalViewMotion = false,
+            bool isDeferredExitRetained = false,
+            bool isContactDelayedRetained = false,
+            bool isDeathPresentationPlaying = false,
+            bool hasResolvedVisibility = false,
+            bool isResolvedVisible = false,
+            bool hasTransitionVisibility = false)
+        {
+            return new PresentationVisibilityFallbackInputs(
+                hasPresentationPoseOverride,
+                hasPlayerDeathHoldPose,
+                hasCommittedLocalTargetPose,
+                hasActiveLocalMotion,
+                hasActiveOriginalViewMotion,
+                isDeferredExitRetained,
+                isContactDelayedRetained,
+                isDeathPresentationPlaying,
+                hasResolvedVisibility,
+                isResolvedVisible,
+                hasTransitionVisibility);
         }
 
         private static string ReadDirectorySource(string relativeDirectory)
