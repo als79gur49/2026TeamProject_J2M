@@ -856,7 +856,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(resolverBlock, Does.Contain("ResolveCandidates("));
             Assert.That(resolverBlock, Does.Contain("PresentationVisibilityCandidateSet candidateSet"));
             Assert.That(resolverBlock, Does.Contain("ResolvedPresentationVisibilitySet visibilitySet"));
-            Assert.That(resolverBlock, Does.Contain("SelectWinner(candidates)"));
+            Assert.That(resolverBlock, Does.Contain("PresentationVisibilityCandidateWinnerResolver"));
+            Assert.That(resolverBlock, Does.Contain("_winnerResolver.ResolveWinner(candidates)"));
             Assert.That(resolverBlock, Does.Contain("visibilitySet.SetVisibility"));
             Assert.That(resolverBlock, Does.Not.Contain("JumpDetachedVisibilityStates"));
             Assert.That(resolverBlock, Does.Not.Contain("VisibilityTracks"));
@@ -1031,6 +1032,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(collectorBlock, Does.Not.Contain("TopologyVisualBridgeBinding"));
             Assert.That(collectorBlock, Does.Not.Contain("TopologyVisualBridgeVisibilityController"));
             Assert.That(collectorBlock, Does.Not.Contain("ResolvedPresentationVisibilitySet.Topology"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowResolver_DoesNotReadTopologyBridgeBindings()
+        {
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var resolverBlock = ExtractSourceBetween(
+                trackStateSource,
+                "internal sealed class PresentationVisibilityCandidateWinnerResolver",
+                "internal sealed class PresentationPoseCandidateCollector");
+
+            Assert.That(resolverBlock, Does.Not.Contain("TopologyVisualBridgeBinding"));
+            Assert.That(resolverBlock, Does.Not.Contain("TopologyVisualBridgeVisibilityController"));
+            Assert.That(resolverBlock, Does.Not.Contain("ResolvedPresentationVisibilitySet.Topology"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowResolver_DoesNotOwnCleanupLifecycle()
+        {
+            var trackStateSource = ReadRepoFile(TrackStatePath);
+            var resolverBlock = ExtractSourceBetween(
+                trackStateSource,
+                "internal sealed class PresentationVisibilityCandidateWinnerResolver",
+                "internal sealed class PresentationPoseCandidateCollector");
+
+            Assert.That(resolverBlock, Does.Not.Contain("CompletedVisibilityTrackIds"));
+            Assert.That(resolverBlock, Does.Not.Contain("CleanupCompletedVisibilityTracks"));
+            Assert.That(resolverBlock, Does.Not.Contain("RetainedLocalTargetPoses.Remove"));
+            Assert.That(resolverBlock, Does.Not.Contain("TickVisibilityChange"));
+            Assert.That(resolverBlock, Does.Not.Contain("EntityExitSignals"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityPresentationApplier_DoesNotOwnCandidatePriorityResolution()
+        {
+            var source = ReadRepoFile(ApplierPath);
+
+            Assert.That(source, Does.Not.Contain("PresentationVisibilityCandidateWinnerResolver"));
+            Assert.That(source, Does.Not.Contain("ResolveCandidateWinner"));
+            Assert.That(source, Does.Not.Contain("ResolveSourceRank"));
+            Assert.That(source, Does.Not.Contain("GenericVisibilitySpawn"));
+            Assert.That(source, Does.Not.Contain("GenericVisibilityDetach"));
+            Assert.That(source, Does.Not.Contain("GenericVisibilityRemove"));
+            Assert.That(source, Does.Not.Contain("VisibilityTrackSample"));
         }
 
         [Test]

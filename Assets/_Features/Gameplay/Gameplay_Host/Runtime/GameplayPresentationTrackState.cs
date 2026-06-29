@@ -877,6 +877,8 @@ namespace Game.Feature.Gameplay.Host
 
     internal sealed class PresentationResolvedVisibilityResolver
     {
+        private readonly PresentationVisibilityCandidateWinnerResolver _winnerResolver = new();
+
         public void ResolveCandidates(
             PresentationVisibilityCandidateSet candidateSet,
             ResolvedPresentationVisibilitySet visibilitySet)
@@ -900,28 +902,124 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                var winner = SelectWinner(candidates);
+                var winner = _winnerResolver.ResolveWinner(candidates);
                 visibilitySet.SetVisibility(new ResolvedEntityPresentationVisibility(
                     winner.EntityKey,
                     winner.IsVisible,
                     winner.Provenance));
             }
         }
+    }
 
-        private static PresentationVisibilityCandidate SelectWinner(
+    internal sealed class PresentationVisibilityCandidateWinnerResolver
+    {
+        public bool TryResolveCandidateWinner(
+            PresentationVisibilityCandidateSet candidateSet,
+            int entityId,
+            out PresentationVisibilityCandidate candidate)
+        {
+            if (candidateSet == null)
+            {
+                throw new System.ArgumentNullException(nameof(candidateSet));
+            }
+
+            if (!candidateSet.TryGetCandidates(entityId, out var candidates) ||
+                candidates.Count == 0)
+            {
+                candidate = default;
+                return false;
+            }
+
+            candidate = ResolveWinner(candidates);
+            return true;
+        }
+
+        public PresentationVisibilityCandidate ResolveWinner(
             IReadOnlyList<PresentationVisibilityCandidate> candidates)
         {
+            if (candidates == null)
+            {
+                throw new System.ArgumentNullException(nameof(candidates));
+            }
+
+            if (candidates.Count == 0)
+            {
+                throw new System.ArgumentException("At least one visibility candidate is required.", nameof(candidates));
+            }
+
             var winner = candidates[0];
             for (var i = 1; i < candidates.Count; i++)
             {
                 var candidate = candidates[i];
-                if (candidate.Priority >= winner.Priority)
+                if (Compare(candidate, winner) > 0)
                 {
                     winner = candidate;
                 }
             }
 
             return winner;
+        }
+
+        private static int Compare(
+            in PresentationVisibilityCandidate candidate,
+            in PresentationVisibilityCandidate winner)
+        {
+            var priorityCompare = candidate.Priority.CompareTo(winner.Priority);
+            if (priorityCompare != 0)
+            {
+                return priorityCompare;
+            }
+
+            var sourceRankCompare = ResolveSourceRank(candidate.Provenance.SourceKind)
+                .CompareTo(ResolveSourceRank(winner.Provenance.SourceKind));
+            if (sourceRankCompare != 0)
+            {
+                return sourceRankCompare;
+            }
+
+            var lifetimeCompare = candidate.Provenance.LifetimeToken.CompareTo(winner.Provenance.LifetimeToken);
+            if (lifetimeCompare != 0)
+            {
+                return lifetimeCompare;
+            }
+
+            var ownerCompare = ((int)candidate.Provenance.OwnerRole).CompareTo((int)winner.Provenance.OwnerRole);
+            if (ownerCompare != 0)
+            {
+                return ownerCompare;
+            }
+
+            var visibilityCompare = candidate.IsVisible.CompareTo(winner.IsVisible);
+            if (visibilityCompare != 0)
+            {
+                return visibilityCompare;
+            }
+
+            var fallbackCompare = winner.IsFallback.CompareTo(candidate.IsFallback);
+            if (fallbackCompare != 0)
+            {
+                return fallbackCompare;
+            }
+
+            return winner.IsStatefulTrackSample.CompareTo(candidate.IsStatefulTrackSample);
+        }
+
+        private static int ResolveSourceRank(PresentationVisibilitySourceKind sourceKind)
+        {
+            return sourceKind switch
+            {
+                PresentationVisibilitySourceKind.TerminalDeathOrExitSuppression => 900,
+                PresentationVisibilitySourceKind.VisibilityTrackSample => 700,
+                PresentationVisibilitySourceKind.RetainedDeathOrExit => 650,
+                PresentationVisibilitySourceKind.TransitionEntityVisibility => 600,
+                PresentationVisibilitySourceKind.GenericVisibilityRemove => 500,
+                PresentationVisibilitySourceKind.GenericVisibilityDetach => 400,
+                PresentationVisibilitySourceKind.JumpDetached => 300,
+                PresentationVisibilitySourceKind.GenericVisibilitySpawn => 200,
+                PresentationVisibilitySourceKind.GenericVisibility => 100,
+                PresentationVisibilitySourceKind.CommittedMotionFallback => 50,
+                _ => 0,
+            };
         }
     }
 
