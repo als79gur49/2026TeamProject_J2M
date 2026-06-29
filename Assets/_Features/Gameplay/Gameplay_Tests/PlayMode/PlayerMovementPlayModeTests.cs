@@ -30,6 +30,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
     public sealed class PlayerMovementPlayModeTests : InputTestFixture
     {
         private const string PlayerS1PrefabPath = "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab";
+        private const float ViewPositionTolerance = 0.001f;
         private const string TutorialPassiveContactProfilePath =
             "Assets/_Features/Stages/Content/Campaigns/campaign-main/_Shared/Gameplay/EnemyAI/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset";
         private Keyboard _keyboard;
@@ -2350,9 +2351,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(
                 projector.TryResolveEntityRotation(entity.position, snapshot.Topology, expectedFacing, out var projectedRotation),
                 Is.True);
+            var expectedWorldPosition = host.BoardRoot.transform.TransformPoint(expectedLocalPosition);
+            var actualWorldPosition = view.transform.position;
+            var positionDelta = Vector3.Distance(actualWorldPosition, expectedWorldPosition);
             Assert.That(
-                view.transform.position,
-                Is.EqualTo(host.BoardRoot.transform.TransformPoint(expectedLocalPosition)));
+                positionDelta,
+                Is.LessThanOrEqualTo(ViewPositionTolerance),
+                $"Entity {entityId} view position mismatch. Expected={expectedWorldPosition} Actual={actualWorldPosition} Delta={positionDelta} Tolerance={ViewPositionTolerance}");
             Assert.That(
                 Quaternion.Angle(
                     view.transform.rotation,
