@@ -987,6 +987,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void VisibilityCandidateShadowComparison_DoesNotWriteGenericCandidatesToFinalSet()
+        {
+            var source = ReadRepoFile(CoordinatorPath);
+
+            var resolveIndex = source.IndexOf(
+                "_resolvedVisibilityResolver.ResolveCandidates",
+                StringComparison.Ordinal);
+            var genericCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectGenericVisibilityChanges",
+                StringComparison.Ordinal);
+            var trackCollectIndex = source.IndexOf(
+                "_visibilityCandidateCollector.CollectVisibilityTrackSamples",
+                StringComparison.Ordinal);
+            var applyIndex = source.IndexOf(
+                "_entityPresentationApplier.Apply",
+                StringComparison.Ordinal);
+            var secondResolveIndex = source.IndexOf(
+                "_resolvedVisibilityResolver.ResolveCandidates",
+                resolveIndex + 1,
+                StringComparison.Ordinal);
+
+            Assert.That(resolveIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(genericCollectIndex, Is.GreaterThan(resolveIndex));
+            Assert.That(trackCollectIndex, Is.GreaterThan(genericCollectIndex));
+            Assert.That(applyIndex, Is.GreaterThan(trackCollectIndex));
+            Assert.That(secondResolveIndex, Is.EqualTo(-1));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowComparison_DoesNotRemoveApplierRawVisibilityPath()
+        {
+            var source = ReadRepoFile(ApplierPath);
+
+            Assert.That(source, Does.Contain("_trackState.VisibilityTracks.TryGetValue"));
+            Assert.That(source, Does.Contain("visibilityTrack.SampleAndAdvance(deltaTime, isVisible)"));
+            Assert.That(source, Does.Contain("_trackState.CompletedVisibilityTrackIds.Add(entityId)"));
+            Assert.That(source, Does.Contain("viewBinder.HideViewsExcept(_trackState.VisibleEntityIds)"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void GameplayEntityPresentationApplier_RemainsVisibilityTrackAdvanceOwner()
         {
             var source = ReadRepoFile(ApplierPath);

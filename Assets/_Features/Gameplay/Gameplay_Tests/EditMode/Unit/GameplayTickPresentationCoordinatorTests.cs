@@ -17579,6 +17579,189 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
+        public void VisibilityCandidateShadowComparison_JumpDetachedOnlyMatchesCurrentFinalVisibility()
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.JumpDetached,
+                isVisible: true,
+                priority: 200,
+                sourceTick: 88));
+            var resolvedVisibility = ResolveVisibilityFromCandidates(candidates);
+
+            var winner = ResolveShadowWinner(candidates);
+            var currentFinalVisible = ResolveCurrentFinalVisible(
+                entityId: 40,
+                resolvedVisibility: resolvedVisibility);
+
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.JumpDetached));
+            Assert.That(currentFinalVisible, Is.EqualTo(winner.IsVisible));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowComparison_GenericSpawnOnlyMatchesCurrentCommittedFallback()
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.GenericVisibilitySpawn,
+                isVisible: true,
+                priority: 200,
+                sourceTick: 88));
+
+            var winner = ResolveShadowWinner(candidates);
+            var currentFinalVisible = ResolveCurrentFinalVisible(
+                entityId: 40,
+                hasCommittedLocalTargetPose: true);
+
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.GenericVisibilitySpawn));
+            Assert.That(currentFinalVisible, Is.EqualTo(winner.IsVisible));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowComparison_GenericDetachOnlyMatchesCurrentVisibilityAfterHideTrackCompletes()
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.GenericVisibilityDetach,
+                isVisible: false,
+                priority: 300,
+                sourceTick: 88));
+
+            var winner = ResolveShadowWinner(candidates);
+            var immediateCurrentVisible = ResolveCurrentFinalVisible(
+                entityId: 40,
+                hasCommittedLocalTargetPose: true,
+                visibilityTrack: VisibilityTrack.CreateHide(durationSeconds: 1f),
+                deltaTime: 0f);
+            var completedCurrentVisible = ResolveCurrentFinalVisible(
+                entityId: 40,
+                hasCommittedLocalTargetPose: true,
+                visibilityTrack: VisibilityTrack.CreateHide(durationSeconds: 1f),
+                deltaTime: 1f);
+
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.GenericVisibilityDetach));
+            Assert.That(immediateCurrentVisible, Is.Not.EqualTo(winner.IsVisible));
+            Assert.That(completedCurrentVisible, Is.EqualTo(winner.IsVisible));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowComparison_GenericRemoveOnlyMatchesCurrentVisibilityAfterHideTrackCompletes()
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.GenericVisibilityRemove,
+                isVisible: false,
+                priority: 400,
+                sourceTick: 88));
+
+            var winner = ResolveShadowWinner(candidates);
+            var immediateCurrentVisible = ResolveCurrentFinalVisible(
+                entityId: 40,
+                hasCommittedLocalTargetPose: true,
+                visibilityTrack: VisibilityTrack.CreateHide(durationSeconds: 1f),
+                deltaTime: 0f);
+            var completedCurrentVisible = ResolveCurrentFinalVisible(
+                entityId: 40,
+                hasCommittedLocalTargetPose: true,
+                visibilityTrack: VisibilityTrack.CreateHide(durationSeconds: 1f),
+                deltaTime: 1f);
+
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.GenericVisibilityRemove));
+            Assert.That(immediateCurrentVisible, Is.Not.EqualTo(winner.IsVisible));
+            Assert.That(completedCurrentVisible, Is.EqualTo(winner.IsVisible));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowComparison_VisibilityTrackSampleOnlyMatchesCurrentTrackAdvance()
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            var shadowTrack = VisibilityTrack.CreateHide(durationSeconds: 1f);
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.VisibilityTrackSample,
+                shadowTrack.SampleWithoutAdvance(deltaTime: 1f, fallbackVisibility: true),
+                priority: 500,
+                sourceTick: 88,
+                isStatefulTrackSample: true));
+
+            var winner = ResolveShadowWinner(candidates);
+            var currentFinalVisible = ResolveCurrentFinalVisible(
+                entityId: 40,
+                hasCommittedLocalTargetPose: true,
+                visibilityTrack: VisibilityTrack.CreateHide(durationSeconds: 1f),
+                deltaTime: 1f);
+
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
+            Assert.That(currentFinalVisible, Is.EqualTo(winner.IsVisible));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowComparison_JumpDetachedBeatsGenericSpawnAndMatchesCurrentFinalVisibility()
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.JumpDetached,
+                isVisible: false,
+                priority: 200,
+                sourceTick: 88));
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.GenericVisibilitySpawn,
+                isVisible: true,
+                priority: 200,
+                sourceTick: 88));
+            var finalCandidates = new PresentationVisibilityCandidateSet();
+            finalCandidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.JumpDetached,
+                isVisible: false,
+                priority: 200,
+                sourceTick: 88));
+            var resolvedVisibility = ResolveVisibilityFromCandidates(finalCandidates);
+
+            var winner = ResolveShadowWinner(candidates);
+            var currentFinalVisible = ResolveCurrentFinalVisible(
+                entityId: 40,
+                resolvedVisibility: resolvedVisibility);
+
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.JumpDetached));
+            Assert.That(currentFinalVisible, Is.EqualTo(winner.IsVisible));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void VisibilityCandidateShadowComparison_VisibilityTrackSampleBeatsGenericRemoveAndMatchesCurrentTrackAdvance()
+        {
+            var candidates = new PresentationVisibilityCandidateSet();
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.GenericVisibilityRemove,
+                isVisible: false,
+                priority: 400,
+                sourceTick: 88));
+            candidates.AddCandidate(CreateVisibilityCandidate(
+                PresentationVisibilitySourceKind.VisibilityTrackSample,
+                VisibilityTrack.CreateHide(durationSeconds: 1f).SampleWithoutAdvance(
+                    deltaTime: 0f,
+                    fallbackVisibility: true),
+                priority: 500,
+                sourceTick: 88,
+                isStatefulTrackSample: true));
+
+            var winner = ResolveShadowWinner(candidates);
+            var currentFinalVisible = ResolveCurrentFinalVisible(
+                entityId: 40,
+                hasCommittedLocalTargetPose: true,
+                visibilityTrack: VisibilityTrack.CreateHide(durationSeconds: 1f),
+                deltaTime: 0f);
+
+            Assert.That(winner.Provenance.SourceKind, Is.EqualTo(PresentationVisibilitySourceKind.VisibilityTrackSample));
+            Assert.That(currentFinalVisible, Is.EqualTo(winner.IsVisible));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DeathOrExitRetainedVisibility_SuppressesJumpDetachedVisibility()
         {
             var stateStore = new GameplayPresentationStateStore();
@@ -17852,6 +18035,66 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var collector = new PresentationVisibilityCandidateCollector(stateStore, trackState);
             collector.CollectGenericVisibilityChanges(visibilityChanges, sourceTick, candidates);
+        }
+
+        private static PresentationVisibilityCandidate ResolveShadowWinner(
+            PresentationVisibilityCandidateSet candidates,
+            int entityId = 40)
+        {
+            var resolver = new PresentationVisibilityCandidateWinnerResolver();
+
+            Assert.That(resolver.TryResolveCandidateWinner(candidates, entityId, out var winner), Is.True);
+            return winner;
+        }
+
+        private static ResolvedPresentationVisibilitySet ResolveVisibilityFromCandidates(
+            PresentationVisibilityCandidateSet candidates)
+        {
+            var resolver = new PresentationResolvedVisibilityResolver();
+            var visibility = new ResolvedPresentationVisibilitySet();
+            resolver.ResolveCandidates(candidates, visibility);
+            return visibility;
+        }
+
+        private static bool ResolveCurrentFinalVisible(
+            int entityId,
+            ResolvedPresentationVisibilitySet resolvedVisibility = null,
+            bool hasCommittedLocalTargetPose = false,
+            bool hasPresentationPoseOverride = false,
+            bool hasPlayerDeathHoldPose = false,
+            bool hasActiveLocalMotion = false,
+            bool hasActiveOriginalViewMotion = false,
+            bool isDeferredExitRetained = false,
+            bool isContactDelayedRetained = false,
+            bool isDeathPresentationPlaying = false,
+            bool hasTransitionVisibility = false,
+            VisibilityTrack visibilityTrack = null,
+            float deltaTime = 0f)
+        {
+            var resolvedEntityVisibility = default(ResolvedEntityPresentationVisibility);
+            var hasResolvedVisibility =
+                resolvedVisibility != null &&
+                resolvedVisibility.TryGetVisibility(entityId, out resolvedEntityVisibility);
+            var isVisible = PresentationVisibilityFallbackResolver.Resolve(
+                new PresentationVisibilityFallbackInputs(
+                    hasPresentationPoseOverride,
+                    hasPlayerDeathHoldPose,
+                    hasCommittedLocalTargetPose,
+                    hasActiveLocalMotion,
+                    hasActiveOriginalViewMotion,
+                    isDeferredExitRetained,
+                    isContactDelayedRetained,
+                    isDeathPresentationPlaying,
+                    hasResolvedVisibility,
+                    hasResolvedVisibility && resolvedEntityVisibility.IsVisible,
+                    hasTransitionVisibility));
+
+            if (!hasPlayerDeathHoldPose && visibilityTrack != null)
+            {
+                isVisible = visibilityTrack.SampleAndAdvance(deltaTime, isVisible);
+            }
+
+            return isVisible;
         }
 
         private static void AssertGenericVisibilityCandidate(
