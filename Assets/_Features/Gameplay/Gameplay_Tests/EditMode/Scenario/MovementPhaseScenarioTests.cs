@@ -888,11 +888,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
-                },
-                CreateTimingProfile(),
-                CreateDefaultPlayerControlTimingSnapshot(CreateTimingProfile()),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+                    new StubMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0))),
+                });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
@@ -2102,11 +2099,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
-                },
-                CreateTimingProfile(),
-                CreateDefaultPlayerControlTimingSnapshot(CreateTimingProfile()),
-                runtimeFeatureFlags: GameplayRuntimeFeatureFlags.None);
+                    new StubMovementLogic(new RawMovementIntent(10, 100, new Vector2Int(1, 0))),
+                });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var finalSnapshot = CreateSnapshot(worldState);
