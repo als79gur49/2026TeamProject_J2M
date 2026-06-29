@@ -681,6 +681,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _playbackPort = playbackPort;
             _executionGuard = executionGuard;
+            Diagnostics = CreateEmptyDiagnostics();
         }
 
         public GameplayMotionExecutorDiagnostics Diagnostics { get; private set; }
@@ -938,15 +939,29 @@ namespace Game.Feature.Gameplay.Host
         public void ResetSession()
         {
             _hasRoutedRequest = false;
-            Diagnostics = default;
+            Diagnostics = CreateEmptyDiagnostics();
             _playbackPort?.ResetSession();
         }
 
         public void HardCleanup()
         {
             _hasRoutedRequest = false;
-            Diagnostics = default;
+            Diagnostics = CreateEmptyDiagnostics();
             _playbackPort?.HardCleanup();
+        }
+
+        private static GameplayMotionExecutorDiagnostics CreateEmptyDiagnostics()
+        {
+            return new GameplayMotionExecutorDiagnostics(
+                observedTrackCount: 0,
+                targetMissingCount: 0,
+                anchorMissingCount: 0,
+                bindingMissingCount: 0,
+                driverMissingCount: 0,
+                duplicateRejectedCount: 0,
+                playbackRequestedCount: 0,
+                trackStartedCount: 0,
+                missingPortCount: 0);
         }
 
         private bool TryClaimExecution(in BoxMotionPlaybackKey key)

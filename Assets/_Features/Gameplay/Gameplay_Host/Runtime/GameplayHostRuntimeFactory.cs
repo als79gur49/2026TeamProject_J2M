@@ -69,6 +69,7 @@ namespace Game.Feature.Gameplay.Host
                 });
             var presentationCoordinator = new GameplayTickPresentationCoordinator(presentationComposition);
             presenter.BindCoordinator(presentationCoordinator);
+            presenter.ConfigureBoxMotionPlaybackPort(playbackPort: null);
 
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
             var initialTileFeatures = configuration.InitialTileFeatures ?? Array.Empty<TileFeatureState>();
