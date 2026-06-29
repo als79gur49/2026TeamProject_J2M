@@ -168,6 +168,18 @@ namespace Game.Feature.Gameplay.Entities
                 windupStartSettings);
             if (!startQuery.CanStart)
             {
+                if (settings.RequireValidForwardCell &&
+                    startQuery.BlockReason == CombatWindupStartBlockReason.OutsideSimulationStartRange &&
+                    IsForwardProjectilePathBlockedByActiveBarricade(
+                        snapshot,
+                        startQuery.EnemyOrigin.AnchorCell,
+                        player.position,
+                        tileFeatureDefinitions))
+                {
+                    return CombatWindupStartQueryResult.Block(
+                        CombatWindupStartBlockReason.ForwardPathBlockedByTileFeature);
+                }
+
                 return startQuery;
             }
 
@@ -357,14 +369,30 @@ namespace Game.Feature.Gameplay.Entities
             return targetCell == desiredTargetCell;
         }
 
-        private static bool IsForwardProjectilePathBlockedByActiveBarricade(
+        internal static bool IsForwardProjectilePathBlockedByActiveBarricade(
             WorldSnapshot snapshot,
             SurfaceCell baseCell,
             SurfaceCell targetCell,
             IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
         {
+            return IsForwardProjectilePathBlockedByActiveBarricade(
+                snapshot,
+                baseCell,
+                targetCell,
+                int.MaxValue,
+                tileFeatureDefinitions);
+        }
+
+        private static bool IsForwardProjectilePathBlockedByActiveBarricade(
+            WorldSnapshot snapshot,
+            SurfaceCell baseCell,
+            SurfaceCell targetCell,
+            int maxRangeCells,
+            IReadOnlyList<TileFeatureRuntimeDefinition> tileFeatureDefinitions)
+        {
             if (snapshot == null ||
                 baseCell.face != targetCell.face ||
+                maxRangeCells <= 0 ||
                 tileFeatureDefinitions == null ||
                 tileFeatureDefinitions.Count == 0)
             {
@@ -374,7 +402,9 @@ namespace Game.Feature.Gameplay.Entities
             var dx = targetCell.x - baseCell.x;
             var dy = targetCell.y - baseCell.y;
             var distance = Math.Abs(dx) + Math.Abs(dy);
-            if (distance <= 0 || (dx != 0 && dy != 0))
+            if (distance <= 0 ||
+                distance > maxRangeCells ||
+                (dx != 0 && dy != 0))
             {
                 return false;
             }

@@ -2673,6 +2673,11 @@ namespace Game.Feature.Gameplay.Entities
                         return default;
                     }
 
+                    if (ShouldHoldWindupProjectileMovementForTileFeatureBlocker(snapshot, source, chaseTarget))
+                    {
+                        return default;
+                    }
+
                     if (_chaseStrategy.TryBuildMovementIntent(
                             snapshot,
                             source,
@@ -2837,6 +2842,28 @@ namespace Game.Feature.Gameplay.Entities
             var startQuery = QueryCombatWindupStart(snapshot, source, target, _combatCapability, _tileFeatureDefinitions);
             return startQuery.BlockReason == CombatWindupStartBlockReason.SevereTransition &&
                    CombatWindupPoseQueries.IsInSevereCombatOriginTransition(snapshot, source);
+        }
+
+        private bool ShouldHoldWindupProjectileMovementForTileFeatureBlocker(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target)
+        {
+            if (_combatCapability == null ||
+                _combatCapability.Kind != AttackDecisionStrategyKind.WindupForwardCellProjectile)
+            {
+                return false;
+            }
+
+            return _combatCapability.AttackDecisionStrategy.IsTargetInRange(
+                       source,
+                       target,
+                       _combatCapability.AttackDecisionSettings) &&
+                   CombatWindupPoseQueries.IsForwardProjectilePathBlockedByActiveBarricade(
+                       snapshot,
+                       source.position,
+                       target.position,
+                       _tileFeatureDefinitions);
         }
 
         private static CombatWindupStartQueryResult QueryCombatWindupStart(
